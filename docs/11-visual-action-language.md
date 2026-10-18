@@ -148,7 +148,8 @@ rules object. Generic labeled values capture any other state the players need.
 - Area layout/container settings and named presets, without inferred game-rule
   effects. D-55/D-56's Graveyard/Exile/Library counter removal and database-default
   corner-text restoration must be visible in literal review and recoverable;
-  other-type/face/missing-data defaults remain open.
+  D-64/D-65 fix conditional type metadata, blank fallback, and retained per-face
+  defaults. Exact source/custom mapping remains open.
 - Ping gestures, current-action association, appearance, and lifecycle.
 - Generic grouping heuristics, boundaries, later linked pings, and historical
   visibility/revision contracts.

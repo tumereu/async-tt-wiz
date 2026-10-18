@@ -119,17 +119,27 @@ decided before implementation.
   styling remains open. D-59 trims all user-entered
   text on completion, so whitespace-only counter input removes it. Preserve
   internal spacing/newlines and apply text-pattern matching after trimming.
-- D-60 creates an unused counter color with text `1`; an existing color opens
-  editing actions without changing its text. No recolor action is needed in the
-  initial release. D-61 confirms inline card-menu counter controls and player
-  panel taps for equivalent controls. Add and completed Set retain/return to the
-  menu; empty trimmed Set removes its counter row and frees that color. No
-  separate Counters submenu is required; exact sizing/hit regions remain open.
+- D-67 replaces D-60's initialization/color-choice flow with per-color +1/-1/Set,
+  no Add/Initialize. No recolor action is needed. D-61 confirms inline card-menu
+  controls and player-panel taps for equivalent controls. Counter +/- and
+  completed Set retain/return to the menu; empty trimmed Set removes the counter,
+  not the color's controls. No separate Counters submenu; exact hit regions and
+  absent-counter arithmetic remain open.
 - D-55/D-56 remove card counters and restore database-default corner text on
   entry to configured Graveyard/Exile/Library. For creatures the default is
-  printed P/T text. Defaults for other types/faces/missing data remain open;
-  preserve unrelated fields and stable identity.
+  printed P/T text. D-64 conditionally approves loyalty/defense defaults where
+  the eventual source supplies them, with empty defaults for no applicable
+  printed value. D-65 uses blank editable fallback for missing metadata and
+  retained per-game/per-face defaults for offline Reset. Reset uses the selected
+  face; switching faces alone preserves current text. Provider/source mapping
+  remains open. Preserve unrelated fields and stable identity.
 - Multi-select has visible selected count and a clear cancel action.
+- D-66 gives mass selections the same card-action controls as individual cards,
+  applying the action across the selected set with visible scope/count. Relative
+  edits use each card's own value and corner Reset each card's own default.
+  D-67 skips targets where the individual action is unusable and disables a mass
+  control only when none are applicable. Missing-counter arithmetic, mixed
+  rendering, and context targeting still require Q-30 outcomes; no reduced menu.
 - Drag/drop is the primary card-movement interaction, with grid/slot snapping.
   Confirmed: drag one card unless multiple are selected; special-pile drops go
   on top; dropping onto an ordinary card forms/joins its visual stack. The

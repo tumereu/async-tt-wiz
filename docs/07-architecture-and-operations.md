@@ -54,7 +54,8 @@ The specification must select a card-data source and define:
 - Stable card/printing identifiers, multiple faces, oracle updates, image rights,
   attribution, allowed caching, rate limits, and availability fallbacks.
 - A versioned essential card record retained with a game so external updates do
-  not unexpectedly rewrite history.
+  not unexpectedly rewrite history. D-65 specifically confirms retaining resolved
+  per-face corner defaults for offline Reset and stability across provider updates.
 - Import grammar, supported deck-export formats, normalization, aliases,
   localization, ambiguous names, and unavailable printings.
 - Custom/proxy entries and how players correct mistaken catalog matches.
@@ -63,6 +64,31 @@ The specification must select a card-data source and define:
 
 Card text and metadata are display/import data, not executable rules. Deck
 legality checks and mechanics recognition are outside the generic engine scope.
+
+### Corner-default source feasibility (18 October 2026)
+
+D-64 conditionally approves using available source metadata for default corner
+text; it does not select a provider. Research findings, not release commitments:
+
+| Candidate | Documented fields and acquisition |
+| --- | --- |
+| [Scryfall card objects](https://scryfall.com/docs/api/cards) | String-valued `power`, `toughness`, `loyalty`, and `defense`, including applicable face-level fields; optional/nullable. [Bulk exports](https://scryfall.com/docs/api/bulk-data) are available, alongside card API access. Direct documentation fetch returned 403 here; these findings were checked against indexed official documentation. |
+| [MTGJSON Card (Atomic)](https://mtgjson.com/data-models/card/card-atomic/) | Optional string `power`, `toughness`, `loyalty`, and `defense` fields. [Downloads](https://mtgjson.com/downloads/all-files/) include AtomicCards and AllPrintings; the latter also offers database formats. Model/download pages were read directly. |
+
+These sources make the requested metadata feasible, but do not guarantee every
+record has every field. Preserve symbolic printed strings rather than calculating
+them or coercing them to numeric values. The catalog adapter can build one default
+corner string from suitable metadata; the engine continues to edit plain text.
+
+MTGJSON's [license page](https://mtgjson.com/license/) was inspected, but provider
+selection still needs a complete terms/attribution review, including upstream
+card content and image rights. Neither metadata availability nor that page
+settles image redistribution/caching rights. Also compare face/printing identity,
+coverage, update/distribution policy, offline storage, and missing-data behavior.
+
+D-65 confirms a blank editable corner fallback when metadata is unavailable,
+retained per-game/per-face defaults, and Reset using the selected face. Provider
+choice, exact source-version mapping, and explicit refresh policy remain open.
 
 ## 7.4 API specification deliverables
 

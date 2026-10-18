@@ -63,7 +63,9 @@ Included:
 - D-55/D-56 add a requested move/reset convenience on entry to configured
   Graveyard/Exile/Library: remove card counters and restore database-default
   corner text (printed P/T for creatures). This is a declared composition of
-  generic edits; defaults for other types/faces/missing data remain open.
+  generic edits. D-64/D-65 condition other metadata on source availability and
+  retain per-game/per-face defaults, with blank editable fallback for missing
+  data; provider choice remains open.
 
 Not included in the proposed first release:
 

@@ -252,8 +252,9 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   Library: remove the entering card's counters and restore the database's default
   corner text. For creatures the default is printed P/T as a string. This applies
   across move entry points, not only context commands. Exact defaults for other
-  card types, face/missing-default selection, and same-container reorder behavior
-  remain open. Preserve stable
+  card types/overlapping types, source-version mapping, and same-container reorder
+  behavior remain open. D-65 fixes blank fallback and retained per-face defaults.
+  Preserve stable
   card identity and all other unrelated fields; do not infer further cleanup.
 - Dropping onto another ordinary card puts the moved card on top of its visual
   combined stack, creating a visual pile or joining the existing one. The
@@ -505,7 +506,8 @@ Confirmed N-card input/ordering defaults (D-49):
    that picker; completing the required inputs executes without a separate Send.
 3. Clamp a requested N to the source's available card count rather than rejecting
    an oversized request. This applies to quantity-based View/Reveal/Draw/Move
-   commands, not silently skipping explicitly selected card IDs. Empty-source
+   commands; clamping alone does not authorize skipping selected IDs. D-67
+   separately permits action-inapplicability skipping. Empty-source
    behavior, exact count feedback, and stale/offline boundary validation remain
    to be specified.
 4. Multi-card moves from one ordered source preserve the cards' relative source
@@ -653,9 +655,9 @@ Confirmed menu lifetime (D-54): counter increment/decrement actions keep the
 context menu open for repeated adjustments. Each completed edit still queues
 and synchronizes without dismissing the menu or requiring Send. Other actions
 can dismiss it: a successful context Move to Graveyard closes the menu. Do not
-apply a universal dismiss-after-action rule. D-61 later confirms Add/Set also
-retain/return to this menu. Corner-text shortcuts and other actions still need
-explicit lifetime decisions; D-63 confirms corner +/- and Set retention.
+apply a universal dismiss-after-action rule. D-61 confirms counter Set retention,
+and D-63 confirms corner +/- and Set retention. D-67 removes the former Add
+action. Other actions still need explicit lifetime decisions.
 
 Confirmed reset exception (D-55/D-56): entering configured Graveyard, Exile, or
 Library removes card counters and restores database-default corner text. This
@@ -665,8 +667,9 @@ generic move/reset composition, not a rules incarnation or card-text effect.
 The repeated destination was clarified as Library. Card database definitions
 provide the default corner string; for creatures it is printed P/T. A reset
 replaces the current corner string, including a manual override, with that
-default. Defaults for other card types, faces/custom/missing data, and
-same-container reorder behavior remain Q-29.
+default. D-64 conditionally approves loyalty/defense defaults when supplied by
+the eventual source. D-65 fixes blank fallback and retained per-face defaults;
+exact source/custom-definition mapping and same-container behavior remain Q-29.
 
 Text-based quick actions:
 
@@ -686,7 +689,8 @@ Confirmed text-pattern quick actions (D-62):
    `2/3`, offers +/-1 for the left number, right number, or both, plus Set.
    Both +1 changes `2/3` -> `3/4`. Rewrite the same string; no P/T entity.
 3. Other text, including decimals and symbolic/mixed pairs such as `*/*` or
-   `2/*`, has Set only initially. Do not evaluate expressions or infer arithmetic
+   `2/*`, has only Set usable initially; arithmetic controls are disabled for that
+   target under D-67. Do not evaluate expressions or infer arithmetic
    from card text. Exact matching/format preservation and numeric limits remain
    specification work.
 
@@ -710,27 +714,29 @@ matching and empty-value handling use the trimmed text: ` 2/3 ` becomes `2/3`,
 Trimming does not settle blank-value behavior for unrelated fields or publish
 unfinished input. See [the domain contract](02-domain-model.md#21-separation-of-state).
 
-Confirmed counter creation/color behavior (D-60):
+Confirmed counter action vocabulary (D-67, superseding D-60's initialization
+interaction):
 
-1. Choosing an unused counter color creates it with text `1`, ready for quick
-   adjustments or Set to arbitrary text.
-2. Choosing a color already present opens that counter's editing actions without
-   changing its text; never create a duplicate, overwrite, or increment it merely
-   from choosing the color.
-3. No recolor action in the initial release. The proposed recoloring convenience
-   was rejected as unnecessary.
+1. Each color has +1 color, -1 color, and Set color actions. There is no separate
+   Add/Initialize action or prerequisite initialization step.
+2. Arithmetic on existing whole-number text is relative; it is inapplicable to
+   nonnumeric text. Individual unusable actions are disabled. Arithmetic behavior
+   when the counter is absent still needs approval; do not silently decide it.
+3. No recolor action in the initial release. Counter uniqueness, trimmed-empty
+   removal, visible zero, and menu retention remain unchanged.
 
-Confirmed counter-menu touch behavior (D-61):
+Confirmed counter-menu touch behavior (D-61, updated by D-67):
 
 1. Put counter controls directly in the card context menu rather than requiring
-   a separate Counters submenu. Existing numeric counters have rows such as
-   `[ - ] Red: 3 [ + ] [ Set ]`; other text has Set without numeric controls.
-   Unused colors appear as Add-color actions and create `1` under D-60.
+   a separate Counters submenu. Each color exposes -1/+1/Set, e.g.
+   `[ -1 Red ] Red: 3 [ +1 Red ] [ Set Red ]`. Keep action availability separate
+   from the field's plain text: nonnumeric text makes arithmetic unusable, not
+   a reason to replace it with Add/Initialize.
 2. Tapping a participant's player panel opens the equivalent counter controls;
    either participant can edit either panel. Exact hit regions remain open.
-3. Add and completed Set return to/retain the context menu, like counter +/-.
-   Completing Set with empty trimmed text removes that counter row, making its
-   color available again. Existing Move to Graveyard dismissal stays unchanged.
+3. Completed Set returns to/retains the context menu, like counter +/-.
+   Empty trimmed Set removes the counter, not the color's action controls.
+   Existing Move to Graveyard dismissal stays unchanged.
 
 Confirmed corner-text editing (D-63):
 
@@ -744,15 +750,58 @@ Confirmed corner-text editing (D-63):
    returns to `2/3`. Destination-entry resets still clear counters as separately
    agreed. Exact Reset menu lifetime remains open.
 
-Next database-default batch, proposed and not yet approved:
+Conditionally approved database-default mappings (D-64):
 
 - Creatures already use printed P/T under D-56. Also populate default corner
   text with printed starting loyalty for planeswalkers and printed defense for
-  battles; cards without an applicable printed value default to an empty string.
+  battles when supplied by the source; cards without an applicable printed value
+  default to an empty string. Provider choice is not approved by these mappings.
 - These are descriptive database/import mappings, not engine-defined card types
   or automatic counter creation. See [default metadata proposals](02-domain-model.md#23-card-and-object-state).
-  Face selection, overlapping types, custom/missing data, and version selection
-  remain separate specification work.
+  D-65 fixes current-face Reset and missing-data fallback. Overlapping types,
+  custom-definition authoring, and exact source-version mapping remain open.
+
+Confirmed default-data behavior (D-65):
+
+1. Unavailable metadata produces blank editable corner text without blocking
+   manual play or guessing values.
+2. Retain resolved defaults with game definitions for offline Reset and stability
+   across later catalog updates.
+3. Use per-face defaults for multi-faced cards; Reset uses the selected printed
+   face. Switching face alone preserves the current corner text.
+
+Confirmed multi-selection control parity (D-66):
+
+- When acting on a mass selection, offer the exact same card-action controls as
+  for an individual card, with the action targeting every selected card. Do not
+  replace them with a separate reduced bulk-action menu. Show the selected
+  count/scope so the affected set is understandable.
+- Apply the chosen edit to each card's own state: compatible numeric +/- changes
+  each value relatively, Set supplies the same entered string, and Reset corner
+  text uses each card's own retained current-face default. Other supported card
+  context actions also target the selected set, with their normal unrelated-field
+  guarantees and declared destination-entry resets.
+- D-67 resolves applicability: apply the chosen action to each selected card
+  where usable; skip cards where its individual action would be disabled. The
+  mass action is disabled only if no selected card is applicable. For example,
+  +1 Red increments a red `2` to `3` while leaving a red `flying` unchanged.
+  This supersedes the prior blanket all-compatible gating proposal. Missing
+  counter arithmetic, exact eligibility/error tables, and affected/skipped
+  rendering remain Q-30. Do not confuse applicability with invalid IDs or a
+  structurally invalid drop that retains its established all-or-nothing behavior.
+- Single-card versus selection targeting when opening an unselected card's
+  context menu, exact mixed-value rendering, and bulk interruption/grouping
+  boundaries remain open. Existing card tap/untap selection rules are unchanged.
+
+Next absent-counter outcomes, proposed and not yet approved:
+
+1. +1 color on an absent counter creates it with text `1`.
+2. -1 color on an absent counter creates it with text `-1`.
+3. Set color with nonempty trimmed text creates/updates that color; empty text
+   removes it where present and leaves absence unchanged.
+
+Under proposals 1/2, absence is treated as zero only as an arithmetic starting
+point; do not create/display an intermediate zero counter or add initialization.
 
 ## 10.9 Worked interaction examples
 

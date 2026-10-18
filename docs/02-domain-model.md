@@ -119,11 +119,18 @@ whitespace-only completed counter value removes it. A separate Remove shortcut
 remains open. Color uniqueness is per target, not global: different targets may
 each have their own red counter.
 
-D-60 confirms creation/color behavior: choosing an unused color creates its
-counter with text `1`; choosing an existing color opens that counter's editing
-actions without changing the text. No recolor action is needed in the initial
-release. Do not create duplicate colors, overwrite, merge, or increment merely
-from choosing an occupied color.
+D-67 supersedes D-60's separate color-choice/initialization interaction: each
+color has +1, -1, and Set actions, without Add/Initialize. Arithmetic on existing
+whole-number text changes it relatively; nonnumeric arithmetic is inapplicable.
+Exact arithmetic behavior for an absent counter still needs approval. No recolor
+action is needed in the initial release, and target/color uniqueness remains.
+
+D-67 also fixes selection applicability: evaluate the chosen action per target,
+skip targets on which it would be unusable, and enable the mass action if at
+least one selected target is applicable. Disable only if none are applicable.
+This is explicit applicability skipping, not permission to silently drop invalid
+IDs, lose edits, or bypass structural drop-validation guarantees. Exact affected/
+skipped presentation and action/error schemas remain open.
 
 D-53 clarifies that corner text is one plain text field, not separate P/T,
 loyalty, or typed numeric fields. Offer quick actions based on patterns matched
@@ -141,24 +148,39 @@ D-56 requires the card database to provide a default corner string. For
 creatures this is their printed P/T, formatted as text (for example `2/3`).
 The tabletop edits that string generically; it need not know why a definition
 supplies it. Reset restores the database default, not the last manually entered
-text or a calculated value. Exact defaults for other card types, multi-faced
-definitions, custom/missing data, and historical version selection remain open.
+text or a calculated value. D-64 conditionally approves other defaults when
+supplied by the eventual source. D-65 fixes blank fallback, retained per-game
+defaults, and per-face Reset selection. Exact source/version mapping and custom
+definition authoring remain open.
 
 D-63 distinguishes blank from default corner text: completing an empty trimmed
 Set leaves a blank corner overlay. Reset corner text explicitly restores the
 database default without editing counters or other state. Neither operation
 changes printed art; no typed P/T interpretation is needed.
 
-Next database-default proposals, not yet approved:
+Conditionally approved database defaults (D-64):
 
-1. Planeswalkers: printed starting loyalty as default corner text.
-2. Battles: printed defense as default corner text.
+1. Planeswalkers: printed starting loyalty as default corner text, if supplied.
+2. Battles: printed defense as default corner text, if supplied.
 3. Cards without an applicable printed value: empty default corner text.
 
-These extend D-56's approved creature P/T mapping in descriptive database/import
-metadata, not the tabletop engine's state types or rules. No colored counters
-are created automatically. Multi-face/default selection, overlapping types,
-custom/missing data, and historical version selection remain open.
+These extend D-56's creature P/T mapping using available descriptive database/
+import metadata, not tabletop state types or rules. No source is selected and
+no colored counters are created automatically. A card genuinely having no
+applicable printed value is distinct from unavailable/incomplete provider data;
+D-65 uses a blank editable fallback for the latter. Overlapping-type/default
+mapping, custom definition authoring, and exact source-version selection remain
+open. Source feasibility is recorded in [catalog research](07-architecture-and-operations.md#73-card-catalog-and-decks).
+
+Confirmed missing/offline/multi-face defaults (D-65):
+
+1. If default metadata is unavailable, use blank editable corner text rather
+   than block manual play or guess the missing printed value.
+2. Retain the resolved default with the game's card definition so offline Reset
+   works and later provider updates do not silently change existing defaults.
+3. For multi-faced cards, retain per-face defaults; Reset uses the selected
+   printed face's default. Face switching alone preserves the current corner
+   string under the unchanged-field contract rather than implicitly resetting it.
 
 ## 2.4 Areas, containers, and ordering
 

@@ -36,7 +36,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-007 | Row/fan operations | View, arrange, cover/uncover, select, and move cards; labels such as Hand do not alter semantics. |
 | A-008 | Orientation/faces | Tap/untap presentation, rotate, choose face, cover/uncover, and edit labels. |
 | A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
-| A-010 | Counters | Add/remove/edit colored text-bearing counters on cards/participants, with quick inc/dec/set for numeric text. D-58/D-59 fix palette/uniqueness and zero/empty/trim behavior; D-60 fixes creation/color scope. D-61 confirms inline card menus, player-panel entry, and Add/Set menu retention. Exact text-pattern actions and hit regions remain open. |
+| A-010 | Counters | Colored text-bearing counters on cards/participants; per-color +1/-1/Set, no Add/Initialize (D-67). D-58/D-59 fix palette/uniqueness and zero/empty/trim; inline menus, player access, retention, and no recolor remain. Whole-number arithmetic uses +/-1; exact absent-counter outcomes and hit regions remain open. |
 | A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
 | A-012 | Labeled-area movement | Move any card to/from areas such as Cast; record origin/destination, not casting/payment/resolution. |
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
@@ -137,7 +137,8 @@ mechanic-specific entities to the engine.
   participant associations, and generic links. D-55/D-56 add declared counter
   removal and restoration of database-default corner text on entry to configured
   Graveyard/Exile/Library. For creatures the default is printed P/T as a string;
-  other default/face/missing-data cases remain open. Unrelated fields and
+  D-64/D-65 settle conditional other defaults, blank fallback, and retained
+  per-face defaults. Exact source/custom mapping remains open. Unrelated fields and
   identity persist.
 - Removing a piece, clearing a value, or rotating selected cards is always an
   explicitly selected generic edit, not an automatic consequence of card text.
@@ -168,14 +169,29 @@ reversible.
 
 ## 4.5 Bulk actions and selections
 
+D-66 confirms control parity: a mass selection gets the same card-action
+controls as an individual card, applying the chosen action across the selected
+set rather than a separate reduced bulk menu. Operate on each card's own state
+for relative edits/default Reset and supply common text for Set. Normal
+unrelated-field guarantees and declared move/reset compositions still apply.
+
+D-67 rejects the prior all-compatible gate: apply the chosen action where it is
+usable, skip selected targets where its individual action would be disabled,
+and disable the mass control only if none are applicable. This does not authorize
+arithmetic on nonnumeric text, loss of selected objects, or ignoring invalid IDs
+and structural drop conflicts. Exact missing-counter outcomes, per-action
+eligibility/error tables, and affected/skipped rendering remain Q-30;
+interruption/grouping boundaries remain open.
+
 Multi-select operations identify affected objects and all explicit changed fields.
 Atomic bulk movement is permitted when intermediate states are not intended
 response points. Users can choose sequential actions when the distinction
 matters, such as separate top-card moves with a reaction between them.
 
 Quantity-based N-card commands clamp to the available source count (D-49).
-This does not permit substituting or silently skipping explicitly selected
-objects. Empty candidate lists/sources, duplicate selections, stale objects,
+Quantity clamping itself does not permit substituting or dropping selected
+objects; D-67 separately permits skipping targets on which the chosen action is
+inapplicable. Empty candidate lists/sources, duplicate selections, stale objects,
 and destination conflicts still require explicit outcomes. The precise
 per-action error table, including count feedback and boundary validation, is a
 required follow-up specification artifact.

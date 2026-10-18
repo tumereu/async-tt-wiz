@@ -37,7 +37,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-04 | Inspect, face-down/up, printed faces, and reveal presentation. | D-37/D-38 confirm context face changes and automatic face/both-face inspection; exact targeting/layout and logging remain open. |
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
-| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-63 confirm text/counters, lifecycle/menus, quick actions, and corner clear/default reset; other database defaults and remaining controls under review. |
+| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-67 confirm text/counters, defaults/menus, per-color +/-1/Set with no initialization, and per-target applicability skipping; absent-counter outcomes and remaining controls under review. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | Not yet reviewed; generic engine boundary and action-scoped pings already confirmed. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
@@ -303,7 +303,8 @@ Confirmed N-card defaults (D-49):
 2. N-input starts at one with +/- and numeric entry. Quick Draw one skips this
    picker; completing inputs has no extra Send/confirmation gate.
 3. Clamp N to the available source count, replacing the proposed rejection.
-   This is quantity clamping, not permission to skip explicitly selected IDs.
+   Clamping alone does not authorize skipping selected IDs; D-67 separately
+   permits action-inapplicability skipping.
    Empty sources, count feedback, and stale/offline validation remain open.
 4. A move from one ordered source preserves moved-card source order at either
    destination end and preserves existing destination members' relative order.
@@ -382,8 +383,9 @@ Confirmed menu and move-reset updates (D-54–D-56):
 - The repeated destination was clarified as Library. The card database supplies
   default corner text; for creatures it is printed P/T. Reset replaces the
   current field with that default, not a prior manual override. Defaults for
-  other card types, multi-face/custom/missing data, same-container behavior, and
-  exact undo composition remain open in Q-29.
+  D-64/D-65 settle available type metadata, blank fallback, and retained per-face
+  defaults. Exact source/custom mapping, same-container behavior, and undo
+  composition remain open in Q-29.
 
 Confirmed text-pattern quick actions (D-62):
 
@@ -410,25 +412,23 @@ Confirmed counter appearance/lifecycle (D-58):
 Confirmed global trim rule (D-59): edge-trim all user-entered text on completion,
 including corner/counter text, names/labels, notes, and messages. Preserve
 internal spaces/line breaks. Empty-value validation and pattern matching operate
-on trimmed text. D-60 separately settles the creation/color choices below.
+on trimmed text. D-67 supersedes D-60's initialization/color-choice interaction.
 
-Confirmed counter creation/color behavior (D-60):
+Confirmed counter vocabulary (D-67, replacing D-60's initialization interaction):
 
-1. Choosing an unused color creates a counter with text `1`, editable afterward
-   through quick actions or Set to arbitrary text.
-2. Choosing an occupied color opens that existing counter's actions without
-   changing its text or creating/incrementing/overwriting a counter.
-3. No recolor action in the initial release; the owner rejected this convenience
-   as unnecessary.
+1. +1 color, -1 color, and Set color, with no Add/Initialize action.
+2. Numeric counter edits are relative; nonnumeric arithmetic is inapplicable.
+   Absent-counter arithmetic is still awaiting approval, not an implied zero.
+3. No recolor action, as already confirmed. Counter uniqueness/lifecycle remain.
 
-Confirmed counter-menu touch behavior (D-61):
+Confirmed counter-menu touch behavior (D-61, updated by D-67):
 
 1. Inline counter controls in the card context menu, no separate Counters
-   submenu. Numeric rows have -/+/Set, other text has Set, and unused colors have
-   Add-color actions creating `1`.
+   submenu. Every color has -1/+1/Set; unusable arithmetic is disabled for a
+   single target. No separate Add/Initialize controls.
 2. Tap a player's panel to open equivalent controls for that participant.
-3. Add and completed Set keep/return to the context menu. Empty trimmed Set
-   removes the counter row and frees its color. Move to Graveyard still dismisses.
+3. Completed Set and +/- keep/return to the context menu. Empty trimmed Set
+   removes the counter, not the color's controls. Move to Graveyard dismisses.
 
 Confirmed corner-text editing (D-63):
 
@@ -439,16 +439,50 @@ Confirmed corner-text editing (D-63):
    other card state. This differs from destination-entry resets that also remove
    counters. Exact Reset menu lifetime remains open.
 
-Next database-default batch, proposed and not yet approved:
+Conditionally approved database-default mappings (D-64):
 
-1. Planeswalker default corner text is its printed starting loyalty.
-2. Battle default corner text is its printed defense.
+1. Planeswalker default corner text is its printed starting loyalty, if supplied.
+2. Battle default corner text is its printed defense, if supplied.
 3. Cards without an applicable printed value default to an empty string.
 
 Creature P/T defaults are already confirmed by D-56. These are descriptive
 catalog/import mappings to one plain string, not game-rule behavior or automatic
-counter creation. Multi-face selection, overlapping types, custom/missing data,
-and version selection remain open.
+counter creation. The owner made approval conditional on available provider
+data; no provider is selected. See [source research](07-architecture-and-operations.md#73-card-catalog-and-decks).
+D-65 settles current-face Reset, blank fallback, and retained game defaults.
+Overlapping types, custom authoring, and exact source-version mapping remain open.
+
+Confirmed default-data behavior (D-65):
+
+1. Missing provider metadata: blank editable corner text, no blocked manual play
+   or guessed printed values.
+2. Retain resolved defaults with the game for offline Reset and stability across
+   provider updates.
+3. Multi-faced definitions have per-face defaults; Reset uses the selected face.
+   Switching face alone preserves the current corner text.
+
+Confirmed mass-selection control parity (D-66):
+
+- Offer exactly the individual card's action controls, targeting every selected
+  card; no separate reduced bulk menu. Show selection scope/count.
+- Apply edits to each card's own state: relative arithmetic for compatible
+  values, common entered text for Set, and each card's own current-face default
+  for Reset. Supported move/face/etc. context actions likewise target selection.
+- D-67 settles partial applicability: skip targets where the individual action
+  would be disabled; enable for selection if at least one target is applicable,
+  disable only if all are inapplicable. Nonnumeric counters are skipped for
+  arithmetic, not overwritten. Missing-counter arithmetic, exact eligibility/
+  error tables, and affected/skipped rendering remain Q-30.
+
+Next absent-counter outcomes, proposed and not yet approved:
+
+1. +1 color creates absent counters with `1`.
+2. -1 color creates absent counters with `-1`.
+3. Set nonempty trimmed text creates/updates the chosen color on each target;
+   empty removes where present and leaves absence unchanged.
+
+Proposals 1/2 use zero only as an arithmetic starting point, not an intermediate
+visible counter or a separate initialization action.
 
 Exact numeric recognition/limits, styling, counter
 layout/hit regions, bulk changes, annotations, and action/history boundaries

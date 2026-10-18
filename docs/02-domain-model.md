@@ -41,6 +41,8 @@ history or authorize normalization of external catalog/import data.
 | Participant | Stable ID, account reference, display name; neither seat owns exclusive editing rights. |
 | Card definition | Source/catalog ID or custom definition, version, names, faces, display text/data, default corner text (D-56), image references; never executable rules. |
 | Card instance | Stable game-local object ID, definition reference, optional participant associations, container, explicit editable state. |
+| Projection | Virtual card occurrence referencing a source instance while the actual card remains at its original battlefield position. Used in combat and Stack (D-112/D-113); not a Clone/token or second actual containing location. Exact identity/schema/state routing remain open. |
+| Combat assignment | Explicit per-attacker blocker association in the temporary combat area (D-112). Not inferred from pings/links or adjudicated for legality. Exact endpoint/order/cardinality schema remains open. |
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
 | Action node | Stable ID, parent ID, actor, literal operation kind, operations, deterministic outcome, schema version. |
@@ -286,13 +288,23 @@ Confirmed missing/offline/multi-face defaults (D-65):
 
 Generic configuration supports free-grid areas, designated slots, ordered piles,
 and hand-like rows/fans. Display labels and ordering/cover settings are separate
-fields. Renaming a pile to Library, Graveyard, Exile, Cast, or Stack cannot change
+fields. Renaming a pile to Library, Graveyard, Exile, Stack, or another label cannot change
 engine behavior.
 
 The initial MTG-oriented layout can include those labels, two participant play
 areas, hand rows, and optional Command/extra areas. A different layout uses the
 same primitives; a general-purpose layout editor's first-release scope remains
 open. The engine must not require MTG-specific enums to load or replay a board.
+
+D-112/D-113 require a temporary combat area and the shared Stack (renamed from
+Cast), supporting projections that reference cards without moving their actual
+battlefield placement. A virtual occurrence does not violate single actual
+containment or create a Clone/token. Explicit blocker associations and Stack
+occurrence kinds are permitted manual-play data, not inferred card rules.
+D-114 adds metadata/occurrence-dependent user-invoked Stack actions, not
+automatic resolution. Exact source updates, removal/lifecycle, identities,
+field routing, and history/offline/concurrency behavior are release-blocking;
+see [the primary contract](13-combat-stack-and-projections.md).
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display
@@ -404,7 +416,16 @@ D-110 makes Untap all literal for the turn player's battlefield cards, with no
 dedicated skip-untap field/flag. Card text, notes, and markers do not install
 exclusions. Players manually re-tap exceptions. Standalone and +advance variants
 use the same scope and preserve unrelated card state. Exact participant
-association and no-change/atomic/group behavior remain under review.
+association, remaining no-op records, and atomic/group behavior remain under review.
+
+D-111 confirms valid no-change/empty-source behavior for combined shortcuts:
+Untap all + advance still goes to Upkeep when all scoped cards are already
+untapped or there are none. Draw one + advance on an empty Library moves no
+card but still goes to Precombat main, without an automatic loss or other rule
+effect. Record the actual step transition; no card effect is fabricated. This
+does not waive structural validation for missing IDs/corrupt state or change
+standalone variants, which preserve tracking. Exact feedback/no-op records and
+atomic/group boundaries remain open.
 
 D-102 adds standalone Next step (tracking only, no card edits) and direct
 phase/step choice through the indicator for skips/corrections, without executing

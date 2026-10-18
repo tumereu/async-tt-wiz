@@ -1,7 +1,10 @@
 # 7. Architecture and operations
 
-Status: proposals and required follow-up contracts. No technology choice below
-is owner-approved yet except native Android.
+Status: future technical-design proposals. No technology choice below is approved
+except native Android. D-115 places current work in stage 1 behavior specification;
+adversarial behavior review is stage 2, UI drafts/decisions stage 3, and iterative
+implementation stage 4+. Do not treat these technical proposals as current-stage
+decisions or require every schema/library choice before behavior work can finish.
 
 ## 7.1 Proposed boundaries
 
@@ -9,8 +12,9 @@ is owner-approved yet except native Android.
 
 - Native UI and platform integration.
 - Pure domain/replay module for state transitions and structural validation.
-- Generic board/object/container primitives only; game presets and descriptive
-  card data cannot introduce rules-aware validators, reducers, or inferred verbs.
+- Board/object/container primitives plus explicitly specified manual-play
+  conveniences, including D-112–D-114 projections/assignments/Stack quick actions.
+  No automatic card-text rules, legality validators, or inferred game effects.
 - Local repository for cached game records, drafts, queue, and review state.
 - Synchronization worker and transport adapter.
 - Card catalog/deck parsing adapter and image cache.

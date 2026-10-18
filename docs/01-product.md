@@ -10,9 +10,13 @@ asynchronous play understandable and mistakes easy to repair.
 
 Players interpret card text, pings, area labels, and the sequence of physical
 actions. The software records those facts literally. It must not infer that a
-move into an area named “Cast” casts a spell, that a ping declares a legal target,
+move into an area named “Stack” casts a spell, that a ping declares a legal target,
 or that a later move resolves anything. This excludes semantic inference, not
 merely automatic rules enforcement.
+
+D-112–D-114 add explicit combat assignments, virtual card projections, and
+contextual Stack actions. These are required manual-play conveniences to design
+case by case, not automatic interpretation of card text or generic moves.
 
 ## 1.2 Confirmed requirements
 
@@ -30,7 +34,7 @@ merely automatic rules enforcement.
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |
 | P-012 | Downloaded games can be read and local actions queued offline, with synchronization later. |
-| P-013 | Produce and approve a full specification before implementing software. |
+| P-013 | D-115 delivery sequence: complete behavior specification, adversarial review/refinement, UI drafts/decisions, then iterative implementation. We are still in stage 1; no implementation is authorized. |
 | P-014 | Cover the manual actions needed to play MTG, rather than a small subset limited to a demonstration game. |
 | P-015 | Completed game actions synchronize immediately and automatically; there is no gameplay Send step. |
 | P-016 | Minimize taps and other user actions throughout the UX. |
@@ -45,6 +49,10 @@ merely automatic rules enforcement.
 | P-025 | Present literal actions and pings as recorded; players infer their game meaning. |
 | P-026 | Area names, card metadata, and pings must not imply game-specific state transitions or automatic side effects. |
 | P-027 | Turns and MTG phases/steps have first-class engine tracking, not only arbitrary markers, notes, or tokens. D-105 removes priority tracking and its UI from this release, superseding that part of D-96 and all of D-104. Players judge priority/interruption legality; the engine does not gate edits or branches on it. |
+| P-028 | Include a temporary combat area with attacker/blocker projections and easy per-attacker blocker assignment. Projections virtually occupy slots while originals remain in their battlefield positions (D-112). |
+| P-029 | Name the former Cast area Stack; allow battlefield permanents to project there to signal activated abilities without moving their originals (D-113). |
+| P-030 | Offer contextual Stack quick actions: actual instant/sorcery → Graveyard, actual permanent → Battlefield, projection → remove projection. Design exact behavior case by case before implementation (D-114). |
+| P-031 | Stage 1 must cover all agreed behavior, including combat/Stack cases. Stage 2 adversarial review precedes stage 3 UI drafts; stage 4+ implementation is iterative. Do not replace behavior design with UI drafts or technical-schema decisions now (D-115). |
 
 ## 1.3 Proposed first-release boundaries
 
@@ -59,7 +67,7 @@ Included:
 - Persistent games, local offline storage, reconnection, invitations, and
   notifications.
 - Layout/data presets for manual MTG play, including areas named Library, Hand,
-  Graveyard, Exile, Cast, and optional Command/extra areas. Labels/configuration
+  Graveyard, Exile, Stack, and optional Command/extra areas. Labels/configuration
   do not install a rules engine or mechanical meaning.
 - D-55/D-56 add a requested move/reset convenience on entry to configured
   Graveyard/Exile/Library: remove card counters and restore database-default
@@ -97,17 +105,24 @@ Included:
   scheduler. Turn counting may be approximate; no correction editor is needed.
 - D-110 makes Untap all literal, without skip-untap flags or inferred exclusions;
   players manually re-tap exceptions.
+- D-111 lets combined shortcuts advance with nothing to untap or an empty
+  Library. Empty draws move no card and do not automatically cause a loss.
+- D-112–D-114 require combat/Stack projections, blocker assignments, and contextual
+  Stack actions. [Their primary contract](13-combat-stack-and-projections.md)
+  separates confirmed capabilities from pending per-case controls/lifecycles.
 - D-105 removes engine priority state, indicators, Pass controls, and priority-
   legality validation. Players queue actions and use interruption/branching to
   respond; legal timing is their responsibility. Turn/phase/step controls remain.
 
 Not included in the proposed first release:
 
-- Game-specific semantic actions, inferred casting/targeting/activation/combat,
+- Inferred casting/targeting/activation/combat,
   inferred rule-based resets beyond declared conveniences, trigger detection,
   legal-target validation, or card-script execution. D-96 separately requires
   explicit turn/phase/step tracking; remaining progression details are open.
   D-105 excludes priority tracking, UI, and legality validation from this release.
+  Explicit combat/Stack projection conveniences under D-112–D-114 are included;
+  the blanket exclusion does not remove their required case-by-case design.
 - Matchmaking, rankings, tournaments, clocks, wagering, public spectators,
   public chat, AI opponents, or competitive anti-cheat.
 - Multiplayer UI and coordination, even if identifiers are not hard-coded to

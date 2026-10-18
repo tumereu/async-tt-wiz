@@ -38,17 +38,17 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
 | A-010 | Counters | Colored text-bearing counters on cards/participants; per-color +1/-1/Set, no Add/Initialize. D-58–D-68 fix palette/uniqueness, zero/empty/trim, inline retained menus, applicability skipping, and absent +/- creation as `1`/`-1`. No recolor; exact hit regions/formatting remain open. |
 | A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
-| A-012 | Labeled-area movement | Move any card to/from areas such as Cast; record origin/destination, not casting/payment/resolution. |
+| A-012 | Labeled-area movement | Move cards to/from areas such as Stack (renamed from Cast, D-113); record actual origin/destination, not inferred casting/payment/resolution. D-112–D-114 separately add explicitly chosen projections and contextual Stack actions. |
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
 | A-014 | Pile order/edit | Reorder, duplicate, move, or remove selected objects in any pile; no built-in stack-resolution command. |
 | A-015 | Group/event-scoped pings | D-74–D-80 confirm event-scoped mode/toggles, retained review, selection-preserving switching, consumed ordinary taps, and one standard marker. Context Ping/Unping uses the menu-trigger card's state and applies uniformly to its selected-set scope without mode changes. Location matching, routing/menu lifetime, and revisions remain open. |
 | A-016 | Custom objects/copies | D-81–D-86 confirm single automatically placed catalog tokens (including one Blank entry), token-producing Clone with copied fields but no links/pings, and removal. No quantity/preview/Repeat shortcut or dedicated custom-token form. Exact placement/initialization, association fields, broader authoring, and boundaries remain open. |
 | A-017 | Generic visual links | D-70–D-73 confirm binary undirected unique pairs, context picking, fan-out/removal, and independent movement. Repeated Link preserves pairs; no labels/styles or separate initial Attach/follow tool. Joint movement uses explicit multi-selection. |
 | A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting game meaning. D-52/D-53 add plain corner text with pattern shortcuts; D-69 adds multiline card notes with short on-card text, optional long-text ellipsis, full inspection, and empty-text removal. |
-| A-019 | Board markers/connectors | Mark objects/relationships visually; players may use them for combat or other mechanics without specialized engine state. |
+| A-019 | Board markers/connectors | Generic links/pings keep their literal meanings. D-112 separately requires explicit attacker/blocker projection assignments in a temporary combat area; do not infer those from generic links/pings. No combat legality or damage adjudication. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
 | A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. Context Remove applies to ordinary cards/tokens and selections, no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact routing/references/boundaries remain open. |
-| A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106/D-107 add visible one-tap End turn/no number editor; D-108 initializes chosen starter at turn 1/Untap. D-105 removes priority; D-109 leaves extra turns to manual steps with approximate counting, no dedicated action/scheduler. Exact controls/schema/boundaries remain open. History/undo/branches/offline/sync apply; arbitrary markers remain separate. |
+| A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106–D-108 add one-tap End turn/no number editor and starter/turn-1 setup. D-105 removes priority; D-109 leaves extra turns manual/approximately counted. D-111 advances combined shortcuts despite no untap changes or empty Library, with no inferred loss. Exact controls/schema/boundaries remain open. History/undo/branches/offline/sync apply; arbitrary markers remain separate. |
 | A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
 | A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
 | A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
@@ -60,6 +60,9 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-031 | History controls | D-89–D-91: ordinary undos vanish from the visible tree; retain an undone path only through its last actual hidden-information exposure, including draw/move/face changes. Preserve internal recovery and the requested rollback state. Review/interrupt/switch/archive/restore/rename and draft recovery remain; exact cutoff display/dependency/redo protocols are open. |
 | A-032 | Export | Export decks and a complete game/history archive with declared information exposure. Exact formats remain open. |
 | A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |
+| A-034 | Combat projections/assignment | D-112 requires a temporary combat area with virtual attackers/blockers and easy per-attacker blocker assignment while originals remain in place. Entry/removal, source tapping, associations, and lifecycle need case-by-case review. |
+| A-035 | Stack projections | D-113 permits battlefield permanents to virtually occupy Stack to signal activated abilities, without moving originals. Distinct from Clone/token creation. Exact entry/multiplicity/source-update controls remain open. |
+| A-036 | Contextual Stack actions | D-114 requires instant/sorcery card → Graveyard, permanent card → Battlefield, projection → remove projection. Exact category/face/default handling, destination routing, and controls need case-by-case design; no automatic resolution. |
 
 D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite
@@ -81,9 +84,11 @@ becomes visible `0`; do not extend deletion-on-empty to unrelated fields.
 
 Pings, actual object edits, and ephemeral presence remain distinct; see
 [the board contract](10-board-and-controls.md) and
-[literal presentation](11-visual-action-language.md). “Cast” is a label in A-012,
-not a dedicated game-rule operation. Grouping a move there with its pings does
-not classify it as casting.
+[literal presentation](11-visual-action-language.md). Stack replaces the former
+Cast label. Grouping a move there with pings does not classify it as casting.
+Explicit projection/assignment/quick-action capabilities (A-034–A-036) are now
+required; their [primary contract](13-combat-stack-and-projections.md) must be
+specified case by case rather than excluded by the earlier generic-only wording.
 
 Confirmed touch movement for A-005/A-006/A-033 is specified in
 [board controls, section 10.4](10-board-and-controls.md#104-dragging-and-snapping):
@@ -131,6 +136,9 @@ mechanic-specific entities to the engine.
 
 - No casting, activation, targeting, combat, damage, cost payment, priority,
   resolution, or turn-progression model is inferred from physical actions.
+- D-112–D-114 allow explicit combat associations/projection roles and contextual
+  Stack choices. These do not infer rule effects from ordinary moves or card
+  text. The earlier no-specialized-state language does not exclude them.
 - D-96/D-105 separately require explicit engine-level turn/phase/step tracking.
   Do not interpret the no-inference rule as excluding that state. Exact explicit
   remaining transitions and correction behavior remain under review. D-105

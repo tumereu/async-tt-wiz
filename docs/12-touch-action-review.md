@@ -1,8 +1,9 @@
 # 12. Step-by-step touch action review
 
-Status: review in progress. The owner requested small logical groups of
-capabilities, deciding whether each is needed and how it works with touch before
-returning to detailed grouping/playback design. No implementation is authorized.
+Status: delivery stage 1, behavior specification (D-115). This worklist retains
+earlier touch decisions as requirements/history, but current new decisions focus
+on behavior. Adversarial review/refinement is stage 2, UI drafts/concrete controls
+stage 3, and iterative implementation stage 4+. No implementation is authorized.
 
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
@@ -40,7 +41,10 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-110 confirm tools/communication, MTG tracking/shortcuts, End turn/setup, manual extra turns/approximate counts, and literal Untap all/no skip flags. No priority or extra-turn action. Combined shortcuts with no card changes/empty Library next. |
+| G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
+| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | Required by D-112; current behavior review starts with source tapping when adding an attacker. Entry gestures/layout wait for stage 3. |
+| G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 renames Cast to Stack and requires virtual permanent occurrences without moving originals. Exact behavior cases remain open. |
+| G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. Category/routing/lifecycle cases remain open; no automatic resolution. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -55,7 +59,7 @@ Already confirmed:
 - Drag a card to move it; drops snap to a grid location or designated slot.
 - Either participant can move either participant's cards.
 - Moves are literal, preserve unrelated state, automatically queue/sync, and
-  support undo. Labels such as Cast do not introduce mechanical side effects.
+   support undo. Labels such as Stack do not introduce mechanical side effects.
 - Double tap opens the card's available actions.
 
 Decisions from this review (D-21–D-24):
@@ -740,8 +744,9 @@ Confirmed first shortcuts (D-100):
 
 D-101 settles next-step advancement: Untap → Upkeep and Draw → Precombat main,
 not a whole-phase skip. Do not execute further card operations on arrival.
-Exact participant association, empty-source/no-op
-handling, atomic/group boundaries, other shortcuts, and touch layout remain open.
+Exact participant association, remaining no-op/error records, atomic/group
+boundaries, other shortcuts, and touch layout remain open. D-111 settles combined
+advancement for valid empty/no-change cases.
 D-110 settles that no skip-untap flag or inferred exclusion applies.
 
 Confirmed progression controls (D-102):
@@ -798,11 +803,24 @@ Confirmed D-110: Untap all simply untaps the turn player's battlefield cards,
 without a dedicated skip-untap flag. Re-tap exceptions manually; no exclusions
 are inferred from card text/notes/markers. Applies to both shortcut variants.
 
-Next shortcut-edge-case batch, proposed and not yet approved:
+Confirmed shortcut edge cases (D-111):
 
 1. Untap all + advance advances even with no tapped/affected cards.
 2. Draw one + advance on an empty Library draws nothing but still advances;
    no automatic loss or other rule effect.
 
-Valid no-change/empty cases only, not structural failures. Exact no-op records,
-feedback, and atomic/group boundaries remain open.
+Valid no-change/empty cases only, not structural failures. Record/sync the actual
+step transition without inventing a card change. Standalone actions do not
+advance. Exact no-op records, feedback, and atomic/group boundaries remain open.
+
+The no-more-phase-shortcuts proposal is rejected. D-112–D-114 require combat/
+Stack projections, explicit blocker assignment, and contextual Stack actions.
+Review all behavior cases before implementation, not only generic substitutes.
+The [primary contract](13-combat-stack-and-projections.md) tracks common source/
+projection semantics, combat lifecycle, and Stack entry/exit separately.
+
+Next G-11 behavior proposal, not yet approved: creating an attacker projection
+also taps its source by default; offer a without-tapping variant for exceptions.
+No card-text inference. Exact gestures/layout are stage 3 under D-115, not the
+current question. Blocker associations, multi-source behavior, lifecycle, and
+history boundaries remain stage 1 work after this batch.

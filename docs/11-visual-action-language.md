@@ -14,13 +14,16 @@ tracking but no priority state or controls. Remaining details stay under review.
 It does not infer spells, legal targets, costs, triggers, combat, priority passes,
 or resolution from physical actions. Explicit tracking is distinct from inferred
 card rules.
+D-112–D-114 also permit explicit combat assignments, source-referencing
+projections, and contextual Stack actions. Their existence does not make an
+ordinary tap/move/ping an inferred attack, activation, payment, or resolution.
 
 | Recorded fact | Acceptable presentation | Forbidden inference |
 | --- | --- | --- |
-| Move card from Hand to Cast | Card thumbnail; Hand → Cast; actor. | “Cast this spell.” |
+| Move card from Hand to Stack | Card thumbnail; Hand → Stack; actor. | “Cast this spell.” |
 | Ping a participant marker, associated with that move | Ping highlight/line to participant, shown with the move. | “This spell targets that player.” |
 | Rotate a card | Before/after orientation. | “Activate it,” “attack,” or “add mana.” |
-| Move card from Cast to Graveyard | Cast → Graveyard. | “Resolved” or “countered.” |
+| Move card from Stack to Graveyard | Stack → Graveyard. | “Resolved” or “countered.” |
 | Change Life-labeled value 20 → 17 | Life: 20 → 17. | “Spell dealt 3 damage.” |
 
 Card names and area labels may appear literally where display conventions allow.
@@ -33,28 +36,31 @@ the facts understandable without mandatory narration. Labels/accessibility text
 describe the actual operations. Pings are durable enough for someone reviewing
 hours later; fleeting online animation cannot be the only record.
 
-## 11.2 Cast is an area label
+## 11.2 Stack and virtual occurrences
 
-A designated area labeled **Cast** gives participants a useful shared convention.
-Dragging a card there performs exactly the generic move shown in its preview.
-It does not create a second spell/ability object, install a stack protocol,
-change participant values, demand choices, or enter a casting-completion state.
+D-113 renames the former Cast area **Stack**. Actual cards can move there;
+battlefield permanents can also be projected there to signal activated abilities
+without moving their originals. The latter is an explicitly chosen virtual
+occurrence, not an inferred ability or a Clone/token.
 
-The area may use an explicitly configured slot, grid, or ordered-pile layout.
-Those layout settings determine generic positioning only. Renaming Cast to
-another label cannot change the reducer or supported operations.
+D-114 requires contextual Stack actions: actual instant/sorcery → Graveyard,
+actual permanent → Battlefield, projection → remove the projection. Exact
+controls, metadata interpretation, destination routing, and history summaries
+need case-by-case behavior design. Invoking a shortcut records the actual move
+or projection removal, not a claim that a spell legally resolved or was countered.
 
-Any object can be moved there, from any structurally valid source. The engine
-does not check card type or interpret the move differently based on its origin.
-A participant can move it away at any time, with no required Resolve/Counter
-command. Those are interpretations of the resulting moves, not engine verbs.
+Changing an area's label alone does not install these operations. Explicit
+configuration/occurrence data and user invocations are distinct from inferring
+rules from names, generic drags, pings, or card text. No automatic priority,
+payment, resolution, or legality engine is implied. See
+[the primary projection contract](13-combat-stack-and-projections.md).
 
 ## 11.3 One visible unit, literal constituent records
 
 Proposed presentation:
 
 ```text
-A • [card thumbnail] • Hand → Cast
+A • [card thumbnail] • Hand → Stack
     ping: B's player marker
     ping: [another card thumbnail]
 ```
@@ -182,12 +188,12 @@ rules object. Generic labeled values capture any other state the players need.
 
 ## 11.7 Worked example without game inference
 
-1. A moves a card from Hand to Cast. The log shows the move and thumbnail.
+1. A moves a card from Hand to Stack. The log shows the move and thumbnail.
 2. A adds a ping to B's player marker, associated with that move. They appear
    together in one unit; no “targets B” statement is generated.
 3. A rotates another card and changes a named counter. Each is a literal edit;
    grouping depends on the approved generic interaction rules, not payment logic.
-4. A moves the first card from Cast to Graveyard, then changes a named value.
+4. A moves the first card from Stack to Graveyard, then changes a named value.
 5. Hours later, B reviews those facts and interprets them according to their game.
 6. B interrupts before a chosen move, creates another continuation, and can undo
    it to return. No step required the engine to understand what was being played.

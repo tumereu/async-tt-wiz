@@ -8,9 +8,14 @@ Confirmed card gestures and proposed drag/pile/intent details are defined in
 contract. Single tap taps, double tap opens actions, hold inspects, and drag moves
 with snapping. These replace the earlier undecided tap-versus-inspect mapping.
 The [visual action language](11-visual-action-language.md) defines the proposed
-labeled Cast area, action-linked ping controls, literal grouped log presentation,
+Stack area, action-linked ping controls, literal grouped log presentation,
 and optional notes/chat. Ordinary flow should not require typing what just
 happened, and the engine must not guess what the actions mean in a game's rules.
+D-112–D-114 additionally require combat/Stack projections, per-attacker blocker
+assignment, and contextual Stack actions. Their behavior is being specified in
+[the primary contract](13-combat-stack-and-projections.md). D-115 reserves new
+UI drafts, final layouts, and concrete control choices for delivery stage 3;
+current work is stage 1 behavior specification.
 
 ## 5.1 Navigation and screens
 

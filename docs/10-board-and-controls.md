@@ -6,8 +6,12 @@ context moves for library/graveyard/exile are confirmed. Layout, detailed hit te
 communication mechanisms below are proposals for review. The owner additionally
 requires mostly text-free understandable play, optional text/messages, and
 action-scoped pings. The engine is confirmed generic/rules-agnostic; the literal
-move-and-ping presentation for an area labeled Cast is defined in
+move-and-ping presentation for the Stack area is defined in
 [Visual action language](11-visual-action-language.md).
+D-112–D-114 additionally require combat/Stack projections and contextual actions;
+[their primary contract](13-combat-stack-and-projections.md) is being specified
+case by case. D-115 keeps current work in stage 1, behavior specification; new
+screen layouts and concrete gesture choices belong to stage 3.
 
 This document is the primary contract for tabletop interaction. It supplements
 the [Android experience](05-android-experience.md) and
@@ -50,7 +54,7 @@ The engine does not interpret those labels.
 | [Library] [Graveyard] [Exile] [Command / extra]       |
 | Opponent battlefield area                           |
 |                                                    |
-| Shared area labeled Cast / action-linked pings       |
+| Shared Stack / action-linked pings                   |
 |                                                    |
 | Your battlefield area                               |
 | [Library] [Graveyard] [Exile] [Command / extra]       |
@@ -65,10 +69,12 @@ The engine does not interpret those labels.
   the explicitly selected container/placement fields.
 - Each participant has labeled library, graveyard, and exile slots. Their card
   counts remain visible even when empty or covered.
-- A shared area labeled Cast is visually distinct and can use configured slots
-  or pile ordering. It displays actual cards and action-linked pings. There is
-  no inferred stack protocol, spell/ability object, target model, or resolution
-  order. Another shared area may be labeled Stack without changing the engine.
+- The shared Stack, renamed from Cast (D-113), supports actual cards and virtual
+  projections. D-114 adds contextual quick actions; entry controls, ordering,
+  lifecycle, and exact layout need case-by-case design, not automatic resolution.
+- A temporary combat area supports projected attackers/blockers and per-attacker
+  blocker assignment (D-112); originals retain their battlefield positions.
+  Its layout and lifecycle are not settled by this older conceptual sketch.
 - Hands use an expandable fan/row rather than consuming the whole battlefield.
 - Extra labeled areas remain reachable through an expandable dock; a manual
   MTG layout may name some Command, Sideboard, or Outside game.
@@ -297,7 +303,9 @@ Destination classes:
   unrelated object fields intact. Library/graveyard/exile drops insert on top.
   Show its label, not just a colored rectangle.
 - **Other labeled area:** perform the configured generic placement operation.
-  Dropping into Cast cannot create a spell, targets, payment, or resolution.
+  A generic move into Stack cannot infer targets, payment, or resolution.
+  Explicit projection entry is a separate required capability under D-113;
+  its gesture and state changes remain under review.
 
 Logical layout stores area, grid coordinates, pile membership, and within-pile
 display order, not device pixels. Both players see a consistent arrangement
@@ -687,7 +695,8 @@ These are proposed essentials, not additional mandatory actions per card move:
    colored text-bearing counters on cards/players; see the contract below.
    Exact controls and remaining tracker layouts still need review.
 2. **Generic pieces/piles:** create/duplicate/remove labeled objects, move them,
-   reorder piles, and inspect recorded changes. No engine Cast/Resolve command.
+   reorder piles, and inspect recorded changes. D-112–D-114 separately require
+   projections and contextual Stack actions, not inferred card-rule execution.
 3. **Visual links:** binary persistent relationships with one standard connector,
    no labels/style choices initially (D-71); no target/combat/attachment meaning.
 4. **Turn/phase/step:** D-96/D-105 require first-class engine tracking, distinct
@@ -1066,8 +1075,9 @@ Confirmed first shortcuts (D-100):
 Standalone versions leave tracking unchanged. Both forms require invocation,
 not automatic execution on step entry. Actual edits/progression use normal
 history, undo, queue, and sync behavior. D-110 excludes skip-untap flags. Exact
-participant association, empty-source/no-op handling, atomic/group boundaries,
+participant association, remaining no-op/error records, atomic/group boundaries,
 and other step controls remain later work.
+D-111 settles advancement for valid no-change/empty-source combined shortcuts.
 
 D-101 clarifies advancement to the next step, not the next whole phase:
 Untap all + advance goes Untap → Upkeep; Draw one + advance goes Draw → Precombat
@@ -1146,16 +1156,27 @@ cards, without a dedicated skip-untap flag. Players re-tap exceptions manually;
 do not infer exclusions from card text, notes, or markers. The same scope applies
 to standalone Untap all and Untap all + advance. Preserve unrelated card state.
 
-Next G-10 shortcut-edge-case batch, proposed and not yet approved:
+Confirmed shortcut edge cases (D-111):
 
 1. Untap all + advance still advances to Upkeep when all affected cards are
    already untapped or there are no affected cards.
 2. Draw one + advance with an empty Library draws nothing but still advances
    to Precombat main; no automatic loss or other inferred rule effect.
 
-These proposals cover valid no-change/empty sources, not missing IDs or other
-structural failures. Exact no-op history records, feedback, and atomic/group
-boundaries remain later review.
+These rules cover valid no-change/empty sources, not missing IDs or other
+structural failures. Record/sync the actual step transition even when no card
+changes. Do not invent a drawn card or card-change record. Standalone variants
+still leave tracking unchanged. Exact no-op history records, feedback, and
+atomic/group boundaries remain later review.
+
+The proposal to omit further phase-specific conveniences is rejected. D-112–D-114
+require temporary combat, attacker/blocker projections and assignment, Stack
+ability projections, and contextual Stack actions. Review each case in
+[combat, Stack, and projections](13-combat-stack-and-projections.md) before
+implementation; do not substitute generic controls as a reason to skip design.
+Current work is stage 1 behavior specification (D-115); UI drafts follow stage 2
+adversarial behavior review. Next: attacker projection behavior/source tapping,
+not a final screen layout or drag gesture.
 
 ## 10.9 Worked interaction examples
 
@@ -1172,7 +1193,7 @@ boundaries remain later review.
   engine only knows that cards were arranged together.
 - **Move from pile:** drag the Library-labeled pile's top card to Hand. Record
   the move literally and respect configured cover presentation; no “draw” inference.
-- **Move and ping:** move a card to Cast, then ping a participant/card associated
+- **Move and ping:** move a card to Stack, then ping a participant/card associated
   with that move. Both sync and appear together without a generated “cast at”
   sentence, typed rules target, completion step, or Send.
 - **Represent an unusual action:** create a generic labeled note/piece if needed,

@@ -43,9 +43,9 @@ can choose the right interruption point themselves.
 Example sequence, with only literal records:
 
 1. Rotate card A.
-2. Move card B from Hand to Cast.
+2. Move card B from Hand to Stack.
 3. Add a ping to the opponent's player marker, associated with action 2.
-4. Move card B from Cast to Graveyard.
+4. Move card B from Stack to Graveyard.
 5. Change the counter labeled Life from 20 to 17.
 
 The opponent may stop after action 3. Actions 4–5 remain on the old branch when
@@ -95,8 +95,8 @@ execution that the platform cannot guarantee. Exact latency targets remain open.
 Groups affect presentation and notifications, never atomicity or interruptibility.
 
 The [literal-action presentation](11-visual-action-language.md) groups related
-recorded operations and their action-linked pings. For example, a move to an
-area labeled Cast and its pings can appear as one expandable unit without being
+recorded operations and their action-linked pings. For example, a move to the
+Stack area and its pings can appear as one expandable unit without being
 classified as a cast. Completed constituent actions still sync immediately and
 keep their own boundaries; the unit is not one mutable historical node. Later
 changes cannot retroactively alter an earlier boundary. Notes/messages remain

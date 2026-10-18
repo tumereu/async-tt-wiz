@@ -1,7 +1,24 @@
 # Specification index
 
-Status: **draft, design round 1; corrected to a generic, rules-agnostic engine
-recording literal board actions and pings, not inferred game mechanics**.
+Status: **delivery stage 1: behavior specification**. The engine records literal
+actions and explicit manual-play conveniences, not inferred card rules. Required
+combat/Stack projection behavior is being designed case by case.
+
+## Confirmed delivery sequence (D-115)
+
+1. **Behavior specification — current stage.** Cover the entire agreed release
+   behavior, including exceptions, failure/recovery, and acceptance outcomes.
+2. **Adversarial review and refinement of that specification.** Challenge and
+   resolve behavioral gaps before proceeding to UI drafts.
+3. **UI drafts and decisions.** Work out screens, layouts, concrete controls,
+   gestures, and accessibility against the reviewed behavior. Existing approved
+   interaction requirements are inputs, not permission to skip this stage.
+4. **Implementation in an iterative loop.** Design the necessary technical slice,
+   test, implement, verify, and refine through explicit specification decisions.
+
+No implementation is currently authorized. Stage 1 does not require final UI
+drafts or every technical schema/API/library decision. Earlier proposed rounds
+and blanket all-technical-details-first gates are superseded by this sequence.
 
 ## Reading order
 
@@ -24,7 +41,10 @@ recording literal board actions and pings, not inferred game mechanics**.
      action-scoped pings, and grouping without interpreting game mechanics.
 12. [Step-by-step touch action review](12-touch-action-review.md): capability
     worklist and pending small-group touch decisions; approved behavior stays in
-    the primary contracts above.
+     the primary contracts above.
+13. [Combat, Stack, and projections](13-combat-stack-and-projections.md): required
+    temporary combat area, virtual card occurrences, blocker assignment, and
+    contextual Stack actions; case-by-case interaction review in progress.
 
 ## How to read normative language
 
@@ -55,25 +75,16 @@ Do not silently promote a proposal to an approved requirement during coding.
 
 ## What “fully specified” means here
 
-It does not mean predicting every future feature. It means all behavior within
-the agreed first-release scope has an implementable, testable contract, with no
-unresolved decisions needed to build that release.
+It does not mean predicting every future feature. Stage 1 must specify all
+agreed release behavior: supported actions and relationships, state changes,
+exceptions/no-ops/errors, cancellation/recovery, offline/concurrent outcomes,
+branch/review/undo semantics, and testable acceptance outcomes. Required combat/
+Stack cases are part of that scope, not optional later implementation discoveries.
 
-Before implementation, specify and approve:
+Stage 2 challenges/refines those contracts. Stage 3 makes their UI decisions.
+Technical schemas, APIs, migrations, libraries, and deployment plans remain
+tracked design work; determine them for the relevant implementation slices,
+without confusing them with unfinished behavior or silently changing the spec.
+See [delivery gates and loop](08-verification-and-delivery.md#83-specification-readiness-gate).
 
-- Product boundaries and every supported user journey, including cancellation,
-  failure, recovery, empty, and loading states.
-- Generic action semantics, permissions, area/container behavior, and manual
-  use-case coverage without game-specific rule semantics.
-- Branching, reviewing, grouping, randomization, and complete undo semantics.
-- Every persistent entity, identifier, schema, invariant, and migration rule.
-- Exact API operations, payloads, errors, concurrency conditions, retry rules,
-  authentication, and protocol compatibility.
-- Android navigation, interaction states, accessibility, and visual wireframes.
-- Card data, images, decks, legal attribution, and cache behavior.
-- Hosting, security, backup, restore, monitoring, and support procedures.
-- Quantified performance and reliability targets and an acceptance-test matrix.
-- The implementation plan, including how deviations return to specification.
-
-This first draft establishes the behavioral model and exposes remaining gaps.
-It deliberately does **not** claim to satisfy the entire list yet.
+The behavior specification is still incomplete. No later stage has started.

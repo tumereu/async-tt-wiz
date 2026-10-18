@@ -12,10 +12,15 @@ Every game edit must be recoverable, including mistaken interruptions and branch
 deletion.
 
 The engine records literal moves, rotations, counter edits, and action-linked
-pings. An area named “Cast” is just an area; players interpret what moves and
-pings mean. It never infers casting, targeting, costs, or resolution.
+pings. The shared **Stack** and temporary combat area also need explicitly
+designed card projections, blocker assignments, and contextual quick actions.
+These conveniences do not infer casting, targeting, costs, or resolution from
+ordinary moves. Their interactions are being specified case by case.
 
 **Project phase: specification only. There is no application implementation.**
+
+Delivery: **1. behavior specification (current)** → **2. adversarial review and
+refinement** → **3. UI drafts and decisions** → **4+. iterative implementation**.
 
 Start with [the specification index](docs/README.md). The specification is a
 working draft, not a claim that all design decisions have been made. No

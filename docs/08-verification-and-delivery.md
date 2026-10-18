@@ -8,7 +8,7 @@ eventually have concrete fixtures, expected states, and UI/API assertions.
 | ID | Scenario | Required outcome |
 | --- | --- | --- |
 | T-001 | Make four instantly synchronized actions in one automatic group; opponent steps through it. | Each atomic intermediate boundary is inspectable, even before group closure. |
-| T-002 | Interrupt between a card's move into Cast and its later move out. | New branch becomes active; later move remains on the old line only; neither move is interpreted mechanically. |
+| T-002 | Interrupt between a card's move into Stack and its later move out. | New branch becomes active; later move remains on the old line only; neither move is interpreted mechanically. |
 | T-003 | Delete that interruption and return. | Original full continuation returns; deleted line is recoverable. |
 | T-004 | Undo branch deletion. | Branch/archive and active selection are restored together. |
 | T-005 | Undo an ordinary state change, redo it. | Exact prior/new state is recovered without new randomness. |
@@ -24,7 +24,7 @@ eventually have concrete fixtures, expected states, and UI/API assertions.
 | T-015 | App dies during local/database write or sync batch. | Atomic recovery; no partial board/tree and no acknowledged local edit lost. |
 | T-016 | Notification duplicates, arrives late, or never arrives. | Refresh still converges; a notification cannot mutate state. |
 | T-017 | Move a card through several containers with a historical ping. | Stable card ID remains; the ping retains its original boundary/location context; no rules incarnation is created. |
-| T-018 | A group ends after a move into Cast. | No casting completion, priority pass, or resolution is inferred. |
+| T-018 | A group ends after a move into Stack. | No casting completion, priority pass, or resolution is inferred. |
 | T-019 | Delete a branch containing descendants/shared prefix. | Only specified archive state changes; shared nodes and descendants remain recoverable. |
 | T-020 | Correct life now versus undo its historical change. | Distinct operations with clear impact previews. |
 | T-021 | Full game with custom/unsupported mechanic. | Named trackers/custom objects and correction tools permit completion. |
@@ -47,7 +47,7 @@ eventually have concrete fixtures, expected states, and UI/API assertions.
 | T-038 | Outside selection-edit mode, single tap a card with no selection. | It changes only that card's tapped state without inferring mana, targets, or another card's state; D-35 separately defines tapping selected cards. |
 | T-039 | Form/split/move a diagonal visual pile. | Individual identities and unrelated values/links remain intact; undo restores arrangement. |
 | T-040 | Inspect/rearrange special piles with covered cards. | Zone order and display sorting remain distinct; peeks/default summaries do not unnecessarily expose identities. |
-| T-041 | Move a card to Cast and add an associated ping to a participant marker. | Both sync and appear together as literal move + ping, without inferred casting/targeting, mandatory text, or Send. |
+| T-041 | Move a card to Stack and add an associated ping to a participant marker. | Both sync and appear together as literal move + ping, without inferred casting/targeting, mandatory text, or Send. |
 | T-042 | Review the move before versus after the ping's effective boundary. | Only recorded facts effective at that boundary appear; later pings do not appear retroactively. |
 | T-043 | Select a different recorded action, then ping. | Visible context prevents silently associating its ping with the previously selected action. |
 | T-044 | Place initial-release pings using the standard marker (D-77 supersedes earlier optional styles/labels). | All remain visual communication records with no object-state or game-mechanic side effects; no label/style picker is required. |
@@ -55,7 +55,7 @@ eventually have concrete fixtures, expected states, and UI/API assertions.
 | T-046 | Disconnect during a card drag or library search. | Ephemeral activity expires without replaying obsolete presence, publishing a cancelled move, or exposing searched identities. |
 | T-047 | Branch between a grouped move/ping and later moves. | Boundaries remain available; original literal operations and pings remain recoverable. |
 | T-048 | Ping a card, move/remove it, switch branches. | Ping retains stable object ID and historical context, never silently referring to a different object/path. |
-| T-049 | Rename/relabel an area Cast, Stack, Library, or an unrelated name. | Only the label changes; operation/replay behavior is identical with the same generic configuration. |
+| T-049 | Relabel a configured area Stack, Library, or another name. | The label alone does not install behavior; operation/replay behavior stays identical with the same configuration. D-113 chooses Stack as the release name; D-112–D-114 separately require explicit projection/assignment/quick-action behavior. |
 | T-050 | Move a card with counters, corner text, orientation, notes, participant associations, and visual links to a destination without D-55/D-56 reset behavior. | Preserve unrelated state; no inferred zone-reset/cost/cleanup rules execute. Graveyard/Exile/Library entry is tested separately under D-55/D-56. |
 | T-051 | Replay a non-MTG board with custom cards/areas/values. | Generic primitives work without MTG-specific enum values, catalog entries, or mechanics entities. |
 | T-052 | Compare literal move/ping/value records with displayed log. | It presents recorded facts and user-attributed text, never inferred cast/target/damage/resolve summaries. |
@@ -199,7 +199,7 @@ eventually have concrete fixtures, expected states, and UI/API assertions.
 | T-190 | Review/replay/undo across two different steps in the same MTG phase. | Restore the applicable step as well as its phase (D-98), not a phase-only position. Main phases have no separate steps. Exact command/initialization/extra-step fixtures remain Q-32. |
 | T-191 | Present contextual quick actions at different tracked phases/steps. | Offerings depend on phase/step (D-99), without executing them merely on step entry. D-100/D-101 include Untap all at Untap and Draw one at Draw, each with standalone and next-step variants. Exact layout and other mappings remain open. |
 | T-192 | Invoke standalone Untap all at Untap, or standalone Draw one at Draw. | Untap the turn player's battlefield cards or draw one from their Library to Hand using the approved literal operation; leave tracking unchanged. D-110 excludes skip flags/inferred exclusions; manually re-tap exceptions. Queue/sync actual edits with normal undo/history. Exact participant association and no-op/failure cases remain open. |
-| T-193 | Invoke Untap all + advance or Draw one + advance. | One press performs the operation and advances to the next step (D-101): Untap → Upkeep, Draw → Precombat main. Do not skip Upkeep/Draw after Untap or execute further card operations on arrival. No second press or gameplay Send. Atomic/group boundaries and failure/no-op behavior remain Q-32; no priority state under D-105. |
+| T-193 | Invoke Untap all + advance or Draw one + advance. | One press performs the operation and advances to the next step (D-101): Untap → Upkeep, Draw → Precombat main. D-111 preserves advancement with no untap changes/empty Library. Do not skip Upkeep/Draw after Untap or execute further card operations on arrival. No second press or Send. Exact boundaries, feedback/no-op records, and structural-error handling remain Q-32; no priority state under D-105. |
 | T-194 | Invoke standalone Next step within a turn. | Advance shared tracking to the next phase/step position without card edits (D-102), e.g. Untap → Upkeep or Draw → Precombat main. Queue/sync as a recoverable game edit, not review-cursor navigation. D-103 separately covers Cleanup-to-next-turn behavior; no priority state under D-105. |
 | T-195 | Tap the phase/step indicator and choose another phase/step for a skip or correction. | Edit shared phase/step tracking directly (D-102), without executing intermediate card operations or treating the choice as history navigation. Undo/branch/offline/sync apply; turn/player correction controls, grouping, and exact layout remain open. No priority state under D-105. |
 | T-196 | Invoke Next step at player A's Cleanup with turn number N. | Start player B's Beginning/Untap at N+1 (D-103), without untapping or drawing cards. Display the new turn player/number; preserve previous context for undo/replay/branches and queue/sync normally. After B's Cleanup the ordinary next turn is A at N+2, not once-per-round numbering. D-109 accepts approximate counts for manually handled extra turns; no priority state under D-105. |
@@ -214,6 +214,14 @@ eventually have concrete fixtures, expected states, and UI/API assertions.
 | T-205 | Choose either participant as starting player during setup. | Initialize the chosen player's turn 1 at Beginning/Untap without automatic card operations (D-108). Do not infer opening-hand draws, first-turn draw skipping, or priority state. Exact screen/defaults, setup-change/recovery boundaries, and schema remain open. |
 | T-206 | Manually return to an earlier phase/step to represent another turn for the same player. | Use the existing phase/step picker without a Start another turn action, scheduler, or card operations (D-109). Preserve recorded player/number; an inaccurate rules-turn count is acceptable. Do not infer a turn, reconcile the number, or require an editor. Normal End turn/Cleanup progression still switches players and increments. |
 | T-207 | Untap all includes a card whose text/note/marker says it should not untap; repeat with Untap all + advance. | Untap it like other cards in the explicit scope (D-110), without a skip flag or inferred rule exclusion. Players manually re-tap exceptions with ordinary controls. Preserve unrelated fields; retain the approved standalone versus next-step distinction and normal undo/history/queue/sync. Exact participant association/no-op boundaries remain open. |
+| T-208 | Invoke Untap all + advance with all scoped cards already untapped, and separately with none. | Still advance Untap → Upkeep (D-111). Record/queue/sync the actual step transition, with no invented card changes. Standalone Untap all does not advance. Missing IDs/structural failures are not covered by this no-change rule; exact feedback/no-op records/boundaries remain open. |
+| T-209 | Invoke Draw one + advance with a valid empty Library. | Draw no card but advance Draw → Precombat main (D-111). No automatic loss or other rule effect. Record/queue/sync the transition without fabricating a draw; standalone Draw one preserves tracking. Do not extend the empty-source rule to structural failures. Exact feedback/no-op records/boundaries remain open. |
+| T-210 | Represent a battlefield card as an attacker or blocker in the temporary combat area. | Use a virtual projection while the actual card retains its original battlefield position (D-112), not a Clone/token or second actual containment. Exact creation/source tapping/field routing/lifecycle behavior remains Q-33/Q-34. |
+| T-211 | Assign blockers to individual attackers in combat. | Support explicit, understandable per-attacker blocker association (D-112), not merely unstructured pings. Exact cardinality/order/reassignment/controls require case-by-case design. Do not infer blocking legality or damage. |
+| T-212 | Put a battlefield permanent on Stack virtually to signal an activated ability, then invoke projection removal. | Keep the original card at its battlefield position; remove the projection, not its source (D-113/D-114). Not Clone/token creation. Multiplicity, source updates/removal, ordering, and exact action boundaries remain Q-33/Q-35. |
+| T-213 | Inspect contextual actions for an actual instant/sorcery, actual permanent, and projection on Stack. | Offer Graveyard, Battlefield, and projection removal respectively (D-114), as explicit invocations rather than automatic resolution. Exact category/face/missing-data and destination cases are still Q-35; preserve applicable approved move/reset behavior, not invented rule effects. |
+| T-214 | Assess project status and the next delivery work. | Current stage is 1, behavior specification (D-115). Complete agreed behavior, then adversarial review/refinement (2), UI drafts/decisions (3), and iterative implementation (4+). Do not start UI drafts or code now, or demand every future technical schema/API globally to finish stage 1. |
+| T-215 | Inspect the release area names and behavior specification coverage. | Stack replaces the former Cast area (D-113). Temporary combat/projections/blocker assignment and contextual Stack actions are required cases, not omitted by the rejected no-further-phase-shortcuts proposal. Stage-1 scope approval does not approve concrete gestures/layouts. |
 
 D-91 settles the last-information-gain cutoff and broad exposure classification.
 Exact durable capture/reconnect, repeated-view coalescing, cutoff/group display,
@@ -239,44 +247,62 @@ still need detailed fixtures.
 
 ## 8.3 Specification readiness gate
 
-Implementation is blocked until all boxes are approved:
+D-115 supersedes the previous blanket gate requiring every UI and technical
+artifact before leaving the initial design round. Readiness is staged:
 
-- [ ] Product scope and non-goals accepted.
-- [ ] All release-blocking decisions in `09-decisions.md` resolved.
-- [ ] Complete per-action contracts for the agreed scope.
-- [ ] Generic move/field-preservation contracts and manual use-case coverage examples.
-- [ ] Full branch, grouping, review, undo/redo, and conflict state machines.
-- [ ] Annotated Android wireframes, interaction budgets, and complete screen/error states.
-- [ ] Board gestures, snapping/piles, literal log/grouping, and action-scoped pings approved.
-- [ ] Exact persistent schema, deterministic action format, and API contract.
-- [ ] Card source/deck grammar/image policy and legal attribution.
-- [ ] Authentication, invitations, membership, hosting, and privacy choices.
-- [ ] Quantified performance, retention, backup, and compatibility contracts.
-- [ ] Acceptance matrix links each requirement to testable expected outcomes.
-- [ ] Implementation slices and specification-change workflow approved.
-- [ ] Project owner explicitly authorizes implementation.
+### Stage 1 → stage 2: behavior specification complete
 
-## 8.4 Proposed design rounds
+- [ ] Agreed release scope and all supported behavior cases are covered.
+- [ ] Per-action state changes, unchanged fields, exceptions, no-ops, structural
+      failures, cancellation, and recovery are defined.
+- [ ] Projections, combat/blocker assignment, Stack contextual actions, and their
+      source/lifecycle cases are specified, not omitted as future coding work.
+- [ ] Branching, review, groups, undo/recovery, offline queuing, and concurrent
+      behavioral outcomes are defined.
+- [ ] Acceptance scenarios state testable outcomes for those contracts.
+- [ ] The owner agrees the behavior specification is ready for review.
 
-1. Agree core semantics, product boundaries, and open architectural choices.
-2. Walk through real example games and interrupts; refine action/grouping and
-   recovery behavior until no ambiguity remains in those examples.
-3. Specify Android flows/wireframes and expand every action contract.
-4. Finalize schema, protocol, concurrency, catalog, and operational contracts.
-5. Run a documentation-only adversarial review against the acceptance matrix.
-6. Resolve gaps, version the approved specification, and request implementation
-   authorization.
+**Current stage: 1.** UI drafts and final schema/API/library/deployment choices
+are not prerequisites for completing this stage. Concrete technical questions
+remain tracked; they must not replace missing behavior decisions.
 
-No round includes a prototype implementation unless the owner explicitly
-changes the docs-only constraint. Diagrams, wireframes, tables, and protocol
-examples are specification artifacts and are allowed.
+### Stage 2 → stage 3: adversarial review/refinement complete
+
+- [ ] Challenge the full behavior specification with counterexamples, edge cases,
+      contradictions, and complete manual-play scenarios.
+- [ ] Refine the specification and acceptance outcomes to resolve findings.
+- [ ] The owner agrees the reviewed behavior is ready for UI work.
+
+### Stage 3 → stage 4+: UI decisions complete; implementation authorized
+
+- [ ] UI drafts and decisions cover screens, controls/gestures, layout, accessible
+      alternatives, and error/recovery states against the reviewed behavior.
+- [ ] Previously approved interaction requirements are incorporated/reconciled.
+- [ ] The owner authorizes iterative implementation after these stages.
+
+Necessary technical/schema/API/operations design is prepared for the relevant
+implementation slice. This is not an additional requirement to finish every
+future technical artifact globally during stage 1.
+
+## 8.4 Confirmed delivery stages
+
+1. **Behavior specification — current.** Define the whole agreed release behavior
+   case by case, including the newly required combat/Stack conveniences.
+2. **Specification adversarial review and refinement.** Review behavior before UI.
+3. **UI drafts and decisions.** Decide presentation and concrete interactions.
+4. **Implementation, looping/iterative from here onward.** Develop and verify
+   approved slices, refining explicit contracts as needed.
+
+Stages 1–3 are documentation/design only; no prototype or implementation is
+currently authorized. Earlier alternate design-round order is superseded.
 
 ## 8.5 Later specification-driven implementation loop
 
-After approval:
+During stage 4+, after the preceding stages and implementation authorization:
 
 1. Select an approved vertical slice and its requirement/test IDs.
-2. Write executable acceptance/model tests matching the specified contract.
+2. Complete necessary technical design for that slice (schema/API/storage/etc.)
+   and write executable acceptance/model tests matching the specified contract.
 3. Implement the slice without broadening scope.
 4. Check behavior, failure recovery, accessibility, and compatibility.
 5. If a gap is discovered, stop that behavior's implementation, propose a spec
@@ -286,5 +312,5 @@ After approval:
 Proposed order: deterministic state/history core; local Android table and durable
 action queue; automatic shared publication/sync; review/branch/undo; full generic
 tabletop toolkit and manual MTG coverage; notifications/catalog/decks; operational
-hardening. Final slices must
-be planned after the complete specification, not treated as current approval.
+hardening. This is an unapproved candidate order, not a settled delivery plan or
+current implementation authorization. Plan actual slices after stages 1–3.

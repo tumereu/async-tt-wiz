@@ -40,7 +40,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, turn/phase/priority tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-101 confirm random tools, exposure/comment retention, non-undoable Chat, fixed MTG phase/step tracking, and standalone/next-step Untap all and Draw one shortcuts. Independent Next step and direct phase/step correction controls next. |
+| G-10 | Other table tools: dice/coins, turn/phase/priority tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-104 confirm random tools, exposure/comment retention, non-undoable Chat, MTG tracking/shortcuts, turn progression, and displayed priority/Pass without automatic step advancement or editing locks. Priority defaults and direct correction next. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -742,14 +742,42 @@ not a whole-phase skip. Do not execute further card operations on arrival.
 Exact participant association, any skip-untap convention, empty-source/no-op
 handling, atomic/group boundaries, other shortcuts, and touch layout remain open.
 
-Next progression-control batch, proposed and not yet approved:
+Confirmed progression controls (D-102):
 
 1. Standalone Next step advances tracking without card edits.
 2. Tap the phase/step indicator to choose a phase/step directly for skips or
    corrections, without executing intermediate card operations.
 
 Priority consequences, grouping, and exact layout remain later review.
+These are shared game edits with normal undo/branch/queue/sync, not history
+navigation. Direct phase/step choice does not settle turn/player corrections.
 
-Remaining proposals: turn number/whose turn and priority holder with explicit
-Pass priority, as tracking rather than an editing lock. Pass cycles/automatic
-advancement, corrections, initialization, and exact controls remain later review.
+Confirmed turn tracking (D-103):
+
+1. Track/display whose turn it is and the turn number.
+2. Next step from Cleanup starts the other player's Untap and increments the
+   turn number, with no automatic untapping/drawing.
+
+Increment per individual player's turn, not per round. History/undo/branches/
+offline/sync apply. Review alone does not advance a turn. Turn corrections/extra
+turns, initialization, and exact controls remain later review.
+
+Confirmed priority controls (D-104):
+
+1. Display priority holder and offer Pass priority to transfer it to the other
+   player, without advancing steps or resolving/moving cards.
+2. Priority tracking is not an editing lock; both participants retain table access.
+
+Pass edits shared tracking with normal history/undo/branch/queue/sync. Repeated
+passes do not implicitly advance steps or resolve/move cards. Defaults, special
+steps, correction controls, exact pass records, and grouping remain later review.
+
+Next priority-default/correction batch, proposed and not yet approved:
+
+1. On entering a step or main phase, give priority to the turn player; Untap
+   and Cleanup default to no holder.
+2. Tap the priority indicator to directly choose either player or no holder
+   for corrections/exceptions, without card edits or phase/step changes.
+
+No inferred card rules/triggers. Initialization, no-holder Pass behavior, picker
+layout, and atomic/group boundaries remain open.

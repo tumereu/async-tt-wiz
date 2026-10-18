@@ -44,7 +44,7 @@ merely automatic rules enforcement.
 | P-024 | The engine is generic and rules-agnostic; MTG is a manual-play use case, not hard-coded mechanics. |
 | P-025 | Present literal actions and pings as recorded; players infer their game meaning. |
 | P-026 | Area names, card metadata, and pings must not imply game-specific state transitions or automatic side effects. |
-| P-027 | Turns, phases, and priority have first-class engine tracking (D-96), not only arbitrary markers, notes, or tokens. Their exact state, controls, transition automation, and enforcement remain under review. |
+| P-027 | Turns, phases, and priority have first-class engine tracking (D-96), not only arbitrary markers, notes, or tokens. D-104 adds displayed priority and explicit Pass without implicit step advancement/resolution or editing locks. Exact initialization/reset state and remaining controls/transitions stay under review. |
 
 ## 1.3 Proposed first-release boundaries
 
@@ -83,6 +83,12 @@ Included:
   that also advance tracking. D-101 advances to the next step: Untap → Upkeep;
   Draw → Precombat main at the phase boundary. Other shortcuts/progression rules
   still need review.
+- D-102 adds standalone Next step without card edits and tap-indicator direct
+  phase/step choice for skips/corrections without intermediate card operations.
+- D-103 tracks/displays turn player and number. Next step from Cleanup starts
+  the other player's Untap and increments the number, without untapping/drawing.
+- D-104 displays priority and offers Pass to the other player without advancing
+  steps or resolving/moving cards. Priority never locks either player's editing.
 
 Not included in the proposed first release:
 

@@ -362,7 +362,8 @@ tracking as game state at each action boundary so that history, replay, undo,
 branches, offline queuing, and synchronization handle it like other game edits.
 Do not replace it with arbitrary labels or blank tokens. Exact fields, initial
 values, transition/pass commands,
-automatic advancement, and any priority-based action restrictions remain open.
+automatic advancement, and priority initialization/reset behavior remain open.
+D-104 settles that priority is tracking, not an editing lock.
 The requirement alone does not approve a particular transition state machine or
 infer changes from card movements, pings, grouping, or elapsed time.
 
@@ -399,6 +400,30 @@ after Untap or execute another card operation merely on entering the next step.
 Exact participant association, no-op/failure behavior,
 atomic/group boundaries, and other shortcuts remain under review; no new
 card-rule inference is implied.
+
+D-102 adds standalone Next step (tracking only, no card edits) and direct
+phase/step choice through the indicator for skips/corrections, without executing
+intermediate card operations. Both edit shared tracking under normal undo,
+branch, queue, and sync contracts; neither is a history-review cursor change.
+Direct phase/step choice does not itself settle turn/player corrections.
+Priority consequences and exact action/group boundaries remain under review.
+
+D-103 requires turn-player identity and turn number in shared tracking and its
+presentation. Next step from Cleanup starts the other player's Beginning/Untap
+and increments the turn number by one per individual player's turn, not per
+round. It does not untap or draw cards automatically. History, replay, undo,
+branches, offline queuing, and sync preserve this turn context. Turn corrections,
+extra turns, starting-player/number initialization, and priority consequences
+remain under review; reviewing a boundary does not advance the turn.
+
+D-104 requires a displayed priority holder and explicit Pass priority, transferring
+priority to the other player without advancing steps or resolving/moving cards.
+Repeated passes likewise do not trigger implicit advancement or resolution.
+This is shared game tracking with normal history/replay/undo/branch/offline/sync,
+not an editing lock: either participant can still manipulate the table regardless
+of the holder. Exact initial/reset priority, whether/when no holder applies,
+no-holder Pass behavior, direct correction controls, and pass/group records
+remain under review. Do not add priority-based tabletop access restrictions.
 
 D-52 confirms that participants, like cards, may have colored counters carrying
 arbitrary text, with quick increment/decrement/set for numeric text. It does not

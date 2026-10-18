@@ -644,17 +644,18 @@ batch:
 
 This does not approve the previous always-visible tracker +/- controls,
 double-tap -> Counters submenu, or tap-number-to-edit proposal. Double tap still
-opens card actions under the existing gesture contract; exact counter editing
-entry points and hit regions require review. Numeric limits/recognition,
-styling, placement, bulk changes, and history/grouping
-remain open.
+opens card actions under the existing gesture contract; D-61 confirms inline
+counter controls and player-panel entry. Exact hit regions, numeric
+limits/recognition, styling, placement, bulk changes, and history/grouping remain
+open.
 
 Confirmed menu lifetime (D-54): counter increment/decrement actions keep the
 context menu open for repeated adjustments. Each completed edit still queues
 and synchronizes without dismissing the menu or requiring Send. Other actions
 can dismiss it: a successful context Move to Graveyard closes the menu. Do not
-apply a universal dismiss-after-action rule; Set, corner-text shortcuts, and
-other actions still need explicit lifetime decisions.
+apply a universal dismiss-after-action rule. D-61 later confirms Add/Set also
+retain/return to this menu. Corner-text shortcuts and other actions still need
+explicit lifetime decisions; D-63 confirms corner +/- and Set retention.
 
 Confirmed reset exception (D-55/D-56): entering configured Graveyard, Exile, or
 Library removes card counters and restores database-default corner text. This
@@ -674,16 +675,20 @@ Match its current content against patterns to offer appropriate quick actions;
 those actions rewrite the same string, not separate P/T or loyalty fields.
 Editing to a different shape changes the available actions. Counter numeric
 conveniences likewise operate on its text rather than a separately authoritative
-numeric value. Exact matching/formatting and action sets remain open.
+numeric value. D-62 fixes the initial pattern families/action sets; exact
+matching/formatting details and numeric limits remain open.
 
-Specific adjustment proposals, still awaiting approval:
+Confirmed text-pattern quick actions (D-62):
 
-1. When corner text matches a slash-pair pattern such as `2/3`, context actions
-   can adjust the left number, right number, or both by +/-1, or replace the
-   whole text. These are literal
-   text conveniences, not inferred effects or changes to printed card data.
-2. A single numeric corner/counter text value uses +/-1 and exact Set. Other
-   text supports direct replacement without inventing an arithmetic meaning.
+1. A signed whole-number corner/counter string uses +/-1 and exact Set. For
+   example, `4` -> `5`, or `0` -> `-1`. Do not clamp to zero or infer game limits.
+2. Corner text matching two signed whole numbers separated by `/`, such as
+   `2/3`, offers +/-1 for the left number, right number, or both, plus Set.
+   Both +1 changes `2/3` -> `3/4`. Rewrite the same string; no P/T entity.
+3. Other text, including decimals and symbolic/mixed pairs such as `*/*` or
+   `2/*`, has Set only initially. Do not evaluate expressions or infer arithmetic
+   from card text. Exact matching/format preservation and numeric limits remain
+   specification work.
 
 Confirmed counter appearance/lifecycle (D-58):
 
@@ -715,7 +720,7 @@ Confirmed counter creation/color behavior (D-60):
 3. No recolor action in the initial release. The proposed recoloring convenience
    was rejected as unnecessary.
 
-Next counter-menu touch batch, proposed and not yet approved:
+Confirmed counter-menu touch behavior (D-61):
 
 1. Put counter controls directly in the card context menu rather than requiring
    a separate Counters submenu. Existing numeric counters have rows such as
@@ -726,6 +731,28 @@ Next counter-menu touch batch, proposed and not yet approved:
 3. Add and completed Set return to/retain the context menu, like counter +/-.
    Completing Set with empty trimmed text removes that counter row, making its
    color available again. Existing Move to Graveyard dismissal stays unchanged.
+
+Confirmed corner-text editing (D-63):
+
+1. Corner-text +/- shortcuts and completed Set retain/return to the context menu,
+   just like counter edits, for repeated adjustments without reopening it.
+2. Completing Set with empty trimmed corner text leaves the corner overlay
+   blank; do not silently restore the database default. This does not change
+   printed card art or remove the card.
+3. Offer Reset corner text to restore the database default without changing
+   counters or other card state. For example, a default `2/3` edited to `5/6`
+   returns to `2/3`. Destination-entry resets still clear counters as separately
+   agreed. Exact Reset menu lifetime remains open.
+
+Next database-default batch, proposed and not yet approved:
+
+- Creatures already use printed P/T under D-56. Also populate default corner
+  text with printed starting loyalty for planeswalkers and printed defense for
+  battles; cards without an applicable printed value default to an empty string.
+- These are descriptive database/import mappings, not engine-defined card types
+  or automatic counter creation. See [default metadata proposals](02-domain-model.md#23-card-and-object-state).
+  Face selection, overlapping types, custom/missing data, and version selection
+  remain separate specification work.
 
 ## 10.9 Worked interaction examples
 

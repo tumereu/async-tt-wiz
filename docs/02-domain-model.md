@@ -131,9 +131,11 @@ against its current text. A match such as `2/3` can expose pair-oriented text
 adjustments without creating a P/T entity; invoking an action rewrites that same
 string. Direct editing may change which actions are available. There is no
 separately authoritative parsed value or persistent game-specific field type.
-Exact patterns, parsing/format preservation, and the offered action set remain
-to be specified. Counter text follows the same text-first principle for its
-numeric conveniences.
+D-62 confirms initial quick actions: signed whole-number corner/counter strings
+get +/-1 without zero-clamping; corner slash-pairs of signed whole numbers get
+left/right/both +/-1. Other text, including decimals and symbolic/mixed pairs,
+has Set only. Counter text follows the same text-first principle. Exact
+matching/format preservation and numeric limits remain open.
 
 D-56 requires the card database to provide a default corner string. For
 creatures this is their printed P/T, formatted as text (for example `2/3`).
@@ -141,6 +143,22 @@ The tabletop edits that string generically; it need not know why a definition
 supplies it. Reset restores the database default, not the last manually entered
 text or a calculated value. Exact defaults for other card types, multi-faced
 definitions, custom/missing data, and historical version selection remain open.
+
+D-63 distinguishes blank from default corner text: completing an empty trimmed
+Set leaves a blank corner overlay. Reset corner text explicitly restores the
+database default without editing counters or other state. Neither operation
+changes printed art; no typed P/T interpretation is needed.
+
+Next database-default proposals, not yet approved:
+
+1. Planeswalkers: printed starting loyalty as default corner text.
+2. Battles: printed defense as default corner text.
+3. Cards without an applicable printed value: empty default corner text.
+
+These extend D-56's approved creature P/T mapping in descriptive database/import
+metadata, not the tabletop engine's state types or rules. No colored counters
+are created automatically. Multi-face/default selection, overlapping types,
+custom/missing data, and historical version selection remain open.
 
 ## 2.4 Areas, containers, and ordering
 

@@ -36,7 +36,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-007 | Row/fan operations | View, arrange, cover/uncover, select, and move cards; labels such as Hand do not alter semantics. |
 | A-008 | Orientation/faces | Tap/untap presentation, rotate, choose face, cover/uncover, and edit labels. |
 | A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
-| A-010 | Counters | Add/remove/edit colored text-bearing counters on cards/participants, with quick inc/dec/set for numeric text. D-58/D-59 fix six colors, uniqueness, zero, and trimmed-empty removal. D-60 creates unused colors with `1`, opens existing colors for editing without mutation, and excludes recoloring. Exact menu layout remains open. |
+| A-010 | Counters | Add/remove/edit colored text-bearing counters on cards/participants, with quick inc/dec/set for numeric text. D-58/D-59 fix palette/uniqueness and zero/empty/trim behavior; D-60 fixes creation/color scope. D-61 confirms inline card menus, player-panel entry, and Add/Set menu retention. Exact text-pattern actions and hit regions remain open. |
 | A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
 | A-012 | Labeled-area movement | Move any card to/from areas such as Cast; record origin/destination, not casting/payment/resolution. |
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
@@ -64,7 +64,15 @@ Incomplete input does not stream malformed or half-selected game actions.
 D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite
 the string rather than editing a P/T or loyalty entity. Numeric counter text uses
-the same text-first principle. Exact patterns and action sets remain open.
+the same text-first principle. D-62 confirms whole-number +/-1, corner
+slash-pair left/right/both +/-1, and Set-only for other text (including decimals
+and symbolic/mixed pairs). Exact matching/format preservation and limits remain
+open; negative values are not zero-clamped.
+
+D-63 confirms blank corner text as a valid explicit value and Reset corner text
+as a separate action restoring the database default without changing counters
+or other state. Corner +/- and completed Set retain/return to the context menu.
+Exact Reset menu lifetime remains open.
 
 D-59 applies edge trimming to all completed user-text edits before validation,
 empty-value handling, and pattern matching. Preserve internal spaces/newlines.

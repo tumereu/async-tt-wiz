@@ -37,7 +37,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-04 | Inspect, face-down/up, printed faces, and reveal presentation. | D-37/D-38 confirm context face changes and automatic face/both-face inspection; exact targeting/layout and logging remain open. |
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
-| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-60 confirm text/counters, resets, palette/uniqueness, zero/empty/trim rules, creation with `1`, and no recolor action; menu layout and remaining controls under review. |
+| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-63 confirm text/counters, lifecycle/menus, quick actions, and corner clear/default reset; other database defaults and remaining controls under review. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | Not yet reviewed; generic engine boundary and action-scoped pings already confirmed. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
@@ -385,12 +385,15 @@ Confirmed menu and move-reset updates (D-54–D-56):
   other card types, multi-face/custom/missing data, same-container behavior, and
   exact undo composition remain open in Q-29.
 
-Specific adjustment batch, proposed and not yet approved:
+Confirmed text-pattern quick actions (D-62):
 
-1. For corner text matching a slash-pair pattern like `2/3`, context +/-1 actions
-   for left, right, or both numbers, plus replacement of the whole text.
-2. Single numeric corner/counter text gets +/-1 and exact Set; other text gets
-   direct replacement without arithmetic interpretation.
+1. Signed whole-number corner/counter text gets +/-1 and exact Set, without
+   zero-clamping; e.g. `0` -> `-1`.
+2. Corner text matching a pair of signed whole numbers separated by `/` gets
+   left/right/both +/-1 actions and Set; both +1 makes `2/3` -> `3/4` as text.
+3. Other text, including decimals and symbolic/mixed pairs such as `*/*` or
+   `2/*`, gets Set only initially. No arithmetic expression evaluation or rules
+   interpretation. Exact matching/format preservation and limits remain open.
 
 Confirmed counter appearance/lifecycle (D-58):
 
@@ -418,7 +421,7 @@ Confirmed counter creation/color behavior (D-60):
 3. No recolor action in the initial release; the owner rejected this convenience
    as unnecessary.
 
-Next counter-menu touch batch, proposed and not yet approved:
+Confirmed counter-menu touch behavior (D-61):
 
 1. Inline counter controls in the card context menu, no separate Counters
    submenu. Numeric rows have -/+/Set, other text has Set, and unused colors have
@@ -427,6 +430,26 @@ Next counter-menu touch batch, proposed and not yet approved:
 3. Add and completed Set keep/return to the context menu. Empty trimmed Set
    removes the counter row and frees its color. Move to Graveyard still dismisses.
 
+Confirmed corner-text editing (D-63):
+
+1. Corner-text +/- and completed Set retain/return to the context menu.
+2. Empty trimmed corner text leaves a blank overlay, not an automatic default
+   restoration; printed art and card presence are unaffected.
+3. Reset corner text restores the database default only, preserving counters and
+   other card state. This differs from destination-entry resets that also remove
+   counters. Exact Reset menu lifetime remains open.
+
+Next database-default batch, proposed and not yet approved:
+
+1. Planeswalker default corner text is its printed starting loyalty.
+2. Battle default corner text is its printed defense.
+3. Cards without an applicable printed value default to an empty string.
+
+Creature P/T defaults are already confirmed by D-56. These are descriptive
+catalog/import mappings to one plain string, not game-rule behavior or automatic
+counter creation. Multi-face selection, overlapping types, custom/missing data,
+and version selection remain open.
+
 Exact numeric recognition/limits, styling, counter
-layout/entry points, bulk changes, annotations, and action/history boundaries
+layout/hit regions, bulk changes, annotations, and action/history boundaries
 remain for later review.

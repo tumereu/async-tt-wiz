@@ -95,13 +95,20 @@ decided before implementation.
 - D-52 distinguishes optional bottom-right card text from colored counters with
   their own text on cards and players. Card text supports quick context
   inc/dec/set; numeric counter text also supports quick inc/dec/set. Both accept
-  arbitrary text. Exact counter controls, palette, layout, and P/T-like pair
-  adjustments remain open; earlier proposed +/- tracker and tap-number layouts
-  were not approved.
+  arbitrary text. D-58/D-61 settle the palette and inline counter-menu controls;
+  D-62 settles initial integer/slash-pair shortcuts; exact geometry remains open.
+  Earlier +/- tracker and tap-number layouts were not approved.
 - D-53 clarifies that quick-action availability is derived from patterns in the
   current plain text. A corner string such as `2/3` is not separate P/T fields;
-  quick actions rewrite the same string. Exact patterns and action sets remain
-  to be specified.
+  quick actions rewrite the same string. D-62 offers +/-1 for whole numbers,
+  left/right/both +/-1 for corner slash-pairs of whole numbers, and Set only for
+  everything else initially. No zero-clamping. Exact grammar/formatting and
+  numeric limits remain to be specified.
+- D-63 keeps the context menu open after corner-text +/- and completed Set.
+  Empty trimmed corner text leaves a blank overlay, not the default; Reset
+  corner text explicitly restores the database default without changing counters
+  or other state. Printed art is unaffected. Exact Reset menu lifetime remains
+  open.
 - D-54 keeps the context menu open after counter increment/decrement, allowing
   repeated automatically queued edits. A successful context Move to Graveyard
   dismisses it. Other actions require explicit menu-lifetime decisions; remaining
@@ -114,7 +121,10 @@ decided before implementation.
   internal spacing/newlines and apply text-pattern matching after trimming.
 - D-60 creates an unused counter color with text `1`; an existing color opens
   editing actions without changing its text. No recolor action is needed in the
-  initial release. Exact menu layout and Add/Set lifetime remain proposed.
+  initial release. D-61 confirms inline card-menu counter controls and player
+  panel taps for equivalent controls. Add and completed Set retain/return to the
+  menu; empty trimmed Set removes its counter row and frees that color. No
+  separate Counters submenu is required; exact sizing/hit regions remain open.
 - D-55/D-56 remove card counters and restore database-default corner text on
   entry to configured Graveyard/Exile/Library. For creatures the default is
   printed P/T text. Defaults for other types/faces/missing data remain open;

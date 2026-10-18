@@ -567,7 +567,7 @@ A brief animation alone is insufficient for asynchronous review. Proposed layers
 | --- | --- | --- |
 | Live presence | Dragging a card, browsing a pile, positioning a ping. | Ephemeral, online-only, best effort; no board edit, branch, or game-rule meaning. |
 | Explicit View/Reveal | View library contents or View/Reveal top N. | Shared logged/synchronized operation, not merely presence; faces versus backs follow D-44, and top-N source order follows D-45. Exact record/display schema remains open. |
-| Action-associated ping | Point to an object, participant marker, area, or location; optional style/label. | Durable, actor-attributed, linked to the recorded action/group and context; no mechanical side effects. |
+| Group/event-scoped ping | Point to an object, participant marker, area, or location; style/label controls remain proposed. | Durable, actor-attributed record linked to one group/event; visible only in that context, including event-tree review (D-75). No mechanical side effects. |
 | Literal board edit | Move/rotate a card, create a labeled piece, change a named value, add a generic line. | Explicit generic state transition with ordinary history, branching, and undo. |
 
 Presence never reveals inspected hidden-card identities, search terms, or private
@@ -575,10 +575,12 @@ choices by default. It expires after disconnect/crash and cannot block play.
 Exact expiry/throttling are still required protocol decisions. Offline work does
 not replay a backlog of obsolete live cursor/searching signals on reconnect.
 
-Durable pings have readable visual/accessibility descriptions and optional text,
-not only animation or color. They surface next to the relevant object and in the
-activity/review feed. Quick presets reduce typing. Their expiration/acknowledgment
-policy is explicit; unseen markers do not disappear merely because time elapsed.
+Durable pings have readable visual/accessibility descriptions, not only animation
+or color; optional text/presets remain under review. D-75 scopes their display
+to one group/event. Advancing beyond that context hides its ping overlays from
+the later board, even if unseen; this is not deletion. They remain viewable when
+reviewing that step in the event tree, including offline for downloaded games.
+They are not persistent table markers or acknowledgment-gated reminders.
 
 A ping is a communication record, not a rules target, activated ability,
 declaration, or priority pass. Creating one while inspecting history does not
@@ -587,8 +589,8 @@ associated move, ping destination, and other literal edits themselves. Optional
 ping labels/icons must not create inferred mechanical effects.
 
 Markers live in contextual communication records with versioned edit/delete
-history. Every durable ping names its specific source action, optional enclosing
-group, effective context boundary, and optional stable object/participant IDs.
+history. Every durable ping belongs to one group/event, retaining source-action
+and effective-boundary context and optional stable object/participant IDs.
 Moving a card does not create a rules incarnation or redirect its old pings.
 If the card no longer exists at the viewed boundary, show the original context
 link rather than pointing to an unrelated object.
@@ -599,11 +601,45 @@ to a new continuation as if its author endorsed it. “Seen” or “acknowledge
 not a rules approval. A persistent response request is a social signal, not a
 permission lock on a cooperative table.
 
-Proposed entry points: a ping handle/control on the current action, ping entries
-in the double-tap sheet, and the currently selected log action. A table
-request control uses a visible action context, not an unanchored marker. General
-conversation remains supported through text/chat. Exact placement and tap
-budgets need wireframes.
+Confirmed ping interaction direction (D-74): pinging is a persistent interaction
+mode, analogous to tap/selection-edit interaction, not a one-shot command beside
+an action. Entering the local mode is not itself a completed ping or shared edit.
+Durable pings retain recorded context; D-75 clarifies that pinging is a toggleable
+state within one event and pings belong only to its group/event. They do not
+carry forward onto later events. Here group/event means the user's visible
+grouped history unit; exact mapping to atomic actions remains later review.
+Exact association/defaults, mode controls, and gesture arbitration remain open.
+General conversation remains supported through text/chat.
+
+Confirmed event-scoped toggle details (D-76):
+
+1. Within the event, tapping an already-pinged destination toggles that ping off;
+   tapping an unpinged destination toggles it on. This is distinct from binary
+   persistent Link, whose repeated creation is not a toggle (D-72). Completed
+   ping changes queue/sync without Send; exact revision/history remains open.
+2. Moving to a different event turns Ping mode off; the new event starts without
+   inherited pings. Returning to the old event shows its recorded pings without
+   automatically enabling input mode. Record visibility follows D-75 regardless
+   of the local toggle.
+
+Repeated destination taps toggle presence under D-76, rather than placing
+duplicates. Exact location matching/hit tolerance remains open.
+
+Next G-08 mode interaction/marker batch, proposed and not yet approved:
+
+1. Ping and selection-edit modes are mutually exclusive. Switching modes retains
+   the selected set; a ping tap affects only the touched destination, not the
+   whole selection.
+2. In Ping mode, destination taps do not also tap/untap cards, edit selection,
+   clear selection on the background, or open ordinary player controls. Other
+   gestures and accessible equivalents still require exact arbitration.
+3. Initially use one standard ping marker, with no dedicated label/style picker
+   or required typing. Optional notes/chat remain separate communication tools.
+
+Earlier action-adjacent one-shot and P-15 drag-handle entry proposals are replaced
+by the confirmed mode direction, not additional required UI. Exact editing/
+removal revisions, historical-action targeting, and history boundaries follow
+separately; this batch does not settle grouping/playback.
 
 ## 10.8 Additional controls needed for complete play
 
@@ -831,8 +867,8 @@ Confirmed persistent-link touch behavior (D-70):
    It is separate from an action-associated ping or an ordinary visual stack.
 3. Link endpoints follow their referenced objects visually when moved, but
    linking alone does not move the other endpoint card or change counters/text.
-   D-71 confirms selection fan-out and link removal below; attachment/follow-
-   movement options remain separate review.
+   D-71 confirms selection fan-out/removal and D-73 excludes separate attachment/
+   follow-movement tools from the initial release.
 
 Confirmed simple-link selection/removal (D-71):
 
@@ -856,14 +892,12 @@ Confirmed binary-link semantics (D-72):
    via the explicit removal control. A mixed selection links only missing pairs
    and leaves already-linked pairs unchanged. Exact no-op history remains open.
 
-Next attachment/follow-movement scope question, not yet approved:
-
-- Recommended initial scope: no separate Attach/follow-group tool. Binary links
-  remain visual only; use existing multi-selection to move related cards together.
-- Alternative: add an explicitly created placement/follow relationship so dragging
-  an anchor also moves followers. This would be distinct from binary links and
-  would require its own creation/removal, chain, destination, bulk, and undo
-  contracts. No attachment is inferred from card type, overlap, or link creation.
+Confirmed initial attachment/follow-movement scope (D-73): no separate Attach
+or follow-group tool. Binary links remain visual only; use existing multi-
+selection to move related cards together. Dragging one linked card alone does
+not move its neighbors. No attachment is inferred from card type, overlap, or
+link creation. Explicit anchor/follower grouping is outside initial scope, not a
+remaining first-release implementation decision.
 
 ## 10.9 Worked interaction examples
 

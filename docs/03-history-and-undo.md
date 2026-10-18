@@ -102,6 +102,12 @@ keep their own boundaries; the unit is not one mutable historical node. Later
 changes cannot retroactively alter an earlier boundary. Notes/messages remain
 optional.
 
+Under D-75 pings belong to just one group/event. Their overlays are not carried
+onto later event states, but the records remain viewable when reviewing that
+step in the event tree, including offline for downloaded games. This visibility
+rule does not merge atomic boundaries or settle automatic group formation.
+Exact within-group effective boundaries and later ping revisions remain open.
+
 Proposed grouping rules:
 
 - Group using explicit interaction context, contiguous actions, associated

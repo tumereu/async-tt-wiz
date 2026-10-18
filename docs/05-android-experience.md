@@ -141,6 +141,15 @@ decided before implementation.
   face; switching faces alone preserves current text. Provider/source mapping
   remains open. Preserve unrelated fields and stable identity.
 - Multi-select has visible selected count and a clear cancel action.
+- D-74 makes pinging a persistent interaction mode, not a one-shot command from
+  an action menu. Mode entry alone creates no ping/shared edit. Durable pings
+  retain recorded context. D-75 makes pinging toggleable within one group/event;
+  its pings disappear from later board contexts but remain viewable at that step
+  in the event tree, including downloaded offline review. D-76 makes destination
+  taps toggle ping presence and exits input mode on event change. Revisiting an
+  event displays its recorded pings without re-enabling input mode. Exact location
+  matching, selection interaction, marker choices, and action mapping remain
+  under review. These are not persistent binary links.
 - D-66 gives mass selections the same card-action controls as individual cards,
   applying the action across the selected set with visible scope/count. Relative
   edits use each card's own value and corner Reset each card's own default.
@@ -154,6 +163,9 @@ decided before implementation.
   and removal via a card's Links list. D-72 makes links undirected/unique per pair;
   repeated Link preserves an existing connection instead of toggling it off.
   Exact geometry/cancel/no-op history remain open; links are not pings/attachments.
+- D-73 keeps initial movement tooling simple: no separate Attach/follow-group
+  controls. Binary links do not make neighbors move; existing multi-selection
+  handles deliberate joint movement.
 - Drag/drop is the primary card-movement interaction, with grid/slot snapping.
   Confirmed: drag one card unless multiple are selected; special-pile drops go
   on top; dropping onto an ordinary card forms/joins its visual stack. The

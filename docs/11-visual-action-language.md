@@ -78,9 +78,13 @@ do not appear retroactively at an earlier boundary.
 
 ## 11.4 Pings point; they do not declare mechanics
 
-**Confirmed:** each durable ping is associated with a specific recorded action.
+**Confirmed (D-17, refined by D-75):** each durable ping belongs to one recorded
+group/event, with source-action/boundary context retained. It displays only in
+that context, not as a persistent overlay on later events. Reviewing that step
+in the event tree shows its recorded pings again, including downloaded offline
+review. Hiding an old event's overlays does not delete its ping records.
 
-Proposed data includes actor, associated action ID, optional group ID, effective
+Proposed data includes actor, owning group/event ID, source action ID, effective
 boundary/path context, and a referenced object/participant/area or board location.
 Optional appearance or user labels do not give a ping mechanical effects.
 
@@ -89,11 +93,14 @@ A ping to a card is just a ping to that card. It cannot change another object's
 effect. Multiple pings are simply multiple recorded pings; the engine does not
 interpret target slots, legal counts, or damage division.
 
-Proposed control: drag a **ping handle** associated with the current action to
-the desired object/player/location. The handle is separate from card bodies,
-so dragging cards still moves them, single tapping still taps them, and holding
-still opens art/text. An accessible picker is also available. Exact gestures,
-appearance, and budgets need approval.
+D-74 confirms a persistent **Ping mode**, analogous to tap/selection-edit
+interaction, instead of the earlier proposed drag handle or one-shot command.
+Entering the local mode alone creates no ping/shared edit. D-75 scopes this
+toggleable state and its pings to one event. D-76 makes destination taps toggle
+ping presence, exits Ping mode on event change, and keeps input mode off when
+revisiting recorded pings. Exact mode-control geometry, gesture overrides,
+selection interaction, and appearance remain under review; accessible destination
+picking is still required.
 
 The current action association is always visible. A new selected action changes
 that context; adding a ping to an older action is explicit. A setup/root entry
@@ -114,9 +121,18 @@ removal are shared and recoverable. Exact rendering/no-op history remain under
 review in G-08. This does not remove
 separate optional ping labels/styles from their own review.
 
+D-73 excludes separate Attach/follow-group controls initially. Binary links
+stay visual; use explicit multi-selection for joint card movement. The next
+unapproved G-08 batch covers selection-mode mutual exclusion/preservation,
+consuming ordinary tap effects, and one standard marker without label/style
+controls. Destination location matching and revisions remain open.
+Exact action/group/history placement still needs later detailed review.
+
 ## 11.5 Branches, history, and recovery
 
-- A ping keeps its original action/context references across branch changes.
+- A ping keeps its original group/event and action/context references across
+  branch changes. Show its overlays only in its own event context, never carried
+  into a later event merely because the source event is on the same path.
 - If its referenced object moves, the historical view still shows where the ping
   was made. If the object is absent, offer the original context rather than
   silently pointing at a replacement object.
@@ -160,7 +176,8 @@ rules object. Generic labeled values capture any other state the players need.
   corner-text restoration must be visible in literal review and recoverable;
   D-64/D-65 fix conditional type metadata, blank fallback, and retained per-face
   defaults. Exact source/custom mapping remains open.
-- Ping gestures, current-action association, appearance, and lifecycle.
+- Ping gestures, exact action association, appearance, and revision controls;
+  group/event-only overlay lifetime and retained historical review are D-75.
 - Generic grouping heuristics, boundaries, later linked pings, and historical
   visibility/revision contracts.
 - Literal log layouts, covered-card presentation, optional text flows, wireframes,

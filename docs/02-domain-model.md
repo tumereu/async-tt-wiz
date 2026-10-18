@@ -52,7 +52,7 @@ history or authorize normalization of external catalog/import data.
 | Message | Stable ID, author, content, context boundary, edit/delete revisions. |
 | Board placement | Object ID, logical area/grid position, optional visual pile ID and order; independent of camera/device pixels. |
 | Visual pile | Stable ID, one zone/area, ordered member IDs, logical anchor; not a rules attachment, merged object, or action group. |
-| Ping | Stable ID, author, associated action ID, optional group ID, effective context boundary, referenced object/participant/area or board location, optional visual style/label, edit/delete revisions. |
+| Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced object/participant/area or board location. Exact schema, optional style/label, and edit/delete revisions remain under review. |
 | Generic link | Stable ID, object/participant endpoints, binary present/absent relationship; one standard connector, no user labels/styles initially (D-71). No inferred game effect. |
 
 Live cursor/activity presence is ephemeral transport data, not a persistent
@@ -78,6 +78,11 @@ pair, while explicit removal unlinks; selection Link creates only missing pairs.
 Exact no-op history, rendering, self-link presentation, and concurrent uniqueness
 enforcement remain open; no label/style metadata is required initially.
 
+D-73 excludes a separate initial attachment/follow-group model. Binary links
+do not imply parent/child placement or neighbor movement; move multiple cards
+together through explicit selection. No anchor/follower entity is required in
+the initial schema merely to represent aura/equipment-like relationships.
+
 An authenticated account and a game participant are separate concepts. Account
 creation, guest support, and invite credentials are unresolved decisions.
 
@@ -102,6 +107,14 @@ Exact face/default selection and missing-default behavior remain open. Do not
 infer other resets, change stable
 identity, or derive behavior merely from a container's label or game rules.
 
+Pings belong to one group/event and display only in that context (D-75); advancing
+to a later event hides overlays without deleting records. Reviewing the original
+step in the event tree restores its applicable pings. This is communication
+context, not a persistent binary link or a rule-dependent lifetime.
+D-76 makes destination taps toggle ping presence rather than add duplicates.
+Changing events exits local Ping input mode; historical display does not
+automatically re-enable it. Exact location matching and revision schema remain
+open, without discarding recoverable earlier ping states.
 Historical pings store their action/boundary context. Moving or deleting a
 referenced card does not retarget a ping to a different object; show its original
 context when the object is absent from the viewed state. The engine does not

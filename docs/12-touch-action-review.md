@@ -38,7 +38,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
-| G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-72 confirm simple undirected unique links, selection fan-out, list removal, and idempotent Link; optional attachment/follow-movement scope next. |
+| G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-73 confirm binary links and no initial Attach/follow tool; D-74–D-76 confirm event-scoped ping mode, destination toggling, mode reset, and historical visibility. Selection interaction and marker scope next. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
 
@@ -519,7 +519,7 @@ Confirmed persistent-link touch behavior (D-70):
    earlier optional-label and line/arrow-style choices: linked or not suffices.
 3. Line endpoints follow referenced objects visually; moving a card does not
    move the other card merely because linked. D-71 confirms removal/fan-out;
-   attachment/follow-movement options remain separate review.
+   D-73 excludes a separate initial Attach/follow tool.
 
 Confirmed simple-link selection/removal (D-71):
 
@@ -538,12 +538,45 @@ Confirmed binary-link semantics (D-72):
 1. Undirected unique endpoint pairs: A-B and B-A are the same link.
 2. Link existing pairs is idempotent, not a toggle. Explicit removal unlinks;
    mass Link creates missing pairs and preserves existing ones. Exact no-op
-    history remains open.
+   history remains open.
 
-Next attachment/follow-movement scope question, not yet approved:
+Confirmed initial attachment/follow-movement scope (D-73): no separate Attach/
+follow tool. Use binary links for relationships and existing multi-selection for
+joint movement; dragging one linked card alone does not move its neighbors.
+Anchor/follower grouping is outside initial scope, not awaiting implementation
+defaults. No card-type/overlap inference is introduced.
 
-- Recommended for the initial release: no separate Attach/follow-group tool;
-  use binary links for relationships and multi-selection for joint movement.
-- Alternative: explicit anchor/follower placement grouping, separate from binary
-  links, with its own full movement/removal/chain/destination/undo contract.
-  Neither option interprets card types or creates attachments from overlap.
+Confirmed ping interaction direction (D-74): persistent ping mode, analogous to
+tap/selection-edit interaction, replaces the proposed one-shot action-adjacent
+command. Entering local mode does not itself create a ping/shared edit. Each
+durable ping still references a recorded action; exact association is open.
+
+Confirmed scope/lifetime (D-75): pinging is a toggleable state within one event.
+Pings link to only that group/event and do not remain as overlays on later board
+contexts. Their records remain viewable at that step in the event tree, including
+downloaded offline review. Group/event denotes the visible grouped history unit;
+exact atomic-action mapping and grouping heuristics remain later work. This does
+not create persistent binary links or require acknowledgment before hiding pings.
+
+Confirmed event-scoped toggle details (D-76):
+
+1. Within the event, tap an already-pinged destination to toggle it off; tap an
+   unpinged destination to toggle it on. Completed changes auto-queue/sync.
+2. Switching event exits Ping input mode; no pings carry to the new event.
+   Revisiting the old event shows recorded pings without enabling input mode.
+
+Repeated taps toggle destination presence rather than adding duplicates; exact
+location matching/hit tolerance remains open.
+
+Next mode interaction/marker batch, proposed and not yet approved:
+
+1. Ping and selection-edit modes are mutually exclusive, retaining selection
+   when switching. Ping only the touched destination, not the selected set.
+2. Ping taps consume ordinary tap effects: no tap/untap, selection edits/clearing,
+   or ordinary player controls. Other gesture arbitration remains open.
+3. One standard marker, no dedicated ping label/style picker or required typing
+   initially; optional notes/chat remain separate.
+
+Detailed revisions, association, other gestures, and grouping remain later
+review. Earlier one-shot and P-15 drag-handle proposals are replaced by the mode
+direction, not additional mandatory entry points.

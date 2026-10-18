@@ -41,9 +41,9 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-012 | Labeled-area movement | Move any card to/from areas such as Cast; record origin/destination, not casting/payment/resolution. |
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
 | A-014 | Pile order/edit | Reorder, duplicate, move, or remove selected objects in any pile; no built-in stack-resolution command. |
-| A-015 | Action-associated pings | Point at objects, participant markers, areas, or locations; retain association and order, not rules targets or choices. |
+| A-015 | Group/event-scoped pings | D-74–D-76: destination taps toggle ping presence within an event; changing events exits Ping mode. Display only in that group/event, retaining records for event-tree review without re-enabling input. Not persistent links or rules targets; exact location matching/revisions remain open. |
 | A-016 | Custom objects/copies | Create cards, tokens, counters, notes, and copies with new stable IDs and explicitly chosen display data. |
-| A-017 | Generic visual links | D-70–D-72 confirm context endpoint picking, binary undirected unique pairs without labels/styles, independent movement, selection fan-out, and Links-list removal. Repeated Link preserves existing pairs, not toggles. No attachment rules or inferred follow-on moves. |
+| A-017 | Generic visual links | D-70–D-73 confirm binary undirected unique pairs, context picking, fan-out/removal, and independent movement. Repeated Link preserves pairs; no labels/styles or separate initial Attach/follow tool. Joint movement uses explicit multi-selection. |
 | A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting game meaning. D-52/D-53 add plain corner text with pattern shortcuts; D-69 adds multiline card notes with short on-card text, optional long-text ellipsis, full inspection, and empty-text removal. |
 | A-019 | Board markers/connectors | Mark objects/relationships visually; players may use them for combat or other mechanics without specialized engine state. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |

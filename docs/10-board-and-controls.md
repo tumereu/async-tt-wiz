@@ -39,6 +39,14 @@ editing. Every completed state-changing interaction queues immediate sync and
 has undo. Menus, zoom, selection previews, and cancelled gestures do not create
 game-state actions.
 
+D-121: no targeted action is quick-action-exclusive. Every combined targeted
+shortcut and each constituent action must remain reachable through a full action
+path, such as the target's context menu or an equivalent selection-aware path.
+Phase/step or multiselect conditions may control prominent quick-action offerings,
+not remove access to the underlying actions. Structural/applicability validation
+still applies. Exact menu organization is stage 3; this does not require every
+button in every menu or change existing direct-tap/selection gestures.
+
 ## 10.2 Proposed board areas
 
 Portrait-first conceptual layout, not an approved pixel wireframe:
@@ -622,6 +630,11 @@ grouped history unit; exact mapping to atomic actions remains later review.
 Exact association/defaults, mode controls, and gesture arbitration remain open.
 General conversation remains supported through text/chat.
 
+D-119 adds automatic ping order numbers across all pings in the same grouped
+event, not per target/source/attacker. The [primary ping contract](11-visual-action-language.md#114-pings-point-they-do-not-declare-mechanics)
+keeps numbering separate from user labels/styles and damage rules. Exact order
+editing/removal/re-add/coalescing behavior remains under review.
+
 Confirmed optional communication direction (D-94/D-95):
 
 1. A table Chat control opens the game-wide conversation. Posting a message is
@@ -1175,8 +1188,10 @@ ability projections, and contextual Stack actions. Review each case in
 [combat, Stack, and projections](13-combat-stack-and-projections.md) before
 implementation; do not substitute generic controls as a reason to skip design.
 Current work is stage 1 behavior specification (D-115); UI drafts follow stage 2
-adversarial behavior review. Next: attacker projection behavior/source tapping,
-not a final screen layout or drag gesture.
+adversarial behavior review. D-116–D-121 further settle separate combat actions,
+multiselect declaration variants, assigned/unassigned blockers/adaptive spacing,
+numbered pings, projection-link lifetime, and full-path action access. Next:
+combat-area removal behavior, not a final screen layout.
 
 ## 10.9 Worked interaction examples
 

@@ -39,10 +39,10 @@ Proposed sequence; groups can be split or reordered during review:
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
-| G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
+| G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | Required by D-112; current behavior review starts with source tapping when adding an attacker. Entry gestures/layout wait for stage 3. |
+| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle separate area/declaration/tap actions, multiselect compositions/auto-area, blocker drops/blank slots, and adaptive spacing. D-120 covers projection links; D-121 full-path access. Combat removal behavior next; exact UI drafts remain stage 3. |
 | G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 renames Cast to Stack and requires virtual permanent occurrences without moving originals. Exact behavior cases remain open. |
 | G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. Category/routing/lifecycle cases remain open; no automatic resolution. |
 
@@ -819,8 +819,19 @@ Review all behavior cases before implementation, not only generic substitutes.
 The [primary contract](13-combat-stack-and-projections.md) tracks common source/
 projection semantics, combat lifecycle, and Stack entry/exit separately.
 
-Next G-11 behavior proposal, not yet approved: creating an attacker projection
-also taps its source by default; offer a without-tapping variant for exceptions.
-No card-text inference. Exact gestures/layout are stage 3 under D-115, not the
-current question. Blocker associations, multi-source behavior, lifecycle, and
-history boundaries remain stage 1 work after this batch.
+Confirmed D-116–D-118: area creation, attacker declaration, and tapping are
+separate actions. Plain declaration does not tap. Phase-appropriate multiselect
+Declare + tap / without-tapping both auto-create the area. Blockers can be
+dragged to attackers or blank unassigned slots; attackers get more space with
+more assigned blockers. Duplicate/empty/mixed selection behavior, exact quick
+visibility steps, source routing, and combined action boundaries remain open.
+
+D-119 adds event-wide ping order numbers; D-120 adds projection-to-projection
+links that disappear with endpoints. D-121 guarantees non-quick full paths to
+all targeted combined/individual actions, regardless of quick visibility.
+See the primary projection and ping contracts for pending details.
+
+Next G-11 cleanup proposal, not yet approved: removing the combat area removes
+its projections/projection links but leaves originals, positions, and current
+orientation unchanged. In particular it does not untap attackers. Automatic
+versus manual lifetime remains undecided; exact UI drafts remain stage 3.

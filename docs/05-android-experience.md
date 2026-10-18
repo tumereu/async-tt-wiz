@@ -17,6 +17,13 @@ assignment, and contextual Stack actions. Their behavior is being specified in
 UI drafts, final layouts, and concrete control choices for delivery stage 3;
 current work is stage 1 behavior specification.
 
+D-116–D-118 separate combat-area creation/declaration/tapping, add phase-appropriate
+multiselect declaration combinations, blocker-to-attacker drops/blank slots, and
+adaptive spacing. These user-specified requirements guide later drafts, not a
+finished screen. D-119 adds event-wide ping order numbers; D-120 removes links
+with their projection endpoints. D-121 requires another full action path for
+every targeted combined/individual quick action; quick visibility is not access.
+
 ## 5.1 Navigation and screens
 
 | Screen | Main responsibilities |

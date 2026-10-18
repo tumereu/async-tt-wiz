@@ -55,8 +55,8 @@ history or authorize normalization of external catalog/import data.
 | Message | Stable ID, author, content, context boundary, edit/delete revisions. |
 | Board placement | Object ID, logical area/grid position, optional visual pile ID and order; independent of camera/device pixels. |
 | Visual pile | Stable ID, one zone/area, ordered member IDs, logical anchor; not a rules attachment, merged object, or action group. |
-| Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced object/participant/area or board location. One standard marker with no user label/style controls initially (D-77); exact schema and edit/delete revisions remain under review. |
-| Generic link | Stable ID, object/participant endpoints, binary present/absent relationship; one standard connector, no user labels/styles initially (D-71). No inferred game effect. |
+| Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced destination, and event-wide sequence shown as an order number (D-119). One standard marker/no user label/style controls (D-77). Exact ordering/edit/revision/schema behavior remains open. |
+| Generic link | Stable ID, supported endpoints, binary present/absent relationship; one standard connector/no user labels/styles (D-71). D-120 adds projection-to-projection endpoints whose links disappear with an endpoint projection. Other mixed projection endpoints remain open; no inferred game effect. |
 
 Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in
@@ -93,9 +93,10 @@ comment schemas, group association, revisions/edit/delete, and unsent-delivery
 policies remain open; do not give all Message records one shared Undo policy.
 
 The [visual action language](11-visual-action-language.md) presents literal
-operations and associated pings together. There are no cast/target declarations,
-ability objects, rules-completion states, or inferred mechanical intent in the
-engine. A custom piece can be labeled anything, but its label is just data.
+operations and associated pings together. No cast/target legality objects,
+rules-completion states, or mechanical intent are inferred. D-112–D-120 do permit
+explicit combat declarations/assignments and ability-signaling projections, not
+an automatic rules engine. A custom piece's label remains just data.
 
 D-70/D-71 confirm persistent generic links between a source card and a picked
 card/player endpoint, presented with one standard connector and no user labels
@@ -110,6 +111,16 @@ pairs undirected and unique: A-B is B-A. Repeated Link preserves an existing
 pair, while explicit removal unlinks; selection Link creates only missing pairs.
 Exact no-op history, rendering, self-link presentation, and concurrent uniqueness
 enforcement remain open; no label/style metadata is required initially.
+
+D-120 additionally supports links between projection endpoints. Such links
+disappear when an endpoint projection disappears, not silently retarget to the
+real source cards. Preserve recorded history/undo/branch recovery. Exact cleanup
+composition, concurrent endpoint removal, and mixed endpoint kinds remain open;
+see [projection behavior](13-combat-stack-and-projections.md#132-confirmed-combat-action-model).
+
+D-119 requires event-wide ping order numbers, distinct from generic link state.
+No damage-order rules entity is implied; numbering mutations and group-edit
+behavior remain under review in the primary ping contract.
 
 D-73 excludes a separate initial attachment/follow-group model. Binary links
 do not imply parent/child placement or neighbor movement; move multiple cards

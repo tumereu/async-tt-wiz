@@ -53,6 +53,10 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-029 | Name the former Cast area Stack; allow battlefield permanents to project there to signal activated abilities without moving their originals (D-113). |
 | P-030 | Offer contextual Stack quick actions: actual instant/sorcery → Graveyard, actual permanent → Battlefield, projection → remove projection. Design exact behavior case by case before implementation (D-114). |
 | P-031 | Stage 1 must cover all agreed behavior, including combat/Stack cases. Stage 2 adversarial review precedes stage 3 UI drafts; stage 4+ implementation is iterative. Do not replace behavior design with UI drafts or technical-schema decisions now (D-115). |
+| P-032 | Combat-area creation, attacker declaration, and tapping are separate actions. Phase-appropriate multiselect Declare + tap / Declare without tapping shortcuts also create the area when absent (D-116/D-117). |
+| P-033 | Blockers can be dragged to individual attackers or blank unassigned slots; attacker spacing grows with assigned blocker count (D-118). |
+| P-034 | Pings show event-wide order numbers (D-119). Links between projections disappear when endpoint projections disappear (D-120). |
+| P-035 | No targeted action is quick-action-exclusive: combined shortcuts and constituent actions remain reachable through full targeted action paths, such as context actions (D-121). |
 
 ## 1.3 Proposed first-release boundaries
 

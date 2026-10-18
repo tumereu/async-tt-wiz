@@ -106,6 +106,13 @@ Under D-75 pings belong to just one group/event. Their overlays are not carried
 onto later event states, but the records remain viewable when reviewing that
 step in the event tree, including offline for downloaded games. This visibility
 rule does not merge atomic boundaries or settle automatic group formation.
+
+D-116 requires separately invoked combat-area creation, attacker declaration,
+and tapping to remain distinct actions. D-117's combined multiselect shortcuts
+do not by themselves settle their internal atomic/undo/group boundaries. D-119
+requires ping numbers across the single grouped event; exact ordering mutation
+and split/join/coalescing effects remain behavior questions, not permission to
+merge actions or lose historical ping context.
 Exact within-group effective boundaries and later ping revisions remain open.
 
 Proposed grouping rules:

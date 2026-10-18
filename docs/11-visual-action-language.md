@@ -98,6 +98,16 @@ boundary/path context, and a referenced object/participant/area or board locatio
 D-77 uses one standard marker with no user label/style picker initially;
 descriptive accessibility text does not give a ping mechanical effects.
 
+D-119 requires each ping to show its order number among all pings in that single
+grouped event. Use one event-wide sequence, not separate counts per target,
+source, attacker, or semantic purpose. Players may use the sequence to communicate
+damage-assignment order; the engine does not interpret or apply damage from it.
+The ordinal is automatic presentation, not a user-entered label/style choice.
+Existing event scope, toggles, and historical review remain. Exact order capture,
+numbering after Unping/re-add, mass-Ping ordering, group split/join/coalescing,
+and projection-target routing still require behavior decisions. Do not infer
+their answers from this display requirement.
+
 A ping to a card is just a ping to that card. It cannot change another object's
 “targets,” create a rules link, pay a cost, move/rotate a card, or resolve an
 effect. Multiple pings are simply multiple recorded pings; the engine does not

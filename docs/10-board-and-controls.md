@@ -614,7 +614,7 @@ grouped history unit; exact mapping to atomic actions remains later review.
 Exact association/defaults, mode controls, and gesture arbitration remain open.
 General conversation remains supported through text/chat.
 
-Next G-10 optional communication controls, proposed and not yet approved:
+Confirmed optional communication direction (D-94/D-95):
 
 1. A table Chat control opens the game-wide conversation. Posting a message is
    ordinary text submission, separate from gameplay publication; play never
@@ -624,6 +624,14 @@ Next G-10 optional communication controls, proposed and not yet approved:
    pings; text is not required to explain an action. Trim completed input under
    D-59 without publishing unfinished text. Exact threads, editing/removal,
    submission controls, and historical/branch association remain later review.
+
+D-94 excludes submitted game-wide chat from Undo; edit/delete and unsent-delivery
+policies remain open. D-95 makes event comments ordinary nodes on the current
+tree path, retained through the comment when undone. That path is already a
+branch; no separate comment-only fork or activation control is needed. Apply
+normal tree/base rules. Treat comments as retention checkpoints for D-91's
+cutoff. Exact comment/group association and revisions remain later work. Card
+notes, event pings, and ordinary editor drafts keep their distinct behavior.
 
 Confirmed event-scoped toggle details (D-76):
 
@@ -682,8 +690,9 @@ These are proposed essentials, not additional mandatory actions per card move:
    reorder piles, and inspect recorded changes. No engine Cast/Resolve command.
 3. **Visual links:** binary persistent relationships with one standard connector,
    no labels/style choices initially (D-71); no target/combat/attachment meaning.
-4. **Table markers:** optional labeled participant/status markers and explicit
-   communication cues; no turn/priority state machine or permissions.
+4. **Turn/phase/priority:** D-96 requires first-class engine tracking, distinct
+   from optional generic table markers. Exact controls, progression/pass rules,
+   automation, and any action restrictions remain under review.
 5. **Bulk operations:** multi-select, rotate selected, move top N to an explicit
    destination, edit selected counters, and manage overlapping pieces.
 6. **History/recovery:** persistent undo, action stepping, branch indicator,
@@ -1028,7 +1037,21 @@ requested earlier state. Any action actually exposing otherwise-hidden info
 qualifies, including draws/moves/face changes, not only View/hold. Exact event
 placement/coalescing, cutoff group display, collaborator handling, redo, and
 offline publication remain Q-31. This is not a persistent ping/access restriction.
-Chat/event Note/Reply controls are the active G-10 question.
+D-96 rejects omitting turn/phase/priority tracking or substituting blank tokens,
+notes, and counters. Provide first-class engine state integrated with history,
+undo, branches, offline queuing, and automatic synchronization. Exact controls,
+state fields, transitions, automation, and priority-based restrictions are not
+yet approved. Generic player values remain separate.
+
+Next G-10 tracking-model batch, proposed and not yet approved:
+
+1. Track turn number and whose turn it is.
+2. Track a current phase/step within a configured ordered sequence, with an MTG
+   preset rather than hard-coded MTG phases in the generic engine.
+3. Track who has priority, with an explicit Pass priority action. Treat priority
+   as tracking rather than an editing permission: either participant can still
+   manipulate the table. Exact pass cycles, automatic advancement, correction
+   controls, and touch layout follow after this model review.
 
 ## 10.9 Worked interaction examples
 

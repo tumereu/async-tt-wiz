@@ -189,9 +189,11 @@ selected boundary, view shared head, and interrupt here.
 ## 3.7 Full undo contract
 
 Requirement U-001: **Every user-authored logical game edit has a discoverable
-undo or recovery path.** This includes state edits, random actions, draft edits,
-publication, grouping, messages, setup corrections, branch switching, branch
-archival, and game result markers.
+undo or recovery path, except submitted game-wide chat (D-94).** This includes
+state edits, random actions, draft edits, publication, grouping, event-linked
+comments, setup corrections, branch switching/archival, and result markers.
+Submitted game-wide chat is not undoable. Chat edit/delete, unsent-delivery
+cancellation, and ordinary text-editor draft behavior remain separate decisions.
 
 Undo preserves auditability. “Delete” and “discard” are reversible logical
 operations, not necessarily physical removal of recovery records. D-90 separates
@@ -214,7 +216,8 @@ ordinary undone nodes to remain in the visible tree. Exact schemas are open.
 | Activate another branch | Restore the previous branch selection. |
 | Delete/archive branch | Restore the branch and its metadata; restore selection if explicitly requested. |
 | Group metadata edit | Restore previous title/boundaries without changing action payloads. |
-| Message edit/delete | Restore the previous content/version. |
+| Submitted game-wide chat | No game Undo (D-94). Chat edit/delete and unsent-delivery policies remain open; do not promise generic message Undo. |
+| Event-linked comment undone | Move back along the ordinary event tree while retaining its existing path through the comment (D-95), not ordinary undone-node pruning. No separate comment-only fork is needed. |
 | Game completion/concession marker | Reopen the game at the prior logical state. |
 | Die/coin result | Restore prior board state while retaining the information-gaining action/result as a history branch (D-89/D-90); redo reuses that result. Other random-operation classification remains open. |
 
@@ -264,6 +267,8 @@ Shared prefix actions are never deleted by branch archival.
 - An external account deletion or legally required data erasure is not a
   recoverable in-game operation. Its policy must explicitly disclose that.
 - Navigation has Back/history behavior rather than shared game undo.
+- Submitted game-wide chat is explicitly not undoable (D-94); event-linked
+  comments instead remain in their tree paths even after undo (D-95).
 
 The UI must explain these boundaries instead of promising physical reversibility.
 No history compaction or retention policy may silently remove the promised
@@ -303,6 +308,17 @@ inspectable under cooperative full access; rolls retain actual recorded results.
 exemption from eventual game/account erasure. Exact triggers/coalescing,
 historical/offline views, durable capture/publication, schemas, and retention
 remain Q-31. No competitive anti-cheat guarantee is implied.
+
+D-95 includes event-linked comments as retention points alongside hidden-info
+exposure. A submitted event comment is another node on the current tree path;
+that path is already a branch like any other. Apply the ordinary chosen-base/
+path rules, not a separate comment-only fork/activation mechanism. Undo moves
+back while preserving the existing path through the comment. In a mixed undone
+sequence, the D-91 cutoff is the last qualifying exposure or event comment;
+ordinary steps after it disappear from the visible tree, not internal recovery.
+This differs from D-94 game-wide chat, which is outside game Undo. Exact comment
+group association, revision/edit/delete, and dependent/concurrent protocols remain
+later review, not an unresolved question of whether paths are already branches.
 
 Confirmed mixed-sequence cutoff (D-91):
 

@@ -48,13 +48,13 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-019 | Board markers/connectors | Mark objects/relationships visually; players may use them for combat or other mechanics without specialized engine state. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
 | A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. Context Remove applies to ordinary cards/tokens and selections, no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact routing/references/boundaries remain open. |
-| A-022 | Table-status markers | Manually edit named participant/table markers such as Turn/Phase/Priority; no state machine or automatic cleanup. |
+| A-022 | Turn/phase/priority tracking | D-96 requires first-class engine tracking, not marker-only conventions. Changes participate in history, undo, branching, offline queuing, and synchronization. Exact fields, phase/step configuration, transition/pass controls, automation, and action restrictions remain open. Arbitrary table markers remain a separate capability. |
 | A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
 | A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
 | A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
 | A-026 | Additional containers | Access/configure extra labeled containers and move cards between them; no outside-game or sideboarding restrictions. |
 | A-027 | Randomness | D-87/D-92/D-93 confirm one-die Roll, Flip coin, fresh draws for new die/coin/Shuffle invocations (including after undo), and auto-synced stored results/orders reused for review/redo/retries. No opponent-action seed reset. Other random controls and exact generator/source/input/offline protocols remain open. |
-| A-028 | Communication | Game chat, group/action annotations, response request, intention/shortcut notes, and contextual branch messages. |
+| A-028 | Communication | D-94 game-wide Chat is not undoable. D-95 event comments are ordinary current-path nodes retained even after undo, without a special comment-only branch mechanism. Exact comment/group association, revision/edit/delete, and unsent-chat policies remain open; card notes/pings and other proposed communication tools stay distinct. |
 | A-029 | Correction | Edit any supported tabletop field, add/remove mistaken objects, and bulk-correct state with a preview. |
 | A-030 | Completion | Concede, record win/loss/draw or agreed result, reopen via undo, start rematch retaining completed history. |
 | A-031 | History controls | D-89–D-91: ordinary undos vanish from the visible tree; retain an undone path only through its last actual hidden-information exposure, including draw/move/face changes. Preserve internal recovery and the requested rollback state. Review/interrupt/switch/archive/restore/rename and draft recovery remain; exact cutoff display/dependency/redo protocols are open. |
@@ -131,6 +131,9 @@ mechanic-specific entities to the engine.
 
 - No casting, activation, targeting, combat, damage, cost payment, priority,
   resolution, or turn-progression model is inferred from physical actions.
+- D-96 separately requires explicit engine-level turn/phase/priority tracking.
+  Do not interpret the no-inference rule as excluding that state. Exact explicit
+  transitions, automatic progression, and enforcement remain under review.
 - A ping only creates a visual communication record; it never creates a legal
   target or another rule-specific relationship.
 - Moving normally preserves orientation, counters, corner text, labels,

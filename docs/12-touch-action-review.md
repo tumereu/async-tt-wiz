@@ -40,7 +40,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | D-87/D-89–D-93 confirm fresh new die/coin/Shuffle draws, fixed stored results, hidden-info exposure, and undo branches trimmed at last info gain. D-88 seed reset superseded; Chat/event Note/Reply controls next. |
+| G-10 | Other table tools: dice/coins, turn/phase/priority tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-96 confirm random tools, exposure/comment retention, non-undoable game Chat, and first-class engine turn/phase/priority tracking. Marker-only omission rejected; tracking-model batch next. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -698,7 +698,7 @@ Exact event coalescing, redo reconciliation, schema/publication, collaborator/
 branch/offline handling, and retention remain Q-31. This replaces the earlier
 separate permanent-audit-marker proposal with retained information branches.
 
-Next optional communication-control batch, proposed and not yet approved:
+Confirmed optional communication direction (D-94/D-95):
 
 1. Table Chat opens game-wide conversation; ordinary message submission is
    separate from gameplay publication and never a prerequisite to play/sync.
@@ -706,3 +706,24 @@ Next optional communication-control batch, proposed and not yet approved:
    optional, distinct from card notes/pings, and trimmed only on completion under
    D-59. No unfinished text publication. Exact threading, revisions/removal,
    submission controls, and historical/branch association remain later review.
+
+D-94: submitted game-wide chat is not undoable; exact edit/delete, unsent delivery,
+and editor drafts remain separate. D-95: event comments are ordinary nodes on
+the current path, already a branch. Undo moves back but retains the existing
+path through the comment. No special comment-only branch/activation mechanics.
+Comments qualify as retention checkpoints alongside information gains under
+D-91; card notes/pings remain distinct. Exact event/group association and
+revision/dependency protocols remain later review.
+
+D-96 requires first-class turn/phase/priority engine state. The proposed omission
+and token/note/counter-only workaround are rejected. History, undo, branches,
+offline queuing, and synchronization apply; detailed state and transitions are
+Q-32, not permission to infer game rules or begin implementation.
+
+Next tracking-model batch, proposed and not yet approved:
+
+1. Turn number and whose turn it is.
+2. Current phase/step in a configurable ordered sequence, with an MTG preset.
+3. Priority holder plus explicit Pass priority; tracking, not an editing lock.
+   Both participants retain table access. Pass cycles/automatic advancement,
+   corrections, initialization, and exact touch controls follow this model review.

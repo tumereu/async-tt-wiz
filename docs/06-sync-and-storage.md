@@ -103,6 +103,12 @@ Metadata and messages may use simpler per-entity revision checks, but editing
 them must not cause false game-action conflicts. The exact division of revision
 domains is a required API design decision.
 
+D-94 game-wide chat must not be retracted by gameplay Undo. D-95 event comments
+are ordinary nodes on the current path and remain in that retained history
+after undo; no special comment-only branch mechanism is needed. Exact comment/
+group association, revisions, edit/delete, unsent chat delivery, and idempotent
+publication remain open. Do not apply a blanket message-undo policy to both.
+
 Pings are generic, action-linked communication records, not game-rule target
 declarations. They synchronize durably with source-action/group and effective
 context references; they cannot mutate card state as a side effect. Their exact

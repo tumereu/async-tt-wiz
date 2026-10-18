@@ -8,7 +8,8 @@ specification work; do not treat this as a finished database definition.
 Maintain three distinct state classes:
 
 1. **Board state:** cards/objects, labeled areas/containers, participants, named
-   values, orientation, and generic visual relationships at an action boundary.
+   values, orientation, generic visual relationships, and first-class turn/
+   phase/priority tracking (D-96) at an action boundary.
 2. **Shared history/control state:** immutable action nodes, branches, the active
    branch pointer, archive status, publication records, and undo records.
 3. **Personal presentation state:** review cursor, selected objects, camera,
@@ -81,6 +82,13 @@ visible path ends at the last information gain; trailing ordinary undone steps
 remain only in internal recovery. Earlier/intervening ordinary ancestors remain
 in the path. This does not change the requested rollback board state or authorize
 rewriting action payloads/pruning unrelated branches.
+
+D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
+nodes on the ordinary tree path. The current path is already a branch; no
+comment-only fork entity/activation mechanism is required. Undo retains that
+path through its last qualifying exposure or event comment. Exact message/
+comment schemas, group association, revisions/edit/delete, and unsent-delivery
+policies remain open; do not give all Message records one shared Undo policy.
 
 The [visual action language](11-visual-action-language.md) presents literal
 operations and associated pings together. There are no cast/target declarations,
@@ -342,12 +350,21 @@ open.
 ## 2.5 Participant/table values and markers
 
 Support arbitrary labeled numeric/text values and participant/board markers.
-Players may label them Life, Mana, Turn, Phase, Priority, Commander damage, or
-anything else. They remain ordinary manually edited values, not a turn state
-machine, payment system, or role/permission system.
+Players may label them Life, Mana, Commander damage, or anything else. These
+arbitrary values remain distinct from D-96's first-class turn/phase/priority
+tracking, and are not a payment or role/permission system.
 
 Changing one value does not clear another, advance a turn, move cards, or grant
 consent. No game-specific effect follows from setting a marker or label.
+
+D-96 requires engine-level tracking for turns, phases, and priority. Store that
+tracking as game state at each action boundary so that history, replay, undo,
+branches, offline queuing, and synchronization handle it like other game edits.
+Do not replace it with arbitrary labels or blank tokens. Exact fields, initial
+values, phase/step sequence and configuration, transition/pass commands,
+automatic advancement, and any priority-based action restrictions remain open.
+The requirement alone does not approve a particular transition state machine or
+infer changes from card movements, pings, grouping, or elapsed time.
 
 D-52 confirms that participants, like cards, may have colored counters carrying
 arbitrary text, with quick increment/decrement/set for numeric text. It does not

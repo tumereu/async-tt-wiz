@@ -9,8 +9,10 @@ below are proposals.
 ## 11.1 Record what happened, not what it means
 
 The engine knows objects, areas, containers, orientation, named values, generic
-links, pings, and recorded operations. It does not know spells, legal targets,
-costs, triggers, combat, priority, or resolution.
+links, pings, and recorded operations. D-96 adds first-class turn/phase/priority
+tracking, with exact state/transitions still under review. It does not infer
+spells, legal targets, costs, triggers, combat, priority passes, or resolution
+from physical actions. Explicit tracking is distinct from inferred card rules.
 
 | Recorded fact | Acceptable presentation | Forbidden inference |
 | --- | --- | --- |
@@ -164,6 +166,13 @@ Exact action/group/history placement still needs later detailed review.
 Support action/group notes, contextual replies/questions, and general game chat.
 Players can explain unusual situations or write their own interpretation. Keep
 that text visibly user-authored. Do not parse it into automatic state changes.
+
+D-94 makes submitted game-wide chat non-undoable. D-95 makes an event comment
+another node on the current tree path, already a branch; undo moves back while
+retaining that existing path through the comment. No separate comment-only fork
+or activation workflow. Normal tree/base rules apply, and comments are retention
+checkpoints under D-91. Card notes/pings stay distinct. Exact group association,
+revisions/edit/delete, and unsent-chat delivery policies remain open.
 
 Common physical operations and pings need no explanatory text or mandatory
 labels. A participant may create a generic note/token with a label such as

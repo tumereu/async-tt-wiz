@@ -25,7 +25,7 @@ merely automatic rules enforcement.
 | P-005 | History is a tree, with exactly one active branch in each game. |
 | P-006 | An interruption makes its new branch active; no approval vote is required. |
 | P-007 | Players can delete the interruption and return to the earlier continuation. |
-| P-008 | All game edits have undo/recovery support, including accidental branch changes. D-89/D-90 remove ordinary undos from the visible event tree as if never performed, but retain information-gaining undos as history branches; internal recovery/redo is distinct from visible tree retention. |
+| P-008 | Game edits have undo/recovery support; submitted game-wide chat is non-undoable (D-94). D-89–D-91 remove ordinary undos from the visible tree but retain paths through their last information gain. D-95 event-comment nodes are also retained checkpoints on ordinary tree paths. Internal recovery is distinct from visible history. |
 | P-009 | Either participant can manipulate any participant's tabletop state. |
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |
@@ -44,6 +44,7 @@ merely automatic rules enforcement.
 | P-024 | The engine is generic and rules-agnostic; MTG is a manual-play use case, not hard-coded mechanics. |
 | P-025 | Present literal actions and pings as recorded; players infer their game meaning. |
 | P-026 | Area names, card metadata, and pings must not imply game-specific state transitions or automatic side effects. |
+| P-027 | Turns, phases, and priority have first-class engine tracking (D-96), not only arbitrary markers, notes, or tokens. Their exact state, controls, transition automation, and enforcement remain under review. |
 
 ## 1.3 Proposed first-release boundaries
 
@@ -71,13 +72,17 @@ Included:
   across move controls (D-85), with synchronized history/undo recovery. This is
   another declared destination
   convenience, not inferred card-text/type/label behavior or historical erasure.
+- D-96 adds first-class turn, phase, and priority tracking. This supersedes the
+  earlier marker-only scope, without authorizing inferred card rules. Exact
+  progression/priority semantics and touch controls still require review.
 
 Not included in the proposed first release:
 
 - Game-specific semantic actions, inferred casting/targeting/activation/combat,
   inferred rule-based resets beyond declared conveniences, trigger detection,
-  legal-target validation, automatic phase
-  progression, or card-script execution.
+  legal-target validation, or card-script execution. D-96 separately requires
+  explicit turn/phase/priority tracking; automatic progression is now an open
+  design question rather than a blanket scope exclusion.
 - Matchmaking, rankings, tournaments, clocks, wagering, public spectators,
   public chat, AI opponents, or competitive anti-cheat.
 - Multiplayer UI and coordination, even if identifiers are not hard-coded to

@@ -57,6 +57,15 @@ payment, resolution, or legality engine is implied. See
 
 ## 11.3 One visible unit, literal constituent records
 
+D-129 distinguishes undo units from tree events. D-131 sets whole-user-action/
+group undo as the general rule, while requiring multiple tree events wherever
+MTG allows distinct reaction points. These must preserve meaningful state/review/
+interruption boundaries, not just split one indivisible change into decorative
+rows. One Undo can cover all those events; exceptions and specific event mappings
+need individual decisions. No runtime priority/legality inference is authorized.
+D-130 specifically confirms whole undo for advance-and-close; its event count
+remains open. The example below does not impose a universal combined-action format.
+
 Proposed presentation:
 
 ```text

@@ -90,6 +90,16 @@ quick action only at End of combat and advances to Postcombat main. Full non-qui
 access remains; out-of-combat/missing-area handling and combined boundaries still
 need design. Ordinary Next step at End of combat does not close the area.
 
+D-129 distinguishes undo units from tree events. D-131 sets the general rule:
+one Undo reverses one user action and its whole group, including a combined
+shortcut, unless an exception is approved. Where MTG permits reactions at distinct
+points, preserve those as multiple events/interruption boundaries within that
+user action; do not require more user invocations or undo taps. Specify the event
+mapping per action without runtime priority/legality enforcement. D-130 confirms
+whole undo for advance-and-close, restoring prior step and complete combat area;
+its event count is still open. Other combinations use the default undo rule,
+not an undecided undo scope.
+
 D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite
 the string rather than editing a P/T or loyalty entity. Numeric counter text uses

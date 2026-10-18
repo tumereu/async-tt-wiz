@@ -58,6 +58,15 @@ history or authorize normalization of external catalog/import data.
 | Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced destination, and event-wide sequence shown as an order number (D-119). One standard marker/no user label/style controls (D-77). Exact ordering/edit/revision/schema behavior remains open. |
 | Generic link | Stable ID, supported endpoints, binary present/absent relationship; one standard connector/no user labels/styles (D-71). D-120 adds projection-to-projection endpoints whose links disappear with an endpoint projection. Other mixed projection endpoints remain open; no inferred game effect. |
 
+D-129 keeps user invocation, undo unit, visible game event/group, and atomic
+action boundary distinct. D-131 supplies whole-user-action/group undo as the
+general default, with exceptions recorded individually. A user action must have
+multiple events wherever MTG permits distinct reaction points; its undo unit can
+span those events. Specify event mappings without runtime priority/legality
+inference. These entities do not mandate a one-to-one schema. D-130 specifically
+confirms whole undo for advance-and-close; its event mapping is still open.
+Retain user-action ownership and restoration context across constituent records.
+
 Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in
 [the board contract](10-board-and-controls.md). Exact schemas remain open.

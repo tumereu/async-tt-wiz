@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-128 require case-by-case design before implementation. The
+(D-115). D-112–D-131 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -74,7 +74,8 @@ Both automatically create the combat area if absent, without a separate manual
 creation prerequisite. This is explicit composition, not inferred card text.
 Exact quick-action phase/step visibility, duplicate handling, empty/mixed
 selections, single-card entry when the area is absent, and the internal
-action/undo/group boundaries of combined shortcuts remain behavior questions.
+event/interruption/group mapping of combined shortcuts remain behavior questions;
+D-131 supplies whole-user-action undo unless an exception is approved.
 Do not infer a gesture or final layout beyond the specified multiselect offerings.
 
 D-121 requires both combined declaration actions and their individual actions
@@ -245,9 +246,10 @@ Stack effects. This is an explicit combined action, not a phase-change listener
 or automatic damage/resolution. Closing alone and advancing alone remain
 available; the combined action also has a full non-quick path under D-121.
 
-Handling outside combat/with no area and internal action/group/undo/interruption
-composition remain behavior questions. D-128 fixes the destination and quick
-visibility below. UI wording/geometry follows stage 3.
+Handling outside combat/with no area, event-tree representation, and internal
+atomic/interruption composition remain behavior questions. D-128 fixes the
+destination/quick visibility; D-130 makes the combination one undoable unit.
+UI wording/geometry follows stage 3.
 
 ## 13.8 Confirmed advance-and-close destination and quick visibility (D-128)
 
@@ -262,9 +264,28 @@ available. Ordinary Next step at End of combat advances to Postcombat main but
 does not close the area. Exact missing-area behavior and full-path behavior
 outside combat remain open; do not infer a later-phase rewind policy.
 
-## 13.9 Next advance-and-close undo boundary — proposed, not approved
+## 13.9 Confirmed combined-action decision policy and undo scope (D-129/D-130)
 
-Treat advance-and-close as one atomic, undoable action, restoring both the prior
-step and the combat area/projections/assignments/links/placement on undo, with no
-interruption point between its two effects. This proposal is specific to this
-combination and does not settle other combined shortcuts' boundaries.
+D-129 distinguishes invocation, undo unit, tree event/group, and atomic boundary.
+D-131 refines this with a general default: **one user action, including its whole
+combined group, is one Undo**. Tree events must remain separate wherever MTG
+permits reactions at distinct points. Specify mappings and exceptions per action;
+do not require fresh undo-scope approval for every combination. These are
+designed event boundaries, not runtime priority or legality enforcement.
+
+D-130: **advance out of combat + close combat area** is one undoable unit. One
+Undo restores the prior phase/step and the complete combat area/projections/
+assignments/incident links/placements, rather than requiring a separate undo for
+each effect. Normal history/branch/recovery and dependent-work rules apply.
+This does not yet choose one versus multiple tree events or approve collapsing
+required response points. Untap/Draw + advance and declaration combinations also
+use D-131's whole-user-action undo default; their reaction-point event mappings
+and any exceptions still need review.
+
+## 13.10 Next advance-and-close tree representation — proposed, not approved
+
+Show advance-and-close as one tree event listing both the phase/step transition
+and combat-area closure: closing a presentation area does not itself add a
+distinct MTG reaction point. This mapping remains proposed, not approved; it must
+meet D-131 rather than just hide multiple meaningful boundaries in one row. Its
+whole-combination undo scope is already confirmed.

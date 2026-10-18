@@ -26,19 +26,27 @@ participant may interrupt any of it later.
 
 ## 3.2 Atomic actions and interruption boundaries
 
-An action corresponds to one explicit generic operation, not every internal
+A recorded atomic action corresponds to an explicit operation, not every internal
 field write. Examples: move a card, rotate it, add a ping, or change a named
-counter. Do not combine separate gestures because the engine guesses they form
-a game mechanic. A deliberately selected generic bulk operation can be atomic.
+counter. Distinguish this from a user action/invocation, which may produce multiple
+recorded events/actions in one undoable group (D-131). Do not combine separate
+user actions because the engine guesses they form a game mechanic. A deliberately
+selected generic bulk operation can be atomic where no required response boundary
+is hidden.
 
 An interruption is possible at the root or after any published atomic action,
 including an action inside a group. There is no boundary inside an atomic
 action. Before committing a compound action, the player can inspect its parts;
-when intermediate response points matter, record separate actions instead.
+when intermediate response points matter, record separate events/actions, which
+may still belong to one user action and its whole-group undo scope (D-131).
 
-The engine does not recognize response windows, casting, payment, or resolution.
-Preserve boundaries between independently completed operations so participants
-can choose the right interruption point themselves.
+The engine does not infer/enforce response windows, casting, payment, or resolution.
+D-131 requires the behavior specification to provide separate events wherever
+MTG permits reactions at distinct points within a user action. These are real
+review/interruption boundaries, not decorative rows hiding one indivisible
+transition. Players still judge timing; there is no priority state, Pass, or
+runtime card-rule adjudication (D-105). Preserve independently completed operations
+so participants can choose the right interruption point themselves.
 
 Example sequence, with only literal records:
 
@@ -94,6 +102,17 @@ execution that the platform cannot guarantee. Exact latency targets remain open.
 
 Groups affect presentation and notifications, never atomicity or interruptibility.
 
+D-129 distinguishes invocation, undo unit, tree event, and atomic boundary.
+D-131 now supplies the general default: **Undo reverses one user action and its
+whole group**, even if it contains multiple events. Specify exceptions individually;
+do not treat every combination as lacking an undo policy until separately approved.
+Multiple MTG reaction points require separate tree events/interruption boundaries,
+without requiring extra user invocations or undo taps. Event count/placement still
+needs case-by-case specification; neither a single invocation nor whole-group undo
+permits collapsing required reaction points. Presentation grouping alone must not
+rewrite user-action ownership or those boundaries; optional group split/join
+effects on undo targeting still need design. Schemas follow behavior, not vice versa.
+
 The [literal-action presentation](11-visual-action-language.md) groups related
 recorded operations and their action-linked pings. For example, a move to the
 Stack area and its pings can appear as one expandable unit without being
@@ -108,8 +127,9 @@ step in the event tree, including offline for downloaded games. This visibility
 rule does not merge atomic boundaries or settle automatic group formation.
 
 D-116 requires separately invoked combat-area creation, attacker declaration,
-and tapping to remain distinct actions. D-117's combined multiselect shortcuts
-do not by themselves settle their internal atomic/undo/group boundaries. D-119
+and tapping to remain distinct user actions when invoked separately. D-117's
+combined multiselect shortcuts use D-131's whole-user-action undo default; their
+internal event/interruption mapping still needs specification. D-119
 requires ping numbers across the single grouped event; exact ordering mutation
 and split/join/coalescing effects remain behavior questions, not permission to
 merge actions or lose historical ping context.
@@ -228,11 +248,21 @@ branch cutoff below.
 Redo/recovery remains required; hidden recovery retention does not require
 ordinary undone nodes to remain in the visible tree. Exact schemas are open.
 
+D-130 fixes **advance out of combat + close combat area** as one undoable unit.
+One Undo restores both the prior phase/step and the complete combat area with its
+projections, assignments, incident links, and placements. Do not require separate
+undo taps for advancement and closure. D-131 generalizes whole-user-action undo
+to other combinations unless an exception is agreed, including Untap/Draw + advance
+and declaration shortcuts. Their event/interruption boundaries still need review;
+multiple MTG reaction points must remain separate events. Normal dependent-work and
+exposure/comment retention rules still apply; a multi-event undo unit must not
+discard required recovery context merely to present one Undo.
+
 | Original operation | Required recovery behavior |
 | --- | --- |
 | Pending action not yet transmitted | Restore preceding local state; remove its queued effect safely; retain redo result. |
 | In-flight action with unknown outcome | Show undo intent immediately; establish the original outcome and synchronize the necessary compensating operation without a second ordinary undo tap. |
-| Published latest action/group | Restore its predecessor boundary. D-90/D-91 remove ordinary undone actions from the visible tree, retaining an information branch only through the last information-gaining action. Exact group display/atomicity remains open. |
+| Published latest user action/its whole group | Restore the boundary before that user action, including all its constituent events (D-131), unless an explicit exception applies. D-90/D-91/D-95 prune ordinary undone nodes while retaining the required exposure/comment path; internal recovery remains. Exact event display and dependent-work details remain open. |
 | Historical action with later dependent actions | Preview rollback to its predecessor and retain internal recovery for the affected suffix, without blind inversion of later work. D-91 retains its visible branch only through the last information-gaining action; collaborator/stale-impact protocols remain open. |
 | Interruption | Restore the previously selected continuation, including its preserved suffix. |
 | Activate another branch | Restore the previous branch selection. |

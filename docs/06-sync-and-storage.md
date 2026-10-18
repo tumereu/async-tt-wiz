@@ -38,6 +38,15 @@ synchronizing immediately when online and dependency-ready. There is no Send
 step or waiting for group closure. Service acknowledgement establishes the
 shared result, not a notification or animation.
 
+D-131 requires user-action/group undo identity to survive publication, offline
+storage, retries, and branch recovery even when that action contains multiple
+reaction-point events. Retain the distinct effective boundaries needed for review/
+interruption; batching must not collapse them into one indivisible event. One
+Undo still targets the whole user action, subject to normal dependent-work and
+exposure/comment safeguards. This does not add a Send step, priority protocol, or
+wait for presentation-group closure. Exact publication/schema mechanics remain
+technical design, not a reason to change the behavior.
+
 A publication includes an idempotency key, game ID, intended base action ID,
 continuation/branch context, revision preconditions, desired operation, actions,
 and group references. Exact revision scopes remain schema/API design work.

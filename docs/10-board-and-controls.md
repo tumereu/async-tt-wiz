@@ -1212,8 +1212,11 @@ or into different slots. D-127 requires explicit closure, with an advance out of
 combat + close shortcut; ordinary phase/step changes and End turn leave the area
 open. D-128 offers the quick action only at End of combat → Postcombat main,
 not earlier combat steps. Separate advance/close and full non-quick access remain
-available (D-121). Next: combined-shortcut undo/interruption boundary. Missing-source
-Stack presentation/actions remain separate.
+available (D-121). D-131 makes one user action/whole group the normal undo unit;
+multiple MTG reaction points require multiple events with interruption boundaries.
+Specify event mappings/exceptions without runtime priority/legality enforcement.
+D-130 confirms whole undo for advance-and-close; its event mapping is next, not
+its undo scope. Missing-source Stack presentation/actions remain separate.
 
 ## 10.9 Worked interaction examples
 

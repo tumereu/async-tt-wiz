@@ -40,8 +40,12 @@ D-127 adds a combined advance out of combat + close area quick action. Ordinary
 phase/step changes and End turn leave the area open until explicit closure.
 Standalone advance/close and non-quick access to the combination remain available.
 D-128 shows the quick action only at End of combat, advancing to Postcombat main;
-the full path remains available. Combined boundaries and missing-area/out-of-combat
-handling still need behavior design; button wording/placement is stage 3.
+the full path remains available. D-131 sets Undo to the whole user action/group,
+including combinations, with multiple events for distinct MTG reaction points.
+Event review/interruption must not be lost because Undo covers the whole group;
+specific mappings/exceptions still need design, not runtime timing enforcement.
+D-130 confirms whole undo for advance-and-close. Its event count and missing-area/
+out-of-combat handling remain open; button wording/placement is stage 3.
 
 ## 5.1 Navigation and screens
 

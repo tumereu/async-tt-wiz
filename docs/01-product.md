@@ -61,6 +61,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-037 | A source leaving the battlefield loses its combat projections (D-124), but its Stack effects remain until explicitly removed/resolved even if the source itself is removed (D-125). Lifetime is area-specific, not determined by which view invoked the move. |
 | P-038 | When an attacker disappears, surviving blocker projections become unassigned in place. The area may shrink as blockers are removed, without shifting/compacting the remaining blockers or changing real cards (D-126). |
 | P-039 | Combat area persists until explicitly closed, not automatically on ordinary phase/step changes or End turn. Provide combined advance out of combat + close, while retaining separate operations and full non-quick access (D-127). Offer the quick action only at End of combat, advancing to Postcombat main (D-128). |
+| P-040 | Undo reverses one user action and its whole group; that user action must contain multiple tree events wherever MTG permits reactions at distinct points (D-131, refining D-129). One Undo can cover several events. Specify event mappings and any exceptions individually, without runtime priority/legality inference. Advance-and-close specifically has whole-combination undo (D-130). |
 
 ## 1.3 Proposed first-release boundaries
 

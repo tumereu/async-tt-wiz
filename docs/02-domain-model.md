@@ -383,7 +383,7 @@ D-98 includes individual MTG steps, not only phases. The standard sequence is:
 | Ending | End → Cleanup |
 
 Track the phase and, where applicable, its current step at each action boundary.
-Exact handling of skipped/repeated steps, extra turns/phases/combat damage steps,
+Exact handling of skipped/repeated steps and extra phases/combat damage steps,
 manual corrections, and initialization remains Q-32. Do not infer these from
 card text or require a generic phase-configuration system to support tracking.
 
@@ -400,6 +400,12 @@ Exact participant association, no-op/failure behavior,
 atomic/group boundaries, and other shortcuts remain under review; no new
 card-rule inference is implied.
 
+D-110 makes Untap all literal for the turn player's battlefield cards, with no
+dedicated skip-untap field/flag. Card text, notes, and markers do not install
+exclusions. Players manually re-tap exceptions. Standalone and +advance variants
+use the same scope and preserve unrelated card state. Exact participant
+association and no-change/atomic/group behavior remain under review.
+
 D-102 adds standalone Next step (tracking only, no card edits) and direct
 phase/step choice through the indicator for skips/corrections, without executing
 intermediate card operations. Both edit shared tracking under normal undo,
@@ -411,8 +417,9 @@ D-103 requires turn-player identity and turn number in shared tracking and its
 presentation. Next step from Cleanup starts the other player's Beginning/Untap
 and increments the turn number by one per individual player's turn, not per
 round. It does not untap or draw cards automatically. History, replay, undo,
-branches, offline queuing, and sync preserve this turn context. Extra turns
-remain under review; reviewing a boundary does not advance the turn.
+branches, offline queuing, and sync preserve this turn context. Reviewing a
+boundary does not advance the turn. D-109 accepts an approximate counter when
+players manually repeat steps for extra turns; no exact rules-turn count is required.
 
 D-106 requires a quick End turn action available from any phase/step, using the
 same next-turn transition: other player, turn number +1, Beginning/Untap. It does
@@ -420,13 +427,20 @@ not execute skipped step operations, untap/draw cards, or mark the game complete
 No manual turn-number editor is needed; numbering follows transitions, and undo/
 replay/branch review restores the number at the relevant boundary normally.
 D-107 keeps End turn visible beside Next step and invokes it in one tap without
-routine confirmation, relying on Undo. Exact geometry, atomic/group boundaries,
-and extra-turn/player corrections remain under review.
+routine confirmation, relying on Undo. Exact geometry and atomic/group boundaries
+remain under review; D-109 omits dedicated extra-turn/player-count corrections.
 
 D-108 chooses the starting player during setup and initializes their turn 1 at
 Beginning/Untap, without automatically changing cards. This initializes shared
 turn context and does not decide opening-hand/setup procedures. Exact setup
 controls/defaults, change/recovery boundaries, and schema details remain open.
+
+D-109 rejects a dedicated Start another turn action or scheduler. Players use
+the existing phase/step picker manually; changing steps does not automatically
+change turn player/number. The displayed counter may therefore be inaccurate
+for rules-level extra turns, which is acceptable. No extra-turn count recovery,
+automatic inference/reconciliation, or manual number editor is required. Normal
+End turn/Cleanup progression retains its other-player/number +1 transition.
 
 D-105 supersedes the priority part of D-96 and D-104: no engine priority tracking
 or user-visible priority controls in this release. Participants decide legal MTG

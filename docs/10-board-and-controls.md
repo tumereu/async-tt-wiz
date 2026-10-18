@@ -1065,8 +1065,8 @@ Confirmed first shortcuts (D-100):
 
 Standalone versions leave tracking unchanged. Both forms require invocation,
 not automatic execution on step entry. Actual edits/progression use normal
-history, undo, queue, and sync behavior. Exact participant association, any
-skip-untap convention, empty-source/no-op handling, atomic/group boundaries,
+history, undo, queue, and sync behavior. D-110 excludes skip-untap flags. Exact
+participant association, empty-source/no-op handling, atomic/group boundaries,
 and other step controls remain later work.
 
 D-101 clarifies advancement to the next step, not the next whole phase:
@@ -1094,7 +1094,9 @@ Confirmed turn tracking (D-103):
 2. Next step from Cleanup starts the other player's Untap step and increments
    the turn number, without automatically untapping cards or drawing.
 
-The turn number increases for each player's turn, not only once per full round.
+Normal next-turn transitions increment the number per player's turn, not round.
+D-109 accepts an approximate count when players repeat steps manually; do not
+require it to account for every rules-level extra turn.
 Cleanup → next turn updates shared tracking under normal history/undo/branch/
 queue/sync behavior; simply reviewing Cleanup does not start another turn.
 D-106 adds End turn from any phase/step and excludes manual turn-number editing.
@@ -1103,7 +1105,8 @@ Beginning/Untap, turn number +1, with no automatic untapping/drawing or skipped
 step card operations. It changes tracking, not game completion. Normal undo,
 history, branching, offline queuing, and automatic sync apply. Undo may restore
 the recorded previous number; no separate turn-number editor is required.
-Extra turns and exact touch layout remain open; D-108 settles initial turn context.
+Exact touch layout remains open; D-108 settles initial turn context and D-109
+settles manual extra-turn handling without dedicated controls or accurate counts.
 
 Confirmed D-105: remove priority tracking and UI from this release, superseding
 D-104 and the priority portion of D-96. No priority indicator, Pass action,
@@ -1118,8 +1121,8 @@ no-priority intervals (rules 117.2e/117.3a/514.3a, [rules reference](https://med
 remain game knowledge for participants, not engine state or requirements.
 
 The earlier turn-indicator player/number editor proposal is withdrawn; D-106
-explicitly rejects editing the number. Other player/extra-turn correction controls
-are not approved by that rejection.
+explicitly rejects editing the number. D-109 also rejects dedicated extra-turn
+controls; do not add a player/count editor to compensate for manual step repeats.
 
 Confirmed End turn touch control (D-107): keep End turn visible beside Next step,
 invoking it in one tap without routine confirmation; Undo handles mistakes.
@@ -1131,11 +1134,28 @@ at Beginning/Untap without automatic card operations. This initializes tracking,
 not opening-hand draws or a rules-driven setup procedure. Exact setup-screen
 placement, selection defaults, and change/recovery boundaries remain later work.
 
-Next G-10 extra-turn proposal, not yet approved: a secondary Start another turn
-action starts a fresh turn for the current turn player, at Beginning/Untap with
-number +1 and no card operations. Normal End turn still switches players. This
-is an explicit immediate shortcut, not a scheduled extra-turn/rules engine;
-exact secondary-action entry remains later review.
+D-109 rejects the proposed Start another turn shortcut and any extra-turn
+scheduler. Players handle extra turns through existing manual phase/step controls.
+Those changes preserve turn player/number and do not infer a new turn. An
+inaccurate displayed turn count is acceptable; no automatic reconciliation or
+manual number editor is needed. Normal End turn and Next step from Cleanup keep
+their approved other-player/number +1 transition.
+
+Confirmed D-110: Untap all remains literal for the turn player's battlefield
+cards, without a dedicated skip-untap flag. Players re-tap exceptions manually;
+do not infer exclusions from card text, notes, or markers. The same scope applies
+to standalone Untap all and Untap all + advance. Preserve unrelated card state.
+
+Next G-10 shortcut-edge-case batch, proposed and not yet approved:
+
+1. Untap all + advance still advances to Upkeep when all affected cards are
+   already untapped or there are no affected cards.
+2. Draw one + advance with an empty Library draws nothing but still advances
+   to Precombat main; no automatic loss or other inferred rule effect.
+
+These proposals cover valid no-change/empty sources, not missing IDs or other
+structural failures. Exact no-op history records, feedback, and atomic/group
+boundaries remain later review.
 
 ## 10.9 Worked interaction examples
 

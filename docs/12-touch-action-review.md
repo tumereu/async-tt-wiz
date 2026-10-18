@@ -33,14 +33,14 @@ Proposed sequence; groups can be split or reordered during review:
 | --- | --- | --- |
 | G-01 | Move one card: reposition, cross-area move, ordinary pile entry/exit, menu alternative. | Core choices confirmed in D-21–D-24; detailed lifecycle/hit testing remain open. |
 | G-02 | Select multiple cards and apply bulk movement. | Core selection choices recorded in D-25–D-31; detailed gesture/cancellation and bulk movement contracts remain open. |
-| G-03 | Tap/untap, bulk orientation, and optional skip-untap markers. | D-35/D-36 confirm selection-aware tapping with touched-card-directed uniform results; wider-set shortcuts and optional markers remain open. |
+| G-03 | Tap/untap and bulk orientation. | D-35/D-36 confirm selection-aware tapping; D-100/D-110 add literal turn-player battlefield Untap all without skip flags or inferred exclusions. Players re-tap exceptions manually; exact boundaries remain open. |
 | G-04 | Inspect, face-down/up, printed faces, and reveal presentation. | D-37/D-38 confirm context face changes and automatic face/both-face inspection; exact targeting/layout and logging remain open. |
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-108 confirm random tools, exposure/comment retention, non-undoable Chat, MTG tracking/shortcuts, one-tap End turn/no number editor, and chosen starter at turn 1/Untap. D-105 removes priority. Immediate same-player extra-turn shortcut next. |
+| G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-110 confirm tools/communication, MTG tracking/shortcuts, End turn/setup, manual extra turns/approximate counts, and literal Untap all/no skip flags. No priority or extra-turn action. Combined shortcuts with no card changes/empty Library next. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -165,8 +165,9 @@ presentation. Touch an untapped selected card to set the whole set tapped;
 touch a tapped selected card to set the whole set untapped. Do not toggle each
 member independently. Keep selection and unrelated fields intact.
 
-Follow-up capabilities, not yet approved: untap a wider set/all cards, optional
-skip-untap markers, other rotation controls, and bulk operation boundaries.
+Later D-100/D-110 confirm turn-player battlefield Untap all with no skip-untap
+flag; exceptions are manually re-tapped, never inferred from card text. Other
+wider-set/all-table shortcuts, rotation controls, and bulk boundaries remain open.
 
 ## 12.5 Grouped defaults: selection and gesture consistency
 
@@ -187,7 +188,7 @@ in [board controls, section 10.3](10-board-and-controls.md#103-gesture-arbitrati
 
 Remaining meaningful tradeoffs (not approved by this batch) include cross-area
 selections, selected-set movement order/placement, bulk interruption boundaries,
-and optional whole-table/skip-untap shortcuts.
+and optional whole-table shortcuts. D-110 rejects dedicated skip-untap flags.
 
 ## 12.6 G-04: Inspect, face-down/up, and printed faces
 
@@ -739,8 +740,9 @@ Confirmed first shortcuts (D-100):
 
 D-101 settles next-step advancement: Untap → Upkeep and Draw → Precombat main,
 not a whole-phase skip. Do not execute further card operations on arrival.
-Exact participant association, any skip-untap convention, empty-source/no-op
+Exact participant association, empty-source/no-op
 handling, atomic/group boundaries, other shortcuts, and touch layout remain open.
+D-110 settles that no skip-untap flag or inferred exclusion applies.
 
 Confirmed progression controls (D-102):
 
@@ -763,7 +765,8 @@ offline/sync apply. Review alone does not advance a turn. D-106 adds End turn
 from any phase/step: other player's Beginning/Untap at number +1, without card
 operations, using the Cleanup-to-next-turn transition. It rejects a manual
 turn-number editor, not undo restoration. D-108 settles starter/initial turn;
-extra turns, setup details, and exact controls remain later review.
+D-109 uses manual steps for extra turns with an approximate count. Setup details
+and exact controls remain later review.
 
 D-105 removes priority tracking, display, Pass actions, and priority-legality
 validation, superseding D-104 and D-96's priority portion. Players queue actions
@@ -775,7 +778,7 @@ Priority-default/tap/correction proposals are withdrawn, not pending blockers.
 No no-holder or resolution-state UI/model is required for priority.
 
 The turn-indicator player/number editor proposal is withdrawn. No manual number
-editing; other player/extra-turn corrections are not approved by implication.
+editing. D-109 rejects dedicated extra-turn controls or count reconciliation.
 
 Confirmed End turn touch control (D-107): visible beside Next step, one tap with
 no routine confirmation, using Undo for mistakes. No menu or hold prerequisite.
@@ -786,7 +789,20 @@ Beginning/Untap without automatic untapping/drawing. This is initial tracking,
 not an opening-hand/setup rules procedure. Exact screen/defaults and change/
 recovery boundaries remain later review.
 
-Next extra-turn proposal, not yet approved: secondary Start another turn starts
-the current turn player's next turn at Beginning/Untap, number +1, no card
-operations. Normal End turn still switches players. No scheduling or inferred
-extra-turn rules; exact secondary-action entry remains open.
+D-109 rejects Start another turn and extra-turn scheduling. Players manually
+choose/repeat steps with the existing picker; it preserves player/number rather
+than inferring another turn. Inaccurate turn counting is acceptable. Normal
+End turn/Cleanup advancement still switches players and increments the number.
+
+Confirmed D-110: Untap all simply untaps the turn player's battlefield cards,
+without a dedicated skip-untap flag. Re-tap exceptions manually; no exclusions
+are inferred from card text/notes/markers. Applies to both shortcut variants.
+
+Next shortcut-edge-case batch, proposed and not yet approved:
+
+1. Untap all + advance advances even with no tapped/affected cards.
+2. Draw one + advance on an empty Library draws nothing but still advances;
+   no automatic loss or other rule effect.
+
+Valid no-change/empty cases only, not structural failures. Exact no-op records,
+feedback, and atomic/group boundaries remain open.

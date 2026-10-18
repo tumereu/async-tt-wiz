@@ -93,6 +93,10 @@ Included:
   Undo for mistakes.
 - D-108 chooses the starting player during setup and begins turn 1 at
   Beginning/Untap without automatic card operations.
+- D-109 leaves extra turns to manual step control, with no dedicated action or
+  scheduler. Turn counting may be approximate; no correction editor is needed.
+- D-110 makes Untap all literal, without skip-untap flags or inferred exclusions;
+  players manually re-tap exceptions.
 - D-105 removes engine priority state, indicators, Pass controls, and priority-
   legality validation. Players queue actions and use interruption/branching to
   respond; legal timing is their responsibility. Turn/phase/step controls remain.

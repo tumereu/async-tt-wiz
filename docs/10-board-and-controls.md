@@ -635,8 +635,9 @@ batch:
    context actions offer quick increment/decrement/set. Exact numeric and
    slash-pair adjustment behavior remains to be decided.
 2. Counters are distinct colored markers with attached text. Offer a few
-   selectable colors; the exact palette is open. Both cards and players can
-   have these counters. Their text need not be numeric.
+   selectable colors; D-58 selects the initial palette below. Both cards and
+   players can have these counters, at most one of each color per target.
+   Their text need not be numeric.
 3. Numeric counter text supports quick increment/decrement/set. Non-numeric text
    remains editable. Neither counter edits nor corner-text edits calculate
    card characteristics, affect other fields, or cause automatic cleanup.
@@ -645,7 +646,8 @@ This does not approve the previous always-visible tracker +/- controls,
 double-tap -> Counters submenu, or tap-number-to-edit proposal. Double tap still
 opens card actions under the existing gesture contract; exact counter editing
 entry points and hit regions require review. Numeric limits/recognition,
-zero/removal, palette, placement, bulk changes, and history/grouping remain open.
+styling, placement, bulk changes, and history/grouping
+remain open.
 
 Confirmed menu lifetime (D-54): counter increment/decrement actions keep the
 context menu open for repeated adjustments. Each completed edit still queues
@@ -682,20 +684,48 @@ Specific adjustment proposals, still awaiting approval:
    text conveniences, not inferred effects or changes to printed card data.
 2. A single numeric corner/counter text value uses +/-1 and exact Set. Other
    text supports direct replacement without inventing an arithmetic meaning.
-3. Decrementing a counter to zero keeps the counter visible with text `0`;
-   removing it requires an explicit remove action.
 
-The zero-retention proposal is distinct from D-55's approved removal of counters
-on entry to Graveyard/Exile/Library.
-
-Next counter appearance/lifecycle batch, proposed and not yet approved:
+Confirmed counter appearance/lifecycle (D-58):
 
 1. Start with red, blue, green, yellow, purple, and gray; counter text must remain
    readable against the color. Exact styling/accessibility details remain open.
-2. Allow independent counters to share a color on the same card/player, without
-   automatic merging. Color alone does not identify the counter.
-3. Keep a numeric counter at zero until explicitly removed, except for the
-   approved Graveyard/Exile/Library entry resets that remove card counters.
+2. At most one counter of each color on a single card/player. The proposed
+   multiple same-color counters on one target were rejected. Different targets
+   may each have their own counter of that color.
+3. Keep numeric counter text `0` visible. A completed edit to empty text removes
+   the counter; temporary incomplete input does not publish removal by itself.
+   D-59 trims text first: whitespace-only completed text removes the counter.
+   Whether to offer a separate Remove shortcut remains open.
+   Graveyard/Exile/Library entry still removes card counters as agreed.
+
+Confirmed text trimming (D-59): all user-entered text is edge-trimmed on
+completion, not only counter text. Preserve internal spaces/newlines. Pattern
+matching and empty-value handling use the trimmed text: ` 2/3 ` becomes `2/3`,
+` 0 ` remains visible as `0`, and whitespace-only counter input removes it.
+Trimming does not settle blank-value behavior for unrelated fields or publish
+unfinished input. See [the domain contract](02-domain-model.md#21-separation-of-state).
+
+Confirmed counter creation/color behavior (D-60):
+
+1. Choosing an unused counter color creates it with text `1`, ready for quick
+   adjustments or Set to arbitrary text.
+2. Choosing a color already present opens that counter's editing actions without
+   changing its text; never create a duplicate, overwrite, or increment it merely
+   from choosing the color.
+3. No recolor action in the initial release. The proposed recoloring convenience
+   was rejected as unnecessary.
+
+Next counter-menu touch batch, proposed and not yet approved:
+
+1. Put counter controls directly in the card context menu rather than requiring
+   a separate Counters submenu. Existing numeric counters have rows such as
+   `[ - ] Red: 3 [ + ] [ Set ]`; other text has Set without numeric controls.
+   Unused colors appear as Add-color actions and create `1` under D-60.
+2. Tapping a participant's player panel opens the equivalent counter controls;
+   either participant can edit either panel. Exact hit regions remain open.
+3. Add and completed Set return to/retain the context menu, like counter +/-.
+   Completing Set with empty trimmed text removes that counter row, making its
+   color available again. Existing Move to Graveyard dismissal stays unchanged.
 
 ## 10.9 Worked interaction examples
 

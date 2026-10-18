@@ -36,7 +36,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-007 | Row/fan operations | View, arrange, cover/uncover, select, and move cards; labels such as Hand do not alter semantics. |
 | A-008 | Orientation/faces | Tap/untap presentation, rotate, choose face, cover/uncover, and edit labels. |
 | A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
-| A-010 | Counters | Add/remove/edit counters; D-52 specifies colored text-bearing counters on cards and participants, with quick inc/dec/set for numeric text. Exact palette and controls remain open. |
+| A-010 | Counters | Add/remove/edit colored text-bearing counters on cards/participants, with quick inc/dec/set for numeric text. D-58/D-59 fix six colors, uniqueness, zero, and trimmed-empty removal. D-60 creates unused colors with `1`, opens existing colors for editing without mutation, and excludes recoloring. Exact menu layout remains open. |
 | A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
 | A-012 | Labeled-area movement | Move any card to/from areas such as Cast; record origin/destination, not casting/payment/resolution. |
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
@@ -65,6 +65,11 @@ D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite
 the string rather than editing a P/T or loyalty entity. Numeric counter text uses
 the same text-first principle. Exact patterns and action sets remain open.
+
+D-59 applies edge trimming to all completed user-text edits before validation,
+empty-value handling, and pattern matching. Preserve internal spaces/newlines.
+For counters, whitespace-only text therefore removes the counter while ` 0 `
+becomes visible `0`; do not extend deletion-on-empty to unrelated fields.
 
 Pings, actual object edits, and ephemeral presence remain distinct; see
 [the board contract](10-board-and-controls.md) and

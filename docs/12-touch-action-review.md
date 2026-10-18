@@ -37,7 +37,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-04 | Inspect, face-down/up, printed faces, and reveal presentation. | D-37/D-38 confirm context face changes and automatic face/both-face inspection; exact targeting/layout and logging remain open. |
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
-| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-56 confirm text/counters, pattern-based shortcuts, repeatable menu edits, and Graveyard/Exile/Library resets to database-default corner text; other defaults and exact controls under review. |
+| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-60 confirm text/counters, resets, palette/uniqueness, zero/empty/trim rules, creation with `1`, and no recolor action; menu layout and remaining controls under review. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | Not yet reviewed; generic engine boundary and action-scoped pings already confirmed. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
@@ -356,7 +356,7 @@ initial unapproved tracker-control batch with this model (D-52):
    Context actions offer quick increment/decrement/set; exact handling of P/T
    pairs versus other text remains open.
 2. Separate colored counters, each carrying its own text, on cards and players.
-   Offer a small selectable palette; exact colors are not chosen yet.
+   D-58 selects the initial six-color palette and one counter per color/target.
 3. Counter text is arbitrary; when numeric it supports quick inc/dec/set.
    Counter edits do not automatically change corner text or card characteristics.
 
@@ -391,20 +391,42 @@ Specific adjustment batch, proposed and not yet approved:
    for left, right, or both numbers, plus replacement of the whole text.
 2. Single numeric corner/counter text gets +/-1 and exact Set; other text gets
    direct replacement without arithmetic interpretation.
-3. A counter reaching zero remains visible as `0`; removal is explicit.
 
-Proposal 3 concerns numeric decrement, not the D-55 destination-entry reset,
-which removes the card's counters.
-
-Next counter appearance/lifecycle batch, proposed and not yet approved:
+Confirmed counter appearance/lifecycle (D-58):
 
 1. Initial palette: red, blue, green, yellow, purple, and gray, with readable
    contrasting text. Exact styling/accessibility treatments still need design.
-2. Allow multiple independent counters of the same color on a card/player;
-   color does not identify a unique counter or silently merge their text/values.
-3. A numeric counter reaching zero remains present as `0`; use explicit Remove
-   to delete it. Graveyard/Exile/Library entry still removes card counters under
-   D-55/D-56.
+2. One counter per color on a single target; multiple same-color counters on
+   one card/player were rejected. Different targets can use the same colors.
+3. Zero remains visible; completed empty text removes the counter. Do not
+   publish removal from temporary unfinished editor input. D-59 trims text
+   first, so completed whitespace-only input removes the counter. A separate
+   Remove shortcut remains open. Graveyard/Exile/Library entry still removes
+   card counters under D-55/D-56.
 
-Exact numeric recognition/limits, palette, counter layout/entry points, bulk
-changes, annotations, and action/history boundaries remain for later review.
+Confirmed global trim rule (D-59): edge-trim all user-entered text on completion,
+including corner/counter text, names/labels, notes, and messages. Preserve
+internal spaces/line breaks. Empty-value validation and pattern matching operate
+on trimmed text. D-60 separately settles the creation/color choices below.
+
+Confirmed counter creation/color behavior (D-60):
+
+1. Choosing an unused color creates a counter with text `1`, editable afterward
+   through quick actions or Set to arbitrary text.
+2. Choosing an occupied color opens that existing counter's actions without
+   changing its text or creating/incrementing/overwriting a counter.
+3. No recolor action in the initial release; the owner rejected this convenience
+   as unnecessary.
+
+Next counter-menu touch batch, proposed and not yet approved:
+
+1. Inline counter controls in the card context menu, no separate Counters
+   submenu. Numeric rows have -/+/Set, other text has Set, and unused colors have
+   Add-color actions creating `1`.
+2. Tap a player's panel to open equivalent controls for that participant.
+3. Add and completed Set keep/return to the context menu. Empty trimmed Set
+   removes the counter row and frees its color. Move to Graveyard still dismisses.
+
+Exact numeric recognition/limits, styling, counter
+layout/entry points, bulk changes, annotations, and action/history boundaries
+remain for later review.

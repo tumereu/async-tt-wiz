@@ -106,6 +106,15 @@ decided before implementation.
   repeated automatically queued edits. A successful context Move to Graveyard
   dismisses it. Other actions require explicit menu-lifetime decisions; remaining
   open is not a draft/Send gate.
+- D-58 selects red/blue/green/yellow/purple/gray counters, one per color on each
+  card/player. Show numeric `0`; completed empty text removes the counter.
+  Temporary unfinished editor input does not itself publish deletion. Exact
+  styling remains open. D-59 trims all user-entered
+  text on completion, so whitespace-only counter input removes it. Preserve
+  internal spacing/newlines and apply text-pattern matching after trimming.
+- D-60 creates an unused counter color with text `1`; an existing color opens
+  editing actions without changing its text. No recolor action is needed in the
+  initial release. Exact menu layout and Add/Set lifetime remain proposed.
 - D-55/D-56 remove card counters and restore database-default corner text on
   entry to configured Graveyard/Exile/Library. For creatures the default is
   printed P/T text. Defaults for other types/faces/missing data remain open;

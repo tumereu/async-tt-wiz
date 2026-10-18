@@ -22,6 +22,16 @@ position is not a new game-history action.
 an editing mode that must be entered and sent. Completed game actions
 automatically enter the durable synchronization queue.
 
+Confirmed user-text normalization (D-59): trim leading and trailing whitespace
+from all user-entered text when an edit is completed, including corner/counter
+text, labels, names, notes, and messages. Preserve internal whitespace and line
+breaks; this is edge trimming, not collapsing or rewriting the content. Apply
+trimming before empty-value validation and text-pattern matching, and record
+the resulting text. Unfinished input is not a completed edit. Empty counter
+text removes the counter; emptiness behavior for other fields is field-specific,
+not automatic deletion everywhere. This rule does not silently rewrite existing
+history or authorize normalization of external catalog/import data.
+
 ## 2.2 Logical entities
 
 | Entity | Identity and essential data |
@@ -94,12 +104,26 @@ Confirmed card text/counter distinction (D-52):
   such as `2/3` remains to be specified. This is editable instance presentation,
   not a typed power/toughness or loyalty rules model.
 - Counters are separate colored markers, each with its own attached text. Offer
-  a small selectable color palette; exact colors remain open. Both cards and
-  participants can have these counters. Counter text can be arbitrary; numeric
-  text supports quick increment/decrement/set. Numeric recognition, zero/removal,
-  layout, and exact editing controls remain open.
+  red, blue, green, yellow, purple, and gray (D-58); exact styling remains open.
+  Both cards and participants can have these counters, at most one per color
+  on each target. Counter text can be arbitrary; numeric text supports quick
+  increment/decrement/set. Numeric recognition, layout, and exact controls
+  remain open.
 - Changing a counter never automatically changes corner text, printed card data,
   or other values. P/T-like text and counter colors have no mechanical meaning.
+
+D-58 fixes counter presence semantics: numeric text `0` remains visible; a
+completed edit to empty text removes the counter. Temporary incomplete editor
+input is not itself a completed shared edit. D-59 trims text first, so a
+whitespace-only completed counter value removes it. A separate Remove shortcut
+remains open. Color uniqueness is per target, not global: different targets may
+each have their own red counter.
+
+D-60 confirms creation/color behavior: choosing an unused color creates its
+counter with text `1`; choosing an existing color opens that counter's editing
+actions without changing the text. No recolor action is needed in the initial
+release. Do not create duplicate colors, overwrite, merge, or increment merely
+from choosing an occupied color.
 
 D-53 clarifies that corner text is one plain text field, not separate P/T,
 loyalty, or typed numeric fields. Offer quick actions based on patterns matched
@@ -215,6 +239,7 @@ editing gesture; exact player-counter controls remain to be reviewed.
 | D-011 | Either participant can issue the same tabletop editing operations. |
 | D-012 | Hidden presentation never implies access-control protection between participants. |
 | D-013 | Only explicitly requested generic fields change; labels, card text, pings, and area membership cannot trigger inferred game mechanics. |
+| D-014 | Each card/participant has at most one counter of each supported color. Numeric `0` is present counter text; completed empty text removes the counter (D-58). |
 
 Structural validation protects data integrity only. Negative named values,
 unusual arrangements, self/cyclic visual links, and moves players consider

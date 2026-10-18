@@ -110,16 +110,25 @@ when its source is an ordinary card. Source state is unchanged. Repeat last
 token is omitted. Exact association-field copying, catalog-instance initialization,
 automatic location, and retained/offline definition contracts remain open.
 
-D-84 explicitly removes token instances dragged into configured Library,
+D-86 adds one Blank token definition to the normal catalog instead of a separate
+custom-token authoring model/form. It creates the same token instance kind;
+existing corner-text/counter/note edits customize it after creation. Exact blank
+presentation/initialization remains open, without approving custom-template or
+image-authoring entities.
+
+D-84/D-85 explicitly remove token instances moved into configured Library,
 Graveyard, or Exile from current state, rather than retaining them in the pile.
 This is declared destination behavior, not card-text/type/label-driven inference.
 Retain historical identity and prior fields for undo/recovery; exact reference
-handling and record composition remain open. Other move-control equivalence is
-still under review. No broader token expiry rule is inferred.
+handling and record composition remain open. D-85 applies across move controls:
+mixed selections move ordinary cards normally and remove tokens. It also confirms
+context Remove of ordinary cards/tokens, including selections, without a pile
+move or routine confirmation. Completed removals auto-queue/sync and retain
+undo/history. No broader token expiry rule is inferred.
 
 A move normally changes only specified container/position/layout fields and
 preserves counters, corner text, orientation, notes, links, and participant
-associations. D-84 token-removing drags are a separate exception; preservation
+associations. D-84/D-85 token-removing moves are a separate exception; preservation
 below applies to objects retained in current state. D-55/D-56 supersede that
 blanket preservation for entry to configured
 Graveyard/Exile/Library: remove card counters and restore the corner text's

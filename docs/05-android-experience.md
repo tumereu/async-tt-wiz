@@ -149,10 +149,18 @@ decided before implementation.
   per selected source. Omit Repeat last token. Exact automatic location,
   catalog-instance initial state, association copying, and offline/missing data
   remain open. No creation from card-text inference.
-- D-84 removes tokens dragged into configured Library/Graveyard/Exile from the
+- D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile from the
   current table rather than retaining them in the pile. This includes clones of
-  ordinary cards. Queue/sync and retain undo/history; exact context-Move parity,
-  mixed-set records, and reference presentation remain under review.
+  ordinary cards. All move controls share this behavior; mixed sets move ordinary
+  cards normally and remove tokens. Context Remove also supports cards/tokens and
+  selections without a pile move or routine confirmation. Queue/sync and retain
+  undo/history; exact mixed-set records, routing/menu lifetime, and reference
+  presentation remain under review.
+- D-86 provides a Blank token entry in the ordinary catalog, not a separate
+  custom-token form. Create one through the same automatic placement flow, then
+  use normal corner text/counters/notes, Clone, or Remove. No image upload or
+  dedicated custom-token editor is approved; blank presentation/initialization
+  remains detailed design work.
 - D-74 makes pinging a persistent interaction mode, not a one-shot command from
   an action menu. Mode entry alone creates no ping/shared edit. Durable pings
   retain recorded context. D-75 makes pinging toggleable within one group/event;

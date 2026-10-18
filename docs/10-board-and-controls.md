@@ -248,7 +248,7 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   leaves selection-edit mode on/off as it was (D-34).
 - Dropping onto a library, graveyard, or exile pile inserts at its top. Bottom
   insertion is available through Context Move; a drop does not ask top/bottom.
-  D-84 overrides insertion for tokens: a token dropped into those configured
+  D-84/D-85 override insertion for tokens: a token moved into those configured
   destinations is removed from current state, with recoverable history.
 - D-55/D-56 add destination-entry resets for configured Graveyard, Exile, and
   Library: remove the entering card's counters and restore the database's default
@@ -258,7 +258,7 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   behavior remain open. D-65 fixes blank fallback and retained per-face defaults.
   Preserve stable
   card identity and all other unrelated fields for retained instances; D-84
-  separately removes token instances dragged into those destinations.
+  separately removes token instances moved into those destinations (D-85).
 - Dropping onto another ordinary card puts the moved card on top of its visual
   combined stack, creating a visual pile or joining the existing one. The
   destination card is not moved to another container, and neither card becomes
@@ -725,7 +725,7 @@ replaces the current corner string, including a manual override, with that
 default. D-64 conditionally approves loyalty/defense defaults when supplied by
 the eventual source. D-65 fixes blank fallback and retained per-face defaults;
 exact source/custom-definition mapping and same-container behavior remain Q-29.
-These resets describe retained instances. D-84 removes tokens dragged into
+These resets describe retained instances. D-84/D-85 remove tokens moved into
 these configured destinations instead; preserve their prior fields in history
 for undo rather than requiring a live reset token in the pile.
 
@@ -951,7 +951,7 @@ Confirmed Clone behavior (D-83/D-84):
 3. Omit the separate Repeat last token shortcut initially; use Clone for more
    instances and Create -> Token to choose another definition.
 
-Confirmed token destination removal (D-84): dragging a token into configured
+Confirmed token destination removal (D-84/D-85): moving a token into configured
 Library, Graveyard, or Exile removes it from current table state rather than
 retaining it in that destination. This applies to catalog tokens and Clone
 outputs, including copies of ordinary cards. Ordinary cards still move with
@@ -962,7 +962,7 @@ the historical instance. Do not require intermediate destination occupancy or
 discard the token's recoverable fields. Exact move/removal records and handling
 of links/trays/selections referring to removed objects remain open.
 
-Next removal batch, proposed and not yet approved:
+Confirmed removal controls (D-85):
 
 1. Apply the same token disappearance to context Move and other explicit move
    controls targeting Library/Graveyard/Exile, not only drags. For mixed selected
@@ -971,6 +971,25 @@ Next removal batch, proposed and not yet approved:
 2. Offer Remove in card/token context menus, including selection-scoped use.
    Remove explicitly from current state without moving to a pile, automatically
    queue/sync, and support undo/history without a routine confirmation dialog.
+
+Confirmed blank-token scope (D-86): include one Blank token definition in the
+normal token catalog, not a separate Create -> Custom token form. Choosing it
+creates one automatically placed token using the same flow and lifecycle as
+other catalog tokens. Players can then use existing corner-text, counter, and
+note controls, Clone, and Remove. No custom name/corner editor is required before
+creation; no dedicated custom-token/image-authoring flow is approved. Exact blank
+presentation and initialization remain detailed design work.
+
+Next G-10 basic randomness batch, proposed and not yet approved:
+
+1. Table Roll die creates one result, defaulting to a six-sided die; an optional
+   sides control supports other dice. No dice-count or game-specific roll mode
+   initially. Exact sides picker, bounds, and remembered defaults remain open.
+2. Table Flip coin creates one heads/tails result with no configuration step.
+3. Show actor, requested die/coin, and actual result in shared history; completed
+   rolls/flips automatically queue/sync. Review/redo reuse the recorded result,
+   not a fresh random draw. Source/algorithm, offline policy, exact display, and
+   action boundaries remain later review; results change no cards or values.
 
 ## 10.9 Worked interaction examples
 

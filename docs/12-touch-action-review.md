@@ -39,8 +39,8 @@ Proposed sequence; groups can be split or reordered during review:
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
-| G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-84 confirm single automatic token creation, token-producing Clone fields/selection, no Repeat shortcut, and token removal on drags to Library/Graveyard/Exile. Other move controls and explicit Remove next; custom authoring remains unreviewed. |
-| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
+| G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
+| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | One-die/coin controls and durable results proposed next; other tools unreviewed. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -626,13 +626,13 @@ Confirmed Clone behavior (D-83/D-84):
 3. Omit separate Repeat last token initially; Clone handles extra instances,
    while Create -> Token selects a different definition.
 
-D-84 confirms that both catalog tokens and Clone outputs disappear from current
-state when dragged into configured Library/Graveyard/Exile; they do not remain
+D-84/D-85 confirm that both catalog tokens and Clone outputs disappear from current
+state when moved into configured Library/Graveyard/Exile; they do not remain
 in the destination. Retain history/undo recovery. Explicit per-instance token
 status, not card text/type/labels, determines this behavior. Exact records and
 removed-reference handling remain open.
 
-Next removal batch, proposed and not yet approved:
+Confirmed removal controls (D-85):
 
 1. Apply token disappearance equally to context Move and other explicit moves
    into those three destinations. Mixed sets move ordinary cards normally and
@@ -640,3 +640,25 @@ Next removal batch, proposed and not yet approved:
 2. Card/token context Remove supports selection scope, removes from current state
    rather than moving to a pile, and auto-queues/syncs with undo/history and no
    routine confirmation dialog.
+
+Confirmed blank-token scope (D-86): one Blank token entry in the normal catalog
+replaces the proposed custom-token name/corner form. Creation is the same one-
+token automatic placement flow. Existing corner-text/counter/note controls and
+Clone/Remove apply afterward; no dedicated custom-token/image authoring. Exact
+blank presentation/initialization and broader authoring scope remain later work.
+
+## 12.12 G-10: Other table tools
+
+Primary contracts: [additional controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play),
+[action catalog](04-game-actions.md#42-coverage-matrix), and
+[randomness/history](03-history-and-undo.md#310-randomness-and-branching).
+
+Next basic randomness batch, proposed and not yet approved:
+
+1. Roll die: one die, default six sides, with an optional sides control. No count
+   dialog or game-specific roll mode initially. Picker/bounds/default memory open.
+2. Flip coin: one heads/tails result, no configuration step.
+3. Shared history shows actor/request/result; completed operations auto-queue/
+   sync. Review/redo reuse recorded results, not new draws. No automatic card or
+   value edits. Exact source/algorithm, offline policy, display, and boundaries
+   remain later review.

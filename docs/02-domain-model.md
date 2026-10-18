@@ -96,11 +96,32 @@ Every card instance has:
 - Optional manually assigned participant associations and arbitrary labeled values.
 - Face/side, covered/uncovered presentation, orientation/tapped presentation,
   counters, optional bottom-right corner text, and notes.
+- Explicit per-instance token status for catalog-token creation and Clone output
+  (D-84), independent of printed card types, catalog labels, or user text.
 - Optional generic links and editable descriptive attributes.
+
+D-81/D-82 confirm catalog-token creation as one independent instance with a fresh
+stable ID, automatically placed; no quantity or placement-preview model is
+needed. Additional instances can be created through a Clone card context action.
+D-83 copies current face/cover/orientation, corner text, counters, notes, and
+retained defaults, without links/pings; selection-scoped Clone creates one new
+instance per selected card. D-84 marks every Clone output as a token, including
+when its source is an ordinary card. Source state is unchanged. Repeat last
+token is omitted. Exact association-field copying, catalog-instance initialization,
+automatic location, and retained/offline definition contracts remain open.
+
+D-84 explicitly removes token instances dragged into configured Library,
+Graveyard, or Exile from current state, rather than retaining them in the pile.
+This is declared destination behavior, not card-text/type/label-driven inference.
+Retain historical identity and prior fields for undo/recovery; exact reference
+handling and record composition remain open. Other move-control equivalence is
+still under review. No broader token expiry rule is inferred.
 
 A move normally changes only specified container/position/layout fields and
 preserves counters, corner text, orientation, notes, links, and participant
-associations. D-55/D-56 supersede that blanket preservation for entry to configured
+associations. D-84 token-removing drags are a separate exception; preservation
+below applies to objects retained in current state. D-55/D-56 supersede that
+blanket preservation for entry to configured
 Graveyard/Exile/Library: remove card counters and restore the corner text's
 database-provided default as declared generic changes accompanying the move.
 Exact face/default selection and missing-default behavior remain open. Do not
@@ -192,8 +213,10 @@ D-69 confirms optional card notes/annotations, separate from corner text,
 counters, and action-linked communication. Preserve the complete trimmed note;
 short notes render directly on the card and long notes may be ellipsized for
 display, with full text always available in inspection/editor. Empty completed
-text removes the note. Moves, including Graveyard/Exile/Library entry, preserve
-notes under the unrelated-field contract. Reminder text has no game behavior.
+text removes the note. Moves retaining the instance, including ordinary-card
+Graveyard/Exile/Library entry, preserve notes under the unrelated-field contract.
+D-84 token removal retains prior notes in recoverable history, not a live card
+in the destination. Reminder text has no game behavior.
 
 Conditionally approved database defaults (D-64):
 

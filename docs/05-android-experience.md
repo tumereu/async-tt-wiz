@@ -141,6 +141,18 @@ decided before implementation.
   face; switching faces alone preserves current text. Provider/source mapping
   remains open. Preserve unrelated fields and stable identity.
 - Multi-select has visible selected count and a clear cancel action.
+- D-81/D-82 add table Create -> Token with searchable catalog choice. Choosing
+  creates one token with a new identity, automatically placed; no quantity,
+  placement preview/picker, or extra confirmation. Ordinary drag can reposition
+  afterward. D-83/D-84 make Clone create token copies with current face/cover/
+  orientation, corner text, counters, notes/defaults, but no links/pings; one
+  per selected source. Omit Repeat last token. Exact automatic location,
+  catalog-instance initial state, association copying, and offline/missing data
+  remain open. No creation from card-text inference.
+- D-84 removes tokens dragged into configured Library/Graveyard/Exile from the
+  current table rather than retaining them in the pile. This includes clones of
+  ordinary cards. Queue/sync and retain undo/history; exact context-Move parity,
+  mixed-set records, and reference presentation remain under review.
 - D-74 makes pinging a persistent interaction mode, not a one-shot command from
   an action menu. Mode entry alone creates no ping/shared edit. Durable pings
   retain recorded context. D-75 makes pinging toggleable within one group/event;

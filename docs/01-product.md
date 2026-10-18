@@ -66,6 +66,10 @@ Included:
   generic edits. D-64/D-65 condition other metadata on source availability and
   retain per-game/per-face defaults, with blank editable fallback for missing
   data; provider choice remains open.
+- D-83/D-84 make Clone create token instances even from ordinary cards. Tokens
+  dragged into configured Library/Graveyard/Exile disappear from current state,
+  with synchronized history/undo recovery. This is another declared destination
+  convenience, not inferred card-text/type/label behavior or historical erasure.
 
 Not included in the proposed first release:
 

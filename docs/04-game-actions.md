@@ -42,12 +42,12 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
 | A-014 | Pile order/edit | Reorder, duplicate, move, or remove selected objects in any pile; no built-in stack-resolution command. |
 | A-015 | Group/event-scoped pings | D-74–D-80 confirm event-scoped mode/toggles, retained review, selection-preserving switching, consumed ordinary taps, and one standard marker. Context Ping/Unping uses the menu-trigger card's state and applies uniformly to its selected-set scope without mode changes. Location matching, routing/menu lifetime, and revisions remain open. |
-| A-016 | Custom objects/copies | Create cards, tokens, counters, notes, and copies with new stable IDs and explicitly chosen display data. |
+| A-016 | Custom objects/copies | D-81–D-84 confirm single automatically placed catalog tokens and Clone creating token copies with current face/cover/orientation, corner text, counters, notes/defaults, but no links/pings. One per selected source, no quantity/preview/Repeat shortcut. Exact placement/association fields, custom authoring, and boundaries remain open. |
 | A-017 | Generic visual links | D-70–D-73 confirm binary undirected unique pairs, context picking, fan-out/removal, and independent movement. Repeated Link preserves pairs; no labels/styles or separate initial Attach/follow tool. Joint movement uses explicit multi-selection. |
 | A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting game meaning. D-52/D-53 add plain corner text with pattern shortcuts; D-69 adds multiline card notes with short on-card text, optional long-text ellipsis, full inspection, and empty-text removal. |
 | A-019 | Board markers/connectors | Mark objects/relationships visually; players may use them for combat or other mechanics without specialized engine state. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
-| A-021 | Manual object changes | Cover, rotate, move, or remove objects explicitly; never infer destruction, sacrifice, replacement effects, or token expiry. |
+| A-021 | Manual object changes | Cover, rotate, move, or remove objects explicitly. D-84 removes tokens dragged into configured Library/Graveyard/Exile; no other inferred destruction, sacrifice, replacement effects, or token expiry. Exact explicit Remove controls and other-move equivalence remain under review. |
 | A-022 | Table-status markers | Manually edit named participant/table markers such as Turn/Phase/Priority; no state machine or automatic cleanup. |
 | A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
 | A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
@@ -139,11 +139,13 @@ mechanic-specific entities to the engine.
   Graveyard/Exile/Library. For creatures the default is printed P/T as a string;
   D-64/D-65 settle conditional other defaults, blank fallback, and retained
   per-face defaults. Exact source/custom mapping remains open. Unrelated fields and
-  identity persist.
+  identity persist for retained objects. D-84 separately removes tokens dragged
+  into those destinations, retaining historical identity/fields for recovery.
 - Removing a piece, clearing a value, or rotating selected cards is always an
   explicitly selected generic edit, not an automatic consequence of card text.
 - Game-specific card types, “token” labels, or area names do not trigger expiry,
-  destruction, cleanup, or validation.
+  destruction, cleanup, or validation. D-84 is an explicit exception using
+  instance token status and configured destinations, not labels or printed type.
 - Any later convenience composition must name all generic changes explicitly.
    User-defined labels cannot make it an inferred engine mechanic. Whether such
    saved compositions are first-release scope remains open.

@@ -39,7 +39,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
-| G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Initial catalog-token creation, quantity, and repeat shortcut proposed next; custom authoring, duplication, removal, and placement remain unreviewed. |
+| G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-84 confirm single automatic token creation, token-producing Clone fields/selection, no Repeat shortcut, and token removal on drags to Library/Graveyard/Exile. Other move controls and explicit Remove next; custom authoring remains unreviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
@@ -598,16 +598,45 @@ the mode direction; D-78 separately adds a context shortcut.
 Primary contracts: [additional controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play)
 and [action catalog](04-game-actions.md#42-coverage-matrix).
 
-Next initial token-creation batch, proposed and not yet approved:
+Confirmed token creation (D-81, simplified by D-82):
 
 1. Table Create -> Token opens a searchable catalog; the user explicitly chooses
    a token definition. No card-text inference, provider selection, or general
    board/custom-piece editor is implied.
-2. Quantity starts at one with +/- and numeric entry. Multiple tokens are
-   independent instances with fresh stable IDs, not one quantity-bearing card.
-3. Repeat last token reuses the chosen definition and quantity, creating fresh
-   instances rather than copying subsequent edits on an existing instance.
+2. Choosing a definition creates one fresh-ID token automatically placed on the
+   table; no quantity, preview, manual placement step, or extra confirm/Send.
+   Reposition afterward using ordinary drag if desired.
+3. Clone creates token instances from ordinary cards or tokens under D-83/D-84.
+   The explicit destination-removal exception below replaces blanket no-expiry
+   language; no other game rules are inferred.
 
-Placement/destination preview, cancellation, quantity bounds, offline/missing
-definitions, repeat availability/scope, custom creation, duplication/removal,
-and action boundaries remain later review. Ordinary stack limits still apply.
+D-82 replaces quantity input and rejects the pending placement-preview/picker
+batch. Automatic location selection, initialization, missing/offline definitions,
+custom creation/removal details, and history boundaries remain later review.
+Ordinary stack limits and preservation of unrelated cards still apply. D-83
+removes the separate Repeat last token shortcut.
+
+Confirmed Clone behavior (D-83/D-84):
+
+1. Clone creates an independent token instance with the current printed face, cover/
+   orientation, corner text, counters, notes, and retained defaults; no links or
+   event pings. Preserve source state and place automatically without a picker.
+2. Selection-scoped Clone creates one new instance per selected card under
+   D-66, not a quantity dialog. Exact routing/boundaries remain open.
+3. Omit separate Repeat last token initially; Clone handles extra instances,
+   while Create -> Token selects a different definition.
+
+D-84 confirms that both catalog tokens and Clone outputs disappear from current
+state when dragged into configured Library/Graveyard/Exile; they do not remain
+in the destination. Retain history/undo recovery. Explicit per-instance token
+status, not card text/type/labels, determines this behavior. Exact records and
+removed-reference handling remain open.
+
+Next removal batch, proposed and not yet approved:
+
+1. Apply token disappearance equally to context Move and other explicit moves
+   into those three destinations. Mixed sets move ordinary cards normally and
+   remove tokens; do not skip tokens or drop unrelated objects.
+2. Card/token context Remove supports selection scope, removes from current state
+   rather than moving to a pile, and auto-queues/syncs with undo/history and no
+   routine confirmation dialog.

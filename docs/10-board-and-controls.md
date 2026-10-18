@@ -247,7 +247,9 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   clearing when an unselected card is dragged or tapped. Successful movement
   leaves selection-edit mode on/off as it was (D-34).
 - Dropping onto a library, graveyard, or exile pile inserts at its top. Bottom
-   insertion is available through Context Move; a drop does not ask top/bottom.
+  insertion is available through Context Move; a drop does not ask top/bottom.
+  D-84 overrides insertion for tokens: a token dropped into those configured
+  destinations is removed from current state, with recoverable history.
 - D-55/D-56 add destination-entry resets for configured Graveyard, Exile, and
   Library: remove the entering card's counters and restore the database's default
   corner text. For creatures the default is printed P/T as a string. This applies
@@ -255,7 +257,8 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   card types/overlapping types, source-version mapping, and same-container reorder
   behavior remain open. D-65 fixes blank fallback and retained per-face defaults.
   Preserve stable
-  card identity and all other unrelated fields; do not infer further cleanup.
+  card identity and all other unrelated fields for retained instances; D-84
+  separately removes token instances dragged into those destinations.
 - Dropping onto another ordinary card puts the moved card on top of its visual
   combined stack, creating a visual pile or joining the existing one. The
   destination card is not moved to another container, and neither card becomes
@@ -722,6 +725,9 @@ replaces the current corner string, including a manual override, with that
 default. D-64 conditionally approves loyalty/defense defaults when supplied by
 the eventual source. D-65 fixes blank fallback and retained per-face defaults;
 exact source/custom-definition mapping and same-container behavior remain Q-29.
+These resets describe retained instances. D-84 removes tokens dragged into
+these configured destinations instead; preserve their prior fields in history
+for undo rather than requiring a live reset token in the pile.
 
 Text-based quick actions:
 
@@ -915,20 +921,56 @@ not move its neighbors. No attachment is inferred from card type, overlap, or
 link creation. Explicit anchor/follower grouping is outside initial scope, not a
 remaining first-release implementation decision.
 
-Proposed G-09 initial token creation, not yet approved:
+Confirmed G-09 token creation (D-81, simplified by D-82):
 
 1. Table Create -> Token opens a searchable catalog of token definitions. Pick
    a definition explicitly; no card text automatically creates tokens or chooses
    their definition. This does not select a provider or approve a general editor.
-2. Offer quantity starting at one, using +/- and numeric entry. Create that many
-   independent instances with new stable IDs, not a single quantity-bearing card.
-3. Repeat last token reuses the last chosen definition and quantity to create
-   fresh instances, not clones of later edits to an existing token instance.
+2. Choosing a definition creates exactly one token with a fresh stable ID and
+   automatically places it on the table. No quantity control, placement preview,
+   manual placement step, or extra confirmation/Send. Use ordinary drag afterward
+   if the player wants a different position.
+3. Clone creates token instances from either ordinary cards or tokens (D-83/D-84),
+   using the field-copy/selection contract below; no card-text copy rules.
 
-Exact destination/placement preview, cancellation, bounds, missing/offline catalog
-data, repeat availability/scope, custom definitions, duplication/removal, and
-history/bulk boundaries remain separate review items. Do not assume automatic
-stacking that bypasses the ordinary three-card cap.
+D-82 supersedes D-81 quantity selection and rejects the later placement-preview/
+picker proposal. Exact automatic location selection, initialization, missing/
+offline catalog data, custom definitions, removal details, and history
+boundaries remain separate review items. Placement must not bypass ordinary
+stack capacity or displace unrelated cards. D-83 removes Repeat last token;
+Clone supplies extra instances.
+
+Confirmed Clone behavior (D-83/D-84):
+
+1. Clone copies the source's current printed face, covered/orientation state,
+   corner text, counters, and notes into one independent new token instance with its
+   retained defaults. Do not copy persistent links or event pings; source state
+   stays unchanged. Place automatically, without a preview/picker.
+2. Selection-scoped Clone creates one copy per selected card under D-66 parity;
+   no quantity picker. Exact context routing and action boundaries remain open.
+3. Omit the separate Repeat last token shortcut initially; use Clone for more
+   instances and Create -> Token to choose another definition.
+
+Confirmed token destination removal (D-84): dragging a token into configured
+Library, Graveyard, or Exile removes it from current table state rather than
+retaining it in that destination. This applies to catalog tokens and Clone
+outputs, including copies of ordinary cards. Ordinary cards still move with
+their approved destination resets. Token status is explicit instance metadata,
+not inferred from printed type, card text, a user label, or being in a stack.
+Removal is queued/synchronized and recoverable in history/undo, not deletion of
+the historical instance. Do not require intermediate destination occupancy or
+discard the token's recoverable fields. Exact move/removal records and handling
+of links/trays/selections referring to removed objects remain open.
+
+Next removal batch, proposed and not yet approved:
+
+1. Apply the same token disappearance to context Move and other explicit move
+   controls targeting Library/Graveyard/Exile, not only drags. For mixed selected
+   sets, move ordinary cards normally and remove tokens; do not skip tokens as
+   inapplicable or discard unrelated selected cards. Exact boundaries stay open.
+2. Offer Remove in card/token context menus, including selection-scoped use.
+   Remove explicitly from current state without moving to a pile, automatically
+   queue/sync, and support undo/history without a routine confirmation dialog.
 
 ## 10.9 Worked interaction examples
 

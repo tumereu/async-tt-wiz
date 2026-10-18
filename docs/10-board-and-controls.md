@@ -47,6 +47,15 @@ not remove access to the underlying actions. Structural/applicability validation
 still applies. Exact menu organization is stage 3; this does not require every
 button in every menu or change existing direct-tap/selection gestures.
 
+D-123: card actions through projections apply to the real source, including
+moving that card by dragging a projection into a real destination such as
+Graveyard. Use normal card-move/reset/token-removal behavior. Virtual combat slot
+placement and occurrence cleanup are distinct from changing the real card;
+operation disambiguation still needs case-by-case design. D-124 removes combat
+projections when their source leaves the battlefield, regardless of entry point;
+D-125 retains Stack effects until explicit removal/resolution, even if a move was
+performed through the Stack projection itself or the source no longer exists.
+
 ## 10.2 Proposed board areas
 
 Portrait-first conceptual layout, not an approved pixel wireframe:
@@ -81,7 +90,8 @@ The engine does not interpret those labels.
   projections. D-114 adds contextual quick actions; entry controls, ordering,
   lifecycle, and exact layout need case-by-case design, not automatic resolution.
 - A temporary combat area supports projected attackers/blockers and per-attacker
-  blocker assignment (D-112); originals retain their battlefield positions.
+  blocker assignment (D-112); projection creation preserves source positions,
+  while later card edits/moves through them affect the originals (D-123).
   Its layout and lifecycle are not settled by this older conceptual sketch.
 - Hands use an expandable fan/row rather than consuming the whole battlefield.
 - Extra labeled areas remain reachable through an expandable dock; a manual
@@ -1191,7 +1201,12 @@ Current work is stage 1 behavior specification (D-115); UI drafts follow stage 2
 adversarial behavior review. D-116–D-121 further settle separate combat actions,
 multiselect declaration variants, assigned/unassigned blockers/adaptive spacing,
 numbered pings, projection-link lifetime, and full-path action access. Next:
-combat-area removal behavior, not a final screen layout.
+combat/source lifecycle behavior, not a final screen layout. D-122 confirms area
+removal clears its projections/links without changing originals' current state;
+D-123 makes card edits/moves through projections affect the real card. D-124
+removes combat projections on source departure; D-125 retains Stack effects
+until explicit removal/resolution. Next: surviving blocker assignments when an
+attacker disappears. Missing-source Stack presentation/actions remain separate.
 
 ## 10.9 Worked interaction examples
 

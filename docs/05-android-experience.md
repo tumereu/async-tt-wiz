@@ -24,6 +24,15 @@ finished screen. D-119 adds event-wide ping order numbers; D-120 removes links
 with their projection endpoints. D-121 requires another full action path for
 every targeted combined/individual quick action; quick visibility is not access.
 
+D-122 removes combat projections/links without moving/untapping originals or
+undoing prior edits. D-123 makes card actions through projections affect the real
+card, including destination drops such as Graveyard. They are live views with
+shared card fields, not independent snapshots. Exact occurrence cleanup versus
+source-Remove routing remains open. D-124 removes combat projections when their
+source leaves the battlefield; D-125 leaves Stack effects until explicit removal/
+resolution, even after source removal. Missing-source Stack display/inspection/
+card actions and attacker-removal assignments remain behavior work, not UI drafts.
+
 ## 5.1 Navigation and screens
 
 | Screen | Main responsibilities |

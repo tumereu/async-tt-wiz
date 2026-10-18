@@ -42,9 +42,9 @@ Proposed sequence; groups can be split or reordered during review:
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle separate area/declaration/tap actions, multiselect compositions/auto-area, blocker drops/blank slots, and adaptive spacing. D-120 covers projection links; D-121 full-path access. Combat removal behavior next; exact UI drafts remain stage 3. |
-| G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 renames Cast to Stack and requires virtual permanent occurrences without moving originals. Exact behavior cases remain open. |
-| G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. Category/routing/lifecycle cases remain open; no automatic resolution. |
+| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle actions/combinations/blockers/spacing; D-120/D-121 links/full paths; D-122 area cleanup; D-123 shared edits/moves; D-124 removes combat projections on source departure. Attacker-removal assignments next; UI drafts remain stage 3. |
+| G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. Missing-source display/actions and other entry/reference cases remain open. |
+| G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -831,7 +831,21 @@ links that disappear with endpoints. D-121 guarantees non-quick full paths to
 all targeted combined/individual actions, regardless of quick visibility.
 See the primary projection and ping contracts for pending details.
 
-Next G-11 cleanup proposal, not yet approved: removing the combat area removes
-its projections/projection links but leaves originals, positions, and current
-orientation unchanged. In particular it does not untap attackers. Automatic
-versus manual lifetime remains undecided; exact UI drafts remain stage 3.
+Confirmed D-122: removing combat area clears its projections/projection links
+without changing originals' current state, including orientation. It does not
+undo previous edits. Automatic/manual lifetime remains undecided.
+
+D-123: card actions through any projection always affect the real card. These
+are live shared fields, not independent copies; dragging a projection to
+Graveyard moves the actual card with ordinary destination resets/token-removal
+behavior. Creating/assigning projections still preserves source placement.
+
+D-124/D-125 replace a universal projected-move cleanup proposal: anything taking
+the real card off the battlefield removes its combat projections/incident links,
+but its Stack effects remain until explicitly removed/resolved. This is independent
+of which occurrence/source invoked the move; Stack effects survive source removal
+too. Missing-source display/inspection/card-action applicability remains open.
+
+Next proposal, not yet approved: when an attacker disappears, keep surviving
+blocker projections in blank/unassigned slots without changing their real cards.
+No UI draft/implementation authorized; phase-triggered cleanup remains open.

@@ -115,6 +115,14 @@ and split/join/coalescing effects remain behavior questions, not permission to
 merge actions or lose historical ping context.
 Exact within-group effective boundaries and later ping revisions remain open.
 
+D-124/D-125 require area-specific projection lifetime in recorded states: source
+departure removes combat projections/incident links, whereas Stack effects
+survive until explicitly removed/resolved. Retain enough occurrence/source/link
+context for normal undo, branch review, and downloaded offline recovery, including
+Stack effects with removed sources. Exact cleanup operation/undo composition and
+concurrent reference handling remain under review; do not apply one universal
+projection-removal rule in replay or recovery.
+
 Proposed grouping rules:
 
 - Group using explicit interaction context, contiguous actions, associated

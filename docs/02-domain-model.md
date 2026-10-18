@@ -41,7 +41,7 @@ history or authorize normalization of external catalog/import data.
 | Participant | Stable ID, account reference, display name; neither seat owns exclusive editing rights. |
 | Card definition | Source/catalog ID or custom definition, version, names, faces, display text/data, default corner text (D-56), image references; never executable rules. |
 | Card instance | Stable game-local object ID, definition reference, optional participant associations, container, explicit editable state. |
-| Projection | Virtual card occurrence referencing a source instance while the actual card remains at its original battlefield position. Used in combat and Stack (D-112/D-113); not a Clone/token or second actual containing location. Exact identity/schema/state routing remain open. |
+| Projection | Live virtual occurrence of a source card, not a Clone/token or second containment. Creation preserves source placement; card edits/moves affect the real card (D-123). Source departure removes combat occurrences (D-124), not Stack effects, which require explicit removal/resolution (D-125). Exact identity/schema/missing-source behavior and link/ping routing remain open. |
 | Combat assignment | Explicit per-attacker blocker association in the temporary combat area (D-112). Not inferred from pings/links or adjudicated for legality. Exact endpoint/order/cardinality schema remains open. |
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
@@ -308,14 +308,37 @@ same primitives; a general-purpose layout editor's first-release scope remains
 open. The engine must not require MTG-specific enums to load or replay a board.
 
 D-112/D-113 require a temporary combat area and the shared Stack (renamed from
-Cast), supporting projections that reference cards without moving their actual
-battlefield placement. A virtual occurrence does not violate single actual
+Cast), supporting projections whose creation preserves actual battlefield
+placement. Later card actions through a projection edit/move the real card
+(D-123). A virtual occurrence does not violate single actual
 containment or create a Clone/token. Explicit blocker associations and Stack
 occurrence kinds are permitted manual-play data, not inferred card rules.
 D-114 adds metadata/occurrence-dependent user-invoked Stack actions, not
-automatic resolution. Exact source updates, removal/lifecycle, identities,
-field routing, and history/offline/concurrency behavior are release-blocking;
+automatic resolution. Exact removal/lifecycle, identities, occurrence-versus-card
+operations, and history/offline/concurrency behavior still need design;
 see [the primary contract](13-combat-stack-and-projections.md).
+
+D-123 settles that source and projections share live card state: no independent
+projection corner text, counters, notes, faces/cover, or orientation. Card actions
+through either view operate on the real source. A projection dragged to a real
+destination moves that source with ordinary validation/reset/token-removal
+behavior. Duplicate-source selection, card-Remove versus occurrence-Remove entry,
+and link/ping endpoint routing remain separate behavior questions.
+
+D-122 removes the combat area and its projections/projection links without
+changing source cards' current state. It neither untaps attackers nor rolls back
+prior edits made through projections. Manual/automatic lifetime and exact cleanup/
+history/concurrency composition remain open.
+
+D-124/D-125 distinguish occurrence lifetime by role. Any removal of a real card
+from the battlefield removes its combat projections and their incident links,
+regardless of the operation's entry point. The same source departure/removal
+leaves Stack effect occurrences intact until explicit removal/resolution, even
+if the source was moved through that Stack projection or a token ceased to
+exist. A surviving effect need not have a currently existing actual source card;
+missing-source presentation/inspection and card-action applicability need design.
+Do not fabricate a replacement card. Attacker-removal assignment handling and
+exact cleanup/history/concurrency composition also remain open.
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display

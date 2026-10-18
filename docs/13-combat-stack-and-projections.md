@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-121 require case-by-case design before implementation. The
+(D-115). D-112–D-125 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -16,14 +16,17 @@ are recorded now; UI drafts/exact geometry remain stage 3, not current work.
 
 1. **Temporary combat area (D-112):** present attacking and blocking cards in an
    area that makes per-attacker blocker assignment easy. Exact appearance,
-   dismissal timing, assignment cardinality/order, and cleanup are open. D-116
-   makes creating the area a separate action; D-117's multiselect declaration
-   shortcuts also create it when absent.
-2. **Projections (D-112):** a card can virtually occupy an area/slot while its
-   actual card remains at its original battlefield position. Attackers/blockers
-   use this representation. A projection references a source card; it is not a
+   dismissal timing and assignment cardinality/order are open. D-122 fixes
+   removal effects without choosing automatic/manual lifetime. D-116 makes
+   creation a separate action; D-117's multiselect shortcuts also create it.
+2. **Projections (D-112/D-123):** creating a virtual card occurrence leaves the
+   actual card at its battlefield position. Attackers/blockers use this
+   representation. A projection references the same source card; it is not a
    Clone, token, duplicate card instance, or second actual containing location.
-   Exact identity/schema and live-versus-snapshot presentation remain open.
+   Card state is live/shared and card actions write through to the source,
+   including subsequent moves. D-124/D-125 distinguish combat and Stack lifetime
+   after source departure. Exact identity/schema and missing-source presentation
+   remain open, not live-versus-snapshot or independent-state routing.
 3. **Stack naming and ability projections (D-113):** rename the former Cast area
    to Stack. Battlefield permanents can be projected there to signal an activated
    ability without moving the original card. This is an explicit player action,
@@ -85,8 +88,9 @@ normal structural/applicability validation. Exact menu presentation is stage 3.
 Blockers can be dragged to a specific attacker to assign them to that attacker.
 They can also occupy a blank slot with no attacker for special/manual purposes;
 an unassigned blocker is valid, not an invalid missing-attacker reference.
-Sources remain at their original battlefield positions under the projection
-model. Exact entry origin, source-versus-projection hit routing, reassignment,
+Creating/assigning blocker projections leaves sources at their battlefield
+positions; later card-directed actions through projections affect the source
+(D-123). Exact entry origin, gesture disambiguation, reassignment,
 cardinality/order, and removal behavior still need review.
 
 Attackers receive more space as more blockers are assigned, keeping their blocker
@@ -109,8 +113,9 @@ Links can connect projections to projections. When an endpoint projection
 disappears, those links disappear with it (D-120), not get transferred to source
 cards or left as live dangling lines. This is distinct from deleting a source
 card or a source-to-source link. Preserve normal historical/undo/branch recovery;
-exact endpoint identity, same-operation cleanup, and source-removal cases remain
-behavior questions. Links with other endpoint kinds need separate review.
+exact endpoint identity and same-operation cleanup remain behavior questions.
+D-124/D-125 settle which projections disappear on source departure. Links with
+other endpoint kinds need separate review.
 
 ## 13.3 Review sequence and unresolved contracts
 
@@ -126,26 +131,84 @@ stage 3; schemas/technical choices follow in the relevant implementation work:
    multiple blockers, reassignment/order/removal, and corrections. Specific-attacker
    drops, blank unassigned slots, and adaptive attacker spacing are settled.
 3. **Combat lifecycle:** when the area appears/disappears, phase changes/skips,
-   repeated combat, End turn, source moves/removal, and historical rendering.
+   repeated combat, End turn, assignments after an attacker disappears, and
+   historical rendering. Source departure removes its combat projections (D-124).
 4. **Stack entry:** real card versus projection controls; ability-source context;
    multiple projections from one source; placement/order, labels, and optional
    communication. No ability picker/text entry is approved by implication.
 5. **Stack exit:** concrete buttons/gestures, metadata and multi-face categories,
    ambiguous/missing data, participant/destination placement, and manual overrides.
    Projection removal must be distinguished from source-card Remove/move.
-6. **Shared correctness:** projection/assignment identities, reference updates,
-   field-edit routing, cover/inspection/exposure, geometry/selection, action and
-   group boundaries, undo, branches, offline persistence, retries, and concurrent
-   source/reference edits. Do not reuse Clone/removal semantics blindly.
+6. **Shared correctness:** projection/assignment identities, reference lifetime,
+   occurrence-versus-source operation disambiguation, cover/inspection/exposure,
+   geometry/selection, action and group boundaries, undo, branches, offline
+   persistence, retries, and concurrent source/reference edits. Missing-source
+   Stack presentation/actions still need design. Do not reuse Clone/removal
+   semantics blindly.
 
 Every behavior case must be covered in stages 1–2 and its UI decided in stage 3.
 No required behavior is silently omitted or postponed until coding; technical
 design for implementation slices is distinct from this behavior completeness.
 
-## 13.4 Next combat cleanup behavior — proposed, not approved
+## 13.4 Confirmed cleanup and shared card state
 
-Removing the combat area removes its projections and their projection-to-
-projection links, but leaves original cards, positions, and current orientation
-unchanged. In particular, removing combat presentation does not untap attackers.
-Exact removal controls and manual versus phase-triggered lifetime are not yet
-chosen. Undo/history/branch recovery must preserve recorded state normally.
+D-122: removing the combat area removes its projections and the projection-to-
+projection links incident to them, but leaves real cards and their current state
+unchanged. It does not move or untap originals or undo edits already applied
+through projections. Other areas' projections are not removed merely by this
+area cleanup; a cross-area projection link disappears if its endpoint here does.
+Exact removal controls, automatic/manual lifetime, and action/undo composition
+remain open. Normal history/branch recovery still applies.
+
+D-123: card actions through a projection always apply to its real source card.
+Projections are live views, not editable snapshots. Tap/untap, corners, counters,
+notes, faces/cover, and other card-state changes refer to the same shared card
+state, whether invoked through the source or a projection. No separate local
+copy of those card fields is introduced for combat or Stack occurrences.
+
+Dragging a projection into Graveyard or another real destination moves the actual
+card there, using the same stable identity, validation, resets, and token-removal
+exceptions as an ordinary move. The source's position is not permanently pinned
+by having a projection. Virtual slot placement/combat assignment and projection
+removal are distinct occurrence operations; do not turn combat-area cleanup or
+the approved Stack Remove projection into source-card deletion. Exact card-Remove
+versus occurrence-Remove entry and link/ping endpoint routing under shared edits
+remain behavior questions. D-124/D-125 settle lifetime after source departure;
+missing-source Stack presentation/actions still require review.
+
+## 13.5 Confirmed area-specific lifetime (D-124/D-125)
+
+Do not apply a universal remove-the-dragged-projection policy. Lifetime depends
+on the occurrence's role, not on which view was used to edit/move the card.
+
+**Combat (D-124):** anything that removes the real card from the battlefield
+removes all its combat projections, whether attackers or blockers. This includes
+a move through the original, a combat projection, or a Stack projection, and
+explicit source-card Remove/token disappearance. Incident projection links
+disappear under D-120. Moving/repositioning within the battlefield does not meet
+this departure condition. There is no extra manual projection-cleanup step.
+Assignments involving a removed attacker still need a behavior decision; do not
+silently remove the real blocking cards or assume their projections disappear.
+
+**Stack (D-125):** the source leaving the battlefield, moving elsewhere, or being
+removed does not remove its Stack projections. Each effect occurrence remains
+until explicitly removed/resolved, including when a move was performed through
+that Stack projection itself. Removing/resolving the occurrence removes its
+incident projection links, not the source card, and does not apply card-text
+effects automatically. Links between surviving projections are not removed just
+because their sources changed location. No priority or automatic resolution is
+introduced.
+
+If the real source no longer exists in current state (for example a removed
+token), preserve the Stack effect occurrence. Its displayed reference/inspection
+and applicability of source-card actions still need design; do not invent a new
+actual card or silently remove the effect. Normal history/undo/branch/offline
+recovery applies to both lifecycle rules; exact operation composition/concurrent
+reference handling remain under review.
+
+## 13.6 Next attacker-removal assignment behavior — proposed, not approved
+
+When an attacker projection disappears, keep its surviving blocker projections
+in blank/unassigned combat slots, without moving or changing their real cards.
+This would reuse the valid unassigned-blocker state (D-118). It does not decide
+phase-triggered combat-area cleanup or missing-source Stack presentation.

@@ -60,7 +60,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-031 | History controls | D-89–D-91: ordinary undos vanish from the visible tree; retain an undone path only through its last actual hidden-information exposure, including draw/move/face changes. Preserve internal recovery and the requested rollback state. Review/interrupt/switch/archive/restore/rename and draft recovery remain; exact cutoff display/dependency/redo protocols are open. |
 | A-032 | Export | Export decks and a complete game/history archive with declared information exposure. Exact formats remain open. |
 | A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |
-| A-034 | Combat projections/assignment | D-116 separates area creation, attacker projection declaration, and source tapping. D-117 adds phase-appropriate multiselect Declare + tap / without-tapping and automatic area creation. D-118 adds specific-attacker blocker drops, blank slots, and adaptive spacing. Sources stay in place; exact lifecycle/routing/combined boundaries remain open. |
+| A-034 | Combat projections/assignment | D-116 separates area creation/declaration/tap; D-117 adds multiselect combinations/auto-area; D-118 assigned/unassigned blockers and spacing. Creation preserves source placement, but D-123 routes later card edits/moves to the real card. D-122 removes combat projections/links without changing originals. Exact reference lifecycle/combined boundaries remain open. |
 | A-035 | Stack projections | D-113 permits battlefield permanents to virtually occupy Stack to signal activated abilities, without moving originals. Distinct from Clone/token creation. Exact entry/multiplicity/source-update controls remain open. |
 | A-036 | Contextual Stack actions | D-114 requires instant/sorcery card → Graveyard, permanent card → Battlefield, projection → remove projection. Exact category/face/default handling, destination routing, and controls need case-by-case design; no automatic resolution. |
 
@@ -68,6 +68,17 @@ D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;
 structural/applicability validation remains. Exact menu paths are stage 3.
+
+D-123 applies normal card actions through projections to the real source card,
+not a local copy. This includes moves into Graveyard/other destinations with
+normal resets and token-removal exceptions. Projection/area lifecycle removal is
+distinct from source-card Remove; exact entry remains under review. D-124 removes
+combat projections when the real card leaves the battlefield, regardless of
+entry point. D-125 retains Stack effects until explicit removal/resolution,
+including when their source moves or ceases to exist. A real-card move through a
+Stack projection does not itself remove that effect. Missing-source Stack
+presentation/actions and attacker-removal assignments remain under review in
+the primary projection contract; no automatic effect execution is introduced.
 
 D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite

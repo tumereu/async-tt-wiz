@@ -614,8 +614,7 @@ grouped history unit; exact mapping to atomic actions remains later review.
 Exact association/defaults, mode controls, and gesture arbitration remain open.
 General conversation remains supported through text/chat.
 
-Deferred G-10 optional communication controls, proposed and not yet approved
-(roll-seed semantics are the active question):
+Next G-10 optional communication controls, proposed and not yet approved:
 
 1. A table Chat control opens the game-wide conversation. Posting a message is
    ordinary text submission, separate from gameplay publication; play never
@@ -1003,16 +1002,16 @@ Confirmed G-10 basic randomness controls (D-87):
    not a fresh random draw. Source/algorithm, offline policy, exact display, and
    action boundaries remain later review; results change no cards or values.
 
-D-88 confirms that the roll seed resets when the other player takes actions.
-Only future roll generation uses that reset; recorded results stay fixed for
-review/redo. Exact qualifying actions, seed scope, ordering/branch behavior,
-offline execution, and coin/shuffle applicability remain open.
+D-92 simplifies new die/coin invocations to fresh random draws, including after
+undo, superseding D-88 and the pending seed/reset/draw-position proposal. No
+opponent action is needed for a fresh draw. Results may repeat by chance. History,
+review, redo, and retries of the same operation still reuse its stored result.
+Exact generator/source, offline execution, and concurrency remain later review.
 
-Deferred roll-sequence question, proposed and not yet approved: consecutive new
-rolls advance a deterministic seeded sequence, while undo/retry at the same draw
-position with no seed reset repeats the same draw. An opponent-action reset
-starts a new sequence for future rolls. Alternatively, every roll could repeat
-one result until reset; the sequence-versus-fixed-result choice is not yet settled.
+D-93 confirms every explicit new Shuffle samples a fresh order, including after
+undo; review/replay/redo and retransmission reuse the recorded order. A fresh
+shuffle may reproduce a prior permutation by chance. This adds no shuffle
+shortcuts beyond Shuffle all and does not imply that covered order was exposed.
 
 Confirmed D-89/D-90: ordinary undo removes the action from the visible event tree;
 information-gaining undo leaves it as a history branch while reverting its board
@@ -1022,12 +1021,14 @@ and die/coin results, but not every visible-card hold or search keystroke. Ordin
 summaries do not automatically disclose viewed card identities. See the
 [primary undo-branch contract](03-history-and-undo.md#information-gaining-actions-and-undo-branches).
 
-Next proposed edges: retain an entire undone group/suffix if any constituent is
-information-gaining, and include draws/moves/face changes that expose covered
-faces in that classification. Neither edge is approved yet. Exact event placement,
-coalescing, mixed/collaborator undo, redo, and offline publication remain Q-31.
-This is not a persistent ping or access restriction. Seed-sequence and optional
-communication questions remain deferred, not silently resolved.
+D-91 trims an undone history branch at its last information-gaining action:
+retain the original path up to that point, omit trailing ordinary undone actions
+from the visible tree, and retain internal recovery. Undo still restores the
+requested earlier state. Any action actually exposing otherwise-hidden info
+qualifies, including draws/moves/face changes, not only View/hold. Exact event
+placement/coalescing, cutoff group display, collaborator handling, redo, and
+offline publication remain Q-31. This is not a persistent ping/access restriction.
+Chat/event Note/Reply controls are the active G-10 question.
 
 ## 10.9 Worked interaction examples
 

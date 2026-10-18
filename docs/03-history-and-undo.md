@@ -199,7 +199,8 @@ the visible event tree from internal redo/recovery: undo an ordinary non-
 information-gaining action by restoring the preceding tree as if that action
 never happened, without leaving an ordinary undone-action branch. Undo an
 information-gaining action by reverting its board effect while retaining it as
-a visible history branch. D-89 defines the confirmed exposure coverage below.
+a visible history branch. D-89/D-91 define exposure coverage and the retained
+branch cutoff below.
 Redo/recovery remains required; hidden recovery retention does not require
 ordinary undone nodes to remain in the visible tree. Exact schemas are open.
 
@@ -207,8 +208,8 @@ ordinary undone nodes to remain in the visible tree. Exact schemas are open.
 | --- | --- |
 | Pending action not yet transmitted | Restore preceding local state; remove its queued effect safely; retain redo result. |
 | In-flight action with unknown outcome | Show undo intent immediately; establish the original outcome and synchronize the necessary compensating operation without a second ordinary undo tap. |
-| Published latest action/group | Restore its predecessor boundary. Apply D-90 visible-tree behavior: ordinary undo disappears from the tree; information-gaining undo retains a history branch. Exact mixed-group rules remain open. |
-| Historical action with later dependent actions | Preview rollback to its predecessor and retain recovery for the affected suffix, without blind inversion of later work. Visible branch retention follows D-90; exact mixed-suffix classification remains under review. |
+| Published latest action/group | Restore its predecessor boundary. D-90/D-91 remove ordinary undone actions from the visible tree, retaining an information branch only through the last information-gaining action. Exact group display/atomicity remains open. |
+| Historical action with later dependent actions | Preview rollback to its predecessor and retain internal recovery for the affected suffix, without blind inversion of later work. D-91 retains its visible branch only through the last information-gaining action; collaborator/stale-impact protocols remain open. |
 | Interruption | Restore the previously selected continuation, including its preserved suffix. |
 | Activate another branch | Restore the previous branch selection. |
 | Delete/archive branch | Restore the branch and its metadata; restore selection if explicitly requested. |
@@ -279,6 +280,12 @@ Confirmed exposure coverage (D-89): library View/Reveal, otherwise-covered hand/
 card-face viewing, covered-face hold inspection, and die/coin results. Ordinary
 inspection of already-visible faces and every search keystroke are not included.
 This records what the interface showed/generated, not what a player remembers.
+D-91 generalizes this to any action exposing otherwise-hidden information,
+including draws, moves, and face changes that display covered information to
+either participant. Classification depends on actual interface exposure, not
+the command name, printed game rules, or a guess about the person's knowledge.
+An ordinary visible-face gesture/keystroke is not itself an exposure record;
+if its result actually exposes hidden information, that exposure still qualifies.
 Covered-face inspection logs an exposure without requiring a board-state edit
 or automatic activation of a new gameplay continuation; exact record placement
 remains open.
@@ -297,15 +304,22 @@ exemption from eventual game/account erasure. Exact triggers/coalescing,
 historical/offline views, durable capture/publication, schemas, and retention
 remain Q-31. No competitive anti-cheat guarantee is implied.
 
-Next mixed/exposure-edge batch, proposed and not yet approved:
+Confirmed mixed-sequence cutoff (D-91):
 
-1. If an undone group/suffix includes any information-gaining action, retain the
-   whole affected sequence as a history branch, including its ordinary actions;
-   if none, remove the undone sequence from the visible tree while retaining
-   internal redo/recovery. This does not settle atomic boundaries/group formation.
-2. Count explicit draws/moves/face changes that show previously-covered card
-   faces as information-gaining too, even without View/hold. Exact exposure
-   triggers remain structural presentation facts, not inferred game knowledge.
+1. Within the affected undone group/suffix, retain the branch from the rollback
+   boundary through the last information-gaining action, including earlier and
+   intervening ordinary actions needed to retain the original path/context.
+2. Remove trailing ordinary undone actions after that last information gain from
+   the visible tree, retaining internal redo/recovery. If the undone sequence
+   contains no information gain, leave no visible undone branch.
+3. This cutoff changes retained visible history, not the requested rollback
+   state: undo still restores the chosen predecessor, not the last exposure's
+   resulting board. It does not authorize pruning unrelated existing branches.
+
+Example: undo `ordinary A -> view B -> ordinary C -> roll D -> ordinary E`.
+Restore the state before A, retain the history branch through D, and omit E from
+the visible tree. Atomic boundaries, group rendering at the cutoff, dependent/
+collaborator edits, exact exposure triggers, and redo reconciliation remain open.
 
 ## 3.10 Randomness and branching
 
@@ -315,26 +329,32 @@ than rerolling; these tools do not automatically change card or counter state.
 Exact random source/algorithm, offline execution policy, and action-boundary
 protocols still require review; touch entry is in the board contract.
 
-D-88 confirms that the roll seed resets when the other participant takes
-actions. That reset governs future roll generation; it does not rewrite concrete
-results already recorded, including when reviewing/redoing them. Exact qualifying
-actions, seed scope/ownership, reset ordering under offline/concurrent edits,
-branch association, and whether coin/shuffle share this lifecycle remain open.
+D-92 supersedes D-88's opponent-action seed-reset rule: every explicit new die
+roll or coin flip gets a fresh random draw, including a new invocation after
+undo or on another branch. No gameplay seed epoch/draw-position/reset mechanism
+is required for these tools. A fresh draw may coincidentally equal an earlier
+result; do not force a different value.
 
-Next seed-sequence question, proposed and not yet approved: consecutive new rolls
-advance a deterministic seeded sequence; undo/retry at the same draw position
-and unchanged seed epoch reuses that draw instead of obtaining fresh entropy.
-An opponent-action reset starts a new sequence for future rolls. The alternative
-is that every roll repeats the same result until that reset; D-88 alone does not
-settle this choice or the draw-position/history protocol.
+Distinguish a new invocation from review, replay, redo, or retransmission of the
+same operation: those reuse its stored outcome/idempotency result, never resample.
+An undone die/coin result remains in history under D-89–D-91; fresh generation
+does not erase that information branch. Exact generator/source and offline/
+concurrent operation protocols remain open, without reopening seed-reset policy.
+
+D-93 confirms the same rule for Shuffle: every explicit new invocation samples
+a fresh order, including after undo; redo/review/retransmission reuse its recorded
+order. A fresh shuffle may coincidentally reproduce a prior order. No gameplay
+opponent-action seed lifecycle is required. D-93 does not expand shuffle controls
+beyond the approved Shuffle all scope or by itself settle hidden-info exposure
+classification for a covered shuffled order.
 
 Shuffle, die roll, coin flip, and random selection are explicit actions with
 stored outcomes. Re-rendering, reopening, replaying, or redoing an action must
 not draw new randomness.
 
-A fresh random action gets a fresh identity and an audit entry; a new identity
-does not by itself authorize a new seed or entropy draw (D-88). Undoing and then
-choosing to shuffle again is a visible new action, not invisible rerolling. Full
+A new random-action invocation gets a fresh identity and retained context.
+D-92/D-93 make new die/coin/Shuffle invocations fresh draws, not new outcomes for
+transport retries. Store the concrete result/order with the operation. Full
 information access means this is not a competitive fairness guarantee.
 
 Offline and online execution must store concrete outcomes that deterministic

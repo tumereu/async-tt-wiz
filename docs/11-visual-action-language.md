@@ -148,8 +148,10 @@ Exact action/group/history placement still needs later detailed review.
   route to messages/pings on retained alternatives.
 - Undo restores the board state. D-90 removes ordinary undone actions from the
   visible event tree but retains information-gaining undos as history branches
-  (D-89), separate from internal recovery. Exact mixed-sequence classification
-  remains open. Undo/remove/edit pings through recoverable records; a ping is
+  (D-89), separate from internal recovery. D-91 ends a retained undone path at
+  its last actual hidden-information exposure; omit trailing ordinary actions.
+  Exact cutoff rendering/reconciliation remains open. Undo/remove/edit pings
+  through recoverable records; a ping is
   not automatically classified as information-gaining merely because durable.
 - Adding a communicative ping while inspecting history does not by itself select
   a new active game-state continuation. Exact ping revision/history placement

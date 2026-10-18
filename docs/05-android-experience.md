@@ -60,9 +60,12 @@ happened, without ordinary undone-action branches. Information-gaining undos
 remain as visible history branches with their original context/results and
 undone/inactive status. Covered-view summaries do not automatically disclose
 identities. Internal recovery/redo remains available, distinct from tree clutter.
-Reviewing a branch does not activate it or reapply board state. Exact mixed-group
-classification, coalescing, undo/redo navigation, and offline presentation remain
-Q-31; these are not event-scoped pings or permanent board markers.
+Reviewing a branch does not activate it or reapply board state. D-91 retains an
+undone path only through its last information-gaining action, including any draw/
+move/face change exposing hidden info. Trailing ordinary undone actions disappear
+from the tree, not from internal recovery. Exact cutoff/group display, coalescing,
+undo/redo navigation, and offline presentation remain Q-31; these are not pings
+or permanent board markers.
 
 Use text/icons as well as color. A prominent “Return to active game” control is
 available when viewing history or an inactive branch; it must not discard drafts.
@@ -175,10 +178,13 @@ decided before implementation.
   sync actor/request/result to shared history, reusing results for review/redo.
   No automatic card/counter changes. Exact picker geometry, bounds, source/
   algorithm, offline execution policy, and display remain under review.
-- D-88 resets the roll seed on the other participant's actions for future rolls,
-  without changing recorded results on review/redo. Sequence-versus-fixed-repeat,
-  qualifying actions, draw-position/branch/offline semantics, and sharing with
-  coin/shuffle remain under review.
+- D-92 makes new Roll die/Flip coin invocations fresh draws, including after
+  undo, without requiring an opponent action. This replaces D-88 seed resets.
+  History/review/redo and same-operation sync retries retain recorded results.
+  Equal results by chance are valid; exact generator/source/offline protocols
+  remain under review. D-93 confirms new Shuffle also samples a fresh order,
+  while review/replay/redo/retries retain its recorded order. No new shuffle
+  shortcuts or hidden-order exposure classification is implied.
 - D-74 makes pinging a persistent interaction mode, not a one-shot command from
   an action menu. Mode entry alone creates no ping/shared edit. Durable pings
   retain recorded context. D-75 makes pinging toggleable within one group/event;

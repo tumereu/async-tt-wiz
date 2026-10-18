@@ -59,11 +59,13 @@ Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in
 [the board contract](10-board-and-controls.md). Exact schemas remain open.
 
-D-88 requires the roll-seed lifecycle to account for actions by the other
-participant. Seed reset affects future rolls, not stored outcomes. Exact seed
-scope/epoch, draw-position representation, triggering action kinds, branch/
-offline ordering, and sharing with other random tools remain unresolved; this
-does not select a random algorithm or authorize a seed schema by assumption.
+D-92 makes every new die/coin invocation a fresh draw, even after undo, replacing
+D-88's opponent-action seed reset and the pending gameplay draw-position model.
+The same recorded operation is not resampled during review/redo or transport
+retries. Retain concrete outcomes independently from board undo; fresh draws can
+coincidentally match. D-93 applies the same fresh-new/fixed-recorded distinction
+to Shuffle's concrete order. Exact generator/source, input validation, and offline
+publication remain open; no gameplay seed-epoch schema is required by D-92/D-93.
 
 D-89/D-90 distinguish the visible event tree from retained internal recovery.
 Ordinary undone actions disappear from the visible tree; information-gaining
@@ -72,7 +74,13 @@ references/results. Coverage includes explicit library View/Reveal, covered hand
 card-face views including covered-face holds, and die/coin results. Covered
 summaries do not automatically disclose identities. A separate permanent-marker
 entity is not required by this decision. Exact exposure event placement, schema,
-coalescing, mixed-sequence undo/redo, and branch/offline publication remain Q-31.
+coalescing, cutoff/group display, undo/redo reconciliation, and branch/offline
+publication remain Q-31. D-91 qualifies any actual hidden-information exposure,
+including draws/moves/face changes. For a mixed undone sequence, its retained
+visible path ends at the last information gain; trailing ordinary undone steps
+remain only in internal recovery. Earlier/intervening ordinary ancestors remain
+in the path. This does not change the requested rollback board state or authorize
+rewriting action payloads/pruning unrelated branches.
 
 The [visual action language](11-visual-action-language.md) presents literal
 operations and associated pings together. There are no cast/target declarations,

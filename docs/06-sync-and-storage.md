@@ -23,9 +23,13 @@ D-90 separates internal retained records from the visible event tree: ordinary
 undo removes the action from that tree, whereas information-gaining undo retains
 a history branch. Sync must converge on that distinction without treating a
 visible-tree removal as irreversible deletion of redo/recovery data. Exact
-visibility/control schema, mixed-suffix rules, stale cursors, and redo/branch
+visibility/control schema, cutoff/group display, stale cursors, and redo/branch
 reconciliation remain to be specified. Conflict/interruption preservation is
 unchanged; do not apply ordinary-undo pruning to unrelated branches.
+D-91 fixes the visible retained path's endpoint at the last information-gaining
+action in the undone sequence, excluding trailing ordinary steps. Preserve
+internal recovery for the entire sequence and converge on the requested rollback
+board state. Exact concurrent/dependent-branch impact still needs a protocol.
 
 ## 6.2 Publication and concurrency
 
@@ -179,7 +183,9 @@ from cancelable ordinary board effects/ephemeral presence, not a new opponent
 access-control layer. Specify durable local capture, reconnect publication/
 deduplication, branch/offline availability, and covered-summary disclosure in
 Q-31. Already-visible-face holds and every search keystroke are not in the
-confirmed scope. Exact unfinished-input/exposure boundaries remain open.
+confirmed scope merely as gestures; D-91 covers any actual resulting exposure of
+otherwise-hidden information, including draw/move/face changes. Exact unfinished-
+input/exposure boundaries remain open.
 
 Transport authentication, invite authorization, secure credential storage,
 request limits, and validation remain necessary. Clients are untrusted inputs;

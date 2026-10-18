@@ -40,7 +40,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | D-87–D-90 confirm die/coin controls, seed reset, exposure coverage, and ordinary-versus-information-gaining undo branches. Mixed-sequence/exposure edges active; seed sequence/communication controls deferred; other tools unreviewed. |
+| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | D-87/D-89–D-93 confirm fresh new die/coin/Shuffle draws, fixed stored results, hidden-info exposure, and undo branches trimmed at last info gain. D-88 seed reset superseded; Chat/event Note/Reply controls next. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -664,15 +664,16 @@ Confirmed basic randomness controls (D-87):
    value edits. Exact source/algorithm, offline policy, display, and boundaries
    remain later review.
 
-D-88 confirms roll-seed reset when the other participant takes actions, affecting
-future generation rather than already-recorded results. Exact action kinds,
-seed/draw scope, branches/concurrency/offline ordering, and coin/shuffle sharing
-remain open.
+D-92 supersedes D-88 and the pending seed-sequence proposal: each explicit new
+die roll/coin flip is a fresh draw, including after undo. No opponent-action seed
+reset or gameplay draw-position reuse. Coincidentally equal results are allowed.
+Review/redo/replay and transport retries of the same operation reuse recorded
+results. Exact generator/source and offline/concurrent protocols remain open.
 
-Deferred seed question, proposed and not yet approved: consecutive new rolls
-advance a seeded sequence; undo/retry at the same draw position without a reset
-reuses the draw. The alternative is a fixed repeated result until an opponent
-action resets the seed. Do not implement either interpretation by assumption.
+D-93 confirms new Shuffle also samples a fresh order, including after undo;
+review/redo/replay/retries reuse the recorded order. A repeated permutation by
+chance is valid. No new shuffle shortcut or hidden-order exposure classification
+is implied; exact generator/input/offline protocols remain later work.
 
 Confirmed D-89/D-90: ordinary undo removes its action from the visible event tree
 as if it never happened; information-gaining undo leaves a history branch. Keep
@@ -683,20 +684,21 @@ Summaries do not automatically show covered identities. Branch review does not
 activate it. Primary contract:
 [information-gaining undo branches](03-history-and-undo.md#information-gaining-actions-and-undo-branches).
 
-Next mixed/exposure-edge batch, proposed and not yet approved:
+Confirmed mixed-sequence/exposure rules (D-91):
 
-1. If any action in the undone group/suffix is information-gaining, retain the
-   whole affected sequence as a branch; otherwise remove it from the visible tree
-   while preserving internal recovery. Atomic/grouping boundaries remain open.
-2. Also classify explicit draws/moves/face changes that expose previously-covered
-   card faces as information-gaining, not only View/hold. No mind-reading/rule
-   inference; exact presentation triggers remain later review.
+1. Retain the undone path only through its last information-gaining action,
+   including ordinary steps before/between exposures. Omit trailing ordinary
+   undone actions from the visible tree; no exposure means no undone branch.
+   Keep internal recovery and restore the requested rollback state, not the
+   last exposure's resulting board. Group rendering/atomicity remains open.
+2. Any actual hidden-information exposure qualifies, including draws/moves/face
+   changes, not just View/hold. Do not infer personal knowledge or game rules.
 
 Exact event coalescing, redo reconciliation, schema/publication, collaborator/
 branch/offline handling, and retention remain Q-31. This replaces the earlier
 separate permanent-audit-marker proposal with retained information branches.
 
-Deferred optional communication-control batch, proposed and not yet approved:
+Next optional communication-control batch, proposed and not yet approved:
 
 1. Table Chat opens game-wide conversation; ordinary message submission is
    separate from gameplay publication and never a prerequisite to play/sync.

@@ -1,0 +1,187 @@
+# 8. Verification and delivery
+
+## 8.1 Core acceptance scenarios
+
+These scenarios are proposed tests for the confirmed requirements. Each must
+eventually have concrete fixtures, expected states, and UI/API assertions.
+
+| ID | Scenario | Required outcome |
+| --- | --- | --- |
+| T-001 | Make four instantly synchronized actions in one automatic group; opponent steps through it. | Each atomic intermediate boundary is inspectable, even before group closure. |
+| T-002 | Interrupt between a card's move into Cast and its later move out. | New branch becomes active; later move remains on the old line only; neither move is interpreted mechanically. |
+| T-003 | Delete that interruption and return. | Original full continuation returns; deleted line is recoverable. |
+| T-004 | Undo branch deletion. | Branch/archive and active selection are restored together. |
+| T-005 | Undo an ordinary state change, redo it. | Exact prior/new state is recovered without new randomness. |
+| T-006 | Undo an old action after collaborator continuation. | Previewed rollback preserves the entire displaced suffix; no blind inverse corruption. |
+| T-007 | Either person edits the other's life, cards, and zones. | Both have equal editing capability and attribution is recorded. |
+| T-008 | Inspect the opponent's covered hand/library. | Explicit inspection works; no false permission denial/security promise. |
+| T-009 | Read downloaded game offline, queue reactions, restart app. | Cached state, draft, and queue survive; shared activation is marked provisional. |
+| T-010 | Reconnect after opponent changed active branch. | Queued valid actions automatically fork and synchronize at their intended base; both lines survive without a blocking choice. |
+| T-011 | Response is lost after server commit; client retries. | Original committed result returns with no duplicate actions. |
+| T-012 | Two interruptions publish against the same revision. | Both synchronize on retained branches; serialized creation/activation leaves exactly one active line, visibly identified. |
+| T-013 | Shuffle, undo, redo, reload, replay from root. | Identical stored shuffle outcome and board state each time. |
+| T-014 | Switch branch while opponent is reviewing old history. | Visible notice; old cursor remains usable; no silent forward jump. |
+| T-015 | App dies during local/database write or sync batch. | Atomic recovery; no partial board/tree and no acknowledged local edit lost. |
+| T-016 | Notification duplicates, arrives late, or never arrives. | Refresh still converges; a notification cannot mutate state. |
+| T-017 | Move a card through several containers with a historical ping. | Stable card ID remains; the ping retains its original boundary/location context; no rules incarnation is created. |
+| T-018 | A group ends after a move into Cast. | No casting completion, priority pass, or resolution is inferred. |
+| T-019 | Delete a branch containing descendants/shared prefix. | Only specified archive state changes; shared nodes and descendants remain recoverable. |
+| T-020 | Correct life now versus undo its historical change. | Distinct operations with clear impact previews. |
+| T-021 | Full game with custom/unsupported mechanic. | Named trackers/custom objects and correction tools permit completion. |
+| T-022 | TalkBack and large text, no dragging. | Core game/review/interrupt/undo flows remain usable. |
+| T-023 | Card images unavailable or catalog updated. | Text and stored essential data work; history does not change meaning. |
+| T-024 | Participant references another game's object IDs. | Service rejects access/mutation even under cooperative game permissions. |
+| T-025 | Reopen a completed game using undo. | Result marker reverses; history and board remain intact. |
+| T-026 | Perform a common quick action online. | Local feedback and durable queueing occur without a network wait; sync starts without Send, group closure, or navigation. |
+| T-027 | Undo immediately before/during/after acknowledgement. | One undo intent yields the correct eventual shared state without duplication or a second ordinary undo tap. |
+| T-028 | React directly while reviewing an earlier boundary. | First completed edit creates/activates the branch automatically; no mandatory respond-mode, name, preview, or Send step. |
+| T-029 | Continue editing while earlier actions are in flight. | Local play stays responsive; dependent actions synchronize in order onto the branch assigned to their predecessor. |
+| T-030 | Group stays open while recipient reviews and notifications coalesce. | Each committed action remains available immediately; cursor stays stable; no group-end tap is required. |
+| T-031 | Leave/background game with pending actions. | No keep/send prompt; durable work resumes syncing automatically subject to platform limits. |
+| T-032 | Measure common workflows against approved interaction budgets. | Exposed routine quick actions and latest safe undo need one activation and no redundant confirmation. |
+| T-033 | Both clients queue several conflicting actions, then reconnect. | Each intended chain survives; automatic branching does not endlessly fork or alternate active selection with every descendant. |
+| T-034 | Competing action moves an object; local action is valid at original base. | Fork validation uses the intended base; no false missing-object failure against the other branch's head. |
+| T-035 | Retry a publication that already created a conflict branch. | Same branch/result returns; no duplicate fork or renewed activation. |
+| T-036 | Drag a card onto empty grid, a visual pile, or a zone slot. | Preview identifies destination; valid drop snaps once, syncs, and supports undo; cancellation/no-op creates no move. |
+| T-037 | Double tap or hold an individual card. | Actions or large art/text open respectively, without single-tap edits or accidental moves. |
+| T-038 | Outside selection-edit mode, single tap a card with no selection. | It changes only that card's tapped state without inferring mana, targets, or another card's state; D-35 separately defines tapping selected cards. |
+| T-039 | Form/split/move a diagonal visual pile. | Individual identities and unrelated values/links remain intact; undo restores arrangement. |
+| T-040 | Inspect/rearrange special piles with covered cards. | Zone order and display sorting remain distinct; peeks/default summaries do not unnecessarily expose identities. |
+| T-041 | Move a card to Cast and add an associated ping to a participant marker. | Both sync and appear together as literal move + ping, without inferred casting/targeting, mandatory text, or Send. |
+| T-042 | Review the move before versus after the ping's effective boundary. | Only recorded facts effective at that boundary appear; later pings do not appear retroactively. |
+| T-043 | Select a different recorded action, then ping. | Visible context prevents silently associating its ping with the previously selected action. |
+| T-044 | Add pings with different optional styles/labels. | All remain visual communication records with no object-state or game-mechanic side effects. |
+| T-045 | Review an action-scoped ping hours later, offline if downloaded. | Original action, pointer, and optional text remain understandable; no inferred semantics or live presence dependency. |
+| T-046 | Disconnect during a card drag or library search. | Ephemeral activity expires without replaying obsolete presence, publishing a cancelled move, or exposing searched identities. |
+| T-047 | Branch between a grouped move/ping and later moves. | Boundaries remain available; original literal operations and pings remain recoverable. |
+| T-048 | Ping a card, move/remove it, switch branches. | Ping retains stable object ID and historical context, never silently referring to a different object/path. |
+| T-049 | Rename/relabel an area Cast, Stack, Library, or an unrelated name. | Only the label changes; operation/replay behavior is identical with the same generic configuration. |
+| T-050 | Move a card with counters, corner text, orientation, notes, participant associations, and visual links to a destination without D-55/D-56 reset behavior. | Preserve unrelated state; no inferred zone-reset/cost/cleanup rules execute. Graveyard/Exile/Library entry is tested separately under D-55/D-56. |
+| T-051 | Replay a non-MTG board with custom cards/areas/values. | Generic primitives work without MTG-specific enum values, catalog entries, or mechanics entities. |
+| T-052 | Compare literal move/ping/value records with displayed log. | It presents recorded facts and user-attributed text, never inferred cast/target/damage/resolve summaries. |
+| T-053 | Drag a card from a multi-card visual pile without a multi-selection. | Only that card moves; other pile members remain. Preserve IDs/unrelated fields; undo restores membership/order and placement. |
+| T-054 | Explicitly select multiple cards and drag a selected card. | The drag can move the selected cards together. D-28 governs dragging an unselected card; remaining selection details, relative order, and action boundaries require G-02 specification before concrete fixtures. |
+| T-055 | Drop one card onto each configured library, graveyard, and exile pile, including empty piles and either participant's side. | Insert on top without a top/bottom prompt; remove counters and restore database-default corner text under D-55/D-56, preserving unrelated state; queue/sync and support undo. Other-type/face/missing-data defaults await Q-29. Relabeling a pile leaves configured behavior unchanged. |
+| T-056 | Drop one card onto an ordinary card alone or in a visual pile. | Form/join the destination visual stack with the moved card on top; keep separate object IDs and unrelated fields/links. No attachment or mechanical merge is created; undo restores both arrangements. |
+| T-057 | Open a card's double-tap sheet and use Context Move. | Offer at least top/bottom of Library, Graveyard, and Exile, including either participant's containers. For a single-card move each inserts at the chosen end without unrelated field changes or a gameplay Send step. |
+| T-058 | With cards A/B already selected, complete a new rectangle selecting B/C, including after individual selection edits. | Selection becomes exactly B/C, not A/B/C or a toggled set. No cards move/rotate and no shared board action is created. Use any-overlap inclusion on visible card portions per D-26/D-27; exact geometry remains open. |
+| T-059 | Draw a rectangle across separate, unobscured cards: fully enclose A, overlap only a small portion of B, and leave C outside. | Select A and B, not C; full enclosure of B is unnecessary. Selection changes no card fields and creates no shared board action. |
+| T-060 | Draw a rectangle over a visual pile containing top card A, partially exposed B/C, and fully obscured D. Overlap A and B's exposed edge, but only C's obscured footprint. | Select only A/B, not C/D. Never select the whole pile implicitly. Repeat with covered backs without revealing identities; selection does not move/rotate any card. |
+| T-061 | With A/B selected and C unselected, drag C to a valid destination. | Clear the A/B selection and move only C. A/B retain their positions and fields; C is not added to their former set. The local selection change creates no extra board action; C's move queues/syncs normally and supports undo. |
+| T-062 | Select A/B and successfully drag the group to a valid destination. | A/B remain selected after movement and can be moved again without reselecting. Selection persists until explicitly cleared or replaced; movement still queues/syncs immediately, without selection exit or Send. |
+| T-063 | With cards selected, tap empty table space in normal interaction and repeat in selection-edit mode. | Clear selection in both cases without changing the active interaction mode, moving/rotating cards, or creating a shared board action. A drag from empty space instead draws a replacement rectangle and does not also execute the tap-clear gesture. |
+| T-064 | Select A/B, turn the visible Select toggle on, adjust selection by card taps, then turn it off. | Card taps while editing add/remove membership without rotating cards. Turning the mode off retains the resulting selection and restores normal tap/untap card taps. Toggling creates no shared board action or Send step; an empty-space tap clears selection separately. |
+| T-065 | Outside selection-edit mode, single tap A while upright A/B are selected and A shares a visual pile with unselected C. | Keep A/B selected and rotate both 90 degrees clockwise; C is unchanged. Tap again to return A/B to untapped. Repeat in selection-edit mode: the tap edits A's selection membership instead of orientation. |
+| T-066 | In selection-edit mode, select A/B with mixed tapped states, invoke Tap selected, then Untap selected. | The explicit commands set both cards tapped, then both untapped; they do not invert each card separately or alter unrelated fields. Outside this mode use the D-35 card-tap gesture, not the rejected always-available command proposal. Ordinary sync/undo apply; precise bulk action boundaries remain to be specified. |
+| T-067 | Outside selection-edit mode, select A/B and tap unselected C. | Clear A/B selection and tap/untap only C; A/B fields remain unchanged, and C is not added to the old set. The orientation edit queues/syncs and supports undo; the selection change adds no board action. |
+| T-068 | Pan/pinch in either mode; hold or double tap a card in selection-edit mode. | Pan/zoom change only the viewport. Hold opens Inspect and double tap opens Actions without changing selection/orientation or emitting constituent single taps. |
+| T-069 | Move a selected set while selection-edit mode is on, then repeat with it off. | Successful moves preserve both the selected set and the mode's prior on/off state. Sync does not wait for mode exit. |
+| T-070 | With A/B selected, start dragging unselected C, then cancel or drop invalidly. | Restore C's placement and the pre-drag A/B selection; commit no shared move/tap. Repeat with a selected-set drag and preserve its pre-drag selection/placement too. |
+| T-071 | Outside selection-edit mode, select untapped A and tapped B. Tap A; reset the mixed fixture and tap B. | Tapping A sets both tapped; tapping B sets both untapped. Do not independently invert members. Selection and unrelated fields remain unchanged; ordinary sync/undo apply. |
+| T-072 | Hold-to-inspect a face-down ordinary card in normal and selection-edit modes. | Automatically show face art/readable text locally without an extra uncover action. Keep the shared card face down, orientation/placement/selection unchanged; no board edit is created. Separate activity logging remains Q-06. |
+| T-073 | Inspect a multi-faced card, first face up and then face down. | Automatically show both printed faces and their text without an extra face-switch/uncover action. The shared displayed face/cover state and selection stay unchanged. |
+| T-074 | Use context Turn face down / Turn face up on one card or an explicit set, and Switch printed face on a multi-faced card. | Perform only the requested shared face/cover edit, preserving IDs, counters, notes, orientation, placement, selection, and links. Switching printed face alone does not uncover a face-down card. Sync/undo apply without inferred game effects. |
+| T-075 | Drop a third card onto an ordinary visual stack of two. | Allow a three-member visual stack with separate IDs and preserved unrelated fields. Normal queue/sync/undo apply. |
+| T-076 | Drag a fourth card onto a full three-card ordinary stack. | Show an invalid preview; on release restore pre-drag placement and selection. Do not add, replace, split, displace, or create a shared board action. |
+| T-077 | Drag a selected set onto a stack where the resulting membership would exceed three. | Reject the whole drop and restore all pre-drag placements/selection. Do not move only the members that would fit or silently create another stack. |
+| T-078 | Add cards beyond three to a special Library/Graveyard/Exile pile, or select more than three separate board cards. | D-39 does not reject these operations. The cap constrains each ordinary visual stack, not ordered-container size or selection count; selected sets are not implicitly combined into one stack. |
+| T-079 | With a three-card visual stack and no multi-selection, drag its bottom card onto the stack. | Bring that card to the top through an ordinary drag; preserve other members' relative order and all unrelated fields. Final membership remains three, so no false overflow/duplicate member is created. Sync/undo apply. |
+| T-080 | Split a member to empty grid space; select the remaining members with a rectangle and drag them together. | Use ordinary card/selection controls without a stack browser, Select stack command, or dedicated drag handle. Retain separate IDs/values and undoable placements; rectangle selection still matches only visible card portions. |
+| T-081 | Single tap a special pile control. | Open its contents and pile context actions together, without a separate double tap/menu-opening step or a card move. Explicit contents viewing is shared/logged under D-44. Individual-card gestures remain distinct from pile-control hit targets. |
+| T-082 | Open the full-library contents view for libraries containing the same distinct cards in different underlying orders. | Presentation hides stored sequence, actual indices, and per-card top/bottom positions. Opening/searching/filtering/sorting does not reorder the library. Explicit View is shared/logged; its actor sees faces and the other participant sees backs. Exact neutral display arrangement remains open. |
+| T-083 | Open library actions and invoke View top N / Reveal top N; interact with shown cards. | Both commands create shared log records and show original-card references in source order without moving/copying the cards. View shows faces to its actor and backs to the other; Reveal shows faces to both. Hold/context actions remain available. Detailed source-edit/display history and dismissal fixtures await Q-28. |
+| T-084 | Either participant performs View top 3 on a library whose top cards are A/B/C, then Reveal top 3 against the same unchanged source boundary. | Both operations are recorded/synchronized and retain A/B/C sequence. View's actor sees faces, the other sees three backs without names in routine summaries; Reveal shows A/B/C faces to both. Presentation depends on operation/actor, not library association. Full-access explicit inspection is not blocked. |
+| T-085 | View/Reveal top N from a library and inspect the resulting tray. | Tray entries reference the same stable card IDs; the cards remain in their original library positions with unchanged unrelated state. No new card instances or second containing locations are created. |
+| T-086 | Use Draw 2 on configured Library [A, B, C] with an associated Hand. | Move exactly A/B into that Hand in source relative order and leave C in Library, preserving card IDs and unrelated fields. No additional card-text effects or resets. D-49 fixes quantity clamping; bulk interruption boundaries remain open. |
+| T-087 | Create a View/Reveal tray, allow time to pass, close/reopen the app without dismissing it. | The shared display does not expire on a timer or app close; it remains until explicitly dismissed. Either participant can dismiss with a shared log record per D-47; exact UI/history/undo remain Q-28. |
+| T-088 | View/Reveal top 2 from Library [A, B, C], then move A to Hand or the library bottom. | The tray retains original A/B references in their original displayed order and shows A's updated location. It does not add/reveal C or refill from current top cards. Source movement happens once; face/back conventions remain unchanged. |
+| T-089 | Reorder/shuffle the source after a View/Reveal display exists. | Keep the original shown IDs and their recorded source sequence; do not continuously replace or reorder the tray from the current top N. Historical display records remain intact. |
+| T-090 | Either participant explicitly dismisses an active shared View/Reveal tray. | Log/synchronize dismissal and remove only the active display. Do not move cards back, undo completed moves, or delete the original View/Reveal history. Precise undo/branch semantics require Q-28 fixtures. |
+| T-091 | Open the library's contents/actions panel. | Offer Draw one, Draw N, View/Reveal top N, View/Reveal bottom N, Move top N, Move bottom N, and Shuffle all. Do not offer Shuffle top N or Shuffle bottom N, and do not shuffle automatically after viewing. N-picker defaults follow D-49; exact panel layout remains open. |
+| T-092 | Invoke View bottom 2 / Reveal bottom 2 on Library [A, B, C, D]. | Display C/D in that order with D marked bottommost. Reuse shared logging, actor/opponent face-back presentation, original-card references, stable display membership, and logged explicit dismissal. |
+| T-093 | Open an N-card quantity picker, then separately invoke quick Draw one. | Picker starts at one with +/- and numeric entry. Draw one skips the picker. Completed inputs execute without a separate gameplay Send step. Exact geometry and invalid numeric-input feedback remain open. |
+| T-094 | Request View/Reveal/Draw/Move 5 from a nonempty source holding only A/B. | Clamp to two and operate on the available A/B rather than reject for insufficient size. Preserve applicable source/display order. No substitution or silent skipping of explicitly selected IDs is authorized. Empty-source/count-feedback/boundary fixtures remain open. |
+| T-095 | Move top 2 from source [A, B, C] to destination [X, Y], separately testing top and bottom insertion. | Top insertion produces [A, B, X, Y]; bottom produces [X, Y, A, B]. Source becomes [C]. Preserve IDs/unrelated state; do not reverse moved or existing destination members. Cross-source and same-source reorder cases require separate contracts. |
+| T-096 | Open contents browsers for Library, Graveyard, and Exile containing cards of several types. | Use type-category columns like Cockatrice, not a default source-ordered Graveyard/Exile list. Stored membership/order stays unchanged; full Library does not expose source positions. D-51 initially sets alphabetical within-column order; exact category mapping and covered opponent layout need separate fixtures. |
+| T-097 | From a special pile's top-card surface, drag its top card to a valid destination; separately tap the pile. | Drag moves the actual top card using ordinary identity/unchanged-field rules; tap opens contents/actions. Exact hit regions and tap/drag arbitration remain to be specified. |
+| T-098 | Search/filter a contents browser by card name and hold a matching entry to inspect it. | Filter the display without moving cards or changing stored order; retain ordinary hold inspection. Explicit opening/View remains logged under D-44. Per-keystroke logging is not decided here. |
+| T-099 | Compare a type-grouped full contents browser with View/Reveal top N and bottom N. | Full contents use category columns; explicit N-card displays retain their agreed source sequence rather than regrouping by type. Full-library browser ordering must remain independent of source order. |
+| T-100 | Open a contents browser with named cards assigned to known main categories and some unclassified cards. | Initial D-51 baseline: each card appears once in its main-type column, unclassified cards appear under Other, and entries sort alphabetically by name independently of source order. Exact multi-type precedence and duplicate-name tie-breaking remain open. |
+| T-101 | Browse category columns on a narrow phone screen. | Initial D-51 baseline: scroll horizontally between columns and vertically within a column rather than shrinking cards to unreadable sizes. Exact sizing, gesture arbitration, and accessible navigation require later fixtures. Revisit this baseline during wireframe/usability review if needed. |
+| T-102 | Set a card's bottom-right corner text to `2/3`, a loyalty-like number, or arbitrary text. | Support all as editable instance text, independent of printed card data and counters. Expose quick context inc/dec/set conveniences; exact slash-pair arithmetic fixtures await approval. Do not infer power/toughness or loyalty mechanics. |
+| T-103 | Add colored counters to a card and to either participant, using numeric and non-numeric attached text. | Both cards and participants support colored text-bearing counters. Offer a small selectable palette; support arbitrary text and quick inc/dec/set for numeric text. Exact colors, entry points, and layout await specification. |
+| T-104 | Edit a card's counter text while it also has bottom-right text, then move it to a destination without D-55/D-56 reset behavior. | Counter editing does not recalculate corner text or printed characteristics. Movement retains both corner text and counters, including text/colors. Graveyard/Exile/Library resets are separate fixtures; stable identity and ordinary sync/history obligations remain in force. |
+| T-105 | Directly edit the same corner field between text shapes such as `2/3`, `4`, and `flying`, then inspect available quick actions. | Treat every value as the same plain text field. Offer applicable actions from current pattern matches, not a stored P/T/loyalty type; quick actions rewrite that string without creating separate authoritative numeric fields. Exact match grammar, available actions, and formatting fixtures await approval. |
+| T-106 | Invoke counter increment/decrement repeatedly from an open context menu. | Keep the menu open after each change, updating the displayed text and queuing/synchronizing completed edits without a menu-dismissal or Send requirement. Detailed grouping/interruption boundaries remain separate decisions. |
+| T-107 | Successfully use context Move to Graveyard on a card. | Dismiss the context menu and perform the move with counter removal and restoration of database-default corner text. Do not generalize counter +/- retention to every action. Other-type/face/missing-data defaults remain Q-29. |
+| T-108 | Move a counter-bearing creature with modified corner text into configured Graveyard, Exile, or Library, through drag or context movement. | Remove card counters and restore its database-default printed P/T string, preserving stable identity, orientation, notes, associations, and links. Record actual edits for review/recovery. Same-container behavior and detailed undo composition require Q-29 fixtures. |
+| T-109 | Use a creature definition whose database-default corner text is `2/3`; set its corner text to `5/6` or another manual string, then move it into Library/Graveyard/Exile. | Restore `2/3`, not the last manual value, and remove the card's counters. The corner field remains one plain string. Printed/default P/T comes from descriptive database metadata, not rules evaluation in the tabletop engine. |
+
+## 8.2 Additional required test layers
+
+- **Model tests:** every generic action, validation error, container/order change,
+  face/composite display, unchanged-field guarantee, and undo path.
+- **Property tests:** acyclic trees, single active branch, no duplicate zone
+  membership, deterministic replay, transactional all-or-nothing behavior.
+- **Protocol tests:** stale revisions, idempotency mismatch, payload limits,
+  pagination under concurrent writes, authorization, expired sessions.
+- **Fault tests:** dropped/delayed/reordered requests, process termination,
+  low storage, failed migrations, offline dependencies, partial image downloads.
+- **Compatibility tests:** historical schema versions, migrated snapshots,
+  supported Android versions, differing client versions in one game.
+- **End-to-end tests:** deck import to game completion, response branching,
+  rollback/recovery, offline conflict resolution, export/recovery.
+- **Operational tests:** backup/restore rehearsal, deployment rollback, service
+  restart mid-publication, outbox redelivery, and credential revocation.
+
+## 8.3 Specification readiness gate
+
+Implementation is blocked until all boxes are approved:
+
+- [ ] Product scope and non-goals accepted.
+- [ ] All release-blocking decisions in `09-decisions.md` resolved.
+- [ ] Complete per-action contracts for the agreed scope.
+- [ ] Generic move/field-preservation contracts and manual use-case coverage examples.
+- [ ] Full branch, grouping, review, undo/redo, and conflict state machines.
+- [ ] Annotated Android wireframes, interaction budgets, and complete screen/error states.
+- [ ] Board gestures, snapping/piles, literal log/grouping, and action-scoped pings approved.
+- [ ] Exact persistent schema, deterministic action format, and API contract.
+- [ ] Card source/deck grammar/image policy and legal attribution.
+- [ ] Authentication, invitations, membership, hosting, and privacy choices.
+- [ ] Quantified performance, retention, backup, and compatibility contracts.
+- [ ] Acceptance matrix links each requirement to testable expected outcomes.
+- [ ] Implementation slices and specification-change workflow approved.
+- [ ] Project owner explicitly authorizes implementation.
+
+## 8.4 Proposed design rounds
+
+1. Agree core semantics, product boundaries, and open architectural choices.
+2. Walk through real example games and interrupts; refine action/grouping and
+   recovery behavior until no ambiguity remains in those examples.
+3. Specify Android flows/wireframes and expand every action contract.
+4. Finalize schema, protocol, concurrency, catalog, and operational contracts.
+5. Run a documentation-only adversarial review against the acceptance matrix.
+6. Resolve gaps, version the approved specification, and request implementation
+   authorization.
+
+No round includes a prototype implementation unless the owner explicitly
+changes the docs-only constraint. Diagrams, wireframes, tables, and protocol
+examples are specification artifacts and are allowed.
+
+## 8.5 Later specification-driven implementation loop
+
+After approval:
+
+1. Select an approved vertical slice and its requirement/test IDs.
+2. Write executable acceptance/model tests matching the specified contract.
+3. Implement the slice without broadening scope.
+4. Check behavior, failure recovery, accessibility, and compatibility.
+5. If a gap is discovered, stop that behavior's implementation, propose a spec
+   amendment, obtain the necessary decision, then update tests and code together.
+6. Record requirement-to-code/test traceability and proceed to the next slice.
+
+Proposed order: deterministic state/history core; local Android table and durable
+action queue; automatic shared publication/sync; review/branch/undo; full generic
+tabletop toolkit and manual MTG coverage; notifications/catalog/decks; operational
+hardening. Final slices must
+be planned after the complete specification, not treated as current approval.

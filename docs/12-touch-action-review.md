@@ -1,0 +1,410 @@
+# 12. Step-by-step touch action review
+
+Status: review in progress. The owner requested small logical groups of
+capabilities, deciding whether each is needed and how it works with touch before
+returning to detailed grouping/playback design. No implementation is authorized.
+
+This is a review worklist, not a second interaction contract. Approved decisions
+must be reflected in the relevant primary document, decision register, and
+acceptance scenarios. Cockatrice capabilities are references, not automatic
+first-release requirements. Unanswered proposals below remain unapproved.
+
+Review style (D-33): batch straightforward likely-yes choices into small related
+numbered sets, allowing approval together or exceptions by number. Do not
+fragment every routine default into a separate conversational turn.
+
+Review continuity (D-57): end design updates with the next contextualized
+question/batch rather than waiting for “next?”. Commit and push at natural
+checkpoints while keeping proposed versus approved behavior explicit. This does
+not change the documentation-only implementation gate.
+
+## 12.1 Reference and review sequence
+
+Reference: Cockatrice client source snapshot
+[`b849a57`](https://github.com/Cockatrice/Cockatrice/tree/b849a57dab584b184e804527c2333e0688b9e590),
+checked 18 October 2026, especially the in-game player menus, player actions,
+card/arrow gesture handlers, zone controls, and token dialogs. The source-backed
+inventory was presented in conversation. This worklist splits that inventory
+into smaller touch-design decisions; it does not claim feature parity.
+
+Proposed sequence; groups can be split or reordered during review:
+
+| Group | Scope | Review status |
+| --- | --- | --- |
+| G-01 | Move one card: reposition, cross-area move, ordinary pile entry/exit, menu alternative. | Core choices confirmed in D-21–D-24; detailed lifecycle/hit testing remain open. |
+| G-02 | Select multiple cards and apply bulk movement. | Core selection choices recorded in D-25–D-31; detailed gesture/cancellation and bulk movement contracts remain open. |
+| G-03 | Tap/untap, bulk orientation, and optional skip-untap markers. | D-35/D-36 confirm selection-aware tapping with touched-card-directed uniform results; wider-set shortcuts and optional markers remain open. |
+| G-04 | Inspect, face-down/up, printed faces, and reveal presentation. | D-37/D-38 confirm context face changes and automatic face/both-face inspection; exact targeting/layout and logging remain open. |
+| G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
+| G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
+| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-56 confirm text/counters, pattern-based shortcuts, repeatable menu edits, and Graveyard/Exile/Library resets to database-default corner text; other defaults and exact controls under review. |
+| G-08 | Attachments/relationships, visual links, and action-associated pings. | Not yet reviewed; generic engine boundary and action-scoped pings already confirmed. |
+| G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
+| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
+
+Detailed action grouping, interruption boundaries, and playback follow capability
+and touch-control review. Existing confirmed history/sync requirements remain in
+force; this sequencing does not approve any pending grouping proposal.
+
+## 12.2 G-01: Move one card
+
+Primary contract: [board and controls, sections 10.4–10.6](10-board-and-controls.md#104-dragging-and-snapping).
+
+Already confirmed:
+
+- Drag a card to move it; drops snap to a grid location or designated slot.
+- Either participant can move either participant's cards.
+- Moves are literal, preserve unrelated state, automatically queue/sync, and
+  support undo. Labels such as Cast do not introduce mechanical side effects.
+- Double tap opens the card's available actions.
+
+Decisions from this review (D-21–D-24):
+
+| Capability | Control | Status |
+| --- | --- | --- |
+| Reposition one card or move it between areas. | Direct drag with a visible destination preview; no selection mode, hold prerequisite, or routine confirmation. | Drag/snap confirmed; detailed lifecycle proposed in section 10.4. |
+| Add one card to an ordinary visual pile. | Drop onto another card to form/join its visual stack; not an attachment. | Confirmed; exact hit regions/highlighting remain open. |
+| Take one card out of an ordinary pile. | Drag one card unless multiple cards have been selected. | Confirmed drag scope; D-40 removes the ordinary-stack browser and uses normal selection/drag for whole-stack movement. Exact hit geometry remains open. |
+| Drop onto library, graveyard, or exile. | Insert on top of that configured pile. | Confirmed; D-49 fixes order from one ordered source. Other multi-card order remains open. |
+| Move without dragging. | Context Move in the double-tap sheet offers at least top/bottom of library, graveyard, and exile. | Confirmed destination set; picker layout and further destinations remain open. |
+
+The owner explicitly allowed dragging multiple selected cards. That does not
+approve a dedicated whole-pile handle, any selection gesture, bulk ordering, or
+atomic/sequential grouping. These remain separate decisions.
+
+## 12.3 G-02: Select multiple cards
+
+Primary contracts: [board controls](10-board-and-controls.md) and
+[bulk actions](04-game-actions.md#45-bulk-actions-and-selections).
+
+Confirmed starting point: multiple selected cards can be dragged. A selection
+itself is local presentation, not a shared game edit.
+
+The owner's latest suggestion distinguishes direct rectangle selection from a
+separate mode for adding/removing individual cards. Two-finger dragging handles
+panning in either case. This supersedes the assistant's earlier interpretation
+that all rectangle selection would require entering multi-select mode.
+
+Current mapping (P-16), with core selection choices confirmed through D-35 and
+remaining details still under review:
+
+1. Drag one finger from empty table space to draw a rectangle; release to select
+   cards. No mode-entry tap is required. Confirmed: the new rectangle replaces
+   the existing selection rather than adding to it. Selection neither moves nor
+   rotates cards.
+2. Use two-finger dragging to pan, whether or not selection-edit mode is active.
+   Pinch zoom is confirmed alongside it by D-34.
+3. Enter a separate selection-edit mode to tap individual cards into/out of the
+   selection, allowing disconnected sets or holes within a rectangle. Normal
+   card taps outside that mode retain tap/untap behavior.
+4. Drag a selected card to move the selected set. Show selection highlighting,
+   selected count, and selection-edit mode clearly.
+5. Confirmed (D-31): a visible Select toggle enters/exits selection editing;
+   switching it off preserves the selected set and restores normal tap/untap.
+   Empty-space tap clears selection independently (D-30). Mode exit never undoes
+   completed moves or acts as a Send gate. A separate Clear button is not required
+   by these decisions.
+
+This combines a no-mode quick rectangle with precise arbitrary-set editing.
+Back-button behavior, accessible alternatives, and exact gesture timing remain
+to be specified. D-34 confirms hold/double-tap retain Inspect/Actions inside
+selection-edit mode without selection changes or constituent single-tap edits.
+
+Confirmed follow-up (D-25): a new rectangle replaces the existing selection;
+individual adjustments use selection-edit mode. Rectangle replacement does not
+depend on whether selection-edit mode is active.
+
+Confirmed inclusion (D-26): any overlap selects a card, including a small
+partially intersected portion; full enclosure is not required.
+
+Confirmed visual-stack selection (D-27): select only members whose visible
+portions overlap the rectangle. Do not select an entire pile implicitly or use
+obscured footprints. An exposed underlying edge can qualify; a completely
+obscured card cannot. Visible covered backs do not expose identity.
+
+Confirmed unselected-card drag (D-28): clear the old selection and move only the
+dragged card. Do not move the old set or add the dragged card to it. D-34 confirms
+cancelled/invalid drags restore the pre-drag selection and placement.
+
+Confirmed post-move selection (D-29): after successfully moving a selected set,
+keep it selected until explicitly cleared or replaced. Completing the move does
+not itself clear selection or require a selection-exit/Send step.
+
+Confirmed clearing (D-30): tap empty table space to clear selection, leaving the
+current normal/selection-edit mode unchanged. An empty-space drag remains
+rectangle selection, not clearing by a tap. Neither changes shared card state.
+
+Confirmed mode control (D-31): use a visible Select toggle. Turning it off keeps
+the selection and restores normal card-tap behavior. Clearing selection remains
+the separate empty-space tap, not an automatic consequence of toggling the mode.
+
+Follow-up details remain open: exact visible-card geometry, second-finger
+gesture arbitration, select-all entry points, covered/overlapping cards,
+cross-area selections, multi-card ordering, and bulk action boundaries.
+
+## 12.4 G-03: Tap/untap one card or a selected set
+
+Primary contract: [board gestures and ordinary piles](10-board-and-controls.md).
+Single tap for tapped presentation is already confirmed; taps within
+selection-edit mode instead add/remove a card from selection.
+
+Confirmed choices (D-35, correcting D-32):
+
+- Outside selection-edit mode, tapping a selected card retains selection and
+  taps/untaps all selected cards. Tapping an unselected card clears selection and
+  taps/untaps only that card. Pile membership alone does not expand the affected
+  set. A tap with no selection affects only the addressed card.
+- Tapped presentation is 90 degrees clockwise from untapped, or back to untapped.
+- Inside selection-edit mode, card taps add/remove selection membership. The
+  earlier approved explicit Tap selected / Untap selected commands remain for
+  that mode and set a group's presentation uniformly. The proposal to make those
+  commands available outside the mode was rejected; use card taps there.
+
+Confirmed mixed-orientation behavior (D-36): follow the touched card's pre-tap
+presentation. Touch an untapped selected card to set the whole set tapped;
+touch a tapped selected card to set the whole set untapped. Do not toggle each
+member independently. Keep selection and unrelated fields intact.
+
+Follow-up capabilities, not yet approved: untap a wider set/all cards, optional
+skip-untap markers, other rotation controls, and bulk operation boundaries.
+
+## 12.5 Grouped defaults: selection and gesture consistency
+
+The owner requested batching likely-yes questions (D-33) and named an exception
+to item 5. Items 1–4 are recorded as accepted (D-34); item 5 is rejected and
+replaced by D-35. Primary behavior is described
+in [board controls, section 10.3](10-board-and-controls.md#103-gesture-arbitration).
+
+1. Pinch zoom alongside two-finger pan, in either mode.
+2. Hold/double tap retain Inspect/Actions in selection-edit mode without changing
+   selection or emitting single-tap edits.
+3. Moving selected cards does not switch selection-edit mode on or off.
+4. Cancelled/invalid drags restore placement and pre-drag selection, including
+   the old set cleared by picking up an unselected card.
+5. Rejected: Tap selected / Untap selected available with the mode off. Instead,
+   normal card taps operate on the selection if the touched card is selected;
+   otherwise they clear selection and tap/untap only the touched card (D-35).
+
+Remaining meaningful tradeoffs (not approved by this batch) include cross-area
+selections, selected-set movement order/placement, bulk interruption boundaries,
+and optional whole-table/skip-untap shortcuts.
+
+## 12.6 G-04: Inspect, face-down/up, and printed faces
+
+Already confirmed: hold for large art/text; either participant can inspect all
+information. Covered presentation is not a permission boundary.
+
+Confirmed in D-37/D-38; primary contract is
+[board controls](10-board-and-controls.md#inspection-face-down-presentation-and-printed-faces):
+
+1. Context Turn face down / Turn face up for one card or an explicit selection.
+2. Context Switch printed face for cards with multiple playable faces, distinct
+   from turning face down/up and sideways tapping. No inferred game meaning.
+3. Hold-to-inspect automatically shows art/text even when the card is face down;
+   multi-faced cards automatically show both printed faces. No extra reveal or
+   face-switch step is required. This is the existing inspector referred to as
+   hover-inspect in review, not a new hardware-hover requirement.
+4. Face/cover edits preserve unrelated fields and selection. Inspection also
+   preserves shared face/cover state, orientation, placement, and selection.
+
+Shared inspection logging (Q-06), exact face/selection command targeting,
+bulk boundaries, and special-pile reveal conventions remain separate questions.
+
+## 12.7 G-05: Ordinary visual-stack controls
+
+Confirmed capacity and overflow (D-39, formerly P-17):
+
+- Maximum three actual member cards per ordinary visual stack, rather than a
+  three-card display fan hiding an arbitrarily large stack.
+- Special Library/Graveyard/Exile containers remain uncapped by this layout
+  limit. Multi-selection may include more than three cards across the table.
+- Confirmed overflow policy: show an invalid destination preview for
+  a drop exceeding capacity and restore pre-drag placement/selection on release.
+  No automatic splitting, displacement, or partial movement of a selected set.
+
+The owner referenced Cockatrice's three-card stacks. The checked source uses
+three grid positions per ordinary stack in table-zone mapping; attached-card
+arrangements are separate. This is design reference, not a requirement for our
+generic engine to inherit Cockatrice's implementation details.
+
+Confirmed compact controls (D-40):
+
+1. No separate ordinary-stack browser. Use visible portions and ordinary
+   gestures; precise exposure/zoom/hit geometry still needs specification.
+2. No Select stack action; use rectangle selection and, if needed, selection-edit
+   mode to refine membership. Move selected cards with ordinary drags.
+3. Bring an individual member to the top by an ordinary drag onto its current
+   stack; preserve other members' relative order and unrelated fields.
+4. Split an individual member out with an ordinary drag to an empty grid cell.
+   Existing selected-set drag scope still applies.
+
+The earlier proposed browser, browser reorder handles, and Select stack action
+are superseded. P-13's dedicated stack handle proposal is withdrawn; no such
+extra control is specified. Special-container browsers are unaffected.
+
+## 12.8 G-06: Special-pile browsing and direct controls
+
+Primary contract is
+[special-pile controls](10-board-and-controls.md#106-special-piles-library-graveyard-exile):
+
+Confirmed in the owner's revisions (D-41–D-46):
+
+1. A pile tap opens contents and pile context actions together.
+2. Full-library browsing does not show library order and does not reorder it.
+   This replaces the assistant's proposed default actual-order view for Library.
+3. Library commands include View top N and Reveal top N. Shown/revealed cards
+   support hold inspection and context actions such as move to library bottom.
+4. Both View and Reveal are shared/logged. View shows faces to the participant
+   initiating it and backs to the other; Reveal shows faces to both. The earlier
+   local-only View proposal was rejected. This is not opponent access control.
+5. View/Reveal top N preserve actual source order, including the backs shown to
+   the other participant for View. Full-library viewing remains orderless.
+
+Confirmed temporary-display and shortcut choices (D-46, formerly P-18):
+
+- Both commands use shared temporary displays with the confirmed face/back
+  presentation. Show references to the actual cards rather than
+  copies or moving them out of the library merely to view/reveal them. Context
+  actions edit those originals.
+- Draw N is an explicit preset top-N move to the associated Hand destination,
+  not a game-rule action inferred from a drag or label.
+- Keep shared View/Reveal displays until explicit dismissal, not a timer. History,
+  offline/review, deletion/removal, and undo/branching still require specification
+  (Q-28); D-47 fixes membership, source-move updates, and dismissal scope.
+
+Reference displays, Draw N, and explicit-dismissal lifetime are now approved,
+alongside top-N order and shared View. Detailed schema, deletion/removal,
+dismissal UI/history/undo, inputs/validation, and action boundaries still require
+review.
+
+Confirmed display behavior (D-47):
+
+1. Keep a tray tied to the original shown card IDs/source order; do not refill
+   automatically from the library's changing top N.
+2. Keep moved cards in the tray with their updated location shown, rather than
+   removing them. Entries remain references, not duplicate cards.
+3. Log shared tray dismissal; remove only its active display, preserving cards,
+   completed moves, and historical records.
+4. Either participant can dismiss the shared tray.
+
+Confirmed library-shortcut scope (D-48):
+
+1. Quick Draw one alongside Draw N.
+2. View bottom N / Reveal bottom N, using the same shared display model;
+   bottom-subset direction is now fixed by D-49.
+3. Move top N / Move bottom N to an explicitly selected destination.
+4. Shuffle all only. The owner rejected top/bottom shuffle shortcuts. No
+   automatic cleanup shuffle after viewing.
+
+Confirmed N-card defaults (D-49):
+
+1. Bottom-N displays retain normal top-to-bottom source order with the bottommost
+   card marked, rather than reversing the subset.
+2. N-input starts at one with +/- and numeric entry. Quick Draw one skips this
+   picker; completing inputs has no extra Send/confirmation gate.
+3. Clamp N to the available source count, replacing the proposed rejection.
+   This is quantity clamping, not permission to skip explicitly selected IDs.
+   Empty sources, count feedback, and stale/offline validation remain open.
+4. A move from one ordered source preserves moved-card source order at either
+   destination end and preserves existing destination members' relative order.
+   Cross-source selection and action/interruption boundaries remain separate.
+
+Confirmed pile interactions (D-50):
+
+1. Drag a special pile's top-card surface to move the actual top card; tapping
+   still opens contents and actions. Exact hit regions/thresholds remain open.
+2. Contents browsers use card-type category columns like Cockatrice. The owner
+   replaced the proposed top-to-bottom Graveyard/Exile browser list. Grouping
+   does not reorder piles; the full library remains orderless and explicit
+   top/bottom-N displays remain source-ordered, not type-grouped.
+3. Name search/filtering and hold inspection in contents browsers. Filtering
+   does not change stored order or move cards. Opening/View remains logged;
+   this does not decide per-keystroke logging or exact search controls.
+
+Approved initial-version browser-column defaults (D-51):
+
+The owner accepts these for the initial version but anticipates possible
+adjustment. Keep them as the current baseline and revisit during wireframe review
+and usability testing; they are not a permanent layout commitment.
+
+1. One entry per card in its catalog/preset main type column; Other for unknown
+   types. Exact multi-type precedence remains to be specified.
+2. Alphabetical name order within columns, independent of source order;
+   duplicate-name ties must not reveal library positions.
+3. Horizontal column scrolling and vertical scrolling within each column on
+   narrow screens, rather than shrinking cards to unreadable sizes.
+
+Covered View's opponent-facing category labels/layout remain open: grouping must
+not silently authorize exposure of faces/names or other card metadata.
+
+Incoming top-drop behavior and top/bottom Context Move destinations are already
+confirmed. Other visible-card drags, column details, other bulk conveniences,
+actual reorder controls, and exact browser gesture handling
+remain separate proposals, not automatically approved with this revision.
+
+## 12.9 G-07: Named values and counters
+
+Primary contracts: [additional touch controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play)
+and [participant/table values](02-domain-model.md#25-participanttable-values-and-markers).
+
+Existing generic requirements remain authoritative: edits by either participant
+and no inferred game rules. Moves preserve state except for the declared
+D-55/D-56 Graveyard/Exile/Library reset composition. The owner replaced the
+initial unapproved tracker-control batch with this model (D-52):
+
+1. Optional bottom-right card text, used for P/T, loyalty, or arbitrary content.
+   Context actions offer quick increment/decrement/set; exact handling of P/T
+   pairs versus other text remains open.
+2. Separate colored counters, each carrying its own text, on cards and players.
+   Offer a small selectable palette; exact colors are not chosen yet.
+3. Counter text is arbitrary; when numeric it supports quick inc/dec/set.
+   Counter edits do not automatically change corner text or card characteristics.
+
+The previous always-visible +/- tracker layout, Counters submenu route, and
+tap-number-to-edit gesture are not approved by this replacement. Preserve normal
+card tap/untap, double-tap actions, and hold inspection.
+
+Confirmed text-first clarification (D-53): corner text is a single plain string,
+not separate P/T or loyalty fields. Its current text is pattern-matched to offer
+quick actions, which rewrite that same string. Pattern recognition does not
+install a game-specific type or a separately authoritative numeric value.
+Numeric counter conveniences likewise operate on the counter's text. Exact
+patterns/format preservation and action sets still need specification.
+
+Confirmed menu and move-reset updates (D-54–D-56):
+
+- Counter inc/dec keeps the context menu open for repeated adjustments; edits
+  queue/sync immediately. A successful context Move to Graveyard dismisses it.
+  Other actions' menu lifetimes are not settled by these examples.
+- Entering configured Graveyard/Exile/Library removes card counters and restores
+  database-default corner text, overriding prior blanket preservation for these
+  fields only. Represent generic changes, not rules-based card incarnations.
+- The repeated destination was clarified as Library. The card database supplies
+  default corner text; for creatures it is printed P/T. Reset replaces the
+  current field with that default, not a prior manual override. Defaults for
+  other card types, multi-face/custom/missing data, same-container behavior, and
+  exact undo composition remain open in Q-29.
+
+Specific adjustment batch, proposed and not yet approved:
+
+1. For corner text matching a slash-pair pattern like `2/3`, context +/-1 actions
+   for left, right, or both numbers, plus replacement of the whole text.
+2. Single numeric corner/counter text gets +/-1 and exact Set; other text gets
+   direct replacement without arithmetic interpretation.
+3. A counter reaching zero remains visible as `0`; removal is explicit.
+
+Proposal 3 concerns numeric decrement, not the D-55 destination-entry reset,
+which removes the card's counters.
+
+Next counter appearance/lifecycle batch, proposed and not yet approved:
+
+1. Initial palette: red, blue, green, yellow, purple, and gray, with readable
+   contrasting text. Exact styling/accessibility treatments still need design.
+2. Allow multiple independent counters of the same color on a card/player;
+   color does not identify a unique counter or silently merge their text/values.
+3. A numeric counter reaching zero remains present as `0`; use explicit Remove
+   to delete it. Graveyard/Exile/Library entry still removes card counters under
+   D-55/D-56.
+
+Exact numeric recognition/limits, palette, counter layout/entry points, bulk
+changes, annotations, and action/history boundaries remain for later review.

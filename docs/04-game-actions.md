@@ -1,0 +1,188 @@
+# 4. Game action catalog
+
+Status: generic engine boundary confirmed; detailed coverage and per-action
+schemas proposed. MTG examples are uses of primitives, not recognized mechanics.
+
+## 4.1 Shared action envelope
+
+Every game action specifies:
+
+- Stable action ID and parent boundary; actor and originating client operation.
+- Literal operation kind and optional user label/note.
+- Typed generic operations, stable referenced object IDs, structural preconditions.
+- All changed values or sufficient deterministic data to derive them.
+- Random outcome references where applicable.
+- A human-readable summary, detailed before/after inspection, and schema version.
+
+The same action system supports normal play and state corrections. Convenience
+commands are compositions of documented primitives, not a second hidden rules
+engine. Players can edit either side of the table.
+
+A completed action applies locally and automatically synchronizes. Multi-field
+actions may require choosing objects, values, or destinations; completing those
+inputs invokes the action without a second generic confirmation/Send gate.
+Incomplete input does not stream malformed or half-selected game actions.
+
+## 4.2 Coverage matrix
+
+| ID | Capability | Required manual behavior |
+| --- | --- | --- |
+| A-001 | Create game | Invite a second person; choose starting configuration and decks. |
+| A-002 | Card-list import/edit | Import lists, resolve catalog entries, edit quantities, faces/printings, and generic labels/groupings without legality rules. |
+| A-003 | Instantiate objects | Create listed cards in explicitly selected containers; expose setup for editing. |
+| A-004 | Setup edits | Choose/configure starting arrangement, labels, and values; players perform any redraw/return process using ordinary moves. |
+| A-005 | Move cards | Move one/many objects between containers/areas and choose insertion order; no rule-dependent side effects. |
+| A-006 | Ordered-pile operations | Select top/bottom/N, move to an explicit destination, inspect/reveal, search, reorder, shuffle the whole pile, and choose randomly. D-48 excludes library top/bottom shuffle shortcuts. |
+| A-007 | Row/fan operations | View, arrange, cover/uncover, select, and move cards; labels such as Hand do not alter semantics. |
+| A-008 | Orientation/faces | Tap/untap presentation, rotate, choose face, cover/uncover, and edit labels. |
+| A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
+| A-010 | Counters | Add/remove/edit counters; D-52 specifies colored text-bearing counters on cards and participants, with quick inc/dec/set for numeric text. Exact palette and controls remain open. |
+| A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
+| A-012 | Labeled-area movement | Move any card to/from areas such as Cast; record origin/destination, not casting/payment/resolution. |
+| A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
+| A-014 | Pile order/edit | Reorder, duplicate, move, or remove selected objects in any pile; no built-in stack-resolution command. |
+| A-015 | Action-associated pings | Point at objects, participant markers, areas, or locations; retain association and order, not rules targets or choices. |
+| A-016 | Custom objects/copies | Create cards, tokens, counters, notes, and copies with new stable IDs and explicitly chosen display data. |
+| A-017 | Generic visual links | Add/remove/edit lines or grouped displays with optional labels; no attachment rules or inferred follow-on moves. |
+| A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting their game meaning. D-52 adds arbitrary bottom-right card text and context inc/dec/set conveniences, including uses such as P/T or loyalty without a rules model. |
+| A-019 | Board markers/connectors | Mark objects/relationships visually; players may use them for combat or other mechanics without specialized engine state. |
+| A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
+| A-021 | Manual object changes | Cover, rotate, move, or remove objects explicitly; never infer destruction, sacrifice, replacement effects, or token expiry. |
+| A-022 | Table-status markers | Manually edit named participant/table markers such as Turn/Phase/Priority; no state machine or automatic cleanup. |
+| A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
+| A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
+| A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
+| A-026 | Additional containers | Access/configure extra labeled containers and move cards between them; no outside-game or sideboarding restrictions. |
+| A-027 | Randomness | Coin flip, die roll/custom range, choose from explicit candidates, shuffled order, stored outcome inspection. |
+| A-028 | Communication | Game chat, group/action annotations, response request, intention/shortcut notes, and contextual branch messages. |
+| A-029 | Correction | Edit any supported tabletop field, add/remove mistaken objects, and bulk-correct state with a preview. |
+| A-030 | Completion | Concede, record win/loss/draw or agreed result, reopen via undo, start rematch retaining completed history. |
+| A-031 | History controls | Review, interrupt, switch branch, archive/restore, rename, undo/redo, inspect differences, and recover drafts. |
+| A-032 | Export | Export decks and a complete game/history archive with declared information exposure. Exact formats remain open. |
+| A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |
+
+D-53 clarifies A-018's corner-text editing: store one plain string and offer
+quick actions according to patterns matched in its current text. Actions rewrite
+the string rather than editing a P/T or loyalty entity. Numeric counter text uses
+the same text-first principle. Exact patterns and action sets remain open.
+
+Pings, actual object edits, and ephemeral presence remain distinct; see
+[the board contract](10-board-and-controls.md) and
+[literal presentation](11-visual-action-language.md). “Cast” is a label in A-012,
+not a dedicated game-rule operation. Grouping a move there with its pings does
+not classify it as casting.
+
+Confirmed touch movement for A-005/A-006/A-033 is specified in
+[board controls, section 10.4](10-board-and-controls.md#104-dragging-and-snapping):
+single-card drag unless multiple cards are selected, top insertion on special
+pile drops, ordinary-card drops forming/joining visual stacks, and Context Move
+to the top/bottom of library, graveyard, and exile. Multi-card order and the
+remaining bulk-action details below are not yet approved; D-49 separately fixes
+relative order for multi-card moves from one ordered source.
+
+Library UI decisions D-41–D-43 add combined contents/actions on pile tap,
+order-independent full-library browsing, and explicit View top N / Reveal top N
+commands with context actions on revealed cards. D-46 confirms the temporary
+shared reference-display model, explicit-dismissal lifetime, and Draw N shortcut in
+[special-pile controls](10-board-and-controls.md#106-special-piles-library-graveyard-exile).
+Draw N's user-selected preset label denotes literal top-N
+movement to a configured Hand destination, not an inferred game mechanic.
+
+D-44/D-45 clarify that View and Reveal are both shared logged operations, not
+local-only inspection: View presents faces to its actor and backs to the other
+participant; Reveal presents faces to both. Top-N displays preserve source
+order, unlike the orderless full-library browser. These are literal display
+operations, not inferred game mechanics; exact history/display schemas remain
+open in Q-28.
+
+D-48 confirms quick Draw one, View/Reveal bottom N, and Move top/bottom N to an
+explicit destination. The library offers Shuffle all only: no Shuffle top N or
+Shuffle bottom N shortcuts. D-49 confirms top-to-bottom bottom-N displays, an
+N-picker starting at one with +/- and numeric entry, clamping to available count,
+and source-order preservation for moves from one ordered source. Empty sources,
+cross-source order, precise validation, and bulk boundaries remain open.
+
+D-50 confirms direct top-card dragging from special piles and contents browsers
+with type-category columns, name search/filtering, and hold inspection. Column
+grouping is display-only and does not replace explicit ordered top/bottom-N
+displays. D-51 approves initial one-category-per-card, alphabetical-column, and
+narrow-screen scroll defaults as a revisable starting point. Exact category
+mapping and covered opponent layout remain open.
+
+These IDs retain coverage references from the earlier draft; game-specific
+operation proposals have been replaced by generic capabilities. Worked MTG
+examples must demonstrate that these primitives are sufficient, not add hidden
+mechanic-specific entities to the engine.
+
+## 4.3 Rules that must not be inferred
+
+- No casting, activation, targeting, combat, damage, cost payment, priority,
+  resolution, or turn-progression model is inferred from physical actions.
+- A ping only creates a visual communication record; it never creates a legal
+  target or another rule-specific relationship.
+- Moving normally preserves orientation, counters, corner text, labels,
+  participant associations, and generic links. D-55/D-56 add declared counter
+  removal and restoration of database-default corner text on entry to configured
+  Graveyard/Exile/Library. For creatures the default is printed P/T as a string;
+  other default/face/missing-data cases remain open. Unrelated fields and
+  identity persist.
+- Removing a piece, clearing a value, or rotating selected cards is always an
+  explicitly selected generic edit, not an automatic consequence of card text.
+- Game-specific card types, “token” labels, or area names do not trigger expiry,
+  destruction, cleanup, or validation.
+- Any later convenience composition must name all generic changes explicitly.
+   User-defined labels cannot make it an inferred engine mechanic. Whether such
+   saved compositions are first-release scope remains open.
+
+D-55/D-56 specify an approved destination-entry move/reset convenience, not
+blanket approval of user-authored compositions or rules-driven cleanup. Record
+its actual counter/text changes for review and recovery, not just a move label.
+
+## 4.4 Hidden information conventions
+
+Hands, library order, and face-down cards are covered by default in ordinary
+table presentation. Either participant can explicitly inspect them. Show a clear
+trust-model explanation during setup and on first hidden-zone inspection.
+
+Covering a card does not remove its identity from synchronized data. No tooltip,
+notification, default log summary, or background preview should unnecessarily
+spoil a covered card. Explicit inspection can expose it.
+
+Explicit View/Reveal is confirmed shared/logged (D-44). Open: whether ordinary
+hold inspection also adds a shared activity marker, and the precise history/undo
+contracts for these records. Inspection itself cannot be made epistemically
+reversible.
+
+## 4.5 Bulk actions and selections
+
+Multi-select operations identify affected objects and all explicit changed fields.
+Atomic bulk movement is permitted when intermediate states are not intended
+response points. Users can choose sequential actions when the distinction
+matters, such as separate top-card moves with a reaction between them.
+
+Quantity-based N-card commands clamp to the available source count (D-49).
+This does not permit substituting or silently skipping explicitly selected
+objects. Empty candidate lists/sources, duplicate selections, stale objects,
+and destination conflicts still require explicit outcomes. The precise
+per-action error table, including count feedback and boundary validation, is a
+required follow-up specification artifact.
+
+## 4.6 Required per-action specification template
+
+Before implementation, every row above must be expanded into:
+
+1. Entry points and affected screens.
+2. Inputs, defaults, validation, and confirmation/cancellation behavior.
+3. Atomic operations and exact state transition.
+4. Ordering, visibility, and exactly which generic fields change or stay intact.
+5. Review rendering and valid interruption boundaries.
+6. Undo/redo and historical rollback behavior.
+7. Offline behavior, preconditions, concurrency conflicts, and errors.
+8. Accessibility interaction and acceptance examples.
+9. Tap/action budget from the normal starting context, including selection,
+   navigation, text entry, and confirmation. Justify each required interaction;
+   prefer direct controls and undo over repeated prompts.
+
+The generic correction tool must not excuse poor direct workflows for moving,
+rotating, managing piles/counters, or adding pings. Manual MTG scenarios remain
+coverage tests of those workflows, not engine-defined mechanics.

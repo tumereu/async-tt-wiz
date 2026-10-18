@@ -189,8 +189,8 @@ Item 5 (explicit selected-set tap commands available with the mode off) was
 rejected and replaced by D-35's selection-aware single-tap gesture above.
 
 For a covered individual card, hold uses the agreed full-access inspection
-convention; it does not reveal it to the shared table. Whether to log private
-inspection is still Q-06. A special pile's back/header is a pile control, not an
+convention; it does not reveal it to the shared table. D-89 records this covered-
+face exposure; exact triggers/coalescing remain Q-31. A pile's back/header is a control, not an
 individual card to rotate; see special-pile controls below.
 
 TalkBack and alternative controls expose explicit Tap/Untap, Move, Actions,
@@ -227,8 +227,8 @@ Confirmed inspector behavior (D-38):
   normal or selection-edit mode, for either participant's cards.
 - Inspection is local presentation: do not turn up, rotate, move, switch the
   shared printed face, or change selection merely to display inspector content.
-  Shared inspection activity logging remains Q-06; this decision does not resolve
-  whether a separate activity record is shown.
+  D-89 later confirms exposure logging for covered-face inspection, not ordinary
+  already-visible-face holds; exact event placement/coalescing remains Q-31.
 
 ## 10.4 Dragging and snapping
 
@@ -447,8 +447,8 @@ Confirmed View/Reveal distinction (D-44/D-45):
   that sequence. Full-library contents still hide the overall order under D-42.
 - Ordinary opponent-facing View summaries must not inadvertently show card names
   instead of the specified backs. This does not revoke cooperative full access:
-  explicit inspection remains available under D-07/D-38. Whether ordinary
-  hold-inspection itself adds another log entry remains Q-06.
+  explicit inspection remains available under D-07/D-38. D-89 covers inspection
+  of otherwise-covered faces; deduplication with View records remains Q-31.
 - Exact history-node/activity placement, historical-branch behavior, dismissal controls,
   and the temporary display's live/snapshot schema remain Q-28. Do not infer
   that the action is unlogged merely because it does not move a card.
@@ -613,6 +613,18 @@ carry forward onto later events. Here group/event means the user's visible
 grouped history unit; exact mapping to atomic actions remains later review.
 Exact association/defaults, mode controls, and gesture arbitration remain open.
 General conversation remains supported through text/chat.
+
+Deferred G-10 optional communication controls, proposed and not yet approved
+(roll-seed semantics are the active question):
+
+1. A table Chat control opens the game-wide conversation. Posting a message is
+   ordinary text submission, separate from gameplay publication; play never
+   waits for a message or a gameplay Send step.
+2. A group/event context Note/Reply action opens a multiline editor linked to
+   that event. Keep these optional text records distinct from card notes and
+   pings; text is not required to explain an action. Trim completed input under
+   D-59 without publishing unfinished text. Exact threads, editing/removal,
+   submission controls, and historical/branch association remain later review.
 
 Confirmed event-scoped toggle details (D-76):
 
@@ -980,7 +992,7 @@ note controls, Clone, and Remove. No custom name/corner editor is required befor
 creation; no dedicated custom-token/image-authoring flow is approved. Exact blank
 presentation and initialization remain detailed design work.
 
-Next G-10 basic randomness batch, proposed and not yet approved:
+Confirmed G-10 basic randomness controls (D-87):
 
 1. Table Roll die creates one result, defaulting to a six-sided die; an optional
    sides control supports other dice. No dice-count or game-specific roll mode
@@ -990,6 +1002,32 @@ Next G-10 basic randomness batch, proposed and not yet approved:
    rolls/flips automatically queue/sync. Review/redo reuse the recorded result,
    not a fresh random draw. Source/algorithm, offline policy, exact display, and
    action boundaries remain later review; results change no cards or values.
+
+D-88 confirms that the roll seed resets when the other player takes actions.
+Only future roll generation uses that reset; recorded results stay fixed for
+review/redo. Exact qualifying actions, seed scope, ordering/branch behavior,
+offline execution, and coin/shuffle applicability remain open.
+
+Deferred roll-sequence question, proposed and not yet approved: consecutive new
+rolls advance a deterministic seeded sequence, while undo/retry at the same draw
+position with no seed reset repeats the same draw. An opponent-action reset
+starts a new sequence for future rolls. Alternatively, every roll could repeat
+one result until reset; the sequence-versus-fixed-result choice is not yet settled.
+
+Confirmed D-89/D-90: ordinary undo removes the action from the visible event tree;
+information-gaining undo leaves it as a history branch while reverting its board
+effect. Internal recovery/redo is distinct from the visible tree. Coverage includes
+library View/Reveal, covered-hand/card-face viewing including covered-face holds,
+and die/coin results, but not every visible-card hold or search keystroke. Ordinary
+summaries do not automatically disclose viewed card identities. See the
+[primary undo-branch contract](03-history-and-undo.md#information-gaining-actions-and-undo-branches).
+
+Next proposed edges: retain an entire undone group/suffix if any constituent is
+information-gaining, and include draws/moves/face changes that expose covered
+faces in that classification. Neither edge is approved yet. Exact event placement,
+coalescing, mixed/collaborator undo, redo, and offline publication remain Q-31.
+This is not a persistent ping or access restriction. Seed-sequence and optional
+communication questions remain deferred, not silently resolved.
 
 ## 10.9 Worked interaction examples
 

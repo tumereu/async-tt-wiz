@@ -40,7 +40,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | One-die/coin controls and durable results proposed next; other tools unreviewed. |
+| G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | D-87–D-90 confirm die/coin controls, seed reset, exposure coverage, and ordinary-versus-information-gaining undo branches. Mixed-sequence/exposure edges active; seed sequence/communication controls deferred; other tools unreviewed. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -207,8 +207,9 @@ Confirmed in D-37/D-38; primary contract is
 4. Face/cover edits preserve unrelated fields and selection. Inspection also
    preserves shared face/cover state, orientation, placement, and selection.
 
-Shared inspection logging (Q-06), exact face/selection command targeting,
-bulk boundaries, and special-pile reveal conventions remain separate questions.
+D-89 later confirms covered-face inspection logging. Exact trigger/coalescing
+(Q-31), face/selection command targeting, bulk boundaries, and special-pile
+reveal conventions remain separate questions.
 
 ## 12.7 G-05: Ordinary visual-stack controls
 
@@ -653,7 +654,7 @@ Primary contracts: [additional controls](10-board-and-controls.md#108-additional
 [action catalog](04-game-actions.md#42-coverage-matrix), and
 [randomness/history](03-history-and-undo.md#310-randomness-and-branching).
 
-Next basic randomness batch, proposed and not yet approved:
+Confirmed basic randomness controls (D-87):
 
 1. Roll die: one die, default six sides, with an optional sides control. No count
    dialog or game-specific roll mode initially. Picker/bounds/default memory open.
@@ -662,3 +663,44 @@ Next basic randomness batch, proposed and not yet approved:
    sync. Review/redo reuse recorded results, not new draws. No automatic card or
    value edits. Exact source/algorithm, offline policy, display, and boundaries
    remain later review.
+
+D-88 confirms roll-seed reset when the other participant takes actions, affecting
+future generation rather than already-recorded results. Exact action kinds,
+seed/draw scope, branches/concurrency/offline ordering, and coin/shuffle sharing
+remain open.
+
+Deferred seed question, proposed and not yet approved: consecutive new rolls
+advance a seeded sequence; undo/retry at the same draw position without a reset
+reuses the draw. The alternative is a fixed repeated result until an opponent
+action resets the seed. Do not implement either interpretation by assumption.
+
+Confirmed D-89/D-90: ordinary undo removes its action from the visible event tree
+as if it never happened; information-gaining undo leaves a history branch. Keep
+internal redo/recovery without exposing ordinary undone branches. Library View/
+Reveal, covered-hand/card-face views including covered-face holds, and die/coin
+results are covered; ordinary visible-face holds/every search keystroke are not.
+Summaries do not automatically show covered identities. Branch review does not
+activate it. Primary contract:
+[information-gaining undo branches](03-history-and-undo.md#information-gaining-actions-and-undo-branches).
+
+Next mixed/exposure-edge batch, proposed and not yet approved:
+
+1. If any action in the undone group/suffix is information-gaining, retain the
+   whole affected sequence as a branch; otherwise remove it from the visible tree
+   while preserving internal recovery. Atomic/grouping boundaries remain open.
+2. Also classify explicit draws/moves/face changes that expose previously-covered
+   card faces as information-gaining, not only View/hold. No mind-reading/rule
+   inference; exact presentation triggers remain later review.
+
+Exact event coalescing, redo reconciliation, schema/publication, collaborator/
+branch/offline handling, and retention remain Q-31. This replaces the earlier
+separate permanent-audit-marker proposal with retained information branches.
+
+Deferred optional communication-control batch, proposed and not yet approved:
+
+1. Table Chat opens game-wide conversation; ordinary message submission is
+   separate from gameplay publication and never a prerequisite to play/sync.
+2. Group/event context Note/Reply opens an associated multiline editor. Text is
+   optional, distinct from card notes/pings, and trimmed only on completion under
+   D-59. No unfinished text publication. Exact threading, revisions/removal,
+   submission controls, and historical/branch association remain later review.

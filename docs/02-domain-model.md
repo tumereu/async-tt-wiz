@@ -59,6 +59,21 @@ Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in
 [the board contract](10-board-and-controls.md). Exact schemas remain open.
 
+D-88 requires the roll-seed lifecycle to account for actions by the other
+participant. Seed reset affects future rolls, not stored outcomes. Exact seed
+scope/epoch, draw-position representation, triggering action kinds, branch/
+offline ordering, and sharing with other random tools remain unresolved; this
+does not select a random algorithm or authorize a seed schema by assumption.
+
+D-89/D-90 distinguish the visible event tree from retained internal recovery.
+Ordinary undone actions disappear from the visible tree; information-gaining
+actions remain as history branches with actor/source context and actual exposed
+references/results. Coverage includes explicit library View/Reveal, covered hand/
+card-face views including covered-face holds, and die/coin results. Covered
+summaries do not automatically disclose identities. A separate permanent-marker
+entity is not required by this decision. Exact exposure event placement, schema,
+coalescing, mixed-sequence undo/redo, and branch/offline publication remain Q-31.
+
 The [visual action language](11-visual-action-language.md) presents literal
 operations and associated pings together. There are no cast/target declarations,
 ability objects, rules-completion states, or inferred mechanical intent in the

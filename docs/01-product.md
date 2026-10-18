@@ -25,7 +25,7 @@ merely automatic rules enforcement.
 | P-005 | History is a tree, with exactly one active branch in each game. |
 | P-006 | An interruption makes its new branch active; no approval vote is required. |
 | P-007 | Players can delete the interruption and return to the earlier continuation. |
-| P-008 | All game edits have undo/recovery support, including accidental branch changes. |
+| P-008 | All game edits have undo/recovery support, including accidental branch changes. D-89/D-90 remove ordinary undos from the visible event tree as if never performed, but retain information-gaining undos as history branches; internal recovery/redo is distinct from visible tree retention. |
 | P-009 | Either participant can manipulate any participant's tabletop state. |
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |

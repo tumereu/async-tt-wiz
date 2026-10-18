@@ -53,11 +53,11 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
 | A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
 | A-026 | Additional containers | Access/configure extra labeled containers and move cards between them; no outside-game or sideboarding restrictions. |
-| A-027 | Randomness | Coin flip, die roll/custom range, choose from explicit candidates, shuffled order, stored outcome inspection. |
+| A-027 | Randomness | D-87 confirms one-die Roll (default six sides, optional sides control), Flip coin, and auto-synced recorded results reused on review/redo. D-88 resets the roll seed on opponent actions for future rolls. Exact sequence/draw-position/trigger/branch/offline semantics and sharing with coin/shuffle remain open, as do other random-selection/custom-range controls. |
 | A-028 | Communication | Game chat, group/action annotations, response request, intention/shortcut notes, and contextual branch messages. |
 | A-029 | Correction | Edit any supported tabletop field, add/remove mistaken objects, and bulk-correct state with a preview. |
 | A-030 | Completion | Concede, record win/loss/draw or agreed result, reopen via undo, start rematch retaining completed history. |
-| A-031 | History controls | Review, interrupt, switch branch, archive/restore, rename, undo/redo, inspect differences, and recover drafts. |
+| A-031 | History controls | Review, interrupt, switch/archive/restore/rename branches, undo/redo, inspect differences, and recover drafts. D-89/D-90 remove ordinary undos from the visible tree but retain information-gaining undos as branches, with internal recovery in both cases. Exact mixed-suffix/redo protocols remain open. |
 | A-032 | Export | Export decks and a complete game/history archive with declared information exposure. Exact formats remain open. |
 | A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |
 
@@ -164,10 +164,11 @@ Covering a card does not remove its identity from synchronized data. No tooltip,
 notification, default log summary, or background preview should unnecessarily
 spoil a covered card. Explicit inspection can expose it.
 
-Explicit View/Reveal is confirmed shared/logged (D-44). Open: whether ordinary
-hold inspection also adds a shared activity marker, and the precise history/undo
-contracts for these records. Inspection itself cannot be made epistemically
-reversible.
+Explicit View/Reveal is confirmed shared/logged (D-44). D-89 includes covered-
+face hold inspection in exposure history; ordinary already-visible-face holds
+are not included. D-90 retains information-gaining undos as history branches.
+Exact event coalescing, record placement, and mixed-sequence undo remain Q-31.
+Inspection itself cannot be made epistemically reversible.
 
 ## 4.5 Bulk actions and selections
 

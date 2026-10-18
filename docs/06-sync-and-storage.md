@@ -19,6 +19,14 @@ branch/head references, archive status, and metadata through a separately
 ordered revision stream. Clients materialize state by action ancestry, not by
 wall-clock timestamps.
 
+D-90 separates internal retained records from the visible event tree: ordinary
+undo removes the action from that tree, whereas information-gaining undo retains
+a history branch. Sync must converge on that distinction without treating a
+visible-tree removal as irreversible deletion of redo/recovery data. Exact
+visibility/control schema, mixed-suffix rules, stale cursors, and redo/branch
+reconciliation remain to be specified. Conflict/interruption preservation is
+unchanged; do not apply ordinary-undo pruning to unrelated branches.
+
 ## 6.2 Publication and concurrency
 
 Completed game actions automatically enter the outbound queue and begin
@@ -164,6 +172,14 @@ Cooperative access applies **within a game**, not across the service. Only the
 two admitted participants can read or mutate the game unless an explicit sharing
 feature is later approved. Both have equal tabletop rights, including hidden
 zone inspection.
+
+D-89/D-90 retain information-gaining actions as shared history branches after
+undo, including covered-face inspection and die/coin results. They are distinct
+from cancelable ordinary board effects/ephemeral presence, not a new opponent
+access-control layer. Specify durable local capture, reconnect publication/
+deduplication, branch/offline availability, and covered-summary disclosure in
+Q-31. Already-visible-face holds and every search keystroke are not in the
+confirmed scope. Exact unfinished-input/exposure boundaries remain open.
 
 Transport authentication, invite authorization, secure credential storage,
 request limits, and validation remain necessary. Clients are untrusted inputs;

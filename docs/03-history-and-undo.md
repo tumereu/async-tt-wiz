@@ -194,22 +194,28 @@ publication, grouping, messages, setup corrections, branch switching, branch
 archival, and game result markers.
 
 Undo preserves auditability. “Delete” and “discard” are reversible logical
-operations, not physical removal of history. Redo remains available while its
-referenced objects are retained.
+operations, not necessarily physical removal of recovery records. D-90 separates
+the visible event tree from internal redo/recovery: undo an ordinary non-
+information-gaining action by restoring the preceding tree as if that action
+never happened, without leaving an ordinary undone-action branch. Undo an
+information-gaining action by reverting its board effect while retaining it as
+a visible history branch. D-89 defines the confirmed exposure coverage below.
+Redo/recovery remains required; hidden recovery retention does not require
+ordinary undone nodes to remain in the visible tree. Exact schemas are open.
 
 | Original operation | Required recovery behavior |
 | --- | --- |
 | Pending action not yet transmitted | Restore preceding local state; remove its queued effect safely; retain redo result. |
 | In-flight action with unknown outcome | Show undo intent immediately; establish the original outcome and synchronize the necessary compensating operation without a second ordinary undo tap. |
-| Published latest action/group | Restore its predecessor boundary and preserve the displaced continuation. |
-| Historical action with later dependent actions | Preview a rollback to its predecessor; fork/select that state while retaining the entire displaced suffix. |
+| Published latest action/group | Restore its predecessor boundary. Apply D-90 visible-tree behavior: ordinary undo disappears from the tree; information-gaining undo retains a history branch. Exact mixed-group rules remain open. |
+| Historical action with later dependent actions | Preview rollback to its predecessor and retain recovery for the affected suffix, without blind inversion of later work. Visible branch retention follows D-90; exact mixed-suffix classification remains under review. |
 | Interruption | Restore the previously selected continuation, including its preserved suffix. |
 | Activate another branch | Restore the previous branch selection. |
 | Delete/archive branch | Restore the branch and its metadata; restore selection if explicitly requested. |
 | Group metadata edit | Restore previous title/boundaries without changing action payloads. |
 | Message edit/delete | Restore the previous content/version. |
 | Game completion/concession marker | Reopen the game at the prior logical state. |
-| Randomized action | Restore the prior state; redo reuses the recorded result. |
+| Die/coin result | Restore prior board state while retaining the information-gaining action/result as a history branch (D-89/D-90); redo reuses that result. Other random-operation classification remains open. |
 
 Undo operates against a known control revision. If other work happened after
 the targeted operation, show the affected continuation and require explicit
@@ -219,8 +225,9 @@ Undoing an old life change, for example, can rewind the continuation before that
 change. If the intent is to keep subsequent play and repair life now, offer a
 separate **correct current state** action. Label these as different operations.
 
-An undo itself is recorded and recoverable. An operation record stores the
-logical prior/new references needed for restoration; it does not depend on
+An undo itself is recorded and recoverable internally, without requiring an
+ordinary undone-action node/branch in the visible event tree (D-90). A record
+stores logical prior/new references needed for restoration; it does not depend on
 guessing an inverse from a human-readable description.
 
 Undo automatically synchronizes. Rapid undo must work before, during, and after
@@ -261,13 +268,72 @@ The UI must explain these boundaries instead of promising physical reversibility
 No history compaction or retention policy may silently remove the promised
 in-game undo capability.
 
+### Information-gaining actions and undo branches
+
+Confirmed D-89/D-90: information-gaining actions leave branches in history when
+undone; ordinary undo restores the visible tree as if its action never happened.
+This replaces the earlier separate persistent-audit-marker proposal with history
+branch retention, without requiring permanent board markers or ping overlays.
+
+Confirmed exposure coverage (D-89): library View/Reveal, otherwise-covered hand/
+card-face viewing, covered-face hold inspection, and die/coin results. Ordinary
+inspection of already-visible faces and every search keystroke are not included.
+This records what the interface showed/generated, not what a player remembers.
+Covered-face inspection logs an exposure without requiring a board-state edit
+or automatic activation of a new gameplay continuation; exact record placement
+remains open.
+
+Retain actor, operation/source context, exposed references or concrete result,
+and a route to the original step in the retained history. Distinguish undone/
+inactive-line status. Inspecting that branch does not itself activate it or
+reapply board changes. Branch archival cannot erase the promised exposure
+record; exact discoverability and archive presentation remain open.
+
+Ordinary summaries report that viewing occurred without automatically showing
+covered card names/faces to the other participant. Original context remains
+inspectable under cooperative full access; rolls retain actual recorded results.
+"Permanent" here means retained across normal undo/branch operations, not an
+exemption from eventual game/account erasure. Exact triggers/coalescing,
+historical/offline views, durable capture/publication, schemas, and retention
+remain Q-31. No competitive anti-cheat guarantee is implied.
+
+Next mixed/exposure-edge batch, proposed and not yet approved:
+
+1. If an undone group/suffix includes any information-gaining action, retain the
+   whole affected sequence as a history branch, including its ordinary actions;
+   if none, remove the undone sequence from the visible tree while retaining
+   internal redo/recovery. This does not settle atomic boundaries/group formation.
+2. Count explicit draws/moves/face changes that show previously-covered card
+   faces as information-gaining too, even without View/hold. Exact exposure
+   triggers remain structural presentation facts, not inferred game knowledge.
+
 ## 3.10 Randomness and branching
+
+D-87 confirms die/coin results as automatically queued/synchronized records of
+actor, request, and actual result. Review/redo reuse that concrete result rather
+than rerolling; these tools do not automatically change card or counter state.
+Exact random source/algorithm, offline execution policy, and action-boundary
+protocols still require review; touch entry is in the board contract.
+
+D-88 confirms that the roll seed resets when the other participant takes
+actions. That reset governs future roll generation; it does not rewrite concrete
+results already recorded, including when reviewing/redoing them. Exact qualifying
+actions, seed scope/ownership, reset ordering under offline/concurrent edits,
+branch association, and whether coin/shuffle share this lifecycle remain open.
+
+Next seed-sequence question, proposed and not yet approved: consecutive new rolls
+advance a deterministic seeded sequence; undo/retry at the same draw position
+and unchanged seed epoch reuses that draw instead of obtaining fresh entropy.
+An opponent-action reset starts a new sequence for future rolls. The alternative
+is that every roll repeats the same result until that reset; D-88 alone does not
+settle this choice or the draw-position/history protocol.
 
 Shuffle, die roll, coin flip, and random selection are explicit actions with
 stored outcomes. Re-rendering, reopening, replaying, or redoing an action must
 not draw new randomness.
 
-A fresh random action gets a fresh identity and an audit entry. Undoing and then
+A fresh random action gets a fresh identity and an audit entry; a new identity
+does not by itself authorize a new seed or entropy draw (D-88). Undoing and then
 choosing to shuffle again is a visible new action, not invisible rerolling. Full
 information access means this is not a competitive fairness guarantee.
 

@@ -42,7 +42,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle actions/combinations/blockers/spacing; D-120–D-124 links/full paths/cleanup/shared edits; D-126 spatial stability; D-127/D-128 closure and End of combat → Postcombat main. D-130 whole undo here; D-131 general user-action undo plus reaction-point events. Event mapping next; UI drafts remain stage 3. |
+| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle actions/combinations/blockers/spacing; D-120–D-124 links/full paths/cleanup/shared edits; D-126 spatial stability; D-127/D-128 closure and End of combat → Postcombat main; D-130–D-132 undo/event policy; D-133 no duplicate attackers. Remaining role/multiplicity cases continue after handoff; UI drafts remain stage 3. |
 | G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. Missing-source display/actions and other entry/reference cases remain open. |
 | G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
 
@@ -869,7 +869,12 @@ without priority/legality automation. D-130 confirms whole undo for advance-and-
 close; Untap/Draw + advance and declaration combinations now use the same general
 undo default, while their event mappings still need review.
 
-Next proposal, not yet approved: show advance-and-close as one event listing both
-effects, since closing the presentation area does not add an MTG reaction point.
-Evaluate this mapping under D-131; do not hide required boundaries just for one-row
-presentation. No UI draft/implementation authorized.
+Confirmed D-132: advance-and-close is one event listing both effects, since area
+closure adds no distinct MTG reaction point. Interruption/review is before/after
+that event; one Undo restores both effects. Other actions still follow D-131.
+
+Confirmed D-133: repeated attacker declaration keeps existing attacker projections
+and adds only new attackers; Declare + tap still taps its selected sources.
+Other duplicate/coexistence and no-change record cases remain separate.
+Pause/resume context is in the [session handoff](14-session-handoff.md).
+No UI draft/implementation authorized.

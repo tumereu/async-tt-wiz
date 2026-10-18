@@ -44,8 +44,9 @@ the full path remains available. D-131 sets Undo to the whole user action/group,
 including combinations, with multiple events for distinct MTG reaction points.
 Event review/interruption must not be lost because Undo covers the whole group;
 specific mappings/exceptions still need design, not runtime timing enforcement.
-D-130 confirms whole undo for advance-and-close. Its event count and missing-area/
-out-of-combat handling remain open; button wording/placement is stage 3.
+D-130 confirms whole undo for advance-and-close; D-132 shows it as one tree event
+listing both effects. Missing-area/out-of-combat handling remains open; button
+wording/placement is stage 3.
 
 ## 5.1 Navigation and screens
 

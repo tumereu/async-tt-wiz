@@ -27,5 +27,8 @@ working draft, not a claim that all design decisions have been made. No
 implementation begins until its readiness gates are satisfied and the project
 owner approves it.
 
+Resuming the design conversation? Read the [session handoff](docs/14-session-handoff.md)
+for the latest decisions, remaining questions, and continuation style.
+
 Magic: The Gathering and Cockatrice are references for game compatibility and
 interaction design, not claims of affiliation.

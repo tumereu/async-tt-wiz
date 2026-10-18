@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-131 require case-by-case design before implementation. The
+(D-115). D-112–D-133 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -72,7 +72,7 @@ In multiselect mode, when the phase/step is appropriate, offer both:
 
 Both automatically create the combat area if absent, without a separate manual
 creation prerequisite. This is explicit composition, not inferred card text.
-Exact quick-action phase/step visibility, duplicate handling, empty/mixed
+Exact quick-action phase/step visibility, empty/mixed
 selections, single-card entry when the area is absent, and the internal
 event/interruption/group mapping of combined shortcuts remain behavior questions;
 D-131 supplies whole-user-action undo unless an exception is approved.
@@ -127,7 +127,7 @@ of unanswered semantics or controls. UI drafts/concrete gesture choices are
 stage 3; schemas/technical choices follow in the relevant implementation work:
 
 1. **Attacker entry:** quick-action visibility steps, attack destination, single
-   versus multi-source/duplicate behavior, empty/mixed selections, slot order/capacity,
+   versus multi-source behavior, empty/mixed selections, slot order/capacity,
    cancellation, and combined shortcut boundaries. Separate declaration/tap and
    multiselect variants are settled, not proposals.
 2. **Blocker entry:** source/projection routing, exact associations/cardinality,
@@ -246,10 +246,9 @@ Stack effects. This is an explicit combined action, not a phase-change listener
 or automatic damage/resolution. Closing alone and advancing alone remain
 available; the combined action also has a full non-quick path under D-121.
 
-Handling outside combat/with no area, event-tree representation, and internal
-atomic/interruption composition remain behavior questions. D-128 fixes the
-destination/quick visibility; D-130 makes the combination one undoable unit.
-UI wording/geometry follows stage 3.
+Handling outside combat/with no area remains a behavior question. D-128 fixes
+destination/quick visibility; D-130 makes the combination one undoable unit;
+D-132 records both effects as one event. UI wording/geometry follows stage 3.
 
 ## 13.8 Confirmed advance-and-close destination and quick visibility (D-128)
 
@@ -277,15 +276,28 @@ D-130: **advance out of combat + close combat area** is one undoable unit. One
 Undo restores the prior phase/step and the complete combat area/projections/
 assignments/incident links/placements, rather than requiring a separate undo for
 each effect. Normal history/branch/recovery and dependent-work rules apply.
-This does not yet choose one versus multiple tree events or approve collapsing
-required response points. Untap/Draw + advance and declaration combinations also
-use D-131's whole-user-action undo default; their reaction-point event mappings
-and any exceptions still need review.
+D-132 additionally confirms one event for this particular combination.
+Untap/Draw + advance and declaration combinations also use D-131's whole-user-
+action undo default; their reaction-point event mappings and any exceptions
+still need review.
 
-## 13.10 Next advance-and-close tree representation — proposed, not approved
+## 13.10 Confirmed advance-and-close tree representation (D-132)
 
 Show advance-and-close as one tree event listing both the phase/step transition
 and combat-area closure: closing a presentation area does not itself add a
-distinct MTG reaction point. This mapping remains proposed, not approved; it must
-meet D-131 rather than just hide multiple meaningful boundaries in one row. Its
-whole-combination undo scope is already confirmed.
+distinct MTG reaction point. Record one transition with both effects, not two
+separately interruptible events merely collapsed under one row. Review/interruption
+can occur before or after it, not between its advancement and area cleanup.
+One Undo restores both effects under D-130. This is specific to advance-and-close;
+do not use it to hide other actions' required reaction boundaries (D-131).
+
+## 13.11 Confirmed repeated attacker declaration (D-133)
+
+If selected sources include already-declared attackers, keep those existing
+attacker projections and add projections only for newly declared sources, rather
+than duplicating attackers. Retain existing projections' identities, placements,
+and associations rather than replacing/recreating them. Declare + tap still taps
+its selected sources; without-tapping preserves orientation. Exact no-change
+record handling, attacker/blocker coexistence, and Stack multiplicity are separate
+cases, not decided by this duplicate-attacker policy. This does not infer attack
+legality or change normal selected-set validation.

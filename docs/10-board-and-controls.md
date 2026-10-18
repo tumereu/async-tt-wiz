@@ -1215,8 +1215,12 @@ not earlier combat steps. Separate advance/close and full non-quick access remai
 available (D-121). D-131 makes one user action/whole group the normal undo unit;
 multiple MTG reaction points require multiple events with interruption boundaries.
 Specify event mappings/exceptions without runtime priority/legality enforcement.
-D-130 confirms whole undo for advance-and-close; its event mapping is next, not
-its undo scope. Missing-source Stack presentation/actions remain separate.
+D-130 confirms whole undo for advance-and-close; D-132 records it as one event
+listing both effects. D-133 reuses existing attacker projections on repeated
+declaration and adds only newly declared sources; the chosen tap variant still
+applies. Other mixed/empty-source cases, coexistence, and missing-source Stack
+presentation/actions remain separate. See the [session handoff](14-session-handoff.md)
+for the continuation point.
 
 ## 10.9 Worked interaction examples
 

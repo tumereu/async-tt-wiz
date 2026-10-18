@@ -44,7 +44,9 @@ and blanket all-technical-details-first gates are superseded by this sequence.
      the primary contracts above.
 13. [Combat, Stack, and projections](13-combat-stack-and-projections.md): required
     temporary combat area, virtual card occurrences, blocker assignment, and
-    contextual Stack actions; case-by-case interaction review in progress.
+     contextual Stack actions; case-by-case interaction review in progress.
+14. [Session handoff](14-session-handoff.md): current pause/resume context,
+    confirmed latest decisions, unresolved behavior, and a suggested next question.
 
 ## How to read normative language
 

@@ -251,7 +251,10 @@ ordinary undone nodes to remain in the visible tree. Exact schemas are open.
 D-130 fixes **advance out of combat + close combat area** as one undoable unit.
 One Undo restores both the prior phase/step and the complete combat area with its
 projections, assignments, incident links, and placements. Do not require separate
-undo taps for advancement and closure. D-131 generalizes whole-user-action undo
+undo taps for advancement and closure. D-132 records both effects as one event:
+interruption/review is before or after it, not between its two effects. Area
+cleanup adds no distinct MTG reaction point; other combinations must retain any
+required boundaries. D-131 generalizes whole-user-action undo
 to other combinations unless an exception is agreed, including Untap/Draw + advance
 and declaration shortcuts. Their event/interruption boundaries still need review;
 multiple MTG reaction points must remain separate events. Normal dependent-work and

@@ -63,8 +63,9 @@ MTG allows distinct reaction points. These must preserve meaningful state/review
 interruption boundaries, not just split one indivisible change into decorative
 rows. One Undo can cover all those events; exceptions and specific event mappings
 need individual decisions. No runtime priority/legality inference is authorized.
-D-130 specifically confirms whole undo for advance-and-close; its event count
-remains open. The example below does not impose a universal combined-action format.
+D-130 confirms whole undo for advance-and-close; D-132 records it as one event
+listing both the step transition and area closure, with no separate internal
+reaction boundary. This does not impose a universal combined-action format.
 
 Proposed presentation:
 

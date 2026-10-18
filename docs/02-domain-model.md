@@ -64,7 +64,8 @@ general default, with exceptions recorded individually. A user action must have
 multiple events wherever MTG permits distinct reaction points; its undo unit can
 span those events. Specify event mappings without runtime priority/legality
 inference. These entities do not mandate a one-to-one schema. D-130 specifically
-confirms whole undo for advance-and-close; its event mapping is still open.
+confirms whole undo for advance-and-close; D-132 records its two effects as one
+event with no separate internal reaction boundary.
 Retain user-action ownership and restoration context across constituent records.
 
 Live cursor/activity presence is ephemeral transport data, not a persistent
@@ -357,6 +358,13 @@ shrinkage as blockers disappear must not compact/recenter remaining blockers.
 Real source cards remain unchanged by assignment cleanup. Retain placement and
 assignment context for normal undo/history/branch/offline recovery; exact schema
 and area-bound geometry remain later design.
+
+D-133 makes repeated attacker declaration reuse the existing attacker occurrence
+for each already-declared source, preserving identity/placement/associations and
+creating occurrences only for new attackers. This is not a universal one-projection-
+per-source constraint: attacker/blocker coexistence and Stack multiplicity remain
+separate questions. Normal selected-source tap/without-tapping behavior still
+applies; exact no-change records remain open.
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display

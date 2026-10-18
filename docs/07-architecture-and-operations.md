@@ -100,7 +100,8 @@ human examples covering:
 - Automatic action publication and conflict forking, interruption, switch branch,
   rollback, archive/restore, undo/redo, and incremental grouping edits.
 - Context messages, review progress, completion/rematch, deck/catalog access.
-- Source-action/group-linked generic pings and optional labels/messages; generic
+- Group/event-scoped generic pings with source-action context, one standard
+  marker/no label-style picker (D-77), and separate optional messages; generic
   area/container/placement configuration; ephemeral presence with explicit
   privacy/expiry semantics. No cast/target-declaration API or rules-completion
   state is implied by a labeled area.

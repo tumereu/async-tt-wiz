@@ -147,9 +147,16 @@ decided before implementation.
   its pings disappear from later board contexts but remain viewable at that step
   in the event tree, including downloaded offline review. D-76 makes destination
   taps toggle ping presence and exits input mode on event change. Revisiting an
-  event displays its recorded pings without re-enabling input mode. Exact location
-  matching, selection interaction, marker choices, and action mapping remain
-  under review. These are not persistent binary links.
+  event displays its recorded pings without re-enabling input mode. D-77 makes
+  Ping and selection-edit modes mutually exclusive while retaining selection;
+  destination taps only ping the touched destination, suppressing ordinary tap
+  effects. One standard marker, no label/style picker or required typing. D-78
+  adds a Ping context action. D-79 makes it directly toggle the individual
+  card/player without changing mode. D-80 displays only Ping or Unping according
+  to the card used to open the menu and applies it uniformly to the selected set,
+  rather than testing whether any/all selected cards are pinged. Location
+  matching, context routing/menu lifetime, and action mapping remain open.
+  These are not persistent binary links.
 - D-66 gives mass selections the same card-action controls as individual cards,
   applying the action across the selected set with visible scope/count. Relative
   edits use each card's own value and corner Reset each card's own default.

@@ -52,7 +52,7 @@ history or authorize normalization of external catalog/import data.
 | Message | Stable ID, author, content, context boundary, edit/delete revisions. |
 | Board placement | Object ID, logical area/grid position, optional visual pile ID and order; independent of camera/device pixels. |
 | Visual pile | Stable ID, one zone/area, ordered member IDs, logical anchor; not a rules attachment, merged object, or action group. |
-| Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced object/participant/area or board location. Exact schema, optional style/label, and edit/delete revisions remain under review. |
+| Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced object/participant/area or board location. One standard marker with no user label/style controls initially (D-77); exact schema and edit/delete revisions remain under review. |
 | Generic link | Stable ID, object/participant endpoints, binary present/absent relationship; one standard connector, no user labels/styles initially (D-71). No inferred game effect. |
 
 Live cursor/activity presence is ephemeral transport data, not a persistent

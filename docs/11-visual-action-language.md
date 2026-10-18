@@ -86,7 +86,8 @@ review. Hiding an old event's overlays does not delete its ping records.
 
 Proposed data includes actor, owning group/event ID, source action ID, effective
 boundary/path context, and a referenced object/participant/area or board location.
-Optional appearance or user labels do not give a ping mechanical effects.
+D-77 uses one standard marker with no user label/style picker initially;
+descriptive accessibility text does not give a ping mechanical effects.
 
 A ping to a card is just a ping to that card. It cannot change another object's
 “targets,” create a rules link, pay a cost, move/rotate a card, or resolve an
@@ -98,9 +99,17 @@ interaction, instead of the earlier proposed drag handle or one-shot command.
 Entering the local mode alone creates no ping/shared edit. D-75 scopes this
 toggleable state and its pings to one event. D-76 makes destination taps toggle
 ping presence, exits Ping mode on event change, and keeps input mode off when
-revisiting recorded pings. Exact mode-control geometry, gesture overrides,
-selection interaction, and appearance remain under review; accessible destination
-picking is still required.
+revisiting recorded pings. D-77 makes Ping/selection-edit mutually exclusive,
+retains selection on switching, and consumes ordinary tap effects when pinging
+only the touched destination. It also confirms one standard marker without
+label/style controls or required typing. Exact geometry and other gesture
+arbitration remain open; accessible destination picking is still required.
+D-78/D-79 additionally offer context Ping: directly toggle the individual
+card/player destination without changing interaction mode or a second target
+tap. D-80 makes the menu-trigger card determine the sole Ping/Unping action:
+unpinged -> Ping all selected, pinged -> Unping all selected. Do not use an
+any/all-selected test or independently invert mixed states. Preserve
+selection/unrelated state. Exact context routing and menu lifetime remain open.
 
 The current action association is always visible. A new selected action changes
 that context; adding a ping to an older action is explicit. A setup/root entry
@@ -118,14 +127,13 @@ to the chosen endpoint; the Links context list supports removal without card
 edits. D-72 makes links undirected and unique per endpoint pair; repeating Link
 preserves existing pairs, with removal explicit rather than a toggle. Creation/
 removal are shared and recoverable. Exact rendering/no-op history remain under
-review in G-08. This does not remove
-separate optional ping labels/styles from their own review.
+review in G-08. D-77 separately simplifies ping appearance to one standard marker
+without label/style controls.
 
 D-73 excludes separate Attach/follow-group controls initially. Binary links
-stay visual; use explicit multi-selection for joint card movement. The next
-unapproved G-08 batch covers selection-mode mutual exclusion/preservation,
-consuming ordinary tap effects, and one standard marker without label/style
-controls. Destination location matching and revisions remain open.
+stay visual; use explicit multi-selection for joint card movement. G-08's core
+mode/context controls are confirmed through D-80; destination location matching,
+other gesture arbitration, menu lifetime, and revisions remain open.
 Exact action/group/history placement still needs later detailed review.
 
 ## 11.5 Branches, history, and recovery

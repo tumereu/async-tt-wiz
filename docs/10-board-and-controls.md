@@ -567,7 +567,7 @@ A brief animation alone is insufficient for asynchronous review. Proposed layers
 | --- | --- | --- |
 | Live presence | Dragging a card, browsing a pile, positioning a ping. | Ephemeral, online-only, best effort; no board edit, branch, or game-rule meaning. |
 | Explicit View/Reveal | View library contents or View/Reveal top N. | Shared logged/synchronized operation, not merely presence; faces versus backs follow D-44, and top-N source order follows D-45. Exact record/display schema remains open. |
-| Group/event-scoped ping | Point to an object, participant marker, area, or location; style/label controls remain proposed. | Durable, actor-attributed record linked to one group/event; visible only in that context, including event-tree review (D-75). No mechanical side effects. |
+| Group/event-scoped ping | Point to an object, participant marker, area, or location; one standard marker, no label/style picker (D-77). | Durable, actor-attributed record linked to one group/event; visible only in that context, including event-tree review (D-75). No mechanical side effects. |
 | Literal board edit | Move/rotate a card, create a labeled piece, change a named value, add a generic line. | Explicit generic state transition with ordinary history, branching, and undo. |
 
 Presence never reveals inspected hidden-card identities, search terms, or private
@@ -576,8 +576,8 @@ Exact expiry/throttling are still required protocol decisions. Offline work does
 not replay a backlog of obsolete live cursor/searching signals on reconnect.
 
 Durable pings have readable visual/accessibility descriptions, not only animation
-or color; optional text/presets remain under review. D-75 scopes their display
-to one group/event. Advancing beyond that context hides its ping overlays from
+or color; D-77 requires no typing or dedicated label/style picker. D-75 scopes
+their display to one group/event. Advancing beyond that context hides its ping overlays from
 the later board, even if unseen; this is not deletion. They remain viewable when
 reviewing that step in the event tree, including offline for downloaded games.
 They are not persistent table markers or acknowledgment-gated reminders.
@@ -585,8 +585,8 @@ They are not persistent table markers or acknowledgment-gated reminders.
 A ping is a communication record, not a rules target, activated ability,
 declaration, or priority pass. Creating one while inspecting history does not
 itself select a new active board-state continuation. Players interpret the
-associated move, ping destination, and other literal edits themselves. Optional
-ping labels/icons must not create inferred mechanical effects.
+associated move, ping destination, and other literal edits themselves. Marker
+appearance/accessibility descriptions must not create inferred mechanical effects.
 
 Markers live in contextual communication records with versioned edit/delete
 history. Every durable ping belongs to one group/event, retaining source-action
@@ -625,7 +625,7 @@ Confirmed event-scoped toggle details (D-76):
 Repeated destination taps toggle presence under D-76, rather than placing
 duplicates. Exact location matching/hit tolerance remains open.
 
-Next G-08 mode interaction/marker batch, proposed and not yet approved:
+Confirmed mode interaction/marker controls (D-77):
 
 1. Ping and selection-edit modes are mutually exclusive. Switching modes retains
    the selected set; a ping tap affects only the touched destination, not the
@@ -636,8 +636,24 @@ Next G-08 mode interaction/marker batch, proposed and not yet approved:
 3. Initially use one standard ping marker, with no dedicated label/style picker
    or required typing. Optional notes/chat remain separate communication tools.
 
-Earlier action-adjacent one-shot and P-15 drag-handle entry proposals are replaced
-by the confirmed mode direction, not additional required UI. Exact editing/
+Confirmed additional entry (D-78): offer a Ping context action alongside Ping
+mode. This does not replace the mode or change event scope. D-79/D-80 fix the
+direct action and selection scope below; menu lifetime remains open.
+
+Confirmed context-Ping behavior (D-79, selected-set rule revised by D-80):
+
+1. On an individual card/player, context Ping directly toggles that destination's
+   ping in the current event without entering/exiting Ping mode or requiring a
+   second destination tap. Preserve unrelated state and selection.
+2. For a card context menu scoped to a selection, display only Ping or Unping
+   according to the card used to open that menu: unpinged -> Ping; pinged ->
+   Unping. Apply that displayed action uniformly to all selected cards under
+   D-66 parity, retaining selection. Do not independently invert members or
+   choose the action from whether any/all selected cards are pinged (D-80).
+
+Earlier required action-adjacent one-shot and P-15 drag-handle entry proposals
+are replaced by the confirmed mode direction; D-78 adds a context shortcut, not
+those earlier controls. Exact editing/
 removal revisions, historical-action targeting, and history boundaries follow
 separately; this batch does not settle grouping/playback.
 
@@ -899,6 +915,21 @@ not move its neighbors. No attachment is inferred from card type, overlap, or
 link creation. Explicit anchor/follower grouping is outside initial scope, not a
 remaining first-release implementation decision.
 
+Proposed G-09 initial token creation, not yet approved:
+
+1. Table Create -> Token opens a searchable catalog of token definitions. Pick
+   a definition explicitly; no card text automatically creates tokens or chooses
+   their definition. This does not select a provider or approve a general editor.
+2. Offer quantity starting at one, using +/- and numeric entry. Create that many
+   independent instances with new stable IDs, not a single quantity-bearing card.
+3. Repeat last token reuses the last chosen definition and quantity to create
+   fresh instances, not clones of later edits to an existing token instance.
+
+Exact destination/placement preview, cancellation, bounds, missing/offline catalog
+data, repeat availability/scope, custom definitions, duplication/removal, and
+history/bulk boundaries remain separate review items. Do not assume automatic
+stacking that bypasses the ordinary three-card cap.
+
 ## 10.9 Worked interaction examples
 
 - **Move a card:** drag from the Hand-labeled row to a free grid cell. One
@@ -927,6 +958,6 @@ remaining first-release implementation decision.
 
 Before implementation, resolve gesture timings, layout measurements, snap/drop
 rules, pile hit targets/order, card-versus-pile controls, library inspection
-gestures, generic ping styles/association, live presence privacy/expiry,
+gestures, generic ping context controls/association, live presence privacy/expiry,
 ping schemas/lifecycle, full wireframes, and interaction budgets. The conceptual
 layout and examples above do not close those readiness gaps by themselves.

@@ -38,8 +38,8 @@ Proposed sequence; groups can be split or reordered during review:
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
-| G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-73 confirm binary links and no initial Attach/follow tool; D-74–D-76 confirm event-scoped ping mode, destination toggling, mode reset, and historical visibility. Selection interaction and marker scope next. |
-| G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
+| G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
+| G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Initial catalog-token creation, quantity, and repeat shortcut proposed next; custom authoring, duplication, removal, and placement remain unreviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
@@ -568,7 +568,7 @@ Confirmed event-scoped toggle details (D-76):
 Repeated taps toggle destination presence rather than adding duplicates; exact
 location matching/hit tolerance remains open.
 
-Next mode interaction/marker batch, proposed and not yet approved:
+Confirmed mode interaction/marker controls (D-77):
 
 1. Ping and selection-edit modes are mutually exclusive, retaining selection
    when switching. Ping only the touched destination, not the selected set.
@@ -577,6 +577,37 @@ Next mode interaction/marker batch, proposed and not yet approved:
 3. One standard marker, no dedicated ping label/style picker or required typing
    initially; optional notes/chat remain separate.
 
+D-78 adds a Ping context action alongside the mode. D-79/D-80 confirm direct
+behavior and trigger-card-directed selection scope; menu lifetime remains open.
+
+Confirmed context-Ping behavior (D-79, selected-set rule revised by D-80):
+
+1. Individual card/player context Ping toggles that destination in the current
+   event directly, without a second target tap or changing Ping input mode.
+2. Show only Ping or Unping based on the card used to open the selection-scoped
+   menu: unpinged -> Ping all selected; pinged -> Unping all selected. Do not
+   independently invert members or use an any/all-selected test (D-80).
+   Exact context routing remains Q-30.
+
 Detailed revisions, association, other gestures, and grouping remain later
-review. Earlier one-shot and P-15 drag-handle proposals are replaced by the mode
-direction, not additional mandatory entry points.
+review. Earlier required one-shot and P-15 drag-handle proposals are replaced by
+the mode direction; D-78 separately adds a context shortcut.
+
+## 12.11 G-09: Creation, copies, and removal
+
+Primary contracts: [additional controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play)
+and [action catalog](04-game-actions.md#42-coverage-matrix).
+
+Next initial token-creation batch, proposed and not yet approved:
+
+1. Table Create -> Token opens a searchable catalog; the user explicitly chooses
+   a token definition. No card-text inference, provider selection, or general
+   board/custom-piece editor is implied.
+2. Quantity starts at one with +/- and numeric entry. Multiple tokens are
+   independent instances with fresh stable IDs, not one quantity-bearing card.
+3. Repeat last token reuses the chosen definition and quantity, creating fresh
+   instances rather than copying subsequent edits on an existing instance.
+
+Placement/destination preview, cancellation, quantity bounds, offline/missing
+definitions, repeat availability/scope, custom creation, duplication/removal,
+and action boundaries remain later review. Ordinary stack limits still apply.

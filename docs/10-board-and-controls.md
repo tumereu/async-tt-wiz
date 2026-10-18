@@ -1043,15 +1043,49 @@ undo, branches, offline queuing, and automatic synchronization. Exact controls,
 state fields, transitions, automation, and priority-based restrictions are not
 yet approved. Generic player values remain separate.
 
-Next G-10 tracking-model batch, proposed and not yet approved:
+D-97 fixes MTG phases in code: Beginning → Precombat main → Combat → Postcombat
+main → Ending. No configurable sequence, generic phase-definition system, or
+phase editor is required. This replaces the proposed configurable MTG preset.
 
-1. Track turn number and whose turn it is.
-2. Track a current phase/step within a configured ordered sequence, with an MTG
-   preset rather than hard-coded MTG phases in the generic engine.
-3. Track who has priority, with an explicit Pass priority action. Treat priority
-   as tracking rather than an editing permission: either participant can still
-   manipulate the table. Exact pass cycles, automatic advancement, correction
-   controls, and touch layout follow after this model review.
+D-98 confirms individual MTG steps, not only phases; the standard sequence is
+in [the domain model](02-domain-model.md#25-participanttable-values-and-markers).
+D-99 requires quick-action offerings to vary with phase/step. Entering a step
+does not by itself execute a shortcut. D-100 confirms the first shortcuts below;
+other mappings remain under review. Do not infer card rules from these controls.
+
+Confirmed first shortcuts (D-100):
+
+1. Untap step: Untap all for the turn player's battlefield cards.
+2. Draw step: Draw one from the turn player's Library to their Hand, using the
+   already-approved literal draw/move behavior.
+3. Also offer Untap all + advance and Draw one + advance variants. One press
+   performs the corresponding card operation and advances tracking; no second
+   press or gameplay Send step is needed.
+
+Standalone versions leave tracking unchanged. Both forms require invocation,
+not automatic execution on step entry. Actual edits/progression use normal
+history, undo, queue, and sync behavior. Exact participant association, any
+skip-untap convention, empty-source/no-op handling, atomic/group boundaries,
+and other step controls remain later work.
+
+D-101 clarifies advancement to the next step, not the next whole phase:
+Untap all + advance goes Untap → Upkeep; Draw one + advance goes Draw → Precombat
+main. Do not skip Upkeep/Draw after Untap or automatically execute another card
+operation on arrival. Priority/pass consequences remain under review.
+
+Next G-10 progression-control batch, proposed and not yet approved:
+
+1. A standalone Next step control advances tracking without card edits, so
+   players can finish a step without using its card-operation shortcut.
+2. Tapping the phase/step indicator opens a direct phase/step choice for skips
+   or corrections, without replaying intermediate card operations.
+
+Exact priority handling, action/group boundaries, and touch layout remain open.
+
+Remaining model proposals: turn number/whose turn; priority holder plus explicit
+Pass priority, as tracking rather than an editing lock. Exact pass cycles,
+automatic advancement, correction controls, initialization, and touch layout
+remain later review.
 
 ## 10.9 Worked interaction examples
 

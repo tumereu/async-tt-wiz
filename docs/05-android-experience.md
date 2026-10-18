@@ -20,7 +20,7 @@ happened, and the engine must not guess what the actions mean in a game's rules.
 | Games | Active/completed games; opponent, catch-up state, pending work, branch changes. |
 | New game/invite | Participant invitation, setup, trust disclosure, format/deck selection. |
 | Deck library/editor | Import, resolve names, edit quantities/zones, preview, export. |
-| Table | Shared board, first-class turn/phase/priority tracking (D-96), state context, direct action tools, undo/review controls. Exact tracking controls/transitions remain under review. |
+| Table | Shared board, fixed MTG phase/step tracking (D-96–D-98), contextual shortcuts (D-99–D-101) including standalone Untap all/Draw one and one-press operation-plus-next-step variants, direct tools, undo/review. Exact layout/other transitions remain under review. |
 | Card/object inspector | Automatically show readable face art/text despite face-down table presentation, and both printed faces for multi-faced cards; modified state, available actions, attachments/history. Inspection does not change shared presentation. |
 | Zone browser / pile actions | Pile tap opens contents and pile context actions together. Contents use card-type category columns with name search/filtering and hold inspection (D-50). Explicit View/Reveal is shared/logged: View shows faces to its actor and backs to the other participant; Reveal shows faces to both. Full-library contents hide overall order; explicit top/bottom-N displays preserve source order rather than type-grouping. Grouping/filtering never reorder stored contents; exact columns and covered opponent layout remain open. |
 | Action/group review | Before/after changes, action stepping, interrupt at this boundary. |

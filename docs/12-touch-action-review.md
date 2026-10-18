@@ -40,7 +40,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, turn/phase/priority tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-96 confirm random tools, exposure/comment retention, non-undoable game Chat, and first-class engine turn/phase/priority tracking. Marker-only omission rejected; tracking-model batch next. |
+| G-10 | Other table tools: dice/coins, turn/phase/priority tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-101 confirm random tools, exposure/comment retention, non-undoable Chat, fixed MTG phase/step tracking, and standalone/next-step Untap all and Draw one shortcuts. Independent Next step and direct phase/step correction controls next. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -720,10 +720,36 @@ and token/note/counter-only workaround are rejected. History, undo, branches,
 offline queuing, and synchronization apply; detailed state and transitions are
 Q-32, not permission to infer game rules or begin implementation.
 
-Next tracking-model batch, proposed and not yet approved:
+D-97 replaces the configurable-sequence/MTG-preset proposal with hard-coded MTG
+phases: Beginning → Precombat main → Combat → Postcombat main → Ending. No phase
+editor or generic phase-definition system required. No inferred card effects.
 
-1. Turn number and whose turn it is.
-2. Current phase/step in a configurable ordered sequence, with an MTG preset.
-3. Priority holder plus explicit Pass priority; tracking, not an editing lock.
-   Both participants retain table access. Pass cycles/automatic advancement,
-   corrections, initialization, and exact touch controls follow this model review.
+D-98 confirms individual MTG steps inside those phases; see the domain sequence.
+D-99 confirms phase/step-dependent quick-action offerings. D-100 confirms the
+first mappings below; other shortcut maps remain under review. None executes
+card operations merely on entering a phase/step.
+
+Confirmed first shortcuts (D-100):
+
+1. Untap step: Untap all for the turn player's battlefield cards.
+2. Draw step: Draw one from the turn player's Library to their Hand, using the
+   approved literal draw/move operation.
+3. Both have an additional one-press variant performing the operation and
+   advancing tracking. Standalone versions leave tracking unchanged.
+
+D-101 settles next-step advancement: Untap → Upkeep and Draw → Precombat main,
+not a whole-phase skip. Do not execute further card operations on arrival.
+Exact participant association, any skip-untap convention, empty-source/no-op
+handling, atomic/group boundaries, other shortcuts, and touch layout remain open.
+
+Next progression-control batch, proposed and not yet approved:
+
+1. Standalone Next step advances tracking without card edits.
+2. Tap the phase/step indicator to choose a phase/step directly for skips or
+   corrections, without executing intermediate card operations.
+
+Priority consequences, grouping, and exact layout remain later review.
+
+Remaining proposals: turn number/whose turn and priority holder with explicit
+Pass priority, as tracking rather than an editing lock. Pass cycles/automatic
+advancement, corrections, initialization, and exact controls remain later review.

@@ -75,6 +75,14 @@ Included:
 - D-96 adds first-class turn, phase, and priority tracking. This supersedes the
   earlier marker-only scope, without authorizing inferred card rules. Exact
   progression/priority semantics and touch controls still require review.
+- D-97 allows hard-coded MTG phases for this tracking; no configurable phase
+  system or phase editor is required. This explicit scope choice does not add
+  card-script processing or inferred effects.
+- D-98 includes individual MTG steps. D-99 requires phase/step-dependent quick
+  actions. D-100 includes standalone Untap all/Draw one and one-press variants
+  that also advance tracking. D-101 advances to the next step: Untap → Upkeep;
+  Draw → Precombat main at the phase boundary. Other shortcuts/progression rules
+  still need review.
 
 Not included in the proposed first release:
 

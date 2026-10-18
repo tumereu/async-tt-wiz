@@ -361,10 +361,44 @@ D-96 requires engine-level tracking for turns, phases, and priority. Store that
 tracking as game state at each action boundary so that history, replay, undo,
 branches, offline queuing, and synchronization handle it like other game edits.
 Do not replace it with arbitrary labels or blank tokens. Exact fields, initial
-values, phase/step sequence and configuration, transition/pass commands,
+values, transition/pass commands,
 automatic advancement, and any priority-based action restrictions remain open.
 The requirement alone does not approve a particular transition state machine or
 infer changes from card movements, pings, grouping, or elapsed time.
+
+D-97 fixes the phase vocabulary/order to MTG rather than a configurable phase
+definition system: Beginning → Precombat main → Combat → Postcombat main →
+Ending. No phase editor or alternate phase-sequence configuration is required.
+Hard-coded phase tracking does not by itself implement phase-entry effects,
+automatic untapping/drawing, priority cycles, or automatic progression.
+
+D-98 includes individual MTG steps, not only phases. The standard sequence is:
+
+| Phase | Steps in order |
+| --- | --- |
+| Beginning | Untap → Upkeep → Draw |
+| Precombat main | No separate steps |
+| Combat | Beginning of combat → Declare attackers → Declare blockers → Combat damage → End of combat |
+| Postcombat main | No separate steps |
+| Ending | End → Cleanup |
+
+Track the phase and, where applicable, its current step at each action boundary.
+Exact handling of skipped/repeated steps, extra turns/phases/combat damage steps,
+manual corrections, and initialization remains Q-32. Do not infer these from
+card text or require a generic phase-configuration system to support tracking.
+
+D-99 requires quick-action offerings to depend on the tracked phase/step. This
+is a contextual presentation requirement, not automatic execution on step entry.
+D-100 confirms Untap all for the turn player's battlefield during Untap, and
+Draw one from their Library to Hand during Draw. Each has a standalone form
+that preserves tracking and a one-press operation-plus-advance variant.
+Record actual edits and any advancement under normal history/undo/queue/sync
+contracts. D-101 advances to the next step, not the next whole phase: Untap →
+Upkeep, and Draw → Precombat main at the phase boundary. Do not skip Upkeep/Draw
+after Untap or execute another card operation merely on entering the next step.
+Exact participant association, no-op/failure behavior,
+atomic/group boundaries, and other shortcuts remain under review; no new
+card-rule inference is implied.
 
 D-52 confirms that participants, like cards, may have colored counters carrying
 arbitrary text, with quick increment/decrement/set for numeric text. It does not

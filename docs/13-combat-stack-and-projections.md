@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-125 require case-by-case design before implementation. The
+(D-115). D-112–D-128 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -16,9 +16,9 @@ are recorded now; UI drafts/exact geometry remain stage 3, not current work.
 
 1. **Temporary combat area (D-112):** present attacking and blocking cards in an
    area that makes per-attacker blocker assignment easy. Exact appearance,
-   dismissal timing and assignment cardinality/order are open. D-122 fixes
-   removal effects without choosing automatic/manual lifetime. D-116 makes
-   creation a separate action; D-117's multiselect shortcuts also create it.
+   assignment cardinality/order are open. D-122 fixes removal effects; D-127
+   requires explicit closure and a combined advance-out-of-combat + close
+   shortcut. D-116 makes creation separate; D-117's shortcuts also create it.
 2. **Projections (D-112/D-123):** creating a virtual card occurrence leaves the
    actual card at its battlefield position. Attackers/blockers use this
    representation. A projection references the same source card; it is not a
@@ -98,6 +98,8 @@ groups understandable instead of forcing a fixed-width layout. This adaptive
 spacing requirement is confirmed; pixel geometry, scrolling, and layout mechanics
 are stage 3. Do not impose the ordinary three-actual-card pile limit on these
 groups merely because blockers are visually adjacent; exact capacity is open.
+D-126 constrains removal-time layout: keep surviving blockers in place rather
+than compacting/recentering them after an attacker or other blocker disappears.
 
 ### Ordered pings and projection links (D-119/D-120)
 
@@ -130,9 +132,11 @@ stage 3; schemas/technical choices follow in the relevant implementation work:
 2. **Blocker entry:** source/projection routing, exact associations/cardinality,
    multiple blockers, reassignment/order/removal, and corrections. Specific-attacker
    drops, blank unassigned slots, and adaptive attacker spacing are settled.
-3. **Combat lifecycle:** when the area appears/disappears, phase changes/skips,
-   repeated combat, End turn, assignments after an attacker disappears, and
-   historical rendering. Source departure removes its combat projections (D-124).
+3. **Combat lifecycle:** advance-and-close missing-area/out-of-combat handling,
+   combined boundaries, repeated combat/area reuse, and historical rendering.
+   D-127 requires explicit closure; D-128 fixes End of combat quick visibility
+   and Postcombat main destination. Source departure removes combat projections
+   (D-124); D-126 keeps surviving blockers unassigned in place.
 4. **Stack entry:** real card versus projection controls; ability-source context;
    multiple projections from one source; placement/order, labels, and optional
    communication. No ability picker/text entry is approved by implication.
@@ -157,8 +161,9 @@ projection links incident to them, but leaves real cards and their current state
 unchanged. It does not move or untap originals or undo edits already applied
 through projections. Other areas' projections are not removed merely by this
 area cleanup; a cross-area projection link disappears if its endpoint here does.
-Exact removal controls, automatic/manual lifetime, and action/undo composition
-remain open. Normal history/branch recovery still applies.
+Exact removal controls and action/undo composition remain open. D-127 requires
+explicit closure; ordinary phase/turn changes do not close the area. Normal
+history/branch recovery still applies.
 
 D-123: card actions through a projection always apply to its real source card.
 Projections are live views, not editable snapshots. Tap/untap, corners, counters,
@@ -187,8 +192,8 @@ a move through the original, a combat projection, or a Stack projection, and
 explicit source-card Remove/token disappearance. Incident projection links
 disappear under D-120. Moving/repositioning within the battlefield does not meet
 this departure condition. There is no extra manual projection-cleanup step.
-Assignments involving a removed attacker still need a behavior decision; do not
-silently remove the real blocking cards or assume their projections disappear.
+D-126 keeps surviving blocker projections unassigned in place when their attacker
+disappears; do not remove or move their real source cards.
 
 **Stack (D-125):** the source leaving the battlefield, moving elsewhere, or being
 removed does not remove its Stack projections. Each effect occurrence remains
@@ -206,9 +211,60 @@ actual card or silently remove the effect. Normal history/undo/branch/offline
 recovery applies to both lifecycle rules; exact operation composition/concurrent
 reference handling remain under review.
 
-## 13.6 Next attacker-removal assignment behavior — proposed, not approved
+## 13.6 Confirmed attacker-removal assignment and spatial stability (D-126)
 
 When an attacker projection disappears, keep its surviving blocker projections
-in blank/unassigned combat slots, without moving or changing their real cards.
-This would reuse the valid unassigned-blocker state (D-118). It does not decide
-phase-triggered combat-area cleanup or missing-source Stack presentation.
+in their existing physical/tabletop positions and clear their attacker assignment.
+They now occupy valid blank/unassigned slots (D-118); do not move them to a side
+collection, pack them into different slots, or recenter them merely because their
+attacker disappeared. Their real cards remain unchanged. If a blocker's own
+source also leaves the battlefield, D-124 still removes that blocker's projection.
+
+As blockers move to Graveyard or are otherwise removed, the area may shrink, but
+that shrinkage must preserve the remaining blockers' tabletop positions rather
+than automatically compact/reflow them. Spatial stability is a behavior requirement
+now, not an optional stage-3 detail. Exact area bounds/geometry and rendering are
+stage 3; this does not pin device pixels across ordinary pan/zoom or prescribe an
+algorithm for D-118's spacing growth when blockers are added.
+
+Preserve assignment and placement context for normal history/undo/branch/offline
+review. D-127 separately fixes explicit area closure; missing-source Stack
+presentation remains open.
+
+## 13.7 Confirmed explicit closure and advance shortcut (D-127)
+
+The combat area stays open until explicitly closed. Ordinary Next step, direct
+phase/step changes, and End turn do not close it merely because tracking leaves
+combat or starts a new turn. Individual source departures still remove their
+own combat projections (D-124), without implicitly closing the area if empty.
+
+Provide a quick action combining **advance out of combat + close combat area**.
+Its closure uses D-122: remove combat projections/incident projection links,
+preserve real cards' current positions/orientation/other state, and do not remove
+Stack effects. This is an explicit combined action, not a phase-change listener
+or automatic damage/resolution. Closing alone and advancing alone remain
+available; the combined action also has a full non-quick path under D-121.
+
+Handling outside combat/with no area and internal action/group/undo/interruption
+composition remain behavior questions. D-128 fixes the destination and quick
+visibility below. UI wording/geometry follows stage 3.
+
+## 13.8 Confirmed advance-and-close destination and quick visibility (D-128)
+
+The quick action is offered only at **End of combat**, the last combat step,
+not earlier in combat. It advances to **Postcombat main** and closes the combat
+area under D-122/D-127, without changing turn player/number or real cards.
+Do not offer it as an early prominent skip of remaining combat steps.
+
+This phase/step condition governs quick visibility, not full action access
+(D-121). Keep the non-quick combined path and separate phase advancement/closure
+available. Ordinary Next step at End of combat advances to Postcombat main but
+does not close the area. Exact missing-area behavior and full-path behavior
+outside combat remain open; do not infer a later-phase rewind policy.
+
+## 13.9 Next advance-and-close undo boundary — proposed, not approved
+
+Treat advance-and-close as one atomic, undoable action, restoring both the prior
+step and the combat area/projections/assignments/links/placement on undo, with no
+interruption point between its two effects. This proposal is specific to this
+combination and does not settle other combined shortcuts' boundaries.

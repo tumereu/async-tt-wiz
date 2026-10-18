@@ -327,8 +327,9 @@ and link/ping endpoint routing remain separate behavior questions.
 
 D-122 removes the combat area and its projections/projection links without
 changing source cards' current state. It neither untaps attackers nor rolls back
-prior edits made through projections. Manual/automatic lifetime and exact cleanup/
-history/concurrency composition remain open.
+prior edits made through projections. D-127 requires explicit closure, with an
+advance-out-of-combat + close shortcut; ordinary phase/turn changes do not close
+the area. Exact cleanup/history/concurrency composition remains open.
 
 D-124/D-125 distinguish occurrence lifetime by role. Any removal of a real card
 from the battlefield removes its combat projections and their incident links,
@@ -337,8 +338,16 @@ leaves Stack effect occurrences intact until explicit removal/resolution, even
 if the source was moved through that Stack projection or a token ceased to
 exist. A surviving effect need not have a currently existing actual source card;
 missing-source presentation/inspection and card-action applicability need design.
-Do not fabricate a replacement card. Attacker-removal assignment handling and
-exact cleanup/history/concurrency composition also remain open.
+Do not fabricate a replacement card. Exact cleanup/history/concurrency composition
+also remains open.
+
+D-126 clears a disappearing attacker's assignments while retaining surviving
+blocker projections at their existing tabletop positions. Unassigned is valid;
+it is not a request to move blockers into another collection/column. Area
+shrinkage as blockers disappear must not compact/recenter remaining blockers.
+Real source cards remain unchanged by assignment cleanup. Retain placement and
+assignment context for normal undo/history/branch/offline recovery; exact schema
+and area-bound geometry remain later design.
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display

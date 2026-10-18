@@ -1205,8 +1205,15 @@ combat/source lifecycle behavior, not a final screen layout. D-122 confirms area
 removal clears its projections/links without changing originals' current state;
 D-123 makes card edits/moves through projections affect the real card. D-124
 removes combat projections on source departure; D-125 retains Stack effects
-until explicit removal/resolution. Next: surviving blocker assignments when an
-attacker disappears. Missing-source Stack presentation/actions remain separate.
+until explicit removal/resolution. D-126 keeps surviving blockers unassigned at
+their existing tabletop positions when their attacker disappears. The area may
+shrink as blockers are removed, but may not shift/compact survivors to the side
+or into different slots. D-127 requires explicit closure, with an advance out of
+combat + close shortcut; ordinary phase/step changes and End turn leave the area
+open. D-128 offers the quick action only at End of combat → Postcombat main,
+not earlier combat steps. Separate advance/close and full non-quick access remain
+available (D-121). Next: combined-shortcut undo/interruption boundary. Missing-source
+Stack presentation/actions remain separate.
 
 ## 10.9 Worked interaction examples
 

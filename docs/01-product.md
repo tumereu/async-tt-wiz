@@ -59,6 +59,8 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-035 | No targeted action is quick-action-exclusive: combined shortcuts and constituent actions remain reachable through full targeted action paths, such as context actions (D-121). |
 | P-036 | Removing combat area clears its projections/projection links without changing originals' current state (D-122). Card actions through projections always affect the real card, including moves to real destinations (D-123); projections are not independently editable card copies. |
 | P-037 | A source leaving the battlefield loses its combat projections (D-124), but its Stack effects remain until explicitly removed/resolved even if the source itself is removed (D-125). Lifetime is area-specific, not determined by which view invoked the move. |
+| P-038 | When an attacker disappears, surviving blocker projections become unassigned in place. The area may shrink as blockers are removed, without shifting/compacting the remaining blockers or changing real cards (D-126). |
+| P-039 | Combat area persists until explicitly closed, not automatically on ordinary phase/step changes or End turn. Provide combined advance out of combat + close, while retaining separate operations and full non-quick access (D-127). Offer the quick action only at End of combat, advancing to Postcombat main (D-128). |
 
 ## 1.3 Proposed first-release boundaries
 

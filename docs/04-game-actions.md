@@ -76,9 +76,19 @@ distinct from source-card Remove; exact entry remains under review. D-124 remove
 combat projections when the real card leaves the battlefield, regardless of
 entry point. D-125 retains Stack effects until explicit removal/resolution,
 including when their source moves or ceases to exist. A real-card move through a
-Stack projection does not itself remove that effect. Missing-source Stack
-presentation/actions and attacker-removal assignments remain under review in
-the primary projection contract; no automatic effect execution is introduced.
+Stack projection does not itself remove that effect. D-126 keeps surviving
+blockers unassigned at their existing positions when their attacker disappears;
+area shrinkage after blocker removal must not shift/compact remaining blockers.
+Missing-source Stack presentation/actions remain under review in the primary
+projection contract; no automatic effect execution is introduced.
+
+D-127 adds advance out of combat + close combat area as an explicit combined
+shortcut, with a full non-quick path and standalone advance/close still available.
+Ordinary Next step, direct phase changes, and End turn leave the area open.
+Closure uses D-122 without source edits or Stack-effect cleanup. D-128 offers the
+quick action only at End of combat and advances to Postcombat main. Full non-quick
+access remains; out-of-combat/missing-area handling and combined boundaries still
+need design. Ordinary Next step at End of combat does not close the area.
 
 D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite

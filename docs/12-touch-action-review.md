@@ -42,7 +42,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle actions/combinations/blockers/spacing; D-120/D-121 links/full paths; D-122 area cleanup; D-123 shared edits/moves; D-124 removes combat projections on source departure. Attacker-removal assignments next; UI drafts remain stage 3. |
+| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle actions/combinations/blockers/spacing; D-120–D-124 links/full paths, area cleanup, shared edits/moves, and source-departure cleanup. D-126 retains blockers in place; D-127 explicit closure; D-128 End of combat quick action → Postcombat main. Combined undo boundary next; UI drafts remain stage 3. |
 | G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. Missing-source display/actions and other entry/reference cases remain open. |
 | G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
 
@@ -846,6 +846,22 @@ but its Stack effects remain until explicitly removed/resolved. This is independ
 of which occurrence/source invoked the move; Stack effects survive source removal
 too. Missing-source display/inspection/card-action applicability remains open.
 
-Next proposal, not yet approved: when an attacker disappears, keep surviving
-blocker projections in blank/unassigned slots without changing their real cards.
-No UI draft/implementation authorized; phase-triggered cleanup remains open.
+Confirmed D-126: when an attacker disappears, surviving blockers become unassigned
+in their existing tabletop positions, not moved to a side collection. Real cards
+remain unchanged. Area shrinkage as blockers disappear must not shift/compact
+survivors into different slots. Exact geometry is stage 3, but stability is a
+requirement now.
+
+Confirmed D-127: combat area stays open until explicitly closed, including across
+ordinary phase/step changes and End turn. Provide advance out of combat + close
+as a combined quick action, preserving separate advance/close and a full non-quick
+path. D-122 governs closure; individual source-departure cleanup still applies.
+D-128 fixes quick visibility to End of combat, the last combat step, advancing
+to Postcombat main. Do not offer the quick action at earlier combat steps; keep
+full non-quick access under D-121. Out-of-combat/missing-area handling and combined
+boundaries remain open.
+
+Next proposal, not yet approved: advance-and-close is one atomic undoable action,
+restoring both step and complete combat presentation on undo, with no internal
+interruption point. Other combined shortcuts' boundaries are not decided by this.
+No UI draft/implementation authorized.

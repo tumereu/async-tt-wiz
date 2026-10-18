@@ -31,7 +31,17 @@ shared card fields, not independent snapshots. Exact occurrence cleanup versus
 source-Remove routing remains open. D-124 removes combat projections when their
 source leaves the battlefield; D-125 leaves Stack effects until explicit removal/
 resolution, even after source removal. Missing-source Stack display/inspection/
-card actions and attacker-removal assignments remain behavior work, not UI drafts.
+card actions remain behavior work, not UI drafts. D-126 keeps surviving blockers
+unassigned in their existing tabletop positions after attacker removal. The area
+may shrink as blockers disappear, without shifting/compacting survivors. Exact
+bounds/rendering are stage 3; spatial stability is already required behavior.
+
+D-127 adds a combined advance out of combat + close area quick action. Ordinary
+phase/step changes and End turn leave the area open until explicit closure.
+Standalone advance/close and non-quick access to the combination remain available.
+D-128 shows the quick action only at End of combat, advancing to Postcombat main;
+the full path remains available. Combined boundaries and missing-area/out-of-combat
+handling still need behavior design; button wording/placement is stage 3.
 
 ## 5.1 Navigation and screens
 

@@ -40,7 +40,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, turn/phase/priority tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-104 confirm random tools, exposure/comment retention, non-undoable Chat, MTG tracking/shortcuts, turn progression, and displayed priority/Pass without automatic step advancement or editing locks. Priority defaults and direct correction next. |
+| G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-105 confirm random tools, exposure/comment retention, non-undoable Chat, and MTG turn/phase/step tracking/shortcuts. D-105 removes priority state/UI/validation, superseding D-104. Turn correction and initialization next. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -715,7 +715,7 @@ Comments qualify as retention checkpoints alongside information gains under
 D-91; card notes/pings remain distinct. Exact event/group association and
 revision/dependency protocols remain later review.
 
-D-96 requires first-class turn/phase/priority engine state. The proposed omission
+D-96/D-105 require first-class turn/phase/step engine state. The proposed omission
 and token/note/counter-only workaround are rejected. History, undo, branches,
 offline queuing, and synchronization apply; detailed state and transitions are
 Q-32, not permission to infer game rules or begin implementation.
@@ -748,7 +748,7 @@ Confirmed progression controls (D-102):
 2. Tap the phase/step indicator to choose a phase/step directly for skips or
    corrections, without executing intermediate card operations.
 
-Priority consequences, grouping, and exact layout remain later review.
+Grouping and exact layout remain later review; no priority state under D-105.
 These are shared game edits with normal undo/branch/queue/sync, not history
 navigation. Direct phase/step choice does not settle turn/player corrections.
 
@@ -762,22 +762,18 @@ Increment per individual player's turn, not per round. History/undo/branches/
 offline/sync apply. Review alone does not advance a turn. Turn corrections/extra
 turns, initialization, and exact controls remain later review.
 
-Confirmed priority controls (D-104):
+D-105 removes priority tracking, display, Pass actions, and priority-legality
+validation, superseding D-104 and D-96's priority portion. Players queue actions
+and interrupt/branch when they judge timing permits it; the engine does not
+decide priority or infer it from cards/phases. Cooperative access and structural
+validation remain. Turn/phase/step tracking and approved shortcuts remain.
 
-1. Display priority holder and offer Pass priority to transfer it to the other
-   player, without advancing steps or resolving/moving cards.
-2. Priority tracking is not an editing lock; both participants retain table access.
+Priority-default/tap/correction proposals are withdrawn, not pending blockers.
+No no-holder or resolution-state UI/model is required for priority.
 
-Pass edits shared tracking with normal history/undo/branch/queue/sync. Repeated
-passes do not implicitly advance steps or resolve/move cards. Defaults, special
-steps, correction controls, exact pass records, and grouping remain later review.
+Next turn-correction/initialization batch, proposed and not yet approved:
 
-Next priority-default/correction batch, proposed and not yet approved:
-
-1. On entering a step or main phase, give priority to the turn player; Untap
-   and Cleanup default to no holder.
-2. Tap the priority indicator to directly choose either player or no holder
-   for corrections/exceptions, without card edits or phase/step changes.
-
-No inferred card rules/triggers. Initialization, no-holder Pass behavior, picker
-layout, and atomic/group boundaries remain open.
+1. Tap the turn indicator to edit player and number without card or phase/step
+   changes.
+2. Setup chooses starting player; start turn 1 at Beginning/Untap without
+   automatic untapping/drawing.

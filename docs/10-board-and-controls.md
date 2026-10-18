@@ -690,9 +690,9 @@ These are proposed essentials, not additional mandatory actions per card move:
    reorder piles, and inspect recorded changes. No engine Cast/Resolve command.
 3. **Visual links:** binary persistent relationships with one standard connector,
    no labels/style choices initially (D-71); no target/combat/attachment meaning.
-4. **Turn/phase/priority:** D-96 requires first-class engine tracking, distinct
-   from optional generic table markers. Exact controls, progression/pass rules,
-   automation, and any action restrictions remain under review.
+4. **Turn/phase/step:** D-96/D-105 require first-class engine tracking, distinct
+   from optional generic table markers. No priority state/UI/legality validation.
+   Remaining controls and progression details are under review.
 5. **Bulk operations:** multi-select, rotate selected, move top N to an explicit
    destination, edit selected counters, and manage overlapping pieces.
 6. **History/recovery:** persistent undo, action stepping, branch indicator,
@@ -1037,12 +1037,12 @@ requested earlier state. Any action actually exposing otherwise-hidden info
 qualifies, including draws/moves/face changes, not only View/hold. Exact event
 placement/coalescing, cutoff group display, collaborator handling, redo, and
 offline publication remain Q-31. This is not a persistent ping/access restriction.
-D-96 rejects omitting turn/phase/priority tracking or substituting blank tokens,
+D-96/D-105 reject omitting turn/phase/step tracking or substituting blank tokens,
 notes, and counters. Provide first-class engine state integrated with history,
 undo, branches, offline queuing, and automatic synchronization. Exact controls,
 state fields, and transitions are refined below; remaining details stay open.
-D-104 settles that priority does not restrict tabletop editing. Generic player
-values remain separate.
+D-105 removes priority tracking and controls entirely. Generic player values
+remain separate.
 
 D-97 fixes MTG phases in code: Beginning → Precombat main → Combat → Postcombat
 main → Ending. No configurable sequence, generic phase-definition system, or
@@ -1072,7 +1072,7 @@ and other step controls remain later work.
 D-101 clarifies advancement to the next step, not the next whole phase:
 Untap all + advance goes Untap → Upkeep; Draw one + advance goes Draw → Precombat
 main. Do not skip Upkeep/Draw after Untap or automatically execute another card
-operation on arrival. Priority/pass consequences remain under review.
+operation on arrival. There is no priority/pass state under D-105.
 
 Confirmed progression controls (D-102):
 
@@ -1081,7 +1081,7 @@ Confirmed progression controls (D-102):
 2. Tapping the phase/step indicator opens a direct phase/step choice for skips
    or corrections, without replaying intermediate card operations.
 
-Exact priority handling, action/group boundaries, and touch layout remain open.
+Exact action/group boundaries and touch layout remain open.
 
 These controls edit shared tracking; they are not history-review navigation.
 Normal undo, branch, offline-queue, and automatic-sync contracts apply. Direct
@@ -1099,27 +1099,24 @@ Cleanup → next turn updates shared tracking under normal history/undo/branch/
 queue/sync behavior; simply reviewing Cleanup does not start another turn.
 Turn corrections/extra turns, initialization, and exact touch layout remain open.
 
-Confirmed priority controls (D-104):
+Confirmed D-105: remove priority tracking and UI from this release, superseding
+D-104 and the priority portion of D-96. No priority indicator, Pass action,
+holder/default/reset/correction picker, pass records, or resolving/no-holder
+tracking. Players decide legal MTG timing and interrupt the recorded action path
+when they want to respond. The engine neither gates interruption on priority nor
+infers it from phases, cards, or an action queue. Existing structural validation,
+cooperative access, and branch/history behavior remain intact.
 
-1. Display who has priority; Pass priority transfers it to the other player.
-   Passing alone does not advance the step or resolve/move cards.
-2. Priority is tracking, not an editing lock: either participant may still
-   manipulate the table regardless of who has priority.
+The earlier priority-default/tap/correction proposals are withdrawn. MTG's
+no-priority intervals (rules 117.2e/117.3a/514.3a, [rules reference](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt))
+remain game knowledge for participants, not engine state or requirements.
 
-Pass edits shared priority tracking with normal history/undo/branch/queue/sync.
-Repeated passes do not implicitly advance steps or resolve/move cards either.
-Initial/reset priority, Untap/Cleanup handling, correction controls, exact pass
-records, and group boundaries remain later review.
+Next G-10 turn-correction/initialization batch, proposed and not yet approved:
 
-Next G-10 priority-default/correction batch, proposed and not yet approved:
-
-1. Entering a step or main phase gives priority to the turn player, except
-   Untap and Cleanup, which default to no priority holder.
-2. Tap the priority indicator to set either player or no holder directly for
-   corrections/exceptions, without card edits or phase/step changes.
-
-These proposed defaults do not infer triggers or card rules. Exact initialization,
-no-holder Pass behavior, picker layout, and atomic/group boundaries remain open.
+1. Tap the turn indicator to edit turn player and number, leaving phase/step
+   and cards unchanged.
+2. Choose the starting player during setup; begin at turn 1, Beginning/Untap,
+   without automatically untapping or drawing.
 
 ## 10.9 Worked interaction examples
 

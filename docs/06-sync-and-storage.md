@@ -139,6 +139,11 @@ when eligible. Rejected dependencies block their suffix for recovery. An app
 restart from sending must resolve the original operation identity before creating
 a replacement. Incomplete input is outside this queue state machine.
 
+D-105 requires no priority state or Pass record to queue, publish, or interrupt
+actions. Do not add priority-based publication ordering or legality rejection.
+Participants judge timing; preserve normal dependency/structural validation and
+automatic conflict branches without interpreting queued work as priority passes.
+
 ## 6.5 Incremental synchronization
 
 Clients request control changes since a known service revision plus missing

@@ -9,7 +9,7 @@ Maintain three distinct state classes:
 
 1. **Board state:** cards/objects, labeled areas/containers, participants, named
    values, orientation, generic visual relationships, and first-class turn/
-   phase/priority tracking (D-96) at an action boundary.
+   phase/step tracking (D-96/D-105) at an action boundary. No priority state.
 2. **Shared history/control state:** immutable action nodes, branches, the active
    branch pointer, archive status, publication records, and undo records.
 3. **Personal presentation state:** review cursor, selected objects, camera,
@@ -351,19 +351,18 @@ open.
 
 Support arbitrary labeled numeric/text values and participant/board markers.
 Players may label them Life, Mana, Commander damage, or anything else. These
-arbitrary values remain distinct from D-96's first-class turn/phase/priority
+arbitrary values remain distinct from D-96/D-105's first-class turn/phase/step
 tracking, and are not a payment or role/permission system.
 
 Changing one value does not clear another, advance a turn, move cards, or grant
 consent. No game-specific effect follows from setting a marker or label.
 
-D-96 requires engine-level tracking for turns, phases, and priority. Store that
-tracking as game state at each action boundary so that history, replay, undo,
+D-96, narrowed by D-105, requires tracking for turns and MTG phases/steps. Store
+that tracking as game state at each action boundary so that history, replay, undo,
 branches, offline queuing, and synchronization handle it like other game edits.
 Do not replace it with arbitrary labels or blank tokens. Exact fields, initial
-values, transition/pass commands,
-automatic advancement, and priority initialization/reset behavior remain open.
-D-104 settles that priority is tracking, not an editing lock.
+values, remaining transition/correction commands, and action boundaries remain open.
+Do not add priority-holder, pass-cycle, or no-holder/resolving tracking state.
 The requirement alone does not approve a particular transition state machine or
 infer changes from card movements, pings, grouping, or elapsed time.
 
@@ -406,24 +405,23 @@ phase/step choice through the indicator for skips/corrections, without executing
 intermediate card operations. Both edit shared tracking under normal undo,
 branch, queue, and sync contracts; neither is a history-review cursor change.
 Direct phase/step choice does not itself settle turn/player corrections.
-Priority consequences and exact action/group boundaries remain under review.
+Exact action/group boundaries remain under review; priority is not tracked.
 
 D-103 requires turn-player identity and turn number in shared tracking and its
 presentation. Next step from Cleanup starts the other player's Beginning/Untap
 and increments the turn number by one per individual player's turn, not per
 round. It does not untap or draw cards automatically. History, replay, undo,
 branches, offline queuing, and sync preserve this turn context. Turn corrections,
-extra turns, starting-player/number initialization, and priority consequences
+extra turns and starting-player/number initialization
 remain under review; reviewing a boundary does not advance the turn.
 
-D-104 requires a displayed priority holder and explicit Pass priority, transferring
-priority to the other player without advancing steps or resolving/moving cards.
-Repeated passes likewise do not trigger implicit advancement or resolution.
-This is shared game tracking with normal history/replay/undo/branch/offline/sync,
-not an editing lock: either participant can still manipulate the table regardless
-of the holder. Exact initial/reset priority, whether/when no holder applies,
-no-holder Pass behavior, direct correction controls, and pass/group records
-remain under review. Do not add priority-based tabletop access restrictions.
+D-105 supersedes the priority part of D-96 and D-104: no engine priority tracking
+or user-visible priority controls in this release. Participants decide legal MTG
+timing themselves and respond by interrupting the recorded action path. Do not
+validate interruption/edit eligibility against priority, derive it from phase,
+or require a Pass record before queuing work or creating a branch. Existing
+cooperative access and structural validation remain unchanged. Turn/phase/step
+tracking and the approved shortcuts/progression controls remain in scope.
 
 D-52 confirms that participants, like cards, may have colored counters carrying
 arbitrary text, with quick increment/decrement/set for numeric text. It does not

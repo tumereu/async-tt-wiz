@@ -44,7 +44,7 @@ merely automatic rules enforcement.
 | P-024 | The engine is generic and rules-agnostic; MTG is a manual-play use case, not hard-coded mechanics. |
 | P-025 | Present literal actions and pings as recorded; players infer their game meaning. |
 | P-026 | Area names, card metadata, and pings must not imply game-specific state transitions or automatic side effects. |
-| P-027 | Turns, phases, and priority have first-class engine tracking (D-96), not only arbitrary markers, notes, or tokens. D-104 adds displayed priority and explicit Pass without implicit step advancement/resolution or editing locks. Exact initialization/reset state and remaining controls/transitions stay under review. |
+| P-027 | Turns and MTG phases/steps have first-class engine tracking, not only arbitrary markers, notes, or tokens. D-105 removes priority tracking and its UI from this release, superseding that part of D-96 and all of D-104. Players judge priority/interruption legality; the engine does not gate edits or branches on it. |
 
 ## 1.3 Proposed first-release boundaries
 
@@ -72,9 +72,9 @@ Included:
   across move controls (D-85), with synchronized history/undo recovery. This is
   another declared destination
   convenience, not inferred card-text/type/label behavior or historical erasure.
-- D-96 adds first-class turn, phase, and priority tracking. This supersedes the
-  earlier marker-only scope, without authorizing inferred card rules. Exact
-  progression/priority semantics and touch controls still require review.
+- D-96, as narrowed by D-105, adds first-class turn and phase/step tracking.
+  This supersedes the earlier marker-only scope, without authorizing inferred
+  card rules. Remaining progression details and touch controls need review.
 - D-97 allows hard-coded MTG phases for this tracking; no configurable phase
   system or phase editor is required. This explicit scope choice does not add
   card-script processing or inferred effects.
@@ -87,16 +87,17 @@ Included:
   phase/step choice for skips/corrections without intermediate card operations.
 - D-103 tracks/displays turn player and number. Next step from Cleanup starts
   the other player's Untap and increments the number, without untapping/drawing.
-- D-104 displays priority and offers Pass to the other player without advancing
-  steps or resolving/moving cards. Priority never locks either player's editing.
+- D-105 removes engine priority state, indicators, Pass controls, and priority-
+  legality validation. Players queue actions and use interruption/branching to
+  respond; legal timing is their responsibility. Turn/phase/step controls remain.
 
 Not included in the proposed first release:
 
 - Game-specific semantic actions, inferred casting/targeting/activation/combat,
   inferred rule-based resets beyond declared conveniences, trigger detection,
   legal-target validation, or card-script execution. D-96 separately requires
-  explicit turn/phase/priority tracking; automatic progression is now an open
-  design question rather than a blanket scope exclusion.
+  explicit turn/phase/step tracking; remaining progression details are open.
+  D-105 excludes priority tracking, UI, and legality validation from this release.
 - Matchmaking, rankings, tournaments, clocks, wagering, public spectators,
   public chat, AI opponents, or competitive anti-cheat.
 - Multiplayer UI and coordination, even if identifiers are not hard-coded to

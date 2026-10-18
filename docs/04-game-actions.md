@@ -48,7 +48,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-019 | Board markers/connectors | Mark objects/relationships visually; players may use them for combat or other mechanics without specialized engine state. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
 | A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. Context Remove applies to ordinary cards/tokens and selections, no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact routing/references/boundaries remain open. |
-| A-022 | Turn/phase/priority tracking | D-96–D-104 require fixed MTG phase/step tracking, standalone/next-step Untap/Draw variants, Next step/direct phase-step correction, turn player/number and Cleanup-to-next-turn progression, and priority display/Pass. Pass transfers priority without implicit step advancement/resolution; priority is not an editing lock. Exact initialization/reset/no-holder semantics and remaining controls stay open. History/undo/branches/offline/sync apply; arbitrary markers remain separate. |
+| A-022 | Turn/phase/step tracking | D-96–D-103 require fixed MTG phase/step tracking, standalone/next-step Untap/Draw variants, progression/correction controls, turn player/number, and Cleanup-to-next-turn progression. D-105 removes priority state/UI/Pass/legality validation, superseding D-104. Initialization and remaining turn controls stay open. History/undo/branches/offline/sync apply; arbitrary markers remain separate. |
 | A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
 | A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
 | A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
@@ -131,11 +131,10 @@ mechanic-specific entities to the engine.
 
 - No casting, activation, targeting, combat, damage, cost payment, priority,
   resolution, or turn-progression model is inferred from physical actions.
-- D-96 separately requires explicit engine-level turn/phase/priority tracking.
+- D-96/D-105 separately require explicit engine-level turn/phase/step tracking.
   Do not interpret the no-inference rule as excluding that state. Exact explicit
-  transitions and reset behavior remain under review. D-104 makes priority
-  tracking rather than an editing lock; passing does not implicitly advance
-  steps or resolve cards.
+  remaining transitions and correction behavior remain under review. D-105
+  removes priority tracking altogether; players judge interruption timing.
 - A ping only creates a visual communication record; it never creates a legal
   target or another rule-specific relationship.
 - Moving normally preserves orientation, counters, corner text, labels,

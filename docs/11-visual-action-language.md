@@ -9,10 +9,11 @@ below are proposals.
 ## 11.1 Record what happened, not what it means
 
 The engine knows objects, areas, containers, orientation, named values, generic
-links, pings, and recorded operations. D-96 adds first-class turn/phase/priority
-tracking, with exact state/transitions still under review. It does not infer
-spells, legal targets, costs, triggers, combat, priority passes, or resolution
-from physical actions. Explicit tracking is distinct from inferred card rules.
+links, pings, and recorded operations. D-96/D-105 add first-class turn/phase/step
+tracking but no priority state or controls. Remaining details stay under review.
+It does not infer spells, legal targets, costs, triggers, combat, priority passes,
+or resolution from physical actions. Explicit tracking is distinct from inferred
+card rules.
 
 | Recorded fact | Acceptable presentation | Forbidden inference |
 | --- | --- | --- |

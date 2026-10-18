@@ -134,6 +134,13 @@ synchronization or imply a game-rule event.
 
 ## 3.5 Interruption and active-branch selection
 
+D-105 removes priority tracking, UI, and priority-legality checks. Participants
+judge when an MTG response is legal; the engine records the chosen interruption
+at an action boundary without requiring a priority-holder or Pass record. Keep
+normal structural validation, cooperative access, and branch-preservation rules.
+Queueing/publishing a continuation does not imply the other player waived a
+response opportunity or accepted its legality.
+
 For a path `root → A → B → C → D`, interrupting after B with X creates
 `root → A → B → X`. The old path through C and D remains recoverable. On
 successful publication, the branch ending at X is active.

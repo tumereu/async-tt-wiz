@@ -720,8 +720,8 @@ interaction):
 1. Each color has +1 color, -1 color, and Set color actions. There is no separate
    Add/Initialize action or prerequisite initialization step.
 2. Arithmetic on existing whole-number text is relative; it is inapplicable to
-   nonnumeric text. Individual unusable actions are disabled. Arithmetic behavior
-   when the counter is absent still needs approval; do not silently decide it.
+   nonnumeric text. Individual unusable actions are disabled. D-68 makes absent
+   counters applicable: +1 creates `1` and -1 creates `-1` directly.
 3. No recolor action in the initial release. Counter uniqueness, trimmed-empty
    removal, visible zero, and menu retention remain unchanged.
 
@@ -785,23 +785,53 @@ Confirmed multi-selection control parity (D-66):
   where usable; skip cards where its individual action would be disabled. The
   mass action is disabled only if no selected card is applicable. For example,
   +1 Red increments a red `2` to `3` while leaving a red `flying` unchanged.
-  This supersedes the prior blanket all-compatible gating proposal. Missing
-  counter arithmetic, exact eligibility/error tables, and affected/skipped
+  This supersedes the prior blanket all-compatible gating proposal. D-68 resolves
+  missing-counter arithmetic. Exact eligibility/error tables and affected/skipped
   rendering remain Q-30. Do not confuse applicability with invalid IDs or a
   structurally invalid drop that retains its established all-or-nothing behavior.
 - Single-card versus selection targeting when opening an unselected card's
   context menu, exact mixed-value rendering, and bulk interruption/grouping
   boundaries remain open. Existing card tap/untap selection rules are unchanged.
 
-Next absent-counter outcomes, proposed and not yet approved:
+Confirmed absent-counter outcomes (D-68):
 
 1. +1 color on an absent counter creates it with text `1`.
 2. -1 color on an absent counter creates it with text `-1`.
 3. Set color with nonempty trimmed text creates/updates that color; empty text
    removes it where present and leaves absence unchanged.
 
-Under proposals 1/2, absence is treated as zero only as an arithmetic starting
+Under rules 1/2, absence is treated as zero only as an arithmetic starting
 point; do not create/display an intermediate zero counter or add initialization.
+
+Confirmed card-note/annotation support (D-69):
+
+1. Offer Edit note in the card context menu, opening an optional multiline text
+   editor. Notes are persistent card text, distinct from corner text, counters,
+   and action-linked messages/pings. Existing mass-selection control parity
+   applies: one entered note can be applied to every selected card.
+2. Show short note text directly on the card, not merely a note-present icon.
+   For longer text, the initial presentation can truncate with an ellipsis;
+   always show the complete stored note in the ordinary hold inspector/editor.
+   Exact placement, fitting/truncation thresholds, and hit regions remain open
+   for wireframe review. Truncate only display, never stored text.
+3. Empty trimmed note text removes the note/its display, not the card. Moving the
+   card retains notes, including on Library/Graveyard/Exile entry under existing
+   unchanged-field rules. Notes never enforce their contents, e.g. a reminder
+   saying not to untap does not prevent untapping.
+
+G-08 first persistent-link touch batch, proposed and not yet approved:
+
+1. A card's Link context action enters endpoint picking; tap another card or
+   player to create the link. Picking an endpoint must not also tap/untap that
+   card or open the ordinary player menu. Accessible endpoint picking is also
+   required; exact hit regions/cancellation remain open.
+2. Display a persistent generic line or arrow with an optional text label. A
+   link represents the players' relationship without engine interpretation.
+   It is separate from an action-associated ping or an ordinary visual stack.
+3. Link endpoints follow their referenced objects visually when moved, but
+   linking alone does not move the other endpoint card or change counters/text.
+   Attachment/follow-movement behavior, link removal controls, and selection
+   fan-out still require separate review.
 
 ## 10.9 Worked interaction examples
 

@@ -29,6 +29,12 @@ happened, and the engine must not guess what the actions mean in a game's rules.
 | Game communication | Context-linked messages, response requests, game activity. |
 | Settings/storage | Notifications, accessibility, cached data, account and data management. |
 
+D-69 card notes show short text directly on the card; long text may be
+ellipsized as the initial presentation, with full text in inspection/editor.
+Keep the complete trimmed note in state; exact placement and fitting thresholds
+remain wireframe work. Edit note uses the card context menu/multiline editor,
+with selection parity and removal on empty trimmed text.
+
 D-51 approves initial contents-browser defaults: one main-type column per card
 (Other for unclassified cards), alphabetical ordering within columns, horizontal
 column scrolling, and vertical scrolling within each column on narrow screens.
@@ -124,7 +130,8 @@ decided before implementation.
   controls and player-panel taps for equivalent controls. Counter +/- and
   completed Set retain/return to the menu; empty trimmed Set removes the counter,
   not the color's controls. No separate Counters submenu; exact hit regions and
-  absent-counter arithmetic remain open.
+  formatting remain open. D-68 creates absent counters directly as `1` for +1 or
+  `-1` for -1; nonempty Set creates/updates and empty removes or leaves absent.
 - D-55/D-56 remove card counters and restore database-default corner text on
   entry to configured Graveyard/Exile/Library. For creatures the default is
   printed P/T text. D-64 conditionally approves loyalty/defense defaults where
@@ -138,8 +145,8 @@ decided before implementation.
   applying the action across the selected set with visible scope/count. Relative
   edits use each card's own value and corner Reset each card's own default.
   D-67 skips targets where the individual action is unusable and disables a mass
-  control only when none are applicable. Missing-counter arithmetic, mixed
-  rendering, and context targeting still require Q-30 outcomes; no reduced menu.
+  control only when none are applicable. D-68 resolves missing-counter arithmetic;
+  mixed rendering and context targeting still require Q-30 outcomes; no reduced menu.
 - Drag/drop is the primary card-movement interaction, with grid/slot snapping.
   Confirmed: drag one card unless multiple are selected; special-pile drops go
   on top; dropping onto an ordinary card forms/joins its visual stack. The

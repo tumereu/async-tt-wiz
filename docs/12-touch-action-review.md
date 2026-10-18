@@ -37,8 +37,8 @@ Proposed sequence; groups can be split or reordered during review:
 | G-04 | Inspect, face-down/up, printed faces, and reveal presentation. | D-37/D-38 confirm context face changes and automatic face/both-face inspection; exact targeting/layout and logging remain open. |
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
-| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-67 confirm text/counters, defaults/menus, per-color +/-1/Set with no initialization, and per-target applicability skipping; absent-counter outcomes and remaining controls under review. |
-| G-08 | Attachments/relationships, visual links, and action-associated pings. | Not yet reviewed; generic engine boundary and action-scoped pings already confirmed. |
+| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
+| G-08 | Attachments/relationships, visual links, and action-associated pings. | First persistent-link touch batch proposed; generic engine boundary and action-scoped pings already confirmed. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
 
@@ -418,7 +418,7 @@ Confirmed counter vocabulary (D-67, replacing D-60's initialization interaction)
 
 1. +1 color, -1 color, and Set color, with no Add/Initialize action.
 2. Numeric counter edits are relative; nonnumeric arithmetic is inapplicable.
-   Absent-counter arithmetic is still awaiting approval, not an implied zero.
+   D-68 resolves absent arithmetic: +1 creates `1`, -1 creates `-1`.
 3. No recolor action, as already confirmed. Counter uniqueness/lifecycle remain.
 
 Confirmed counter-menu touch behavior (D-61, updated by D-67):
@@ -471,19 +471,51 @@ Confirmed mass-selection control parity (D-66):
 - D-67 settles partial applicability: skip targets where the individual action
   would be disabled; enable for selection if at least one target is applicable,
   disable only if all are inapplicable. Nonnumeric counters are skipped for
-  arithmetic, not overwritten. Missing-counter arithmetic, exact eligibility/
-  error tables, and affected/skipped rendering remain Q-30.
+   arithmetic, not overwritten. D-68 resolves absent-counter arithmetic; exact
+   eligibility/error tables and affected/skipped rendering remain Q-30.
 
-Next absent-counter outcomes, proposed and not yet approved:
+Confirmed absent-counter outcomes (D-68):
 
 1. +1 color creates absent counters with `1`.
 2. -1 color creates absent counters with `-1`.
 3. Set nonempty trimmed text creates/updates the chosen color on each target;
    empty removes where present and leaves absence unchanged.
 
-Proposals 1/2 use zero only as an arithmetic starting point, not an intermediate
+Rules 1/2 use zero only as an arithmetic starting point, not an intermediate
 visible counter or a separate initialization action.
 
+Confirmed card-note/annotation support (D-69):
+
+1. Edit note in card actions opens optional multiline text editing. This is a
+   persistent card note, not corner text or an action-linked message/ping.
+   Selection parity applies: enter the same note for every selected card.
+2. Short notes appear directly on the card, replacing the proposed indicator-only
+   presentation. Long notes can be ellipsized initially; inspect/editor always
+   shows full stored text. Exact fitting, placement, and thresholds remain open;
+   never truncate stored note content.
+3. Empty trimmed text removes note/its display only. Moves retain notes under the
+   existing unchanged-field contract, including Library/Graveyard/Exile entry.
+   Reminder text does not enforce game behavior.
+
 Exact numeric recognition/limits, styling, counter
-layout/hit regions, bulk changes, annotations, and action/history boundaries
+layout/hit regions, remaining bulk details, and action/history boundaries
 remain for later review.
+
+## 12.10 G-08: Persistent links and relationships
+
+Primary contracts: [additional touch controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play)
+and [links versus pings](11-visual-action-language.md#114-pings-point-they-do-not-declare-mechanics).
+
+These are persistent board relationships, not action-associated pings. Linking
+does not classify a relationship as an aura/equipment attachment, target, combat
+assignment, or other game mechanic. Dropping onto an ordinary card still forms
+a visual stack under D-23, not an implicit link.
+
+First batch, proposed and not yet approved:
+
+1. Card context Link -> tap another card/player endpoint, without also invoking
+   the target's ordinary tap action. Provide accessible endpoint picking too.
+2. Persistent line/arrow, optionally text-labeled, distinct from pings/stacks.
+3. Line endpoints follow referenced objects visually; moving a card does not
+   move the other card merely because linked. Attachment/follow-movement options,
+   link-removal controls, and selection fan-out remain separate review items.

@@ -122,8 +122,11 @@ each have their own red counter.
 D-67 supersedes D-60's separate color-choice/initialization interaction: each
 color has +1, -1, and Set actions, without Add/Initialize. Arithmetic on existing
 whole-number text changes it relatively; nonnumeric arithmetic is inapplicable.
-Exact arithmetic behavior for an absent counter still needs approval. No recolor
-action is needed in the initial release, and target/color uniqueness remains.
+D-68 makes absent-counter arithmetic applicable: +1 creates text `1`, -1 creates
+text `-1`. Set creates/updates for nonempty trimmed text, removes existing
+counters for empty text, and leaves absence unchanged for empty text. Absence is
+zero only as an arithmetic starting point, not a visible intermediate counter.
+No recolor action is needed, and target/color uniqueness remains.
 
 D-67 also fixes selection applicability: evaluate the chosen action per target,
 skip targets on which it would be unusable, and enable the mass action if at
@@ -157,6 +160,13 @@ D-63 distinguishes blank from default corner text: completing an empty trimmed
 Set leaves a blank corner overlay. Reset corner text explicitly restores the
 database default without editing counters or other state. Neither operation
 changes printed art; no typed P/T interpretation is needed.
+
+D-69 confirms optional card notes/annotations, separate from corner text,
+counters, and action-linked communication. Preserve the complete trimmed note;
+short notes render directly on the card and long notes may be ellipsized for
+display, with full text always available in inspection/editor. Empty completed
+text removes the note. Moves, including Graveyard/Exile/Library entry, preserve
+notes under the unrelated-field contract. Reminder text has no game behavior.
 
 Conditionally approved database defaults (D-64):
 
@@ -260,7 +270,9 @@ consent. No game-specific effect follows from setting a marker or label.
 D-52 confirms that participants, like cards, may have colored counters carrying
 arbitrary text, with quick increment/decrement/set for numeric text. It does not
 approve the earlier proposed always-visible +/- tracker layout or tap-number
-editing gesture; exact player-counter controls remain to be reviewed.
+editing gesture. D-61/D-67/D-68 subsequently confirm player-panel access,
+inline +1/-1/Set, menu retention, and absent-counter outcomes. Exact geometry
+and formatting remain open.
 
 ## 2.6 Invariants
 

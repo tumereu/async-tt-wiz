@@ -36,7 +36,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-007 | Row/fan operations | View, arrange, cover/uncover, select, and move cards; labels such as Hand do not alter semantics. |
 | A-008 | Orientation/faces | Tap/untap presentation, rotate, choose face, cover/uncover, and edit labels. |
 | A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
-| A-010 | Counters | Colored text-bearing counters on cards/participants; per-color +1/-1/Set, no Add/Initialize (D-67). D-58/D-59 fix palette/uniqueness and zero/empty/trim; inline menus, player access, retention, and no recolor remain. Whole-number arithmetic uses +/-1; exact absent-counter outcomes and hit regions remain open. |
+| A-010 | Counters | Colored text-bearing counters on cards/participants; per-color +1/-1/Set, no Add/Initialize. D-58–D-68 fix palette/uniqueness, zero/empty/trim, inline retained menus, applicability skipping, and absent +/- creation as `1`/`-1`. No recolor; exact hit regions/formatting remain open. |
 | A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
 | A-012 | Labeled-area movement | Move any card to/from areas such as Cast; record origin/destination, not casting/payment/resolution. |
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
@@ -44,7 +44,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-015 | Action-associated pings | Point at objects, participant markers, areas, or locations; retain association and order, not rules targets or choices. |
 | A-016 | Custom objects/copies | Create cards, tokens, counters, notes, and copies with new stable IDs and explicitly chosen display data. |
 | A-017 | Generic visual links | Add/remove/edit lines or grouped displays with optional labels; no attachment rules or inferred follow-on moves. |
-| A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting their game meaning. D-52 adds arbitrary bottom-right card text and context inc/dec/set conveniences, including uses such as P/T or loyalty without a rules model. |
+| A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting game meaning. D-52/D-53 add plain corner text with pattern shortcuts; D-69 adds multiline card notes with short on-card text, optional long-text ellipsis, full inspection, and empty-text removal. |
 | A-019 | Board markers/connectors | Mark objects/relationships visually; players may use them for combat or other mechanics without specialized engine state. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
 | A-021 | Manual object changes | Cover, rotate, move, or remove objects explicitly; never infer destruction, sacrifice, replacement effects, or token expiry. |
@@ -179,8 +179,9 @@ D-67 rejects the prior all-compatible gate: apply the chosen action where it is
 usable, skip selected targets where its individual action would be disabled,
 and disable the mass control only if none are applicable. This does not authorize
 arithmetic on nonnumeric text, loss of selected objects, or ignoring invalid IDs
-and structural drop conflicts. Exact missing-counter outcomes, per-action
-eligibility/error tables, and affected/skipped rendering remain Q-30;
+and structural drop conflicts. D-68 resolves absent counters: +/-1 creates
+`1`/`-1`; nonempty Set creates/updates and empty removes or leaves absent.
+Exact per-action eligibility/error tables and affected/skipped rendering remain Q-30;
 interruption/grouping boundaries remain open.
 
 Multi-select operations identify affected objects and all explicit changed fields.

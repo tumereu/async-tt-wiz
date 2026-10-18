@@ -1097,7 +1097,13 @@ Confirmed turn tracking (D-103):
 The turn number increases for each player's turn, not only once per full round.
 Cleanup → next turn updates shared tracking under normal history/undo/branch/
 queue/sync behavior; simply reviewing Cleanup does not start another turn.
-Turn corrections/extra turns, initialization, and exact touch layout remain open.
+D-106 adds End turn from any phase/step and excludes manual turn-number editing.
+End turn uses the same transition as Next step from Cleanup: other player's
+Beginning/Untap, turn number +1, with no automatic untapping/drawing or skipped
+step card operations. It changes tracking, not game completion. Normal undo,
+history, branching, offline queuing, and automatic sync apply. Undo may restore
+the recorded previous number; no separate turn-number editor is required.
+Extra turns and exact touch layout remain open; D-108 settles initial turn context.
 
 Confirmed D-105: remove priority tracking and UI from this release, superseding
 D-104 and the priority portion of D-96. No priority indicator, Pass action,
@@ -1111,12 +1117,25 @@ The earlier priority-default/tap/correction proposals are withdrawn. MTG's
 no-priority intervals (rules 117.2e/117.3a/514.3a, [rules reference](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt))
 remain game knowledge for participants, not engine state or requirements.
 
-Next G-10 turn-correction/initialization batch, proposed and not yet approved:
+The earlier turn-indicator player/number editor proposal is withdrawn; D-106
+explicitly rejects editing the number. Other player/extra-turn correction controls
+are not approved by that rejection.
 
-1. Tap the turn indicator to edit turn player and number, leaving phase/step
-   and cards unchanged.
-2. Choose the starting player during setup; begin at turn 1, Beginning/Untap,
-   without automatically untapping or drawing.
+Confirmed End turn touch control (D-107): keep End turn visible beside Next step,
+invoking it in one tap without routine confirmation; Undo handles mistakes.
+No menu, hold, or extra confirmation step is required. Exact geometry and hit
+targets remain later work without weakening the approved one-tap interaction.
+
+Confirmed setup (D-108): choose the starting player during setup; begin turn 1
+at Beginning/Untap without automatic card operations. This initializes tracking,
+not opening-hand draws or a rules-driven setup procedure. Exact setup-screen
+placement, selection defaults, and change/recovery boundaries remain later work.
+
+Next G-10 extra-turn proposal, not yet approved: a secondary Start another turn
+action starts a fresh turn for the current turn player, at Beginning/Untap with
+number +1 and no card operations. Normal End turn still switches players. This
+is an explicit immediate shortcut, not a scheduled extra-turn/rules engine;
+exact secondary-action entry remains later review.
 
 ## 10.9 Worked interaction examples
 

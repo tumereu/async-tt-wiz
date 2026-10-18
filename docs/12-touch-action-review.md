@@ -40,7 +40,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings including mode/context controls; the menu-trigger card determines Ping/Unping for the selection. Detailed geometry, menu lifetime, revisions, association, and grouping remain later review. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
-| G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-105 confirm random tools, exposure/comment retention, non-undoable Chat, and MTG turn/phase/step tracking/shortcuts. D-105 removes priority state/UI/validation, superseding D-104. Turn correction and initialization next. |
+| G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-108 confirm random tools, exposure/comment retention, non-undoable Chat, MTG tracking/shortcuts, one-tap End turn/no number editor, and chosen starter at turn 1/Untap. D-105 removes priority. Immediate same-player extra-turn shortcut next. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -759,8 +759,11 @@ Confirmed turn tracking (D-103):
    turn number, with no automatic untapping/drawing.
 
 Increment per individual player's turn, not per round. History/undo/branches/
-offline/sync apply. Review alone does not advance a turn. Turn corrections/extra
-turns, initialization, and exact controls remain later review.
+offline/sync apply. Review alone does not advance a turn. D-106 adds End turn
+from any phase/step: other player's Beginning/Untap at number +1, without card
+operations, using the Cleanup-to-next-turn transition. It rejects a manual
+turn-number editor, not undo restoration. D-108 settles starter/initial turn;
+extra turns, setup details, and exact controls remain later review.
 
 D-105 removes priority tracking, display, Pass actions, and priority-legality
 validation, superseding D-104 and D-96's priority portion. Players queue actions
@@ -771,9 +774,19 @@ validation remain. Turn/phase/step tracking and approved shortcuts remain.
 Priority-default/tap/correction proposals are withdrawn, not pending blockers.
 No no-holder or resolution-state UI/model is required for priority.
 
-Next turn-correction/initialization batch, proposed and not yet approved:
+The turn-indicator player/number editor proposal is withdrawn. No manual number
+editing; other player/extra-turn corrections are not approved by implication.
 
-1. Tap the turn indicator to edit player and number without card or phase/step
-   changes.
-2. Setup chooses starting player; start turn 1 at Beginning/Untap without
-   automatic untapping/drawing.
+Confirmed End turn touch control (D-107): visible beside Next step, one tap with
+no routine confirmation, using Undo for mistakes. No menu or hold prerequisite.
+Exact geometry/hit targets remain open, not permission for an extra routine step.
+
+Confirmed setup (D-108): choose starting player during setup; start turn 1 at
+Beginning/Untap without automatic untapping/drawing. This is initial tracking,
+not an opening-hand/setup rules procedure. Exact screen/defaults and change/
+recovery boundaries remain later review.
+
+Next extra-turn proposal, not yet approved: secondary Start another turn starts
+the current turn player's next turn at Beginning/Untap, number +1, no card
+operations. Normal End turn still switches players. No scheduling or inferred
+extra-turn rules; exact secondary-action entry remains open.

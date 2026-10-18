@@ -87,6 +87,12 @@ Included:
   phase/step choice for skips/corrections without intermediate card operations.
 - D-103 tracks/displays turn player and number. Next step from Cleanup starts
   the other player's Untap and increments the number, without untapping/drawing.
+- D-106 adds quick End turn from any phase/step using that same next-turn
+  transition, without skipped card operations. No manual turn-number editor.
+  D-107 keeps it visible beside Next step, one tap/no routine confirmation, with
+  Undo for mistakes.
+- D-108 chooses the starting player during setup and begins turn 1 at
+  Beginning/Untap without automatic card operations.
 - D-105 removes engine priority state, indicators, Pass controls, and priority-
   legality validation. Players queue actions and use interruption/branching to
   respond; legal timing is their responsibility. Turn/phase/step controls remain.

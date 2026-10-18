@@ -100,9 +100,19 @@ that context; adding a ping to an older action is explicit. A setup/root entry
 can supply context before the first move. Free-standing discussion goes in chat,
 not a ping with a guessed action association.
 
-Generic persistent links/lines, if used, are separate explicit visual objects.
-A ping does not create or remove them automatically. Their labels are also
-uninterpreted by the engine.
+Persistent generic links are confirmed by D-70: card context Link -> pick a
+card/player endpoint, with no incidental target tap/untap or player-menu action.
+Under D-71 render one standard connector with no editable labels/styles: linked
+or not. Follow endpoint positions without moving other linked cards or changing
+their fields. These are separate explicit
+board relationships: a ping or ordinary stack does not create/remove one
+automatically. Selection Link creates one relationship from each selected source
+to the chosen endpoint; the Links context list supports removal without card
+edits. D-72 makes links undirected and unique per endpoint pair; repeating Link
+preserves existing pairs, with removal explicit rather than a toggle. Creation/
+removal are shared and recoverable. Exact rendering/no-op history remain under
+review in G-08. This does not remove
+separate optional ping labels/styles from their own review.
 
 ## 11.5 Branches, history, and recovery
 

@@ -147,6 +147,13 @@ decided before implementation.
   D-67 skips targets where the individual action is unusable and disables a mass
   control only when none are applicable. D-68 resolves missing-counter arithmetic;
   mixed rendering and context targeting still require Q-30 outcomes; no reduced menu.
+- D-70 adds card context Link -> pick a card/player endpoint. Endpoint picking
+  consumes the tap without ordinary tap/untap or player-menu effects. Persistent
+  connectors follow endpoint positions without moving linked cards. D-71 uses
+  binary links with no labels/styles, one per selected source to a picked target,
+  and removal via a card's Links list. D-72 makes links undirected/unique per pair;
+  repeated Link preserves an existing connection instead of toggling it off.
+  Exact geometry/cancel/no-op history remain open; links are not pings/attachments.
 - Drag/drop is the primary card-movement interaction, with grid/slot snapping.
   Confirmed: drag one card unless multiple are selected; special-pile drops go
   on top; dropping onto an ordinary card forms/joins its visual stack. The

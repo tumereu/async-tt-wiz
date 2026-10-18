@@ -53,7 +53,7 @@ history or authorize normalization of external catalog/import data.
 | Board placement | Object ID, logical area/grid position, optional visual pile ID and order; independent of camera/device pixels. |
 | Visual pile | Stable ID, one zone/area, ordered member IDs, logical anchor; not a rules attachment, merged object, or action group. |
 | Ping | Stable ID, author, associated action ID, optional group ID, effective context boundary, referenced object/participant/area or board location, optional visual style/label, edit/delete revisions. |
-| Generic link | Stable ID, object/participant endpoints, optional user label, visual style; no inferred game effect. |
+| Generic link | Stable ID, object/participant endpoints, binary present/absent relationship; one standard connector, no user labels/styles initially (D-71). No inferred game effect. |
 
 Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in
@@ -63,6 +63,20 @@ The [visual action language](11-visual-action-language.md) presents literal
 operations and associated pings together. There are no cast/target declarations,
 ability objects, rules-completion states, or inferred mechanical intent in the
 engine. A custom piece can be labeled anything, but its label is just data.
+
+D-70/D-71 confirm persistent generic links between a source card and a picked
+card/player endpoint, presented with one standard connector and no user labels
+or style selection in the initial release. The relationship is binary: linked
+or not. Referenced endpoints track object identity/position; moving one card
+changes the line's display endpoint, not the other card's placement or values.
+Links remain distinct
+from pings, ordinary stacks, and game-specific attachment/target entities.
+D-71 confirms one link per selected source to the picked endpoint and removal
+through a card's Links list, without affecting card state. D-72 makes endpoint
+pairs undirected and unique: A-B is B-A. Repeated Link preserves an existing
+pair, while explicit removal unlinks; selection Link creates only missing pairs.
+Exact no-op history, rendering, self-link presentation, and concurrent uniqueness
+enforcement remain open; no label/style metadata is required initially.
 
 An authenticated account and a game participant are separate concepts. Account
 creation, guest support, and invite credentials are unresolved decisions.
@@ -292,6 +306,7 @@ and formatting remain open.
 | D-012 | Hidden presentation never implies access-control protection between participants. |
 | D-013 | Only explicitly requested generic fields change; labels, card text, pings, and area membership cannot trigger inferred game mechanics. |
 | D-014 | Each card/participant has at most one counter of each supported color. Numeric `0` is present counter text; completed empty text removes the counter (D-58). |
+| D-015 | At most one live undirected binary link exists per endpoint pair; A-B and B-A identify the same relationship (D-72). |
 
 Structural validation protects data integrity only. Negative named values,
 unusual arrangements, self/cyclic visual links, and moves players consider

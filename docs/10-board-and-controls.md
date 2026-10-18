@@ -614,8 +614,8 @@ These are proposed essentials, not additional mandatory actions per card move:
    Exact controls and remaining tracker layouts still need review.
 2. **Generic pieces/piles:** create/duplicate/remove labeled objects, move them,
    reorder piles, and inspect recorded changes. No engine Cast/Resolve command.
-3. **Visual links:** generic lines/arrows/groups with optional labels and visual
-   styles; the engine does not know targets, combat assignments, or attachments.
+3. **Visual links:** binary persistent relationships with one standard connector,
+   no labels/style choices initially (D-71); no target/combat/attachment meaning.
 4. **Table markers:** optional labeled participant/status markers and explicit
    communication cues; no turn/priority state machine or permissions.
 5. **Bulk operations:** multi-select, rotate selected, move top N to an explicit
@@ -819,19 +819,51 @@ Confirmed card-note/annotation support (D-69):
    unchanged-field rules. Notes never enforce their contents, e.g. a reminder
    saying not to untap does not prevent untapping.
 
-G-08 first persistent-link touch batch, proposed and not yet approved:
+Confirmed persistent-link touch behavior (D-70):
 
 1. A card's Link context action enters endpoint picking; tap another card or
    player to create the link. Picking an endpoint must not also tap/untap that
    card or open the ordinary player menu. Accessible endpoint picking is also
    required; exact hit regions/cancellation remain open.
-2. Display a persistent generic line or arrow with an optional text label. A
-   link represents the players' relationship without engine interpretation.
+2. D-71 simplifies the original line/arrow/label proposal to a binary linked/not
+   linked relationship with one standard connector, no labels or style controls.
+   A link represents the players' relationship without engine interpretation.
    It is separate from an action-associated ping or an ordinary visual stack.
 3. Link endpoints follow their referenced objects visually when moved, but
    linking alone does not move the other endpoint card or change counters/text.
-   Attachment/follow-movement behavior, link removal controls, and selection
-   fan-out still require separate review.
+   D-71 confirms selection fan-out and link removal below; attachment/follow-
+   movement options remain separate review.
+
+Confirmed simple-link selection/removal (D-71):
+
+1. With several cards selected, Link -> one endpoint creates a separate link
+   from each selected card to that endpoint. For example, selected A/B -> C
+   creates A-C and B-C, not a merged card/group object. D-72 fixes duplicate-pair
+   behavior; self-link presentation and interruption boundaries remain open.
+2. A card's Links context entry lists its connections and offers removal.
+   No label editing, style picking, or other link metadata editor is required.
+   Do not require tapping a thin line as the only removal route. Endpoint
+   presentation still follows covered-information conventions.
+3. Removing a link removes only that relationship, never a card or its counters,
+   corner text, notes, or placement. Link creation/removal are shared recorded edits
+   with ordinary undo/recovery, not ephemeral presence or inferred game actions.
+
+Confirmed binary-link semantics (D-72):
+
+1. Treat links as undirected and unique per endpoint pair: A-B is the same
+   relationship as B-A, with no duplicates.
+2. Link on an existing pair leaves it linked rather than toggling it off; remove
+   via the explicit removal control. A mixed selection links only missing pairs
+   and leaves already-linked pairs unchanged. Exact no-op history remains open.
+
+Next attachment/follow-movement scope question, not yet approved:
+
+- Recommended initial scope: no separate Attach/follow-group tool. Binary links
+  remain visual only; use existing multi-selection to move related cards together.
+- Alternative: add an explicitly created placement/follow relationship so dragging
+  an anchor also moves followers. This would be distinct from binary links and
+  would require its own creation/removal, chain, destination, bulk, and undo
+  contracts. No attachment is inferred from card type, overlap, or link creation.
 
 ## 10.9 Worked interaction examples
 

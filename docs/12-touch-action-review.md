@@ -38,7 +38,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
 | G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
-| G-08 | Attachments/relationships, visual links, and action-associated pings. | First persistent-link touch batch proposed; generic engine boundary and action-scoped pings already confirmed. |
+| G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-72 confirm simple undirected unique links, selection fan-out, list removal, and idempotent Link; optional attachment/follow-movement scope next. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | Not yet reviewed. |
 | G-10 | Other table tools: dice/coins, markers, messages, and optional convenience calculations. | Not yet reviewed. |
 
@@ -511,11 +511,39 @@ does not classify a relationship as an aura/equipment attachment, target, combat
 assignment, or other game mechanic. Dropping onto an ordinary card still forms
 a visual stack under D-23, not an implicit link.
 
-First batch, proposed and not yet approved:
+Confirmed persistent-link touch behavior (D-70):
 
 1. Card context Link -> tap another card/player endpoint, without also invoking
    the target's ordinary tap action. Provide accessible endpoint picking too.
-2. Persistent line/arrow, optionally text-labeled, distinct from pings/stacks.
+2. Persistent standard connector, distinct from pings/stacks. D-71 removes the
+   earlier optional-label and line/arrow-style choices: linked or not suffices.
 3. Line endpoints follow referenced objects visually; moving a card does not
-   move the other card merely because linked. Attachment/follow-movement options,
-   link-removal controls, and selection fan-out remain separate review items.
+   move the other card merely because linked. D-71 confirms removal/fan-out;
+   attachment/follow-movement options remain separate review.
+
+Confirmed simple-link selection/removal (D-71):
+
+1. Selection Link -> one endpoint creates one link from each selected card to
+   that endpoint; selected A/B -> C yields A-C and B-C. No merged object.
+   D-72 fixes duplicate-pair behavior; self-link presentation and boundaries
+   remain open.
+2. Links in the card context menu lists connections and offers removal, without
+   label/style editing. Thin-line tapping is not the only route;
+   covered endpoint presentation stays consistent with other controls.
+3. Link removal changes only the relationship, not cards/fields/placement.
+   Creation/removal are shared recorded operations with ordinary undo/recovery.
+
+Confirmed binary-link semantics (D-72):
+
+1. Undirected unique endpoint pairs: A-B and B-A are the same link.
+2. Link existing pairs is idempotent, not a toggle. Explicit removal unlinks;
+   mass Link creates missing pairs and preserves existing ones. Exact no-op
+    history remains open.
+
+Next attachment/follow-movement scope question, not yet approved:
+
+- Recommended for the initial release: no separate Attach/follow-group tool;
+  use binary links for relationships and multi-selection for joint movement.
+- Alternative: explicit anchor/follower placement grouping, separate from binary
+  links, with its own full movement/removal/chain/destination/undo contract.
+  Neither option interprets card types or creates attachments from overlap.

@@ -120,8 +120,14 @@ login again, then return to the same game and recover pending already-sent actio
 (T-480–T-482). Preserve same-account game/request context and D-216 no-manual-resend/
 no-duplicate recovery. Exact session mechanics, failed/cancelled login, account
 switching, Logout's local-data behavior and expired-session offline access remain
-open. Multiple-device support is a useful next product question; do not reopen
-session persistence. Narrower invitation race/presentation gaps remain.
+open. D-218 confirms the same account on multiple devices, with saved decks,
+contacts and games synchronized (T-483–T-485). Preserve deck-copy isolation and
+existing game identity/participants/recovery; simultaneous same-account edits,
+deck/contact conflicts, revocation, sync timing and personal-state transfer remain
+open. Do not silently promise cross-device drafts, pending queues, cursors,
+settings or all downloads. Next useful product topic: notification triggers/defaults,
+not another session-persistence/multiple-device support question. Narrower
+invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

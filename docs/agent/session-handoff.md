@@ -39,8 +39,20 @@ D-216 automatic already-sent recovery, without manual resend/duplicate execution
 expiry alone is not rejection. Primary contract: [session continuity](../design/03-contracts/accounts-decks-and-lobby.md#session-continuity-and-reauthentication--d-217).
 Exact session lifetime/refresh/storage, failed/cancelled reauthentication, account
 switching, Logout's local-data behavior and expired-session offline access remain
-open; downloaded read-only access remains required. Multiple-device support is
-a useful next product question, not another session-persistence question.
+open; downloaded read-only access remains required.
+
+## Latest multiple-device support — D-218
+
+The owner approved **the same account on multiple devices, with saved decks,
+contacts and games synchronized between them** (T-483–T-485). Primary contract:
+[account data](../design/03-contracts/accounts-decks-and-lobby.md#multiple-devices-and-account-data--d-218).
+Preserve saved-deck/lobby/game-copy isolation, existing games/participants and
+connected-only/no-duplicate recovery contracts. Exact simultaneous same-account
+editing, concurrent deck/contact conflicts, device/session revocation, sync timing
+and personal-device-state transfer remain open. Do not infer transfer of drafts,
+local pending queues, review/navigation cursors, settings or all cached downloads.
+Next useful product topic: notification triggers/defaults, not whether multiple
+devices are supported. No implementation or stage transition is authorized.
 
 ## Current concurrency correction — D-179
 
@@ -444,7 +456,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-217** and **T-001–T-482**.
+- Current documentation includes **D-001–D-218** and **T-001–T-485**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

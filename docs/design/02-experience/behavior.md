@@ -42,6 +42,10 @@ The general rules are:
   actions without manual resending or duplicate execution (D-217). Exact session
   mechanics, logout/account-switch handling and expired-session offline access
   remain open; downloaded read-only access is not removed.
+- Use the same account on multiple devices, with saved decks, contacts and games
+  synchronized between them (D-218). Existing lobby/game deck copies stay isolated
+  from saved-deck changes. Exact simultaneous-edit conflict handling and transfer
+  of personal device state are not settled by this decision.
 - Play shows current games, including pending invitations.
 - Invite an added user to a game. For you, it is already an open lobby: select/
   prepare your deck and ready while waiting. Cancel game also cancels the pending

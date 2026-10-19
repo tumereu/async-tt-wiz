@@ -73,6 +73,12 @@ friend-request approval; this does not bypass game-invitation acceptance.
 D-197 confirms username/email/password registration, email/password login,
 password reset by email, and usernames—not emails—visible to other users.
 
+D-218 confirms the same account on multiple devices, with saved decks, contacts
+and games synchronized between them. Preserve saved-deck versus lobby/game-copy
+isolation. Exact simultaneous-edit conflicts, device/session revocation, sync
+timing and transfer of personal device state remain open; see the
+[multiple-device contract](accounts-decks-and-lobby.md#multiple-devices-and-account-data--d-218).
+
 | Screen | Main responsibilities |
 | --- | --- |
 | Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). Stay logged in across restarts; after session expiry, ask for login again, then return to the same game and recover pending already-sent actions without manual resend/duplicates (D-217). Validation, verification, exact session/reset mechanics and logout/account-switch/offline-session handling remain open. |

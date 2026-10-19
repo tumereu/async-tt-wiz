@@ -218,7 +218,10 @@ old future after a response. Exact overall release scope still needs sign-off.
    staying logged in across restarts and, after session expiry, logging in again
    to return to the same game and recover pending already-sent actions. Field
    validation, verification, exact session/recovery mechanics, logout/account
-   switching, expired-session offline access and multiple-device support remain open, along
+   switching and expired-session offline access remain open. D-218 confirms the
+   same account on multiple devices with saved decks, contacts and games synced;
+   exact simultaneous-edit conflicts, device/session revocation, sync timing and
+   personal-device-state transfer remain open, along
    with hosting, catalog/image rights,
    offline storage/retention, device/language/accessibility support, notification/
    privacy settings, and deletion/export guarantees. Protocols, randomness source,

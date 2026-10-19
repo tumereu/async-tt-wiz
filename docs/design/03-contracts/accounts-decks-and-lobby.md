@@ -45,9 +45,28 @@ required email-verification gate or a second login method from this decision.
   because authentication expired. This does not authorize offline gameplay.
 
 Exact session lifetime/refresh/storage, failed or cancelled reauthentication,
-login to a different account, explicit Logout's local-data behavior and
-multiple-device support remain open. Preserve downloaded read-only access;
+login to a different account and explicit Logout's local-data behavior remain
+open. D-218 separately confirms multiple-device support. Preserve downloaded read-only access;
 this decision does not settle its expired-session navigation or local-data policy.
+
+## Multiple devices and account data — D-218
+
+- **Support the same account on multiple devices**, with **saved decks, contacts
+  and games synchronized between them**. These are account data, not independent
+  device-only collections requiring manual re-import, re-adding contacts or new
+  game invitations merely to continue on another device.
+- Saved-deck synchronization includes the existing saved card lists, names and
+  chosen covers. Preserve D-191/D-199 isolation: changing a saved deck does not
+  replace deck copies already selected in a lobby or game.
+- A device opens the account's existing games and synchronizes their current
+  state/history under the existing game contracts. Another device is not another
+  game participant. D-182's connected-only gameplay and D-216's no-duplicate
+  recovery remain; this does not add offline gameplay or finished-game archives.
+
+Exact simultaneous same-account editing, concurrent deck/contact change conflicts,
+device/session revocation and sync timing remain open. Do not infer cross-device
+transfer of unfinished input, local pending-request queues, navigation/review
+cursors, settings or all cached downloads from this account-data decision.
 
 ## Adding users as contacts — D-196
 
@@ -55,8 +74,9 @@ this decision does not settle its expired-session navigation or local-data polic
   saved contact choice, not a friend request requiring the other user's approval.
 - It does not automatically add you to their contacts or accept a game invitation
   on their behalf. Game invitations still use recipient Accept/Decline (D-195).
-- Exact username/search grammar, contact removal, discoverability/privacy and
-  persistence details remain open. D-197 separately selects registration fields,
+- Exact username/search grammar, contact removal and discoverability/privacy
+  remain open; D-218 confirms account contacts synchronize across devices.
+  D-197 separately selects registration fields,
   email/password login, email password reset and email privacy.
 
 ## Inviting a player and the waiting lobby — D-195/D-208

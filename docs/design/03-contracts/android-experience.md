@@ -369,6 +369,14 @@ shared controls, including Undo and branch activation. Offline use is read-only
 for downloaded games/history; there is no offline gameplay queue to replay later.
 Keep personal review/navigation separate from shared controls.
 
+**Confirmed D-215:** while disconnected, show a **Reconnecting...** dialog that
+**blocks gameplay actions**, including shared Undo/branch controls. Do not create
+offline gameplay behind it. This connection-loss dialog is not a routine gate
+while online actions await acknowledgements, and it does not mean in-flight
+requests were rejected. Downloaded read-only access remains in scope; exact
+dialog navigation/dismissal, reconnect readiness and automatic in-flight recovery
+remain open. Do not infer a particular retry policy from this presentation choice.
+
 **Confirmed D-183:** use a small local send queue, send online actions concurrently
 and reconcile each action's success/failure individually. Apply interactions
 locally immediately; normal controls must not routinely wait for previous server

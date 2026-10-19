@@ -218,6 +218,7 @@
 | D-212 | Acceptance of an ending suggestion is not undoable. | Owner settles D-211's acceptance-boundary question: the pending win/loss/draw suggestion remains ordinary undoable board state, but accepting it and returning both players to lobby cannot be reversed through Undo to reopen ended play. This is a specific U-001 recovery exception, not a return to D-210's unilateral dialog/blanket non-undoability. Returned-lobby preparation/Ready/reset, subsequent games, prior history and competing/stale suggestions remain open. No implementation or stage transition is authorized. |
 | D-213 | On return to lobby, restore the last lobby-prepared decks/mainboard/sideboard, clear both Ready and require both to ready again for a fresh game. | Owner approved all three recommendations together. Restore game-local preparation, not final in-game state or current saved-deck contents; preserve saved-deck isolation. This lifecycle Ready reset affects both, unlike own-Ready clearing for ordinary lobby edits, and prevents automatic restart. A fresh game uses ordinary starting setup; retries of the same start reuse its recorded outcomes. Prior-session history, cross-game starter-selection retention/random resolution and competing/stale result suggestions remain open. No implementation or stage transition is authorized. |
 | D-214 | Finished-game action-history archives/read-only review are optional additional development, excluded from R1. | Owner deferred the proposed finished-session histories, read-only review and separation from fresh-game history instead of making that feature an R1 obligation. Record it as optional future scope, not a release-blocking gap or delivery commitment. Current-game mutation history, retained branches, Undo, exposure/comment preservation and downloaded read-only access remain in R1. This is not win-history/scorekeeping and does not select permanent retention, deletion or storage guarantees. No implementation or stage transition is authorized. |
+| D-215 | When disconnected, show a Reconnecting... dialog that blocks gameplay actions. | Owner specified the dialog, then explicitly clarified gameplay blocking. Preserve D-182's connected-only actions/shared Undo/branch controls and downloaded read-only access. Actual connection loss is distinct from normal online-pending latency; do not add a routine acknowledgement barrier. This presentation decision does not mark uncertain requests rejected, approve the assistant's automatic recovery/retry bundle, or settle dialog navigation/dismissal/reconnect readiness. No implementation or stage transition is authorized. |
 
 **Latest setup decisions — D-188–D-214:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
@@ -281,6 +282,13 @@ named/renameable saved decks, cover art chosen from their cards and re-import
 Replace/Save as new without changing already selected lobby/game copies. Naming
 defaults/duplicates, deletion, cover fallback/re-import metadata and remaining
 dialect/printing/count details are still open.
+
+**Connection-loss presentation — D-215:** show a **Reconnecting...** dialog while
+disconnected, blocking gameplay actions. Shared Undo/branch controls still need
+a connection; downloaded read-only access remains. This is not a routine online
+acknowledgement gate or approval of the earlier recovery/retry proposal. Exact
+dialog navigation/dismissal, reconnect readiness and uncertain-request recovery
+remain open. See [history section 3.3](../design/03-contracts/history-and-undo.md#33-immediate-action-synchronization).
 
 **Latest acceptance correction — D-187:** ordinary actions normally succeed;
 do not compare old orientation, note text or Set values. Exceptional movement

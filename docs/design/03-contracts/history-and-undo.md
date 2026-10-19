@@ -125,6 +125,15 @@ the opponent creates another continuation. The engine never calls the sequence
 
 **Confirmed:** completed game actions synchronize automatically, without Send.
 
+**Confirmed connection-loss presentation (D-215):** when disconnected, show a
+**Reconnecting...** dialog that **blocks gameplay actions**. D-182's connection
+requirement includes shared Undo and branch controls; do not create offline
+mutations behind the dialog. This is an actual connection-loss gate, not a
+routine wait for each online acknowledgement. Preserve downloaded read-only
+access; exact dialog navigation/dismissal, reconnect-readiness criteria and
+in-flight recovery remain open. The dialog does not declare unresolved requests
+failed or approve a particular automatic retry policy.
+
 **Confirmed presentation (D-180):** update local game state immediately to hide
 network latency; do not wait for server acceptance before showing the action. If
 the server rejects it, animate the local mutation backward as if it were undone.

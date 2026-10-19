@@ -400,6 +400,11 @@ The general rules are:
   (D-182). Show connection and online-pending/accepted/rejected states honestly.
   Preserve recoverable unfinished input and records of already-started online
   requests; this does not authorize offline action submission.
+- When disconnected, show a **Reconnecting... dialog that blocks gameplay
+  actions**, including shared Undo/branch controls. This does not turn ordinary
+  online acknowledgements into a blocking dialog or declare in-flight requests
+  rejected. Downloaded read-only access remains; dialog navigation/dismissal and
+  exact recovery/readiness behavior are not yet settled.
 - Online actions have a small local send queue and are sent concurrently. Each
   succeeds or fails individually under its own checks; one failure does not cancel
   another valid action or the whole sequence. Continue normal local interaction

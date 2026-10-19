@@ -163,6 +163,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    Online latency hiding remains, including recovery of requests that
    may already have reached the server when the connection drops. Exact readiness,
    uncertain-request recovery and exact animation scheduling remain open.
+   D-215 confirms a **Reconnecting... dialog blocking gameplay actions when
+   disconnected**, including shared Undo/branch controls under D-182. Dialog
+   navigation/dismissal, exact reconnect readiness and in-flight recovery remain
+   open; this is not approval of the preceding automatic-retry proposal or a
+   routine online acknowledgement barrier.
    D-183 confirms a small local online send queue, concurrent transmission and
    individual action success/failure with no routine acknowledgement gate on
    interaction. D-184 fixes client send order and server arrival-order processing,

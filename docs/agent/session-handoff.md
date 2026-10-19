@@ -14,6 +14,19 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest connection-loss presentation — D-215
+
+The owner specified a **Reconnecting... dialog when disconnected**, then clarified
+that it **blocks gameplay actions** (T-475/T-476). D-182 already requires a
+connection for gameplay/shared Undo/branch controls; do not create offline actions
+behind the dialog. Preserve downloaded read-only access and D-183's normal online
+responsiveness: waiting for an acknowledgement alone is not a reason for this
+dialog. Exact navigation/dismissal, reconnect readiness and in-flight outcome/
+retry recovery remain open. The preceding assistant bundle was not approved by
+this presentation clarification; missing acknowledgement is not rejection.
+Next useful topic: automatic resolution of already-started online requests after
+reconnect, not another question about whether the dialog blocks game actions.
+
 ## Current concurrency correction — D-179
 
 **Latest setup decisions — D-188–D-214:** owner requires login before the main
@@ -414,7 +427,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-214** and **T-001–T-474**.
+- Current documentation includes **D-001–D-215** and **T-001–T-476**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

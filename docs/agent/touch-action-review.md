@@ -106,7 +106,13 @@ future development, **not R1** (T-473/T-474). Current-game history/Undo/branches
 exposure/comment preservation and downloaded read-only access remain in scope.
 Do not treat the deferred archive as a release gap or infer retention/deletion
 guarantees. Next substantial R1 topic: in-flight connection-loss recovery.
-Narrower invitation race/presentation gaps remain.
+D-215 confirms **Reconnecting... when disconnected, blocking gameplay actions**
+(T-475/T-476). Preserve connected-only shared controls and downloaded read-only
+access; do not create offline actions or turn healthy online acknowledgement
+latency into this dialog. Navigation/dismissal/reconnect readiness and in-flight
+recovery remain open; the assistant's automatic-retry bundle was not approved.
+Next useful topic: resolving already-started online requests after reconnect,
+not another gameplay-blocking question. Narrower invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

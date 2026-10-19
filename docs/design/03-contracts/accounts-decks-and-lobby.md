@@ -191,8 +191,13 @@ enforcement, and does not approve additional configurable gameplay areas.
   **turn 1 at Beginning/Untap** (D-108). Retain random outcomes for retries/review
   rather than choosing a different starter when recovering the same operation.
 - Initial selection/default, when Random resolves, who can change the selection,
-  re-randomization and effects on Ready remain open. Starter selection does not
+  and re-randomization remain open. Starter selection does not
   replace the existing both-player Ready gate or add a host Start action.
+- **Changing the starter selection clears only the changing player's Ready
+  (D-204), preserving the other player's Ready.** The changing player must ready
+  again before play can start. This replaces the assistant's proposal to clear
+  both players. It does not separately approve a manual Withdraw Ready control;
+  that remains open, as do start-versus-edit races and Random-resolution timing.
 
 ## Game-start shuffle and life — D-200
 
@@ -246,12 +251,13 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
 
 - Readiness prerequisites, manually withdrawing Ready, and readiness effects of
   other setup changes. Deck/mainboard/sideboard changes clear the affected
-  player's Ready (D-191), not an open policy.
+  player's Ready (D-191); starter-selection changes clear only the changing
+  player's Ready (D-204). Both preserve the other player's Ready.
 - Invite/lobby persistence, decline presentation, leaving/cancellation, reconnect and competing Ready/
   setup changes, with no requirement that both players remain online together yet
   decided.
 - Further setup values/optional areas and starter-selection defaults, edit
-  access, random-resolution timing and readiness effects. D-201 settles lobby
+  access and random-resolution timing. D-201 settles lobby
   placement and either-player/Random options. D-202 settles initial mainboard/
   sideboard placement, empty other card areas and no in-game Sideboard access.
   D-200 settles automatic game-start Library shuffles and 20 starting life, with

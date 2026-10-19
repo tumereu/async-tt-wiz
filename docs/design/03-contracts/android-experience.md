@@ -92,6 +92,8 @@ password reset by email, and usernames—not emails—visible to other users.
 Lobby preparation permits free transfers between mainboard and sideboard, without
 legality, size or one-for-one constraints (D-203). These clear own Ready and leave
 saved decks unchanged (D-191); Sideboard remains unavailable during play (D-202).
+Changing the lobby starter selection likewise clears only the changing player's
+Ready, preserving the other player's (D-204). Manual Ready withdrawal remains open.
 
 D-69 card notes show short text directly on the card; long text may be
 ellipsized as the initial presentation, with full text in inspection/editor.

@@ -457,6 +457,8 @@ in-flight delivery recovery remain distinct from supporting offline gameplay.
 | T-443 | A game starts after game-local lobby sideboarding, and the user later views the saved deck. | Keep the saved mainboard/sideboard unchanged by lobby preparation or in-game Sideboard unavailability. Do not delete saved sideboard data; exact lobby-data retention/rematch behavior remains open (D-191/D-202). |
 | T-444 | A player transfers cards from mainboard to sideboard or sideboard to mainboard in the lobby, including unequal transfers. | Allow either direction freely, without requiring a one-for-one exchange, fixed board sizes or format legality. Preserve the resulting prepared partition for game start (D-203). |
 | T-445 | A ready player freely changes the lobby mainboard/sideboard partition. | Clear that player's Ready, preserve the other player's Ready and leave the saved deck unchanged. Free lobby transfers do not make Sideboard available after play starts (D-191/D-202/D-203). |
+| T-446 | A ready player changes the starter selection while the game is still in the lobby. | Clear only the changing player's Ready and preserve the other player's readiness. The changing player must ready again; the change itself must not start play using their earlier Ready (D-204). |
+| T-447 | An unready player changes the lobby starter selection while the other player is ready. | Keep the changing player unready and the other player ready. Do not clear the other player's Ready merely because the starter selection is shared (D-204). |
 
 D-159/D-160 settle parent-node Undo, retained ordinary alternatives behind a
 toggle and whole-branch exposure/comment visibility, replacing the last-exposure

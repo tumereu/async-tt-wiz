@@ -1201,7 +1201,9 @@ Confirmed setup (D-108/D-201): choose the starting player **in the lobby**, offe
 either participant or **Random**; begin turn 1 at Beginning/Untap with that starter.
 Entering the step initializes tracking, not opening-hand draws or a rules-driven
 setup procedure. Exact control layout, defaults, edit access, random-resolution
-timing/reselection, readiness effects and change/recovery boundaries remain open.
+timing/reselection and change/recovery boundaries remain open. Changing the starter
+selection clears only the changing player's Ready, preserving the other player's
+(D-204), not both players' Ready as the assistant proposed.
 Retain the random starter result for retries/review of the same operation.
 
 D-192 additionally excludes automatic opening draws on game start. D-193/D-194

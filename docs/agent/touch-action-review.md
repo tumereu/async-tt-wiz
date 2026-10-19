@@ -55,7 +55,7 @@ normal in-game life edits remain (T-433–T-436). The assistant's no-auto-shuffl
 editable-starting-life proposal is not current behavior. Other proposed initial
 placement and starter-access/default details were not approved by that correction.
 D-201 separately confirms lobby starter selection with either player or Random
-(T-437–T-439). Defaults/edit access, random timing/reselection and readiness effects
+(T-437–T-439). Defaults/edit access and random timing/reselection
 remain open; do not reopen the location or options.
 D-202 confirms initial lobby mainboard → Library, sideboard → separate Sideboard,
 other card areas empty, and no Sideboard access at all during play (T-440–T-443).
@@ -63,7 +63,10 @@ D-203 explicitly confirms free lobby mainboard/sideboard transfers without
 legality, size or one-for-one restrictions, retaining own-Ready clearing and saved
 deck isolation (T-444/T-445).
 Remove older in-game Sideboard/extra-container implications, not the saved
-sideboard data. Next useful topic: remaining lobby readiness/start behavior.
+sideboard data. D-204 corrects the latest proposal: changing starter selection
+clears only the changing player's Ready, preserving the other player's, not both
+(T-446/T-447). Manual Ready withdrawal remains open; the correction did not
+separately approve it. Next useful topic: remaining lobby readiness/start behavior.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

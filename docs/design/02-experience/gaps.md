@@ -41,8 +41,9 @@ obligation or behavior is still proposed:
   Sideboard, other card areas empty, and no Sideboard access during play.
   D-203 confirms free lobby transfers between mainboard/sideboard, without legality,
   size or one-for-one restrictions; D-191 still clears own Ready and isolates saved decks.
-  Further setup values/optional areas, starter defaults/edit access, random timing/
-  reselection and readiness effects remain open.
+  D-204 confirms starter-selection changes clear only the changing player's Ready,
+  preserving the other player's. Further setup values/optional areas, starter
+  defaults/edit access and random timing/reselection remain open.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -82,7 +83,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    deletion/cover fallback/replacement metadata,
    readiness prerequisites/withdrawal/other setup
    changes, start-versus-edit races, further setup values/optional areas and
-   starter-selection defaults/edit access/random timing/readiness effects (lobby
+   starter-selection defaults/edit access/random timing (lobby
    selection with either player or Random, starting shuffle and life 20 are settled),
    remaining mulligan per-card sequencing/concurrent count timing/count edges,
    missing cards,

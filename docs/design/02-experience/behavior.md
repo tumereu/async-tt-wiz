@@ -53,6 +53,7 @@ The general rules are:
   Starting automatically shuffles both Libraries and gives each player 20 life;
   no starting-life setting is required. Life can still be edited during play.
   Choose the starter in the lobby: either player or Random.
+  Changing that selection clears only your own Ready, not the other player's.
   Initially in the lobby, mainboard is in Library, sideboard in a separate
   Sideboard area, and all other card areas are empty. Freely move cards between
   mainboard and sideboard there, without legality, size or one-for-one restrictions.

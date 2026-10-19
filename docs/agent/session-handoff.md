@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-203:** owner requires login before the main
+**Latest setup decisions — D-188–D-204:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -65,7 +65,7 @@ Shuffling is a game-start operation, not every Untap entry/resume; retries reuse
 recorded orders. See T-433–T-436. D-201 separately approves choosing the starter in
 the lobby, offering either player or Random; start turn 1 at Beginning/Untap with
 that starter and retain random outcomes for retries/review (T-437–T-439). Defaults,
-edit access, random timing/reselection and readiness effects remain open. D-202
+edit access and random timing/reselection remain open. D-202
 approves initial placement specifically in the lobby: mainboard → Library,
 sideboard → separate Sideboard, all other card areas empty. Owner explicitly
 excludes Sideboard during play: no area/browser/view/edit/move access, not merely
@@ -74,6 +74,10 @@ sideboard cards into Library or delete the saved sideboard. See T-440–T-443.
 D-203 explicitly confirms free card transfers between mainboard/sideboard in the
 lobby, without legality, size or one-for-one constraints. Keep own-Ready clearing
 and saved-deck isolation under D-191; see T-444/T-445.
+D-204 corrects the assistant's next proposal: starter-selection changes clear
+only the changing player's Ready, preserving the other's. Do not clear both;
+the changing player must ready again (T-446/T-447). Manual Ready withdrawal was
+proposed alongside this but not separately approved, so remains open.
 Setup-data retention/rematch and additional optional areas remain open. Next
 useful topic: remaining lobby readiness/start behavior, not reopening starter
 options, initial placement or tiny cover-art variants.
@@ -361,7 +365,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-203** and **T-001–T-445**.
+- Current documentation includes **D-001–D-204** and **T-001–T-447**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -99,8 +99,10 @@ timing and transfer of personal device state remain open; see the
 state. The other player must accept; acceptance returns both players to the lobby.
 No win-history/scorekeeping feature is required. This supersedes D-210's unilateral
 confirmation-dialog/non-undoable End game. D-212 separately makes acceptance/return
-to lobby non-undoable, not the pending suggestion. Competing/replaced suggestions,
-stale acceptance remain open. Finished-session history archives/review are optional
+to lobby non-undoable, not the pending suggestion. Concurrent incompatible result
+actions follow normal server ordering/applicability: the first applicable action
+takes effect and the later incompatible request is discarded (D-239), not a
+replacement policy. Finished-session history archives/review are optional
 future work, excluded from R1 (D-214), not a required archive screen or lobby path;
 current-game history remains included. D-213 restores
 last lobby-prepared decks/mainboard/sideboard on return, clears both Ready and

@@ -14,6 +14,20 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest result-action race correction — D-239
+
+Owner rejected the assistant's competing-result-suggestion question as **not a
+gap**: actions that cannot both apply follow normal server processing order;
+the first applicable action takes effect and the later incompatible request is
+discarded (T-538/T-539). Do not implement the assistant's latest-suggestion-replaces
+proposal, keep several competing pending suggestions or infer acceptance from a
+second suggestion. Existing other-player acceptance remains required. Acceptance
+of a removed suggestion cannot apply. This applies D-184/D-187, not a new blanket
+conflict lock: compatible actions still apply normally. Delivery retries preserve
+the original outcome. The pruned gaps and Q-10 now classify this as derived behavior,
+not another owner choice. Do not manufacture the next question from an old label.
+No implementation or delivery-stage transition is authorized.
+
 ## Latest deleted-node review decision — D-238
 
 Owner confirmed: **if you are viewing a node that gets deleted, you fall up to
@@ -430,7 +444,8 @@ scope, not an R1 blocker or implementation commitment. Current-game history,
 retained branches, Undo, exposure/comment preservation and downloaded read-only
 access are still required. Do not interpret the cut as deletion authorization or
 a permanent-retention promise. Cross-game starter-selection retention/random
-timing and competing/replaced/stale suggestions remain open. D-215/D-216 settle
+timing remains open; D-239 above settles incompatible result-action races through
+normal ordering/applicability. D-215/D-216 settle
 disconnected gameplay blocking and automatic recovery of already-sent actions;
 exact recovery mechanics remain R1 design work; D-217 settles session persistence
 and same-game return/recovery after expired-session login, not
@@ -722,7 +737,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-238** and **T-001–T-537**.
+- Current documentation includes **D-001–D-239** and **T-001–T-539**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

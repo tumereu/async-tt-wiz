@@ -293,7 +293,8 @@ Start action or require online presence from both participants.
   A proposed win/loss is relative to the proposing player, so both players can
   understand the same proposed outcome.
 - **The suggestion is shared, undoable board state.** Record it through the normal
-  mutation/history model; ordinary parent-node Undo can undo the suggestion.
+  mutation/history model; Undo uses the current selective eligibility rules
+  (D-224 onward).
   Undoing an unaccepted suggestion does not return the players to the lobby.
 - **The other player must accept the suggestion.** The proposer cannot substitute
   their own confirmation for the other player's acceptance. Without acceptance,
@@ -308,8 +309,20 @@ Start action or require online presence from both participants.
   design. Do not retain that blanket Undo prohibition or infer an extra confirmation
   dialog on top of proposal/acceptance. End turn, leaving a screen and cancelling
   an unstarted game remain separate actions.
-- Competing/replaced suggestions and stale acceptance remain open. Finished-session
-  history review is optional future scope, not R1 (D-214). D-213 defines preparation and readiness
+- **Concurrent result actions use normal server ordering/applicability (D-239).**
+  If both players submit a result suggestion concurrently, the first applicable
+  request processed by the server becomes the pending suggestion. The later
+  incompatible request cannot apply and is discarded; it neither replaces the
+  first suggestion nor creates another pending suggestion or branch. The first
+  suggestion still needs the other player's acceptance under D-211.
+  Likewise, acceptance cannot apply if its suggestion has already been undone
+  or the play session has already ended. Preserve the first accepted transition;
+  do not retarget a failed request or retry it as a new action. Delivery retries
+  recover the original outcome under D-216. This is ordinary arrival-order
+  processing (D-184), not a separate replacement policy or a whole-game-head lock:
+  compatible concurrent actions still apply under their normal rules (D-187).
+- Finished-session history review is optional future scope, not R1 (D-214).
+  D-213 defines preparation and readiness
   below. Do not infer automatic restarting, permanent history deletion or a score archive.
 
 ## Returned-lobby preparation and a fresh game — D-213
@@ -462,8 +475,9 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   shortcut work: per-card mutation order, concurrent count timing and count edges.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
-- Result-suggestion replacement/competition and stale acceptance;
-  starter-selection retention/random resolution across games. Finished-session
+- Starter-selection retention/random resolution across games. Concurrent result
+  actions use ordinary server ordering/applicability (D-239), not a separate gap.
+  Finished-session
   history review is optional future work outside R1 (D-214), not a release gap.
   D-211 confirms undoable suggestions, other-player acceptance, return
   of both players to lobby and no required win-history feature, superseding D-210.

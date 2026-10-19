@@ -16,6 +16,13 @@ review/revision, not a separate question for each consequence.
 In particular, a comment dependent on a move already blocks Undo of that move
 under D-224; it is not a fresh reference-policy choice. No next-question quota.
 
+**Result-action races — D-239 (T-538/T-539):** not a fresh product choice. Apply
+normal server ordering/applicability: the first applicable action takes effect,
+and a later incompatible request is discarded. Do not adopt latest-suggestion
+replacement, multiple pending suggestions or implicit acceptance; compatible
+actions still apply under their normal rules. The owner rejected the assistant's
+replacement proposal and gap classification.
+
 **Deleted-node review — D-238 (T-535–T-537):** if the node being viewed is deleted,
 fall back to its parent, remaining in personal review. Repeat if necessary to
 reach the nearest surviving ancestor/root. Do not keep a detached snapshot, jump
@@ -162,8 +169,9 @@ return to lobby** (T-464–T-468, corrected T-025). No win-history/scorekeeping
 feature is required. Do not preserve D-210's blanket Undo exception, unilateral
 confirmation or infer an additional dialog. D-212 separately makes acceptance/
 return to lobby non-undoable (T-469); pending suggestions remain undoable.
-Preserve this specific U-001 exception without reviving D-210. Competing/replaced/
-stale suggestions remain open. D-213 restores last lobby-prepared
+Preserve this specific U-001 exception without reviving D-210. D-239 applies normal
+server ordering/applicability to incompatible result actions; they are not a new
+replacement-policy gap. D-213 restores last lobby-prepared
 decks/mainboard/sideboard, clears both Ready and requires both players to ready
 again for a fresh game (T-470–T-472). Restore game-local preparation, not final
 gameplay state or updated saved decks; no automatic restart. Fresh games use normal

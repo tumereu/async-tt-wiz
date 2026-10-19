@@ -462,6 +462,10 @@ The general rules are:
   lobby**. Your own confirmation cannot replace their acceptance.
 - **Acceptance is not undoable.** Undo can remove a pending suggestion, but cannot
   reverse acceptance/return to lobby or reopen that ended play session.
+- Concurrent incompatible result actions follow normal server processing order:
+  the first applicable action takes effect; the later action cannot apply and is
+  discarded (D-239). A second conflicting suggestion does not replace the first
+  or count as accepting it. Acceptance of an already removed suggestion cannot apply.
 - This just ensures both understand what is happening; no win-history or
   scorekeeping feature is required. End turn, leaving the screen and cancelling
   an unstarted game remain separate actions.
@@ -473,8 +477,7 @@ The general rules are:
   This does not defer current-game history/Undo/branching or decide deletion of
   finished-session data. The future feature would be read-only, separate from a
   fresh game's history, with no reopening or effect on current play.
-- Competing/replaced suggestions, stale acceptance and starter-selection
-  retention/random resolution across games remain open in the
+- Starter-selection retention/random resolution across games remains open in the
   [lifecycle contract](../03-contracts/accounts-decks-and-lobby.md).
 
 ### 11. Offline and failure behavior

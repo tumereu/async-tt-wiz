@@ -12,8 +12,8 @@ resolutions and sources**, allowing revision/acceptance together. Do not confuse
 that batch review with a new approval requirement for every derived consequence.
 Mark truly unresolved choices/proposals separately.
 
-The [pruned list](../design/02-experience/gaps.md) now contains 27 worked
-spec-derived cases (plus D-238's resolved review-cursor case), five concrete
+The [pruned list](../design/02-experience/gaps.md) now contains 28 worked
+spec-derived cases (plus D-238's resolved review-cursor case), four concrete
 remaining product/scope decision areas, and separate contract, technical, later-UI
 and platform/service work. The
 [Q-register](decisions.md#93-release-blocking-questions) replaces its mixed question
@@ -22,7 +22,7 @@ behavior coverage or authorizes implementation/a delivery-stage transition.
 
 | Former broad "gap" bucket | Pruned disposition |
 | --- | --- |
-| Setup/import/lobby/lifecycle | Existing selection/copy isolation, Ready, start ordering, shuffling and no-opening-draw outcomes are derived, not new questions. Competing result suggestions and unapproved extra tooling/formats remain real choices; initialization/validation/default mechanics need contract/UI/technical completion. |
+| Setup/import/lobby/lifecycle | Existing selection/copy isolation, Ready, start ordering, shuffling and no-opening-draw outcomes are derived, not new questions. D-239 corrects the competing-result-suggestion gap label: normal server order/applicability keeps the first applicable action and discards the later incompatible request, not latest-suggestion replacement. Unapproved extra tooling/formats remain scope choices; initialization/validation/default mechanics need contract/UI/technical completion. |
 | Groups/pings | Apply approved author/category/companion/context rules to worked sequences first. Escalate only a demonstrated unresolved precedence conflict; categories, leading/compound cases and numbering are not automatically separate policy questions. |
 | Undo/Redo/references | Core replay/target/order/clearing/fork/device/server-request rules are settled. Dependent comments/references block removal under D-224; their deletion/reattachment is not an open alternative. D-238 now settles personal viewing of a deleted node: fall back to its parent, repeatedly if needed to reach a surviving ancestor/root. Anchor/ID/cache/replay-field mappings are contract/technical work. |
 | Online concurrency/reconnect | Arrival-order acceptance, immediate predictions, individual outcomes, difference-only reconciliation and automatic already-sent recovery are approved. Protocol/unsent-request/animation cases need explicit contract coverage against those rules, not routine safeguards or another offline queue. |

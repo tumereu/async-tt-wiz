@@ -48,8 +48,9 @@ obligation or behavior is still proposed:
   of start-versus-change and one-time start recovery. Further setup values/optional
   areas, starter defaults/edit access and random timing/reselection remain open.
   D-206 separates leaving the lobby from explicit game cancellation; leaving
-  alone does not cancel. Cancellation permissions, start races and retention,
-  along with the remaining invitation lifecycle, are still open.
+  alone does not cancel. D-207 allows either player to cancel an unstarted game
+  without the other's approval. Cancellation-versus-start races and presentation/
+  retention, along with the remaining invitation lifecycle, are still open.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.

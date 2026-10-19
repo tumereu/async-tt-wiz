@@ -68,7 +68,8 @@ The general rules are:
   follows server arrival order: apply a lobby change received first, or reject a
   late lobby change after start without altering the game. Retrying never starts
   or shuffles the game again. Leaving the lobby and cancelling the game are
-  separate actions; leaving alone does not cancel it. Further setup and invitation
+  separate actions; leaving alone does not cancel it. Either player can cancel an
+  unstarted game without the other's approval. Further setup and invitation
   lifecycle details are open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
 - Starting the game does **not** automatically draw opening hands. Mulligan quick

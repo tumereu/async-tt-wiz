@@ -190,8 +190,12 @@ Start action or require online presence from both participants.
   alone must not cancel the game; cancellation requires its own explicit action.
 - Preserve D-205: leaving the lobby screen does not withdraw accepted Ready or
   require both players to remain online.
-- Who may cancel, cancellation-versus-start races, cancelled-game presentation
-  and retention remain open. The assistant's earlier proposal that leaving an
+- **Either player can cancel an unstarted game without the other's approval
+  (D-207).** This is not restricted to the inviter and does not require a
+  cancellation vote or an opponent response.
+- Cancellation-versus-start races, cancelled-game presentation and retention
+  remain open. D-207 does not define cancellation of a started game or its result.
+  The assistant's earlier proposal that leaving an
   accepted lobby cancels the game is rejected. Its other invitation-lifecycle
   recommendations were not approved by this correction.
 

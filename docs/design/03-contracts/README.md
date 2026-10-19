@@ -8,7 +8,7 @@ neither unfinished behavior nor implementation.
 | Contract | Detail |
 | --- | --- |
 | [Product](product.md) | Requirements, scope proposals, trust model, success criteria. |
-| [Accounts, decks, and lobby](accounts-decks-and-lobby.md) | Required login/registration, main menu, adding users, import-only decks, lobby mainboard/sideboard and both-player Ready. |
+| [Accounts, decks, and lobby](accounts-decks-and-lobby.md) | Accounts, invitations, import-only decks, lobby preparation/Ready, cancellation and undoable ending suggestions accepted by the other player before both return to lobby. |
 | [Domain model](domain-model.md) | Card/object identity, state, containers, references, invariants. |
 | [Board and controls](board-and-controls.md) | Touch, selection, movement, piles, menus, table controls. |
 | [Game actions](game-actions.md) | Capability coverage, bulk actions, preservation and explicit exceptions. |

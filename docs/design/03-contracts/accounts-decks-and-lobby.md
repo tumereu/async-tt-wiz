@@ -221,6 +221,30 @@ Start action or require online presence from both participants.
   accepted lobby cancels the game is rejected. Its other invitation-lifecycle
   recommendations were not approved by this correction.
 
+## Result suggestion, acceptance, and return to lobby — D-211
+
+- **Suggest your win, your loss, or a draw.** The suggestion communicates a proposed
+  ending to the other player; it is not an immediate unilateral end to play.
+  A proposed win/loss is relative to the proposing player, so both players can
+  understand the same proposed outcome.
+- **The suggestion is shared, undoable board state.** Record it through the normal
+  mutation/history model; ordinary parent-node Undo can undo the suggestion.
+  Undoing an unaccepted suggestion does not return the players to the lobby.
+- **The other player must accept the suggestion.** The proposer cannot substitute
+  their own confirmation for the other player's acceptance. Without acceptance,
+  the suggestion alone does not end play or return either player to the lobby.
+- **Acceptance returns both players to the lobby.** This is cooperative ending
+  coordination, not scorekeeping: no win-history, standings or result-statistics
+  feature is required. Ordinary board history is distinct from such a feature.
+- D-211 supersedes D-210's unilateral End game/confirmation-dialog/non-undoable
+  design. Do not retain that blanket Undo prohibition or infer an extra confirmation
+  dialog on top of proposal/acceptance. End turn, leaving a screen and cancelling
+  an unstarted game remain separate actions.
+- Whether acceptance itself can be undone to reopen play, competing/replaced
+  suggestions and stale acceptance, returned-lobby preparation/Ready/reset,
+  subsequent fresh games and prior-session history behavior remain open. Do not
+  infer automatic restarting, permanent history deletion or a score archive.
+
 ## Initial placement and lobby-only Sideboard — D-202
 
 - In the **lobby**, place each selected deck's **mainboard in Library** and its
@@ -335,5 +359,9 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   shortcut work: per-card mutation order, concurrent count timing and count edges.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
+- Result-suggestion replacement/competition and stale acceptance; reversibility
+  of acceptance itself; returned-lobby preparation/Ready/reset and subsequent-game
+  behavior. D-211 confirms undoable suggestions, other-player acceptance, return
+  of both players to lobby and no required win-history feature, superseding D-210.
 
 These are behavior gaps, not authorization for application code or UI drafts.

@@ -89,8 +89,14 @@ cancelled games leaving current games, and declined lobbies remaining available
 to the inviter there (T-461–T-463). Recipient-side decline presentation/feedback,
 duplicates, cancellation races and retention/archive behavior remain open;
 current-list removal does not approve permanent deletion or archive/restore rules.
-Next substantial topic: completion/reopening, followed by rematches; narrower
-invitation race/presentation gaps remain without reopening approved lifecycle rules.
+D-211 revises D-210's initial confirmed/non-undoable End game: **suggest your
+win/loss or a draw as undoable board state; the other player accepts, then both
+return to lobby** (T-464–T-468, corrected T-025). No win-history/scorekeeping
+feature is required. Do not preserve D-210's blanket Undo exception, unilateral
+confirmation or infer an additional dialog. Acceptance reversibility, competing/
+replaced/stale suggestions, returned-lobby preparation/Ready/reset, subsequent
+fresh games and prior history remain open. Clarify acceptance reversibility next.
+Narrower invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

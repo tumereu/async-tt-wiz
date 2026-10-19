@@ -85,10 +85,14 @@ entry/setup behaviors and their remaining decisions.
 Included:
 
 - Private two-player tables, card/deck import, editable setup, manual play,
-  participant-recorded completion, and fresh tables retaining earlier history.
+  undoable result suggestions with other-player acceptance returning both to lobby
+  (D-211), and
+  proposed fresh tables retaining earlier history.
   D-188–D-190 confirm authenticated entry, adding users, import-only deck
   management and lobby mainboard/sideboard preparation with both-player Ready;
-  they do not approve a full deck editor or the remaining completion/rematch scope.
+  they do not approve a full deck editor. D-211 uses proposed win/loss/draw solely
+  for shared ending coordination, without required win-history/scorekeeping.
+  Acceptance reversibility, returned-lobby reset and subsequent-game scope remain open.
 - Configurable areas and ordered piles, card movement/orientation/faces, custom
   objects, named counters/values, generic links/markers, and free-form correction.
 - Individual action playback, suggested editable groups, branching, undo/redo,

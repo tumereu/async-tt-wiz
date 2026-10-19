@@ -357,7 +357,21 @@ The general rules are:
   while offline. Recovery of an online request whose response is lost remains
   distinct from making offline actions.
 
-### 10. Offline and failure behavior
+### 10. Ending play
+
+- **Suggest your win, your loss, or a draw.** The suggestion is shared,
+  **undoable board state**, not an immediate end to the game.
+- **The other player must accept.** Only then do **both players return to the
+  lobby**. Your own confirmation cannot replace their acceptance.
+- This just ensures both understand what is happening; no win-history or
+  scorekeeping feature is required. End turn, leaving the screen and cancelling
+  an unstarted game remain separate actions.
+- Acceptance reversibility, competing/replaced suggestions, stale acceptance,
+  returned-lobby preparation/Ready/reset, subsequent games and prior-session
+  history behavior remain open in the
+  [lifecycle contract](../03-contracts/accounts-decks-and-lobby.md).
+
+### 11. Offline and failure behavior
 
 - Local actions update the board immediately to hide network latency. If an
   action is rejected, animate its change backward as if undone; that animation

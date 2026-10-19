@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-133 require case-by-case design before implementation. The
+(D-115). D-112–D-140 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -15,10 +15,16 @@ are recorded now; UI drafts/exact geometry remain stage 3, not current work.
 ## 13.1 Confirmed capabilities
 
 1. **Temporary combat area (D-112):** present attacking and blocking cards in an
-   area that makes per-attacker blocker assignment easy. Exact appearance,
-   assignment cardinality/order are open. D-122 fixes removal effects; D-127
+   area that makes visual attacker/blocker grouping easy. D-139 refines earlier
+   per-attacker assignment wording to paired-slot membership, with no individual
+   attacker↔blocker assignments inside a pair. Exact appearance/order are open.
+   D-122 fixes removal effects; D-127
    requires explicit closure and a combined advance-out-of-combat + close
    shortcut. D-116 makes creation separate; D-117's shortcuts also create it.
+   D-135 permits at most one projection per real source in each combat area;
+   dragging between attacker and blocker positions moves that occurrence.
+   D-137 organizes the area into pairs of opposing attacker/blocker slots, each
+   side supporting multiple projections; see section 13.15 for pending refinements.
 2. **Projections (D-112/D-123):** creating a virtual card occurrence leaves the
    actual card at its battlefield position. Attackers/blockers use this
    representation. A projection references the same source card; it is not a
@@ -29,8 +35,9 @@ are recorded now; UI drafts/exact geometry remain stage 3, not current work.
    remain open, not live-versus-snapshot or independent-state routing.
 3. **Stack naming and ability projections (D-113):** rename the former Cast area
    to Stack. Battlefield permanents can be projected there to signal an activated
-   ability without moving the original card. This is an explicit player action,
-   not ability detection, automatic cost payment, or priority tracking.
+   ability without moving the original card. D-134 allows unlimited independent
+   Stack projections, including several from the same source. This is an explicit
+   player action, not ability detection, automatic cost payment, or priority tracking.
 4. **Contextual Stack actions (D-114):** offer quick actions according to what is
    there: actual instant/sorcery card → Graveyard; actual permanent card →
    Battlefield; projection → remove that projection, not its source card. These
@@ -86,21 +93,30 @@ normal structural/applicability validation. Exact menu presentation is stage 3.
 
 ### Blockers and adaptive spacing (D-118)
 
-Blockers can be dragged to a specific attacker to assign them to that attacker.
-They can also occupy a blank slot with no attacker for special/manual purposes;
-an unassigned blocker is valid, not an invalid missing-attacker reference.
-Creating/assigning blocker projections leaves sources at their battlefield
+Blockers can be dragged to an attacker's opposing slot to join that visual combat
+group. D-139 refines D-118's earlier per-attacker assignment wording: there is no
+separate individual attacker↔blocker association within a pair. Blockers can also
+occupy a blank slot with no attacker for special/manual purposes; a blocker-only
+pair is valid, not an invalid missing-attacker reference.
+Creating/grouping blocker projections leaves sources at their battlefield
 positions; later card-directed actions through projections affect the source
-(D-123). Exact entry origin, gesture disambiguation, reassignment,
-cardinality/order, and removal behavior still need review.
+(D-123). D-140 confirms dragging real battlefield sources into attacker/blocker
+slots creates or repositions their combat occurrences. Multiselect routing,
+gesture disambiguation, within-side order, and removal controls still need review.
 
 Attackers receive more space as more blockers are assigned, keeping their blocker
 groups understandable instead of forcing a fixed-width layout. This adaptive
 spacing requirement is confirmed; pixel geometry, scrolling, and layout mechanics
 are stage 3. Do not impose the ordinary three-actual-card pile limit on these
 groups merely because blockers are visually adjacent; exact capacity is open.
-D-126 constrains removal-time layout: keep surviving blockers in place rather
-than compacting/recentering them after an attacker or other blocker disappears.
+D-126 keeps surviving blockers in their slot rather than moving them into a side
+collection or another slot. D-138 replaces literal fixed positions with stable
+slot membership/order while allowing visual reflow.
+D-136 extends former-attacker cleanup to an attacker dragged into a blocker role.
+D-137 adds paired slots with multiple cards on either side and visual resizing;
+D-139 settles multi-attacker grouping without per-card assignments. D-138 confirms fully-empty-pair
+deletion and between-pair insertion, with visual reflow but no automatic transfer
+of surviving cards between pairs.
 
 ### Ordered pings and projection links (D-119/D-120)
 
@@ -130,21 +146,24 @@ stage 3; schemas/technical choices follow in the relevant implementation work:
    versus multi-source behavior, empty/mixed selections, slot order/capacity,
    cancellation, and combined shortcut boundaries. Separate declaration/tap and
    multiselect variants are settled, not proposals.
-2. **Blocker entry:** source/projection routing, exact associations/cardinality,
-   multiple blockers, reassignment/order/removal, and corrections. Specific-attacker
-   drops, blank unassigned slots, and adaptive attacker spacing are settled.
+2. **Blocker entry:** multiselect/other-view routing, within-side order/removal,
+   and corrections. D-140 settles real battlefield-card drag entry/retargeting.
+   Opposing-slot drops, blocker-only pairs, and
+   adaptive spacing are settled. D-139 requires visual paired grouping rather
+   than individual attacker↔blocker assignments.
 3. **Combat lifecycle:** advance-and-close missing-area/out-of-combat handling,
    combined boundaries, repeated combat/area reuse, and historical rendering.
    D-127 requires explicit closure; D-128 fixes End of combat quick visibility
    and Postcombat main destination. Source departure removes combat projections
    (D-124); D-126 keeps surviving blockers unassigned in place.
 4. **Stack entry:** real card versus projection controls; ability-source context;
-   multiple projections from one source; placement/order, labels, and optional
-   communication. No ability picker/text entry is approved by implication.
+   placement/order, labels, and optional communication. D-134 settles unlimited
+   independent projections, including repeated occurrences from one source.
+   No ability picker/text entry is approved by implication.
 5. **Stack exit:** concrete buttons/gestures, metadata and multi-face categories,
    ambiguous/missing data, participant/destination placement, and manual overrides.
    Projection removal must be distinguished from source-card Remove/move.
-6. **Shared correctness:** projection/assignment identities, reference lifetime,
+6. **Shared correctness:** projection/slot identities and membership, reference lifetime,
    occurrence-versus-source operation disambiguation, cover/inspection/exposure,
    geometry/selection, action and group boundaries, undo, branches, offline
    persistence, retries, and concurrent source/reference edits. Missing-source
@@ -212,21 +231,21 @@ actual card or silently remove the effect. Normal history/undo/branch/offline
 recovery applies to both lifecycle rules; exact operation composition/concurrent
 reference handling remain under review.
 
-## 13.6 Confirmed attacker-removal assignment and spatial stability (D-126)
+## 13.6 Confirmed attacker-removal cleanup and slot stability (D-126/D-138)
 
 When an attacker projection disappears, keep its surviving blocker projections
-in their existing physical/tabletop positions and clear their attacker assignment.
-They now occupy valid blank/unassigned slots (D-118); do not move them to a side
-collection, pack them into different slots, or recenter them merely because their
-attacker disappeared. Their real cards remain unchanged. If a blocker's own
-source also leaves the battlefield, D-124 still removes that blocker's projection.
+in their existing slot. If other attackers remain, the remaining cards stay grouped;
+if the final attacker leaves, retain a valid blocker-only pair (D-139). Do not move them to a side
+collection or transfer them into different pairs. Their real cards remain
+unchanged. If a blocker's own source also leaves the battlefield, D-124 still
+removes that blocker's projection. No individual assignment cleanup is needed:
+"unassigned" here means that the pair's attacker side is empty.
 
-As blockers move to Graveyard or are otherwise removed, the area may shrink, but
-that shrinkage must preserve the remaining blockers' tabletop positions rather
-than automatically compact/reflow them. Spatial stability is a behavior requirement
-now, not an optional stage-3 detail. Exact area bounds/geometry and rendering are
-stage 3; this does not pin device pixels across ordinary pan/zoom or prescribe an
-algorithm for D-118's spacing growth when blockers are added.
+D-138 explicitly replaces D-126's earlier literal fixed-tabletop-position
+requirement with stable slot membership and order. Resizing, insertion, or removal
+may visually shift/reflow pairs and their cards, including closing gaps. Preserve
+surviving pairs' contents and relative order rather than automatically regrouping
+cards. Exact area bounds/geometry and rendering are stage 3.
 
 Preserve assignment and placement context for normal history/undo/branch/offline
 review. D-127 separately fixes explicit area closure; missing-source Stack
@@ -298,6 +317,146 @@ attacker projections and add projections only for newly declared sources, rather
 than duplicating attackers. Retain existing projections' identities, placements,
 and associations rather than replacing/recreating them. Declare + tap still taps
 its selected sources; without-tapping preserves orientation. Exact no-change
-record handling, attacker/blocker coexistence, and Stack multiplicity are separate
-cases, not decided by this duplicate-attacker policy. This does not infer attack
-legality or change normal selected-set validation.
+record handling remains open. D-135 separately settles one occurrence per source
+per combat area and drag-based role changes. Stack multiplicity is settled
+separately by D-134, not this duplicate-attacker policy.
+This does not infer attack legality or change normal selected-set validation.
+
+## 13.12 Confirmed unlimited independent Stack projections (D-134)
+
+Allow any number of Stack projections, including multiple simultaneous effect
+occurrences from the same real card. There is no per-source or total Stack-
+projection count limit; the ordinary three-card visual-pile limit does not apply.
+Repeated explicit projection creation adds a new independent occurrence rather
+than reusing or replacing an existing one, unlike repeated attacker declaration.
+
+Each occurrence can be explicitly removed/resolved separately. Removing one
+removes only that occurrence and its incident projection links, leaving sibling
+Stack occurrences and the real source unchanged (D-114/D-120/D-125). Independent
+effect lifetime does not mean independent card state: while the source exists,
+all projections still share its live card fields and write-through actions under
+D-123. Source departure/removal does not remove any of its Stack effects (D-125).
+
+Normal history/undo/branch/offline recovery applies. Placement/order, duplicate-
+source multiselection, missing-source presentation/actions, and exact concurrent
+operation handling remain separate behavior questions. No ability picker,
+automatic activation, cost payment, resolution, or legality checking is added.
+
+## 13.13 Confirmed one combat projection per source per area (D-135)
+
+Each real card has at most one projection in a given combat area, across attacker
+and blocker roles together. It cannot have separate attacker and blocker
+occurrences, or duplicate blocker occurrences, in that same area. This is a UX
+constraint, not an attack/block legality rule or a limit on the total number of
+different sources in combat. It does not limit independent Stack projections
+(D-134) or decide how repeated combats/area reuse work.
+
+Dragging an attacker projection to a blocker position moves the existing
+occurrence and changes its role; it does not create a second occurrence or
+delete/recreate the first. Preserve its occurrence identity. Such combat-area
+placement/role changes alone do not move or edit the actual source card (D-123).
+
+Existing-source entry through non-drag controls, projection-drag reverse role
+changes, and exact history/concurrency composition still need review. D-140
+settles real battlefield-card drag entry/retargeting to either role. D-136/D-139
+settle remaining-group cleanup on attacker departure. The previous
+proposal allowing simultaneous attacker and blocker occurrences from the same
+source is rejected.
+
+## 13.14 Confirmed former-attacker cleanup on role change (D-136)
+
+When an attacker in a pair containing blockers is dragged into a blocker position,
+the other cards remain in their existing slots. D-139 refines D-136's earlier
+"become unassigned" wording: if other attackers remain, the group persists; if
+the final attacker leaves, the origin becomes a blocker-only pair. There are no
+individual attacker↔blocker assignments to clear. D-138 permits visual reflow,
+not automatic transfer to other pairs. Leave their real source cards unchanged. The
+dragged occurrence itself moves/changes role under D-135; it is not duplicated
+or removed/recreated. Preserve the prior role, assignments, and placement for
+normal undo/history/branch recovery, interpreting earlier assignment terminology
+as slot membership under D-139.
+
+## 13.15 Confirmed paired-slot model (D-137/D-138)
+
+The combat area consists of N pairs of opposing slots, with an attacker side and
+a blocker side. Each side can hold one or more projections, not just one attacker
+opposed by several blockers. A side may also be empty: unassigned blockers and
+attackers without blockers remain valid. D-135's one occurrence per source per
+combat area still applies, and the ordinary three-card visual-pile limit does not
+apply to these slot groups.
+
+Slot size grows/shrinks as cards are added/removed. This is visual accommodation,
+not an inferred game effect, legality check, card-state edit, or automatic damage
+assignment. Exact geometry/layout remains stage 3. D-138 permits visual reflow
+while preserving surviving slot membership/order; literal fixed positions are
+no longer required. This does not permit automatic regrouping into other slots.
+
+D-139 settles multiple-attacker semantics: each pair is one visual combat group,
+not a collection of individual attacker↔blocker assignments. See section 13.16.
+
+### Confirmed empty-pair removal and insertion (D-138)
+
+- Remove a slot pair immediately when **both sides are empty**, closing its visual
+  gap. Keep a pair with cards on either side, including attacker-only/blocker-only
+  pairs. If the last pair disappears, combat remains open until explicitly closed
+  (D-127); exact empty-area presentation is stage 3.
+- Dropping between pairs inserts a new pair at that position containing the
+  dragged projections. Move those occurrences, not copies or an entire existing
+  pair merely because one of its cards was dragged. Preserve other pairs' contents
+  and relative order. If the origin becomes fully empty, remove it by the same
+  rule; if either side still has cards, retain it.
+- Allow visual shifts/reflow from resizing, insertion, and removal. Except for the
+  explicit moved set, preserve surviving cards' slot membership and order rather
+  than automatically transferring them between pairs. Source-card state is unchanged
+  by this layout alone; normal undo/history must retain the prior slot/ordering
+  context. Exact event/concurrency composition remains open.
+
+Side routing for mixed-role selections, within-side insertion/order controls,
+first/last/empty-area drop targeting, and any separate whole-pair reorder control
+remain behavior questions. D-138 approves the described behavior, not final screen
+geometry or an implementation-stage transition.
+
+## 13.16 Confirmed visual combat groups without per-card assignments (D-139)
+
+Each paired attacker/blocker slot is one visual combat group. Record membership
+on the respective sides, not individual attacker↔blocker assignment edges inside
+the pair. This refines earlier per-attacker assignment/cardinality/cleanup wording
+in D-112/D-118/D-126/D-136; it does not add an all-to-all blocking rules object.
+Players interpret the grouping and may use placement and optional event pings to
+communicate finer details. Do not require pings or infer legality, damage, or
+resolution from them.
+
+When one of several attackers leaves the pair, including by role change, leave
+the remaining cards grouped in their slots. When the final attacker leaves,
+retain the blocker-only pair. The reciprocal attacker-only state is also valid;
+remove the pair only when both sides are empty (D-138). Apart from explicit moved
+or removed occurrences, preserve membership/order; visual reflow remains allowed.
+None of this edits real source cards as a layout side effect.
+
+History/undo/branch/offline recovery retains the paired-slot contents, roles, and
+order, not a now-rejected hidden per-card assignment graph. Incident generic links
+still follow their own endpoint lifecycle (D-120), and pings retain event scope.
+Exact operation/event/concurrency handling remains under review.
+
+## 13.17 Confirmed real battlefield-card drag entry and retargeting (D-140)
+
+Dragging a real battlefield card into an attacker or blocker slot creates its
+combat projection at that destination, leaving the original's battlefield
+position, containing location, and orientation unchanged. The target side selects
+the occurrence's combat role; the drag does not implicitly tap or untap the source.
+Projection creation is not an ordinary real-card move into combat or a Clone.
+
+If that source already has a projection in this combat area, move the existing
+occurrence to the drop target instead of creating another. Preserve occurrence
+identity and use the destination role/slot; do not delete/recreate or duplicate it.
+The original still stays in place with unchanged orientation. Other cards retain
+their paired grouping/membership/order (D-139); remove a fully emptied origin
+pair under D-138. This is explicit retargeting by drag, unlike repeating a
+declaration shortcut that retains an existing attacker's placement (D-133).
+
+Normal history/undo/branch/offline recovery retains prior occurrence/slot/role
+context, and source-card fields remain live/shared (D-123). Exact operation/event/
+concurrency composition, same-target no-change records, multiselect routing,
+entry from other views/locations, absent-area entry, and final drop geometry remain
+separate questions. This approval does not add attack/block legality checks or
+change explicit Declare + tap behavior.

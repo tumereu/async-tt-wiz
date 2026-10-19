@@ -11,8 +11,8 @@ The [visual action language](11-visual-action-language.md) defines the proposed
 Stack area, action-linked ping controls, literal grouped log presentation,
 and optional notes/chat. Ordinary flow should not require typing what just
 happened, and the engine must not guess what the actions mean in a game's rules.
-D-112–D-114 additionally require combat/Stack projections, per-attacker blocker
-assignment, and contextual Stack actions. Their behavior is being specified in
+D-112–D-114 additionally require combat/Stack projections, visual attacker/blocker
+grouping (D-139), and contextual Stack actions. Their behavior is being specified in
 [the primary contract](13-combat-stack-and-projections.md). D-115 reserves new
 UI drafts, final layouts, and concrete control choices for delivery stage 3;
 current work is stage 1 behavior specification.
@@ -32,9 +32,13 @@ source-Remove routing remains open. D-124 removes combat projections when their
 source leaves the battlefield; D-125 leaves Stack effects until explicit removal/
 resolution, even after source removal. Missing-source Stack display/inspection/
 card actions remain behavior work, not UI drafts. D-126 keeps surviving blockers
-unassigned in their existing tabletop positions after attacker removal. The area
-may shrink as blockers disappear, without shifting/compacting survivors. Exact
-bounds/rendering are stage 3; spatial stability is already required behavior.
+in their existing slot after attacker removal. D-139 retains the remaining visual
+group with other attackers, or a blocker-only pair if the final attacker leaves;
+there are no individual attacker↔blocker assignments inside a pair. D-138 replaces literal
+fixed positions with stable slot membership/order: visual reflow is allowed,
+fully empty pairs disappear immediately, and between-pair drops insert a pair
+containing the moved cards. Do not automatically regroup survivors; pairs with
+either side occupied remain. Exact bounds/rendering are stage 3.
 
 D-127 adds a combined advance out of combat + close area quick action. Ordinary
 phase/step changes and End turn leave the area open until explicit closure.

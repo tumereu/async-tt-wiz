@@ -89,8 +89,9 @@ The engine does not interpret those labels.
 - The shared Stack, renamed from Cast (D-113), supports actual cards and virtual
   projections. D-114 adds contextual quick actions; entry controls, ordering,
   lifecycle, and exact layout need case-by-case design, not automatic resolution.
-- A temporary combat area supports projected attackers/blockers and per-attacker
-  blocker assignment (D-112); projection creation preserves source positions,
+- A temporary combat area supports projected attackers/blockers in visual paired
+  groups, without individual attacker↔blocker assignments (D-112/D-139);
+  projection creation preserves source positions,
   while later card edits/moves through them affect the originals (D-123).
   Its layout and lifecycle are not settled by this older conceptual sketch.
 - Hands use an expandable fan/row rather than consuming the whole battlefield.
@@ -1205,10 +1206,11 @@ combat/source lifecycle behavior, not a final screen layout. D-122 confirms area
 removal clears its projections/links without changing originals' current state;
 D-123 makes card edits/moves through projections affect the real card. D-124
 removes combat projections on source departure; D-125 retains Stack effects
-until explicit removal/resolution. D-126 keeps surviving blockers unassigned at
-their existing tabletop positions when their attacker disappears. The area may
-shrink as blockers are removed, but may not shift/compact survivors to the side
-or into different slots. D-127 requires explicit closure, with an advance out of
+until explicit removal/resolution. D-126/D-139 keep surviving cards in their slots
+when an attacker leaves: grouped with other attackers, or in a blocker-only pair
+after the final attacker leaves. D-138 permits visual reflow
+while preserving surviving slot membership/order, replacing literal fixed
+positions; never automatically transfer survivors to other pairs. D-127 requires explicit closure, with an advance out of
 combat + close shortcut; ordinary phase/step changes and End turn leave the area
 open. D-128 offers the quick action only at End of combat → Postcombat main,
 not earlier combat steps. Separate advance/close and full non-quick access remain
@@ -1218,7 +1220,24 @@ Specify event mappings/exceptions without runtime priority/legality enforcement.
 D-130 confirms whole undo for advance-and-close; D-132 records it as one event
 listing both effects. D-133 reuses existing attacker projections on repeated
 declaration and adds only newly declared sources; the chosen tap variant still
-applies. Other mixed/empty-source cases, coexistence, and missing-source Stack
+applies. D-134 permits unlimited independent Stack projections, including several
+from one source, each explicitly removed/resolved separately without removing
+siblings or the source. D-135 limits each source to one projection per combat area
+across attacker/blocker roles; dragging an attacker to a blocker position moves
+that same occurrence without moving/editing the source. D-136/D-139 retain the
+remaining group's membership, with real sources unchanged. D-137 requires paired
+opposing slots supporting multiple attackers/blockers on their respective sides,
+visually growing/shrinking with card count. D-138 removes fully empty pairs
+immediately, closing gaps, but retains pairs with either side occupied. Between-pair
+drops insert a new pair with the moved cards, preserving other pairs' contents and
+relative order; fully empty origins disappear by the same rule. Combat stays open
+with no pairs. D-139 makes each pair one visual group without individual attacker↔
+blocker assignments; placement/optional pings communicate finer details without
+an inferred blocking rules graph. D-140 makes real battlefield-card drags into
+attacker/blocker slots create their projections or retarget existing occurrences
+without duplicating/recreating them. Preserve originals' position/location and
+orientation; no implicit tap/untap. Mixed-role/multiselect drop routing and other entry/role-change
+paths, mixed/empty-source cases, and missing-source Stack
 presentation/actions remain separate. See the [session handoff](14-session-handoff.md)
 for the continuation point.
 

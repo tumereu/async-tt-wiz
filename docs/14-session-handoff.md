@@ -1,6 +1,6 @@
 # 14. Session handoff — resume behavior specification
 
-Updated 2026-10-18. This is continuation context, not a new source of requirements.
+Updated 2026-10-19. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](09-decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
 
@@ -17,7 +17,7 @@ and acceptance scenarios take precedence over this summary.
 - Continue case by case, using a small contextualized numbered question/batch.
   Offer a concrete proposal where useful; allow approval together or exceptions.
   After recording an answer, normally ask the next question without waiting for
-  the owner to request it. The owner explicitly requested a pause for this handoff.
+   the owner to request it. The previous pause ended when design resumed on 2026-10-19.
 - Keep questions and updates concise; explain only the relevant distinction.
   Do not repeatedly reopen confirmed decisions or ask separate approval for a
   default already established by a general principle.
@@ -29,13 +29,14 @@ and acceptance scenarios take precedence over this summary.
 
 ## Checkpoint and first reads
 
-- This checkpoint includes **D-001–D-133** and **T-001–T-242**.
-- Last previously pushed checkpoint was `0fcdd58`; the commit containing this
-  handoff also records D-132 (one advance-and-close event) and D-133 (no duplicate
-  attacker on repeated declaration). Use `git log -1` for its actual hash.
+- Current documentation includes **D-001–D-140** and **T-001–T-257**.
+- The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
+  and-close event) and D-133 (no duplicate attacker on repeated declaration).
+  The 2026-10-19 resumption adds D-134–D-140; inspect git status/log for the current
+  committed versus working state.
 - Before editing, inspect `git status` and preserve any new user work.
 - Read [combat/Stack/projections](13-combat-stack-and-projections.md), especially
-  sections 13.2 and 13.4–13.11; [latest decisions and open questions](09-decisions.md);
+   sections 13.2 and 13.4–13.17; [latest decisions and open questions](09-decisions.md);
   and [history/undo](03-history-and-undo.md), especially sections 3.2, 3.4, 3.7.
 - Then consult [the capability worklist](12-touch-action-review.md),
   [controls](10-board-and-controls.md), [ping presentation](11-visual-action-language.md),
@@ -56,19 +57,65 @@ and acceptance scenarios take precedence over this summary.
 - D-118: drag blockers to specific attackers or valid blank/unassigned slots.
   Attacker spacing grows with assigned blocker count. No block/damage legality
   engine; no ordinary three-card pile limit automatically imposed on combat.
-- D-126: when an attacker disappears, surviving blockers become unassigned
-  **at their existing physical/tabletop positions**. Do not move them to a side
-  collection, compact, or recenter them. The area may shrink as blockers disappear
-  (for example after moves to Graveyard), but survivors stay in place. Real source
-  cards remain unchanged by assignment cleanup. Exact rendering is stage 3.
-- D-133, the latest answer: declaring already-declared attackers again keeps
+- D-126/D-138/D-139: when an attacker leaves, surviving cards stay grouped in
+  their slots; the final attacker's departure leaves a blocker-only pair. No
+  individual assignment cleanup or transfer to a side collection/other pairs. Real
+  sources remain unchanged. D-138 explicitly supersedes literal fixed tabletop
+  positions: preserve slot membership/order, permitting visual reflow from
+  resizing/insertion/removal. Exact rendering is stage 3.
+- D-133: declaring already-declared attackers again keeps
   their existing projections and adds only newly declared sources. Preserve
   occurrence identities, placements, and associations; do not recreate/duplicate.
   The selected +tap variant still taps selected sources; without-tapping preserves
-  orientation. Other mixed/empty/no-change cases and role coexistence remain open.
+  orientation. Other mixed/empty/no-change cases remain open.
+- D-135: at most one projection per real source per combat
+  area across attacker/blocker roles. Dragging an attacker to a blocker position
+  moves that same occurrence, not a copy, preserving occurrence identity and real
+  source state. This is a UX constraint, not legality enforcement or a limit on
+  Stack effects. The proposal allowing separate simultaneous attacker/blocker
+  occurrences is rejected. Other entry/role-change paths remain open.
+- D-136/D-139: an attacker dragged into a blocker role leaves other cards grouped
+  in their slots, with a blocker-only pair if the final attacker leaves. Real
+  sources are unchanged by this layout/role change alone.
+- D-137: combat has N pairs of opposing attacker/blocker slots,
+  supporting multiple projections on either side, not one attacker per pair.
+  Empty sides remain valid. Slot size grows/shrinks visually as cards are added/
+  removed; no inferred legality/damage/source-card changes. D-139 settles grouping
+  without individual assignments; do not introduce all-to-all blocking rules.
+- D-138 confirms former P-19: remove a pair immediately only when
+  both sides are empty, closing gaps. Retain attacker-only/blocker-only pairs.
+  Between-pair drops insert a new pair containing the dragged cards, not implicitly
+  an entire origin pair; preserve other pairs' contents and relative order. Remove
+  a fully emptied origin by the same rule. Visual reflow/shifts are allowed while
+  preserving surviving slot membership/order, explicitly replacing earlier literal
+  fixed-position requirements. Combat stays open with no pairs (D-127). Mixed-role
+  routing, edge/empty-area targeting, and exact event/concurrency cases remain open.
+- D-139: each pair is one visual combat group, with no individual
+  attacker↔blocker assignments inside it. Players can use placement and optional
+  pings for finer details. Remaining cards stay grouped when one attacker leaves;
+  the final attacker's departure leaves a blocker-only pair. This refines earlier
+  per-attacker assignment/cardinality/cleanup wording. History/undo/offline retains
+  slot membership/roles/order, not a hidden assignment graph. No mandatory pings
+  or inferred blocking/damage rules.
+- D-140, latest answer: dragging a real battlefield card into an attacker/blocker
+  slot creates its projection there, or retargets its existing occurrence in that
+  area with preserved identity, rather than duplicating/recreating. The original
+  stays in its battlefield position/location with unchanged orientation; no implicit
+  tap/untap or actual-card move into combat. Destination side determines role;
+  remaining cards retain grouping and fully empty origins disappear normally.
+  Multiselect/other-view routing, absent-area entry, same-target no-change records,
+  and event/concurrency details remain open. Repeated declaration is distinct from
+  drag retargeting and retains existing attacker placement under D-133.
 
 ### Shared card state and area-specific projection lifetime
 
+- D-134: allow unlimited independent Stack projections,
+  including several from one source, with no per-source or total count limit.
+  Repeated explicit creation adds occurrences rather than deduplicating them.
+  Remove/resolve each separately without removing siblings or the real source;
+  remove its incident links normally. Card fields remain shared (D-123), and all
+  effects survive source departure/removal (D-125). Placement/order, duplicate-
+  source selection, missing-source behavior, and concurrency remain open.
 - D-123: projections are **live views of the same real card**, not independent
   editable copies/snapshots. Card actions through them always affect that real
   card: orientation, corners, counters, notes, printed face/cover, and moves.
@@ -132,28 +179,31 @@ and acceptance scenarios take precedence over this summary.
 
 ## Suggested next question — not yet asked or approved
 
-Continue source multiplicity case by case, now that repeated attacker declaration
-is settled. A useful small next question is:
+Continue multiselect drag routing after D-140 settles real single-source entry.
+A useful small next question is:
 
-> 1. For Stack, should the same real card be allowed to have several independent
-> projections, representing repeated activations, each removed/resolved separately?
+> 1. When several selected real battlefield cards are dragged onto one combat
+> slot, should they all join that same target slot and side, rather than each
+> receiving its own pair? Proposal: yes, applying create/reuse per source.
 
 This is only a suggested continuation. Do not mistake the question for a decision.
-Attacker/blocker coexistence and blocker cardinality are separate cases; D-133 is
-not a universal one-projection-per-card constraint. Alternatively continue those
-combat cases first, but do not reopen repeated-attacker duplicate behavior.
+This does not settle mixed source/projection or existing attacker/blocker selection
+routing, absent-area entry, or final drop geometry. Projection-drag reverse role
+changes remain separate. Do not reopen visual grouping, slot
+lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack multiplicity.
 
 ## Remaining behavior work, not an implementation backlog
 
-- **Q-33–Q-35 / G-11–G-13:** projection multiplicity/role coexistence, missing-source
+- **Q-33–Q-35 / G-11–G-13:** remaining combat role-change/entry cases, missing-source
   Stack reference/display/inspection/actions, duplicate-source multiselection,
   cover/exposure, link/ping target routing, explicit source-Remove versus occurrence
   Remove, and reference cleanup/undo/offline/concurrent behavior.
 - Combat: exact declaration quick visibility, single-card entry with no area,
-  empty/otherwise-mixed/inapplicable selections, attack destination, blocker drag
-  origin/cardinality/order/reassignment/removal, capacity, repeated-combat/area
-  reuse, no-change records, and remaining combined-action event mappings.
-- Stack: actual-card versus projection entry, placement/order, repeated effects,
+   empty/otherwise-mixed/inapplicable selections, attack destination, other-view
+   entry/within-side order/removal controls, multiselect/mixed-role side routing/
+   edge drops, capacity, repeated-combat/area reuse, no-change records, and
+   combined-action event mappings.
+- Stack: actual-card versus projection entry, placement/order,
   quick-exit metadata/categories/multiface/missing data, destination routing and
   manual overrides. No ability picker/mandatory ability text is approved.
 - Pings: ordering capture, Unping/re-add numbering/gaps, selected-set ordering,

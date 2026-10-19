@@ -42,8 +42,8 @@ Proposed sequence; groups can be split or reordered during review:
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and per-attacker blocker assignment. | D-116–D-118 settle actions/combinations/blockers/spacing; D-120–D-124 links/full paths/cleanup/shared edits; D-126 spatial stability; D-127/D-128 closure and End of combat → Postcombat main; D-130–D-132 undo/event policy; D-133 no duplicate attackers. Remaining role/multiplicity cases continue after handoff; UI drafts remain stage 3. |
-| G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. Missing-source display/actions and other entry/reference cases remain open. |
+| G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | D-116–D-118 actions/combinations/blockers/spacing; D-120–D-124 links/full paths/cleanup/shared edits; D-126 cleanup; D-127/D-128 closure/destination; D-130–D-132 undo/event policy; D-133/D-135 occurrence reuse/uniqueness/drag role change; D-136 former-attacker cleanup; D-137 paired multi-card slots; D-138 empty-pair removal/insertion/reflow; D-139 visual grouping; D-140 real battlefield-card drag entry/retargeting. Multiselect/mixed-role/edge drops and other-view/absent-area entry remain open; UI drafts remain stage 3. |
+| G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. D-134 allows unlimited independent projections, including from one source. Missing-source display/actions and other entry/reference cases remain open. |
 | G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
@@ -846,11 +846,11 @@ but its Stack effects remain until explicitly removed/resolved. This is independ
 of which occurrence/source invoked the move; Stack effects survive source removal
 too. Missing-source display/inspection/card-action applicability remains open.
 
-Confirmed D-126: when an attacker disappears, surviving blockers become unassigned
-in their existing tabletop positions, not moved to a side collection. Real cards
-remain unchanged. Area shrinkage as blockers disappear must not shift/compact
-survivors into different slots. Exact geometry is stage 3, but stability is a
-requirement now.
+Confirmed D-126/D-139: when an attacker leaves, surviving cards stay grouped in
+their slots; the final attacker's departure leaves a blocker-only pair, not a
+side collection. No individual assignment cleanup; real cards remain unchanged.
+D-138 replaces the earlier literal fixed-position requirement with stable slot
+membership/order while permitting visual reflow. Exact geometry is stage 3.
 
 Confirmed D-127: combat area stays open until explicitly closed, including across
 ordinary phase/step changes and End turn. Provide advance out of combat + close
@@ -875,6 +875,43 @@ that event; one Undo restores both effects. Other actions still follow D-131.
 
 Confirmed D-133: repeated attacker declaration keeps existing attacker projections
 and adds only new attackers; Declare + tap still taps its selected sources.
-Other duplicate/coexistence and no-change record cases remain separate.
+Other entry and no-change record cases remain separate; D-135 settles combat
+occurrence uniqueness and attacker-to-blocker drag below.
+Confirmed D-134: Stack allows unlimited independent projections, including several
+from the same source. Repeated creation adds occurrences rather than reusing them;
+remove/resolve each separately without removing siblings or the source. Card
+fields remain shared; source departure/removal leaves all Stack effects intact.
+Ordering, duplicate-source selection, missing-source behavior, and concurrency
+remain separate review cases.
+Confirmed D-135: at most one projection per real card per combat area, across
+attacker/blocker roles. Dragging an attacker to a blocker position moves that
+same occurrence, preserving identity and leaving real source state unchanged.
+This UX constraint rejects independent simultaneous combat-role occurrences;
+unlimited Stack effects remain allowed. D-136 settles former-attacker blocker
+cleanup; reverse entry and existing-source handling through other controls remain open.
+Confirmed D-136/D-139: dragging an attacker into a blocker role leaves the other
+cards grouped in their slots, with a blocker-only pair if the last attacker leaves.
+Confirmed D-137: combat uses paired opposing slots, with multiple attackers and
+multiple blockers on their respective sides; slot size grows/shrinks visually as
+cards are added/removed. D-139 settles visual grouping without per-card assignments.
+Confirmed D-138 (formerly P-19): immediately remove a pair only when both sides
+are empty, closing the gap; retain pairs with either side occupied. Between-pair
+drops insert a new pair with the moved cards, not implicitly an entire origin
+pair, preserving other pairs' contents/relative order. Remove fully empty origins
+by the same rule. Allow visual reflow while preserving surviving slot membership/
+order, replacing literal fixed positions. Combat with no pairs stays open. Mixed-
+role side routing and exact event/concurrency cases remain open.
+Confirmed D-139: each pair is one visual combat group without individual attacker↔
+blocker assignments. Placement and optional pings communicate finer details; no
+inferred all-to-all blocking rules or mandatory pings. Removing/role-changing one
+attacker leaves remaining cards grouped; the final attacker's departure leaves a
+blocker-only pair. Recovery retains paired membership/roles/order, not an assignment graph.
+Confirmed D-140: dragging a real battlefield card into either combat side creates
+its projection there or retargets its existing occurrence in that area, preserving
+identity. Leave original position/location/orientation unchanged; no implicit
+tap/untap or actual card move into combat. Destination side determines role;
+other cards retain grouping, with fully empty origins removed. Multiselect/
+other-view routing, absent-area entry, no-change records, and event/concurrency
+details remain open.
 Pause/resume context is in the [session handoff](14-session-handoff.md).
 No UI draft/implementation authorized.

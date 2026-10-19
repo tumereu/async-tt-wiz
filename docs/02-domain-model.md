@@ -42,7 +42,7 @@ history or authorize normalization of external catalog/import data.
 | Card definition | Source/catalog ID or custom definition, version, names, faces, display text/data, default corner text (D-56), image references; never executable rules. |
 | Card instance | Stable game-local object ID, definition reference, optional participant associations, container, explicit editable state. |
 | Projection | Live virtual occurrence of a source card, not a Clone/token or second containment. Creation preserves source placement; card edits/moves affect the real card (D-123). Source departure removes combat occurrences (D-124), not Stack effects, which require explicit removal/resolution (D-125). Exact identity/schema/missing-source behavior and link/ping routing remain open. |
-| Combat assignment | Explicit per-attacker blocker association in the temporary combat area (D-112). Not inferred from pings/links or adjudicated for legality. Exact endpoint/order/cardinality schema remains open. |
+| Combat slot pair | One visual combat group with attacker-side and blocker-side projection membership/order (D-137/D-139). No individual attacker↔blocker assignments or inferred all-to-all blocking rules. D-138 supplies empty-pair removal/insertion/reflow; exact schema remains open. |
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
 | Action node | Stable ID, parent ID, actor, literal operation kind, operations, deterministic outcome, schema version. |
@@ -351,20 +351,60 @@ missing-source presentation/inspection and card-action applicability need design
 Do not fabricate a replacement card. Exact cleanup/history/concurrency composition
 also remains open.
 
-D-126 clears a disappearing attacker's assignments while retaining surviving
-blocker projections at their existing tabletop positions. Unassigned is valid;
-it is not a request to move blockers into another collection/column. Area
-shrinkage as blockers disappear must not compact/recenter remaining blockers.
+D-126/D-139 retain surviving blockers in their existing slot when an attacker
+leaves: remaining attackers keep the group together; the final attacker's
+departure leaves a valid blocker-only pair. No individual assignment edges exist
+or need cleanup. Do not move blockers into another collection/column.
+D-138 replaces literal fixed
+tabletop positions with stable slot membership/order: pairs may visually reflow
+as they resize or other pairs are inserted/removed, without regrouping survivors.
 Real source cards remain unchanged by assignment cleanup. Retain placement and
 assignment context for normal undo/history/branch/offline recovery; exact schema
 and area-bound geometry remain later design.
 
 D-133 makes repeated attacker declaration reuse the existing attacker occurrence
 for each already-declared source, preserving identity/placement/associations and
-creating occurrences only for new attackers. This is not a universal one-projection-
-per-source constraint: attacker/blocker coexistence and Stack multiplicity remain
-separate questions. Normal selected-source tap/without-tapping behavior still
-applies; exact no-change records remain open.
+creating occurrences only for new attackers. D-135 separately sets at most one
+occurrence per source per combat area across attacker/blocker roles. Dragging an
+attacker to a blocker position moves/changes the role of that same occurrence,
+preserving identity rather than creating a duplicate. Role/placement changes alone
+leave the real source unchanged. Assignment cleanup and other role-change/entry
+paths remain open, except D-136/D-139 retain the remaining group on an attacker's
+role change, leaving a blocker-only origin if its final attacker leaves. This is a UX
+constraint, not legality enforcement or a universal
+one-projection-per-source constraint across all areas.
+Normal selected-source tap/without-tapping behavior still applies; exact no-change
+records remain open.
+
+D-134 allows unlimited independent Stack occurrences, including several from the
+same source, with no per-source or total projection-count cap. Repeated creation
+adds another occurrence; explicit removal/resolution of one leaves its siblings
+and source unchanged. Independence applies to occurrence identity/lifetime, not
+card fields: all still reference the same live source state under D-123. Source
+departure/removal leaves all those Stack effects intact under D-125. Duplicate-
+source multiselection and missing-source behavior still require review.
+
+D-137 organizes combat into paired opposing attacker/blocker slots, supporting
+multiple projections on either side (and valid empty sides), with visual slot
+growth/shrinkage as cards are added/removed. This is not a one-attacker-per-pair
+invariant. D-139 makes each pair one visual group without individual attacker↔
+blocker assignments; players can communicate finer details through placement and
+optional event pings, not an inferred all-to-all rules relationship. D-138 removes
+fully empty pairs immediately, closing gaps; pairs with either side occupied
+remain. Between-pair drops insert a new pair with the moved projections, retaining
+other pairs' contents and relative order. Empty origins follow the same removal
+rule; an area with no pairs stays open (D-127). Layout alone does not edit sources
+or transfer surviving cards between pairs. See the primary combat contract,
+section 13.15, for pending mixed-role routing and event/concurrency cases.
+
+D-140: a real battlefield card dragged into an attacker/blocker slot creates its
+combat occurrence there, or retargets its existing occurrence in that area while
+preserving identity. Destination side determines role; the original stays in its
+containing location/battlefield position with unchanged orientation. This does
+not tap/untap, move the actual card into combat, or create a Clone. Other cards
+retain grouped membership/order; fully empty origin pairs disappear (D-138/D-139).
+Multiselect/other-view routing, absent-area entry, no-change records, and exact
+event/concurrency composition remain open.
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display

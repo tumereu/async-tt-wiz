@@ -14,6 +14,32 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest gap-pruning instruction — D-237
+
+Owner rejected repeated questions whose answers follow from agreed rules and
+requested pruning plus a standing instruction: **look only for true gaps/edge
+cases**. Read the [pruned gap list](../design/02-experience/gaps.md) and
+[classified Q-register](decisions.md#93-release-blocking-questions), not old
+"open" inventories as a next-question queue. Establish a concrete missing
+outcome/scope choice or a genuine ambiguity/contradiction after applying current
+rules. State why those rules do not decide it before asking. Record derived
+consequences and tests without requesting fresh approval; keep technical and
+later UI decisions in their own lanes. A later comment referring to a move
+already blocks removing that move under D-224 (T-534); do not reopen it.
+Owner further requested the efficient review format: **batch identified edge
+cases with their spec-derived resolutions and sources**, then allow revision or
+acceptance together. Do not turn that review into independent approval questions
+for already-derived consequences. Mark genuinely unresolved choices/proposals
+separately from existing-spec outcomes.
+
+Core Undo/Redo needs contract/test completion, not another fundamental policy
+question merely because a schema or field mapping is unwritten. Remaining real
+product choices are listed with concrete examples; scope proposals remain
+unapproved, and the pruning does not authorize a stage transition. The usual
+continue-with-the-next-question convention applies only when a true gap has
+actually been established. Otherwise complete/audit the specification or report
+that no new owner decision was found. This instruction is also in AGENTS.md.
+
 ## Latest server Undo/concurrent-device correction — D-236
 
 Owner rejected the assistant's apply-once/discard-the-other-device proposal:
@@ -658,8 +684,8 @@ this is not completion of grouping design or authorization to implement.
   choices are not blanket prerequisites for finishing stage 1.
 - Continue case by case, using a small contextualized numbered question/batch.
   Offer a concrete proposal where useful; allow approval together or exceptions.
-  After recording an answer, normally ask the next question without waiting for
-   the owner to request it. The previous pause ended when design resumed on 2026-10-19.
+  After recording an answer, continue only with a demonstrated true gap/edge case
+  (D-237), not another consequence of approved rules. There is no question quota.
 - Keep questions and updates concise; explain only the relevant distinction.
   Do not repeatedly reopen confirmed decisions or ask separate approval for a
   default already established by a general principle.
@@ -684,7 +710,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-236** and **T-001–T-533**.
+- Current documentation includes **D-001–D-237** and **T-001–T-534**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -3,18 +3,55 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
+## Gap pruning and batch review — D-237
+
+The owner corrected repeated "gap" questions whose answers followed from agreed
+rules, then requested pruning and a standing instruction for future sessions.
+The efficient review format is a **batch of identified cases with spec-derived
+resolutions and sources**, allowing revision/acceptance together. Do not confuse
+that batch review with a new approval requirement for every derived consequence.
+Mark truly unresolved choices/proposals separately.
+
+The [pruned list](../design/02-experience/gaps.md) now contains 27 worked
+spec-derived cases, six concrete remaining product/scope decision areas, and
+separate contract, technical, later-UI and platform/service work. The
+[Q-register](decisions.md#93-release-blocking-questions) replaces its mixed question
+queue with a classification preserving every Q-ID. Neither list claims exhaustive
+behavior coverage or authorizes implementation/a delivery-stage transition.
+
+| Former broad "gap" bucket | Pruned disposition |
+| --- | --- |
+| Setup/import/lobby/lifecycle | Existing selection/copy isolation, Ready, start ordering, shuffling and no-opening-draw outcomes are derived, not new questions. Competing result suggestions and unapproved extra tooling/formats remain real choices; initialization/validation/default mechanics need contract/UI/technical completion. |
+| Groups/pings | Apply approved author/category/companion/context rules to worked sequences first. Escalate only a demonstrated unresolved precedence conflict; categories, leading/compound cases and numbering are not automatically separate policy questions. |
+| Undo/Redo/references | Core replay/target/order/clearing/fork/device/server-request rules are settled. Dependent comments/references block removal under D-224; their deletion/reattachment is not an open alternative. Personal viewing of a removed node is different and genuinely lacks an outcome. Anchor/ID/cache/replay-field mappings are contract/technical work. |
+| Online concurrency/reconnect | Arrival-order acceptance, immediate predictions, individual outcomes, difference-only reconciliation and automatic already-sent recovery are approved. Protocol/unsent-request/animation cases need explicit contract coverage against those rules, not routine safeguards or another offline queue. |
+| Projections/Stack/combat | Source-versus-occurrence routing, cleanup/retention, slot reuse/placement and source-state preservation are approved. Inspection information after a token source disappears is a genuine remaining case. Apply existing rules to ordinary variants; geometry/control presentation is later UI. |
+| Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. Chat/comment edit/delete is a real feature choice; an existing dependent comment blocking Undo is not. |
+| Empty/invalid/multi-target actions | Actual-mutation/no-invented-node, no-skipping/structural validity, selected-target applicability and entry-reset rules determine ordinary outcomes. Complete tables/tests; numeric/resource bounds and feedback details belong in technical/UI work. |
+| Product/platform/privacy | Additional authoring/coordination scope and user-visible recovery/erasure/local-data promises remain explicit choices. Device targets, service/provider/rights, notifications, operations and accessibility presentation retain their proper decision stages. Already-deferred R1 cuts are not gaps. |
+
+Before promoting any older "open" wording into a question, show the concrete
+case, the unresolved competing outcomes and why approved rules do not decide it.
+If they do decide it, document the resolution in the batch and add/check coverage.
+An ambiguity found while completing that work can still become a real gap; this
+pruning neither silently approves proposals nor hides incomplete contracts.
+
+## Current precedence and remaining interpretation risks
+
 - **D-232 confirms actual tree editing, not new branches.** Undo removes and Redo
   reinserts a mutation in the existing tree. The assistant's revised-continuation/
   untouched-original proposal was rejected. Do not preserve an original explorer
   alternative, duplicate the suffix as a branch, require immutable ancestry or
-  force a post-Undo fork. Side branches, comments/pings, review cursors, IDs/cache
-  revisions, concurrency and removed-record retention after queue clearing remain
-  open; do not silently choose a deletion/retarget policy or physical storage scheme.
+  force a post-Undo fork. D-233/D-234 now block edits across forks, D-235 synchronizes
+  per-player stacks and D-236 defines server Undo requests. Dependent comments/pings
+  already fail replay if their context would change. Personal removed-node viewing
+  remains undecided; IDs/cache/recovery and removed-record retention need their
+  own contract/technical or product-privacy work, not blanket reference questions.
 - **D-224 revises the universal parent-pointer Undo interpretation.** Selective
   mutation removal/reinsertion requires every later mutation's relevant-state
   `(from, to)` tuple to stay identical under a hard suffix-work cap N. Per-mutation
-  definitions, N/counting, reinsertion anchors/device scope, pointer/view
-  controls, concurrency and node/reference/grouping rewrite remain open. Revealing
+  definitions, N/counting, reinsertion bookkeeping and node/cache/group mappings
+  need specification work. D-235/D-236 settle device scope/concurrent Undo. Revealing
   targets are not selectively undoable; no compensating edit is appended. This
   does not restore D-181-style old-field locking to live actions or approve the
   old 25-rule batch. Older pointer/remembered-head fixtures are rewind context,
@@ -24,8 +61,9 @@ from the plain-language summary and tier reorganization.
   preserve later opponent mutations under replay. Never skip a blocked own target
   or undo the opponent's. Redo is last-undone-first and a blocked next entry disables
   it without skipping/discarding. Only own new play clears your queue. These rules
-  do not settle insertion anchors, device synchronization, explicit activation
-  integration or how old nodes/comments/side branches retain their meaning.
+  combine with D-232–D-236's tree/fork/device/server rules. Insertion representation
+  and activation integration still need contracts, not fresh approval of dependent
+  comments blocking Undo or reattaching side branches.
 - **Earlier D-159/D-160 replaced earlier Undo semantics.** Pointer-rewind Undo is one shared
   parent-node pointer move, regardless of author; composites can require multiple
   presses. D-222 refines Redo/filtering: remember the last active head for Redo
@@ -35,10 +73,10 @@ from the plain-language summary and tier reorganization.
   single-player/no-exposure continuations; hide only those without comments too. The decision
   register preserves original D-90/D-91/D-95 and D-131/D-151 wording for provenance,
   not as current requirements. No last-exposure cutoff, whole-invocation Undo or
-  suffix-rollback preview remains. D-161 silently discards no-longer-valid specific
-  Undo transitions and reconciles local state, with no notification clutter.
-  Remembered-head user/device scope, activation updates, concurrent/stale Redo/
-  activation, archive/restore and exact pre-fork/nested presentation remain open.
+  suffix-rollback preview remains. D-161's fixed-node stale-Undo rule belongs to
+  that older model; D-236 supersedes it for current selective server Undo requests.
+  Remembered-head scope is not an active gap in the replacement stack design.
+  Activation/archive contracts and later tree presentation remain distinct work.
 - **D-176/D-177 correct the mutation/playback model.** One node is one individual
   mutation, including individual operations from bulk commands. Every mutation
   immediately extends/branches the chosen path and publishes. Older combined-node
@@ -50,9 +88,10 @@ from the plain-language summary and tier reorganization.
   The assistant's last three-rule precedence proposal was not approved.
 - **D-179 replaces automatic conflict forks.** Historical D-13/conflict references
   do not authorize branching on stale ordinary edits. Historical continuation
-  needs deliberate UI intent and an explicit server-message flag/boundary; Undo
-  supplies intent automatically. D-187 now normally applies ordinary actions to
-  current state with limited movement/Stack guards, not general old-field checks.
+  needs deliberate UI intent and an explicit server-message flag/boundary;
+  D-232 Undo/Redo instead edit the tree without branching intent. D-187 normally
+  applies ordinary actions to current state with limited movement/Stack guards,
+  not general old-field checks.
   D-176/D-177 still define mutation units
   and playback, not unconditional fixed-parent publication from a review cursor.
   P-11's conflict-activation protocol and the assistant's four-rule proposal are

@@ -5,6 +5,17 @@ earlier touch decisions as requirements/history, but current new decisions focus
 on behavior. Adversarial review/refinement is stage 2, UI drafts/concrete controls
 stage 3, and iterative implementation stage 4+. No implementation is authorized.
 
+**Gap triage — D-237:** this is a capability/history inventory, not a queue of
+owner questions. Before using any older "open" item below, apply current agreed
+rules and consult the [pruned gaps](../design/02-experience/gaps.md) and
+[classified Q-register](decisions.md#93-release-blocking-questions). Ask only
+about a concrete missing outcome, scope choice or genuine edge-case ambiguity;
+contract completion, tests, technical details and later UI work are separate.
+Prefer a batch of cases with spec-derived resolutions and references for combined
+review/revision, not a separate question for each consequence.
+In particular, a comment dependent on a move already blocks Undo of that move
+under D-224; it is not a fresh reference-policy choice. No next-question quota.
+
 **Latest selective Undo/Redo (D-224, T-501–T-509):** removal/reinsertion requires
 every later mutation's relevant-state `(from, to)` tuple to stay identical across
 original/candidate timelines. Define relevant state per mutation; compare both

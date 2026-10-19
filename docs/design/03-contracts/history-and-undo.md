@@ -54,10 +54,11 @@ Explicit interruptions can still create branches; the explorer/filtering rules
 apply to branches that actually exist. Undo itself does not acquire historical
 continuation intent or require the next ordinary current-head edit to fork.
 The D-233 fork boundary below prevents Undo from changing existing side branches.
-Event-comment/ping references, review cursors, IDs/versioning and cached states
-still need explicit handling. This decision does not approve silently deleting
-an unrelated branch/comment or a
-specific retargeting policy. Nor does it require physical storage erasure or
+Dependent comment/ping references are protected by the replay rule below, not
+a fresh choice to delete or retarget them. Review cursors, IDs/versioning and
+cached states still need explicit handling. This decision does not approve
+silently deleting an unrelated branch/comment or a specific retargeting policy.
+Nor does it require physical storage erasure or
 select an immutable-log versus mutable-record implementation.
 
 Each mutation kind must define its **relevant state**. Compare the same mutation's
@@ -78,6 +79,13 @@ Owner examples:
   identical. Keep the tap; do not compare unrelated position as part of tapping.
 - Tap one card, then opponent untaps another: **Undo of your tap is allowed**
   when the later mutation's relevant tuple is unchanged.
+- Move a card, then the opponent adds an event comment referring to that move:
+  **Undo of the move is blocked** because the comment's referenced context is
+  part of its relevant state. Removing the move would change that context.
+  This is a consequence of D-224, explicitly reiterated by the owner, not an
+  unresolved choice to leave, delete or reattach a dependent comment. Apply the
+  same dependency test to other historical references; an unrelated annotation
+  is not automatically a dependency merely because it is later.
 
 **Container-order clarification — D-225/D-226:** Library is ordered; Graveyard
 and Exile are unordered, with no order-related actions. Relevant state includes
@@ -108,8 +116,9 @@ who used Undo. Opponent actions do **not** clear that player's queue; retain its
 entries and recheck reinsertion against current state under D-224, including N.
 An opponent edit may make Redo unavailable without clearing the queue. Clearing
 is player-specific, not a shared game-wide reset. D-235 below confirms cross-device
-stack synchronization. Rejected/no-op requests and exact optimistic/server clearing
-timing remain open. Do not generalize this to personal review/navigation or treat
+stack synchronization. Rejected/no-op requests are not successful new gameplay
+mutations and do not clear the stack; exact optimistic/server bookkeeping remains
+technical work. Do not generalize clearing to personal review/navigation or treat
 Redo reinsertion itself as new play that necessarily clears remaining entries.
 
 **Shared game state across devices — D-235:** each player's Undo/Redo stack
@@ -209,14 +218,22 @@ permit a changed unchecked tail. Exact N and counting of mutation nodes versus
 multi-mutation invocations remain open; no time-based grouping or gameplay limit
 is implied.
 
-**Still open:** complete relevant-state definitions, insertion target's own preconditions,
-Redo insertion anchors,
-invalidation cases beyond D-227/D-228, concurrent/stale checks, pending-request
-interaction, pointer/view
-updates, tree/node versioning, grouping and references to removed/replayed nodes.
-Removal changes the existing tree (D-232), not just a candidate branch. D-223's
-visibility rule still applies to actual remaining alternatives; affected comment
-references and side branches need separate handling. Earlier parent-pointer
+**Remaining work, not an owner-question queue:** complete relevant-state and
+reinsertion-precondition mappings from the agreed rules; document anchors,
+pending-request/recovery bookkeeping, IDs/versioning, grouping and cache updates.
+Numeric N/counting and wire/storage representation are technical specification
+work, not new Undo policy. D-233/D-234 already settle fork boundaries, D-235 stack
+device scope and D-236 server Undo requests. Dependent references fail D-224's
+test rather than being silently retargeted. Rejected/no-op requests create no
+successful new gameplay mutation and therefore do not trigger D-227 clearing.
+
+The externally visible outcome when a personal review cursor points at a removed
+node is still unspecified; unlike a dependent comment, a personal cursor is not
+a later shared mutation protected by the replay test. Any further proposed
+activation/control edge case must first be checked against current rules, not
+assumed to need a new policy. See the [pruned gaps](../02-experience/gaps.md).
+Removal changes the existing tree (D-232), not just a candidate branch; D-223's
+visibility rule applies to actual alternatives. Earlier parent-pointer
 fixtures below describe that superseded rewind model, not blanket approval
 to use it instead of this selective rule. U-001 and older exposure/Redo recovery
 wording must be interpreted with this distinction until controls are settled.

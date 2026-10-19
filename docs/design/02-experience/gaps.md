@@ -1,294 +1,105 @@
 # Scope proposals and genuine gaps
 
-This accompanies the [behavior overview](behavior.md). Proposals are not approved
-requirements. These are missing outcomes or scope decisions, not a demand for a
-question about every button; existing general rules should resolve ordinary cases.
-The detailed [question register](../../agent/decisions.md#93-release-blocking-questions)
-retains the original Q-IDs.
+This accompanies the [confirmed behavior overview](behavior.md). Pruned under
+D-237: an unwritten detail or an old "open" label is not automatically a product
+gap. Apply current agreed rules first. Proposals remain unapproved; this pruning
+does not add/remove release behavior or authorize a delivery-stage transition.
 
-## Broader draft scope — not all confirmed
+For efficient review, the identified edge cases below are batched with their
+spec-derived resolutions and sources. Review/revise them together rather than
+ask a new approval question for each consequence. Cases without a spec-derived
+answer are listed separately. This is a triage of the identified backlog, not a
+claim that every possible edge case has been verified.
 
-These appear in the product/action/UI drafts, but their exact first-release
-obligation or behavior is still proposed:
+## Spec-derived edge-case batch
 
-- D-188–D-190 confirm login/registration, main-menu Logout/Manage decks/Play,
-  adding users, current games/pending invites, import-only deck management and
-  a lobby with deck selection, mainboard/sideboard management and both-player
-  Ready. D-195 confirms inviting an added user, Accept/Decline in Play and opening
-  the lobby on acceptance. D-196 confirms username search and saving contacts
-  without mutual approval. D-197 confirms username/email/password registration,
-  email/password login, password reset by email and usernames rather than emails
-  visible to other users. Remaining account/invite details, fuller deck editing/export, configurable
-  starting arrangements and extra in-game areas remain open or proposed. D-192
-  excludes automatic opening draws. D-193 specifies shuffle-and-draw N (default 7)
-  and current-hand-size-minus-one actions in the Library context and as opening
-  quick actions. D-194 confirms both return the whole hand before shuffling and
-  drawing, with quick visibility only at turn 1's Untap. Remaining shortcut
-  count/sequencing details are open. D-202 excludes in-game Sideboard access;
-  sideboard preparation is lobby-only.
-- D-198 confirms pasted common MTG text decklists (Arena/MTGO-style), optional
-  printing details, standard mainboard/sideboard notation, flagged unresolved
-  names without substitution, preserved input and no saving until errors are
-  resolved. Less-common dialects/extra sections, default printings, import limits
-  remain open; there is no custom list format. D-199 confirms named/renameable
-  decks, a cover chosen from a deck's cards, Replace/Save as new on re-import and
-  unchanged already selected lobby/game copies. D-221 confirms deletion from the
-  saved collection and reiterates that both editing/deleting preserve selected
-  lobby/game copies. Default/duplicate names, cover fallback, replacement metadata,
-  deletion confirmation/recovery/retention and concurrent delete/edit/select races
-  remain open.
-- D-200 confirms automatic Library shuffling on game start and 20 starting life,
-  with no pregame life setting required. No automatic opening draw; in-game life
-  edits remain. D-201 confirms lobby starter selection with either player or
-  Random. D-202 confirms initial lobby mainboard → Library, sideboard → separate
-  Sideboard, other card areas empty, and no Sideboard access during play.
-  D-203 confirms free lobby transfers between mainboard/sideboard, without legality,
-  size or one-for-one restrictions; D-191 still clears own Ready and isolates saved decks.
-  D-204 confirms starter-selection changes clear only the changing player's Ready,
-  preserving the other player's. D-205 confirms own-deck selection as the Ready
-  prerequisite without legality/size checks, manual withdrawal before start,
-  Ready persistence without both players online, server arrival-order handling
-  of start-versus-change and one-time start recovery. Further setup values/optional
-  areas, starter defaults/edit access and random timing/reselection remain open.
-  D-206 separates leaving the lobby from explicit game cancellation; leaving
-  alone does not cancel. D-207 allows either player to cancel an unstarted game
-  without the other's approval. Cancellation-versus-start races and retention/
-  archive behavior, along with the remaining invitation lifecycle, are still open.
-  D-208 makes a sent invite an already-open lobby for the inviter, with deck
-  preparation/Ready before acceptance and Cancel game cancelling the pending
-  invite. Decline preserves that lobby for reinvitation, not game cancellation.
-  D-209 confirms no automatic pending-invite expiry, cancelled games leaving
-  current games and declined lobbies remaining available there to the inviter.
-- Arbitrary named player/card values, participant associations, generic pieces/
-  markers/custom definitions, and a broader correction tool. Their general purpose
-  is manual representation; exact authoring controls and scope are not settled.
-- D-211 supersedes D-210: **suggest your win/loss or a draw as undoable board state;
-  the other player accepts, then both return to lobby**. No win-history/scorekeeping
-  feature is required. D-212 makes acceptance/return to lobby non-undoable while
-  pending suggestions remain undoable. Competing/replaced suggestions,
-  stale acceptance, starter-selection retention/random
-  resolution across games and complete game/history export remain open. D-213
-  restores the last prepared decks/mainboard/sideboard on return, clears both
-  Ready and requires both to ready again for a fresh game.
-- **D-214: optional future feature, not R1:** finished-game action-history archives
-  and read-only review, separate from each fresh game's history. This is not an
-  R1 gap or a win-history/statistics feature. Current-game history, retained
-  branches, Undo and offline review remain included; data-retention/deletion
-  guarantees are not selected by deferring finished-game review.
-- Detailed review navigation, branch comparison/rename/switch/archive controls,
-  optional manual group editing, live-follow, cross-device progress, response
-  requests, additional notification behavior, and ephemeral presence. D-219
-  confirms push notifications for new invitations and grouped opponent activity,
-  without covered card names. D-220 uses Android notification channel settings
-  for R1; both in-app global/per-game mute settings are post-R1, not release gaps.
-  Cadence, permissions/defaults, channel categories, foreground suppression and
-  multiple-device routing remain open.
-- Exact screen layouts, accessible alternatives, Android/device support, storage
-  settings, and recovery-center flows. Accessibility/no-gesture-only access is the
-  intended direction, not a finished interaction specification.
+These are consequences of existing requirements, **not new policy proposals**.
+References point to the primary contracts; D-IDs identify the approved basis.
 
-The draft review flow distinguishes the shared current board, your historical
-view, and local pending work. It offers previous/next actions/groups, jump to a
-boundary/current board, and optional live-follow; incoming updates do not silently
-move a historical cursor. Proposed branch-switch notices preserve your view and
-offer a return/divergence control. D-219 confirms invitation/grouped-opponent-activity
-push notifications without covered card names, coalesced without delaying sync.
-Additional dedicated branch-change/response-request alerts remain proposed;
-R1 notification control uses Android channel settings (D-220), with exact channel
-categories and delivery details still open, not in-app mute settings to design for R1.
-Private-game membership still restricts outsiders; full access applies to the
-two participants, not everybody. Detailed protocols and controls remain proposed.
-
-The documented release direction excludes inferred rules/legality, competitive
-anti-cheat, matchmaking/rankings/tournaments/clocks, public spectators/chat, AI
-opponents, multiplayer, non-Android gameplay clients, and automatic replay of an
-old future after a response. Exact overall release scope still needs sign-off.
+| Case | Resolution from the current spec | Basis |
+| --- | --- | --- |
+| A move is followed by a comment referring to that move. | Undo of the move is blocked: the comment's relevant context would change. Do not delete or reattach it to permit Undo. | [Replay dependencies](../03-contracts/history-and-undo.md#selective-mutation-undoredo--d-224), D-224; T-534. |
+| A move is followed by an independent tap of the same card. | Keep the tap and allow removing the move if all other checks pass; unrelated position is not tap state. | D-224. |
+| An increment is followed by another increment of the same counter. | Removing the earlier increment changes the later before/after tuple, so Undo is blocked even though the delta is unchanged. | D-224. |
+| Removing a Library move would change which card was on top for a later draw. | Block Undo; neither draw another card nor silently take the recorded card from beneath the top. | D-225/D-226. |
+| Independent cards arrive in Graveyard or Exile. | Unrelated contents/indices do not create order dependencies. These containers are unordered and have no order-related controls. Other replay checks still apply. | D-225/D-226. |
+| Your latest own action is blocked/revealing, or no own action remains. | Undo is unavailable; do not skip it, pick an earlier action or undo the opponent's. | D-224/D-230/D-231. |
+| Your latest own action has later opponent actions after it. | It remains the Undo candidate; preserve the later actions under the unchanged-tuple test and N. | D-231. |
+| Two distinct Undo requests arrive from your devices. | Process like two presses against successive current own candidates; both can succeed. A blocked/absent next candidate permits no further removal. | D-236. |
+| One Undo request is retransmitted after a lost response. | Recover its original result once; a retry is not another press. | D-216/D-236. |
+| You Undo on one device and continue on another. | Use the same per-player, per-game stack and current checks, not a device-local stack or one stack for both players. | D-235. |
+| Own new gameplay follows Undo; separately, opponent gameplay follows Undo. | Own successful new gameplay clears your stack across devices even if Redo would be safe. Opponent actions retain it, but may block Redo. | D-227/D-228/D-235. |
+| A rejected/no-change request follows Undo. | No successful new gameplay mutation occurred, so it does not trigger own-new-play stack clearing. Prediction/acknowledgement bookkeeping must converge to that outcome. | D-176/D-227. |
+| The next Redo entry is blocked but an older one is safe. | Disable Redo and retain the stack; never skip/discard the next entry. Successful Redo order is last-undone-first. | D-229/D-230. |
+| An eligible action is removed from a linear path. | Edit the existing tree; do not preserve an original explorer alternative, duplicate the suffix or append compensation. The removed action is held for Redo. | D-232. |
+| Undo would remove a fork or reach back before one, including a hidden alternative. | Block Undo. Explorer filtering is not branch removal. Actions strictly after the latest fork remain subject to ordinary eligibility. | D-233. |
+| A new fork would put a queued Redo insertion before it. | Block Redo and retain the stack, even if replay would be safe. No recovery route is promised for the stranded mutation. | D-234. |
+| A real source leaves Battlefield, including a disappearing token. | Remove its combat occurrences/incident links; keep independent Stack effects until explicitly removed. Do not invent a replacement source for actions on a nonexistent token. Inspection details are a separate open case below. | [Projection lifetime](../03-contracts/combat-stack-and-projections.md#135-confirmed-area-specific-lifetime-d-124d-125), D-120/D-124/D-125/D-187. |
+| A projection is edited, repositioned or removed. | Card edits affect the real source; occurrence layout/removal does not delete or independently edit that source. Non-token cards have no Remove action. | D-123/D-174. |
+| A card referenced by View/Reveal moves elsewhere. | Keep the original reference and update its location; do not refill the display or copy the card. | D-46/D-47. |
+| A bulk/combined shortcut changes several things, or draws from an empty Library. | Record individual actual mutations in sensible order, not one atomic invocation node. Empty draw adds no invented move; a combined tracking advance still happens. | D-176; [turn shortcuts](behavior.md#8-turns-and-shortcuts), D-111. |
+| Some selected targets are individually inapplicable; separately, a placement is structurally invalid. | Skip individually unusable targets under D-67, but do not drop invalid IDs or partially execute an invalid placement. An overflowing ordinary pile drop is rejected in full. | D-39/D-66/D-67. |
+| An ordinary move enters Library/Graveyard/Exile. | Apply the approved counter/corner resets and token disappearance; otherwise preserve unrelated card state. Same-container visual rearrangement is not a new container entry. | D-55/D-56/D-84; [move behavior](behavior.md#3-cards-placement-and-ordinary-piles). |
+| A lobby change races game start, or a start response is retried. | Server arrival order determines change-before-start versus rejection-after-start. Start/shuffle once, reuse recorded outcomes, and never add an automatic opening draw. | D-192/D-200/D-205. |
+| A player tries to use Sideboard during play. | There is no in-game Sideboard access, not merely a covered area. Saved/lobby preparation remains intact. | D-202/D-213. |
+| Saved-deck editing/deletion occurs after a copy was selected. | Preserve the selected lobby/game copy and its preparation; no replacement source deck is required. | D-191/D-199/D-221. |
+| A new random action is requested; separately, recorded results are reviewed/retried. | New invocations sample freshly; review/Redo/retry reuses stored results. This does not permit selective Undo of a revealing target. | D-87/D-92/D-93/D-224. |
+| A result is suggested but not accepted; separately, the opponent accepts it. | A pending suggestion is undoable board state; acceptance is not undoable and returns both to the prepared lobby with Ready cleared. Submitted game-wide chat is also not gameplay-undoable. | D-94/D-211/D-212/D-213. |
 
 ## Genuine gaps
 
-1. **Setup and release scope.** From invitation/deck import to a playable table:
-   D-188–D-191 settle authenticated navigation, adding users, import-only decks
-   and lobby preparation with both-player Ready. Deck/mainboard/sideboard changes
-   clear that player's Ready and do not change the saved deck. D-195 confirms
-   added-user invitations with Accept/Decline in Play and lobby entry on acceptance.
-   D-196 confirms username search and saving contacts without mutual approval.
-   D-208 confirms inviter access/preparation/Ready before acceptance, cancellation
-   through Cancel game and a retained lobby after Decline with reinvitation.
-   Remaining: exact search/contact removal/privacy, decline presentation/feedback,
-   pending-invite duplicates, cancellation races and retention/archive behavior,
-   remaining import dialect/printing/count details and saved-deck naming defaults/
-   deletion confirmation/recovery/retention and concurrent races, cover fallback/
-   replacement metadata (D-221 settles deletion scope and edit/delete copy isolation),
-   readiness effects of further setup controls, remaining lobby cancellation/
-   retention, further setup values/optional areas and
-   starter-selection defaults/edit access/random timing (lobby
-   selection with either player or Random, starting shuffle and life 20 are settled).
-   D-205 settles Ready prerequisites/withdrawal, persistence without simultaneous
-   online presence, start-versus-change ordering and one-time start recovery. Also open:
-   remaining mulligan per-card sequencing/concurrent count timing/count edges,
-   missing cards,
-   starter-selection retention/random resolution after
-   returning to lobby, export,
-   and which broader authoring/correction tools ship. D-211 settles undoable
-   win/loss/draw suggestions and other-player acceptance returning both to lobby;
-   D-212 settles non-undoable acceptance; competing/stale suggestions remain open. No
-   win-history feature is required, and D-210's blanket non-undoability is superseded.
-   D-213 settles restored lobby-prepared decks/mainboard/sideboard, both Ready
-   cleared on return and both-player readiness required for a fresh game.
-   D-214 excludes finished-session history review from R1 as optional future work;
-   current-game history/recovery remains in scope.
-   D-192 excludes automatic opening draws; mulligan quick actions are required,
-   not optional scope or a manual-moves-only procedure.
-2. **History groups and pings.** D-162–D-175 establish the core sequence/marker
-   model, including real-card Stack isolation, same-tuple tap interleaving, grouped
-   card/combat edits, forward display/combat closure and no ping/Undo markers.
-   Manual face/cover edits join card edits; author changes override every other
-   grouping rule. Token removal joins card edits; dice/coin runs attach forward
-   separately from prior play; phase/turn tracking joins the previous group.
-   Player values/counters and link edits share the ordinary edit family; event
-   comments join the previous group without starting a new one. Token creation
-   and Clone group together with interleaved customization. Non-token Remove is
-   forbidden, not an open grouping case. Each explicit View/Reveal opening starts
-   a separate group; combat-area creation and occurrence removal join combat edits.
-   Stack rearrangements group separately from entries/removals; individual effect
-   removals stay separately visible. D-176 fixes the underlying model: one mutation
-   per node; bulk controls issue individual ordered operations, all immediately
-   published. D-177 makes groups concurrent-animation playback steps, never nodes.
-   Remaining: same-author precedence, inspection/participant-association categories, leading-only/first
-   contexts, mixed-tuple/compound/extra-location cases and numbering mutations.
-   No separate ping ownership picker is needed. See the
-   [grouping rules and remaining inventory](../03-contracts/history-grouping.md).
-3. **Undo/Redo tree edits, controls and visibility.** D-232 confirms that Undo/Redo
-   edit the existing tree, not create revised branches or preserve an untouched
-   pre-Undo alternative. Removed mutations live in the Redo stack; their storage
-   retention after clearing is open. D-233 blocks Undo at a branching point or
-   before one on the current active path, without skipping the blocked latest own
-   target or rewriting alternatives. Actions after the latest fork still use the
-   usual checks. D-234 blocks Redo reinsertion before a newly created fork while
-   retaining the stack, accepting that the historical mutation may have no recovery
-   path with current controls. Exact anchors and archive/activation integration
-   remain open. Resolve review cursors, node identity/versioning, cached states,
-   comment/ping references and grouping.
-   No silent deletion/retargeting policy for those references is approved.
-   The earlier D-159 model confirmed one parent-node
-   step regardless of author and retained forward history. D-222 confirms a root
-   initial state/mutation tree, remembering the last active head on Undo and Redo
-   toward it, new active branches on changed play, and a graphical explorer with
-   explicit activation of any branch/node. No mandatory child picker is approved.
-   Hide only single-player/no-exposure inactive continuations behind the explorer
-   toggle; mixed-player/exposure paths stay visible in full. D-223 confirms event
-   comments also keep the whole continuation visible, even with one author/no exposure;
-   hide only single-player paths with neither exposure nor event comments.
-   Remaining: remembered-head scope across users/devices and updates after explicit
-   activation, concurrent/stale Redo/activation, detailed pre-fork/nested presentation,
-   archive/restore controls and separate empty-interruption semantics. D-161 targets a specific Undo transition,
-   silently discarding it if no longer valid and reconciling local state. The
-   historical-rollback preview proposal no longer defines Undo. D-177 specifies
-   personal resume traversal: last local state → animated rollback to fork →
-   grouped forward playback, with pause and exact scrubbing on a bottom timeline.
-   This traversal is not shared Undo/activation.
-   **Latest revision D-224:** selective mutation deletion/insertion requires every
-   later mutation's relevant-state `(from, to)` tuple to match exactly between
-   original/candidate timelines. A hard suffix-work cap N bounds eligibility
-   calculation; revealing targets are excluded from selective Undo. Define each
-   mutation's relevant state and N/counting unit. Remaining work also includes
-   Redo reinsertion anchors, pointer/view
-   controls, rewritten-tree/reference/grouping behavior and concurrent/stale checks.
-   Earlier parent-pointer-only/remembered-head rules do not settle this new design;
-   the stricter historical replay test does not change D-187 live acceptance.
-   D-225/D-226 confirm ordered Library/unordered Graveyard and Exile, with relevant
-   order dependencies for replay. D-226 resolves the old top/bottom-control mismatch:
-   no Graveyard/Exile order-related actions, even as visual placement. Exact
-   collapsed-pile presentation and other containers' ordering remain separate.
-   D-227/D-228 confirm that only your own new gameplay edit after Undo clears your
-   Redo queue, even if reinsertion would remain valid. Opponent actions retain it,
-   subject to current replay checks and N. D-229 confirms last-undone-first Redo
-   order. D-230 disables Redo on a blocked next entry without skipping/discarding;
-   D-231 fixes Undo to the latest still-applied **own** action even after opponent
-   actions, preserving those later actions under replay; never skip a blocked own
-   target or fall back to an opponent's action. Historical activation integration
-   remains separate.
-   D-235 confirms per-player, per-game Undo/Redo stacks as shared game state across
-   the account's devices, not device-local stacks or one stack for both players.
-   D-236 confirms concurrent same-account gameplay and server Undo requests:
-   two distinct requests count as two presses against successive current
-   candidates, not a same-seen-target collision to suppress. Retries of one
-   request still execute only once. Special multi-device UX is not a priority.
-   Other control races, sync timing, insertion anchors,
-   rejected/no-op requests and optimistic/server clearing timing
-   remain open. Older immutable-tree/retained-original-path assumptions do not
-   apply to D-232 tree editing; genuine interruption branches remain distinct.
-4. **Concurrent online actions and connection loss.** D-182 removes offline game
-   actions and later queue replay from initial delivery; downloaded history remains
-   readable offline. Offline queue recovery is not an initial-delivery obligation.
-   Online latency hiding remains, including recovery of requests that
-   may already have reached the server when the connection drops. D-216 confirms
-   automatic recovery of already-sent actions after reconnect, without manual
-   resending or duplicate execution. Exact readiness, outcome lookup/retry
-   protocol/recovery ordering, online-buffered but not-yet-sent actions and
-   animation scheduling remain open, not whether recovery is automatic.
-   D-215 confirms a **Reconnecting... dialog blocking gameplay actions when
-   disconnected**, including shared Undo/branch controls under D-182. Dialog
-   navigation/dismissal and exact reconnect readiness remain open. D-216 separately
-   approves automatic recovery for already-sent online actions; neither decision
-   introduces a routine online acknowledgement barrier or offline gameplay.
-   D-183 confirms a small local online send queue, concurrent transmission and
-   individual action success/failure with no routine acknowledgement gate on
-   interaction. D-184 fixes client send order and server arrival-order processing,
-   without sequencing dependency metadata or acknowledgement waits. Remaining
-   queue work is exact sizing/saturation, ordered-transport selection, provisional
-   references and animation scheduling—not whether concurrent sending, individual
-   outcomes or arrival-order processing are supported.
-   D-179 replaces automatic conflict branching with explicit UI/message intent;
-   D-232 Undo/Redo edit the tree without supplying that intent. D-187 normally accepts ordinary
-   actions at current state unless impossible, removing D-181's old-field checks
-   and D-186's Set comparison. Moves retain source/destination guards; Stack
-   additions send current client Stack state and reject if the server's Stack
-   state differs. The Stack comparator is settled, not an opponent/seen detector;
-   remaining work is exact snapshot representation, provisional references and
-   precise move guards, not a general previous-value table. The
-   [old 25-rule proposal](../03-contracts/optimistic-locking.md) is superseded,
-   not approved. D-180/D-185 immediate feedback and difference-only reconciliation
-   remain: preserve accepted work and valid pending predictions, correct genuinely
-   invalid ones, and do not animate mere acknowledgements. D-177 deliberate
-   history/interruption playback is distinct. Remaining work also includes exact
-   bookkeeping/scheduling, connection-loss recovery mechanics, simultaneous explicit
-   interruptions and stale non-Undo controls; old conflict-branch/locking proposals
-   are not release requirements.
-5. **References and projection controls.** Occurrence removal versus token-source
-   removal (non-token cards cannot be deleted); surviving Stack effects after
-   token disappearance; duplicate-source selections; mixed link/ping endpoints;
-   removed tokens in View/Reveal displays.
-6. **Combat/Stack entry and destinations.** Dragging before combat exists,
-   remaining between-pair targeting, attack destination/player association,
-   real-card versus projection Stack entry/order, quick-exit fallbacks for
-   unknown/multi-face data, and missing-area/out-of-step combined actions.
-   Special sorting policies do not solve these gaps.
-7. **Inspection and communication history.** Exposure logging/coalescing without
-   unwanted gameplay branching; View/Reveal dismissal/Undo; covered historical
-   summaries; comment/chat edit/delete, pending delivery, and response requests.
-   Read-only offline inspection that would create a new shared exposure record
-   needs a policy consistent with D-182, not an implicit offline publication queue.
-8. **Shared action details.** A consistent policy for empty/no-change/stale/invalid
-   inputs and affected/skipped feedback; menu scope on unselected cards; token
-   auto-placement/initialization; numeric grammar/limits; same-pile reorder versus
-   entry resets; ambiguous metadata/defaults. Use shared contracts, not hundreds
-   of special cases.
-9. **Product/platform choices.** Registration fields, email/password login,
-   email password reset and username/email privacy are confirmed. D-217 confirms
-   staying logged in across restarts and, after session expiry, logging in again
-   to return to the same game and recover pending already-sent actions. Field
-   validation, verification, exact session/recovery mechanics, logout/account
-   switching and expired-session offline access remain open. D-218 confirms the
-   same account on multiple devices with saved decks, contacts and games synced;
-   exact simultaneous-edit conflicts, device/session revocation, sync timing and
-   personal-device-state transfer remain open, along
-   with hosting, catalog/image rights,
-   offline storage/retention, device/language/accessibility support, remaining
-   notification/privacy behavior and deletion/export guarantees. D-220 defers both
-   in-app global/per-game notification mute settings beyond R1; use Android channel
-   settings for R1. Protocols, randomness source,
-   APIs/migrations, backups, and performance follow in the relevant design stage.
+These are concrete remaining product choices identified in this pruning. Existing
+rules constrain them but do not uniquely select the missing outcome. They are
+not resolved by the table above; no option is silently approved here.
 
-Known wording/status drift is tracked separately in the
-[agent specification audit](../../agent/specification-audit.md).
+| Missing outcome | Why current rules do not finish it | Primary contract / tracking |
+| --- | --- | --- |
+| **Viewing a removed history node.** What does a personal viewer see when someone successfully removes the node currently being viewed? | Tree editing removes the node without retaining an original branch. Personal viewing is not a later shared mutation protected by the replay test; preserving the old displayed snapshot versus selecting a surviving boundary has not been specified. | [History](../03-contracts/history-and-undo.md#selective-mutation-undoredo--d-224), Q-05/Q-31. |
+| **Communication correction.** May submitted chat/comments be edited or deleted, and what revision context remains? | Chat non-undoability and comment dependency/grouping rules do not decide a separate message-edit/delete feature. Ordinary Undo of an eligible comment remains governed by existing rules. | [Optional text](../03-contracts/visual-action-language.md#116-optional-text), Q-26/Q-31. |
+| **Competing result suggestions.** What happens when another result is suggested while one is already pending? | Other-player acceptance and non-undoable return to lobby are settled; one replaceable suggestion versus several pending suggestions is not. Do not reopen acceptance requirements or invent scorekeeping. | [Ending play](../03-contracts/accounts-decks-and-lobby.md#result-suggestion-acceptance-and-return-to-lobby--d-211), Q-10. |
+| **Inspection after source disappearance.** What information remains inspectable in a surviving Stack effect/reference display after its token source disappears? | Keeping the occurrence/reference is settled, as is the impossibility of editing a nonexistent source. Last-known card state versus only retained reference/printed information is not specified; do not silently recreate the token. | [Projection lifetime](../03-contracts/combat-stack-and-projections.md#135-confirmed-area-specific-lifetime-d-124d-125), Q-28/Q-33/Q-35. |
+| **User-visible recovery and privacy promises.** Is saved-deck/cancelled-game deletion recoverable, and what downloaded account data survives Logout/account switching or erasure? | Copy isolation and removal from current lists do not promise trash/restore, permanent deletion or local-data retention. Those are real recovery/privacy choices; backup/storage mechanics are separate. | [Accounts/decks/lobby](../03-contracts/accounts-decks-and-lobby.md), Q-09/Q-18/Q-19. |
+| **Remaining release scope.** Which still-proposed authoring/coordination capabilities belong in R1? | A generic data model or an old draft does not approve custom non-card pieces, arbitrary authoring/layout tools, fuller deck editing/export, manual group editing, response requests/read receipts or extra areas/import formats. Review the scope bundle rather than design every hypothetical tool. | [Broader draft scope](#broader-draft-scope--not-all-confirmed), Q-11/Q-13/Q-14/Q-27. |
+
+This is not a certification that behavior specification is complete. Further
+edge cases may be found, but an owner question needs a concrete unresolved
+outcome or conflicting requirements, not merely a new example of an existing rule.
+
+## Specification work — not fresh product questions
+
+| Work lane | What remains | How to handle it |
+| --- | --- | --- |
+| **Contract/test completion (stage 1).** | Per-mutation relevant fields/preconditions, sensible bulk ordering, exact guards, reference/cleanup mappings, no-op/failure outcomes and traceable scenarios. Audit grouping precedence/first-context sequences and offline inspection against existing rules. | Write spec-derived outcomes in reviewable batches and test them. Escalate only an actual ambiguity/contradiction. Do not ask for each move/tap/annotation dependency, empty draw, absent source or selected-target variant. |
+| **Technical design.** | Replay N/counting, insertion-anchor encoding, node IDs/versioning, cached-state rewrites, request identities/ordering/recovery, Stack snapshot equality representation, randomness source, numeric/resource limits, import normalization/provider compatibility and schema/API details. | Specify and validate against approved observable outcomes in the relevant technical work. A missing representation/parameter is not a missing usability model. Online-created unsent/recovery cases still need explicit contract coverage; first check existing connected-only, pending-work and no-duplicate requirements. |
+| **Later UI decisions (stage 3).** | Exact screen/menu names, control placement, gesture arbitration/drop geometry, accessible alternatives, feedback, browser rendering, animation timing and notification permission/channel presentation. | Preserve approved gestures, placement rules, immediate sync and read-only access. Do not present every layout/default as an unfinished stage-1 behavior decision. A real missing state transition still belongs in the product lane. |
+| **Platform/service/release constraints.** | Supported Android/device/language/distribution targets; hosting/catalog rights, security/privacy, retention/erasure, cache policy, notification delivery and operational/performance objectives. | Keep them visible for their proper decision/design stage. Product promises and scope need owner approval; technical choices remain technical work. Neither is an excuse to invent a new gameplay rule. |
+
+The [classified Q-register](../../agent/decisions.md#93-release-blocking-questions)
+keeps stable tracking IDs while replacing the original mixed question queue.
+Older "open" wording elsewhere is not an automatic owner-question queue. Known
+drift and the pruning rationale are in the [specification audit](../../agent/specification-audit.md).
+
+## Broader draft scope — not all confirmed
+
+Do not silently include or exclude these because they appeared in an older draft:
+
+- Arbitrary named values/participant associations, custom non-card pieces/markers,
+  general authoring/layout or correction tools beyond the approved tabletop tools.
+- Full manual deck authoring/export, additional import formats/sections, configurable
+  starting arrangements or extra in-game areas beyond approved scope.
+- Optional manual group editing, branch comparison/renaming, live-follow or
+  cross-device personal review progress, response requests/read receipts, additional
+  alert categories, presence and recovery-center features.
+
+Generic primitives and capability inventories do not approve these features.
+Existing confirmed accounts/import/lobby/gameplay/history/push behavior remains in
+the [overview](behavior.md); it is not another scope question here.
+
+**Already deferred, not R1 gaps:** finished-game history archives/review are
+optional future development (D-214); in-app global/per-game notification mutes
+are post-R1, using Android channel settings in R1 (D-220).
+
+The release direction still excludes automatic rules/legality enforcement,
+competitive anti-cheat, matchmaking/rankings/tournaments/clocks, public spectators/
+chat, AI opponents, multiplayer and non-Android gameplay clients. Offline gameplay
+creation/replay is excluded by D-182; downloaded read-only access remains.

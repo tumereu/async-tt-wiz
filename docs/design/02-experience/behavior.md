@@ -371,16 +371,18 @@ The general rules are:
   existing tree. Neither creates a new branch or preserves the old path as an
   alternative. Later actions replay in the edited tree, under D-224. Removed
   mutations are held for Redo, not placed in an explorer branch. D-233 below
-  prevents Undo at or before a fork. Review cursors and comment/ping references
-  affected by an edit still need explicit handling; do not silently delete or
-  retarget them. Storage retention after
+  prevents Undo at or before a fork. A dependent comment/ping blocks removal of
+  its referenced mutation under the replay rule; deleting or retargeting it is
+  not an alternative. What a personal viewer sees if their current history node
+  is removed still needs a contract. Storage retention after
   Redo-queue clearing remains open. Explicit interruptions can still branch.
 - **Redo after new play (D-227/D-228):** after Undo, only your own new gameplay
   edit clears your Redo queue, even if the removed mutations could still be
   safely reinserted. Opponent actions retain your queue, but can make reinsertion
   fail the replay checks or exceed N. No original explorer path is required by
-  queue clearing (D-232). Rejected/no-op requests and exact clearing timing still
-  need decisions.
+  queue clearing (D-232). Rejected/no-op requests do not create a successful new
+  gameplay mutation and therefore do not clear it; exact clearing bookkeeping
+  remains technical work.
 - **Across devices (D-235):** your per-game Undo/Redo stack is shared game state,
   synchronized across your devices. Undo on your phone and Redo on your tablet
   under the same eligibility checks. Your latest own action can come from either

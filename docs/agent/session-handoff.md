@@ -4,6 +4,16 @@ Updated 2026-10-19. This is continuation context, not a new source of requiremen
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
 
+## Saving edits — D-178
+
+The owner now requires commit and push after every completed edit batch, before
+replying, without a separate request. Use `./scripts/save.sh <edited paths...>`
+with its fixed message `Update project`; do not spend time crafting messages.
+Run applicable checks, inspect staged changes and exclude unrelated work. With
+no arguments the helper uses the existing index; with no new changes it still
+pushes, allowing a retry. Report failures without force pushing/bypassing checks.
+This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
+
 ## Current correction — mutation tree and playback, D-176/D-177
 
 The owner corrected the assistant's underlying model. **One node is one individual
@@ -137,7 +147,7 @@ questions about already-settled tuples or which user-facing owner to pick for pi
 The Undo/tier-reorganization checkpoint was committed/pushed as `815a912`;
 the grouping checkpoint through D-171/T-320 was committed/pushed as `5a707aa`.
 D-172–D-174 are subsequent discussion work; inspect git status/log for their working state.
-Continue committing/pushing at natural checkpoints, not necessarily every answer.
+Follow D-178: validate, commit and push after every completed edit batch.
 Remaining action families and same-author compound precedence are explicitly open;
 this is not completion of grouping design or authorization to implement.
 
@@ -174,12 +184,12 @@ this is not completion of grouping design or authorization to implement.
 - New user-specified gestures/spatial behavior are requirements now; exact screen
   drafts, geometry, menus, and accessibility layouts follow in stage 3.
 - Synchronize the decision register, primary contracts, worklist, and acceptance
-  scenarios. Commit/push at natural checkpoints, not necessarily every answer.
+  scenarios. Validate, commit and push after every completed edit batch (D-178).
 - Do not delegate/spawn agents without an applicable explicit instruction.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-177** and **T-001–T-348**.
+- Current documentation includes **D-001–D-178** and **T-001–T-348**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

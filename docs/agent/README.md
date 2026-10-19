@@ -14,8 +14,10 @@ in the appropriate design tier. An unapproved proposal, old handoff, or worklist
 must not silently override current confirmed behavior. Record contradictions for
 resolution instead of guessing.
 
-Preserve D-57's occasional commit/push checkpoints and distinguish approved
-decisions from proposals. Its normal next-question convention is subject to the
-latest owner direction: do not manufacture tiny follow-up decisions instead of
+Follow D-178 and [the project instructions](../../AGENTS.md): validate, commit and
+push after every completed edit batch using `./scripts/save.sh <edited paths...>`
+and its fixed message. This replaces D-57's occasional-checkpoint cadence.
+Distinguish approved decisions from proposals. The normal next-question convention
+is subject to the latest owner direction: do not manufacture tiny follow-up decisions instead of
 maintaining a simple, consistent design. File reorganization is not new behavior
 approval or permission to implement.

@@ -25,9 +25,11 @@ numbered sets, allowing approval together or exceptions by number. Do not
 fragment every routine default into a separate conversational turn.
 
 Review continuity (D-57): end design updates with the next contextualized
-question/batch rather than waiting for “next?”. Commit and push at natural
-checkpoints while keeping proposed versus approved behavior explicit. This does
-not change the documentation-only implementation gate.
+question/batch rather than waiting for “next?”. D-178 replaces occasional
+checkpoints: validate, commit and push after every completed edit batch using
+`./scripts/save.sh <edited paths...>` with its fixed message. Keep proposed
+versus approved behavior explicit. This does not change the documentation-only
+implementation gate.
 
 ## 12.1 Reference and review sequence
 

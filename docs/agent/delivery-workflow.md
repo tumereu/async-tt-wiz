@@ -4,6 +4,20 @@ These are the existing delivery gates and agent implementation instructions,
 separated from [acceptance scenarios](../design/05-verification/acceptance.md).
 The original section numbers remain for stable links.
 
+## Saving edits (D-178)
+
+After every completed edit batch, run the applicable checks and then
+`./scripts/save.sh <edited paths...>` from the repository root. Do this before
+replying, without waiting for another commit/push request. The helper uses the
+fixed message `Update project`; custom messages are unnecessary in this phase.
+Discussion without file edits does not require a commit.
+
+Inspect status/staged changes and preserve unrelated work. Pass only task-owned
+paths; with no arguments the helper commits the existing index. It skips an empty
+commit but still pushes, so the same command can retry a failed push. Failures
+stop the script and must be reported; do not force push or bypass hooks/checks.
+This workflow automation does not authorize application implementation.
+
 ## 8.3 Specification readiness gate
 
 D-115 supersedes the previous blanket gate requiring every UI and technical

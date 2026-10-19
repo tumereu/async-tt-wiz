@@ -46,10 +46,11 @@ old future after a response. Exact overall release scope still needs sign-off.
 ## Genuine gaps
 
 1. **Setup and release scope.** From invitation/deck import to a playable table:
-   D-188–D-190 settle authenticated navigation, adding users, import-only decks
-   and lobby preparation with both-player Ready. Remaining: invite flow, import
-   formats/errors, readiness prerequisites/changes, saved-deck versus lobby
-   changes, initial shuffle, starting arrangement/values/hands, missing cards,
+   D-188–D-191 settle authenticated navigation, adding users, import-only decks
+   and lobby preparation with both-player Ready. Deck/mainboard/sideboard changes
+   clear that player's Ready and do not change the saved deck. Remaining: invite
+   flow, import formats/errors, readiness prerequisites/withdrawal/other setup
+   changes, start-versus-edit races, initial shuffle, starting arrangement/values/hands, missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.
 2. **History groups and pings.** D-162–D-175 establish the core sequence/marker
    model, including real-card Stack isolation, same-tuple tap interleaving, grouped

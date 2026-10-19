@@ -63,6 +63,9 @@ mainboard/sideboard management and both-player Ready. The
 from open details. Friends as a separate menu name is tentative. Other screen
 responsibilities below remain proposed unless separately confirmed.
 
+D-191 additionally confirms that changing your deck/mainboard/sideboard clears
+your own Ready, and lobby deck changes do not modify the saved deck.
+
 | Screen | Main responsibilities |
 | --- | --- |
 | Login/registration | Login is required to reach the main menu; registration is available (D-188). Method, session persistence and recovery remain open. |

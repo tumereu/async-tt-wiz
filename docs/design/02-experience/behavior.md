@@ -39,7 +39,9 @@ The general rules are:
   full manual deck-building editor.
 - A game begins in a lobby. Players choose decks and manage their mainboards/
   sideboards there, then each presses Ready. Once both are ready, the game starts.
-  Readiness changes, exact starting setup and invitation details remain open in
+  Changing your deck or mainboard/sideboard clears your own Ready; lobby deck
+  changes affect only this game, not the saved deck. Other readiness details,
+  exact starting setup and invitation details remain open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
 
 ### 1. A cooperative table, not a rules referee

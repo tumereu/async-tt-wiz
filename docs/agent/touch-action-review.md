@@ -23,8 +23,10 @@ lists current games/pending invites. Deck editing is import-list-only. A game
 begins in a lobby with deck selection and mainboard/sideboard management, and
 starts once both players press Ready. See the
 [primary contract](../design/03-contracts/accounts-decks-and-lobby.md) and
-T-396–T-402. Next substantive setup gaps: readiness changes, saved-deck isolation,
-invitation flow and actual starting operations. Do not silently approve full deck
+T-396–T-405. D-191 confirms that changing your deck/mainboard/sideboard clears
+your own Ready and lobby changes leave the saved deck untouched. Next substantive
+setup gaps: actual starting operations, invitation flow and remaining readiness/
+start-versus-edit behavior. Do not silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.
 
 **Current model (D-176/D-177):** one individual mutation per node, including

@@ -22,7 +22,9 @@ how an existing authenticated session supports it remains to be specified.
 - In a game's lobby, a player chooses a deck and can manage its **mainboard and
   sideboard**. This lobby capability is distinct from a full saved-deck editor.
 - Supported list syntax, card resolution/errors, saved-deck naming/replacement,
-  and whether lobby mainboard/sideboard changes affect the saved deck remain open.
+  and import replacement behavior remain open.
+- **Lobby changes are game-local (D-191):** choosing/preparing a deck and changing
+  its mainboard/sideboard for this game do not modify the saved deck.
 
 The existing no-rules-referee boundary remains: these controls do not imply
 format-legality validation or automated sideboarding rules.
@@ -35,6 +37,12 @@ format-legality validation or automated sideboarding rules.
    one player's Ready alone does not start it. No separate host Start action is
    required by this flow.
 
+**Ready follows your deck preparation (D-191):** changing your chosen deck or
+mainboard/sideboard clears **your own Ready**, not the other player's. You must
+press Ready again for the changed preparation before both-player readiness can
+start the game. This rule applies while the game is still in the lobby; the exact
+race between a lobby edit and game start remains to be specified.
+
 This supersedes the assistant's immediate-playable-table suggestion; it was not
 approved. A lobby Ready control is pregame coordination, not a gameplay Send or
 publication gate. Existing gameplay mutations still synchronize immediately.
@@ -45,13 +53,15 @@ choose initial pile order, shuffling, opening-hand dealing or mulligan behavior.
 
 ## Remaining behavior decisions
 
-- Readiness prerequisites, withdrawing Ready, changes after Ready, and the exact
-  configuration to which readiness applies.
+- Readiness prerequisites, manually withdrawing Ready, and readiness effects of
+  other setup changes. Deck/mainboard/sideboard changes clear the affected
+  player's Ready (D-191), not an open policy.
 - Invite/lobby persistence, leaving/cancellation, reconnect and competing Ready/
   setup changes, with no requirement that both players remain online together yet
   decided.
 - Initial arrangement/values, starter-selection access, and which explicit setup
   operations occur on starting, including shuffle and opening hands.
-- Lobby-versus-game history/Undo boundary and saved-deck isolation.
+- Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
+  (D-191), not an unresolved persistence choice.
 
 These are behavior gaps, not authorization for application code or UI drafts.

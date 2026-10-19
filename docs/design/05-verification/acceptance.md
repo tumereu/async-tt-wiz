@@ -411,9 +411,12 @@ in-flight delivery recovery remain distinct from supporting offline gameplay.
 | T-397 | A logged-in user reaches the main menu. | Offer Logout, Manage decks and Play. Adding other users is supported; a separate Friends label/menu and request mechanics are not decided (D-188). |
 | T-398 | A user opens Play with existing games and pending invitations. | Include current games and pending invites; do not require a new invitation merely to resume a current game. Exact invite acceptance/decline and completed-game presentation remain open (D-190). |
 | T-399 | A user manages decks. | Provide card-list import, not an assumed full manual deck editor or export workflow. Import formats/card resolution and saved-deck lifecycle remain open (D-189). |
-| T-400 | Players prepare a newly created game. | The game is in a lobby with deck selection and mainboard/sideboard management, rather than immediately active play. Lobby edits versus saved-deck persistence remain open (D-189/D-190). |
-| T-401 | One player presses Ready while the other has not. | Remain in the lobby; both-player readiness is required to start. Changes/withdrawal after Ready and precise prerequisites still need decisions (D-190). |
+| T-400 | Players prepare a newly created game. | The game is in a lobby with deck selection and mainboard/sideboard management, rather than immediately active play. Lobby deck changes affect only this game and preserve saved decks (D-189–D-191). |
+| T-401 | One player presses Ready while the other has not. | Remain in the lobby; both-player readiness is required to start. D-191 clears that player's Ready after a deck/mainboard/sideboard change; manual withdrawal, other setup changes and precise prerequisites remain open (D-190/D-191). |
 | T-402 | Both players have pressed Ready. | Start the game without a separate host Start action. Preserve D-108's starter choice and turn-1 Untap; no shuffle/opening-hand procedure is inferred from Ready alone (D-190). |
+| T-403 | A ready player chooses another deck while the game remains in the lobby. | Clear that player's Ready, preserve the other player's readiness, and require the changed player to ready again before start (D-191). Start-versus-edit race handling remains open. |
+| T-404 | A ready player changes their mainboard/sideboard while still in the lobby. | Clear that player's Ready, not the other player's. Do not start on readiness given before that change (D-191). |
+| T-405 | A player changes a selected deck's mainboard/sideboard in one game's lobby, then opens the saved deck or selects it for another game. | Retain the preparation changes only in the original game; the saved deck remains unchanged, so another selection does not inherit those game-local edits (D-191). |
 
 D-159/D-160 settle parent-node Undo, retained ordinary alternatives behind a
 toggle and whole-branch exposure/comment visibility, replacing the last-exposure

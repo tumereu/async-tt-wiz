@@ -194,13 +194,16 @@
 | D-188 | Login is required before reaching the main menu; registration is available. Main menu has Logout, Manage decks and Play. Users can add other users. | Owner specified authenticated entry, not guest access. Friends as a separate menu/feature name is tentative. Authentication method, account recovery/session persistence, user lookup/request/removal and invite routing remain open. Preserve downloaded read-only offline access; its interaction with login/session persistence needs specification. |
 | D-189 | The deck editor is currently card-list import only. In a game lobby, players can choose a deck and manage its mainboard/sideboard. | Narrows older full deck-editor proposals: no implied manual saved-deck quantity/printing editing or export requirement. Lobby mainboard/sideboard management is separately required. Formats/resolution/errors, saved-deck lifecycle and whether lobby changes update the saved deck remain open. No inferred format/sideboarding legality. |
 | D-190 | Play shows current games, including pending invitations. A game initially has a lobby state; the game starts after both players press Ready. | Owner selects a pregame readiness gate rather than the assistant's immediate-playable-table recommendation. Each player readies; one Ready alone does not start play and no extra host Start is required. Readiness prerequisites/withdrawal/changes, invitation details, lobby persistence/concurrency and initial setup operations remain open. D-108 starter/turn-1 Untap remains; no shuffle, opening-hand or mulligan automation is approved here. Lobby readiness does not add a gameplay Send gate or authorize implementation. |
+| D-191 | Changing your chosen deck or mainboard/sideboard in the lobby clears your own Ready. Lobby deck changes affect only that game, not the saved deck. | Owner approved both recommendations together. Preserve the other player's Ready; the affected player must ready again for the changed preparation. Resolves D-189/D-190's saved-deck isolation and deck-change readiness gaps, not all readiness prerequisites/withdrawal or start-versus-edit races. Does not decide starting shuffle/hands, invite behavior or the lobby/game-history boundary; no implementation or stage transition is authorized. |
 
-**Latest setup decisions — D-188–D-190:** authenticated main menu, adding users,
+**Latest setup decisions — D-188–D-191:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
 selection, mainboard/sideboard management and both-player Ready. Primary behavior:
 [accounts, decks, and lobby](../design/03-contracts/accounts-decks-and-lobby.md).
-Friends naming, exact invitations/readiness changes and starting operations remain
-open; the assistant's immediately usable table suggestion was not approved.
+Deck/mainboard/sideboard changes clear that player's Ready; lobby changes leave
+the saved deck unchanged (D-191). Friends naming, exact invitations, other
+readiness details and starting operations remain open; the assistant's immediately
+usable table suggestion was not approved.
 
 **Latest acceptance correction — D-187:** ordinary actions normally succeed;
 do not compare old orientation, note text or Set values. Exceptional movement
@@ -345,7 +348,7 @@ behavior cases must not be silently deferred until coding.
 | --- | --- | --- |
 | Q-08 | Hosted service, self-hosted service, or both? Who operates it? | Determines onboarding, cost, backup, and deployment. |
 | Q-09 | Which authentication method, registration/recovery/session behavior and multiple-device support? How does adding users work? | D-188 confirms required login before the main menu, registration and adding users, not guest entry. Friends naming and user lookup/request/removal remain open; preserve downloaded read-only offline access. |
-| Q-10 | Which starting operations/layouts, readiness-change policies and fresh-table/rematch conveniences are first-release obligations? | D-189/D-190 confirm import-only deck management, lobby deck selection/mainboard/sideboard and both-player Ready. Exact saved-deck isolation, start setup and invitation/lobby lifecycle remain open; presets cannot introduce inferred rules. |
+| Q-10 | Which starting operations/layouts, remaining readiness policies and fresh-table/rematch conveniences are first-release obligations? | D-189–D-191 confirm import-only deck management, lobby deck selection/mainboard/sideboard, both-player Ready, clearing your own Ready after deck preparation changes and game-local lobby edits that preserve saved decks. Start setup, other readiness details/start-versus-edit races and invitation/lobby lifecycle remain open; presets cannot introduce inferred rules. |
 | Q-11 | Which generic pieces/links/faces/trackers are needed to represent complex manual-play scenarios? | Verify MTG coverage without game-specific entities or inferred actions. |
 | Q-12 | Required Android versions, device sizes, languages, distribution method? | Sets UI and platform contracts. |
 | Q-13 | Notification provider/preferences, read-receipt visibility, response-request behavior? | Defines async coordination without false rules consent. |

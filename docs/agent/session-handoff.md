@@ -14,6 +14,20 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest container-order clarification — D-225
+
+Owner approved independent Graveyard arrivals not blocking selective Undo,
+explicitly because **Library is ordered; Graveyard is unordered** (T-510/T-511).
+Relevant state includes order dependencies for top-of-Library draws: never draw
+a different card or silently take the recorded target from beneath another card.
+Independent Graveyard arrivals do not depend on its contents/absolute indices.
+All other D-224 checks, exposure restrictions and N still apply. Older top/bottom
+Graveyard placement/ordered-presentation wording now needs reconciliation; keeping
+those controls as visual placement versus removing them is **open**, not approved.
+Do not infer Exile/other-container ordering or add MTG rules enforcement. Next
+useful question: resolve those existing Graveyard controls before finalizing their
+presentation, then continue mutation relevant-state cases.
+
 ## Latest selective Undo/Redo safety rule — D-224
 
 The owner reopened pointer/control design and explored own-action selective Undo,
@@ -540,7 +554,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-224** and **T-001–T-509**.
+- Current documentation includes **D-001–D-225** and **T-001–T-511**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

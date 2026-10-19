@@ -423,7 +423,16 @@ card. It operates on multiple cards only after ordinary explicit selection.
 
 Special piles represent container contents, unlike the layout-only piles above.
 
-Confirmed incoming movement: dropping a card onto any of these three configured
+**D-225 clarification:** Library is ordered; Graveyard is unordered. For selective
+Undo/Redo, order-dependent Library operations retain their ordering dependencies;
+independent moves into Graveyard do not depend on its contents/order/absolute
+indices. The earlier Graveyard top/bottom and ordered-presentation descriptions
+below are under revision: retaining those controls as visual placement versus
+removing them is open. They must not override Graveyard's unordered semantics.
+This does not decide Exile's ordering; see
+[selective Undo/Redo](history-and-undo.md#selective-mutation-undoredo--d-224).
+
+Earlier confirmed incoming movement: dropping a card onto any of these three configured
 piles inserts it at the top. Context Move offers both top and bottom for each;
 see section 10.4.
 

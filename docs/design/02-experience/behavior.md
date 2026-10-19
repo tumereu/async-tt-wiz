@@ -360,6 +360,11 @@ The general rules are:
   targets. No compensating edit is appended. Pointer/button behavior, own-action
   selection, Redo queue and rewritten-tree presentation remain open; the older
   parent-pointer description below is no longer the complete Undo definition.
+- **Container order (D-225):** Library is ordered; Graveyard is unordered. Undo
+  cannot change which card a later top-of-Library draw takes. Independent moves
+  into Graveyard need not block each other merely because its contents or display
+  positions differ. Older Graveyard top/bottom controls need reconciliation;
+  keeping them as visual placement versus removing them remains open.
 - In the earlier rewind model, Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
    select its state, while merely reviewing it does not make it current. Bulk and

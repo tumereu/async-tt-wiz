@@ -184,6 +184,10 @@ old future after a response. Exact overall release scope still needs sign-off.
    controls, rewritten-tree/reference/grouping behavior and concurrent/stale checks.
    Earlier parent-pointer-only/remembered-head rules do not settle this new design;
    the stricter historical replay test does not change D-187 live acceptance.
+   D-225 confirms ordered Library/unordered Graveyard and order dependencies for
+   replay. Reconcile older Graveyard top/bottom and ordered-presentation wording:
+   visual-placement controls versus their removal is still open. Exile and other
+   containers' ordering are not decided by that clarification.
 4. **Concurrent online actions and connection loss.** D-182 removes offline game
    actions and later queue replay from initial delivery; downloaded history remains
    readable offline. Offline queue recovery is not an initial-delivery obligation.

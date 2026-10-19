@@ -523,6 +523,13 @@ Ordered moves name an insertion position; “top” and “bottom” do not depe
 screen orientation. Multi-card moves specify the moved cards' order. Display
 sorting is distinct from changing actual container order.
 
+**D-225:** Library is ordered; Graveyard is unordered. Relevant-state replay
+checks include order dependencies for operations such as drawing the top Library
+card, but not Graveyard contents/absolute indices for independent moves into it.
+Earlier Graveyard logical-top/bottom descriptions below need reconciliation;
+retaining visual placement controls versus removing them remains open. Do not
+extend this ordering decision to Exile or infer whole-container replay locks.
+
 Confirmed library-browser convention (D-42): the full contents view does not
 expose actual library order. Its order-independent presentation does not alter
 the underlying ordered container. In contrast, View/Reveal top N show source

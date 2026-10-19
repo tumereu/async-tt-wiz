@@ -66,7 +66,7 @@ open; button wording/placement is stage 3.
 | Zone browser / pile actions | Pile tap opens contents and pile context actions together. Contents use card-type category columns with name search/filtering and hold inspection (D-50). Explicit View/Reveal is shared/logged: View shows faces to its actor and backs to the other participant; Reveal shows faces to both. Full-library contents hide overall order; explicit top/bottom-N displays preserve source order rather than type-grouping. Grouping/filtering never reorder stored contents; exact columns and covered opponent layout remain open. |
 | Action/group review | Before/after changes, action stepping, interrupt at this boundary. |
 | History tree | Forks, active path, archived lines, compare, switch, return, restore. |
-| Sync/recovery center | Pending/failed work, automatic conflict branches, retry/export/recover. |
+| Sync/recovery center | Pending/rejected/failed work, explicit interruptions, retry/export/recover. |
 | Game communication | Context-linked messages, response requests, game activity. |
 | Settings/storage | Notifications, accessibility, cached data, account and data management. |
 
@@ -127,9 +127,10 @@ available when viewing history or an inactive branch; it must not discard drafts
 3. Let the player interrupt automatic playback. When paused, show the horizontal
    event timeline at the bottom; dragging left/right selects an exact mutation
    boundary, including one inside a group.
-4. Continue playback or perform a game edit at that node. Navigation alone does
-   not publish edits or activate a different shared continuation. A new edit
-   immediately extends or branches the chosen node/path (D-176).
+4. Continue playback or explicitly choose to continue play at that historical
+   node before editing. D-179 requires deliberate continuation intent; navigation
+   alone does not supply it. Undo supplies it automatically. Ordinary edits
+   otherwise use current-head from/to validation, not automatic historical forks.
 5. At the latest mutation, identify the current state without implying priority
    passing, legality approval or consent.
 
@@ -145,16 +146,19 @@ changing the board under a user's finger.
 ## 5.4 Interruption flow
 
 1. Navigate to the boundary immediately before the action to interrupt.
-2. Perform the reaction using ordinary board controls. The review context
-   identifies the fork; a separate **Respond here** step is optional.
+2. Explicitly choose to go back and continue from that state, then perform the
+   reaction using ordinary board controls. This deliberate UI action supplies
+   an interruption flag and chosen boundary in the server message (D-179).
+   Undo supplies continuation intent in the background without another prompt.
 3. The first completed reaction applies locally and automatically synchronizes
    branch creation/activation. Show the preserved original line and offer
     explicit **Return to original continuation** and **Delete branch and return**.
     Normal Undo moves to the parent/fork; it does not jump to the original future.
 4. Further reaction actions synchronize as they happen, grouped automatically.
 
-Use a persistent, lightweight “Editing here starts a new branch” indicator in
-historical views rather than a routine confirmation dialog. Ordinary hold
+The UI must distinguish inspection from deliberately continuing here. Exact
+control naming/layout remains stage 3; a historical cursor or passive warning
+alone is not authorization to branch. Ordinary hold
 inspection alone does not create a branch. Explicit View/Reveal is logged;
 its exact history/branch association remains Q-28. Optional naming and
 explanations never block play.
@@ -311,25 +315,24 @@ decided before implementation.
 ## 5.7 Offline, pending, and conflict states
 
 Use explicit states: downloaded/current, offline/stale, incomplete input, queued,
-sending, synchronized, automatically branched, and failed/retryable.
+sending, synchronized, rejected, explicitly branched, and failed/retryable.
 
 The user can continue with cached cards and games offline. Unavailable images
 fall back to text; an unavailable card definition must not prevent inspection of
 an existing object's stored essential data. Joining an unknown game or importing
 unknown catalog entries may require connectivity and must say so.
 
-A queued action is not labeled delivered. A concurrent game edit automatically
-branches and synchronizes, with a non-blocking notice showing the divergence,
-active line, and explicit return to a retained continuation. Normal Undo moves
-one parent back, not automatically to the displaced future. No accept/rebase/
-discard dialog is required.
-Both lines remain inspectable. Retry does not duplicate actions or branches.
+A queued action is not labeled delivered. D-179 attempts ordinary edits at the
+current head using their action-specific from/to conditions: accept if both hold,
+reject otherwise. Do not make an accidental branch because the view was stale or
+another player acted. Preserve recoverable rejected work; exact feedback and
+dependent-queue recovery remain open, not automatically D-161's silent-Undo policy.
 
-If the user is still editing a line that has become inactive, preserve their
-local view and show “Editing an inactive branch” with an optional activate
-control. Do not silently move their cursor, rebase their actions, or activate
-their branch again with each queued action. Structural errors or lost access
-are failures, not conflicts that branching can fix.
+An explicitly requested historical continuation makes its branch current and
+preserves the displaced line for inspection/return. Normal Undo moves one parent
+back, not automatically to the displaced future. Retry does not duplicate actions
+or branch activation. Preserve personal review positions and local work when the
+active line changes; detailed queued-continuation handling remains open.
 
 ## 5.8 Accessibility and device behavior
 
@@ -349,8 +352,8 @@ Required proposals for approval:
 
 ## 5.9 Notifications
 
-Notify for grouped activity, interruptions/branch switches, automatic conflict
-branches, invitations, and explicit response requests, subject to preferences.
+Notify for grouped activity, explicit interruptions/branch switches,
+invitations, and explicit response requests, subject to preferences.
 Consolidate related actions; do not send one push per primitive change.
 Notification coalescing must not delay action synchronization or wait for an
 explicit group-completion tap. Each committed action is available immediately.
@@ -379,8 +382,9 @@ Proposed rules:
   response boundaries as defined in the history contract. Fewer taps must not
   remove an opponent's chance to react.
 - Use undo for routine recoverable mistakes. Reserve blocking confirmation for
-  irreversible data erasure or other
-  specifically documented risks. Ordinary concurrent game edits auto-branch.
+  irreversible data erasure or other specifically documented risks. Ordinary
+  concurrent edits validate at the current head and append or reject; historical
+  branching requires explicit continuation intent (D-179).
 - Provide discoverable, accessible alternatives to shortcuts and gestures. A
   shortcut's tap savings cannot make the normal flow unusable.
 - Every common journey receives an explicit starting state and interaction

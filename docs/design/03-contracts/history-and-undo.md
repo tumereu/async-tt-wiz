@@ -1,8 +1,8 @@
 # 3. History, review, and undo
 
 This is the core behavioral contract. Branching, recovery, instant sync, low-tap
-UX, and automatic conflict branching are owner decisions; detailed mechanisms
-below remain proposed where not explicitly confirmed.
+UX, deliberate interruption and action-specific optimistic locking are owner
+decisions; detailed mechanisms below remain proposed where not explicitly confirmed.
 
 ## 3.0 Current Undo model — parent-pointer navigation (D-159/D-160)
 
@@ -25,7 +25,8 @@ active node. Do not delete the old continuation. If it has no qualifying exposur
 or event comment, hide it from the normal tree and expose it through a
 **show hidden branches** toggle. Hiding is presentation filtering, not deletion,
 loss of recovery, or participant access control. This automatic hiding rule does
-not authorize hiding unrelated interruption/conflict alternatives.
+not authorize hiding unrelated retained alternatives, including older conflict
+branches.
 
 D-160 keeps the **whole abandoned continuation visible** if it contains a
 qualifying exposure or event comment, including ordinary steps after the last
@@ -73,9 +74,11 @@ operations; it is not itself a node. Bulk movement, tapping, edits, Clone and
 occurrence removal issue individual operations in a sensible recorded order.
 Keep existing source/spatial ordering defaults; do not invent a sorting workflow.
 
-Every mutation is immediately appended as a new leaf extending the client's
-chosen node/path, or branching there if it already has a retained continuation.
-Persist and publish each mutation immediately under normal offline/dependency
+Every mutation is immediately recorded locally and published. D-179 refines its
+accepted parent: an ordinary edit is validated and appended at the current shared
+head, not necessarily the client's last-seen node. Only deliberate continuation
+intent authorizes branching from a historical node; Undo supplies that intent
+automatically. Persist and publish each mutation under normal offline/dependency
 constraints. Neither invocation completion nor animation/group completion is a
 publication boundary. The client state pointer always identifies a mutation node
 (or the root), never a group.
@@ -120,19 +123,31 @@ Proposed action lifecycle:
 5. Mark the local result synchronized on acknowledgement; otherwise retain it
    visibly as pending, retryable, or failed work.
 
-Publishing submits the intended base boundary, continuation context, revision
-preconditions, action data, and group references. “Publish” names a protocol
+Publishing submits action-specific from/to conditions, explicit interruption
+intent and its chosen boundary when applicable, action data, and group references.
+Exact wire fields remain technical design. “Publish” names a protocol
 operation, not an extra interaction. Transport batching is allowed only without
 deliberately waiting to gather a group; every action boundary remains intact.
 
-- An action at the unchanged active head extends that continuation.
-- The first completed action at an earlier boundary creates and activates a new
-  branch atomically when synchronized. Further actions extend that new line.
-- A concurrent game-edit conflict automatically creates a branch at the intended
-  base, preserving both continuations. It does not wait for a conflict dialog.
-  See [synchronization](../04-technical/sync-and-storage.md).
+- Without explicit historical-continuation intent, attempt the action at the
+  current shared head. A changed head alone is not grounds for rejection or a fork.
+- Both action-specific from/to conditions must hold there. If they do, append the
+  mutation to that head, preserving unrelated intervening changes. Otherwise reject
+  the action without a game-state mutation or branch. Do not silently change its
+  requested source, destination or expected values to make it succeed.
+- Example: moving a card into an empty position requires that the card still be
+  at its stated source and the destination still be empty. Another unrelated
+  action may have occurred without invalidating either check. This example does
+  not prohibit approved drops onto occupied ordinary piles; those actions need
+  their own destination conditions.
+- Only an explicit UI choice to go back and continue, recorded as an interruption
+  flag with the selected historical boundary, authorizes a new historical branch.
+  Its first accepted mutation creates and activates that continuation. Undo supplies
+  continuation intent in the background, without another UI step (D-179).
 - Offline actions use the same local workflow and synchronize automatically on
-  reconnect. Local branch activation remains provisional until acknowledged.
+  reconnect. Offline status does not itself authorize a fork. Local acceptance and
+  branch activation remain provisional until acknowledged. Retain rejected work
+  for recovery; exact feedback and dependent-queue handling remain open.
 - Incomplete selections/forms may be cancelled without shared effects. Once an
   action is completed, use Undo rather than assuming it is still private.
 - Do not require a pre-send review, editing mode, group completion, branch name,
@@ -254,21 +269,29 @@ normal structural validation, cooperative access, and branch-preservation rules.
 Queueing/publishing a continuation does not imply the other player waived a
 response opportunity or accepted its legality.
 
-For a path `root → A → B → C → D`, interrupting after B with X creates
+**Confirmed D-179:** reviewing, pausing or scrubbing to an old state is not itself
+permission to branch. The user must deliberately choose to go back and continue
+from that state; the client carries that intent in an explicit flag and chosen
+boundary in its server message. Undo supplies this continuation intent in the
+background. Final control naming/layout and the wire schema remain undecided.
+
+For a path `root → A → B → C → D`, explicitly continuing after B with X creates
 `root → A → B → X`. The old path through C and D remains recoverable. On
 successful publication, the branch ending at X is active.
 
-Proposed application of the same selection rule to automatic conflicts: a newly
-created conflict branch becomes active when committed. Service commit order,
-not device timestamps, serializes simultaneous branch activations. The displaced
-line is retained, labeled, and available through explicit return/activation.
+An explicit interruption makes its new branch current; no second-player vote is
+needed. This is deliberate, not an accidental consequence of concurrent online
+play. D-179 supersedes D-13's automatic conflict forks and P-11's proposed
+activation protocol. Ordinary edits instead pass or fail their action-specific
+checks at the current head (section 3.3). The displaced line is retained and
+available through explicit return/activation.
 Normal Undo goes to the active node's parent, not automatically to the displaced
 line's former tip.
 
-Activation occurs on branch creation, not every subsequent append. If another
-line later becomes active, already queued descendants continue on their assigned
-branch without repeatedly reclaiming active selection. This avoids automatic
-branch-selection ping-pong. A participant can explicitly reactivate that line.
+Exact handling of simultaneous explicit interruptions and queued follow-up work
+after another interruption remains open. The former automatic-conflict protocol
+does not settle it. Merely editing an inactive historical view cannot silently
+authorize another activation; continuation from there requires deliberate intent.
 
 The operation records:
 
@@ -387,8 +410,10 @@ being applied twice.
   based on the new B state is a different B → A transition.
 - Reconnecting applies the same rule to offline/provisional Undo. Discard only
   the invalid control request, not retained game nodes or other queued edits.
-  Further edits retain their intended bases and use normal publication/conflict
-  rules; never silently rebase or erase them to reconcile the pointer.
+  Edits made as a continuation after Undo retain their chosen boundary and carry
+  D-179's background continuation intent. Do not turn them into ordinary
+  current-head edits or erase them merely to reconcile the stale Undo. Exact
+  dependent-queue handling remains open.
 - Delivery retry of the same request uses its recorded outcome/idempotency
   identity. If it already succeeded, return that result rather than applying it
   again or treating the changed pointer as a new stale rejection. Resolving an old
@@ -575,9 +600,11 @@ onto a new branch. No runtime priority/legality enforcement is added.
 4. The player can interrupt automatic playback. While paused, show a horizontal
    event timeline at the bottom of the screen. Dragging it left/right selects
    an exact mutation boundary, including a boundary inside a displayed group.
-5. Continue playback from that node, or make a game edit there using ordinary
-   controls. The edit immediately appends a mutation, extending or branching the
-   chosen path; a navigation/group boundary does not become a parent node.
+5. Continue playback from that node, or explicitly choose to continue play there
+   before using ordinary game controls. D-179 requires deliberate continuation
+   intent for a historical branch, not just a paused cursor. Undo supplies that
+   intent automatically. Without it, ordinary edits use current-head from/to
+   validation; a navigation/group boundary does not become a parent node.
 
 Backward/forward playback and scrubbing are personal traversal, not new Undo,
 activation or mutation publications. Preserve retained alternatives and pending

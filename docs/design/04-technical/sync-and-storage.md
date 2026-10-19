@@ -1,6 +1,8 @@
 # 6. Synchronization and storage
 
-Status: proposed protocol semantics. Exact API and schema are not yet specified.
+Status: proposed protocol mechanics supporting confirmed behavior. D-179 replaces
+automatic conflict branching with explicit interruption intent and current-head
+action-specific optimistic locking. Exact API and schema are not yet specified.
 
 ## 6.1 Authority and local-first behavior
 
@@ -30,8 +32,8 @@ on the shared tree/control state without confusing presentation filtering with
 deletion. D-161 binds Undo to a specific node-to-parent transition and silently
 discards it if no longer valid, reconciling client state without notifications.
 This applies to concurrent/offline requests too. Exact schema, pre-fork/forward
-presentation and non-Undo branch-control outcomes remain open. Unrelated conflict/
-interruption preservation is unchanged.
+presentation and non-Undo branch-control outcomes remain open. Retained existing
+alternatives remain recoverable; D-179 prohibits new implicit conflict branches.
 
 ## 6.2 Publication and concurrency
 
@@ -50,70 +52,77 @@ personal traversal, not new shared Undo or publication. Both shared and local
 displayed state reference mutation nodes, never groups. Exact protocol/schema
 mechanics must support this behavior without priority/legality inference.
 
-A publication includes an idempotency key, game ID, intended base action ID,
-continuation/branch context, revision preconditions, desired operation, actions,
-and group references. Exact revision scopes remain schema/API design work.
+A publication must distinguish ordinary current-head edits from an explicitly
+requested historical continuation. D-179 requires an explicit interruption flag
+and chosen boundary for the latter, and action-specific from/to conditions rather
+than a blanket unchanged-game-head check for ordinary edits. Undo supplies
+continuation intent automatically. Proposed additional fields include an
+idempotency key, game ID, action data, dependency and group references. Exact
+field names, revision scopes and schema remain technical design.
 
 Proposed per-game queue ordering: while one action awaits acknowledgement, the
 user can make more local actions without a network wait. Dependent operations
-refer to their known local predecessor; bind authoritative continuation/revision
-fields from its successful result before first transmission. Freeze payload and
-idempotency identity once transmission starts. A retry never changes the base
-or expected revision under the same key.
+refer to their known local predecessor. Authoritative parent/dependency mapping
+must allow valid ordinary actions to append after intervening server mutations,
+without substituting a different requested from/to state or inferring interruption
+intent. Exact mapping and queue recovery after rejection remain open. Freeze
+payload and idempotency identity once transmission starts; retries do not rewrite
+intent or lock conditions under the same key.
 
 Proposed outcomes:
 
 | Situation | Outcome |
 | --- | --- |
-| Continuation unchanged; base is current active head | Append and advance its head atomically. |
-| Deliberate edit from an earlier retained boundary | Create and activate interruption branch atomically. |
-| Concurrent game edit invalidates the expected continuation | Apply the action at its intended base on a new conflict branch and activate that branch atomically. |
-| Descendant of an acknowledged conflict/interruption branch | Continue on the assigned branch; do not repeatedly reactivate it if another line is now active. |
+| Ordinary edit; from/to conditions hold at current head | Append there and advance the shared pointer atomically, even if other actions committed meanwhile. |
+| Ordinary edit; either from/to condition fails at current head | Reject without changing game state or creating a branch. Retain recoverable local work; detailed feedback/dependent-queue behavior remains open. |
+| Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
+| Further queued work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict protocol. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |
 | Same key with a different payload | Reject as idempotency-key misuse. |
 | Undo's specific node-to-parent transition is still valid | Apply that transition once; retain the original nodes. Do not retarget to another source/parent. |
-| Undo transition is no longer valid, including after offline queuing | Silently discard the request and reconcile local state (D-161). No warning/notification/confirmation/retry task; preserve nodes and other queued work at their intended bases. |
+| Undo transition is no longer valid, including after offline queuing | Silently discard the request and reconcile local state (D-161). No warning/notification/confirmation/retry task; preserve nodes and other queued work, including continuation intent supplied by Undo (D-179). |
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
 | Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
-| Invalid object/reference/precondition even at the intended base | Reject whole publication with actionable structural error; branching cannot repair malformed actions. |
+| Invalid object/reference or structural constraint | Reject the affected publication with actionable structural error; explicit interruption cannot repair malformed actions. |
 | Base not yet synchronized | Resolve/upload the known parent chain first; do not substitute a different base. |
 | Temporary transport/server failure | Retain queued operation for retry with the same identity. |
 
-**Confirmed:** game-edit conflicts branch automatically, without a blocking
-resolution choice. Proposed activation rule: treat each newly created conflict
-branch like an interruption and select it on commit. Service commit order
-serializes those selections; device clocks and event delivery order do not.
-The previously active line is preserved, never overwritten or automatically
-merged. The response identifies both continuations and the reason for the fork.
+**Confirmed D-179:** ordinary actions are attempted against the current head using
+action-specific optimistic locks. Validate both from/to conditions and commit the
+mutation as one server transaction; a concurrent commit cannot slip between the
+check and application. Do not reject solely because the game-head revision changed.
 
-For example, both participants act at B. A's action X commits first. B's action
-Y then commits on `B → Y`, retaining `B → X`; Y's branch is now active. If A
-already queued X2 after X, it appends on `B → X → X2` without taking active
-selection back from Y. There is no perpetual retry/rebranch/activate cycle.
+Example: both clients see B. A moves card P from p to an empty q. B moves another
+card R from r to an empty s. If both moves' conditions remain valid, record
+`B → move P → move R` in server commit order, not sibling conflict branches. If
+the second move instead expects P at p, or expects the now-occupied q to be empty,
+reject it. Never silently choose a new source or destination.
 
-Forking must validate the incoming action against its original base, not try to
-apply its payload to the competing board. A card moved by the other player can
-therefore be moved differently on the alternative line without a false error.
+This destination example applies to an empty-position move, not all move actions.
+Approved pile joins, ordered-pile insertion, card edits and occurrence operations
+need action-specific condition contracts. Their exact lock granularity, including
+which unrelated fields may change, remains open; do not invent whole-card or
+whole-game locks as a blanket default.
 
-Automatic branching preserves/synchronizes a valid pending suffix. It does not
-require the user to choose accept, rebase, preserve, or discard. Optional follow-up
-actions are inspect, activate a retained node/line, move one parent back, explicitly
-return to the displaced continuation, annotate, or create a
-new correction. Automatic replay/merging between paths remains out of scope.
+An explicit interruption instead names the historical boundary and intent to
+continue there. Validate the mutation in that selected state and make the new
+branch current, retaining the displaced continuation. Ordinary rejected work is
+not automatically retried as an interruption. Simultaneous explicit interruptions
+and queued work after another interruption still need detailed behavior.
 
-An idempotent retry returns the same branch ID and activation record; it cannot
-fork or activate again. Receiving control updates never generates a new local
+An idempotent retry returns the original result, not a second application or
+renewed branch activation. Receiving control updates never generates a new local
 game edit. Missing ancestry, corrupt input, and lost access remain explicit
-failures, with the local work retained for recovery.
+failures, with local work retained for recovery.
 
-## 6.3 Why not automatically merge game edits?
+## 6.3 Compatible edits versus historical replay
 
-Independent-looking edits may matter together to players: two participants may
-move the same card or base their next edit on the same named value. For first
-release, shared game edits create alternative branches automatically rather than
-using a general CRDT merge. Choosing a different retained line later is optional,
-not a prerequisite to sync. Personal camera/review settings need not share that
-rule.
+D-179 permits ordinary actions with valid from/to conditions to append at the
+current head despite unrelated intervening work. This is sequential validation
+and application, not automatic merging of retained alternative futures. Failed
+conditions reject the action. Replaying a displaced historical suffix onto an
+interruption remains out of scope; merely viewing that suffix never activates it.
+Personal camera/review settings remain separate from game-state edits.
 
 Metadata and messages may use simpler per-entity revision checks, but editing
 them must not cause false game-action conflicts. The exact division of revision
@@ -139,9 +148,11 @@ durable game queue, and never replays stale offline presence as current activity
 - Persist incomplete form input separately; it is not a queued game action.
 - Retry after reconnect, process restart, and authentication renewal.
 - Acknowledge only after a committed server result or a verified idempotent retry.
-- Record dependencies between queued operations. An automatically branched parent
-  carries its descendants onto the returned branch. A rejected/missing parent
-  blocks dependent publications with recoverable state; never silently rebase.
+- Record dependencies between queued operations. A rejected/missing parent must
+  not be treated as successful or silently bypassed by its descendants. Retain
+  dependent work recoverably; detailed recovery and independent-queue progress
+  remain open. Ordinary edits still use current-head conditions, while explicit
+  historical continuations retain their selected boundary and intent (D-179).
 - Undo of a pending node retains that node/outcome and queues the specific
   node-to-parent control intent; exact unsent-node/control representation remains
   technical design. If delivery may already have occurred, establish its outcome
@@ -151,7 +162,7 @@ durable game queue, and never replays stale offline presence as current activity
 - Permanent errors leave a recoverable draft with explanation and export path.
 
 Queue state machine: completed action + local commit → queued → sending →
-synchronized (appended or automatically branched), or sending → retryable
+synchronized (appended or explicitly branched), or sending → retryable
 failure / permanent rejection. Retryable failures return to queued automatically
 when eligible. Rejected dependencies block their suffix for recovery. An app
 restart from sending must resolve the original operation identity before creating
@@ -160,7 +171,8 @@ a replacement. Incomplete input is outside this queue state machine.
 D-105 requires no priority state or Pass record to queue, publish, or interrupt
 actions. Do not add priority-based publication ordering or legality rejection.
 Participants judge timing; preserve normal dependency/structural validation and
-automatic conflict branches without interpreting queued work as priority passes.
+explicit interruption and optimistic locking without interpreting queued work as
+priority passes.
 
 ## 6.5 Incremental synchronization
 

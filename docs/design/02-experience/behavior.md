@@ -260,13 +260,21 @@ The general rules are:
   precedence are explicitly open in the
   [grouping contract](../03-contracts/history-grouping.md).
 - History retains alternatives with **one active line**. Interrupt at a recorded
-  boundary to start a new active continuation without approval voting. Keep the
-  old future; never automatically replay it onto the response. An interruption
+  boundary by explicitly choosing to continue there, then start a new active
+  continuation without approval voting. Mere scrubbing or editing a stale view
+  does not authorize branching; Undo supplies continuation intent automatically.
+  Keep the old future; never automatically replay it onto the response. An interruption
   can be left by explicitly returning to its retained original continuation;
   branch deletion is recoverable archival. Normal Undo follows the active node's
   parent, not automatically the old future's tip.
-- Conflicting game edits branch automatically, not silently merge/overwrite or
-  require a reconciliation dialog. Exact conflict-activation rules remain proposed.
+- Ordinary game edits are attempted at the server's current head, even if another
+  action happened meanwhile. Each sends action-specific “from” and “to” conditions;
+  both must still be valid. Moving a card to empty space requires the card to
+  remain at its stated source and the destination to remain empty. If valid,
+  append there without a branch; otherwise reject the action. A stale view or
+  failed condition never implicitly creates a branch. An intentional interruption
+  carries an explicit flag and chosen historical boundary and makes its new branch
+  current (D-179). Exact conditions for other action types remain open.
 - Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
    redo its state, while merely reviewing it does not make it current. Bulk and

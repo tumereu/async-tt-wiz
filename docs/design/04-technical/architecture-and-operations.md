@@ -101,7 +101,8 @@ human examples covering:
 
 - Authentication/session lifecycle, device registration, invitations, membership.
 - Game creation/setup/list/read, incremental history sync, node retrieval.
-- Automatic action publication and conflict forking, interruption, switch branch,
+- Automatic action publication, action-specific from/to optimistic locks,
+  explicit interruption intent and activation, switch branch,
   rollback, archive/restore, undo/redo, and incremental grouping edits.
 - Context messages, review progress, completion/rematch, deck/catalog access.
 - Group/event-scoped generic pings with source-action context, one standard
@@ -111,8 +112,8 @@ human examples covering:
   state is implied by a labeled area.
 - Operation-result lookup, exports, data deletion, and supported app versions.
 - Exact request/response/error fields, limits, pagination, ordering, timestamps,
-  revision domains, continuation identities, automatic fork results, idempotency
-  retention, and cancellation semantics.
+  revision domains, continuation identities, accepted/rejected action and explicit
+  interruption results, idempotency retention, and cancellation semantics.
 - Unauthorized versus nonexistent resources, validation errors, stale revision,
   rate limits, unavailable dependencies, and incompatible schema versions.
 

@@ -16,7 +16,7 @@
 | D-10 | Full specification before implementation, then spec-driven implementation loops. | Readiness gate and explicit authorization are required. |
 | D-11 | Instant synchronization rather than explicit Send. | Completed game actions automatically queue/sync; groups are not publication gates. |
 | D-12 | Minimize taps and other user actions. | Direct controls, no routine confirmation/grouping chores, easy undo, explicit journey interaction budgets. |
-| D-13 | Branch on conflicts. | Concurrent valid game edits automatically fork and synchronize; no blocking reconciliation dialog or automatic content merge. |
+| D-13 | Originally branch on conflicts; superseded by D-179. | Historical approval only: automatic conflict forks are no longer current behavior. Ordinary edits validate from/to conditions at the current head; historical continuation requires deliberate intent. |
 | D-14 | Drag to move with grid/slot snapping; allow diagonal-peek card piles. | Direct board manipulation and explicit pile/zone semantics are required. |
 | D-15 | Tap a card to tap it; double tap for all actions; hold for large art/text. | Gesture arbitration cannot emit unintended taps; accessible alternatives remain available. |
 | D-16 | Flow should be clear mostly without writing explanations; text/messages still supported. | Present literal operations/pings clearly; retain optional notes, replies, and chat. Do not infer game meaning. |
@@ -182,8 +182,17 @@
 | D-176 | The state is a tree of individual mutations. One node is one change, such as moving or tapping one card, with deterministic forward/rollback behavior. Every mutation immediately becomes a leaf extending or branching the chosen path and publishes. Bulk controls issue individual operations in a sensible recorded order; the client's state points to a mutation, never a group. | Owner corrected the assistant's model, first for bulk operations and then explicitly for the whole tree. Supersedes atomic bulk movement, combined multi-change nodes/whole-combination Undo in D-130/D-132/D-144/D-148–D-150 and related summaries, and D-131's MTG-reaction-window criterion for node granularity. Keep approved shortcut effects, existing order/placement defaults, parent-step Undo, validation and retained alternatives. Distinct changes remain distinct nodes even from one shortcut. No group/publication gate or invented no-change draw node. Exact cleanup/reset decomposition/order still needs a consistent mutation contract, not discretionary atomic bulk mappings. D-175's bulk event-count caveat is resolved by individual operations. |
 | D-177 | Groups are navigation/playback steps and representation controls. Grouped changes animate concurrently but remain ordered mutation nodes. On return after an opponent's interruption, start at the last local state, animate rollback fairly quickly to the fork, then play the new continuation automatically or step by step. | Owner specified pausable automatic playback and a horizontal timeline at the bottom while paused, draggable left/right to select an exact mutation where play can continue, including inside a group. Supersedes next-mutation-only normal playback and unexplained latest-state replacement. Navigation/animated rollback is personal traversal, not shared Undo/activation or new edits; synchronization continues. Final geometry, speeds, automatic/manual default and accessibility layout are not decided. The assistant's preceding three-rule precedence proposal was not approved; do not silently record it as accepted or continue treating grouping as gameplay atomicity/publication design. |
 | D-178 | Validate, commit and push after every completed edit batch without a separate request. Use a small helper with a fixed commit message; custom messages are not important in this project phase. | Owner explicitly replaces D-57's occasional-checkpoint cadence. `scripts/save.sh` stages supplied task-owned paths (or uses the existing index), checks staged whitespace, commits with `Update project` if needed, and pushes normally. Skip empty commits, still allow push retry, preserve unrelated work and report failures without force push or bypassing checks. This is repository workflow automation, not authorization to implement the application. |
+| D-179 | Branching from the past requires a deliberate UI choice to go back and continue there, carried as an explicit flag and chosen boundary in the server message. Undo supplies that intent in the background. Otherwise attempt actions at the current head with action-specific optimistic locking: both from/to conditions must be valid; append if valid, reject if not. | Supersedes D-13 automatic conflict branching, P-11 conflict-activation/no-ping-pong proposals and implicit edit-from-review branching, including that reading of D-176/D-177. Compatible concurrent edits may append despite an intervening action; do not use an unchanged whole-game-head requirement. Example: a move into empty space requires the card still at its stated source and the destination still empty. This does not forbid approved pile joins; other action-specific locks remain to be designed. An explicit interruption makes its branch current without voting. Rejection never silently converts an ordinary action into a branch. One mutation per node, immediate sync, retained alternatives, personal playback and D-161 stale-Undo discard remain. Exact rejection feedback, dependent offline work, competing explicit interruptions and wire schema remain open. |
 
-**Latest model correction:** D-176/D-177 take precedence over all older
+**Latest concurrency correction:** D-179 replaces automatic conflict forks with
+deliberate historical-continuation intent and current-head from/to validation.
+Earlier conflict references in historical decisions are provenance, not exceptions.
+Merely scrubbing history or editing a stale view does not authorize a branch;
+Undo supplies continuation intent automatically. The assistant's four-rule
+automatic-conflict proposal was not approved, including its rule that knowingly
+editing an inactive line implicitly makes it current.
+
+**Mutation/playback correction:** D-176/D-177 take precedence over all older
 combined-node, atomic-bulk and playback-unit wording. Historical approvals below
 remain provenance, not exceptions to one mutation per node. D-175 still specifies
 presentation grouping; its bulk-event-count caveat is superseded by D-176.
@@ -226,7 +235,7 @@ D-19 rejects the earlier semantic cast/target proposal explicitly.
 | P-08 | Native Kotlin/Compose client, transactional local store, shared service. | `../design/04-technical/architecture-and-operations.md` |
 | P-09 | Standard zones appear covered by default despite full access. | `../design/03-contracts/game-actions.md` |
 | P-10 | Superseded historical-rollback proposal: D-159 makes Undo one parent-node move, without a suffix-impact preview. Ordinary current-state edits remain separate from pointer navigation. | `../design/03-contracts/history-and-undo.md` |
-| P-11 | New conflict branches follow the interruption activation rule: active on creation, serialized by service commit order; descendants do not repeatedly reactivate. | `../design/03-contracts/history-and-undo.md`, `../design/04-technical/sync-and-storage.md` |
+| P-11 | Superseded by D-179: no automatic conflict branches or implicit activation by editing an inactive view. Explicit interruption intent and current-head optimistic locking replace this proposal; exact queued-continuation behavior remains open. | `../design/03-contracts/history-and-undo.md`, `../design/04-technical/sync-and-storage.md` |
 | P-15 | Earlier ping-handle entry proposal is replaced by D-74/D-75 event-scoped ping mode. Literal move + pings presentation remains, without mechanical interpretation. | `../design/03-contracts/visual-action-language.md` |
 | P-16 | Core selection mapping is now confirmed through D-25–D-36: direct rectangles, two-finger pan/pinch zoom, separate membership-edit mode, and selection-aware card drag/tap. | `../design/03-contracts/board-and-controls.md`, G-02/G-03 in `touch-action-review.md`; exact geometry, gesture arbitration, cross-area selection, and bulk boundaries remain open. |
 
@@ -245,10 +254,10 @@ Superseded proposals:
   by D-39. Browser, badge, and whole-pile handle choices were not approved by it.
 - P-02 (explicit Send from autosaved drafts) was rejected in favor of D-11.
   Pending local work remains durable but is not a required pre-send stage.
-- P-05 (blocking stale-edit conflict with no automatic branch activation) was
-  superseded by D-13. Valid conflicting actions synchronize on retained branches;
-  malformed actions and expanded-impact historical control commands still need
-  explicit error/recovery behavior.
+- P-05's blocking stale-edit flow was historically superseded by D-13; D-179 now
+  supersedes automatic conflict forks, not by resurrecting that dialog, but by
+  action-specific current-head acceptance/rejection. Detailed rejection recovery
+  and stale non-Undo controls remain open.
 - P-01's “no rules engine” boundary is confirmed by D-19. D-112–D-114 later allow
   explicit manual combat/projection roles and contextual Stack operations, not
   automatic legality, inferred card rules, or invented action explanations.
@@ -302,7 +311,7 @@ behavior cases must not be silently deferred until coding.
 | Q-20 | Quantified latency/availability/load targets and backup recovery objectives? | Makes non-functional requirements testable. |
 | Q-21 | Protocol/client/schema version compatibility and migration support window? | Protects retained games and long-lived offline clients. |
 | Q-22 | Threat model, encryption choices, abuse/support procedures, and telemetry policy? | Distinguishes cooperative gameplay from insecure infrastructure. |
-| Q-23 | Approve exact automatic-fork activation/continuation rules, including pending descendants and further editing of an inactive line. | Must preserve both lines without branch-selection ping-pong or routine prompts. |
+| Q-23 | Specify action-specific from/to lock conditions, rejection feedback/recovery, dependent queued work and simultaneous explicit interruptions. | D-179 settles intent and acceptance: deliberate UI historical continuation with a message flag (automatic after Undo); otherwise validate at the current head and append or reject, never create an implicit conflict branch. Exact per-action conditions, queue recovery and stale non-Undo controls remain open. |
 | Q-24 | Exact board layout, gesture timing, snap/grid/drop rules, diagonal fan, card/pile hit targets, selection gestures, and remaining special-pile controls? | D-21–D-24 settle drag scope, visual stacking, special-pile top drops, and minimum context destinations; detailed accessible controls remain open. |
 | Q-25 | Stack move/ping grouping, action association switching, and later linked additions; layout in stage 3? | Stack replaces Cast (D-113). Preserve actual records and boundaries, not inferred casting. Projection/assignment/exit cases are Q-33–Q-35; their explicit roles are not excluded by the old generic-only wording. |
 | Q-26 | Event-wide ping ordering/removal/re-add/mass ordering and group edits, projection-target routing, revisions, action mapping, presence/text flows; UI/schema later? | D-74–D-80 settle interaction/scope; D-119 requires visible order numbers across all pings in one grouped event. Exact mutation/coalescing/historical numbering and target routing remain behavior work. No damage rules or user-label/style picker implied. |

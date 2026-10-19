@@ -48,7 +48,7 @@ history or authorize normalization of external catalog/import data.
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
 | Action/mutation node | Stable ID, one parent ID, actor, one individual mutation, deterministic forward/rollback data, schema version. Never a multi-card invocation or playback group (D-176). |
 | Group | Ordered contiguous mutation IDs on one path, presented as one navigation/playback step with concurrent animation (D-177). Group-start markers and other metadata never replace node references. Exact schema remains proposed. |
-| Branch | Stable ID, fork boundary, head, origin branch, creation reason (interruption/conflict/etc.), author, title, archive status. |
+| Branch | Stable ID, fork boundary, head, origin branch, explicit continuation/Undo origin (D-179), author, title, archive status. Concurrent ordinary edits never implicitly create one. |
 | Control operation | Stable ID, actor, ordered server revision, operation kind, prior/new references, undo linkage. |
 | Random outcome | Stable ID, requested operation, concrete result, source/version metadata; retained with its action. |
 | Review position | Participant, viewed branch/path, boundary, known active revision; not a promise of rules acceptance. |
@@ -68,6 +68,14 @@ based on MTG reaction windows. Groups change navigation/concurrent animation,
 not tree structure. Both shared and client displayed-state references identify
 nodes, never groups. D-177 specifies animated backward/forward traversal on
 resume and exact mutation selection through the paused bottom timeline.
+
+D-179 refines accepted ancestry without changing the mutation unit: ordinary
+actions append at the current head if their action-specific from/to conditions
+hold, otherwise they are rejected. Deliberate historical continuation carries an
+explicit flag and boundary; Undo supplies that intent automatically. A local
+last-seen parent is not a blanket server head lock or implicit fork request.
+Persist the accepted parent and deterministic transition so replay includes
+intervening compatible edits. Exact pending-to-accepted node mapping remains open.
 
 Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in

@@ -23,7 +23,10 @@ The app remembers and presents what happened; the players interpret the rules.
    issue an ordered sequence of individual operations, not one atomic bulk node.
 6. **History is inspectable and recoverable.** Step through actions, interrupt at
    a boundary, retain the old continuation, and undo mistakes. Exactly one line
-   is active; conflicts preserve alternatives rather than overwrite work. Undo
+   is active. Going back to continue from an earlier state requires an explicit
+   choice; Undo supplies that intent automatically. Ordinary concurrent edits
+   apply at the current head only if their action-specific conditions still hold;
+   otherwise they are rejected, not turned into branches. Undo
    moves the shared active pointer one parent node back, regardless of author.
    Retained alternatives permit forward return; ordinary abandoned continuations
    hide behind a toggle, while exposure/comment continuations stay fully visible.

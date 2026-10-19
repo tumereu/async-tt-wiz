@@ -15,6 +15,16 @@ Do not resume the assistant's unapproved three-rule precedence questionnaire or
 ask again whether bulk/group constituents publish. Earlier combined-node mappings
 are superseded; existing shortcut effects, order and placement remain.
 
+**Concurrency correction (D-179):** historical continuation requires a deliberate
+UI choice and explicit message flag/boundary; Undo supplies intent automatically.
+Ordinary actions validate action-specific from/to conditions at the current head,
+appending if valid and rejecting otherwise. Concurrent changes/stale views do not
+create branches. This supersedes D-13/P-11 and implicit edit-from-review branching,
+not the mutation/playback model above. Remaining work: per-action lock conditions,
+rejection feedback/recovery, dependent queued work and simultaneous explicit
+interruptions. See [history](../design/03-contracts/history-and-undo.md), Q-23 and
+T-349–T-357; no final UI/wire-schema decision or implementation is authorized.
+
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
 acceptance scenarios. Cockatrice capabilities are references, not automatic
@@ -721,7 +731,8 @@ D-161 binds Undo to a specific node-to-parent transition. If it is no longer
 valid, silently discard it and reconcile local state, without notification,
 confirmation or retry clutter. Do not retarget to unseen work. Concurrent/offline
 requests use the same rule; delivery retries retain their original idempotent
-outcomes. Other queued edits remain at their intended bases.
+outcomes. Other queued work is retained; continuations made after Undo carry
+D-179's background historical-continuation intent and chosen boundary.
 
 Confirmed branch-level/exposure rules (D-91, refined by D-160):
 

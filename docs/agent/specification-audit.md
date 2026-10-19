@@ -21,6 +21,14 @@ from the plain-language summary and tier reorganization.
   Resume from the last local state, animate backward to the interruption, then
   forward through groups. Pause and scrub exact mutations on the bottom timeline.
   The assistant's last three-rule precedence proposal was not approved.
+- **D-179 replaces automatic conflict forks.** Historical D-13/conflict references
+  do not authorize branching on stale ordinary edits. Historical continuation
+  needs deliberate UI intent and an explicit server-message flag/boundary; Undo
+  supplies intent automatically. Ordinary actions validate from/to conditions at
+  the current head and append or reject. D-176/D-177 still define mutation units
+  and playback, not unconditional fixed-parent publication from a review cursor.
+  P-11's conflict-activation protocol and the assistant's four-rule proposal are
+  superseded/unapproved; per-action locking and rejection/queue recovery remain open.
 - **Approved and proposed are mixed.** Detailed drafts sometimes say “must” even
   though the enclosing design is proposed. Acceptance rows are specifications,
   not passing application tests; no app exists yet.

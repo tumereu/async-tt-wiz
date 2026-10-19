@@ -74,9 +74,14 @@ old future after a response. Exact overall release scope still needs sign-off.
    personal resume traversal: last local state → animated rollback to fork →
    grouped forward playback, with pause and exact scrubbing on a bottom timeline.
    This traversal is not shared Undo/activation.
-4. **Concurrent/offline continuations.** Conflict-line activation, simultaneous
-   switches, queued descendants on inactive lines, and stale non-Undo branch controls.
-   Forking/no lost work are confirmed; the detailed no-ping-pong protocol is proposed.
+4. **Concurrent/offline continuations.** D-179 replaces automatic conflict branching:
+   explicit UI continuation intent and a message flag authorize an interruption;
+   Undo supplies that intent automatically. Ordinary edits validate action-specific
+   from/to conditions at the current head and append or reject without branching.
+   Remaining: exact lock conditions per action, rejected-action feedback/recovery,
+   dependent queued work after rejection or another interruption, simultaneous
+   explicit interruptions, and stale non-Undo branch controls. Earlier no-ping-pong
+   conflict-branch proposals are superseded, not approved.
 5. **References and projection controls.** Occurrence removal versus token-source
    removal (non-token cards cannot be deleted); surviving Stack effects after
    token disappearance; duplicate-source selections; mixed link/ping endpoints;

@@ -36,9 +36,9 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-012 | Downloaded games can be read and local actions queued offline, with synchronization later. |
 | P-013 | D-115 delivery sequence: complete behavior specification, adversarial review/refinement, UI drafts/decisions, then iterative implementation. We are still in stage 1; no implementation is authorized. |
 | P-014 | Cover the manual actions needed to play MTG, rather than a small subset limited to a demonstration game. |
-| P-015 | Every individual mutation immediately appends to the selected tree path and synchronizes automatically; there is no gameplay Send step, bulk/group publication gate or animation dependency (D-176). |
+| P-015 | Every individual mutation immediately saves locally and synchronizes automatically; there is no gameplay Send step, bulk/group publication gate or animation dependency (D-176). D-179 determines its accepted parent: current head for ordinary edits, explicitly chosen historical boundary for interruptions. |
 | P-016 | Minimize taps and other user actions throughout the UX. |
-| P-017 | Conflicting game edits automatically create branches rather than requiring manual reconciliation before synchronization. |
+| P-017 | Branching from the past requires deliberate UI continuation intent and an explicit message flag; Undo supplies intent automatically. Without that intent, validate action-specific from/to conditions at the current head, append if valid and reject otherwise. Concurrent changes alone never create a branch (D-179, superseding D-13). |
 | P-018 | Drag cards to move them; drops snap to grid locations or slots. |
 | P-019 | Cards can form piles with underlying cards peeking out diagonally. |
 | P-020 | Single tap taps a card; double tap opens all available actions; hold shows large art/text. |
@@ -156,9 +156,10 @@ represent their own play, not that the engine recognizes those mechanics.
 4. **Groups explain; actions determine state.** Group boundaries do not restrict
    valid interruption points.
 5. **No secret security claims.** A face-down card is a display convention.
-6. **Branch, do not overwrite.** Preserve conflicting continuations automatically
-   and make the divergence and active selection visible, without a routine
-   conflict-resolution dialog.
+6. **Branch deliberately; validate ordinary edits.** Explicitly continuing from
+   the past preserves the original future and makes the new line current. Ordinary
+   edits can follow compatible concurrent changes, but failed from/to conditions
+   reject them rather than overwrite state or create accidental branches (D-179).
 7. **The board is understandable without the chat.** Actions carry sufficient
    structured details to explain state changes.
 8. **Mobile-first interaction.** No required right-click, hover, keyboard, or
@@ -190,9 +191,9 @@ represent their own play, not that the engine recognizes those mechanics.
 | Active branch | The single selected path ending at the shared active game-state pointer, which may have retained descendants. |
 | Head | A retained continuation's furthest recorded node. The shared active state can be an earlier node after Undo; current board does not mean furthest published descendant. |
 | Draft | Recoverable local work not yet shared: pending actions, failed work, or incomplete input. Not a required pre-send phase. |
-| Interrupt | Start a new continuation at a reviewed boundary and activate it. |
+| Interrupt | Explicitly choose to continue from an earlier boundary, then create and activate that continuation; the message carries that intent. Undo supplies continuation intent automatically (D-179). |
 | Publish | Automatically synchronize a completed local action to shared history. A protocol operation, not a required button. |
-| Conflict branch | A continuation automatically created at the intended base of an edit that collided with shared changes. |
+| Optimistic lock | Action-specific from/to conditions checked at the current head before an ordinary edit is accepted. Failed checks reject the edit; they do not create a conflict branch (D-179). |
 | Archive/delete | Reversibly hide a branch, without erasing its contents. |
 | Undo | Move the shared active game-state pointer to its parent node, regardless of author, retaining descendants for forward return. |
 

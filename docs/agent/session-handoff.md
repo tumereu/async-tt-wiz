@@ -14,6 +14,34 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Current concurrency correction — D-179
+
+The owner rejected automatic conflict branching. An interruption must be a
+deliberate UI choice to go back and continue from a chosen state, carried by an
+explicit flag and boundary in the server message. Undo supplies continuation
+intent in the background, without another user step. Scrubbing, a stale view or
+editing an inactive line alone is not permission to branch.
+
+Otherwise attempt the action at the current server head using action-specific
+optimistic locking: both from/to conditions must hold. A move into empty space
+requires the card still at its stated source and the destination still empty.
+Compatible intervening work does not invalidate the action; append at the current
+head if valid, reject if not, with no implicit fork. Approved pile joins need their
+own destination conditions; this example is not a blanket ban on occupied targets.
+An explicitly requested interruption makes its new branch current without voting.
+
+D-179 supersedes D-13/P-11 and implicit edit-from-review/always-fixed-parent
+readings of D-176/D-177, not one mutation per node, immediate publication or
+personal animated playback. The assistant's preceding four-rule conflict proposal
+was not approved. Do not resume the no-ping-pong conflict-branch questionnaire.
+Remaining substantial work: per-action lock conditions, rejected-action feedback
+and recovery, dependent offline work after rejection/another interruption,
+simultaneous explicit interruptions and stale non-Undo controls. Exact wire fields
+and final continuation-control layout are not yet decided. Primary behavior is
+[history sections 3.3/3.5](../design/03-contracts/history-and-undo.md#33-immediate-action-synchronization);
+verification adds T-349–T-357. D-161's silent stale-Undo discard remains specific
+to Undo, not ordinary rejected actions.
+
 ## Current correction — mutation tree and playback, D-176/D-177
 
 The owner corrected the assistant's underlying model. **One node is one individual
@@ -189,7 +217,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-178** and **T-001–T-348**.
+- Current documentation includes **D-001–D-179** and **T-001–T-357**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
@@ -488,7 +516,9 @@ source preservation, existing-attacker reuse, or approved event/Undo mappings.
   all information. Covered presentation is not opponent access control.
 - Downloaded games readable offline. Completed actions auto-queue/sync without
   Send, group completion, or required chat/narration. Preserve one active branch,
-  interruption/conflict alternatives, reversible branch controls, and recovery.
+  retained alternatives, reversible branch controls and recovery. D-179 permits
+  only deliberate historical branching; ordinary concurrent edits validate
+  action-specific from/to conditions at the current head and append or reject.
 - No inferred casting/targets/payment/damage/resolution/legality. Explicit MTG
   steps, combat assignments, projections, and contextual Stack conveniences are
   nevertheless required. No priority tracking/UI/Pass (D-105).

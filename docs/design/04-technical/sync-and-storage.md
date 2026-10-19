@@ -110,9 +110,13 @@ reject it. Never silently choose a new source or destination.
 
 This destination example applies to an empty-position move, not all move actions.
 Approved pile joins, ordered-pile insertion, card edits and occurrence operations
-need action-specific condition contracts. Their exact lock granularity, including
-which unrelated fields may change, remains open; do not invent whole-card or
-whole-game locks as a blanket default.
+need action-specific condition contracts. D-181 confirms the general granularity:
+lock only action-relevant state, not a whole-card/game revision. Orientation edits
+check the previous orientation, note edits the previous note text. An intervening
+card move does not reject either if the action remains applicable. Preserve
+unrelated current fields; do not apply a stale whole-card replacement. Object
+existence, structural constraints and action applicability still hold. Exact lock
+conditions for remaining categories and pending-queue composition remain open.
 
 An explicit interruption instead names the historical boundary and intent to
 continue there. Validate the mutation in that selected state and make the new

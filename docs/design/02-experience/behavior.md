@@ -274,7 +274,10 @@ The general rules are:
   append there without a branch; otherwise reject the action. A stale view or
   failed condition never implicitly creates a branch. An intentional interruption
   carries an explicit flag and chosen historical boundary and makes its new branch
-  current (D-179). Exact conditions for other action types remain open.
+  current (D-179). Check only state relevant to the action: tapping checks previous
+  orientation, editing a note checks previous text. A card move alone does not
+  invalidate either if the action still applies; unrelated card fields are
+  preserved (D-181). Exact conditions for remaining action types remain open.
 - Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
    redo its state, while merely reviewing it does not make it current. Bulk and

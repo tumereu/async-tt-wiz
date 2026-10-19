@@ -80,10 +80,13 @@ old future after a response. Exact overall release scope still needs sign-off.
    from/to conditions at the current head and append or reject without branching.
    D-180 confirms immediate local latency hiding, Undo-like animated rollback on
    rejection and animated incoming mutations; this is not shared Undo or a new
-   branch. Remaining: exact lock conditions per action, rejection recovery and
-   animation composition with dependent queued work or another interruption,
-   simultaneous explicit interruptions, and stale non-Undo branch controls. Earlier no-ping-pong
-   conflict-branch proposals are superseded, not approved.
+   branch. D-181 confirms relevant-state-only locks: orientation for tapping,
+   previous text for a note edit; movement alone does not invalidate either if
+   still applicable. Remaining: lock conditions for other action categories,
+   rejection recovery and animation composition with dependent queued work or
+   another interruption, simultaneous explicit interruptions, and stale non-Undo
+   branch controls. Earlier no-ping-pong conflict-branch proposals are superseded,
+   not approved.
 5. **References and projection controls.** Occurrence removal versus token-source
    removal (non-token cards cannot be deleted); surviving Stack effects after
    token disappearance; duplicate-source selections; mixed link/ping endpoints;

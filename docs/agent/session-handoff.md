@@ -24,8 +24,15 @@ a new mutation or branch. Preserve personal review positions and D-177 grouping;
 sync/acceptance does not wait for animation. Detailed composition with later
 pending work remains open. The assistant's proposal to proceed with independent
 queued actions and retain dependent ones was not approved by this answer.
-See history section 3.3 and T-358–T-362. Per-action locking is the next substantive
-topic, without reopening explicit interruption or animated feedback.
+See history section 3.3 and T-358–T-362.
+
+**D-181 follow-up:** lock only state relevant to the action. Tapping checks previous
+orientation; editing a note checks previous text. Neither fails merely because the
+card moved if the action remains applicable. Preserve unrelated current fields;
+no whole-card/game revision lock or stale whole-card replacement. Object existence,
+applicability and structural/destination constraints remain. Exact remaining
+action-category conditions and pending-queue recovery/composition are still open;
+do not reopen this granularity rule as an undecided policy. T-363–T-366 cover it.
 
 The owner rejected automatic conflict branching. An interruption must be a
 deliberate UI choice to go back and continue from a chosen state, carried by an
@@ -228,7 +235,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-180** and **T-001–T-362**.
+- Current documentation includes **D-001–D-181** and **T-001–T-366**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

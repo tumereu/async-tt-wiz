@@ -156,6 +156,15 @@ deliberately waiting to gather a group; every action boundary remains intact.
   action may have occurred without invalidating either check. This example does
   not prohibit approved drops onto occupied ordinary piles; those actions need
   their own destination conditions.
+- **Confirmed lock granularity (D-181):** check only the state relevant to the
+  action, not the whole card or game revision. A tap/orientation edit checks the
+  previous orientation; a note edit checks the previous note text. Neither fails
+  merely because the card moved, provided the action remains applicable. Preserve
+  unrelated current fields rather than restoring a whole stale card snapshot.
+  Relevant-field locking does not waive object existence, applicability or
+  destination/structural constraints. Exact relevant conditions for remaining
+  action categories still need contracts; detailed pending-queue composition is
+  not settled by this rule.
 - Only an explicit UI choice to go back and continue, recorded as an interruption
   flag with the selected historical boundary, authorizes a new historical branch.
   Its first accepted mutation creates and activates that continuation. Undo supplies

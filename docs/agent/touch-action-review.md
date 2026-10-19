@@ -29,6 +29,11 @@ reversal on rejection and animated incoming opponent mutations. This is not a
 shared Undo/branch or approval of the assistant's independent/dependent queue
 policy. Exact queue recovery/composition and per-action locks remain open;
 see history section 3.3 and T-358–T-362.
+D-181 confirms relevant-state-only locking: tap checks previous orientation, note
+edit checks previous text; movement alone does not invalidate either if still
+applicable. Preserve unrelated current fields and structural/existence validation.
+Remaining category-specific conditions and pending-queue recovery/composition are
+open; this is not approval of a separate queue policy. See T-363–T-366.
 
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and

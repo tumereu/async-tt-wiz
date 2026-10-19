@@ -59,7 +59,8 @@ The specification must select a card-data source and define:
   attribution, allowed caching, rate limits, and availability fallbacks.
 - A versioned essential card record retained with a game so external updates do
   not unexpectedly rewrite history. D-65 specifically confirms retaining resolved
-  per-face corner defaults for offline Reset and stability across provider updates.
+  per-face corner defaults for provider-independent Reset and stability across
+  updates. D-182 still requires a game-service connection for the Reset action.
 - Import grammar, supported deck-export formats, normalization, aliases,
   localization, ambiguous names, and unavailable printings.
 - Custom/proxy entries and how players correct mistaken catalog matches.

@@ -33,7 +33,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-009 | Either participant can manipulate any participant's tabletop state. |
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |
-| P-012 | Downloaded games can be read and local actions queued offline, with synchronization later. |
+| P-012 | Initial delivery requires a connection for game actions, including shared Undo/branch controls. Downloaded games remain readable offline, but offline action creation and later queue synchronization are excluded (D-182, superseding D-09's offline-action scope). |
 | P-013 | D-115 delivery sequence: complete behavior specification, adversarial review/refinement, UI drafts/decisions, then iterative implementation. We are still in stage 1; no implementation is authorized. |
 | P-014 | Cover the manual actions needed to play MTG, rather than a small subset limited to a demonstration game. |
 | P-015 | Every individual mutation immediately saves locally and synchronizes automatically; there is no gameplay Send step, bulk/group publication gate or animation dependency (D-176). D-179 determines its accepted parent: current head for ordinary edits, explicitly chosen historical boundary for interruptions. |

@@ -74,7 +74,13 @@ old future after a response. Exact overall release scope still needs sign-off.
    personal resume traversal: last local state → animated rollback to fork →
    grouped forward playback, with pause and exact scrubbing on a bottom timeline.
    This traversal is not shared Undo/activation.
-4. **Concurrent/offline continuations.** D-179 replaces automatic conflict branching:
+4. **Concurrent online actions and connection loss.** D-182 removes offline game
+   actions and later queue replay from initial delivery; downloaded history remains
+   readable offline. Offline queue recovery is not an initial-delivery obligation.
+   Online latency hiding remains, including recovery of requests that
+   may already have reached the server when the connection drops. Exact readiness,
+   uncertain-request recovery and overlapping online-pending animation are open.
+   D-179 replaces automatic conflict branching:
    explicit UI continuation intent and a message flag authorize an interruption;
    Undo supplies that intent automatically. Ordinary edits validate action-specific
    from/to conditions at the current head and append or reject without branching.
@@ -83,7 +89,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    branch. D-181 confirms relevant-state-only locks: orientation for tapping,
    previous text for a note edit; movement alone does not invalidate either if
    still applicable. Remaining: lock conditions for other action categories,
-   rejection recovery and animation composition with dependent queued work or
+   rejection recovery and animation composition with online-pending work or
    another interruption, simultaneous explicit interruptions, and stale non-Undo
    branch controls. Earlier no-ping-pong conflict-branch proposals are superseded,
    not approved.
@@ -99,6 +105,8 @@ old future after a response. Exact overall release scope still needs sign-off.
 7. **Inspection and communication history.** Exposure logging/coalescing without
    unwanted gameplay branching; View/Reveal dismissal/Undo; covered historical
    summaries; comment/chat edit/delete, pending delivery, and response requests.
+   Read-only offline inspection that would create a new shared exposure record
+   needs a policy consistent with D-182, not an implicit offline publication queue.
 8. **Shared action details.** A consistent policy for empty/no-change/stale/invalid
    inputs and affected/skipped feedback; menu scope on unselected cards; token
    auto-placement/initialization; numeric grammar/limits; same-pile reorder versus

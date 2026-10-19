@@ -1,5 +1,10 @@
 # 10. Game board and controls
 
+**Initial-delivery connectivity (D-182):** game edits and shared controls require
+a connection. Offline use is downloaded read-only history, not offline gameplay,
+Undo, Reset, new random outcomes or queued synchronization. Optimistic updates
+and animations still apply online; mid-request connection-loss recovery is open.
+
 Status: gesture choices, snapping, diagonal piles, selection-aware dragging,
 top-insertion drops on special piles, visual stacking drops, and top/bottom
 context moves for library/graveyard/exile are confirmed. Layout, detailed hit testing, and
@@ -879,8 +884,9 @@ Confirmed default-data behavior (D-65):
 
 1. Unavailable metadata produces blank editable corner text without blocking
    manual play or guessing values.
-2. Retain resolved defaults with game definitions for offline Reset and stability
-   across later catalog updates.
+2. Retain resolved defaults with game definitions for provider-independent Reset
+   and stability across later catalog updates. Reset requires a game-service
+   connection in initial delivery (D-182).
 3. Use per-face defaults for multi-faced cards; Reset uses the selected printed
    face. Switching face alone preserves the current corner text.
 
@@ -1049,14 +1055,16 @@ Confirmed G-10 basic randomness controls (D-87):
 2. Table Flip coin creates one heads/tails result with no configuration step.
 3. Show actor, requested die/coin, and actual result in shared history; completed
    rolls/flips automatically queue/sync. Review/redo reuse the recorded result,
-   not a fresh random draw. Source/algorithm, offline policy, exact display, and
-   action boundaries remain later review; results change no cards or values.
+   not a fresh random draw. New invocations require a connection (D-182).
+   Source/algorithm, exact display and action boundaries remain later review;
+   results change no cards or values.
 
 D-92 simplifies new die/coin invocations to fresh random draws, including after
 undo, superseding D-88 and the pending seed/reset/draw-position proposal. No
 opponent action is needed for a fresh draw. Results may repeat by chance. History,
 review, redo, and retries of the same operation still reuse its stored result.
-Exact generator/source, offline execution, and concurrency remain later review.
+Exact generator/source and online concurrency remain later review; D-182 excludes
+new offline random actions.
 
 D-93 confirms every explicit new Shuffle samples a fresh order, including after
 undo; review/replay/redo and retransmission reuse the recorded order. A fresh
@@ -1076,12 +1084,12 @@ D-160 supersedes D-91's visible-path cutoff: keep trailing ordinary nodes visibl
 too when the abandoned continuation contains exposure/comment. D-91's actual-
 exposure classification remains, including draws/moves/face changes, not only
 View/hold. Exact event placement/coalescing, forward/pre-fork presentation, non-Undo
-branch controls and offline exposure publication remain Q-31. Stale Undo itself
+branch controls and read-only offline exposure handling remain Q-31. Stale Undo itself
 silently discards its specific transition under D-161. This is not a persistent ping or
 access restriction.
 D-96/D-105 reject omitting turn/phase/step tracking or substituting blank tokens,
 notes, and counters. Provide first-class engine state integrated with history,
-undo, branches, offline queuing, and automatic synchronization. Exact controls,
+undo, branches, online-only actions, and automatic synchronization. Exact controls,
 state fields, and transitions are refined below; remaining details stay open.
 D-105 removes priority tracking and controls entirely. Generic player values
 remain separate.
@@ -1127,7 +1135,7 @@ Confirmed progression controls (D-102):
 Exact action/group boundaries and touch layout remain open.
 
 These controls edit shared tracking; they are not history-review navigation.
-Normal undo, branch, offline-queue, and automatic-sync contracts apply. Direct
+Normal undo, branch, online-only action and automatic-sync contracts apply. Direct
 phase/step choice does not itself choose a different turn/player; those controls
 and effects still require review.
 
@@ -1146,7 +1154,7 @@ D-106 adds End turn from any phase/step and excludes manual turn-number editing.
 End turn uses the same transition as Next step from Cleanup: other player's
 Beginning/Untap, turn number +1, with no automatic untapping/drawing or skipped
 step card operations. It changes tracking, not game completion. Normal undo,
-history, branching, offline queuing, and automatic sync apply. Undo may restore
+history, branching, online-only actions, and automatic sync apply. Undo may restore
 the recorded previous number; no separate turn-number editor is required.
 Exact touch layout remains open; D-108 settles initial turn context and D-109
 settles manual extra-turn handling without dedicated controls or accurate counts.

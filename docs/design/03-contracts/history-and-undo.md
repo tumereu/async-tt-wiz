@@ -4,6 +4,14 @@ This is the core behavioral contract. Branching, recovery, instant sync, low-tap
 UX, deliberate interruption and action-specific optimistic locking are owner
 decisions; detailed mechanisms below remain proposed where not explicitly confirmed.
 
+**Initial-delivery connectivity (D-182):** making game actions and shared controls
+requires a connection. Downloaded history remains readable/reviewable offline;
+personal traversal is not shared Undo or activation. Do not create offline game
+mutations or an action queue for later synchronization. D-180 optimistic updates
+and D-179/D-181 locking still apply to online actions. Connection loss during an
+already-started online request is a narrower recovery problem, not permission to
+continue playing offline; its exact outcome/retry flow remains open.
+
 ## 3.0 Current Undo model — parent-pointer navigation (D-159/D-160)
 
 **Confirmed.** The game has one
@@ -78,7 +86,7 @@ Every mutation is immediately recorded locally and published. D-179 refines its
 accepted parent: an ordinary edit is validated and appended at the current shared
 head, not necessarily the client's last-seen node. Only deliberate continuation
 intent authorizes branching from a historical node; Undo supplies that intent
-automatically. Persist and publish each mutation under normal offline/dependency
+automatically. Persist and publish each online mutation under normal dependency
 constraints. Neither invocation completion nor animation/group completion is a
 publication boundary. The client state pointer always identifies a mutation node
 (or the root), never a group.
@@ -169,11 +177,11 @@ deliberately waiting to gather a group; every action boundary remains intact.
   flag with the selected historical boundary, authorizes a new historical branch.
   Its first accepted mutation creates and activates that continuation. Undo supplies
   continuation intent in the background, without another UI step (D-179).
-- Offline actions use the same local workflow and synchronize automatically on
-  reconnect. Offline status does not itself authorize a fork. Local acceptance and
-  branch activation remain provisional until acknowledged. Retain rejected work
-  for recovery. D-180 specifies animated rollback feedback; detailed recovery and
-  dependent-queue handling remain open.
+- Initial delivery does not permit offline actions or reconnect replay of an
+  offline gameplay queue (D-182). While online, local acceptance and branch
+  activation remain provisional until acknowledged. D-180 specifies animated
+  rejection feedback. Retain recoverable online work; exact in-flight recovery
+  and overlapping online-pending behavior remain open.
 - Incomplete selections/forms may be cancelled without shared effects. Once an
   action is completed, use Undo rather than assuming it is still private.
 - Do not require a pre-send review, editing mode, group completion, branch name,
@@ -434,12 +442,11 @@ being applied twice.
 - If both participants request C → B, one can apply it; the other becomes stale
   and is silently discarded, not reinterpreted as B → A. A deliberate second Undo
   based on the new B state is a different B → A transition.
-- Reconnecting applies the same rule to offline/provisional Undo. Discard only
-  the invalid control request, not retained game nodes or other queued edits.
-  Edits made as a continuation after Undo retain their chosen boundary and carry
-  D-179's background continuation intent. Do not turn them into ordinary
-  current-head edits or erase them merely to reconcile the stale Undo. Exact
-  dependent-queue handling remains open.
+- D-182 excludes offline Undo creation. A provisional online Undo still targets
+  its captured transition; discard only an invalid control request, not retained
+  game nodes. Online continuation edits after Undo retain their chosen boundary
+  and D-179 background intent. Exact recovery if the connection drops during
+  these requests remains open; do not silently erase or retarget work.
 - Delivery retry of the same request uses its recorded outcome/idempotency
   identity. If it already succeeded, return that result rather than applying it
   again or treating the changed pointer as a new stale rejection. Resolving an old
@@ -551,8 +558,9 @@ pre-fork presentation, forward-navigation and non-Undo control details remain op
 D-87 confirms die/coin results as automatically queued/synchronized records of
 actor, request, and actual result. Review/redo reuse that concrete result rather
 than rerolling; these tools do not automatically change card or counter state.
-Exact random source/algorithm, offline execution policy, and action-boundary
-protocols still require review; touch entry is in the board contract.
+Initial delivery permits new random actions only online (D-182). Exact random
+source/algorithm and action-boundary protocols still require review; touch entry
+is in the board contract.
 
 D-92 supersedes D-88's opponent-action seed-reset rule: every explicit new die
 roll or coin flip gets a fresh random draw, including a new invocation after
@@ -563,7 +571,7 @@ result; do not force a different value.
 Distinguish a new invocation from review, replay, redo, or retransmission of the
 same operation: those reuse its stored outcome/idempotency result, never resample.
 An undone die/coin result remains in history under D-89–D-91; fresh generation
-does not erase that information branch. Exact generator/source and offline/
+does not erase that information branch. Exact generator/source and online
 concurrent operation protocols remain open, without reopening seed-reset policy.
 
 D-93 confirms the same rule for Shuffle: every explicit new invocation samples
@@ -582,9 +590,10 @@ D-92/D-93 make new die/coin/Shuffle invocations fresh draws, not new outcomes fo
 transport retries. Store the concrete result/order with the operation. Full
 information access means this is not a competitive fairness guarantee.
 
-Offline and online execution must store concrete outcomes that deterministic
-replay can apply identically. The algorithm and entropy policy must be specified
-before implementation; see the open decisions.
+Online execution must store concrete outcomes that deterministic replay,
+including downloaded offline review, can apply identically. Offline generation
+is excluded from initial delivery (D-182). The algorithm and entropy policy must
+be specified before implementation; see the open decisions.
 
 ## 3.11 Confirmed shortcut event mappings (D-149–D-151)
 

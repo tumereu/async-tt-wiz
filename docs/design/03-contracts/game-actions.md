@@ -3,6 +3,11 @@
 Status: generic engine boundary confirmed; detailed coverage and per-action
 schemas proposed. MTG examples are uses of primitives, not recognized mechanics.
 
+**Initial-delivery scope (D-182):** making game actions and shared controls
+requires a connection, including new random actions and Undo. Downloaded history
+is readable offline, but there is no offline action creation/queue replay. Online
+optimistic updates, current-head locking and animation remain D-179–D-181.
+
 ## 4.1 Shared action envelope
 
 Every game action specifies:
@@ -48,12 +53,12 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-019 | Board markers/connectors | D-119 adds event-wide ping order numbers. D-120 supports links between projections that disappear with endpoints. D-112/D-118 separately require explicit assigned/unassigned blocker projections and adaptive combat spacing; no inferred legality/damage from pings/links. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
 | A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. D-174 restricts context Remove to tokens: non-token cards never disappear during play and have no Remove/delete action. Token Remove has no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact mixed-selection routing/references/boundaries remain open. |
-| A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106–D-108 add one-tap End turn/no number editor and starter/turn-1 setup. D-105 removes priority; D-109 leaves extra turns manual/approximately counted. D-111 advances combined shortcuts despite no untap changes or empty Library, with no inferred loss. Exact controls/schema/boundaries remain open. History/undo/branches/offline/sync apply; arbitrary markers remain separate. |
+| A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106–D-108 add one-tap End turn/no number editor and starter/turn-1 setup. D-105 removes priority; D-109 leaves extra turns manual/approximately counted. D-111 advances combined shortcuts despite no untap changes or empty Library, with no inferred loss. Exact controls/schema/boundaries remain open. History/undo/branches/online-only sync apply (D-182); arbitrary markers remain separate. |
 | A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
 | A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
 | A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
 | A-026 | Additional containers | Access/configure extra labeled containers and move cards between them; no outside-game or sideboarding restrictions. |
-| A-027 | Randomness | D-87/D-92/D-93 confirm one-die Roll, Flip coin, fresh draws for new die/coin/Shuffle invocations (including after undo), and auto-synced stored results/orders reused for review/redo/retries. No opponent-action seed reset. Other random controls and exact generator/source/input/offline protocols remain open. |
+| A-027 | Randomness | D-87/D-92/D-93 confirm one-die Roll, Flip coin, fresh draws for new die/coin/Shuffle invocations (including after undo), and auto-synced stored results/orders reused for review/redo/retries. No opponent-action seed reset. D-182 requires a connection for new random actions, not downloaded replay. Other random controls and exact generator/source/input/online protocols remain open. |
 | A-028 | Communication | D-94 game-wide Chat is not undoable. D-95 event comments are ordinary current-path nodes retained even after undo, without a special comment-only branch mechanism. D-172 groups comments with preceding same-author play, subject to D-170. Historical association, revision/edit/delete and unsent-chat policies remain open; card notes/pings and other proposed communication tools stay distinct. |
 | A-029 | Correction | Edit supported tabletop fields and bulk-correct state with a preview. D-174 forbids non-token card deletion even as a correction; token removal and existing move/Undo controls remain available. Broader authoring/correction scope remains proposed. |
 | A-030 | Completion | Concede, record win/loss/draw or agreed result, reopen via undo, start rematch retaining completed history. |

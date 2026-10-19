@@ -4,18 +4,25 @@ Status: proposed protocol mechanics supporting confirmed behavior. D-179 replace
 automatic conflict branching with explicit interruption intent and current-head
 action-specific optimistic locking. Exact API and schema are not yet specified.
 
+**D-182 release scope:** game actions and shared controls require a connection in
+initial delivery. Downloaded state/history remains readable offline. There is no
+offline gameplay creation or queue replay on reconnect. Online optimistic updates
+remain; uncertain delivery of an already-started online request still needs
+recovery, not an offline-play protocol.
+
 ## 6.1 Authority and local-first behavior
 
 Proposed topology: native Android clients plus a persistent shared service. The
 service serializes shared game control operations. Each client stores downloaded
-game history, a materialized board cache, personal review state, drafts, and a
-durable outbound queue.
+game history, a materialized board cache, personal review state, unfinished input
+and records needed to recover already-started online requests. This is not an
+offline action queue (D-182).
 
 There is one authoritative active game-state pointer/path per game on the service.
-It may point to an internal node with retained descendants after Undo. Offline
-clients can each have different provisional views; the UI must not claim global
-agreement until synchronization. This is unavoidable when disconnected edits
-are allowed, not a second authoritative branch model.
+It may point to an internal node with retained descendants after Undo. Online
+clients may display predictions awaiting acknowledgement; disconnected clients
+can review stale downloaded state but cannot make game actions. The UI must not
+claim current shared agreement for stale or unacknowledged state.
 
 Game action payloads are immutable once published. Control operations update
 branch/head references, archive status, and metadata through a separately
@@ -31,15 +38,16 @@ comment continuations remain visible, including ordinary tails. Sync must conver
 on the shared tree/control state without confusing presentation filtering with
 deletion. D-161 binds Undo to a specific node-to-parent transition and silently
 discards it if no longer valid, reconciling client state without notifications.
-This applies to concurrent/offline requests too. Exact schema, pre-fork/forward
-presentation and non-Undo branch-control outcomes remain open. Retained existing
+This applies to concurrent online requests too. Offline Undo creation is excluded
+by D-182. Exact schema, pre-fork/forward presentation and non-Undo branch-control
+outcomes remain open. Retained existing
 alternatives remain recoverable; D-179 prohibits new implicit conflict branches.
 
 ## 6.2 Publication and concurrency
 
-Completed game actions automatically enter the outbound queue and begin
-synchronizing immediately when online and dependency-ready. There is no Send
-step or waiting for group closure. Service acknowledgement establishes the
+Game actions may be made only with a connection in initial delivery. They begin
+publication immediately when dependency-ready; no offline queue is created.
+There is no Send step or waiting for group closure. Service acknowledgement establishes the
 shared result, not a notification or animation.
 
 D-180 confirms immediate optimistic local state updates for latency hiding. A
@@ -49,8 +57,8 @@ intent or create a branch. Incoming opponent mutations are also applied through
 animations. Keep authoritative state, pending predictions and presentation
 distinct: animations neither delay synchronization nor establish acceptance, and
 acknowledgement must not apply an already-predicted mutation twice. Preserve
-personal historical cursors. Exact composition with pending work and rejection
-queue recovery remain open.
+personal historical cursors. Exact composition with online-pending work and
+rejection recovery remain open.
 
 D-176 requires one node per individual mutation and immediate publication of
 each node, including ordered operations from bulk/combined controls. Transport
@@ -70,32 +78,31 @@ continuation intent automatically. Proposed additional fields include an
 idempotency key, game ID, action data, dependency and group references. Exact
 field names, revision scopes and schema remain technical design.
 
-Proposed per-game queue ordering: while one action awaits acknowledgement, the
-user can make more local actions without a network wait. Dependent operations
-refer to their known local predecessor. Authoritative parent/dependency mapping
-must allow valid ordinary actions to append after intervening server mutations,
-without substituting a different requested from/to state or inferring interruption
-intent. Exact mapping and queue recovery after rejection remain open. Freeze
-payload and idempotency identity once transmission starts; retries do not rewrite
-intent or lock conditions under the same key.
+The former offline per-game queue proposal is not an initial-delivery requirement
+(D-182). Exact limits/composition for overlapping online requests remain open;
+online-only does not by itself approve one outstanding request at a time or an
+unbounded pending chain. Authoritative parent mapping must support accepted
+current-head actions without changing their from/to conditions or interruption
+intent. Preserve operation identity when resolving a request that may already
+have reached the server; do not resubmit it as a different action or random draw.
 
 Proposed outcomes:
 
 | Situation | Outcome |
 | --- | --- |
 | Ordinary edit; from/to conditions hold at current head | Append there and advance the shared pointer atomically, even if other actions committed meanwhile. |
-| Ordinary edit; either from/to condition fails at current head | Reject without changing shared game state or creating a branch. Animate the predicted local mutation backward under D-180. Retain recoverable local work; detailed recovery/dependent-queue behavior remains open. |
+| Ordinary edit; either from/to condition fails at current head | Reject without changing shared game state or creating a branch. Animate the predicted local mutation backward under D-180. Retain recoverable local work; detailed recovery/online-pending composition remains open. |
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
-| Further queued work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict protocol. |
+| Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |
 | Same key with a different payload | Reject as idempotency-key misuse. |
 | Undo's specific node-to-parent transition is still valid | Apply that transition once; retain the original nodes. Do not retarget to another source/parent. |
-| Undo transition is no longer valid, including after offline queuing | Silently discard the request and reconcile local state (D-161). No warning/notification/confirmation/retry task; preserve nodes and other queued work, including continuation intent supplied by Undo (D-179). |
+| Online Undo transition is no longer valid | Silently discard the request and reconcile local state (D-161). No warning/notification/confirmation/retry task; preserve retained nodes and recoverable online work. D-182 excludes offline Undo creation. |
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
 | Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
 | Invalid object/reference or structural constraint | Reject the affected publication with actionable structural error; explicit interruption cannot repair malformed actions. |
 | Base not yet synchronized | Resolve/upload the known parent chain first; do not substitute a different base. |
-| Temporary transport/server failure | Retain queued operation for retry with the same identity. |
+| Connection drops during an already-started online request | Outcome may be unknown, not necessarily rejected. Preserve operation identity and recoverable context; exact resolution/retry behavior remains open. No new offline gameplay queue or action creation (D-182). |
 
 **Confirmed D-179:** ordinary actions are attempted against the current head using
 action-specific optimistic locks. Validate both from/to conditions and commit the
@@ -116,13 +123,13 @@ check the previous orientation, note edits the previous note text. An intervenin
 card move does not reject either if the action remains applicable. Preserve
 unrelated current fields; do not apply a stale whole-card replacement. Object
 existence, structural constraints and action applicability still hold. Exact lock
-conditions for remaining categories and pending-queue composition remain open.
+conditions for remaining categories and online-pending composition remain open.
 
 An explicit interruption instead names the historical boundary and intent to
 continue there. Validate the mutation in that selected state and make the new
 branch current, retaining the displaced continuation. Ordinary rejected work is
 not automatically retried as an interruption. Simultaneous explicit interruptions
-and queued work after another interruption still need detailed behavior.
+and online-pending work after another interruption still need detailed behavior.
 
 An idempotent retry returns the original result, not a second application or
 renewed branch activation. Receiving control updates never generates a new local
@@ -153,34 +160,24 @@ declarations. They synchronize durably with source-action/group and effective
 context references; they cannot mutate card state as a side effect. Their exact
 history/revision placement is still a protocol decision. Live activity/cursor
 presence is a separate best-effort channel: it expires, does not enter the
-durable game queue, and never replays stale offline presence as current activity.
+durable game history, and never replays stale offline presence as current activity.
 
-## 6.4 Durable outbound queue
+## 6.4 Online request durability
 
-- Persist each completed action and its queued operation transactionally before
-  reporting it saved locally; then start synchronization automatically.
-- Persist incomplete form input separately; it is not a queued game action.
-- Retry after reconnect, process restart, and authentication renewal.
-- Acknowledge only after a committed server result or a verified idempotent retry.
-- Record dependencies between queued operations. A rejected/missing parent must
-  not be treated as successful or silently bypassed by its descendants. Retain
-  dependent work recoverably; detailed recovery and independent-queue progress
-  remain open. Ordinary edits still use current-head conditions, while explicit
-  historical continuations retain their selected boundary and intent (D-179).
-- Undo of a pending node retains that node/outcome and queues the specific
-  node-to-parent control intent; exact unsent-node/control representation remains
-  technical design. If delivery may already have occurred, establish its outcome
-  and synchronize that intent without requiring another ordinary Undo press.
-  If no longer valid, discard silently and reconcile under D-161. Never replace
-  the intent with a different Undo/archive target or lose other queued actions.
-- Permanent errors leave a recoverable draft with explanation and export path.
+D-182 supersedes the durable offline gameplay queue and its replay/dependency
+state machine. Do not implement it as an initial-delivery obligation.
 
-Queue state machine: completed action + local commit → queued → sending →
-synchronized (appended or explicitly branched), or sending → retryable
-failure / permanent rejection. Retryable failures return to queued automatically
-when eligible. Rejected dependencies block their suffix for recovery. An app
-restart from sending must resolve the original operation identity before creating
-a replacement. Incomplete input is outside this queue state machine.
+Keep recoverable unfinished input separate from accepted game history. Persist
+enough context for an online request whose outcome may be unknown after network
+loss or restart; do not report server acceptance before acknowledgement or a
+verified recorded result. Preserve idempotency, original from/to conditions,
+explicit interruption intent and stored random outcomes when resolving that
+request. Missing acknowledgement alone does not prove rejection or justify an
+Undo-like rollback as a known server rejection.
+
+Exact connection readiness, uncertain-request resolution, whether/how to retry,
+and overlapping online-pending limits/composition remain open. None of these
+permits new actions while disconnected or an offline gameplay replay queue.
 
 D-105 requires no priority state or Pass record to queue, publish, or interrupt
 actions. Do not add priority-based publication ordering or legality rejection.

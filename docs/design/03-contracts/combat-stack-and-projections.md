@@ -9,6 +9,9 @@ phase is rejected. No implementation is authorized by these capability decisions
 This is the primary contract for combat/Stack projections and contextual Stack
 actions. Existing gesture requirements remain in [board controls](board-and-controls.md);
 history, automatic queuing/sync, cooperative access, and undo still apply.
+D-182 limits initial-delivery game actions/shared controls to connected use.
+Downloaded history can be inspected offline; offline recovery references below
+do not authorize offline play, shared Undo or a later-synchronized gameplay queue.
 Delivery order: behavior specification → adversarial review/refinement → UI
 drafts/decisions → iterative implementation. User-specified interaction requirements
 are recorded now; UI drafts/exact geometry remain stage 3, not current work.

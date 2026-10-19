@@ -30,8 +30,9 @@ artifact before leaving the initial design round. Readiness is staged:
       failures, cancellation, and recovery are defined.
 - [ ] Projections, combat/blocker assignment, Stack contextual actions, and their
       source/lifecycle cases are specified, not omitted as future coding work.
-- [ ] Branching, review, groups, undo/recovery, offline queuing, and concurrent
-      behavioral outcomes are defined.
+- [ ] Branching, review, groups, undo/recovery, offline read-only access,
+      online-only actions and connection-loss/concurrent outcomes are defined
+      (D-182 excludes offline gameplay queues from initial delivery).
 - [ ] Acceptance scenarios state testable outcomes for those contracts.
 - [ ] The owner agrees the behavior specification is ready for review.
 
@@ -82,8 +83,8 @@ During stage 4+, after the preceding stages and implementation authorization:
    amendment, obtain the necessary decision, then update tests and code together.
 6. Record requirement-to-code/test traceability and proceed to the next slice.
 
-Proposed order: deterministic state/history core; local Android table and durable
-action queue; automatic shared publication/sync; review/branch/undo; full generic
+Proposed order: deterministic state/history core; local Android table and online
+publication/request recovery; automatic shared sync; review/branch/undo; full generic
 tabletop toolkit and manual MTG coverage; notifications/catalog/decks; operational
 hardening. This is an unapproved candidate order, not a settled delivery plan or
 current implementation authorization. Plan actual slices after stages 1–3.

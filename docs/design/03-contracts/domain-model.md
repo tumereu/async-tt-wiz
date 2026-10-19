@@ -3,6 +3,11 @@
 Status: proposed logical model. Exact wire types and physical schema remain
 specification work; do not treat this as a finished database definition.
 
+D-182 limits initial-delivery game actions/shared controls to connected use.
+Downloaded state/history is read-only offline; offline recovery references below
+mean inspecting retained downloaded states, not offline Undo or later action-queue
+replay. Online optimistic predictions and uncertain-request recovery remain.
+
 ## 2.1 Separation of state
 
 Maintain three distinct state classes:
@@ -86,8 +91,9 @@ D-88's opponent-action seed reset and the pending gameplay draw-position model.
 The same recorded operation is not resampled during review/redo or transport
 retries. Retain concrete outcomes independently from board undo; fresh draws can
 coincidentally match. D-93 applies the same fresh-new/fixed-recorded distinction
-to Shuffle's concrete order. Exact generator/source, input validation, and offline
-publication remain open; no gameplay seed-epoch schema is required by D-92/D-93.
+to Shuffle's concrete order. Exact generator/source, input validation, and online
+publication remain open; offline generation is excluded by D-182. No gameplay
+seed-epoch schema is required by D-92/D-93.
 
 D-159/D-160 retain every undone node. After replacement play, ordinary abandoned
 continuations are hidden by a presentation filter and available through Show
@@ -96,9 +102,9 @@ continuation visible, including trailing ordinary nodes; there is no last-exposu
 cutoff. The active pointer is independent from retained tips and personal review.
 Explicit activation of a retained node permits Redo with original outcomes; review
 alone does not activate it. D-161 binds Undo to a specific node-to-parent transition;
-if no longer valid, silently discard it and reconcile local state, including after
-offline queuing. Exact pre-fork/forward presentation, non-Undo branch controls and
-protocol/schema details remain Q-16/Q-31.
+if no longer valid, silently discard it and reconcile local state. Offline Undo
+creation is excluded by D-182. Exact pre-fork/forward presentation, non-Undo branch
+controls and protocol/schema details remain Q-16/Q-31.
 
 D-89/D-91 exposure coverage remains: library View/Reveal, covered hand/card-face
 views including covered-face holds, die/coin results, and any actual hidden-info
@@ -318,8 +324,9 @@ Confirmed missing/offline/multi-face defaults (D-65):
 
 1. If default metadata is unavailable, use blank editable corner text rather
    than block manual play or guess the missing printed value.
-2. Retain the resolved default with the game's card definition so offline Reset
-   works and later provider updates do not silently change existing defaults.
+2. Retain the resolved default with the game's card definition so Reset does not
+   depend on provider availability and later updates do not silently change it.
+   Reset is still a game action and requires a connection under D-182.
 3. For multi-faced cards, retain per-face defaults; Reset uses the selected
    printed face's default. Face switching alone preserves the current corner
    string under the unchanged-field contract rather than implicitly resetting it.
@@ -540,7 +547,7 @@ consent. No game-specific effect follows from setting a marker or label.
 
 D-96, narrowed by D-105, requires tracking for turns and MTG phases/steps. Store
 that tracking as game state at each action boundary so that history, replay, undo,
-branches, offline queuing, and synchronization handle it like other game edits.
+branches, online-only actions, and synchronization handle it like other game edits.
 Do not replace it with arbitrary labels or blank tokens. Exact fields, initial
 values, remaining transition/correction commands, and action boundaries remain open.
 Do not add priority-holder, pass-cycle, or no-holder/resolving tracking state.
@@ -615,7 +622,7 @@ D-103 requires turn-player identity and turn number in shared tracking and its
 presentation. Next step from Cleanup starts the other player's Beginning/Untap
 and increments the turn number by one per individual player's turn, not per
 round. It does not untap or draw cards automatically. History, replay, undo,
-branches, offline queuing, and sync preserve this turn context. Reviewing a
+branches, online-only actions, and sync preserve this turn context. Reviewing a
 boundary does not advance the turn. D-109 accepts an approximate counter when
 players manually repeat steps for extra turns; no exact rules-turn count is required.
 

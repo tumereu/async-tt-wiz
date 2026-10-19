@@ -35,6 +35,14 @@ applicable. Preserve unrelated current fields and structural/existence validatio
 Remaining category-specific conditions and pending-queue recovery/composition are
 open; this is not approval of a separate queue policy. See T-363–T-366.
 
+**Initial-delivery scope (D-182):** game actions/shared controls require a
+connection. Downloaded games remain read-only offline; offline actions and later
+queue replay are excluded, superseding earlier offline-play/Undo/random-generation
+references below. D-179–D-181 continue to apply online. Narrow in-flight request
+recovery, connection readiness and overlapping online predictions remain open;
+the assistant's queued-sequence proposal was not approved. Do not restart a full
+offline queue-design discussion. See T-367–T-370.
+
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
 acceptance scenarios. Cockatrice capabilities are references, not automatic

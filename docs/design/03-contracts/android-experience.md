@@ -211,7 +211,8 @@ decided before implementation.
   printed P/T text. D-64 conditionally approves loyalty/defense defaults where
   the eventual source supplies them, with empty defaults for no applicable
   printed value. D-65 uses blank editable fallback for missing metadata and
-  retained per-game/per-face defaults for offline Reset. Reset uses the selected
+   retained per-game/per-face defaults for provider-independent Reset. Reset is
+   an online game action under D-182 and uses the selected
   face; switching faces alone preserves current text. Provider/source mapping
   remains open. Preserve unrelated fields and stable identity.
 - Multi-select has visible selected count and a clear cancel action.
@@ -241,11 +242,12 @@ decided before implementation.
   and Flip coin (one heads/tails result, no configuration). Automatically queue/
   sync actor/request/result to shared history, reusing results for review/redo.
   No automatic card/counter changes. Exact picker geometry, bounds, source/
-  algorithm, offline execution policy, and display remain under review.
+   algorithm and display remain under review; new invocations require a connection
+   in initial delivery (D-182).
 - D-92 makes new Roll die/Flip coin invocations fresh draws, including after
   undo, without requiring an opponent action. This replaces D-88 seed resets.
   History/review/redo and same-operation sync retries retain recorded results.
-  Equal results by chance are valid; exact generator/source/offline protocols
+   Equal results by chance are valid; exact generator/source/online protocols
   remain under review. D-93 confirms new Shuffle also samples a fresh order,
   while review/replay/redo/retries retain its recorded order. No new shuffle
   shortcuts or hidden-order exposure classification is implied.
@@ -314,16 +316,23 @@ decided before implementation.
 
 ## 5.7 Offline, pending, and conflict states
 
-Use explicit states: downloaded/current, offline/stale, incomplete input, queued,
-sending, synchronized, rejected, explicitly branched, and failed/retryable.
+**Confirmed D-182:** initial delivery requires a connection for game actions and
+shared controls, including Undo and branch activation. Offline use is read-only
+for downloaded games/history; there is no offline gameplay queue to replay later.
+Keep personal review/navigation separate from shared controls.
 
-The user can continue with cached cards and games offline. Unavailable images
-fall back to text; an unavailable card definition must not prevent inspection of
+Use explicit states: downloaded/current, offline/read-only, incomplete input,
+online-pending/sending, synchronized, rejected, explicitly branched, and uncertain
+delivery/failed. Exact connection-readiness and mid-request-loss flow remain open;
+do not equate an unknown server outcome with rejection.
+
+The user can read cached cards and games offline, not continue play. Unavailable
+images fall back to text; an unavailable card definition must not prevent inspection of
 an existing object's stored essential data. Joining an unknown game or importing
 unknown catalog entries may require connectivity and must say so.
 
-A queued action is not labeled delivered. D-179 attempts ordinary edits at the
-current head using their action-specific from/to conditions: accept if both hold,
+An online-pending action is not labeled delivered. D-179 attempts ordinary edits
+at the current head using their action-specific from/to conditions: accept if both hold,
 reject otherwise. Do not make an accidental branch because the view was stale or
 another player acted. D-180 requires immediate local state updates to hide latency;
 on rejection, animate the predicted change backward as if undone. The animation
@@ -331,7 +340,7 @@ explains the correction without a required text explanation or acknowledgement.
 This does not publish a shared Undo, create a branch or undo the opponent's work.
 Animate incoming opponent mutations too; preserve personal historical cursors.
 Preserve recoverable rejected work; detailed recovery, animation composition and
-dependent-queue handling remain open. D-161's silent stale-Undo discard remains
+online-pending handling remain open. D-161's silent stale-Undo discard remains
 specific to Undo, not a blanket policy for rejected ordinary actions.
 
 An explicitly requested historical continuation makes its branch current and

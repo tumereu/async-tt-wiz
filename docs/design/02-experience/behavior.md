@@ -294,7 +294,9 @@ The general rules are:
 - Undo targets the specific node-to-parent step you invoked. If that step becomes
   invalid because shared state changed, silently discard it and reconcile the
   local state—no warning, notification or automatic retry against another node.
-  The same rule applies to queued offline Undo; other queued edits are retained.
+  Undo requires a connection in initial delivery (D-182); it cannot be queued
+  while offline. Recovery of an online request whose response is lost remains
+  distinct from making offline actions.
 
 ### 10. Offline and failure behavior
 
@@ -303,12 +305,16 @@ The general rules are:
   explains the correction. It is not a shared Undo or branch. Incoming mutations
   from the other player are also applied with animations, preserving personal
   historical review positions (D-180). Animation never delays synchronization.
-- Downloaded games can be reviewed and actions queued offline. Show pending,
-  synchronized, stale/offline, and failed states honestly. Save completed actions
-  and recoverable unfinished work; reconnect/restart must not silently lose work.
+- Initial delivery requires a connection to make game actions, including Undo
+  and shared branch controls. Downloaded games remain readable/reviewable offline,
+  but do not create offline mutations or a gameplay queue to replay on reconnect
+  (D-182). Show connection and online-pending/accepted/rejected states honestly.
+  Preserve recoverable unfinished input and records of already-started online
+  requests; this does not authorize offline action submission.
 - Sync resumes automatically; retries must not duplicate actions or random results.
   Structural errors remain explicit recoverable failures, not excuses to lose
-  selected cards or merge competing boards.
+  selected cards or merge competing boards. Exact handling of a connection lost
+  during an online request remains open; missing acknowledgement is not rejection.
 - Essential stored card data remains usable offline; missing images can fall back
   to text. Sync, history, and notifications must not unnecessarily expose covered
   identities. Reviewing a retained line does not activate it.

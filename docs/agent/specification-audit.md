@@ -29,6 +29,12 @@ from the plain-language summary and tier reorganization.
   and playback, not unconditional fixed-parent publication from a review cursor.
   P-11's conflict-activation protocol and the assistant's four-rule proposal are
   superseded/unapproved; per-action locking and rejection/queue recovery remain open.
+- **D-182 cuts offline actions from initial delivery.** Downloaded history remains
+  read-only offline. Earlier offline-play, Undo, Reset and random-action queue
+  references are superseded, including historical decision scope; do not restore
+  a full offline replay protocol to solve online latency. D-180 prediction and
+  animation remain. Narrow recovery of an already-started online request with an
+  unknown outcome is still needed, not permission for new disconnected actions.
 - **Approved and proposed are mixed.** Detailed drafts sometimes say “must” even
   though the enclosing design is proposed. Acceptance rows are specifications,
   not passing application tests; no app exists yet.

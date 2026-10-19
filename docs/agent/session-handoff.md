@@ -16,6 +16,19 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
+**Latest scope correction — D-182:** initial delivery requires a connection to
+make game actions, including shared Undo/branch controls. Downloaded history is
+still readable offline, but there is no offline gameplay creation/queue replay.
+This supersedes D-09's offline-action scope and older offline gameplay/Undo/random
+execution obligations below. Do not continue designing a full offline queue or
+record the assistant's queued-sequence proposal as approved. D-180 optimistic
+latency hiding and animation, D-179 interruption and D-181 locking remain online.
+Connection readiness, online-pending limits and lost-response/in-flight recovery
+remain narrow gaps; do not infer one action at a time, immediate failure on loss,
+or permission to discard potentially committed work. Offline inspection creating
+new exposure records also needs a read-only-compatible policy. No implementation
+or later delivery stage is authorized. See T-367–T-370.
+
 **D-180 follow-up:** immediately update local state to hide latency. If rejected,
 animate that change backward as if undone; animation explains the correction,
 not a required textual-error/acknowledgement flow. Animate incoming opponent
@@ -53,7 +66,7 @@ readings of D-176/D-177, not one mutation per node, immediate publication or
 personal animated playback. The assistant's preceding four-rule conflict proposal
 was not approved. Do not resume the no-ping-pong conflict-branch questionnaire.
 Remaining substantial work: per-action lock conditions, rejection recovery and
-animation composition, dependent offline work after rejection/another interruption,
+animation composition with online-pending work, connection loss during requests,
 simultaneous explicit interruptions and stale non-Undo controls. Exact wire fields
 and final continuation-control layout are not yet decided. Primary behavior is
 [history sections 3.3/3.5](../design/03-contracts/history-and-undo.md#33-immediate-action-synchronization);
@@ -235,7 +248,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-181** and **T-001–T-366**.
+- Current documentation includes **D-001–D-182** and **T-001–T-370**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
@@ -532,8 +545,10 @@ source preservation, existing-attacker reuse, or approved event/Undo mappings.
 
 - Two cooperative participants initially; either can edit all state and inspect
   all information. Covered presentation is not opponent access control.
-- Downloaded games readable offline. Completed actions auto-queue/sync without
-  Send, group completion, or required chat/narration. Preserve one active branch,
+- Downloaded games readable offline, but making game actions requires a connection
+  in initial delivery (D-182); no offline gameplay queue/replay. Online actions
+  auto-sync without Send, group completion, or required chat/narration. Preserve
+  one active branch,
   retained alternatives, reversible branch controls and recovery. D-179 permits
   only deliberate historical branching; ordinary concurrent edits validate
   action-specific from/to conditions at the current head and append or reject.

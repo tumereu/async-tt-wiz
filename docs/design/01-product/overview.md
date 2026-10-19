@@ -40,8 +40,10 @@ The app remembers and presents what happened; the players interpret the rules.
 
 ## Boundaries
 
-- Two players, native Android, manual play, asynchronous review, offline access
-  to downloaded games, and queued actions are confirmed requirements.
+- Two players, native Android, manual play and asynchronous review are confirmed.
+  **Initial delivery requires a connection for game actions (D-182).** Downloaded
+  games remain readable offline; offline action creation and later queue replay
+  are not included. Optimistic local updates still hide latency while online.
 - Turn/phase/step tracking, explicit combat/Stack projections, and common-action
   shortcuts are included conveniences. There is no priority tracker or rules
   referee.

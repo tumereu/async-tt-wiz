@@ -1,7 +1,9 @@
 # 7. Architecture and operations
 
-Status: future technical-design proposals. No technology choice below is approved
-except native Android. D-115 places current work in stage 1 behavior specification;
+Status: future technical-design proposals unless explicitly confirmed. Native
+Android and D-243's dynamic game-data boundary are confirmed; no particular stack
+or catalog provider is selected. D-115 places current work in stage 1 behavior
+specification;
 adversarial behavior review is stage 2, UI drafts/decisions stage 3, and iterative
 implementation stage 4+. Do not treat these technical proposals as current-stage
 decisions or require every schema/library choice before behavior work can finish.
@@ -52,6 +54,28 @@ are not needed simply to separate these responsibilities.
 These candidates are not permission to start a scaffold or install packages.
 
 ## 7.3 Card catalog and decks
+
+### Dynamic game data — D-243
+
+**Confirmed:** game/card definitions, descriptive metadata and artwork are
+dynamically supplied data, not a real licensed catalog bundled into the Android
+application, backend executable or distributable service image. Keep them
+replaceable without changing/rebuilding application code. This is a licensing-
+motivated separation, not a conclusion that dynamic loading itself grants rights.
+
+The normal data-loading/import/image path must also accept synthetic datasets and
+artwork for automated tests; no hard-coded real-card identities or test-only
+parsing/rendering/gameplay path. Environment configuration may select the source.
+The same normal Android app and real backend run against that source in
+[full-stack tests](../05-verification/e2e-strategy.md).
+
+Data is not executable game logic. Preserve confirmed manual-play behavior and
+retained per-game/per-face essential data/defaults: catalog updates must not
+silently reinterpret existing games/history. Dynamic delivery does not require
+re-fetching every card on every action, eliminate downloaded read-only access,
+approve arbitrary scripts or a custom-data editor, or select a provider. Exact
+source/package/schema/version/cache/update mechanics remain technical design;
+production distribution, attribution, image and storage rights still need review.
 
 The specification must select a card-data source and define:
 

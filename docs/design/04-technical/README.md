@@ -5,8 +5,11 @@
 - [Architecture and operations](architecture-and-operations.md): proposed system
   boundaries, technology/provider choices, APIs, security, deployment and reliability.
 
-These are proposals unless specifically confirmed. Native Android is selected;
-other technology, hosting and provider choices are not automatically approved.
+These are proposals unless specifically confirmed. Native Android and dynamic
+game/card data and artwork (D-243) are selected; other technology, hosting and
+provider choices are not automatically approved. The
+[E2E strategy](../05-verification/e2e-strategy.md) defines the confirmed normal-app,
+real-backend test boundary and synthetic data/art requirement (D-244).
 Mechanisms must implement the [behavior contracts](../03-contracts/README.md),
 not replace missing behavior decisions with library defaults.
 

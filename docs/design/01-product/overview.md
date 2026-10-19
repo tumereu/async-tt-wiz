@@ -75,6 +75,9 @@ The app remembers and presents what happened; the players interpret the rules.
   **Initial delivery requires a connection for game actions (D-182).** Downloaded
   games remain readable offline; offline action creation and later queue replay
   are not included. Optimistic local updates still hide latency while online.
+- Game/card data and artwork load dynamically rather than shipping a licensed
+  catalog inside the app/backend. Automated tests use synthetic data and art;
+  production data rights still require review.
 - Turn/phase/step tracking, explicit combat/Stack projections, and common-action
   shortcuts are included conveniences. There is no priority tracker or rules
   referee.

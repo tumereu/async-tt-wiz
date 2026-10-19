@@ -77,11 +77,15 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-053 | Freely move cards between mainboard and sideboard in the lobby without format-legality, size or one-for-one exchange restrictions. Preserve game-local edits and own-Ready clearing; no in-game Sideboard access (D-191/D-203). |
 | P-054 | Changing the lobby starter selection clears only the changing player's Ready and preserves the other player's Ready; the changing player must ready again before game start (D-204). |
 | P-055 | Provide push notifications for new invitations and grouped opponent activity without revealing covered card names (D-219). Grouping must not delay immediate action synchronization or require group completion. R1 uses Android notification channel settings; both in-app global/per-game mute settings are post-R1 (D-220). Exact cadence, permissions/defaults, channel categories, foreground suppression and multiple-device routing remain open. |
+| P-056 | Game/card definitions, descriptive metadata and artwork are dynamically loaded, replaceable data rather than a licensed catalog bundled into the Android app or backend (D-243). Preserve retained game/history data and manual-play semantics; dynamic delivery does not itself settle licensing rights. Automated tests use synthetic game data and art through the same normal data path. |
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.
 The [Android notification contract](android-experience.md#59-notifications) owns
 notification behavior and remaining proposals.
+The [dynamic-data boundary](../04-technical/architecture-and-operations.md#dynamic-game-data--d-243)
+details P-056; the [E2E strategy](../05-verification/e2e-strategy.md) owns D-244's
+real-backend/normal-Android test boundary, per-test reset and setup-only exceptions.
 
 ## 1.3 Proposed first-release boundaries
 

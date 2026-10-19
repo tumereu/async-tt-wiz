@@ -3,7 +3,12 @@
 ## 8.1 Core acceptance scenarios
 
 These scenarios are proposed tests for the confirmed requirements. Each must
-eventually have concrete fixtures, expected states, and UI/API assertions.
+eventually have concrete fixtures, expected states, and assertions. D-243/D-244
+require synthetic data/art and full E2E scenarios against the running real backend
+and normal Android app, with backend reset between tests. Only user/saved-deck
+initialization may bypass the UI; all other user actions and required E2E outcome
+assertions use the UI. Direct API assertions belong to additional lower-level
+tests, not a substitute E2E result. See the [test strategy](e2e-strategy.md).
 
 D-182 requires connected game actions/shared controls in initial delivery.
 Downloaded offline review remains; former offline action/queue fixtures below
@@ -587,6 +592,11 @@ the assistant's rejected revised-continuation/untouched-original design.
 | T-546 | Create an ability projection from a source in Graveyard, then separately from Exile, under a matching current Stack state. | Support both source locations without moving/copying the real card or changing its fields. Keep the projection live-linked; subsequent source edits are reflected. Preserve ordinary Stack-addition guards, independent occurrence identity and no automatic casting/cost payment/legality inference (D-187/D-242). |
 | T-547 | A token source creates a Stack effect while its corner text is 1/2, then changes to 5/2 with counters/notes. Separately test explicit token Remove and disappearance on a configured destination move; inspect and replay/retry afterward. | Update the effect live while the token exists. On disappearance preserve its last-live 5/2 state and other inspectable fields, not the creation-time 1/2 or just printed data. Retain a read-only snapshot with existing cover/inspection conventions, not a replacement card/Clone or editable frozen source. Source-card edits cannot apply after disappearance; recorded review/retry reuses the retained state without automatic damage calculation (D-242). |
 | T-548 | A token has combat projections and several Stack effects with distinct occurrence links. Remove the token, then explicitly remove one surviving effect. | Remove combat occurrences/incident links normally. Retain every Stack effect with read-only last-live source information. Removing one effect removes only it and its incident links; keep siblings and their inspection information, without recreating a source card or requiring linked-source existence to remove the effect (D-120/D-124/D-125/D-242). |
+| T-549 | Run the same normal Android app and backend with two different synthetic catalogs/art sets in independent reset tests, importing and inspecting through UI. | Load each dataset through the normal dynamic-data path without rebuilding code or relying on real card names/IDs/art. Real import, image loading, rendering and gameplay remain active; no test-only behavior path or live licensed catalog dependency (D-243/D-244). |
+| T-550 | Start a game with synthetic catalog A, then publish B with changed definitions/art/defaults and resolve new data through the normal UI. Reopen/review the existing game and separately make its image source unavailable. | Updated data is dynamically available for new resolutions without rewriting the old game's essential records, history meanings or retained face defaults. Missing art allows text fallback; do not infer that dynamic delivery removes cache/rights obligations (D-65/D-243). |
+| T-551 | Run two independent E2E tests in either order, including after failure following account/game/request/job creation in the first. | The second starts with only its pinned synthetic catalog/configuration, then its declared user/deck initialization. No prior users, sessions, game/control/history, idempotency outcomes, jobs/deliveries or private app cache leaks across tests. A reset failure blocks setup rather than continuing dirty (D-244). |
+| T-552 | Audit and execute a helper-assisted gameplay journey, plus registration/import journeys. | Helpers initialize only declared users/saved decks before scenario actions. Login, contacts/invites/lobby/start, all gameplay/history and both players' actions use normal Android UI. Registration/import under test are not supplied by helpers; no mid-scenario seed/mutation shortcut (D-244). |
+| T-553 | Restart/reconnect/relogin during a full-stack recovery journey, then finish it and run another independent test. | Preserve backend/app state across checkpoints within the first journey, enabling real recovery assertions; reset backend and Android app data before the next independent test. A restart checkpoint is not a test boundary (D-244). |
 
 **D-224 supersedes the universal parent-pointer-only interpretation:** selective
 Undo/Redo uses exact later-mutation relevant-state tuple equality and bounded
@@ -609,6 +619,12 @@ for D-187, including note/orientation and counter Set.
 
 ## 8.2 Additional required test layers
 
+All automated layers use synthetic game data and artwork. Full-stack acceptance
+follows the [E2E strategy](e2e-strategy.md); lower-level tests supplement rather
+than replace it. Each scenario inherits its feature's approved scope; broad older
+references to export, custom authoring or offline actions do not re-add excluded
+features.
+
 - **Model tests:** every generic action, validation error, container/order change,
   face/composite display, unchanged-field guarantee, and undo path.
 - **Property tests:** acyclic trees, single active branch, no duplicate zone
@@ -619,9 +635,13 @@ for D-187, including note/orientation and counter Set.
   low storage, failed migrations, offline dependencies, partial image downloads.
 - **Compatibility tests:** historical schema versions, migrated snapshots,
   supported Android versions, differing client versions in one game.
-- **End-to-end tests:** deck import to game completion, response branching,
-  rollback/recovery, offline read-only access, online connection-loss recovery,
-  export/recovery.
+- **End-to-end tests:** normal Android instances for both players against a
+  running real backend, reset for every independent test, dynamic synthetic data
+  and art, setup-only user/deck convenience calls and otherwise UI-only actions.
+  Cover entry/deck import through result acceptance/return to lobby, manual play,
+  projections, branching/Undo/Redo, multi-device synchronization, offline read-only
+  access, online connection-loss/restart recovery and Logout privacy. See the
+  [initial full journeys](e2e-strategy.md#initial-full-e2e-journeys).
 - **Operational tests:** backup/restore rehearsal, deployment rollback, service
   restart mid-publication, outbox redelivery, and credential revocation.
 

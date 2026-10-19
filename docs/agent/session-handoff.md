@@ -14,6 +14,29 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest test/data direction — D-243/D-244
+
+Owner requires dynamic game data for licensing reasons and dummy data/art in
+automated tests. P-056 and the
+[dynamic-data boundary](../design/04-technical/architecture-and-operations.md#dynamic-game-data--d-243)
+keep definitions/metadata/images replaceable outside app/backend code, through
+the same normal loading path. Preserve retained essential game data/per-face
+defaults and manual-play semantics; this does not decide production rights or
+select a provider.
+
+Owner requires full E2E scenarios with a running real backend and the normal
+Android app, backend/user state reset between tests, user/deck initialization
+convenience calls allowed, otherwise real UI actions only. The
+[test strategy](../design/05-verification/e2e-strategy.md) records that boundary,
+setup-only users/saved decks (not contacts/lobbies/history), both players driven
+through Android UI, isolation/reset design, synthetic catalog/art coverage and
+initial complete journeys. T-549–T-553 cover data-path and harness obligations.
+Restarts/reconnects within a test preserve its state; reset before the next
+independent test. Lower-level tests supplement, not replace full-stack acceptance.
+Framework, endpoint/reset implementation, CI/device matrix and external-service
+harnesses remain technical design. **Documentation only; no application code,
+test harness implementation or delivery-stage transition is authorized.**
+
 ## Latest Stack source/inspection decision — D-242
 
 Owner accepts last-live inspection but corrects the proposed boundary: **only

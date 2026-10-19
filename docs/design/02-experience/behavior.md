@@ -550,6 +550,12 @@ The general rules are:
 - Essential stored card data remains usable offline; missing images can fall back
   to text. Sync, history, and notifications must not unnecessarily expose covered
   identities. Reviewing a retained line does not activate it.
+- Game/card definitions, metadata and artwork are dynamically supplied rather
+  than a licensed catalog bundled into the app/backend (D-243). Loading updated
+  data must not silently change existing game/history meanings or retained face
+  defaults. This does not add automatic rules or a custom-data editor; provider
+  rights and delivery mechanisms remain separate. See the
+  [dynamic-data boundary](../04-technical/architecture-and-operations.md#dynamic-game-data--d-243).
 
 ### 12. Notifications
 

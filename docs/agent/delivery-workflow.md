@@ -77,6 +77,10 @@ During stage 4+, after the preceding stages and implementation authorization:
 1. Select an approved vertical slice and its requirement/test IDs.
 2. Complete necessary technical design for that slice (schema/API/storage/etc.)
    and write executable acceptance/model tests matching the specified contract.
+   Follow the [full-stack E2E strategy](../design/05-verification/e2e-strategy.md):
+   dynamic synthetic data/art, running real backend and normal Android app,
+   reset between independent tests, setup-only user/deck helpers and otherwise
+   UI-only user actions (D-243/D-244).
 3. Implement the slice without broadening scope.
 4. Check behavior, failure recovery, accessibility, and compatibility.
 5. If a gap is discovered, stop that behavior's implementation, propose a spec

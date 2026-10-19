@@ -187,8 +187,10 @@ context comments (nodes on the ordinary current tree path, retained after undo).
 The path is already a branch; do not add a special comment-only fork workflow.
 Undo moves one parent back while retaining the whole comment-bearing abandoned
 continuation visibly under D-160, explicitly reaffirmed by D-223 even without
-exposure/other-player actions. Exact event/group association,
-revision/edit/delete, pending chat delivery, and editor submission remain open.
+exposure/other-player actions. D-240 keeps chat simple: submitted messages have no
+Edit/Delete, corrections use another message, and no expansions are planned.
+Exact event/group association, dedicated event-comment revision scope, pending
+chat delivery and editor submission remain separate work.
 
 Use text/icons as well as color. A prominent “Return to active game” control is
 available when viewing history or an inactive branch; it must not discard drafts.

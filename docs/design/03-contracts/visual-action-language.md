@@ -213,7 +213,14 @@ Support action/group notes, contextual replies/questions, and general game chat.
 Players can explain unusual situations or write their own interpretation. Keep
 that text visibly user-authored. Do not parse it into automatic state changes.
 
-D-94 makes submitted game-wide chat non-undoable. D-95 makes an event comment
+D-94 makes submitted game-wide chat non-undoable. **D-240 confirms simple chat
+with no planned expansions:** participants can send/read messages, but cannot
+edit or delete submitted messages. Correct a message by sending another message.
+This is the selected scope, not a feature deferred to a planned later release;
+do not add a chat expansion roadmap. It does not decide account erasure or data
+retention, nor change ordinary unfinished text editing.
+
+D-95 makes an event comment
 another node on the current tree path, already a branch; undo moves back while
 retaining that existing path through the comment. No separate comment-only fork
 or activation workflow. Normal tree/base rules apply, and comments are retention
@@ -221,8 +228,9 @@ visibility qualifiers for the whole abandoned continuation under D-160/D-223,
 even with one author and no exposure. Card
 notes/pings stay distinct. D-172 makes event comments join the preceding group
 without a new group-start marker; D-170's author-change boundary still wins.
-Historical placement, revisions/edit/delete and unsent-chat delivery policies
-remain open.
+Event-comment historical placement and dedicated revision/edit/delete scope,
+plus unsent-chat delivery handling, remain separate specification work. D-240's
+chat scope does not change event comments' ordinary Undo eligibility.
 
 Common physical operations and pings need no explanatory text or mandatory
 labels. A participant may create a generic note/token with a label such as

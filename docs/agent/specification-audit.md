@@ -12,7 +12,7 @@ resolutions and sources**, allowing revision/acceptance together. Do not confuse
 that batch review with a new approval requirement for every derived consequence.
 Mark truly unresolved choices/proposals separately.
 
-The [pruned list](../design/02-experience/gaps.md) now contains 28 worked
+The [pruned list](../design/02-experience/gaps.md) now contains 29 worked
 spec-derived cases (plus D-238's resolved review-cursor case), four concrete
 remaining product/scope decision areas, and separate contract, technical, later-UI
 and platform/service work. The
@@ -27,7 +27,7 @@ behavior coverage or authorizes implementation/a delivery-stage transition.
 | Undo/Redo/references | Core replay/target/order/clearing/fork/device/server-request rules are settled. Dependent comments/references block removal under D-224; their deletion/reattachment is not an open alternative. D-238 now settles personal viewing of a deleted node: fall back to its parent, repeatedly if needed to reach a surviving ancestor/root. Anchor/ID/cache/replay-field mappings are contract/technical work. |
 | Online concurrency/reconnect | Arrival-order acceptance, immediate predictions, individual outcomes, difference-only reconciliation and automatic already-sent recovery are approved. Protocol/unsent-request/animation cases need explicit contract coverage against those rules, not routine safeguards or another offline queue. |
 | Projections/Stack/combat | Source-versus-occurrence routing, cleanup/retention, slot reuse/placement and source-state preservation are approved. Inspection information after a token source disappears is a genuine remaining case. Apply existing rules to ordinary variants; geometry/control presentation is later UI. |
-| Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. Chat/comment edit/delete is a real feature choice; an existing dependent comment blocking Undo is not. |
+| Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. D-240 settles simple chat: no sent-message editing/deletion or planned expansions. Dedicated event-comment revision tools remain unapproved scope; ordinary comment Undo and dependent-comment blocking still follow existing rules. |
 | Empty/invalid/multi-target actions | Actual-mutation/no-invented-node, no-skipping/structural validity, selected-target applicability and entry-reset rules determine ordinary outcomes. Complete tables/tests; numeric/resource bounds and feedback details belong in technical/UI work. |
 | Product/platform/privacy | Additional authoring/coordination scope and user-visible recovery/erasure/local-data promises remain explicit choices. Device targets, service/provider/rights, notifications, operations and accessibility presentation retain their proper decision stages. Already-deferred R1 cuts are not gaps. |
 

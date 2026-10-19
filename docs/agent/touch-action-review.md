@@ -16,6 +16,12 @@ review/revision, not a separate question for each consequence.
 In particular, a comment dependent on a move already blocks Undo of that move
 under D-224; it is not a fresh reference-policy choice. No next-question quota.
 
+**Simple chat — D-240 (T-540; updated T-184):** sent messages have no Edit/Delete
+or gameplay Undo; send another message to correct one. No planned expansions:
+do not put chat editing/deletion on a deferred-feature roadmap. Event-comment
+ordinary Undo is unchanged; dedicated comment-revision tools are not approved.
+Draft editing, delivery handling and account erasure/retention are distinct.
+
 **Result-action races — D-239 (T-538/T-539):** not a fresh product choice. Apply
 normal server ordering/applicability: the first applicable action takes effect,
 and a later incompatible request is discarded. Do not adopt latest-suggestion
@@ -1020,8 +1026,9 @@ Confirmed optional communication direction (D-94/D-95):
    D-59. No unfinished text publication. Exact threading, revisions/removal,
    submission controls, and historical/branch association remain later review.
 
-D-94: submitted game-wide chat is not undoable; exact edit/delete, unsent delivery,
-and editor drafts remain separate. D-95: event comments are ordinary nodes on
+D-94: submitted game-wide chat is not undoable. D-240 excludes submitted-chat
+Edit/Delete, with corrections in another message and no planned expansions;
+unsent delivery and editor drafts remain separate. D-95: event comments are ordinary nodes on
 the current path, already a branch. Undo moves back but retains the existing
 path through the comment. No special comment-only branch/activation mechanics.
 Comments qualify as retention checkpoints alongside information gains under

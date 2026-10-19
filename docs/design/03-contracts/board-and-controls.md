@@ -693,8 +693,9 @@ Confirmed optional communication direction (D-94/D-95):
    D-59 without publishing unfinished text. Exact threads, editing/removal,
    submission controls, and historical/branch association remain later review.
 
-D-94 excludes submitted game-wide chat from Undo; edit/delete and unsent-delivery
-policies remain open. D-95 makes event comments ordinary nodes on the current
+D-94 excludes submitted game-wide chat from Undo. D-240 also excludes Edit/Delete
+for sent chat: corrections use another message, with no planned expansions.
+Unsent-delivery handling remains separate. D-95 makes event comments ordinary nodes on the current
 tree path, retained through the comment when undone. That path is already a
 branch; no separate comment-only fork or activation control is needed. Apply
 normal tree/base rules. D-160 keeps the whole abandoned continuation visible

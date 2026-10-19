@@ -14,6 +14,17 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest chat scope — D-240
+
+Owner selected **simple scope for chat, no planned expansions** (T-540; updated
+T-184). Submitted game-wide messages have no Edit/Delete or gameplay Undo;
+corrections use another message. Do not treat editing/deletion as deferred or
+add a chat expansion roadmap. This answer specifically names chat: preserve
+event-comment ordinary Undo without silently approving or excluding dedicated
+comment-revision tools. Draft editing, pending delivery and account erasure/data
+retention remain distinct. The gap list and Q-26/Q-31 separate settled chat scope
+from unapproved event-comment tools. No implementation or stage transition is authorized.
+
 ## Latest result-action race correction — D-239
 
 Owner rejected the assistant's competing-result-suggestion question as **not a
@@ -37,7 +48,8 @@ deleted; coalesced deletions resolve to the nearest surviving ancestor/root.
 Cursors on surviving nodes stay there. A personal cursor neither blocks eligible
 Undo nor adds a shared mutation when falling back. Exact IDs/version/cache
 handling remains technical work. The pruned gaps and Q-05/Q-31 now mark this
-outcome settled; communication correction and the other genuine gaps remain.
+outcome settled; D-240 above also settles chat correction scope. Dedicated
+event-comment tools and the other genuine gaps remain separate.
 No implementation or delivery-stage transition is authorized.
 
 ## Latest gap-pruning instruction — D-237
@@ -737,7 +749,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-239** and **T-001–T-539**.
+- Current documentation includes **D-001–D-240** and **T-001–T-540**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

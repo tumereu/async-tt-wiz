@@ -732,8 +732,9 @@ undo or recovery path, except submitted game-wide chat (D-94) and acceptance of
 an ending suggestion / return to lobby (D-212).** This includes
 state edits, random actions, draft edits, publication, grouping, event-linked
 comments, setup corrections, branch switching/archival and result suggestions.
-Submitted game-wide chat is not undoable. Chat edit/delete, unsent-delivery
-cancellation, and ordinary text-editor draft behavior remain separate decisions.
+Submitted game-wide chat is not undoable. D-240 also excludes submitted-chat
+editing/deletion: corrections use another message, with no planned expansions.
+Unsent-delivery handling and ordinary text-editor draft behavior remain distinct.
 D-211 makes a proposed win/loss/draw ordinary shared, undoable board state. The
 other player must accept before both return to lobby. This supersedes D-210's
 unilateral, non-undoable End game design; do not apply that exception to suggestions.
@@ -783,7 +784,7 @@ of heterogeneous commands. Exact controls for those recovery paths remain propos
 | Activate another branch/node | Normal Undo follows the newly active node's parent, not the previous selection. Previous states remain available through explicit tree activation. |
 | Delete/archive branch | Provide branch restoration and metadata recovery separately from game-node Undo; restore selection if explicitly requested. |
 | Group metadata edit | Provide recovery of previous title/boundaries without changing action nodes, parent links or game-node Undo stepping. |
-| Submitted game-wide chat | No game Undo (D-94). Chat edit/delete and unsent-delivery policies remain open; do not promise generic message Undo. |
+| Submitted game-wide chat | No game Undo (D-94), Edit or Delete (D-240). Corrections use another message; no expansions are planned. Unsent-delivery handling remains distinct; do not promise generic message Undo. |
 | Event-linked comment undone | Move to its parent. Retain the whole abandoned continuation visibly under D-160; no separate comment-only fork is needed. |
 | Pending win/loss/draw suggestion | Ordinary parent-node Undo; the suggestion is board state and does not end play without other-player acceptance (D-211). |
 | Accepted ending / return to lobby | Both players return after acceptance. Acceptance is not undoable; Undo cannot reverse this transition or reopen ended play (D-212). Pending suggestions remain undoable under D-211. |

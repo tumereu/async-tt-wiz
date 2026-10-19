@@ -140,8 +140,10 @@ retained alternative continuations with comments visible, even with one author
 and no exposure. D-232 Undo does not create an abandoned continuation to hold
 the original comment context; affected comment references remain unresolved.
 D-172 groups comments with preceding same-author play; D-170 still separates
-authors. Exact message/comment schemas, historical association, revisions/edit/delete
-and unsent-delivery policies remain open; do not give all Message records one
+authors. D-240 excludes submitted-chat editing/deletion and planned expansions;
+corrections are new messages. Exact message/comment schemas, historical association,
+dedicated event-comment revision scope and unsent-delivery handling remain separate;
+do not give all Message records one
 shared Undo policy.
 
 The [visual action language](visual-action-language.md) presents literal

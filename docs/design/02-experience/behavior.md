@@ -300,7 +300,9 @@ The general rules are:
   One standard marker, no labels/styles; automatic numbers span the whole event.
 - Ordinary actions/pings should explain play without typing. Optional notes,
   event comments, and game-wide chat remain separate. Submitted chat is not
-  undoable. Event comments are ordinary tree nodes, not a special comment-only
+  undoable and cannot be edited or deleted after submission. Send another
+  message to correct it. Chat stays simple, with no planned expansions (D-240).
+  Event comments are ordinary tree nodes, not a special comment-only
   branch workflow. References affected by D-232 tree edits remain to be specified;
   do not assume an original alternative is created to retain their old context.
 - Actions sync immediately and form meaningful review groups automatically;

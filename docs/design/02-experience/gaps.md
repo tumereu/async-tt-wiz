@@ -63,10 +63,15 @@ obligation or behavior is still proposed:
   the other player accepts, then both return to lobby**. No win-history/scorekeeping
   feature is required. D-212 makes acceptance/return to lobby non-undoable while
   pending suggestions remain undoable. Competing/replaced suggestions,
-  stale acceptance, prior-session history, starter-selection retention/random
+  stale acceptance, starter-selection retention/random
   resolution across games and complete game/history export remain open. D-213
   restores the last prepared decks/mainboard/sideboard on return, clears both
   Ready and requires both to ready again for a fresh game.
+- **D-214: optional future feature, not R1:** finished-game action-history archives
+  and read-only review, separate from each fresh game's history. This is not an
+  R1 gap or a win-history/statistics feature. Current-game history, retained
+  branches, Undo and offline review remain included; data-retention/deletion
+  guarantees are not selected by deferring finished-game review.
 - Detailed review navigation, branch comparison/rename/switch/archive controls,
   optional manual group editing, live-follow, cross-device progress, response
   requests, notifications, and ephemeral presence.
@@ -110,7 +115,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    online presence, start-versus-change ordering and one-time start recovery. Also open:
    remaining mulligan per-card sequencing/concurrent count timing/count edges,
    missing cards,
-   prior-session history and starter-selection retention/random resolution after
+   starter-selection retention/random resolution after
    returning to lobby, export,
    and which broader authoring/correction tools ship. D-211 settles undoable
    win/loss/draw suggestions and other-player acceptance returning both to lobby;
@@ -118,6 +123,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    win-history feature is required, and D-210's blanket non-undoability is superseded.
    D-213 settles restored lobby-prepared decks/mainboard/sideboard, both Ready
    cleared on return and both-player readiness required for a fresh game.
+   D-214 excludes finished-session history review from R1 as optional future work;
+   current-game history/recovery remains in scope.
    D-192 excludes automatic opening draws; mulligan quick actions are required,
    not optional scope or a manual-moves-only procedure.
 2. **History groups and pings.** D-162–D-175 establish the core sequence/marker

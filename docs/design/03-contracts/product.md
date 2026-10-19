@@ -87,15 +87,16 @@ Included:
 - Private two-player tables, card/deck import, editable setup, manual play,
   undoable result suggestions with other-player acceptance returning both to lobby
   (D-211), and fresh games from restored lobby preparation (D-213).
-  Prior-session history behavior remains open.
+  Finished-session action-history archives/review are optional future work, not R1
+  (D-214); current-game history remains included.
   D-188–D-190 confirm authenticated entry, adding users, import-only deck
   management and lobby mainboard/sideboard preparation with both-player Ready;
   they do not approve a full deck editor. D-211 uses proposed win/loss/draw solely
   for shared ending coordination, without required win-history/scorekeeping.
   D-212 makes acceptance non-undoable, not pending suggestions. D-213 restores
   last lobby-prepared decks/mainboard/sideboard, clears both Ready and requires
-  both to ready again for a fresh game. Prior-session history and cross-game
-  starter-selection retention/random resolution remain open.
+  both to ready again for a fresh game. Cross-game starter-selection retention/
+  random resolution remains open; D-214 defers finished-session history review.
 - Configurable areas and ordered piles, card movement/orientation/faces, custom
   objects, named counters/values, generic links/markers, and free-form correction.
 - Individual action playback, suggested editable groups, branching, undo/redo,

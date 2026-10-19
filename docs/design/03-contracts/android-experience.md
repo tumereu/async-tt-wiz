@@ -77,7 +77,7 @@ password reset by email, and usernames—not emails—visible to other users.
 | --- | --- |
 | Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). Validation, verification, session persistence and exact reset mechanics remain open. |
 | Main menu | Logout, Manage decks and Play (D-188). Username search/add saves contacts without mutual approval (D-196); separate Friends naming/placement remains tentative. |
-| Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Completed-game listing, catch-up state, pending work and branch-change presentation remain proposed. |
+| Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Finished-session history archives/review are optional future work, not R1 (D-214). Catch-up state, pending work and branch-change presentation remain proposed. |
 | Game lobby/invite | Invite/accept into lobby (D-195), prepare mainboard in Library and sideboard in separate Sideboard, other card areas initially empty (D-202). Select either player or Random as starter (D-201), both press Ready (D-189/D-190). Start shuffles Libraries and initializes life 20 without a required starting-life setting or automatic draw (D-200); begin turn 1 at Untap (D-108). Sideboard is unavailable during play, including browser/move paths (D-202). Remaining setup/lifecycle details are open. |
 | Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename decks, choose a cover from their cards, and re-import with Replace/Save as new; already selected lobby/game copies stay unchanged (D-199). Not a full card-list editor/export feature; remaining import/metadata/deletion details are open. |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |
@@ -94,7 +94,9 @@ state. The other player must accept; acceptance returns both players to the lobb
 No win-history/scorekeeping feature is required. This supersedes D-210's unilateral
 confirmation-dialog/non-undoable End game. D-212 separately makes acceptance/return
 to lobby non-undoable, not the pending suggestion. Competing/replaced suggestions,
-stale acceptance and prior-session history behavior remain open. D-213 restores
+stale acceptance remain open. Finished-session history archives/review are optional
+future work, excluded from R1 (D-214), not a required archive screen or lobby path;
+current-game history remains included. D-213 restores
 last lobby-prepared decks/mainboard/sideboard on return, clears both Ready and
 requires both players to ready again for a fresh game. Starter-selection retention/
 random resolution across games remains open. Do not infer an extra confirmation dialog.

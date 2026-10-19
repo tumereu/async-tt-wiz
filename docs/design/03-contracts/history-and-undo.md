@@ -445,8 +445,11 @@ D-212 separately confirms that acceptance/return to lobby is **not undoable**.
 Do not use Undo to reverse that transition or reopen the ended play session;
 pending suggestions remain ordinary undoable board state. D-213 restores the
 last prepared decks/mainboard/sideboard, clears both Ready and requires both
-players to ready again for a fresh game. Prior-session history behavior remains open in the
-[lifecycle contract](accounts-decks-and-lobby.md). Non-undoable acceptance does
+players to ready again for a fresh game. D-214 defers finished-session action-history
+archives/review to optional future development outside R1. Current-game history,
+retained branches, Undo, exposure/comment preservation and downloaded read-only
+access are unchanged. See the [lifecycle contract](accounts-decks-and-lobby.md).
+Non-undoable acceptance and deferring finished-session review do
 not authorize deleting prior history.
 
 Undo preserves the immutable tree and moves the shared active pointer one parent

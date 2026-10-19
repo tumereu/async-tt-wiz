@@ -245,8 +245,8 @@ Start action or require online presence from both participants.
   design. Do not retain that blanket Undo prohibition or infer an extra confirmation
   dialog on top of proposal/acceptance. End turn, leaving a screen and cancelling
   an unstarted game remain separate actions.
-- Competing/replaced suggestions, stale acceptance and prior-session history
-  behavior remain open. D-213 defines returned-lobby preparation and readiness
+- Competing/replaced suggestions and stale acceptance remain open. Finished-session
+  history review is optional future scope, not R1 (D-214). D-213 defines preparation and readiness
   below. Do not infer automatic restarting, permanent history deletion or a score archive.
 
 ## Returned-lobby preparation and a fresh game — D-213
@@ -265,9 +265,24 @@ Start action or require online presence from both participants.
   automatic fresh shuffles, 20 life each, other card areas empty, turn 1 at Untap
   and no automatic opening draws. Sideboard is again unavailable during play.
   Retrying that same fresh start reuses its recorded outcomes, not another start.
-- Prior-session history access/retention and exact starter-selection retention/
-  random-resolution behavior across games remain open. This does not approve
+- Exact starter-selection retention/random-resolution behavior across games
+  remains open. Finished-session history review is deferred below (D-214). This does not approve
   win-history/scorekeeping, reopening ended play or deletion of its history.
+
+## Optional future feature: finished-session history review — D-214
+
+- **Optional/additional development, excluded from R1.** R1 does not require
+  retaining finished sessions as a user-browsable archive or providing access to
+  their action histories from the lobby or a later game.
+- The future feature would retain finished games' action histories for read-only
+  review, separate from each fresh game's own history. Reviewing an ended session
+  would not reopen it or affect the current game. This is not win/loss statistics.
+- **Current-game history remains in R1.** Mutation-level history, retained branches,
+  Undo, exposure/comment preservation and downloaded read-only access within that
+  game are not deferred by this scope decision.
+- This defers the feature, not an instruction to delete finished-session data.
+  No permanent archive/retention/deletion guarantee or future delivery commitment
+  is selected; storage details remain later design work.
 
 ## Initial placement and lobby-only Sideboard — D-202
 
@@ -287,7 +302,7 @@ Start action or require online presence from both participants.
 - This does not delete the saved deck's sideboard or merge those cards into the
   Library. The saved-deck isolation rules remain. D-213 restores the last
   lobby-prepared mainboard/sideboard when returning after an accepted ending;
-  prior-session history behavior remains open.
+  finished-session history review is optional post-R1 scope (D-214).
 
 This supersedes older proposals for an in-game Sideboard/extra-container access
 path. It is a product lifecycle boundary, not card-text or sideboarding-legality
@@ -384,8 +399,9 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   shortcut work: per-card mutation order, concurrent count timing and count edges.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
-- Result-suggestion replacement/competition and stale acceptance; prior-session
-  history and starter-selection retention/random resolution across games.
+- Result-suggestion replacement/competition and stale acceptance;
+  starter-selection retention/random resolution across games. Finished-session
+  history review is optional future work outside R1 (D-214), not a release gap.
   D-211 confirms undoable suggestions, other-player acceptance, return
   of both players to lobby and no required win-history feature, superseding D-210.
   D-212 makes acceptance/return to lobby non-undoable, not the pending suggestion.

@@ -372,8 +372,12 @@ The general rules are:
   choices, not the final in-game card state or updated saved decks. **Clear both
   players' Ready**; both must ready again before a fresh game starts. Ordinary
   starting setup applies again, including fresh shuffles, 20 life and no automatic draw.
-- Competing/replaced suggestions, stale acceptance, prior-session history and
-  starter-selection retention/random resolution across games remain open in the
+- **Finished-game action-history review is optional future scope, not R1.**
+  This does not defer current-game history/Undo/branching or decide deletion of
+  finished-session data. The future feature would be read-only, separate from a
+  fresh game's history, with no reopening or effect on current play.
+- Competing/replaced suggestions, stale acceptance and starter-selection
+  retention/random resolution across games remain open in the
   [lifecycle contract](../03-contracts/accounts-decks-and-lobby.md).
 
 ### 11. Offline and failure behavior

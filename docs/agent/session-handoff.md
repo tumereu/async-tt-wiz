@@ -16,6 +16,17 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
+**D-180 follow-up:** immediately update local state to hide latency. If rejected,
+animate that change backward as if undone; animation explains the correction,
+not a required textual-error/acknowledgement flow. Animate incoming opponent
+mutations too. Local rejection rollback is not shared Undo, interruption intent,
+a new mutation or branch. Preserve personal review positions and D-177 grouping;
+sync/acceptance does not wait for animation. Detailed composition with later
+pending work remains open. The assistant's proposal to proceed with independent
+queued actions and retain dependent ones was not approved by this answer.
+See history section 3.3 and T-358–T-362. Per-action locking is the next substantive
+topic, without reopening explicit interruption or animated feedback.
+
 The owner rejected automatic conflict branching. An interruption must be a
 deliberate UI choice to go back and continue from a chosen state, carried by an
 explicit flag and boundary in the server message. Undo supplies continuation
@@ -34,8 +45,8 @@ D-179 supersedes D-13/P-11 and implicit edit-from-review/always-fixed-parent
 readings of D-176/D-177, not one mutation per node, immediate publication or
 personal animated playback. The assistant's preceding four-rule conflict proposal
 was not approved. Do not resume the no-ping-pong conflict-branch questionnaire.
-Remaining substantial work: per-action lock conditions, rejected-action feedback
-and recovery, dependent offline work after rejection/another interruption,
+Remaining substantial work: per-action lock conditions, rejection recovery and
+animation composition, dependent offline work after rejection/another interruption,
 simultaneous explicit interruptions and stale non-Undo controls. Exact wire fields
 and final continuation-control layout are not yet decided. Primary behavior is
 [history sections 3.3/3.5](../design/03-contracts/history-and-undo.md#33-immediate-action-synchronization);
@@ -217,7 +228,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-179** and **T-001–T-357**.
+- Current documentation includes **D-001–D-180** and **T-001–T-362**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

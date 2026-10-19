@@ -78,9 +78,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    explicit UI continuation intent and a message flag authorize an interruption;
    Undo supplies that intent automatically. Ordinary edits validate action-specific
    from/to conditions at the current head and append or reject without branching.
-   Remaining: exact lock conditions per action, rejected-action feedback/recovery,
-   dependent queued work after rejection or another interruption, simultaneous
-   explicit interruptions, and stale non-Undo branch controls. Earlier no-ping-pong
+   D-180 confirms immediate local latency hiding, Undo-like animated rollback on
+   rejection and animated incoming mutations; this is not shared Undo or a new
+   branch. Remaining: exact lock conditions per action, rejection recovery and
+   animation composition with dependent queued work or another interruption,
+   simultaneous explicit interruptions, and stale non-Undo branch controls. Earlier no-ping-pong
    conflict-branch proposals are superseded, not approved.
 5. **References and projection controls.** Occurrence removal versus token-source
    removal (non-token cards cannot be deleted); surviving Stack effects after

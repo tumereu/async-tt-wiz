@@ -295,6 +295,11 @@ The general rules are:
 
 ### 10. Offline and failure behavior
 
+- Local actions update the board immediately to hide network latency. If an
+  action is rejected, animate its change backward as if undone; that animation
+  explains the correction. It is not a shared Undo or branch. Incoming mutations
+  from the other player are also applied with animations, preserving personal
+  historical review positions (D-180). Animation never delays synchronization.
 - Downloaded games can be reviewed and actions queued offline. Show pending,
   synchronized, stale/offline, and failed states honestly. Save completed actions
   and recoverable unfinished work; reconnect/restart must not silently lose work.

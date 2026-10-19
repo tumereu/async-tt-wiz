@@ -42,6 +42,16 @@ synchronizing immediately when online and dependency-ready. There is no Send
 step or waiting for group closure. Service acknowledgement establishes the
 shared result, not a notification or animation.
 
+D-180 confirms immediate optimistic local state updates for latency hiding. A
+rejected mutation is visually reversed with an Undo-like animation; this local
+correction does not emit an Undo/control operation, acquire historical-continuation
+intent or create a branch. Incoming opponent mutations are also applied through
+animations. Keep authoritative state, pending predictions and presentation
+distinct: animations neither delay synchronization nor establish acceptance, and
+acknowledgement must not apply an already-predicted mutation twice. Preserve
+personal historical cursors. Exact composition with pending work and rejection
+queue recovery remain open.
+
 D-176 requires one node per individual mutation and immediate publication of
 each node, including ordered operations from bulk/combined controls. Transport
 batching must not collapse nodes or wait for invocation/group/animation completion.
@@ -74,7 +84,7 @@ Proposed outcomes:
 | Situation | Outcome |
 | --- | --- |
 | Ordinary edit; from/to conditions hold at current head | Append there and advance the shared pointer atomically, even if other actions committed meanwhile. |
-| Ordinary edit; either from/to condition fails at current head | Reject without changing game state or creating a branch. Retain recoverable local work; detailed feedback/dependent-queue behavior remains open. |
+| Ordinary edit; either from/to condition fails at current head | Reject without changing shared game state or creating a branch. Animate the predicted local mutation backward under D-180. Retain recoverable local work; detailed recovery/dependent-queue behavior remains open. |
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
 | Further queued work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict protocol. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |

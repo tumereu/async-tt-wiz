@@ -325,8 +325,14 @@ unknown catalog entries may require connectivity and must say so.
 A queued action is not labeled delivered. D-179 attempts ordinary edits at the
 current head using their action-specific from/to conditions: accept if both hold,
 reject otherwise. Do not make an accidental branch because the view was stale or
-another player acted. Preserve recoverable rejected work; exact feedback and
-dependent-queue recovery remain open, not automatically D-161's silent-Undo policy.
+another player acted. D-180 requires immediate local state updates to hide latency;
+on rejection, animate the predicted change backward as if undone. The animation
+explains the correction without a required text explanation or acknowledgement.
+This does not publish a shared Undo, create a branch or undo the opponent's work.
+Animate incoming opponent mutations too; preserve personal historical cursors.
+Preserve recoverable rejected work; detailed recovery, animation composition and
+dependent-queue handling remain open. D-161's silent stale-Undo discard remains
+specific to Undo, not a blanket policy for rejected ordinary actions.
 
 An explicitly requested historical continuation makes its branch current and
 preserves the displaced line for inspection/return. Normal Undo moves one parent

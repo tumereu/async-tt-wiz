@@ -111,6 +111,22 @@ the opponent creates another continuation. The engine never calls the sequence
 
 **Confirmed:** completed game actions synchronize automatically, without Send.
 
+**Confirmed presentation (D-180):** update local game state immediately to hide
+network latency; do not wait for server acceptance before showing the action. If
+the server rejects it, animate the local mutation backward as if it were undone.
+The reversal is the explanation, not a required textual error/confirmation flow.
+This is local reconciliation, not a shared Undo request, new mutation, historical
+continuation intent or branch activation. Incoming mutations from the other
+participant are also applied with animations, rather than unexplained board
+replacement. Preserve D-177 grouping and personal historical review positions;
+incoming history does not silently move a historical cursor.
+
+Acknowledgement of a predicted mutation must not apply it twice. Animation does
+not gate persistence, publication or server acceptance. Exact interleaving with
+later pending local work, rejection recovery and dependent-queue handling remain
+open. Final timing, reduced-motion/accessibility presentation and layout remain
+later design work.
+
 Proposed action lifecycle:
 
 1. The user completes a direct operation or the necessary inputs for an action.
@@ -147,7 +163,8 @@ deliberately waiting to gather a group; every action boundary remains intact.
 - Offline actions use the same local workflow and synchronize automatically on
   reconnect. Offline status does not itself authorize a fork. Local acceptance and
   branch activation remain provisional until acknowledged. Retain rejected work
-  for recovery; exact feedback and dependent-queue handling remain open.
+  for recovery. D-180 specifies animated rollback feedback; detailed recovery and
+  dependent-queue handling remain open.
 - Incomplete selections/forms may be cancelled without shared effects. Once an
   action is completed, use Undo rather than assuming it is still private.
 - Do not require a pre-send review, editing mode, group completion, branch name,

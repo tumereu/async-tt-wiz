@@ -21,9 +21,14 @@ Ordinary actions validate action-specific from/to conditions at the current head
 appending if valid and rejecting otherwise. Concurrent changes/stale views do not
 create branches. This supersedes D-13/P-11 and implicit edit-from-review branching,
 not the mutation/playback model above. Remaining work: per-action lock conditions,
-rejection feedback/recovery, dependent queued work and simultaneous explicit
+rejection recovery/composition, dependent queued work and simultaneous explicit
 interruptions. See [history](../design/03-contracts/history-and-undo.md), Q-23 and
 T-349–T-357; no final UI/wire-schema decision or implementation is authorized.
+D-180 confirms feedback: immediate optimistic local state, Undo-like animated
+reversal on rejection and animated incoming opponent mutations. This is not a
+shared Undo/branch or approval of the assistant's independent/dependent queue
+policy. Exact queue recovery/composition and per-action locks remain open;
+see history section 3.3 and T-358–T-362.
 
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and

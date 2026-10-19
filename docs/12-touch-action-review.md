@@ -42,7 +42,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | D-116–D-118 actions/combinations/blockers/spacing; D-120–D-124 links/full paths/cleanup/shared edits; D-126 cleanup; D-127/D-128 closure/destination; D-130–D-132 undo/event policy; D-133/D-135 occurrence reuse/uniqueness/drag role change; D-136 former-attacker cleanup; D-137 paired multi-card slots; D-138 empty-pair removal/insertion/reflow; D-139 visual grouping; D-140 real battlefield-card drag entry/retargeting. Multiselect/mixed-role/edge drops and other-view/absent-area entry remain open; UI drafts remain stage 3. |
+| G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | D-116–D-118 actions/combinations/blockers/spacing; D-120–D-124 links/access/cleanup/shared edits; D-126–D-132 cleanup/closure/undo/events; D-133/D-135 reuse/uniqueness; D-136–D-139 slot grouping/lifecycle/reflow; D-140–D-142 create/reuse/uniform slot drags; D-143 insertion/append; D-144 context Remove from combat; D-145 new declaration pairs; D-146 single-card declaration auto-area. Quick visibility, moved-collection/new-pair order, existing-blocker declarations, edge/between-pair/absent-area drag targets, and other-view applicability remain open; UI drafts remain stage 3. |
 | G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. D-134 allows unlimited independent projections, including from one source. Missing-source display/actions and other entry/reference cases remain open. |
 | G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
 
@@ -888,7 +888,8 @@ attacker/blocker roles. Dragging an attacker to a blocker position moves that
 same occurrence, preserving identity and leaving real source state unchanged.
 This UX constraint rejects independent simultaneous combat-role occurrences;
 unlimited Stack effects remain allowed. D-136 settles former-attacker blocker
-cleanup; reverse entry and existing-source handling through other controls remain open.
+cleanup; D-142 settles reverse projection drags. Existing-source handling through
+non-drag controls remains open.
 Confirmed D-136/D-139: dragging an attacker into a blocker role leaves the other
 cards grouped in their slots, with a blocker-only pair if the last attacker leaves.
 Confirmed D-137: combat uses paired opposing slots, with multiple attackers and
@@ -899,8 +900,9 @@ are empty, closing the gap; retain pairs with either side occupied. Between-pair
 drops insert a new pair with the moved cards, not implicitly an entire origin
 pair, preserving other pairs' contents/relative order. Remove fully empty origins
 by the same rule. Allow visual reflow while preserving surviving slot membership/
-order, replacing literal fixed positions. Combat with no pairs stays open. Mixed-
-role side routing and exact event/concurrency cases remain open.
+order, replacing literal fixed positions. Combat with no pairs stays open. D-142
+settles target-slot role routing; between-pair side targeting and exact event/
+concurrency cases remain open.
 Confirmed D-139: each pair is one visual combat group without individual attacker↔
 blocker assignments. Placement and optional pings communicate finer details; no
 inferred all-to-all blocking rules or mandatory pings. Removing/role-changing one
@@ -910,8 +912,46 @@ Confirmed D-140: dragging a real battlefield card into either combat side create
 its projection there or retargets its existing occurrence in that area, preserving
 identity. Leave original position/location/orientation unchanged; no implicit
 tap/untap or actual card move into combat. Destination side determines role;
-other cards retain grouping, with fully empty origins removed. Multiselect/
-other-view routing, absent-area entry, no-change records, and event/concurrency
-details remain open.
+other cards retain grouping, with fully empty origins removed. D-141 settles
+selected real-card common-target routing; D-142 settles mixed combat-role/view
+target-slot routing. Other-view applicability, absent-area
+entry, no-change records, and event/concurrency details remain open.
+Confirmed D-141: all selected real battlefield cards dragged onto one combat slot
+join that same slot and side, creating/reusing each source's occurrence, not one
+pair per source. Preserve reused identities and real source state; other cards
+stay grouped and fully empty origins disappear normally. One selected drag uses
+whole-user-action Undo. D-142 extends this to mixed combat-role/view selections;
+duplicate-source views, moved-collection order, and event/concurrency remain open;
+D-143 settles within-slot insertion versus append.
+Confirmed D-142: paired attacker/blocker slots are drop destinations, not card-role
+filters. Drag any collection onto one slot and all go there side-by-side with that
+slot's role. This includes mixed roles, either direction of projection-role change,
+and real battlefield/combat-projection mixtures. Reject proposed mixed-role
+preservation/splitting; do not form an ordinary overlapping pile. Preserve source
+state/occurrence uniqueness and other cards' grouping, removing fully empty origins.
+D-143 settles within-slot insertion versus append. Moved-collection ordering,
+other-view applicability, duplicate-source selection, edge/empty-area targeting,
+and event/concurrency details remain open.
+Confirmed D-143: dropping between cards inside a combat slot inserts there;
+dropping into unused slot space appends. Preserve other cards' relative order.
+Distinguish this from between-pair drops creating a new pair. Uniform target-slot
+role routing, source preservation, occurrence reuse, and whole-user-action Undo
+remain unchanged. Moved-collection order, hit regions, no-change records, and
+event/concurrency composition remain open.
+Confirmed D-144: Remove from combat is a context action for one or several selected
+combat projections. Remove only those occurrences/incident links, preserving real
+source state, Stack effects, other cards' grouping/order, and the open combat area.
+Clean up fully empty pairs normally. One Undo restores occurrences/roles/slots/
+order/links and cleaned-up pairs. Real-source/mixed-selection access, source-card
+Remove entry, drag-back behavior, menu layout, and event/concurrency remain open.
+Confirmed D-145: declaration shortcuts place each newly declared attacker in its
+own pair by default; existing attackers retain slots/grouping/order, including
+existing multi-attacker groups. Collection drags still share the chosen slot.
+New-pair position/order, existing-blocker sources, and event/concurrency remain open.
+Confirmed D-146: single-card declaration auto-creates an absent combat area like
+multiselect shortcuts, without implicit tapping/source movement or a separate
+creation action. Reuse an existing area without clearing/replacing it; manual
+area creation remains available. Absent-area drag targeting and exact declaration
+quick visibility/offerings remain open.
 Pause/resume context is in the [session handoff](14-session-handoff.md).
 No UI draft/implementation authorized.

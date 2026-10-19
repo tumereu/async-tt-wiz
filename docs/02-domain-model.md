@@ -395,7 +395,7 @@ remain. Between-pair drops insert a new pair with the moved projections, retaini
 other pairs' contents and relative order. Empty origins follow the same removal
 rule; an area with no pairs stays open (D-127). Layout alone does not edit sources
 or transfer surviving cards between pairs. See the primary combat contract,
-section 13.15, for pending mixed-role routing and event/concurrency cases.
+section 13.15, for pending within-slot order, edge-drop, and event/concurrency cases.
 
 D-140: a real battlefield card dragged into an attacker/blocker slot creates its
 combat occurrence there, or retargets its existing occurrence in that area while
@@ -403,8 +403,36 @@ preserving identity. Destination side determines role; the original stays in its
 containing location/battlefield position with unchanged orientation. This does
 not tap/untap, move the actual card into combat, or create a Clone. Other cards
 retain grouped membership/order; fully empty origin pairs disappear (D-138/D-139).
-Multiselect/other-view routing, absent-area entry, no-change records, and exact
+Other-view applicability, absent-area entry, no-change records, and exact
 event/concurrency composition remain open.
+
+D-141 applies real battlefield-card drag entry to a selected set: all occurrences
+join the same target slot and side, creating or reusing per source under D-140,
+not one pair per source. Real source state remains unchanged; reused identities
+and other cards' grouping are preserved, with fully empty origins removed normally.
+D-142 extends the common target to combat-projection/mixed-role/mixed-view drags:
+all go into the destination slot side-by-side, taking its role rather than keeping
+old roles or splitting across paired sides. Single projection drags work in either
+role direction. Preserve source state and occurrence uniqueness; this is not an
+ordinary overlapping pile. D-143 inserts at a between-card drop position or appends
+on an unused-space drop, preserving other cards' relative order. Ordering the moved
+collection itself and other-view applicability remain open, as do duplicate-source
+view handling and exact event/concurrency cases.
+
+D-144 supplies a Remove from combat context action for one or several selected
+combat occurrences. Remove only those projections/incident links, not real cards
+or Stack effects. Preserve surviving slot membership/order; remove fully empty
+pairs without closing the area. Whole-user-action Undo restores occurrences,
+roles/slots/order/links and pairs removed by cleanup. Source-card Remove and
+real-source/mixed-selection access remain distinct review cases.
+
+D-145 gives each newly declared attacker its own pair when using declaration
+shortcuts, preserving already-declared attackers' existing slots/grouping/order.
+Do not apply this per-source default to drags into a chosen slot (D-142).
+D-146 auto-creates an absent combat area for single-card declaration; reuse an
+existing area without clearing/replacing it. Plain declaration preserves source
+orientation/position/location. Exact new-pair ordering, existing-blocker source
+handling, absent-area drag targeting, and event/concurrency remain open.
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display

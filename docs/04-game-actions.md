@@ -106,12 +106,31 @@ one visual group without individual attacker↔blocker assignments; players can 
 placement/pings for finer details. D-138 removes a pair immediately only when both sides
 are empty, closing the gap; between-pair drops insert a new pair with the moved
 cards, retaining other pairs' contents/order. Fully empty origins disappear too;
-an area with no pairs stays open. Mixed-role routing still needs specification.
+an area with no pairs stays open. D-142 settles uniform target-slot routing for
+mixed-role selections rather than preserving prior roles.
 D-140 confirms real battlefield-card drag entry into either combat side: create
 the source's projection there or retarget its existing occurrence, preserving
 identity and the original's position/location/orientation. This drag does not
-tap/untap or move the actual source into combat. Multiselect and absent-area entry
-remain open; repeated declaration still follows D-133 rather than drag retargeting.
+tap/untap or move the actual source into combat. D-141 sends all selected real
+battlefield cards to the same target slot and side, creating/reusing per source,
+not one pair each. D-142 extends this to combat projections and mixed real/combat
+projection selections: all go into the chosen slot side-by-side with its role,
+never split by earlier roles or overlapped into an ordinary pile. Source state
+and occurrence uniqueness remain unchanged. D-143 inserts on between-card drops
+inside a slot and appends on unused-space drops, preserving other cards' relative
+order. Moved-collection ordering, other-view applicability, and absent-area entry remain open;
+repeated declaration still follows D-133 rather than drag retargeting.
+D-144 adds Remove from combat as a context action for one or several selected
+combat projections, leaving real cards/Stack effects unchanged. Remove incident
+links and fully empty pairs normally, preserving remaining grouping/order and the
+open area. One Undo restores occurrences and cleaned-up slot/link context;
+source-card Remove and real-source/mixed-selection access remain separate cases.
+D-145 gives each newly declared attacker its own pair for declaration shortcuts,
+keeping existing attackers' slots/grouping/order. Collection drags still share
+one target slot (D-142). D-146 auto-creates the combat area for single-card
+declaration if absent, without implicit tapping or source movement; reuse an
+existing area. Exact quick visibility/new-pair order and absent-area drag targeting
+remain open.
 D-134 separately allows unlimited independent Stack
 projections, including repeated effects from one source; removing one leaves the
 others and the source unchanged.

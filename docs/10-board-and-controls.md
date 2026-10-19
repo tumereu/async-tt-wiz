@@ -1236,10 +1236,32 @@ blocker assignments; placement/optional pings communicate finer details without
 an inferred blocking rules graph. D-140 makes real battlefield-card drags into
 attacker/blocker slots create their projections or retarget existing occurrences
 without duplicating/recreating them. Preserve originals' position/location and
-orientation; no implicit tap/untap. Mixed-role/multiselect drop routing and other entry/role-change
-paths, mixed/empty-source cases, and missing-source Stack
+orientation; no implicit tap/untap. D-141 routes selected real battlefield cards
+to that same slot and side, creating/reusing each source's occurrence rather than
+one pair per card. D-142 makes any dragged collection, including mixed attacker/
+blocker projections and real/combat-projection views, join the chosen slot side-
+by-side, taking its role. Do not preserve/split prior roles or form an overlapping
+ordinary pile. Single projection drags work in either role direction. D-143 inserts
+at between-card positions inside a slot or appends on unused-space drops, keeping
+other cards' relative order. Moved-collection ordering, other-view applicability,
+mixed/empty-source cases, and missing-source Stack
 presentation/actions remain separate. See the [session handoff](14-session-handoff.md)
 for the continuation point.
+
+D-144 requires a **Remove from combat** context action for an individual combat
+projection or selected combat projections. This removes occurrences/incident
+links, not real cards or Stack effects; apply fully-empty-pair cleanup without
+closing the area. One Undo restores removed projections and prior slot/role/order/
+link context. Keep source-card Remove distinct. Exact menu layout and access
+through real sources or mixed real/projection selections remain open.
+
+D-145 requires declaration shortcuts to give each new attacker its own pair by
+default, retaining existing attackers' slots/grouping/order. This does not alter
+same-slot collection drags. D-146 auto-creates an absent combat area for single-
+card declaration, without a separate creation action, implicit tapping, or source
+movement. Reuse existing areas without clearing/replacing them; separate manual
+creation remains available. New-pair order, absent-area drag targets, and quick
+visibility/offerings remain open.
 
 ## 10.9 Worked interaction examples
 

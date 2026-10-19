@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-140 require case-by-case design before implementation. The
+(D-115). D-112–D-146 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -80,10 +80,13 @@ In multiselect mode, when the phase/step is appropriate, offer both:
 Both automatically create the combat area if absent, without a separate manual
 creation prerequisite. This is explicit composition, not inferred card text.
 Exact quick-action phase/step visibility, empty/mixed
-selections, single-card entry when the area is absent, and the internal
+selections and the internal
 event/interruption/group mapping of combined shortcuts remain behavior questions;
 D-131 supplies whole-user-action undo unless an exception is approved.
 Do not infer a gesture or final layout beyond the specified multiselect offerings.
+D-145 gives each newly declared attacker its own pair for declaration shortcuts;
+existing attackers retain their slots. D-146 also auto-creates the area for a
+single-card declaration, without adding implicit tapping.
 
 D-121 requires both combined declaration actions and their individual actions
 to remain reachable through a full targeted-action path, such as a card context
@@ -101,7 +104,10 @@ pair is valid, not an invalid missing-attacker reference.
 Creating/grouping blocker projections leaves sources at their battlefield
 positions; later card-directed actions through projections affect the source
 (D-123). D-140 confirms dragging real battlefield sources into attacker/blocker
-slots creates or repositions their combat occurrences. Multiselect routing,
+slots creates or repositions their combat occurrences. D-141 sends selected real
+battlefield cards to the same target slot and side. D-142 extends this to any
+dragged collection, including mixed combat roles/views, displayed side-by-side.
+Other-view applicability,
 gesture disambiguation, within-side order, and removal controls still need review.
 
 Attackers receive more space as more blockers are assigned, keeping their blocker
@@ -146,7 +152,7 @@ stage 3; schemas/technical choices follow in the relevant implementation work:
    versus multi-source behavior, empty/mixed selections, slot order/capacity,
    cancellation, and combined shortcut boundaries. Separate declaration/tap and
    multiselect variants are settled, not proposals.
-2. **Blocker entry:** multiselect/other-view routing, within-side order/removal,
+2. **Blocker entry:** other-view applicability, moved-collection order/removal,
    and corrections. D-140 settles real battlefield-card drag entry/retargeting.
    Opposing-slot drops, blocker-only pairs, and
    adaptive spacing are settled. D-139 requires visual paired grouping rather
@@ -356,9 +362,10 @@ occurrence and changes its role; it does not create a second occurrence or
 delete/recreate the first. Preserve its occurrence identity. Such combat-area
 placement/role changes alone do not move or edit the actual source card (D-123).
 
-Existing-source entry through non-drag controls, projection-drag reverse role
-changes, and exact history/concurrency composition still need review. D-140
-settles real battlefield-card drag entry/retargeting to either role. D-136/D-139
+Existing-source entry through non-drag controls and exact history/concurrency
+composition still need review. D-140 settles real battlefield-card entry/
+retargeting; D-142 confirms projection drags in either role direction and uniform
+target-slot routing for collections. D-136/D-139
 settle remaining-group cleanup on attacker departure. The previous
 proposal allowing simultaneous attacker and blocker occurrences from the same
 source is rejected.
@@ -411,8 +418,8 @@ not a collection of individual attacker↔blocker assignments. See section 13.16
   by this layout alone; normal undo/history must retain the prior slot/ordering
   context. Exact event/concurrency composition remains open.
 
-Side routing for mixed-role selections, within-side insertion/order controls,
-first/last/empty-area drop targeting, and any separate whole-pair reorder control
+Ordering the moved collection itself, first/last/empty-area drop targeting,
+between-pair side targeting, and any separate whole-pair reorder control
 remain behavior questions. D-138 approves the described behavior, not final screen
 geometry or an implementation-stage transition.
 
@@ -456,7 +463,126 @@ declaration shortcut that retains an existing attacker's placement (D-133).
 
 Normal history/undo/branch/offline recovery retains prior occurrence/slot/role
 context, and source-card fields remain live/shared (D-123). Exact operation/event/
-concurrency composition, same-target no-change records, multiselect routing,
+concurrency composition, same-target no-change records,
 entry from other views/locations, absent-area entry, and final drop geometry remain
 separate questions. This approval does not add attack/block legality checks or
 change explicit Declare + tap behavior.
+
+## 13.18 Confirmed selected battlefield-card drag grouping (D-141)
+
+When several selected real battlefield cards are dragged onto one combat slot,
+all join that same target slot and side. Do not automatically give each source
+its own pair or spread them across different slots. Apply D-140 per source:
+create its occurrence if absent in this area, or move its existing occurrence
+there with identity preserved. A selection may therefore combine sources with
+existing combat occurrences and sources not yet projected.
+
+The drop side determines all resulting occurrence roles. Leave all real sources'
+battlefield positions, containing locations, orientation, and unrelated card state
+unchanged; no implicit tap/untap. Preserve other cards' grouping/membership/order
+and remove fully emptied origin pairs normally (D-138/D-139). This is one selected
+drag, not separate user invocations; D-131 supplies whole-user-action Undo. Exact
+event/concurrency handling still needs review.
+
+This initially settled selected real battlefield cards; D-142 extends common-
+target routing to mixed-role combat projections and mixed real/projection drags.
+Duplicate views of one source, non-battlefield/inapplicable selections, ordering
+the moved collection itself, absent-area entry, and final drop geometry remain
+separate cases. D-143 settles within-slot insertion versus append.
+Existing selection-retention
+requirements remain; do not change selection mode or create a Send gate.
+
+## 13.19 Confirmed uniform slot drops and side-by-side contents (D-142)
+
+Combat is paired **slots**, one for attackers and one for blockers ("defenders"
+in the owner's clarification). Drag any collection of cards onto a slot and all
+its resulting combat occurrences go into that one slot, **side-by-side**. The
+destination determines their role, not previous attacker/blocker status, source
+view, or inferred game characteristics. Do not split a mixed-role selection
+across the two sides, preserve previous roles contrary to the target, create one
+pair per card, or turn the contents into an ordinary overlapping card pile.
+
+This applies to existing combat projections, including a single blocker dragged
+to an attacker slot or vice versa, selected real battlefield sources under
+D-140/D-141, and mixtures of these views. Move/reuse each source's existing combat
+occurrence or create one if absent, retaining one occurrence per source per area
+(D-135). Role/slot changes alone leave real source position/location/orientation/
+other fields unchanged. Remaining cards retain grouping/order, and fully empty
+origins disappear normally (D-138/D-139). No legality or damage engine is implied.
+
+The proposed special rule preserving roles in mixed attacker/blocker drags is
+rejected. D-143 settles within-slot insertion versus append while preserving the
+other cards' order. Moved-collection ordering and spacing remain open; geometry
+is stage 3. Non-battlefield/other-view applicability,
+duplicate-source view selection handling beyond occurrence uniqueness, between-
+pair side targeting, absent-area entry, no-change records, and event/concurrency
+composition remain open. Normal whole-user-action Undo and history/branch/offline
+recovery still apply; no new selection mode or gameplay Send is introduced.
+
+## 13.20 Confirmed within-slot insertion and append (D-143)
+
+Dropping between existing cards inside a combat slot inserts the dragged cards
+at that position. Dropping into unused space in the slot appends them to its
+existing contents. Preserve the relative order of the other cards; do not sort,
+reverse, or regroup them. This remains an ordinary slot drop under D-142: the
+whole dragged collection joins that slot side-by-side with its destination role.
+
+This is insertion within one slot, distinct from a between-pair drop creating a
+new pair under D-138. Creating/reusing occurrences, source-state preservation,
+empty-origin cleanup, and normal whole-user-action Undo/history recovery remain
+unchanged. Retain the prior slot/order context for recovery. Ordering the moved
+collection itself across different sources/views, exact drop hit regions,
+same-target no-change records, and event/concurrency composition remain open.
+
+## 13.21 Confirmed Remove from combat context action (D-144)
+
+Provide **Remove from combat** as a context action for one combat projection or
+several selected combat projections. Remove only the targeted occurrences, not
+their real source cards. Leave source positions, orientation, counters, notes,
+faces/cover, and other card state unchanged. Do not remove Stack effects or
+unselected combat occurrences merely because they share the area.
+
+Remove incident projection links normally (D-120). Remaining cards retain their
+paired-slot membership/order; a final attacker leaving retains the blocker-only
+pair. Remove a pair immediately only if both sides become empty, with permitted
+visual reflow; the combat area remains open even with no pairs (D-138/D-139).
+
+One invocation uses whole-user-action Undo (D-131), restoring the removed
+occurrences and prior slots/roles/order/incident links, including any pairs removed
+by this cleanup. Normal dependency, branch, offline, and sync contracts still
+apply; exact event/concurrency composition remains open. This occurrence-only
+action is distinct from source-card Remove. Its availability through a real source
+or mixed real/projection selection, source-Remove entry, drag-back-to-source
+behavior, and final menu layout remain separate cases. Context-action access is
+a confirmed interaction requirement now, not a new UI drafting stage.
+
+## 13.22 Confirmed default declaration placement (D-145)
+
+For declaration shortcuts rather than dragging, give each newly declared attacker
+its own slot pair by default, on that pair's attacker side. Keep already-declared
+attackers in their existing slots with identities/order/grouping preserved under
+D-133; do not split or relocate an existing multi-attacker group on repetition.
+Mixed existing/new declarations retain existing attackers and create separate
+pairs only for newly added attackers. A plain declaration does not tap; explicit
+Declare + tap still taps its selected sources, and without-tapping preserves
+orientation (D-116/D-117).
+
+This differs deliberately from dragging a collection onto one slot, which places
+the whole collection there (D-142). Exact new-pair position/order relative to
+existing pairs and each other, handling sources currently projected as blockers,
+empty/inapplicable selections, and event/concurrency composition remain open.
+Do not duplicate a source's combat occurrence while resolving those cases.
+
+## 13.23 Confirmed single-card declaration auto-creation (D-146)
+
+Declaring a single card when the combat area is absent automatically creates the
+area and declares the attacker, with its own pair under D-145. No separate manual
+area-creation prerequisite or extra user action is required, just as for approved
+multiselect declaration shortcuts. Plain declaration leaves source orientation/
+position/location unchanged; auto-creation does not add implicit tap/untap.
+
+Separate manual area creation remains supported (D-116), and an existing area is
+reused rather than replaced, cleared, or duplicated. Normal whole-user-action
+Undo/history/branch/offline recovery applies; exact event/concurrency composition
+remains open. This does not settle absent-area drag targeting, authorize new
+single-card quick offerings, or fix declaration quick-action phase visibility.

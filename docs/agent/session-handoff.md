@@ -4,14 +4,60 @@ Updated 2026-10-19. This is continuation context, not a new source of requiremen
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
 
-## Current discussion — D-159–D-161
+## Current correction — mutation tree and playback, D-176/D-177
+
+The owner corrected the assistant's underlying model. **One node is one individual
+mutation**, such as moving or tapping one card, deterministically reversible in
+both directions. Every mutation immediately becomes a leaf extending/branching
+the chosen node/path and publishes. Bulk controls issue individual operations in
+a sensible recorded order. A client's state points to a mutation, not a group.
+
+Groups only control navigation/representation: one playback step with concurrent
+animation. On return after an opponent's interruption, start at the last local
+state, animate rollback fairly quickly to the fork, then play the new continuation
+automatically or step by step. Automatic playback is interruptible. While paused,
+show a horizontal bottom timeline draggable left/right to select the exact node
+where play can continue. Traversal is personal, not shared Undo/publication.
+
+D-176 supersedes older atomic bulk/combined-node mappings in D-130/D-132/D-144/
+D-148–D-150 and MTG-reaction-window node sizing. Keep shortcut effects, existing
+order/placement defaults, validation, node-level Undo and retained alternatives.
+Record actual mutations only: empty draws fabricate no node. Cleanup/reset
+decomposition/order still needs consistent contracts, not discretionary atomic
+bulk mappings. D-177 supersedes next-mutation-only normal playback; groups animate
+concurrently while exact intermediate mutation states remain selectable.
+
+The assistant's preceding three-rule forward/backward precedence proposal was
+**not approved**. Do not repeat tiny grouping/publication questions or assume
+groups are gameplay units. Re-anchor the larger asynchronous-play batch in this
+model before proposing substantive remaining behavior. Primary contracts:
+[history](../design/03-contracts/history-and-undo.md),
+[grouping](../design/03-contracts/history-grouping.md); T-337–T-348.
+
+## Current batch — asynchronous play loop, D-175
+
+The owner approved planning a larger behavior-only batch: review/grouping,
+inspection/annotations, interruption/forward return, offline/competing edits and
+staying oriented. No implementation or stage transition is authorized.
+
+D-175 confirms the first four-rule bundle: each explicit View/Reveal opening
+starts a separate review group; combat-area creation/removal joins combat edits;
+Stack rearrangements group separately from entries/removals; each explicit
+Stack-effect removal stays separately visible. Keep author/companion rules and
+forward dismissal/closure. D-176 resolves bulk removal as individual mutations. See the primary
+[grouping contract](../design/03-contracts/history-grouping.md) and T-330–T-336.
+The later correction above supersedes the planned precedence questionnaire.
+Do not reopen the approved display/projection presentation rules.
+
+## Earlier discussion — D-159–D-161
 
 The owner replaced whole-invocation Undo with one shared active-pointer move to
 the parent tree node, regardless of author. Retain undone descendants and permit
 explicit forward activation through the tree; review alone remains personal.
 After replacement play, ordinary abandoned continuations are hidden, not deleted,
-and available through a show-hidden-branches toggle. Approved event counts stay:
-Draw + advance consequently takes two Undo steps, not one. The older D-131/D-151
+and available through a show-hidden-branches toggle. D-176 subsequently corrects
+node granularity to individual mutations; an actual Draw + advance takes two
+Undo steps, while an empty draw adds no node. The older D-131/D-151
 Undo-scope decisions are superseded. D-160 confirms multiple presses for
 composites and keeps the whole abandoned continuation visible if it contains
 exposure or an event comment, including ordinary tails. There is no cutoff.
@@ -133,7 +179,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-174** and **T-001–T-329**.
+- Current documentation includes **D-001–D-177** and **T-001–T-348**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
@@ -243,8 +289,9 @@ this is not completion of grouping design or authorization to implement.
 - D-144: **Remove from combat is a context action** for one or
   several selected combat projections. Remove only targeted occurrences/incident
   links, leaving real source state and Stack effects unchanged. Preserve other
-  grouping/order and apply fully-empty-pair cleanup without area closure. One
-  Undo restores removed projections/slots/roles/order/links and cleaned-up pairs.
+  grouping/order and apply fully-empty-pair cleanup without area closure. D-176
+  records individual occurrence removals with per-node Undo and retained
+  slots/roles/order/links/cleanup context.
   Source-card Remove and real-source/mixed-selection access remain separate;
   drag-back-to-source behavior and final menu layout are not decided.
 - D-145: declaration shortcuts give each newly declared attacker
@@ -260,33 +307,20 @@ this is not completion of grouping design or authorization to implement.
   during Declare attackers. Keep full context-action paths for the combinations/
   constituents at other steps under D-121. No implicit execution, new single-card
   quick offerings, participant/turn-player locks, or runtime legality/priority checks.
-- D-148: Declare + tap is one tree event showing projection
-  declaration, source tapping, and any automatic area creation. Review/interruption
-  is only before/after; these effects add no separate MTG reaction points. One
-  Undo restores prior orientations/occurrences/slots/grouping/order/area existence.
-  Separate declaration/tapping invocations remain distinct; other shortcut mappings
-  and exact concurrency remain open. This is not runtime timing/legality adjudication.
-- D-149: Declare without tapping is one event including any
-  automatic area creation, preserving source orientation. One Undo restores
-  occurrence/slot/grouping/order/area context.
-- D-150: during Untap, Untap all + advance is one event showing
-  scoped untapping and Untap → Upkeep, with no internal response boundary. One
-  Undo restores prior orientations/tracking; no-change sources still advance.
-- D-151: during Draw, Draw one + advance is two events: draw portion
-  while tracking remains Draw, then advance to Precombat main. The intermediate
-  state is genuinely reviewable/interruptible. D-159/D-160 replace its earlier
-  whole-invocation Undo: each node now takes one press, two in total.
-  No extra tap/Send or group-publication gate. Empty Library draws nothing but
-  still advances with the approved boundary and no invented card edits/loss;
-  exact no-change wording/feedback remains open. D-160 retains the whole abandoned
-  continuation visibly if its suffix contains draw exposure, including the trailing
-  advance. Pointer-control/concurrent handling
-  and out-of-step mappings remain open; see history section 3.11.
+- D-176 supersedes D-148/D-149/D-150's combined-node mappings. Declaration
+  shortcuts issue individual area/occurrence changes and individual real-source
+  taps for +tap. Without-tapping preserves orientation. Untap all issues individual
+  untaps followed by any tracking advance. Each mutation publishes immediately;
+  one Undo follows one parent, not the whole shortcut.
+- Draw + advance records an actual card move, if any, followed by advancement.
+  D-176 supersedes an empty no-change draw node. No extra tap/Send or publication
+  gate. D-160 retains an abandoned draw-exposure continuation including its
+  ordinary tail. Exact feedback/concurrency/out-of-step behavior remains open.
 - D-152: a declaration shortcut including an existing blocker moves
   that same occurrence into its own new attacker pair, preserving identity/links.
   Apply variant tapping normally; existing attackers retain slots/grouping and
   other origin cards stay grouped. Remove only fully empty origins. Preserve
-  one-event/one-Undo declaration mappings, restoring prior roles/slots/order/pairs/
+  individual mutation nodes under D-176, retaining prior roles/slots/order/pairs/
   source orientation as applicable. Order among new pairs and source-feedback/duplicate-
   view/concurrent handling remain open.
 - D-153: newly created declaration pairs append after surviving
@@ -373,20 +407,17 @@ this is not completion of grouping design or authorization to implement.
   actions); phase/multiselect conditions govern quick visibility, not underlying
   access. Structural/applicability validation still applies. Keep this when
   interpreting the End of combat quick-action restriction.
-- D-129 distinguishes user invocation, undo unit, tree event, and atomic boundary.
+- D-176 distinguishes invocation, individual mutation node and playback group.
   **D-159/D-160 are the current Undo principle:** one press moves the shared active
-  pointer to its parent, regardless of author. D-131's **multiple events wherever
-  MTG permits reactions at distinct points** remain real review/interruption
-  boundaries. Composite invocations may require multiple presses. Specify event
-  mappings individually; presentation grouping never changes parent links.
+  pointer to its parent regardless of author. Node granularity is not based on
+  MTG reaction windows. Groups only control concurrent-animation playback steps
+  and representation; they never change parents, publication or Undo stepping.
 - Reaction-point design does **not** authorize runtime rules/priority adjudication,
   Pass, priority-holder state, or card-text interpretation. Players judge timing;
   specified events preserve places to review/interrupt/branch.
-- D-130/D-132: advance-and-close is **one event listing both effects and one Undo**
-  restoring the prior step and complete area/projections/assignments/links/placement.
-  Review/interruption is before or after it, not between its effects: closing
-  the presentation area adds no separate MTG reaction point. Do not generalize
-  this one-event mapping to other combinations.
+- D-176 supersedes D-130/D-132: advance-and-close issues distinct tracking and
+  area/occurrence mutations, not one combined node/Undo. Exact cleanup sequencing
+  remains to be specified consistently; no hidden atomic bulk fallback.
 - D-119: pings show automatic order numbers across **all pings in the same grouped
   event**, not per attacker/source/purpose. No automatic damage interpretation.
 
@@ -454,7 +485,7 @@ source preservation, existing-attacker reuse, or approved event/Undo mappings.
 - No turn-number editor or extra-turn scheduler; manual repeated steps may make
   counting approximate. End turn is one tap beside Next step. Separate Untap/
    Draw and +advance variants remain; no inferred skip-untap exceptions or loss
-   from an empty Library. D-150/D-151 fix normal-step +advance mappings; exact
+   from an empty Library. D-176 fixes individual-mutation +advance sequences; exact
    no-change feedback, partial-group/concurrency, and out-of-step mappings remain open.
 - Retained cards entering configured Library/Graveyard/Exile lose counters and
   restore retained current-face default corner text; tokens disappear instead.

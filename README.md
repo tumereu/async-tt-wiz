@@ -4,9 +4,10 @@ A generic, rules-agnostic board/card-game engine with a native Android client,
 asynchronous play, and cooperative editing. Playing Magic: The Gathering manually,
 in the spirit of Cockatrice, is the initial use case—not built-in rules logic.
 
-Actions synchronize immediately and form meaningful groups automatically, with
-minimal taps and no gameplay Send step. An opponent reviews those actions one at
-a time and can interrupt at any action boundary. Interruptions and conflicting
+Each individual mutation synchronizes immediately and extends or branches the
+state tree. Automatic groups control playback steps and concurrent animation,
+not publication or node boundaries. A player can pause playback and scrub to an
+exact mutation on the bottom timeline. Interruptions and conflicting
 edits create new continuations in a retained game tree, with one active branch.
 Every game edit must be recoverable, including mistaken interruptions and branch
 deletion.

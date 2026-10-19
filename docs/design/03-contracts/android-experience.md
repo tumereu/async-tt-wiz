@@ -1,7 +1,8 @@
 # 5. Android experience
 
-Status: proposed interaction architecture. Annotated wireframes, exact layouts,
-visual design, and Android support versions remain to be specified.
+Status: proposed interaction architecture except confirmed requirements noted
+below, including D-177's resume/playback and bottom timeline behavior. Annotated
+wireframes, exact layouts, visual design, and Android support versions remain open.
 
 Confirmed card gestures and proposed drag/pile/intent details are defined in
 [Game board and controls](board-and-controls.md), the primary tabletop-input
@@ -46,12 +47,11 @@ phase/step changes and End turn leave the area open until explicit closure.
 Standalone advance/close and non-quick access to the combination remain available.
 D-128 shows the quick action only at End of combat, advancing to Postcombat main;
 the full path remains available. D-159/D-160 set Undo to one parent node,
-regardless of author, replacing whole-invocation/group scope. D-131's distinct
-reaction-point events remain; composites can require multiple Undo presses.
-Specific event mappings still need design, not runtime timing enforcement.
-D-130 confirms whole undo for advance-and-close; D-132 shows it as one tree event
-listing both effects. Missing-area/out-of-combat handling remains open; button
-wording/placement is stage 3.
+regardless of author, replacing whole-invocation/group scope. D-176 makes each
+node one individual mutation, superseding combined-node mappings such as D-132.
+Groups control playback/navigation and concurrent animation, not publication or
+the node pointed to by the client. Missing-area/out-of-combat handling remains
+open; button wording/placement is stage 3.
 
 ## 5.1 Navigation and screens
 
@@ -117,14 +117,26 @@ available when viewing history or an inactive branch; it must not discard drafts
 
 ## 5.3 Catch-up flow
 
-1. Open a game at the last meaningful review position, with an option to view
-   the latest shared board immediately.
-2. Show “N groups / M actions to review” on the active path.
-3. Expand a group to show literal constituent actions and their pings.
-4. Next advances one atomic action, animating a clear before/after delta.
-5. The player can step back, inspect any zone/card, jump, or interrupt here.
-6. After the latest action, label the view “At shared head”; do not imply that
-   the player has passed priority or agreed every action was legal.
+**Confirmed D-177:**
+
+1. Start at the player's last local state. If the opponent interrupted that
+   continuation, animate rollback fairly quickly along its mutations to the fork.
+2. Play forward along the new continuation automatically or step by step. A
+   group is one playback step whose changes animate concurrently; the underlying
+   state still advances through individual mutation nodes.
+3. Let the player interrupt automatic playback. When paused, show the horizontal
+   event timeline at the bottom; dragging left/right selects an exact mutation
+   boundary, including one inside a group.
+4. Continue playback or perform a game edit at that node. Navigation alone does
+   not publish edits or activate a different shared continuation. A new edit
+   immediately extends or branches the chosen node/path (D-176).
+5. At the latest mutation, identify the current state without implying priority
+   passing, legality approval or consent.
+
+This supersedes the old proposal that normal Next must advance one mutation
+instead of one group. Exact animation timing, automatic/manual default and final
+control/accessibility layouts remain design work. Pausing playback never pauses
+publication or loses pending work. See [the primary resume contract](history-and-undo.md#312-resume-playback-and-exact-timeline-navigation-d-177).
 
 If a branch changes during review, show a persistent non-destructive notice
 with “Go to divergence” and “Keep inspecting this line.” Avoid automatically

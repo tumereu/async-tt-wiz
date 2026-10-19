@@ -34,12 +34,12 @@ classification or D-95's inclusion of event comments.
 Ordinary undone history must remain available for forward return before a new
 edit too; its exact pre-fork presentation is not yet specified.
 
-Approved event boundaries do not change. Thus Draw + advance still produces two
-nodes: Undo from its final node returns to the post-draw Draw-step state; a second
-Undo returns to the pre-draw state. The one-node declaration, Untap + advance,
-and advance-and-close shortcuts still take one Undo to reach their predecessor.
-This replaces D-131's whole-invocation scope, not its distinct-reaction-point
-requirement. Composite actions may require multiple Undo presses.
+D-176 clarifies the node unit: **one individual mutation**, not a bulk operation,
+combined shortcut or playback group. One Undo still follows one parent. Earlier
+one-node combined-action mappings are superseded wherever they combine distinct
+mutations. For an actual draw followed by advancement, Undo first restores Draw
+tracking while keeping the drawn card, then restores the pre-draw state. Bulk
+and other combined invocations likewise require one press per constituent node.
 
 ## 3.1 Three positions that must never be confused
 
@@ -66,29 +66,31 @@ participant may interrupt any of it later.
 
 ## 3.2 Atomic actions and interruption boundaries
 
-A recorded atomic action corresponds to an explicit operation, not every internal
-field write. Examples: move a card, rotate it, add a ping, or change a named
-counter. Distinguish this from a user action/invocation, which may produce multiple
-recorded events/actions in one invocation. Each node is a separate Undo step
-(D-159/D-160). Do not combine separate
-user actions because the engine guesses they form a game mechanic. A deliberately
-selected generic bulk operation can be atomic where no required response boundary
-is hidden.
+A node records **one mutation to game state** (D-176): for example, moving one
+card, tapping one card, or changing one counter. Its recorded transition supports
+deterministic application and rollback. A user invocation can issue many such
+operations; it is not itself a node. Bulk movement, tapping, edits, Clone and
+occurrence removal issue individual operations in a sensible recorded order.
+Keep existing source/spatial ordering defaults; do not invent a sorting workflow.
+
+Every mutation is immediately appended as a new leaf extending the client's
+chosen node/path, or branching there if it already has a retained continuation.
+Persist and publish each mutation immediately under normal offline/dependency
+constraints. Neither invocation completion nor animation/group completion is a
+publication boundary. The client state pointer always identifies a mutation node
+(or the root), never a group.
 
 An interruption is possible at the root or after any published atomic action,
 including an action inside a group. There is no boundary inside an atomic
-action. Before committing a compound action, the player can inspect its parts;
-when intermediate response points matter, record separate events/actions, which
-may still belong to one user invocation/presentation group, but remain separate
-Undo steps (D-159).
+mutation. Every intermediate mutation boundary remains navigable, including
+inside a bulk invocation or concurrent group animation. Normal playback steps
+may span a group; pausing and timeline scrubbing select an exact node.
 
 The engine does not infer/enforce response windows, casting, payment, or resolution.
-D-131 requires the behavior specification to provide separate events wherever
-MTG permits reactions at distinct points within a user action. These are real
-review/interruption boundaries, not decorative rows hiding one indivisible
-transition. Players still judge timing; there is no priority state, Pass, or
-runtime card-rule adjudication (D-105). Preserve independently completed operations
-so participants can choose the right interruption point themselves.
+D-176 supersedes the older policy of choosing node granularity by possible MTG
+reaction windows. Node granularity follows individual mutations, not inferred
+game timing. Players judge when to respond; there is no priority state, Pass,
+or runtime card-rule adjudication (D-105).
 
 Example sequence, with only literal records:
 
@@ -142,16 +144,22 @@ execution that the platform cannot guarantee. Exact latency targets remain open.
 
 ## 3.4 Sensible grouping
 
-Groups affect presentation and notifications, never atomicity or interruptibility.
+Groups control navigation/playback steps and representation, never mutation
+creation, publication, parent links or interruptibility (D-176/D-177). Changes in
+one group animate concurrently during a playback step; they remain an ordered
+sequence of individual nodes. The client pointer is a node, not a group.
 
-D-162–D-174 specify sequence-based presentation groups and timeline group-start
+D-162–D-175 specify sequence-based presentation groups and timeline group-start
 markers. Same non-Stack move tuples group, including interleaved taps; real-card
 Stack moves and Stack projection creations remain separately visible. Ordinary
 card edits, manual face/cover edits, token removal, player values/counters and
 persistent-link creation/removal group together. Token creation and Clone group
 together with interleaved customization edits. Event comments join the preceding
-group without starting a new one. Combat
-projection creation/repositioning groups together; View/Reveal dismissal/combat
+group without starting a new one. Combat-area creation and projection
+creation/repositioning/removal group together. Each explicit View/Reveal opening
+starts a separate review group. Stack rearrangements group separately from
+entries/removals; each explicit Stack-effect removal stays separately visible.
+Bulk removals issue individual occurrence-removal mutations (D-176). View/Reveal dismissal/combat
 closure belongs with the following action. Same-target
 Shuffles group; dice/coin runs start separately from prior play and attach to the
 following action. Phase/turn tracking joins the previous group. Same-author pings
@@ -167,13 +175,11 @@ not out of the game. Token removal/disappearance remains supported, distinct fro
 projection removal. There is no automatic-grouping question for a non-token
 Remove action, and this restriction does not change pointer-based Undo/history.
 
-D-129 distinguishes invocation, tree event, and presentation group. D-159/D-160
-set **one parent-node move per Undo**, replacing D-131's whole-invocation scope.
-D-131's reaction-point requirement remains: multiple MTG reaction points need
-separate effective tree events/interruption boundaries, without extra invocation
-taps. Multiple Undo presses are acceptable. Event count/placement still needs
-case-by-case specification. Presentation groups and optional split/join never
-change parent links or Undo stepping. Schemas follow behavior, not vice versa.
+D-176 distinguishes invocation, individual mutation node and playback group.
+D-159/D-160 set **one parent-node move per Undo**. Multiple mutation nodes do not
+require extra invocation taps. Specify constituent mutations and their order,
+not whether bulk/combined edits deserve an atomic node. Grouping and optional
+split/join never change parent links or Undo stepping.
 
 The [literal-action presentation](visual-action-language.md) groups related
 recorded operations and their action-linked pings. For example, a move to the
@@ -188,19 +194,16 @@ onto later event states, but the records remain viewable when reviewing that
 step in the event tree, including offline for downloaded games. This visibility
 rule does not merge atomic boundaries or settle automatic group formation.
 
-D-116 requires separately invoked combat-area creation, attacker declaration,
-and tapping to remain distinct user actions when invoked separately. D-117's
-combined multiselect shortcuts use the confirmed event mappings. D-148
-records Declare + tap, including any automatic area creation, as one tree event:
-no review/interruption between declaration and source tapping. One Undo restores
-prior orientations and occurrence/slot/area context. D-149 also makes Declare
-without tapping one event, including any automatic area creation. D-150/D-151
-fix normal-step Untap + advance as one event and Draw + advance as two, with one
-Undo per node (D-159); see section 3.11. D-119
+Combat-area creation, individual projection declaration and individual source
+tapping remain distinct mutations even when a shortcut invokes them together
+(D-176, superseding D-148/D-149's combined-node mappings). Untap all likewise
+issues individual untaps; phase advancement is another mutation. See section
+3.11. D-119
 requires ping numbers across the single grouped event; exact ordering mutation
 and split/join/coalescing effects remain behavior questions, not permission to
 merge actions or lose historical ping context.
-Exact within-group effective boundaries and later ping revisions remain open.
+Every mutation remains an effective boundary; exact ping revision/attachment
+semantics remain open.
 
 D-124/D-125 require area-specific projection lifetime in recorded states: source
 departure removes combat projections/incident links, whereas Stack effects
@@ -227,8 +230,9 @@ Proposed grouping rules:
 - Never infer a priority pass, spell resolution, or turn completion from elapsed
   time, a card animation, or a group ending.
 - Boundaries and action summaries remain visible when a group is collapsed.
-- A review control opens the next group but advances one action at a time.
-  “View group result” is an explicit shortcut, not the only navigation mode.
+- D-177 supersedes the older next-action-only playback proposal: a normal playback
+  step spans a group and animates its changes concurrently. Exact mutation-level
+  navigation remains available through the paused timeline.
 
 D-166 refines normal display/area-close progression: show the revealed/combat
 state, then the following group result including dismissal plus its next action,
@@ -287,8 +291,11 @@ the proposed first release.
 
 ## 3.6 Review progress
 
-Review controls: previous action, next action, previous/next group, jump to a
-selected boundary, view shared head, and interrupt here.
+Confirmed D-177: automatic or step-by-step animated playback advances through
+groups. The player can stop automatic playback and drag the horizontal bottom
+timeline left/right to select an exact mutation boundary and continue there.
+Mutation-level navigation and group stepping are different presentation scales
+over the same tree. See section 3.12 for returning after an interruption.
 
 - Review progress is personal and may synchronize across a person's devices.
 - Own actions are distinguishable from unseen actions by the other person.
@@ -326,14 +333,12 @@ the entire affected continuation visible, including trailing ordinary nodes
 (D-160). Hidden nodes retain identity, payloads, ancestry and stored random results;
 the filter never changes game state. See section 3.9 for exposure classification.
 
-Advance-and-close remains one Undo because D-132 makes it **one node**, containing
-both tracking and complete area cleanup. D-148/D-149 declarations and D-150 normal-
-step Untap + advance likewise have one node each. D-151 normal-step Draw + advance
-has **two nodes and two Undo steps**: first restore Draw tracking while keeping
-the drawn card, then return to the pre-draw state. Required reaction boundaries
-must not be collapsed to reduce Undo taps. Interruption at a composite action's
-intermediate node follows the same tree model; later constituent events remain
-on their original continuation, not replayed onto the interruption.
+D-176 supersedes the old combined-node mappings for advance-and-close,
+declarations and Untap + advance. Undo follows one constituent mutation's parent,
+not the invocation or playback step. An actual draw plus advancement has separate
+move and tracking mutations. Do not fabricate a draw node for an empty Library.
+Interruption at any intermediate mutation follows the ordinary tree model; later
+mutations remain on their original continuation, not replayed onto the response.
 
 Game-node Undo and recovery of non-node controls are distinct. Branch archival,
 metadata changes and unfinished input still require discoverable recovery under
@@ -532,39 +537,55 @@ before implementation; see the open decisions.
 
 ## 3.11 Confirmed shortcut event mappings (D-149–D-151)
 
-These mappings distinguish an effective tree event/interruption boundary from a
-user invocation. D-159/D-160 make each node a separate Undo step. They do not
-authorize runtime priority,
-Pass, timing/legality adjudication, or automatic card-text effects.
+**Current rule: D-176 supersedes the older combined-node mappings named in this
+heading.** The heading is retained for existing references. Invocations issue
+individual mutations; every mutation publishes immediately and is one Undo step.
 
-| Invocation | Recorded events | Undo scope |
-| --- | --- | --- |
-| Declare without tapping (D-149) | One event: declaration and any automatic area creation together; preserve source orientation. | One Undo restores prior occurrence/slot/grouping/order/area context. |
-| Untap all + advance during Untap (D-150) | One event: literal scoped untapping and Untap → Upkeep together. No separate response point inside Untap. | One Undo restores prior source orientations and phase/step. |
-| Draw one + advance during Draw (D-151) | Two events: draw portion while tracking remains Draw, then Draw → Precombat main. The intermediate state is genuinely reviewable/interruptible. | First Undo returns to Draw while keeping the drawn card; second Undo returns to the pre-draw state (D-159/D-160). |
+| Invocation | Mutation sequence |
+| --- | --- |
+| Declare without tapping | Create an absent area as needed; create or reposition each affected combat occurrence individually. Preserve real source orientation. |
+| Declare + tap | Issue the required area/occurrence mutations and individual source taps. Do not combine a declaration and tap, or several cards, into one node. |
+| Untap all + advance | Individual untaps in a sensible recorded order, then the tracking advance. |
+| Draw one + advance | The actual card move, if any, followed by the tracking advance. |
+| Advance-and-close | Distinct tracking and area/occurrence changes, not a single node containing all effects. Exact cleanup decomposition/order remains to be specified consistently. |
 
-For Draw + advance, show the actual resulting card/location state after the first
-event while still in Draw. Do not collapse the two events into an indivisible
-transition or merely decorative rows; an opponent can branch at that boundary.
-One invocation still completes without a second tap or Send. Completed events
-queue/sync under normal immediate-publication rules, not a group-completion gate.
-The preserved advance on the original continuation must not silently replay onto
-an interruption branch. Undo/interruption at either node uses the ordinary
-parent-pointer model; exact concurrent
-publication protocols remain open.
+Retain existing shortcut effects, target placement and one-invocation access;
+this changes the node model, not which game operations are offered. Existing
+bulk source/spatial ordering defaults remain. Exact cleanup/reset decomposition
+and ordering still need contracts, but combining multiple individual edits into
+a node is not an available fallback.
 
-D-111 still applies: no affected untap cards does not prevent Untap → Upkeep;
-an empty Library draws no card but still advances, without automatic loss. Record
-actual effects, not fictitious untaps/drawn cards. The approved event counts and
-Draw-step boundary remain; exact no-change event wording/feedback remains open.
+D-111 still applies: empty/no-change untaps or draws do not block advancement.
+Record only actual mutations, not invented untaps, drawn cards or an empty-draw
+mutation. Exposure-bearing continuations retain D-160 visibility. Navigation and
+retries reuse stored outcomes; they neither resample nor replay the old future
+onto a new branch. No runtime priority/legality enforcement is added.
 
-Undo retains both nodes. If replacement play abandons a suffix containing an
-actual draw exposure, D-160 keeps its entire continuation visible, including the
-ordinary advance. If only the advance is undone/replaced, the draw is in the
-shared prefix; that ordinary abandoned advance can be hidden. Never erase the
-draw or sample a new outcome merely to return forward through the tree.
+## 3.12 Resume, playback and exact timeline navigation (D-177)
 
-Separately invoked constituent actions keep separate invocation/event/Undo
-identities. These are specific normal-step mappings, not permission to rewind
-tracking or infer event counts for unrelated/out-of-step combinations. Remaining
-concurrency, no-change presentation, and reaction-point exceptions need design.
+**Confirmed:** when returning after the opponent interrupted the player's chain:
+
+1. Begin at the player's last local game state, not by replacing the board with
+   an unexplained latest-state snapshot.
+2. Traverse the old path backward fairly quickly with animations to the
+   interruption/common-ancestor node, deterministically rolling back mutations.
+3. Traverse the new active continuation forward with animated automatic playback
+   or player-controlled steps. Each group is one playback step; its constituent
+   changes animate concurrently while remaining ordered mutation nodes.
+4. The player can interrupt automatic playback. While paused, show a horizontal
+   event timeline at the bottom of the screen. Dragging it left/right selects
+   an exact mutation boundary, including a boundary inside a displayed group.
+5. Continue playback from that node, or make a game edit there using ordinary
+   controls. The edit immediately appends a mutation, extending or branching the
+   chosen path; a navigation/group boundary does not become a parent node.
+
+Backward/forward playback and scrubbing are personal traversal, not new Undo,
+activation or mutation publications. Preserve retained alternatives and pending
+local work. Pausing the animation does not pause synchronization or change the
+shared active continuation. A displayed animation between endpoints is not an
+invented tree state: a paused/scrubbed game state identifies a concrete node.
+
+The owner has specified the playback/timeline behavior, not its final geometry,
+animation speed, automatic-versus-manual preference default or accessibility
+layout. These details remain for the appropriate later design work. Every
+mutation publishes immediately regardless of playback or grouping.

@@ -91,10 +91,11 @@ In multiselect mode, when the phase/step is appropriate, offer both:
 
 Both automatically create the combat area if absent, without a separate manual
 creation prerequisite. This is explicit composition, not inferred card text.
-D-147 fixes quick visibility to Declare attackers. D-148 records Declare + tap
-as one event, including any automatic area creation. Empty/mixed selections and
-remaining applicability cases remain open. D-149 also makes without-tapping one
-event; D-159 supplies one parent-node Undo for either variant.
+D-147 fixes quick visibility to Declare attackers. D-176 supersedes D-148/D-149's
+combined-node mappings: automatic area creation, individual occurrence changes
+and individual source taps are separate mutations, immediately published and
+individually navigable/undoable. Empty/mixed selections and remaining
+applicability cases remain open.
 Do not infer a gesture or final layout beyond the specified multiselect offerings.
 D-145 gives each newly declared attacker its own pair for declaration shortcuts;
 existing attackers retain their slots. D-146 also auto-creates the area for a
@@ -287,8 +288,8 @@ or automatic damage/resolution. Closing alone and advancing alone remain
 available; the combined action also has a full non-quick path under D-121.
 
 Handling outside combat/with no area remains a behavior question. D-128 fixes
-destination/quick visibility; D-130 makes the combination one undoable unit;
-D-132 records both effects as one event. UI wording/geometry follows stage 3.
+destination/quick visibility. D-176 supersedes D-130/D-132's combined-node/Undo
+mapping: distinct mutations retain individual nodes. UI wording/geometry follows stage 3.
 
 ## 13.8 Confirmed advance-and-close destination and quick visibility (D-128)
 
@@ -305,34 +306,25 @@ outside combat remain open; do not infer a later-phase rewind policy.
 
 ## 13.9 Confirmed combined-action decision policy and undo scope (D-129/D-130)
 
-D-129 distinguishes invocation, tree event/group, and atomic boundary. D-159/
-D-160 replace whole-invocation Undo with **one move to the active node's parent,
-regardless of author**. Multiple Undo presses for composites are acceptable.
-D-131's distinct-reaction-point requirement remains: specify effective event
-boundaries without runtime priority or legality enforcement. Presentation groups
-do not alter parent links or Undo stepping.
+D-176 supersedes the older combined-node policies in D-129–D-132 and
+D-148–D-150: a node is one individual mutation, not a combined shortcut or bulk
+operation. Every mutation immediately extends or branches the chosen path and
+publishes. D-159/D-160 Undo follows **one parent node regardless of author**;
+restoring an entire invocation may require multiple presses.
 
-D-130: **advance out of combat + close combat area** is one undoable unit. One
-Undo restores the prior phase/step and the complete combat area/projections/
-assignments/incident links/placements, rather than requiring a separate undo for
-each effect. Normal history/branch/recovery and dependent-work rules apply.
-D-132 additionally confirms one event for this particular combination.
-Undo follows node boundaries for every combination. D-148/D-149 make both
-declaration variants one event. D-150
-makes Untap + advance during Untap one event; D-151 makes Draw + advance during
-Draw two events with two Undo steps. First return to Draw while retaining the
-drawn card, then to the pre-draw state. Other event mappings still need review; see
-[history mappings, section 3.11](history-and-undo.md).
+D-177 makes groups navigation/playback steps with concurrent animation, not
+atomic tree events. A paused player can scrub to any constituent mutation and
+continue there. Neither MTG timing nor animation grouping changes these node
+boundaries. See [history mutation sequences, section 3.11](history-and-undo.md).
 
 ## 13.10 Confirmed advance-and-close tree representation (D-132)
 
-Show advance-and-close as one tree event listing both the phase/step transition
-and combat-area closure: closing a presentation area does not itself add a
-distinct MTG reaction point. Record one transition with both effects, not two
-separately interruptible events merely collapsed under one row. Review/interruption
-can occur before or after it, not between its advancement and area cleanup.
-One Undo restores both effects under D-130. This is specific to advance-and-close;
-do not use it to hide other actions' required reaction boundaries (D-131).
+**D-176 supersedes D-132's one-node mapping.** Advance-and-close issues distinct
+tracking and area/occurrence mutations. Preserve each mutation's deterministic
+forward/rollback state and immediate publication. Exact cleanup decomposition
+and sequencing remain to be specified consistently; a combined multi-change
+node is not the fallback. Playback grouping does not remove intermediate nodes
+or turn the invocation into one Undo step. This is not runtime MTG timing adjudication.
 
 ## 13.11 Confirmed repeated attacker declaration (D-133)
 
@@ -591,8 +583,8 @@ orientation (D-116/D-117).
 This differs deliberately from dragging a collection onto one slot, which places
 the whole collection there (D-142). D-153 appends new declaration pairs after
 surviving existing pairs. Order among multiple new pairs, empty/inapplicable
-selections, and exact concurrency remain open. D-152 settles existing blockers; D-148/D-149
-settle each declaration variant's one-event mapping.
+selections, and exact concurrency remain open. D-152 settles existing blockers;
+D-176 requires individual mutation nodes, superseding the older variant mappings.
 Do not duplicate a source's combat occurrence while resolving those cases.
 
 ## 13.23 Confirmed single-card declaration auto-creation (D-146)
@@ -630,40 +622,27 @@ card offerings, and per-action event/concurrency mappings remain separate cases.
 
 ## 13.25 Confirmed Declare + tap event mapping (D-148)
 
-Record one **Declare + tap** invocation as **one tree event** showing all its
-effects: declaring the selected attackers as projections, tapping their real
-sources, and automatically creating the combat area if absent. Include new slot
-pairs under D-145, preserve already-declared attackers under D-133, and record
-actual source orientation changes rather than inventing changes for tapped cards.
+**D-176 supersedes D-148's combined-node mapping.** One Declare + tap invocation
+issues individual required mutations: an absent area's creation, each affected
+occurrence's creation/repositioning, and individual real-source taps. Preserve
+D-133 reuse, D-145/D-153 placement, existing identities/links and unrelated state.
+Do not fabricate taps for already-tapped cards. The exact sensible constituent
+ordering/cleanup decomposition remains a contract detail, not permission to
+combine several edits into one node.
 
-There is no separate MTG response point between declaring attackers and tapping
-them, nor from creating the presentation area. Review/interruption is before or
-after this event, not between its effects. Do not represent it as separately
-interruptible events merely collapsed into one row. This specifies history
-boundaries, not runtime timing, priority, or legality adjudication.
-
-One Undo returns to this single node's parent under D-159: restore prior source
-orientations, occurrence/slot/grouping/order context, and whether the combat area
-existed. Do not undo unrelated earlier state or remove pre-existing attackers/
-groups. Normal dependency, branch, exposure/comment retention, offline, and sync
-contracts still apply; exact concurrency handling remains open.
-
-Separately invoking declaration and tapping retains separate user actions/events
-under D-116. D-149 separately settles without-tapping; D-148 is not a universal
-one-event rule for combined actions.
+Every mutation is immediately recorded/published and is individually navigable
+and undoable. Concurrent playback animation does not merge nodes. Separately
+invoked controls keep their invocation context; combined invocation avoids extra
+input taps, not mutation boundaries. No runtime legality/priority inference is added.
 
 ## 13.26 Confirmed Declare without tapping event mapping (D-149)
 
-Record Declare without tapping as one tree event showing declaration and any
-automatic combat-area creation together. Preserve source orientation rather than
-untapping already-tapped sources. Apply established occurrence reuse/default
-pairs; review/interruption is before/after, not between area creation/declaration.
-
-One Undo restores the prior occurrences/slots/grouping/order and area existence,
-preserving real source state and unrelated prior groups (D-159). Separate manual
-area creation/declaration remain separate invocations when used separately. No
-runtime timing/legality adjudication is added. Exact concurrency and remaining
-selection/no-change presentation cases remain open.
+**D-176 supersedes D-149's combined-node mapping.** Create an absent combat area
+as needed and issue individual occurrence mutations, preserving real source
+orientation, reuse/default pairs and unrelated state. Each mutation has its own
+node, immediate publication and parent-step Undo. Separate manual creation and
+declaration remain available; a shortcut adds no extra invocation taps. Exact
+concurrency and remaining selection/no-change presentation cases remain open.
 
 ## 13.27 Confirmed declaring an existing blocker as an attacker (D-152)
 
@@ -682,8 +661,8 @@ pairs under D-133/D-145.
 Remaining origin cards stay grouped in their slots; remove an origin pair only
 if both sides become empty, allowing visual reflow (D-138/D-139). Moving an
 occurrence without removing it does not remove its incident generic projection
-links. Each variant retains its one-event/one-Undo mapping under D-148/D-149;
-Undo restores prior roles/slots/grouping/order, cleaned-up pairs, and source
+links. Each variant issues individual mutations under D-176; parent-step Undo
+and traversal preserve prior roles/slots/grouping/order, cleanup context and source
 orientation as applicable. D-153 appends the new attacker pairs after surviving
 existing pairs. Order among multiple new pairs, empty/inapplicable-source feedback,
 duplicate-source views, and exact concurrency remain separate cases.

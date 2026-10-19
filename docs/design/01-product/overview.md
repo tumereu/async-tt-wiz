@@ -18,13 +18,19 @@ The app remembers and presents what happened; the players interpret the rules.
 4. **A projection is another view, not another card.** Creating one leaves the
    original in place; card edits through it affect that same original.
 5. **Act, sync, undo.** Completed edits save and synchronize automatically, without
-   Send, mandatory explanations, grouping chores, or routine confirmations.
+   Send, mandatory explanations, grouping chores, or routine confirmations. Each
+   tree node is one mutation, such as moving or tapping one card; bulk controls
+   issue an ordered sequence of individual operations, not one atomic bulk node.
 6. **History is inspectable and recoverable.** Step through actions, interrupt at
    a boundary, retain the old continuation, and undo mistakes. Exactly one line
    is active; conflicts preserve alternatives rather than overwrite work. Undo
    moves the shared active pointer one parent node back, regardless of author.
    Retained alternatives permit forward return; ordinary abandoned continuations
    hide behind a toggle, while exposure/comment continuations stay fully visible.
+   Groups are playback steps whose changes animate concurrently, not tree nodes.
+   On return after an interruption, animate from the last local state back to
+   the fork, then forward along the new continuation. Pause automatic playback
+   and scrub the horizontal bottom timeline to choose an exact mutation boundary.
 7. **Cooperation, not enforced secrecy or legality.** Either participant can edit
    either side and inspect hidden information. Covering is a presentation
    convention. The app does not infer costs, targets, damage, or resolution.

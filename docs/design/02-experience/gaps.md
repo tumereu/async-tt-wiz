@@ -44,7 +44,7 @@ old future after a response. Exact overall release scope still needs sign-off.
 1. **Setup and release scope.** From invitation/deck import to a playable table:
    supported formats, starting arrangement/values/hands, missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.
-2. **History groups and pings.** D-162–D-174 establish the core sequence/marker
+2. **History groups and pings.** D-162–D-175 establish the core sequence/marker
    model, including real-card Stack isolation, same-tuple tap interleaving, grouped
    card/combat edits, forward display/combat closure and no ping/Undo markers.
    Manual face/cover edits join card edits; author changes override every other
@@ -53,19 +53,27 @@ old future after a response. Exact overall release scope still needs sign-off.
    Player values/counters and link edits share the ordinary edit family; event
    comments join the previous group without starting a new one. Token creation
    and Clone group together with interleaved customization. Non-token Remove is
-   forbidden, not an open grouping case.
-   Remaining: same-author precedence, other action families, leading-only/first
+   forbidden, not an open grouping case. Each explicit View/Reveal opening starts
+   a separate group; combat-area creation and occurrence removal join combat edits.
+   Stack rearrangements group separately from entries/removals; individual effect
+   removals stay separately visible. D-176 fixes the underlying model: one mutation
+   per node; bulk controls issue individual ordered operations, all immediately
+   published. D-177 makes groups concurrent-animation playback steps, never nodes.
+   Remaining: same-author precedence, inspection/participant-association categories, leading-only/first
    contexts, mixed-tuple/compound/extra-location cases and numbering mutations.
    No separate ping ownership picker is needed. See the
    [grouping rules and remaining inventory](../03-contracts/history-grouping.md).
 3. **Undo/Redo pointer controls and visibility.** D-159 confirms one parent-node
    step regardless of author, retained forward history, and hidden ordinary
    replacement continuations available through a toggle. Remaining outcomes:
-   forward selection and pre-fork presentation, non-Undo branch controls, and
+   shared forward activation and pre-fork presentation, non-Undo branch controls, and
    whether an empty interruption can pause/rewind. D-160 keeps qualifying exposure/
    comment continuations visible in full. D-161 targets a specific Undo transition,
    silently discarding it if no longer valid and reconciling local state. The
-   historical-rollback preview proposal no longer defines Undo.
+   historical-rollback preview proposal no longer defines Undo. D-177 specifies
+   personal resume traversal: last local state → animated rollback to fork →
+   grouped forward playback, with pause and exact scrubbing on a bottom timeline.
+   This traversal is not shared Undo/activation.
 4. **Concurrent/offline continuations.** Conflict-line activation, simultaneous
    switches, queued descendants on inactive lines, and stale non-Undo branch controls.
    Forking/no lost work are confirmed; the detailed no-ping-pong protocol is proposed.

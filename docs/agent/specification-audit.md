@@ -12,6 +12,15 @@ from the plain-language summary and tier reorganization.
   suffix-rollback preview remains. D-161 silently discards no-longer-valid specific
   Undo transitions and reconciles local state, with no notification clutter.
   Non-Undo branch controls and exact pre-fork/forward presentation remain open.
+- **D-176/D-177 correct the mutation/playback model.** One node is one individual
+  mutation, including individual operations from bulk commands. Every mutation
+  immediately extends/branches the chosen path and publishes. Older combined-node
+  mappings (D-130/D-132/D-144/D-148–D-150) and MTG-reaction-window node sizing are
+  superseded; historical decision rows are provenance, not exceptions. Groups
+  are concurrent-animation playback steps, never state pointers/publication units.
+  Resume from the last local state, animate backward to the interruption, then
+  forward through groups. Pause and scrub exact mutations on the bottom timeline.
+  The assistant's last three-rule precedence proposal was not approved.
 - **Approved and proposed are mixed.** Detailed drafts sometimes say “must” even
   though the enclosing design is proposed. Acceptance rows are specifications,
   not passing application tests; no app exists yet.

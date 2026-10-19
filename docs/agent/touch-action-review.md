@@ -5,6 +5,16 @@ earlier touch decisions as requirements/history, but current new decisions focus
 on behavior. Adversarial review/refinement is stage 2, UI drafts/concrete controls
 stage 3, and iterative implementation stage 4+. No implementation is authorized.
 
+**Current model (D-176/D-177):** one individual mutation per node, including
+ordered individual operations from bulk controls. Every mutation immediately
+extends/branches the chosen path and publishes. Groups are playback steps with
+concurrent animation, not gameplay/publication units. Resume at the last local
+state, animate rollback to an interruption, then automatic or manual forward
+playback; pause and drag the horizontal bottom timeline to select an exact node.
+Do not resume the assistant's unapproved three-rule precedence questionnaire or
+ask again whether bulk/group constituents publish. Earlier combined-node mappings
+are superseded; existing shortcut effects, order and placement remain.
+
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
 acceptance scenarios. Cockatrice capabilities are references, not automatic
@@ -34,11 +44,11 @@ Proposed sequence; groups can be split or reordered during review:
 | --- | --- | --- |
 | G-01 | Move one card: reposition, cross-area move, ordinary pile entry/exit, menu alternative. | Core choices confirmed in D-21–D-24; detailed lifecycle/hit testing remain open. |
 | G-02 | Select multiple cards and apply bulk movement. | Core selection choices recorded in D-25–D-31; detailed gesture/cancellation and bulk movement contracts remain open. |
-| G-03 | Tap/untap and bulk orientation. | D-35/D-36 confirm selection-aware tapping; D-100/D-110 add literal turn-player battlefield Untap all without skip flags or inferred exclusions. Players re-tap exceptions manually; exact boundaries remain open. |
+| G-03 | Tap/untap and bulk orientation. | D-35/D-36 confirm selection-aware tapping; D-100/D-110 add literal turn-player battlefield Untap all without skip flags or inferred exclusions. Players re-tap exceptions manually; D-176 records individual orientation mutations. |
 | G-04 | Inspect, face-down/up, printed faces, and reveal presentation. | D-37/D-38 confirm context face changes and automatic face/both-face inspection; exact targeting/layout and logging remain open. |
 | G-05 | Ordinary piles: capacity, browse, reorder, split, and whole-pile controls. | D-39/D-40 confirm the cap, overflow, no browser/Select stack, and ordinary drag controls; geometric details remain open. |
 | G-06 | Ordered containers: browse, top/bottom/N-card moves, insertion, search, shuffle, and redraw shortcuts. | D-41–D-51 confirm displays, shortcuts, clamping/order, direct top-card drag, search/filtering, and initial column/sort/scroll defaults; category mapping and exact controls remain under review. |
-| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; exact geometry, formatting, limits, and history/bulk boundaries remain open. |
+| G-07 | Card/player named values, counters, annotations, and bulk edits. | D-52–D-69 confirm corner/counter/note capabilities and selection applicability; D-176 fixes individual target mutations for bulk edits. Exact geometry, formatting and limits remain open. |
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
@@ -171,7 +181,8 @@ member independently. Keep selection and unrelated fields intact.
 
 Later D-100/D-110 confirm turn-player battlefield Untap all with no skip-untap
 flag; exceptions are manually re-tapped, never inferred from card text. Other
-wider-set/all-table shortcuts, rotation controls, and bulk boundaries remain open.
+wider-set/all-table shortcuts and rotation controls remain open; D-176 fixes
+individual orientation mutations for bulk operations.
 
 ## 12.5 Grouped defaults: selection and gesture consistency
 
@@ -603,6 +614,14 @@ gestures and remaining grouping cases still need review. Earlier required
 one-shot and P-15 drag-handle proposals are replaced by the mode direction;
 D-78 separately adds a context shortcut.
 
+Confirmed display/projection grouping (D-175): each explicit View/Reveal opening
+starts a separate review group. Combat-area creation and combat occurrence
+removal join combat projection creation/repositioning. Stack rearrangements group
+together separately from entries/removals; each explicit effect removal stays
+separately visible. Existing companion/author rules and forward dismissal/closure
+remain. D-176 makes bulk removals individual mutations. Inspection-record attachment and remaining
+same-author precedence are open; grouping does not change underlying action effects.
+
 ## 12.11 G-09: Creation, copies, and removal
 
 Primary contracts: [additional controls](../design/03-contracts/board-and-controls.md#108-additional-controls-needed-for-complete-play)
@@ -874,18 +893,12 @@ to Postcombat main. Do not offer the quick action at earlier combat steps; keep
 full non-quick access under D-121. Out-of-combat/missing-area handling and combined
 boundaries remain open.
 
-D-159/D-160 replace whole-invocation Undo with one parent-node move regardless
-of author. D-131's multiple-MTG-reaction-point events remain meaningful review/
-interruption boundaries, not decorative rows. Specify mappings without priority/
-legality automation. Multiple Undo presses for composites are acceptable.
-D-132 advance-and-close, D-148/D-149 declarations and D-150 normal-step Untap +
-advance have one node each. D-151 normal-step Draw + advance has two nodes with
-a real intermediate Draw-step state and two Undo steps.
-
-Confirmed D-132: advance-and-close is one event listing both effects, since area
-closure adds no distinct MTG reaction point. Interruption/review is before/after
-that event; one Undo restores both effects. Other actions use D-159's parent-node
-Undo and retain D-131's distinct-reaction-point boundaries.
+D-159/D-160 Undo follows one parent regardless of author. D-176 supersedes
+D-132/D-148–D-150's combined-node mappings and MTG-reaction-window node sizing:
+record each individual area/occurrence/card/tracking mutation, including those
+issued by a shortcut. Bulk operations issue individual operations in a sensible
+recorded order. D-177 groups concurrent-animation playback steps only; exact
+mutation states remain selectable on the paused bottom timeline.
 
 Confirmed D-133: repeated attacker declaration keeps existing attacker projections
 and adds only new attackers; Declare + tap still taps its selected sources.
@@ -955,8 +968,9 @@ event/concurrency composition remain open.
 Confirmed D-144: Remove from combat is a context action for one or several selected
 combat projections. Remove only those occurrences/incident links, preserving real
 source state, Stack effects, other cards' grouping/order, and the open combat area.
-Clean up fully empty pairs normally. One Undo restores occurrences/roles/slots/
-order/links and cleaned-up pairs. Real-source/mixed-selection access, token-source
+Clean up fully empty pairs normally. D-176 records individual occurrence removals;
+per-mutation Undo/traversal retains roles/slots/order/links and cleanup context.
+Real-source/mixed-selection access, token-source
 Remove entry, drag-back behavior, menu layout, and event/concurrency remain open.
 Non-token source Remove is unavailable under D-174, not an unfinished feature.
 Confirmed D-145: declaration shortcuts place each newly declared attacker in its
@@ -975,27 +989,19 @@ quick actions only during Declare attackers. Keep full context-action access to
 the combinations/constituents at other steps under D-121; no implicit execution,
 additional single-card offerings, participant/turn locks, or runtime legality checks.
 Remaining selection feedback and event/concurrency mappings remain open.
-Confirmed D-148: Declare + tap is one tree event showing declaration, source
-tapping, and any automatic area creation. No separate response point lies between
-those effects; review/interruption is before/after. One Undo restores prior source
-orientations and occurrence/slot/grouping/order/area context. Separately invoked
-declaration/tapping retain distinct boundaries. D-149–D-151 settle the next three
-shortcut mappings; other cases and exact concurrency remain open.
-Confirmed D-149: without-tapping is one event including any area creation, with
-source orientations unchanged and one whole-action Undo.
-Confirmed D-150: during Untap, Untap all + advance is one event showing untapping
-and Untap → Upkeep, with one whole-action Undo.
-Confirmed D-151: during Draw, Draw one + advance is two events, drawing while
-still in Draw then advancing to Precombat main. Preserve the real intermediate
-review/interruption boundary; D-159/D-160 make the invocation two Undo steps. No extra
-tap/Send; normal publication and exposure retention apply. Empty/no-change inputs
-still advance without fictitious card changes. Exact no-change feedback,
-partial-group/dependency handling, concurrency, and out-of-step mappings remain open.
+Current shortcut mutation policy (D-176, superseding D-148–D-150): declarations
+issue distinct area/individual occurrence mutations and individual source taps
+for +tap; without-tapping preserves orientation. Untap all issues individual
+untaps followed by any advance. Draw + advance records an actual card move, if
+any, followed by advancement; an empty Library creates no draw mutation. Every
+mutation immediately publishes and is one parent-step Undo. No extra tap/Send;
+normal exposure retention remains. Exact cleanup sequencing, feedback,
+dependencies/concurrency and out-of-step behavior remain open.
 Confirmed D-152: declaration shortcuts convert a currently projected blocker by
 moving its existing occurrence into its own new attacker pair, retaining identity/
 incident links, not duplicating/recreating. Apply normal +tap/without-tapping;
 existing attackers retain slots and other origin cards retain grouping. Remove
-only fully empty origins. Keep one-event/one-Undo declaration mappings; order among
+only fully empty origins. Keep D-176's individual mutation nodes; order among
 multiple new pairs, source-feedback/duplicate-view cases, and concurrency remain open.
 Confirmed D-153: append newly created declaration pairs after existing pairs,
 preserving surviving existing contents/order and retained attackers' slots.
@@ -1014,7 +1020,7 @@ Confirmed D-156: cross-slot combat drags use selected blockers left-to-right,
 then selected attackers left-to-right, preserving each slot's pre-drag order.
 Insert/append the sequence together under D-143; all take the destination role
 under D-142. Preserve identities/links/source state and remaining grouping/order;
-apply empty-pair cleanup and whole-action Undo. Mixed-view order,
+apply empty-pair cleanup and per-mutation Undo (D-176). Mixed-view order,
 new-pair order, duplicate-source views, and exact concurrency remain open.
 Confirmed D-157: real battlefield cards dragged together into combat use pre-drag
 visual order, top-to-bottom then left-to-right, not selection-tap order. Create/

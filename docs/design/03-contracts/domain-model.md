@@ -11,7 +11,7 @@ Maintain three distinct state classes:
    values, orientation, generic visual relationships, and first-class turn/
    phase/step tracking (D-96/D-105) at an action boundary. No priority state.
 2. **Shared history/control state:** immutable action nodes, branches, the active
-   active game-state node pointer, archive status, publication/control records,
+    game-state node pointer, archive status, publication/control records,
    and retained descendants (including hidden alternatives).
 3. **Personal presentation state:** review cursor, selected objects, camera,
    locally exposed card faces, accessibility settings, and draft workspace.
@@ -46,8 +46,8 @@ history or authorize normalization of external catalog/import data.
 | Combat slot pair | One visual combat group with attacker-side and blocker-side projection membership/order (D-137/D-139). No individual attacker↔blocker assignments or inferred all-to-all blocking rules. D-138 supplies empty-pair removal/insertion/reflow; exact schema remains open. |
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
-| Action node | Stable ID, parent ID, actor, literal operation kind, operations, deterministic outcome, schema version. |
-| Group | Stable ID, ordered contiguous action IDs on one path, anchor action ID where applicable, literal/optional user title, actor, open/closed presentation status. |
+| Action/mutation node | Stable ID, one parent ID, actor, one individual mutation, deterministic forward/rollback data, schema version. Never a multi-card invocation or playback group (D-176). |
+| Group | Ordered contiguous mutation IDs on one path, presented as one navigation/playback step with concurrent animation (D-177). Group-start markers and other metadata never replace node references. Exact schema remains proposed. |
 | Branch | Stable ID, fork boundary, head, origin branch, creation reason (interruption/conflict/etc.), author, title, archive status. |
 | Control operation | Stable ID, actor, ordered server revision, operation kind, prior/new references, undo linkage. |
 | Random outcome | Stable ID, requested operation, concrete result, source/version metadata; retained with its action. |
@@ -59,13 +59,15 @@ history or authorize normalization of external catalog/import data.
 | Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced destination, and event-wide sequence shown as an order number (D-119). One standard marker/no user label/style controls (D-77). Exact ordering/edit/revision/schema behavior remains open. |
 | Generic link | Stable ID, supported endpoints, binary present/absent relationship; one standard connector/no user labels/styles (D-71). D-120 adds projection-to-projection endpoints whose links disappear with an endpoint projection. Other mixed projection endpoints remain open; no inferred game effect. |
 
-D-129 distinguishes user invocation, tree event and presentation group. D-159/
-D-160 replace whole-invocation Undo with one move to the active node's parent,
-regardless of author. Multiple events in a composite require multiple presses;
-presentation split/join never changes parent links. D-131's distinct-MTG-reaction-
-point requirement remains, without runtime priority/legality inference. Retain
-invocation/actor context across constituent nodes. D-132 makes advance-and-close
-one event and consequently one Undo, restoring both effects together.
+D-176 distinguishes invocation, individual mutation node and playback group.
+Each mutation immediately extends or branches the chosen node/path and publishes
+independently. Bulk commands issue individual operations in a sensible recorded
+order. D-159/D-160 Undo follows one parent, regardless of author. D-176 supersedes
+the older combined-node mappings, including D-132/D-148–D-150, and node splitting
+based on MTG reaction windows. Groups change navigation/concurrent animation,
+not tree structure. Both shared and client displayed-state references identify
+nodes, never groups. D-177 specifies animated backward/forward traversal on
+resume and exact mutation selection through the paused bottom timeline.
 
 Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in
@@ -432,8 +434,9 @@ view handling and exact event/concurrency cases.
 D-144 supplies a Remove from combat context action for one or several selected
 combat occurrences. Remove only those projections/incident links, not real cards
 or Stack effects. Preserve surviving slot membership/order; remove fully empty
-pairs without closing the area. Whole-user-action Undo restores occurrences,
-roles/slots/order/links and pairs removed by cleanup. Token-source Remove and
+pairs without closing the area. D-176 makes selected removal a sequence of
+individual occurrence removals; Undo follows one mutation at a time, retaining
+roles/slots/order/links and cleanup context for deterministic recovery. Token-source Remove and
 real-source/mixed-selection access remain distinct review cases.
 
 D-145 gives each newly declared attacker its own pair when using declaration
@@ -445,7 +448,7 @@ orientation/position/location. D-152 converts an existing blocker included in a
 declaration shortcut by moving its same occurrence into its own new attacker pair.
 Keep identity/incident links, normal variant tapping, and remaining origin grouping;
 remove only fully empty origins. Order among multiple new pairs, absent-area drag targeting, and
-exact concurrency remain open; D-148/D-149 fix one-event/one-Undo declaration mappings.
+exact concurrency remain open. D-176 supersedes D-148/D-149's combined-node mappings.
 
 D-153 appends newly created declaration pairs after surviving existing pairs;
 keep existing pairs' contents/order and already-declared attackers' slots.
@@ -491,9 +494,9 @@ ordering remains open. Do not infer randomization or other ordering behavior
 from the Cockatrice reference.
 
 A staged search or selection is a draft workspace, not a second location for
-the same card. Completing the selection through its action control creates one
-atomic transition or an explicitly described sequence and immediately queues
-synchronization. There is no second generic confirmation or Send step.
+the same card. Completing the selection through its action control issues
+individual mutations in a sensible order, immediately queueing each for
+synchronization (D-176). There is no second generic confirmation or Send step.
 Cancelling incomplete input changes no shared game state.
 
 The special Library/Graveyard/Exile slots represent configured pile containers.
@@ -575,7 +578,7 @@ dedicated skip-untap field/flag. Card text, notes, and markers do not install
 exclusions. Players manually re-tap exceptions. Standalone and +advance variants
 use the same scope and preserve unrelated card state. Exact participant
 association, remaining no-op presentation, and concurrency/partial-group behavior
-remain under review. D-150 settles the normal-step combined event boundary below.
+remain under review. D-176 requires individual untap mutations plus any advancement.
 
 D-111 confirms valid no-change/empty-source behavior for combined shortcuts:
 Untap all + advance still goes to Upkeep when all scoped cards are already
@@ -583,18 +586,15 @@ untapped or there are none. Draw one + advance on an empty Library moves no
 card but still goes to Precombat main, without an automatic loss or other rule
 effect. Record the actual step transition; no card effect is fabricated. This
 does not waive structural validation for missing IDs/corrupt state or change
-standalone variants, which preserve tracking. D-150/D-151 fix event counts;
+standalone variants, which preserve tracking. D-176 records actual mutations only;
 exact no-change feedback and concurrency/partial-group handling remain open.
 
-D-150 records Untap all + advance during Untap as one event: actual scoped
-untapping plus Untap → Upkeep. D-151 records Draw one + advance during Draw as
-two events: actual draw portion while tracking remains Draw, then Draw →
-Precombat main. The intermediate state is genuinely reviewable/interruptible.
-Each node is one Undo under D-159/D-160: Untap + advance needs one press, Draw +
-advance needs two. The first Draw Undo keeps the card drawn and restores Draw
-tracking; the second returns to pre-draw state. Empty sources retain actual no-card-change
-outcomes rather than fabricated draws; see history section 3.11 for exposure
-retention and remaining partial-group/out-of-step/concurrency cases.
+D-176 supersedes D-150's combined-node mapping: Untap all + advance issues one
+mutation per changed card followed by tracking advancement. Draw + advance issues
+an actual card move, if any, then advancement; an empty Library contributes no
+invented draw mutation. Every node is individually navigable and is one Undo
+under D-159/D-160. See history sections 3.11–3.12 for mutation sequences,
+exposure retention and grouped playback, which never merges these nodes.
 
 D-102 adds standalone Next step (tracking only, no card edits) and direct
 phase/step choice through the indicator for skips/corrections, without executing

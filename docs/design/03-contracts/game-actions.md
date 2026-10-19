@@ -8,8 +8,8 @@ schemas proposed. MTG examples are uses of primitives, not recognized mechanics.
 Every game action specifies:
 
 - Stable action ID and parent boundary; actor and originating client operation.
-- Literal operation kind and optional user label/note.
-- Typed generic operations, stable referenced object IDs, structural preconditions.
+- One literal mutation kind and optional user label/note (D-176).
+- Typed reversible change, stable referenced object IDs, structural preconditions.
 - All changed values or sufficient deterministic data to derive them.
 - Random outcome references where applicable.
 - A human-readable summary, detailed before/after inspection, and schema version.
@@ -124,14 +124,15 @@ repeated declaration still follows D-133 rather than drag retargeting.
 D-144 adds Remove from combat as a context action for one or several selected
 combat projections, leaving real cards/Stack effects unchanged. Remove incident
 links and fully empty pairs normally, preserving remaining grouping/order and the
-open area. One Undo restores occurrences and cleaned-up slot/link context;
+open area. D-176 issues individual occurrence-removal mutations; each has its
+own parent-step Undo and retained slot/link/cleanup context;
 token-source Remove and real-source/mixed-selection access remain separate cases;
 no non-token source deletion is available (D-174).
 D-152 handles declarations of existing blockers: move each existing occurrence
 into its own new attacker pair, preserving identity/links rather than duplicating
 it. Apply the chosen tapping variant, retain other origin grouping, and remove
 only fully empty origins. Existing attackers remain in their slots; each variant
-keeps its approved one-event/one-Undo mapping.
+uses individual mutation nodes under D-176, superseding the older combined mapping.
 D-153 appends new declaration pairs after surviving existing pairs. D-154 keeps
 the pre-drag order of cards moved together from one combat slot, inserting/
 appending that sequence under D-143, including same-slot reorders. Preserve
@@ -157,28 +158,26 @@ existing area. D-147 shows both multiselect declaration quick actions only durin
 Declare attackers; full context-action access remains at other steps (D-121).
 Order among multiple new pairs, absent-area drag targeting, and additional single-card quick
 offerings remain open; do not infer legality or editing locks from quick visibility.
-D-148 records Declare + tap as one event showing declaration, source tapping,
-and any automatic area creation. Review/interruption is before/after it; one Undo
-restores prior orientations/occurrences/slots/grouping/order/area existence.
-Separate invocations remain separate. D-149 also makes without-tapping one event
-including any area creation. D-150 makes Untap all + advance during Untap one
-event; D-151 makes Draw one + advance during Draw two events, retaining a real
-Draw-step review/interruption boundary before Precombat main. D-159/D-160 make
-each node one Undo: Draw + advance takes two presses, the one-event shortcuts one.
-No extra invocation tap/Send. Empty/no-change sources still advance under
-D-111 without fabricated card changes. See history section 3.11 for mappings,
-exposure retention, and remaining partial-group/concurrency cases.
+D-176 supersedes D-148/D-149/D-150's combined-node mappings: area creation,
+individual occurrence changes, individual source taps/untaps and tracking edits
+are distinct mutations, even from one shortcut. Each mutation immediately extends
+or branches the selected path, publishes, and supplies one parent-step Undo.
+Draw + advance retains separate actual move and tracking mutations; an empty
+Library contributes no draw mutation. No extra invocation tap/Send is needed.
+Empty/no-change sources still advance under D-111 without fabricated card changes.
+See history sections 3.11–3.12 for mutation sequences and grouped playback.
 D-134 separately allows unlimited independent Stack
 projections, including repeated effects from one source; removing one leaves the
 others and the source unchanged.
 
 D-129 distinguishes invocations, tree events and presentation groups. D-159/
 D-160 replace whole-invocation Undo with one parent-node move regardless of author;
-composites may take several presses. D-131's distinct-MTG-reaction-point events
-remain, without runtime priority/legality enforcement or extra invocation taps.
-Presentation grouping cannot change Undo stepping. Advance-and-close still restores
-prior step and complete combat area in one Undo because D-132 makes it one node.
-Other event mappings still need specification.
+composites may take several presses. D-176 fixes individual mutation nodes rather
+than D-131's MTG-reaction-window criterion; no runtime timing/legality enforcement
+or extra invocation taps are introduced.
+Presentation grouping cannot change Undo stepping. D-176 supersedes D-132's
+combined advance-and-close node: its distinct mutations remain individually
+recorded. Specify their consistent sequence without choosing atomic bulk nodes.
 
 D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite
@@ -234,7 +233,8 @@ explicit destination. The library offers Shuffle all only: no Shuffle top N or
 Shuffle bottom N shortcuts. D-49 confirms top-to-bottom bottom-N displays, an
 N-picker starting at one with +/- and numeric entry, clamping to available count,
 and source-order preservation for moves from one ordered source. Empty sources,
-cross-source order, precise validation, and bulk boundaries remain open.
+cross-source order and precise validation remain open. D-176 fixes individual
+card-mutation nodes for bulk moves.
 
 D-50 confirms direct top-card dragging from special piles and contents browsers
 with type-category columns, name search/filtering, and hold inspection. Column
@@ -317,12 +317,22 @@ arithmetic on nonnumeric text, loss of selected objects, or ignoring invalid IDs
 and structural drop conflicts. D-68 resolves absent counters: +/-1 creates
 `1`/`-1`; nonempty Set creates/updates and empty removes or leaves absent.
 Exact per-action eligibility/error tables and affected/skipped rendering remain Q-30;
-interruption/grouping boundaries remain open.
+grouping and remaining per-action validation details remain open; D-176 fixes
+individual mutation boundaries.
 
-Multi-select operations identify affected objects and all explicit changed fields.
-Atomic bulk movement is permitted when intermediate states are not intended
-response points. Users can choose sequential actions when the distinction
-matters, such as separate top-card moves with a reaction between them.
+**Confirmed D-176:** a bulk control issues individual operations in a sensible
+recorded order. Moving/tapping several cards, applying edits, creating Clones,
+or removing occurrences does not create one multi-target atomic node. Each
+individual mutation immediately becomes a tree leaf and publishes. All
+intermediate mutation boundaries remain available for traversal, Undo and play.
+Grouping may animate those changes concurrently as one playback step (D-177),
+but never merges their nodes or makes a group the client's state pointer.
+
+Use approved source-order and spatial defaults without another ordering picker.
+Record the chosen sequence so forward/backward traversal is deterministic.
+Existing applicability skipping, destination order, and whole-drop structural
+validation remain: an overflowing drop can be rejected before creating any
+mutations without making a valid bulk move one atomic history operation.
 
 Quantity-based N-card commands clamp to the available source count (D-49).
 Quantity clamping itself does not permit substituting or dropping selected

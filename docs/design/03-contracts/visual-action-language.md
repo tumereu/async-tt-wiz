@@ -57,15 +57,18 @@ payment, resolution, or legality engine is implied. See
 
 ## 11.3 One visible unit, literal constituent records
 
-D-129 distinguishes invocations, tree events and presentation groups. D-159/
-D-160 make Undo one parent-node move, replacing whole-invocation/group scope.
-D-131 still requires multiple effective tree events wherever MTG allows distinct
-reaction points, not decorative rows over an indivisible transition. Composites
-may require multiple Undo presses. Presentation split/join never changes parent
-links. No runtime priority/legality inference is authorized.
-D-130 confirms whole undo for advance-and-close; D-132 records it as one event
-listing both the step transition and area closure, with no separate internal
-reaction boundary. This does not impose a universal combined-action format.
+D-176 distinguishes invocations, individual mutation nodes and playback groups.
+Each node is one deterministically reversible change, such as moving or tapping
+one card. Bulk/combined controls issue ordered individual mutations, immediately
+published; D-176 supersedes older combined-node mappings such as D-132.
+D-159/D-160 Undo follows one parent, not a whole invocation or playback step.
+
+D-177 makes a group one navigation/playback step with concurrent animation.
+Pause playback and drag the horizontal bottom timeline to select an exact
+mutation, including within a group. A client's displayed state points to that
+node, never a group. On return after an interruption, animate rollback from the
+last local state to the fork, then playback of the new continuation. See
+[history section 3.12](history-and-undo.md#312-resume-playback-and-exact-timeline-navigation-d-177).
 
 Proposed presentation:
 

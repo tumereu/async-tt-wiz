@@ -24,7 +24,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | --- | --- |
 | P-001 | The gameplay client is native Android. |
 | P-002 | Asynchronous play is a primary workflow, not an added turn timer. |
-| P-003 | Actions form sensible groups that an opponent can progress through. |
+| P-003 | Individual mutations form sensible navigation/playback groups. One group is one playback step with concurrent animation, not one tree node (D-176/D-177). |
 | P-004 | An opponent can interrupt at an action boundary and react. |
 | P-005 | History is a tree, with exactly one active branch in each game. |
 | P-006 | An interruption makes its new branch active; no approval vote is required. |
@@ -36,7 +36,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-012 | Downloaded games can be read and local actions queued offline, with synchronization later. |
 | P-013 | D-115 delivery sequence: complete behavior specification, adversarial review/refinement, UI drafts/decisions, then iterative implementation. We are still in stage 1; no implementation is authorized. |
 | P-014 | Cover the manual actions needed to play MTG, rather than a small subset limited to a demonstration game. |
-| P-015 | Completed game actions synchronize immediately and automatically; there is no gameplay Send step. |
+| P-015 | Every individual mutation immediately appends to the selected tree path and synchronizes automatically; there is no gameplay Send step, bulk/group publication gate or animation dependency (D-176). |
 | P-016 | Minimize taps and other user actions throughout the UX. |
 | P-017 | Conflicting game edits automatically create branches rather than requiring manual reconciliation before synchronization. |
 | P-018 | Drag cards to move them; drops snap to grid locations or slots. |
@@ -61,8 +61,9 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-037 | A source leaving the battlefield loses its combat projections (D-124), but its Stack effects remain until explicitly removed/resolved even if a token source disappears (D-125/D-174). Lifetime is area-specific, not determined by which view invoked the move. |
 | P-038 | When an attacker leaves, surviving cards stay grouped in their existing slots, with real cards unchanged; the final attacker's departure leaves a blocker-only pair (D-126 refined by D-139). D-138 permits visual reflow with stable membership/order, removes fully empty pairs, and inserts a pair on between-pair drops without regrouping survivors. |
 | P-039 | Combat area persists until explicitly closed, not automatically on ordinary phase/step changes or End turn. Provide combined advance out of combat + close, while retaining separate operations and full non-quick access (D-127). Offer the quick action only at End of combat, advancing to Postcombat main (D-128). |
-| P-040 | A user invocation must contain multiple tree events wherever MTG permits reactions at distinct points (D-131). D-159/D-160 make each node one Undo step, replacing whole-invocation Undo; multiple presses for composites are acceptable. Specify event mappings without runtime priority/legality inference. Advance-and-close remains one Undo because D-132 makes it one node. |
+| P-040 | Each tree node is one individual, deterministically reversible mutation, such as moving/tapping one card. Bulk and combined controls issue ordered individual mutations; groups never determine node granularity or publication. D-176 supersedes older combined-node and MTG-reaction-window mappings. Undo follows one parent node (D-159/D-160). |
 | P-041 | Non-token cards do not disappear during the game: they move between locations and have no Remove/delete action, including through bulk, correction or projection paths. Approved token disappearance/removal, projection removal and retained-history Undo remain distinct (D-174). |
+| P-042 | Returning after an interruption starts at the last local state, animates rollback to the fork, then plays the new continuation automatically or step by step. Playback can be paused; a horizontal bottom timeline permits left/right scrubbing to an exact mutation where play can continue (D-177). |
 
 ## 1.3 Proposed first-release boundaries
 
@@ -176,12 +177,15 @@ represent their own play, not that the engine recognizes those mechanics.
 | Term | Meaning |
 | --- | --- |
 | Participant | One of the two people in a game; may edit either side. |
-| Action | One user-meaningful, atomic game-state transition. |
-| Group | A named contiguous sequence of actions presented together. |
+| Mutation/node | One individual state change with deterministic forward/rollback data and one parent, e.g. moving or tapping one card. |
+| Invocation | One use of a control, which may issue many individual mutations (including bulk operations). |
+| Action | Context-dependent shorthand; specify whether it means an invocation, mutation or playback step rather than treating them as interchangeable. |
+| Group | A contiguous sequence of mutations represented as one navigation/playback step with concurrent animation. Never a state pointer or publication unit. |
 | Area | A labeled board region with explicit generic layout/container settings, not a rules zone inferred from its name. |
 | Ping | An action-linked visual pointer/marker. It changes no card or game mechanic. |
-| Boundary | A state before the first action or after an atomic action. |
+| Boundary | The root state or the state after one individual mutation. |
 | Review cursor | The boundary a particular participant is currently viewing. |
+| Playback step | A grouped animation/navigation step over mutation nodes; exact boundaries remain selectable through the paused timeline. |
 | Branch | A named continuation from an existing boundary. |
 | Active branch | The single selected path ending at the shared active game-state pointer, which may have retained descendants. |
 | Head | A retained continuation's furthest recorded node. The shared active state can be an earlier node after Undo; current board does not mean furthest published descendant. |

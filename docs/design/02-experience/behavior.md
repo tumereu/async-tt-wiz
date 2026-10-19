@@ -21,8 +21,9 @@ The general rules are:
 3. **Change only what the action says.** Moving normally preserves card state;
    the few explicit exceptions are listed below.
 4. **A projection is another view of the same card, not another card.**
-5. **Completed actions save and sync automatically.** No gameplay Send or routine
-   confirmation. Incomplete input is not a completed action.
+5. **Each mutation saves and syncs immediately.** One node is one change, such as
+   moving or tapping one card. Bulk controls issue individual operations in a
+   sensible order. No gameplay Send, group completion or animation wait.
 6. **History can fork; work must not disappear.** Review is not consent. Undo is
    the normal way to fix a mistake.
 
@@ -227,8 +228,16 @@ The general rules are:
   undoable. Event comments are tree nodes retained after Undo, not a special
   comment-only branch workflow.
 - Actions sync immediately and form meaningful review groups automatically;
-  grouping never hides interruption boundaries or delays publication. Review
-  one action at a time. Reviewing is not accepting legality or waiving a response.
+   grouping only controls navigation/playback and representation. Each group is
+   one playback step whose changes animate concurrently, while each individual
+   mutation remains a separate node. The client's state pointer identifies a
+   mutation, never a group. Reviewing is not accepting legality or waiving a response.
+- When returning after the opponent interrupted your continuation, start at your
+   last local state and animate rollback fairly quickly to the interruption.
+   Then watch automatic playback or step forward through groups. You can pause
+   automatic playback; the horizontal timeline at the bottom can be dragged
+   left/right to select the exact mutation where you want to continue. Merely
+   navigating does not publish another game edit or change the shared active line.
 - Core grouping rules: taps group forward with the next action; pings join the
   existing group; actual-card moves group by the same ordered origin/destination
   tuple, including Battlefield → Battlefield rearrangements and taps interleaved
@@ -237,8 +246,10 @@ The general rules are:
   including manual face/cover changes, token removal, player values/counters and
   persistent-link creation/removal group together. Token creation and Clone group
   together with interleaved customization edits. Event comments join the previous
-  group without starting a new one; combat
-  projection creation/repositioning groups together.
+   group without starting a new one; combat-area creation and projection
+   creation/repositioning/removal group together. Each explicit View/Reveal opening
+   starts a separate review group. Stack rearrangements group together separately
+   from entries/removals; individual Stack-effect removals stay separately visible.
   Display dismissal/combat closure belongs with the next action, not the displayed
   state's group. Same-target Shuffles group; dice/coin runs start separately from
   prior play, then group with the following action. Phase/turn tracking joins the
@@ -258,9 +269,10 @@ The general rules are:
   require a reconciliation dialog. Exact conflict-activation rules remain proposed.
 - Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
-  redo its state, while merely reviewing it does not make it current. Draw + advance
-  has two nodes and therefore two Undo steps; declarations, Untap + advance, and
-  advance-and-close each have one.
+   redo its state, while merely reviewing it does not make it current. Bulk and
+   combined shortcuts create individual mutation nodes, not one whole-invocation
+   node. Undo follows one parent per press even when several mutations animate
+   together. An empty draw contributes no invented card-move node.
 - Playing differently after Undo retains the abandoned continuation. Hide ordinary
   alternatives by default, with a show-hidden-branches toggle; never delete them
   just because play takes another path. Exposure and event-comment paths remain

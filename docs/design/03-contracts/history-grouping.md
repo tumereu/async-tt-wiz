@@ -1,6 +1,6 @@
 # Automatic history grouping — action inventory
 
-**Status:** D-162–D-174 confirm the rules identified below. Tentative owner ideas
+**Status:** D-162–D-177 confirm the rules identified below. Tentative owner ideas
 and assistant recommendations remain explicitly proposed. This is not a final
 action schema or an expansion of release scope.
 
@@ -8,6 +8,20 @@ action schema or an expansion of release scope.
 immediate publication, effective node boundaries, one-parent Undo and no inferred
 game mechanics. [The action catalog](game-actions.md#42-coverage-matrix) lists
 capabilities; it is not yet a complete list of fully specified commands/events.
+
+## Mutation tree versus playback groups (D-176/D-177)
+
+One tree node is one individual mutation, such as moving or tapping one card.
+Every mutation immediately extends or branches the chosen path and publishes.
+Bulk controls issue individual operations in a sensible recorded order. The
+client's state points to a mutation node (or root), never a group.
+
+Groups only control navigation/animation/representation: one group is one
+playback step with concurrent animation of its changes. Pause playback and scrub
+the horizontal bottom timeline to select an exact mutation, including within a
+group. Group membership never decides whether to publish or combine mutations.
+The remaining grouping questions below concern presentation only; they are not
+questions about atomic gameplay units or which changes enter the tree.
 
 ## What the grouping rule needs to consider
 
@@ -36,7 +50,7 @@ still determines when it exists. Grouping never retroactively exposes a ping at
 an earlier node. This replaces the assistant's proposed separate ownership
 question, not the preservation of recorded ping context/numbering.
 
-## Confirmed grouping rules (D-163–D-174)
+## Confirmed grouping rules (D-163–D-175)
 
 **First rule, higher precedence than every other row (D-170):** a different
 action author always starts a new group. No forward/backward companion, matching
@@ -54,7 +68,10 @@ category or no-artificial-reset rule may bridge that author boundary.
 | Token creation and Clone | D-173: group token creation and Clone together, including interleaved customization edits: `[create token; edit; Clone; edit]`. Keep fresh independent token identities and every node; this is not projection creation. Do not infer a rule for arbitrary mixed categories. |
 | Player values/counters and persistent links | D-172: player value/counter edits and persistent-link creation/removal join the same ordinary edit family as card edits and token removal, not separate per-target/per-field families. Example: `[card counter; life change; link creation; card note]`. This does not classify participant-association edits or infer damage/targets. |
 | Event comments | D-172: join the preceding group without starting a new one, e.g. `[Stack entry; comment]`. Author changes still start a new group. Comments keep their own retained nodes; they do not merge Stack entries or become game-wide Chat. Historical placement and revision/edit/delete remain open. |
-| Combat projection creation/repositioning | Combat projections group together; D-166 extends this to combat repositioning of any kind, including role/slot/order changes. Projection removal and area creation are not silently classified as repositioning. |
+| Combat-area creation and projection edits | Combat projections group together; D-166 includes repositioning of any kind, including role/slot/order changes. D-175 explicitly adds combat-area creation and occurrence removal to this family: `[create combat; declare; reposition; remove occurrence]`. Closure remains the separate forward case below; removal does not delete a real source. |
+| Explicit View/Reveal openings | D-175: each opening starts a separate review group, e.g. `[move cards] → [View top 3] → [Reveal bottom 2]`. Keep each displayed result easy to revisit. Existing companion rules and author separation remain; covered-face inspection and exact exposure-record attachment are not settled here. |
+| Stack rearrangements | D-175: repeated Stack layout/order adjustments group together, separately from Stack entries and removals. Preserve occurrence identities and each recorded boundary; this does not settle underlying ordering controls or action/event mappings. |
+| Explicit Stack-effect removal | D-175: each removal stays separately visible, like individual Stack entries: `[remove effect A] → [remove effect B]`. Existing companion rules still apply. D-176 makes bulk removal an ordered sequence of individual removal mutations, not an atomic bulk node; grouping remains presentation. Remove occurrences, not sources or sibling effects. |
 | View/Reveal display dismissal and combat closure | D-166: do not attach the dismissal/closure backward to the displayed-area group. Put it with the following action. Group-level review shows the display/combat state, then the next step applies closure plus the following action. Keep the closure node itself inspectable. |
 | Shuffle | D-167 groups successive Shuffles of the same target together. Different targets do not match; this is target identity, not simply both being Libraries. |
 | Dice/coin tools | D-167/D-171: dice and coin invocations form one random-tool run, separate from prior play and grouped with the following action. Example: `[real card → Stack] | [roll/flip run; following effect]`, not `[real card → Stack; roll] | [effect]`. The effect remains a player-explicit action, not inferred from the result. |
@@ -109,16 +126,17 @@ retained nodes are impossible.
 1. **Remaining same-author precedence:** author changes are already settled by
    D-170. Specify how forward companions meet isolated Stack entries or a
    backward tracking edit, rather than allowing both to erase the intended stop.
-2. **Other action families:** participant-association edits,
-   View/Reveal opening
-   and inspection, combat-area creation and combat/Stack occurrence removal still
-   need explicit categories. Do not turn “all card edits” into a universal rule
+2. **Other action families:** participant-association edits and covered-face
+   inspection still need explicit categories/record attachment. D-175 settles
+   explicit View/Reveal openings, combat-area creation/removal and Stack
+   rearrangement/removal grouping. Do not turn “all card edits” into a universal rule
    overriding the separately approved move/projection actions.
 3. **No next/previous group:** how to present a leading-only dismissal/random run
    when no following action has arrived, and a first ping when there is no prior
    marker. This must not delay saving/sync or require a fake follow-up action.
 4. **Remaining compound/location cases:** mixed-tuple bulk moves, optional extra
-   locations and grouped constituents of shortcuts without changing event counts.
+   locations and playback grouping of shortcut constituents. D-176 fixes
+   individual-mutation nodes; exact cleanup decomposition/order is separate from grouping.
 5. **Historical additions/manual group edits:** retain the no-new-marker ping/
    Undo behavior and path-local context; finish any optional manual metadata
    semantics without a new ownership picker or ordinary grouping chores.
@@ -135,12 +153,12 @@ changes or event mapping.
 | Orientation | Tap, untap, rotate; single/selected cards; standalone Untap all. | A-008 | D-163/D-164: forward taps; taps between same-tuple moves do not split. Compound Untap/tracking precedence remains open. |
 | Same-area layout | Battlefield repositioning; ordinary-pile join/split/reorder; Hand arrangement; same-container reorder. Combat layout is listed separately below. | A-005, A-007, A-014, A-025, A-033 | D-163: actual-card moves group by ordered tuple, including Battlefield → Battlefield. Interleaving and mixed tuples remain open. |
 | Actual-card transfer | Hand → Stack, Stack → Battlefield/Graveyard, other area/container moves; Draw one/N and top/bottom-N moves; single/selected cards. | A-005, A-006, A-007, A-012, A-014, A-026, A-036 | D-163/D-164: non-Stack moves group by tuple, including interleaved taps; real-card Stack remains isolated. Mixed tuples/extra locations remain open. |
-| Combat occurrences/area | Create/close combat; declare with/without tapping; create/reuse projection by drag; role/slot/order changes; Remove from combat. | A-019, A-034 | D-163/D-166: projection creation/repositioning group; closure groups forward. Area creation/occurrence removal remain open. |
-| Stack occurrences | Create an ability projection, rearrange occurrences, remove one effect; keep actual-card exits under transfer. | A-035, A-036 | D-163: each Stack projection creation is isolated from moves/other projection creation, but groups with taps/pings. Layout/removal classification remains open. |
+| Combat occurrences/area | Create/close combat; declare with/without tapping; create/reuse projection by drag; role/slot/order changes; Remove from combat. | A-019, A-034 | D-163/D-166/D-175: area creation and projection creation/repositioning/removal group together; closure groups forward. D-176 records individual mutations, not combined invocation nodes. |
+| Stack occurrences | Create an ability projection, rearrange occurrences, remove one effect; keep actual-card exits under transfer. | A-035, A-036 | D-163: each Stack projection creation is isolated from moves/other projection creation, but groups with taps/pings. D-175: rearrangements group separately from entries/removals; each explicit effect removal stays separately visible. D-176: bulk removal issues individual mutations. |
 | Card text/counters | Counter +/-/Set/remove; corner +/-/Set/Reset; card note and other descriptive-field edits. | A-010, A-018, A-020, A-024 | D-165/D-169/D-171: ordinary card/face/cover edits and token removal group together, not restricted to one card/field. |
 | Participant values/associations | Player counters and named values, named tracking sets, manual participant associations. | A-009, A-010, A-011, A-020, A-023 | D-172: value/counter edits join the ordinary edit family across cards/players/fields. Participant-association edits remain open. No inferred damage or ownership changes. |
 | Shared faces/cover | Turn face down/up; switch printed face; explicit visual-composite changes. | A-007, A-008, A-018, A-025 | D-169: ordinary manual face/cover edits group with card edits; explicit spells/abilities stay separate on Stack. See rules evidence above. Broader visual-composite scope remains separately proposed. |
-| Inspection and reference displays | Logged covered-face inspection; full contents View; View/Reveal top/bottom N; dismiss a display. Already-visible inspection/navigation is not automatically a recorded exposure. | A-006, A-007 | D-166: dismissal groups forward, not with opening. Opening/inspection categories remain open. |
+| Inspection and reference displays | Logged covered-face inspection; full contents View; View/Reveal top/bottom N; dismiss a display. Already-visible inspection/navigation is not automatically a recorded exposure. | A-006, A-007 | D-175: each explicit View/Reveal opening starts a separate review group. D-166: dismissal groups forward, not with opening. Covered-face inspection grouping/record attachment remain open. |
 | Creation/removal | Catalog token, Blank token, Clone, explicit token Remove; broader custom pieces only if approved. | A-003, A-013, A-014, A-016, A-021, A-024 | D-171: token removal joins ordinary card edits. D-173: token creation/Clone groups together with interleaved customization. D-174 forbids non-token Remove entirely; it is not an open grouping case. Distinguish token removal from occurrence removal. |
 | Persistent links | Create/remove binary links, including selected-source fan-out and occurrence endpoints. | A-017, A-019 | D-172: link creation/removal joins the ordinary edit family, including card/player edits. Links remain persistent connectors, not pings or inferred targets. |
 | Pings | Ping/Unping through mode or context action; selected-set changes; explicit historical association. | A-015, A-019 | D-168/D-170: no ping-start marker or ownership-selection step unless the higher-precedence author change requires a new group. First/root context and numbering remain open. |

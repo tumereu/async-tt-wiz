@@ -40,13 +40,15 @@ synchronizing immediately when online and dependency-ready. There is no Send
 step or waiting for group closure. Service acknowledgement establishes the
 shared result, not a notification or animation.
 
-D-131 requires distinct effective reaction-point events to survive publication,
-offline storage, retries and recovery; batching must not collapse them. D-159/
-D-160 make each node one Undo step, not the whole invocation/group. Retain
-invocation identity as context, not as a command to skip multiple parents. Tree-
-based Redo selects retained nodes with their original outcomes. No Send step,
-priority protocol or presentation-group publication gate is added. Exact
-publication/schema mechanics must support this behavior.
+D-176 requires one node per individual mutation and immediate publication of
+each node, including ordered operations from bulk/combined controls. Transport
+batching must not collapse nodes or wait for invocation/group/animation completion.
+D-159/D-160 make each node one Undo step. Retain invocation identity as context,
+not as an atomic multi-mutation payload or command to skip parents. Tree-based
+Redo and D-177 playback reuse recorded outcomes. Playback rollback/scrubbing are
+personal traversal, not new shared Undo or publication. Both shared and local
+displayed state reference mutation nodes, never groups. Exact protocol/schema
+mechanics must support this behavior without priority/legality inference.
 
 A publication includes an idempotency key, game ID, intended base action ID,
 continuation/branch context, revision preconditions, desired operation, actions,

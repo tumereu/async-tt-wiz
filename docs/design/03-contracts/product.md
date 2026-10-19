@@ -29,7 +29,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-005 | History is a tree, with exactly one active branch in each game. |
 | P-006 | An interruption makes its new branch active; no approval vote is required. |
 | P-007 | Players can delete the interruption and return to the earlier continuation. |
-| P-008 | Game edits have undo/recovery support; submitted game-wide chat is non-undoable (D-94). D-159/D-160 make Undo one shared active-pointer move to its parent, regardless of author. Retain all descendants for forward return. After replacement play, hide ordinary abandoned continuations behind Show hidden branches; keep whole exposure/comment continuations visible. |
+| P-008 | Game edits have undo/recovery support; submitted game-wide chat (D-94) and acceptance of an ending suggestion / return to lobby (D-212) are non-undoable. Pending result suggestions remain undoable (D-211). D-159/D-160 make Undo one shared active-pointer move to its parent, regardless of author. Retain all descendants for forward return. After replacement play, hide ordinary abandoned continuations behind Show hidden branches; keep whole exposure/comment continuations visible. |
 | P-009 | Either participant can manipulate any participant's tabletop state. |
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |
@@ -92,7 +92,8 @@ Included:
   management and lobby mainboard/sideboard preparation with both-player Ready;
   they do not approve a full deck editor. D-211 uses proposed win/loss/draw solely
   for shared ending coordination, without required win-history/scorekeeping.
-  Acceptance reversibility, returned-lobby reset and subsequent-game scope remain open.
+  D-212 makes acceptance non-undoable, not pending suggestions. Returned-lobby
+  reset and subsequent-game scope remain open.
 - Configurable areas and ordered piles, card movement/orientation/faces, custom
   objects, named counters/values, generic links/markers, and free-form correction.
 - Individual action playback, suggested editable groups, branching, undo/redo,

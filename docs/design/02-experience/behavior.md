@@ -363,10 +363,12 @@ The general rules are:
   **undoable board state**, not an immediate end to the game.
 - **The other player must accept.** Only then do **both players return to the
   lobby**. Your own confirmation cannot replace their acceptance.
+- **Acceptance is not undoable.** Undo can remove a pending suggestion, but cannot
+  reverse acceptance/return to lobby or reopen that ended play session.
 - This just ensures both understand what is happening; no win-history or
   scorekeeping feature is required. End turn, leaving the screen and cancelling
   an unstarted game remain separate actions.
-- Acceptance reversibility, competing/replaced suggestions, stale acceptance,
+- Competing/replaced suggestions, stale acceptance,
   returned-lobby preparation/Ready/reset, subsequent games and prior-session
   history behavior remain open in the
   [lifecycle contract](../03-contracts/accounts-decks-and-lobby.md).

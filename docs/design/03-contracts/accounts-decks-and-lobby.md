@@ -236,12 +236,14 @@ Start action or require online presence from both participants.
 - **Acceptance returns both players to the lobby.** This is cooperative ending
   coordination, not scorekeeping: no win-history, standings or result-statistics
   feature is required. Ordinary board history is distinct from such a feature.
+- **Acceptance is not undoable (D-212).** Once accepted, Undo cannot reverse the
+  acceptance/return-to-lobby transition or reopen that ended play session. This
+  exception applies to acceptance, not the pending suggestion.
 - D-211 supersedes D-210's unilateral End game/confirmation-dialog/non-undoable
   design. Do not retain that blanket Undo prohibition or infer an extra confirmation
   dialog on top of proposal/acceptance. End turn, leaving a screen and cancelling
   an unstarted game remain separate actions.
-- Whether acceptance itself can be undone to reopen play, competing/replaced
-  suggestions and stale acceptance, returned-lobby preparation/Ready/reset,
+- Competing/replaced suggestions and stale acceptance, returned-lobby preparation/Ready/reset,
   subsequent fresh games and prior-session history behavior remain open. Do not
   infer automatic restarting, permanent history deletion or a score archive.
 
@@ -359,9 +361,10 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   shortcut work: per-card mutation order, concurrent count timing and count edges.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
-- Result-suggestion replacement/competition and stale acceptance; reversibility
-  of acceptance itself; returned-lobby preparation/Ready/reset and subsequent-game
+- Result-suggestion replacement/competition and stale acceptance;
+  returned-lobby preparation/Ready/reset and subsequent-game
   behavior. D-211 confirms undoable suggestions, other-player acceptance, return
   of both players to lobby and no required win-history feature, superseding D-210.
+  D-212 makes acceptance/return to lobby non-undoable, not the pending suggestion.
 
 These are behavior gaps, not authorization for application code or UI drafts.

@@ -63,7 +63,8 @@ The app remembers and presents what happened; the players interpret the rules.
   resets on entry to configured Library/Graveyard/Exile, token disappearance in
   those destinations, and retained information-exposure history after Undo.
   To end play, suggest a win/loss/draw as undoable board state; the other player
-  accepts before both return to lobby. No win-history or scorekeeping is required.
+  accepts before both return to lobby. **Acceptance is not undoable**; pending
+  suggestions still are. No win-history or scorekeeping is required.
   [Tier 2](../02-experience/behavior.md) describes them; they are not extra rules
   to infer for other situations.
 - Broader setup/import/authoring/completion/platform scope still has proposals

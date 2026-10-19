@@ -61,7 +61,8 @@ obligation or behavior is still proposed:
   is manual representation; exact authoring controls and scope are not settled.
 - D-211 supersedes D-210: **suggest your win/loss or a draw as undoable board state;
   the other player accepts, then both return to lobby**. No win-history/scorekeeping
-  feature is required. Acceptance reversibility, competing/replaced suggestions,
+  feature is required. D-212 makes acceptance/return to lobby non-undoable while
+  pending suggestions remain undoable. Competing/replaced suggestions,
   stale acceptance, returned-lobby preparation/Ready/reset, subsequent fresh games,
   prior-session history and complete game/history export remain open.
 - Detailed review navigation, branch comparison/rename/switch/archive controls,
@@ -110,7 +111,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    returned-lobby reset/subsequent-game/history behavior after End game, export,
    and which broader authoring/correction tools ship. D-211 settles undoable
    win/loss/draw suggestions and other-player acceptance returning both to lobby;
-   acceptance reversibility and competing/stale suggestions remain open. No
+   D-212 settles non-undoable acceptance; competing/stale suggestions remain open. No
    win-history feature is required, and D-210's blanket non-undoability is superseded.
    D-192 excludes automatic opening draws; mulligan quick actions are required,
    not optional scope or a manual-moves-only procedure.

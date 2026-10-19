@@ -26,7 +26,10 @@ starts once both players press Ready. See the
 T-396–T-405. D-191 confirms that changing your deck/mainboard/sideboard clears
 your own Ready and lobby changes leave the saved deck untouched. Next substantive
 setup gaps: actual starting operations, invitation flow and remaining readiness/
-start-versus-edit behavior. Do not silently approve full deck
+start-versus-edit behavior. D-192 excludes automatic opening draws and requires
+mulligan quick actions; exact shortcut operations and starting shuffle remain
+open (T-406/T-407). Do not resume the assistant's automatic draw-seven/manual-only
+mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.
 
 **Current model (D-176/D-177):** one individual mutation per node, including

@@ -43,6 +43,9 @@ The general rules are:
   changes affect only this game, not the saved deck. Other readiness details,
   exact starting setup and invitation details remain open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
+- Starting the game does **not** automatically draw opening hands. Mulligan quick
+  actions are included, but their exact return/shuffle/redraw steps are not yet
+  decided. Automatic starting shuffle remains undecided too.
 
 ### 1. A cooperative table, not a rules referee
 

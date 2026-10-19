@@ -15,8 +15,10 @@ obligation or behavior is still proposed:
   adding users, current games/pending invites, import-only deck management and
   a lobby with deck selection, mainboard/sideboard management and both-player
   Ready. Authentication/invite details, fuller deck editing/export, configurable
-  starting arrangements, opening hands/redraws and extra in-game areas remain open
-  or proposed. Lobby sideboarding does not settle an in-game Sideboard area.
+  starting arrangements and extra in-game areas remain open or proposed. D-192
+  excludes automatic opening draws and requires mulligan quick actions; their
+  precise behavior remains open. Lobby sideboarding does not settle an in-game
+  Sideboard area.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -50,8 +52,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    and lobby preparation with both-player Ready. Deck/mainboard/sideboard changes
    clear that player's Ready and do not change the saved deck. Remaining: invite
    flow, import formats/errors, readiness prerequisites/withdrawal/other setup
-   changes, start-versus-edit races, initial shuffle, starting arrangement/values/hands, missing cards,
+   changes, start-versus-edit races, initial shuffle, starting arrangement/values,
+   opening-draw access and exact mulligan shortcuts, missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.
+   D-192 excludes automatic opening draws; mulligan quick actions are required,
+   not optional scope or a manual-moves-only procedure.
 2. **History groups and pings.** D-162–D-175 establish the core sequence/marker
    model, including real-card Stack isolation, same-tuple tap interleaving, grouped
    card/combat edits, forward display/combat closure and no ping/Undo markers.

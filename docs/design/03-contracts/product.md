@@ -67,6 +67,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-043 | Login is required before the main menu; registration is available. Main menu offers Logout, Manage decks and Play; users can add other users, while the Friends label/placement remains tentative (D-188). |
 | P-044 | Deck editing is currently card-list import only. A game lobby separately permits deck selection and mainboard/sideboard management, not an implied full saved-deck editor (D-189). |
 | P-045 | Play lists current games including pending invitations. Games begin in a lobby and start once both players press Ready, not immediately upon creation (D-190). |
+| P-046 | Do not draw opening hands automatically on game start. Provide mulligan quick actions; their exact operations remain to be designed (D-192). |
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.

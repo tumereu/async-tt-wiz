@@ -48,8 +48,23 @@ approved. A lobby Ready control is pregame coordination, not a gameplay Send or
 publication gate. Existing gameplay mutations still synchronize immediately.
 
 D-108 still requires choosing the starter and beginning turn 1 at Untap without
-automatic card operations merely from entering that step. This decision does not
-choose initial pile order, shuffling, opening-hand dealing or mulligan behavior.
+automatic card operations merely from entering that step.
+
+## Opening hands and mulligan shortcuts — D-192
+
+- **Do not draw opening hands automatically when the game starts.** Starting
+  after both players ready does not itself draw cards.
+- **Provide mulligan quick actions.** Requiring players to perform every
+  mulligan operation through ordinary moves alone is not the approved design.
+- Exact shortcut offerings and operations remain open: hand return, shuffle,
+  redraw count, repeated mulligans, and any player-chosen bottoming. No automatic
+  mulligan-count tracking, keep-hand gate or card-text/format rules are implied.
+- The assistant's automatic draw-seven proposal was rejected. Starting shuffle
+  and initial Library order were not separately approved by that correction.
+
+The ordinary Draw/Draw N, move and Shuffle actions remain available. Any agreed
+compound shortcut must preserve individual mutation nodes, immediate sync and
+parent-step Undo under D-176; its exact mutation sequence still needs design.
 
 ## Remaining behavior decisions
 
@@ -60,7 +75,8 @@ choose initial pile order, shuffling, opening-hand dealing or mulligan behavior.
   setup changes, with no requirement that both players remain online together yet
   decided.
 - Initial arrangement/values, starter-selection access, and which explicit setup
-  operations occur on starting, including shuffle and opening hands.
+  operations occur on starting, including shuffle. Automatic opening draws are
+  excluded; exact mulligan quick actions and opening-draw access remain open.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
 

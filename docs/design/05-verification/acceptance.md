@@ -417,6 +417,8 @@ in-flight delivery recovery remain distinct from supporting offline gameplay.
 | T-403 | A ready player chooses another deck while the game remains in the lobby. | Clear that player's Ready, preserve the other player's readiness, and require the changed player to ready again before start (D-191). Start-versus-edit race handling remains open. |
 | T-404 | A ready player changes their mainboard/sideboard while still in the lobby. | Clear that player's Ready, not the other player's. Do not start on readiness given before that change (D-191). |
 | T-405 | A player changes a selected deck's mainboard/sideboard in one game's lobby, then opens the saved deck or selects it for another game. | Retain the preparation changes only in the original game; the saved deck remains unchanged, so another selection does not inherit those game-local edits (D-191). |
+| T-406 | Both players ready and the game starts. | Do not automatically draw opening hands or create opening-draw mutations. Starting shuffle/order remains undecided, not approved by the no-auto-draw correction (D-192). |
+| T-407 | A player needs a mulligan. | Provide mulligan quick actions rather than requiring every constituent operation through ordinary moves alone. Exact offerings, return/shuffle/redraw counts and repeat/bottoming behavior remain open; this scenario does not approve an inferred rules procedure (D-192). |
 
 D-159/D-160 settle parent-node Undo, retained ordinary alternatives behind a
 toggle and whole-branch exposure/comment visibility, replacing the last-exposure

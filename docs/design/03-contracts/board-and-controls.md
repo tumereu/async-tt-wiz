@@ -1193,6 +1193,12 @@ at Beginning/Untap without automatic card operations. This initializes tracking,
 not opening-hand draws or a rules-driven setup procedure. Exact setup-screen
 placement, selection defaults, and change/recovery boundaries remain later work.
 
+D-192 additionally excludes automatic opening draws on game start and requires
+mulligan quick actions, rather than ordinary moves alone. Exact shortcut effects
+and opening-draw access remain open in the
+[setup contract](accounts-decks-and-lobby.md#opening-hands-and-mulligan-shortcuts--d-192).
+This does not approve automatic starting shuffle or a rules-driven mulligan gate.
+
 D-109 rejects the proposed Start another turn shortcut and any extra-turn
 scheduler. Players handle extra turns through existing manual phase/step controls.
 Those changes preserve turn player/number and do not infer a new turn. An

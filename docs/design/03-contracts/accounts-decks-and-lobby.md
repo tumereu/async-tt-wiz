@@ -60,12 +60,16 @@ automatic card operations merely from entering that step.
   **N**, with **7 as the default**; the other shuffles and draws **current hand
   size minus one**, rather than an assumed fixed seven or automatic mulligan count.
 - Both are available as **Library context actions**. They are also quick actions
-  during the **starting player's first turn, first phase**. Whether that means
-  the entire Beginning phase or only its first step, Untap, needs clarification;
-  do not silently approve one interpretation.
-- Whether both actions first return the existing hand to the Library still needs
-  confirmation. Exact count-capture timing, nonpositive-count cases, hand-return
-  order if included, and any bottoming behavior remain open. Retain the ordinary
+  **only during Untap of turn 1**, the starting player's first turn's first step
+  (D-194), not throughout Beginning or on each player's first turn. Context access
+  remains available outside that quick-action window.
+- **Both first return all cards in the affected hand to its Library, then shuffle
+  that Library, then draw (D-194).** This is the whole hand, not other areas or
+  the sideboard. The hand-size-minus-one count refers to the hand **before** its
+  cards are returned: a six-card hand requests five, not minus one after emptying
+  it. Hand moves use the normal Library-entry preservation/reset rules.
+- Exact concurrent count-capture timing, nonpositive-count cases, hand-return
+  mutation order, and any bottoming behavior remain open. Retain the ordinary
   D-49 available-card clamp for the N-card draw; do not reopen that default.
   No automatic mulligan-count tracking, keep-hand gate or card-text/format rules
   are implied. The preceding proposal's manual-bottoming step was not approved.
@@ -86,9 +90,9 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   decided.
 - Initial arrangement/values, starter-selection access, and which explicit setup
   operations occur on starting, including shuffle. Automatic opening draws are
-  excluded. Mulligan action counts/default and Library context access are settled;
-  existing-hand return, exact opening quick-action window and remaining shortcut
-  sequencing/edge outcomes are open.
+  excluded. Mulligan counts/default, full-hand return, return → shuffle → draw
+  order and Library context/turn-1 Untap quick access are settled. Remaining
+  shortcut work: per-card mutation order, concurrent count timing and count edges.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
 

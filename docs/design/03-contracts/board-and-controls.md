@@ -1196,12 +1196,11 @@ at Beginning/Untap without automatic card operations. This initializes tracking,
 not opening-hand draws or a rules-driven setup procedure. Exact setup-screen
 placement, selection defaults, and change/recovery boundaries remain later work.
 
-D-192 additionally excludes automatic opening draws on game start. D-193 requires
-shuffle-and-draw N (default seven) and shuffle-and-draw current hand size minus one,
-both as Library context actions and as quick actions in the starting player's
-first turn/first phase. Whether the quick window includes the whole Beginning
-phase or only Untap, existing-hand return, and exact sequencing/count edges remain
-open in the
+D-192 additionally excludes automatic opening draws on game start. D-193/D-194
+require two Library context actions: return the whole hand → shuffle Library →
+draw N (default seven), or draw the pre-return hand size minus one. Both are also
+quick actions **only during turn 1's Untap step**. Context access remains outside
+that window. Per-card sequencing/concurrent count timing/count edges remain open in the
 [setup contract](accounts-decks-and-lobby.md#opening-hands-and-mulligan-shortcuts--d-192).
 This does not approve automatic starting shuffle or a rules-driven mulligan gate.
 

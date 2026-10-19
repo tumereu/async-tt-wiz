@@ -44,11 +44,10 @@ The general rules are:
   exact starting setup and invitation details remain open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
 - Starting the game does **not** automatically draw opening hands. Mulligan quick
-  actions shuffle and draw N (default 7), or shuffle and draw current hand size
-  minus one. Both are Library context actions, also quick actions in the starting
-  player's first turn's first phase. Existing-hand return and whether that quick
-  window is all of Beginning or just Untap still need clarification. Automatic
-  starting shuffle remains undecided too.
+  actions return the whole hand to Library, shuffle, then draw N (default 7) or
+  the pre-return hand size minus one. Both are Library context actions, also
+  quick actions **only during turn 1's Untap step**. Automatic starting shuffle
+  remains undecided; invoking either shortcut explicitly shuffles.
 
 ### 1. A cooperative table, not a rules referee
 

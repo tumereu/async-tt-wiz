@@ -28,10 +28,12 @@ your own Ready and lobby changes leave the saved deck untouched. Next substantiv
 setup gaps: actual starting operations, invitation flow and remaining readiness/
 start-versus-edit behavior. D-192 excludes automatic opening draws and requires
 mulligan quick actions. D-193 specifies shuffle-and-draw N (default seven) and
-current hand size minus one, both Library context actions and quick actions in
-the starting player's first turn/first phase. Clarify existing-hand return and
-Beginning-versus-Untap quick visibility before treating them as approved. Count
-edges/sequencing and automatic starting shuffle remain open (T-406–T-411).
+current hand size minus one. D-194 confirms both return the whole hand first,
+then shuffle, then draw; use pre-return hand size for the minus-one variant.
+Both are Library context actions and quick actions only during turn 1's Untap.
+Do not reopen hand return or Beginning-versus-Untap visibility. Per-card ordering,
+concurrent count timing/count edges and automatic starting shuffle remain open
+(T-406–T-413).
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

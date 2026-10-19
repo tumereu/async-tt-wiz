@@ -197,8 +197,9 @@
 | D-191 | Changing your chosen deck or mainboard/sideboard in the lobby clears your own Ready. Lobby deck changes affect only that game, not the saved deck. | Owner approved both recommendations together. Preserve the other player's Ready; the affected player must ready again for the changed preparation. Resolves D-189/D-190's saved-deck isolation and deck-change readiness gaps, not all readiness prerequisites/withdrawal or start-versus-edit races. Does not decide starting shuffle/hands, invite behavior or the lobby/game-history boundary; no implementation or stage transition is authorized. |
 | D-192 | Do not automatically draw opening hands when the game starts. Provide mulligan quick actions. | Owner rejected the assistant's automatic draw-seven/manual-mulligans proposal. Exact mulligan shortcuts, return/shuffle/redraw counts, repeat/bottoming behavior and opening-draw access remain open; no automatic mulligan rules/count/keep gate is implied. Starting shuffle/initial Library order were not separately approved. Preserve ordinary actions and individual mutation/sync/Undo behavior; no implementation or stage transition is authorized. |
 | D-193 | Offer shuffle-and-draw N with seven as the default, and another shuffle-and-draw action for current hand size minus one. Both are Library context actions and quick actions in the first player's first turn's first phase. | Owner replaces the assistant's fixed Draw 7/Mulligan-seven proposal with configurable N and hand-size-minus-one variants. Existing-hand return was not explicitly settled and needs confirmation. First-phase wording still needs Beginning-versus-Untap clarification; do not silently choose a step window or broaden to each player's first turn. No automatic starting draw/shuffle, manual-bottoming requirement, mulligan counter or keep gate is approved. Exact count timing, nonpositive counts and mutation sequencing remain open; retain D-49's available-card clamp for Draw N. Preserve ordinary action access, per-mutation sync/Undo and no implementation authorization. |
+| D-194 | Both opening/mulligan actions return the entire hand to Library before shuffling and drawing. Quick access is only the starting player's first turn's first step, Untap. | Owner answered both clarifications: first step only, and all hand cards return. Refines D-193's first-phase wording and settles its hand-return gap. The hand-size-minus-one variant uses the pre-return hand size; full-hand return is not a move of battlefield/sideboard cards. Context access remains outside the quick window. Preserve normal Library-entry resets, per-mutation sync/Undo and recorded random outcomes. Per-card ordering, concurrent count timing/nonpositive edges, other setup and invitations remain open; no implementation or stage transition is authorized. |
 
-**Latest setup decisions — D-188–D-193:** authenticated main menu, adding users,
+**Latest setup decisions — D-188–D-194:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
 selection, mainboard/sideboard management and both-player Ready. Primary behavior:
 [accounts, decks, and lobby](../design/03-contracts/accounts-decks-and-lobby.md).
@@ -206,9 +207,10 @@ Deck/mainboard/sideboard changes clear that player's Ready; lobby changes leave
 the saved deck unchanged (D-191). Friends naming, exact invitations, other
 readiness details and starting operations remain open. D-192 rejects automatic
 opening draws; D-193 specifies shuffle-and-draw N (default seven) or current hand
-size minus one, both Library context actions and opening quick actions. Hand
-return, exact first-phase window and remaining count/sequencing details need
-clarification; automatic starting shuffle remains open. Neither the assistant's immediately usable table nor its
+size minus one. D-194 confirms return the whole hand → shuffle → draw, with the
+minus-one count based on the pre-return hand. Both are Library context actions;
+quick visibility is only turn 1's Untap. Remaining count/sequencing details and
+automatic starting shuffle remain open. Neither the assistant's immediately usable table nor its
 automatic draw-seven/manual-only-mulligans proposal was approved.
 
 **Latest acceptance correction — D-187:** ordinary actions normally succeed;
@@ -354,7 +356,7 @@ behavior cases must not be silently deferred until coding.
 | --- | --- | --- |
 | Q-08 | Hosted service, self-hosted service, or both? Who operates it? | Determines onboarding, cost, backup, and deployment. |
 | Q-09 | Which authentication method, registration/recovery/session behavior and multiple-device support? How does adding users work? | D-188 confirms required login before the main menu, registration and adding users, not guest entry. Friends naming and user lookup/request/removal remain open; preserve downloaded read-only offline access. |
-| Q-10 | Which starting operations/layouts, remaining mulligan shortcut details, readiness policies and fresh-table/rematch conveniences are first-release obligations? | D-189–D-191 confirm import-only deck management, lobby preparation/Ready and game-local edits. D-192 excludes automatic opening draws. D-193 specifies shuffle-and-draw N (default seven) or current hand size minus one, both Library context actions and opening quick actions. Hand return, exact first-phase window, count edges/sequencing, starting shuffle, further setup/readiness/start-versus-edit behavior and invitation/lobby lifecycle remain open. Presets/shortcuts cannot introduce inferred rules. |
+| Q-10 | Which starting operations/layouts, remaining mulligan shortcut details, readiness policies and fresh-table/rematch conveniences are first-release obligations? | D-189–D-191 confirm import-only deck management, lobby preparation/Ready and game-local edits. D-192 excludes automatic opening draws. D-193/D-194 specify return-whole-hand → shuffle → draw N (default seven) or pre-return hand size minus one, both Library context actions and turn-1 Untap quick actions. Per-card sequencing/concurrent count timing/count edges, starting shuffle, further setup/readiness/start-versus-edit behavior and invitation/lobby lifecycle remain open. Presets/shortcuts cannot introduce inferred rules. |
 | Q-11 | Which generic pieces/links/faces/trackers are needed to represent complex manual-play scenarios? | Verify MTG coverage without game-specific entities or inferred actions. |
 | Q-12 | Required Android versions, device sizes, languages, distribution method? | Sets UI and platform contracts. |
 | Q-13 | Notification provider/preferences, read-receipt visibility, response-request behavior? | Defines async coordination without false rules consent. |

@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-193:** owner requires login before the main
+**Latest setup decisions — D-188–D-194:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -31,12 +31,13 @@ affect only that game, not the saved deck. Do not reopen these choices. D-192:
 owner rejected automatic opening draws and requires mulligan quick actions,
 not manual moves alone. D-193 specifies two actions: shuffle-and-draw N, default
 seven, and shuffle-and-draw current hand size minus one. Both are Library context
-actions and opening quick actions in the first player's first turn's first phase.
-Next clarify whether they first return the existing hand, and whether first phase
-means all Beginning steps or Untap only. Do not silently broaden to each player's
-first turn, approve manual bottoming or fix N to seven. Count edges/timing and
-mutation sequence remain open; automatic starting shuffle was not separately
-approved. See T-406–T-411. Other readiness details,
+actions. D-194 settles both clarifications: return all hand cards to Library before
+shuffling/drawing, and quick visibility only during turn 1's Untap step, not all
+Beginning steps or each player's first turn. The minus-one count uses pre-return
+hand size. Do not reopen those choices, approve manual bottoming or fix N to seven.
+Per-card mutation order, concurrent count timing and count edges remain open;
+automatic starting shuffle was not separately approved. See T-406–T-413.
+Next substantial setup topic can be invitation flow. Other readiness details,
 start-versus-edit races, exact invite/account flows and initial values remain open.
 D-108 starter/turn-1 Untap and all gameplay sync/history
 rules remain. No UI drafts, application code or stage transition are authorized.
@@ -320,7 +321,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-193** and **T-001–T-411**.
+- Current documentation includes **D-001–D-194** and **T-001–T-413**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

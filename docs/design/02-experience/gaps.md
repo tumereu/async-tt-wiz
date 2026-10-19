@@ -18,8 +18,9 @@ obligation or behavior is still proposed:
   starting arrangements and extra in-game areas remain open or proposed. D-192
   excludes automatic opening draws. D-193 specifies shuffle-and-draw N (default 7)
   and current-hand-size-minus-one actions in the Library context and as opening
-  quick actions. Existing-hand return, precise quick-action window and remaining
-  shortcut details remain open. Lobby sideboarding does not settle an in-game
+  quick actions. D-194 confirms both return the whole hand before shuffling and
+  drawing, with quick visibility only at turn 1's Untap. Remaining shortcut
+  count/sequencing details are open. Lobby sideboarding does not settle an in-game
   Sideboard area.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
@@ -55,8 +56,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    clear that player's Ready and do not change the saved deck. Remaining: invite
    flow, import formats/errors, readiness prerequisites/withdrawal/other setup
    changes, start-versus-edit races, initial shuffle, starting arrangement/values,
-   mulligan hand return, exact opening quick window and remaining shortcut
-   sequencing/count edges, missing cards,
+   remaining mulligan per-card sequencing/concurrent count timing/count edges,
+   missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.
    D-192 excludes automatic opening draws; mulligan quick actions are required,
    not optional scope or a manual-moves-only procedure.

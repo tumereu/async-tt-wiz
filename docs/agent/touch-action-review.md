@@ -84,8 +84,13 @@ preparation and Ready before acceptance; Cancel game cancels its pending invite.
 Recipient Decline retains that lobby/preparation/readiness and allows reinvitation
 to the same lobby. Acceptance opens it for the recipient without automatic Ready
 or clearing inviter setup (T-457–T-460). Do not invent a separate outgoing-cancel
-flow or destroy the lobby on Decline. Expiry/duplicates, decline presentation/
-feedback, cancellation races and retention remain open.
+flow or destroy the lobby on Decline. D-209 approves no automatic invite expiry,
+cancelled games leaving current games, and declined lobbies remaining available
+to the inviter there (T-461–T-463). Recipient-side decline presentation/feedback,
+duplicates, cancellation races and retention/archive behavior remain open;
+current-list removal does not approve permanent deletion or archive/restore rules.
+Next substantial topic: completion/reopening, followed by rematches; narrower
+invitation race/presentation gaps remain without reopening approved lifecycle rules.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

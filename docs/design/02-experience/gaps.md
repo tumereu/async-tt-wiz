@@ -49,11 +49,13 @@ obligation or behavior is still proposed:
   areas, starter defaults/edit access and random timing/reselection remain open.
   D-206 separates leaving the lobby from explicit game cancellation; leaving
   alone does not cancel. D-207 allows either player to cancel an unstarted game
-  without the other's approval. Cancellation-versus-start races and presentation/
-  retention, along with the remaining invitation lifecycle, are still open.
+  without the other's approval. Cancellation-versus-start races and retention/
+  archive behavior, along with the remaining invitation lifecycle, are still open.
   D-208 makes a sent invite an already-open lobby for the inviter, with deck
   preparation/Ready before acceptance and Cancel game cancelling the pending
   invite. Decline preserves that lobby for reinvitation, not game cancellation.
+  D-209 confirms no automatic pending-invite expiry, cancelled games leaving
+  current games and declined lobbies remaining available there to the inviter.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -91,7 +93,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    D-208 confirms inviter access/preparation/Ready before acceptance, cancellation
    through Cancel game and a retained lobby after Decline with reinvitation.
    Remaining: exact search/contact removal/privacy, decline presentation/feedback,
-   pending-invite expiry/duplicates, cancellation races and retention,
+   pending-invite duplicates, cancellation races and retention/archive behavior,
    remaining import dialect/printing/count details and saved-deck naming defaults/
    deletion/cover fallback/replacement metadata,
    readiness effects of further setup controls, remaining lobby cancellation/

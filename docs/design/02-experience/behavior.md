@@ -42,7 +42,9 @@ The general rules are:
   prepare your deck and ready while waiting. Cancel game also cancels the pending
   invite. The recipient can Accept or Decline in Play; accepting opens the same
   lobby for them, not active play or an automatic Ready. Declining leaves your
-  lobby and preparation/readiness intact, and you can reinvite them.
+  lobby and preparation/readiness intact, and you can reinvite them. Pending
+  invites never expire automatically. Cancelled games leave current games;
+  declined lobbies remain available to the inviter there.
 - Saved deck card-list editing currently uses import, rather than a full manual
   deck-building editor. Paste common MTG text exports, with quantities,
   names, optional set/collector details and standard mainboard/sideboard notation.

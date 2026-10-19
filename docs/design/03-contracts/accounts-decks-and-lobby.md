@@ -59,9 +59,14 @@ required email-verification gate or a second login method from this decision.
    their lobby, preparation and accepted Ready and can **reinvite** the recipient
    to that same lobby. Decline is not acceptance or Ready; reinviting does not
    bypass the recipient's acceptance.
+6. **Pending invitations never expire automatically (D-209).** They remain pending
+   until explicitly accepted, declined or cancelled with their game.
+7. **Declined lobbies remain available to the inviter in current games (D-209).**
+   Decline does not remove the inviter's lobby from that list. **Cancelled games
+   leave the current-games list**, including their cancelled pending invitations.
 
-Exact declined-invitation listing/history, inviter feedback, pending-invite
-expiry/duplicate handling, cancellation races and retention remain open. This
+Exact recipient-side declined-invitation listing/history, inviter feedback,
+duplicate handling, cancellation races and retention remain open. This
 confirms a path via added users, not a decision that every other invitation method
 is forbidden. Neither adding a user nor sending an invite bypasses acceptance.
 No replacement-opponent or open matchmaking feature is implied by reinviting.
@@ -208,7 +213,9 @@ Start action or require online presence from both participants.
 - **While waiting for acceptance, the inviter uses Cancel game to cancel the
   pending invite (D-208).** Recipient Decline is different: it retains the lobby
   and permits reinvitation, rather than cancelling the game.
-- Cancellation-versus-start races, cancelled-game presentation and retention
+- **Cancelled games leave current games (D-209).** This listing change does not
+  decide permanent deletion, archive visibility or restoration guarantees.
+- Cancellation-versus-start races and cancelled-game retention/archive behavior
   remain open. D-207 does not define cancellation of a started game or its result.
   The assistant's earlier proposal that leaving an
   accepted lobby cancels the game is rejected. Its other invitation-lifecycle
@@ -309,12 +316,14 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   Ready persistence without simultaneous online presence, server arrival-order
   start-versus-change handling and one-time start recovery. D-191/D-204 still
   clear only the changing player's Ready for preparation/starter changes.
-- Remaining invitation/lobby lifecycle: decline presentation/feedback, pending
-  expiry/duplicates, cancellation races and retention. D-208 confirms inviter
-  preparation/Ready before acceptance, Cancel game cancelling a pending invite,
+- Remaining invitation/lobby lifecycle: recipient-side decline presentation,
+  inviter feedback, pending duplicates, cancellation races and retention/archive
+  behavior. D-209 settles no automatic expiry, cancelled games leaving current
+  games and declined lobbies remaining available to the inviter. D-208 confirms
+  inviter preparation/Ready before acceptance, Cancel game cancelling a pending invite,
   and the lobby surviving Decline for reinvitation. Leaving the screen or
-  disconnecting does not
-  withdraw accepted Ready (D-205); explicit cancellation is a separate open flow.
+  disconnecting does not withdraw accepted Ready (D-205); cancellation is a
+  separate explicit action (D-206/D-207).
 - Further setup values/optional areas and starter-selection defaults, edit
   access and random-resolution timing. D-201 settles lobby
   placement and either-player/Random options. D-202 settles initial mainboard/

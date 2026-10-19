@@ -227,10 +227,20 @@ device scope and D-236 server Undo requests. Dependent references fail D-224's
 test rather than being silently retargeted. Rejected/no-op requests create no
 successful new gameplay mutation and therefore do not trigger D-227 clearing.
 
-The externally visible outcome when a personal review cursor points at a removed
-node is still unspecified; unlike a dependent comment, a personal cursor is not
-a later shared mutation protected by the replay test. Any further proposed
-activation/control edge case must first be checked against current rules, not
+**Review cursor fallback — D-238:** if the node currently being viewed is deleted,
+move that personal review cursor to the deleted node's parent and display the
+state there. For `root → A → B`, a viewer at A falls back to root when eligible
+Undo removes A, leaving `root → B`. Stay in personal review: do not jump to the
+shared head, keep a detached old snapshot or create an alternative branch.
+Apply the same rule again if that parent is subsequently deleted; when several
+deletions arrive together, follow the parent chain to the nearest surviving
+ancestor, including root. A cursor at a surviving node stays at that node.
+
+Unlike a dependent comment, a personal cursor is not a later shared mutation
+protected by the replay test and does not block an otherwise eligible Undo.
+Cursor fallback itself changes no shared play and adds no mutation. Node-ID,
+versioning and cache reconciliation remain technical specification work.
+Any further proposed activation/control edge case must first be checked against current rules, not
 assumed to need a new policy. See the [pruned gaps](../02-experience/gaps.md).
 Removal changes the existing tree (D-232), not just a candidate branch; D-223's
 visibility rule applies to actual alternatives. Earlier parent-pointer
@@ -314,6 +324,8 @@ Instant synchronization updates downloaded history and the shared-head indicator
 it does not automatically advance a historical review cursor. An optional live
 follow mode can track the shared head. Local edits advance the author's local
 view immediately, with pending status until acknowledged.
+If the viewed node is deleted, D-238's parent fallback applies; preserving a
+personal review position does not require retaining a deleted node or snapshot.
 
 The published future is a proposed continuation in the players' shared play,
 even though it is the selected shared branch in the storage sense. The other

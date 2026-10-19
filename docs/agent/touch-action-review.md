@@ -16,6 +16,12 @@ review/revision, not a separate question for each consequence.
 In particular, a comment dependent on a move already blocks Undo of that move
 under D-224; it is not a fresh reference-policy choice. No next-question quota.
 
+**Deleted-node review — D-238 (T-535–T-537):** if the node being viewed is deleted,
+fall back to its parent, remaining in personal review. Repeat if necessary to
+reach the nearest surviving ancestor/root. Do not keep a detached snapshot, jump
+to live play, create a branch or block eligible Undo because of a personal cursor.
+Cursors at surviving nodes stay there; ID/version/cache handling is technical work.
+
 **Latest selective Undo/Redo (D-224, T-501–T-509):** removal/reinsertion requires
 every later mutation's relevant-state `(from, to)` tuple to stay identical across
 original/candidate timelines. Define relevant state per mutation; compare both
@@ -42,8 +48,9 @@ controls; do not invent a recovery feature or automatic clearing. Own new play
 still clears the stack. D-235 confirms per-player, per-game stacks as shared game
 state synchronized across that account's devices: latest-own includes any device,
 and own new play on either device clears that stack, not the opponent's.
-Resolve insertion anchors, historical references and review cursors next, without
-assuming the original tree survives. D-236 settles concurrent Undo: each distinct
+Resolve insertion anchors and remaining historical-reference/cursor integration
+without assuming the original tree survives; D-238 above settles deleted-node
+fallback. D-236 settles concurrent Undo: each distinct
 server request counts as another press against the then-current latest own
 candidate, not a fixed-node request to suppress after another device acts.
 Normal eligibility and per-request idempotency remain. Concurrent same-account

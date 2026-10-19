@@ -13,8 +13,9 @@ that batch review with a new approval requirement for every derived consequence.
 Mark truly unresolved choices/proposals separately.
 
 The [pruned list](../design/02-experience/gaps.md) now contains 27 worked
-spec-derived cases, six concrete remaining product/scope decision areas, and
-separate contract, technical, later-UI and platform/service work. The
+spec-derived cases (plus D-238's resolved review-cursor case), five concrete
+remaining product/scope decision areas, and separate contract, technical, later-UI
+and platform/service work. The
 [Q-register](decisions.md#93-release-blocking-questions) replaces its mixed question
 queue with a classification preserving every Q-ID. Neither list claims exhaustive
 behavior coverage or authorizes implementation/a delivery-stage transition.
@@ -23,7 +24,7 @@ behavior coverage or authorizes implementation/a delivery-stage transition.
 | --- | --- |
 | Setup/import/lobby/lifecycle | Existing selection/copy isolation, Ready, start ordering, shuffling and no-opening-draw outcomes are derived, not new questions. Competing result suggestions and unapproved extra tooling/formats remain real choices; initialization/validation/default mechanics need contract/UI/technical completion. |
 | Groups/pings | Apply approved author/category/companion/context rules to worked sequences first. Escalate only a demonstrated unresolved precedence conflict; categories, leading/compound cases and numbering are not automatically separate policy questions. |
-| Undo/Redo/references | Core replay/target/order/clearing/fork/device/server-request rules are settled. Dependent comments/references block removal under D-224; their deletion/reattachment is not an open alternative. Personal viewing of a removed node is different and genuinely lacks an outcome. Anchor/ID/cache/replay-field mappings are contract/technical work. |
+| Undo/Redo/references | Core replay/target/order/clearing/fork/device/server-request rules are settled. Dependent comments/references block removal under D-224; their deletion/reattachment is not an open alternative. D-238 now settles personal viewing of a deleted node: fall back to its parent, repeatedly if needed to reach a surviving ancestor/root. Anchor/ID/cache/replay-field mappings are contract/technical work. |
 | Online concurrency/reconnect | Arrival-order acceptance, immediate predictions, individual outcomes, difference-only reconciliation and automatic already-sent recovery are approved. Protocol/unsent-request/animation cases need explicit contract coverage against those rules, not routine safeguards or another offline queue. |
 | Projections/Stack/combat | Source-versus-occurrence routing, cleanup/retention, slot reuse/placement and source-state preservation are approved. Inspection information after a token source disappears is a genuine remaining case. Apply existing rules to ordinary variants; geometry/control presentation is later UI. |
 | Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. Chat/comment edit/delete is a real feature choice; an existing dependent comment blocking Undo is not. |
@@ -44,8 +45,9 @@ pruning neither silently approves proposals nor hides incomplete contracts.
   alternative, duplicate the suffix as a branch, require immutable ancestry or
   force a post-Undo fork. D-233/D-234 now block edits across forks, D-235 synchronizes
   per-player stacks and D-236 defines server Undo requests. Dependent comments/pings
-  already fail replay if their context would change. Personal removed-node viewing
-  remains undecided; IDs/cache/recovery and removed-record retention need their
+  already fail replay if their context would change. D-238 settles personal
+  deleted-node viewing with parent fallback; IDs/cache/recovery and removed-record
+  retention need their
   own contract/technical or product-privacy work, not blanket reference questions.
 - **D-224 revises the universal parent-pointer Undo interpretation.** Selective
   mutation removal/reinsertion requires every later mutation's relevant-state

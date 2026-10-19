@@ -365,7 +365,7 @@ The general rules are:
   limit N on the suffix work; the value/counting unit and per-mutation relevant
   states still need definition. Selective Undo excludes information-revealing
   targets. No compensating edit is appended. Pointer/button behavior, Redo queue
-  anchor details and affected references/views remain open; the older
+  anchor details and remaining reference/view integration need contracts; the older
   parent-pointer description below is superseded for Undo/Redo.
 - **Tree editing (D-232):** Undo removes and Redo reinserts a mutation in the
   existing tree. Neither creates a new branch or preserves the old path as an
@@ -373,8 +373,10 @@ The general rules are:
   mutations are held for Redo, not placed in an explorer branch. D-233 below
   prevents Undo at or before a fork. A dependent comment/ping blocks removal of
   its referenced mutation under the replay rule; deleting or retargeting it is
-  not an alternative. What a personal viewer sees if their current history node
-  is removed still needs a contract. Storage retention after
+  not an alternative. If the history node you are viewing is deleted, fall back
+  to its parent, staying in personal review (D-238). Repeat if that parent is
+  also deleted, up to the nearest surviving ancestor/root. Do not keep a
+  detached old snapshot, jump to live play or create a branch. Storage retention after
   Redo-queue clearing remains open. Explicit interruptions can still branch.
 - **Redo after new play (D-227/D-228):** after Undo, only your own new gameplay
   edit clears your Redo queue, even if the removed mutations could still be

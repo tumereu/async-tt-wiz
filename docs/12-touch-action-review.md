@@ -42,7 +42,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | D-116–D-118 actions/combinations/blockers/spacing; D-120–D-124 links/access/cleanup/shared edits; D-126–D-132 cleanup/closure/undo/events; D-133/D-135 reuse/uniqueness; D-136–D-139 slot grouping/lifecycle/reflow; D-140–D-142 create/reuse/uniform slot drags; D-143 insertion/append; D-144 context Remove from combat; D-145 new declaration pairs; D-146 single-card declaration auto-area. Quick visibility, moved-collection/new-pair order, existing-blocker declarations, edge/between-pair/absent-area drag targets, and other-view applicability remain open; UI drafts remain stage 3. |
+| G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | D-116–D-118 actions/combinations/blockers; D-120–D-124 links/access/cleanup/shared edits; D-126–D-132 cleanup/closure/undo/events; D-133/D-135 reuse/uniqueness; D-136–D-139 slot grouping/lifecycle; D-140–D-143 uniform drags/insertion; D-144 context Remove from combat; D-145 new declaration pairs; D-146 single-card auto-area; D-147 multiselect quick visibility at Declare attackers. Moved-collection/new-pair order, existing-blocker declarations, edge/between-pair/absent-area drag targets, other-view applicability, and additional single-card quick offerings remain open; UI drafts remain stage 3. |
 | G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. D-134 allows unlimited independent projections, including from one source. Missing-source display/actions and other entry/reference cases remain open. |
 | G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
 
@@ -744,9 +744,9 @@ Confirmed first shortcuts (D-100):
 
 D-101 settles next-step advancement: Untap → Upkeep and Draw → Precombat main,
 not a whole-phase skip. Do not execute further card operations on arrival.
-Exact participant association, remaining no-op/error records, atomic/group
-boundaries, other shortcuts, and touch layout remain open. D-111 settles combined
-advancement for valid empty/no-change cases.
+Exact participant association, remaining no-change/error feedback, partial-group/
+concurrency cases, other shortcuts, and touch layout remain open. D-111 settles
+empty/no-change advancement; D-150/D-151 fix normal-step event boundaries.
 D-110 settles that no skip-untap flag or inferred exclusion applies.
 
 Confirmed progression controls (D-102):
@@ -823,8 +823,9 @@ Confirmed D-116–D-118: area creation, attacker declaration, and tapping are
 separate actions. Plain declaration does not tap. Phase-appropriate multiselect
 Declare + tap / without-tapping both auto-create the area. Blockers can be
 dragged to attackers or blank unassigned slots; attackers get more space with
-more assigned blockers. Duplicate/empty/mixed selection behavior, exact quick
-visibility steps, source routing, and combined action boundaries remain open.
+more assigned blockers. D-147 settles declaration quick visibility. Remaining
+empty/mixed/source-applicability cases and combined event boundaries remain open;
+subsequent decisions below settle occurrence reuse and common slot routing.
 
 D-119 adds event-wide ping order numbers; D-120 adds projection-to-projection
 links that disappear with endpoints. D-121 guarantees non-quick full paths to
@@ -866,8 +867,10 @@ group, including a combined shortcut. Multiple MTG reaction points must be
 multiple events with meaningful review/interruption boundaries, not merely rows
 inside one indivisible transition. Specify mappings and exceptions per action,
 without priority/legality automation. D-130 confirms whole undo for advance-and-
-close; Untap/Draw + advance and declaration combinations now use the same general
-undo default, while their event mappings still need review.
+close; Untap/Draw + advance and declaration combinations use the same general
+undo default. D-148/D-149 make both declaration variants one event. D-150 makes
+normal-step Untap + advance one event; D-151 makes normal-step Draw + advance two,
+with a real Draw-step interruption boundary and one Undo per invocation.
 
 Confirmed D-132: advance-and-close is one event listing both effects, since area
 closure adds no distinct MTG reaction point. Interruption/review is before/after
@@ -951,7 +954,28 @@ New-pair position/order, existing-blocker sources, and event/concurrency remain 
 Confirmed D-146: single-card declaration auto-creates an absent combat area like
 multiselect shortcuts, without implicit tapping/source movement or a separate
 creation action. Reuse an existing area without clearing/replacing it; manual
-area creation remains available. Absent-area drag targeting and exact declaration
-quick visibility/offerings remain open.
+area creation remains available. D-147 settles multiselect quick visibility;
+absent-area drag targeting and additional single-card quick offerings remain open.
+Confirmed D-147: show both Declare + tap and Declare without tapping as multiselect
+quick actions only during Declare attackers. Keep full context-action access to
+the combinations/constituents at other steps under D-121; no implicit execution,
+additional single-card offerings, participant/turn locks, or runtime legality checks.
+Remaining selection feedback and event/concurrency mappings remain open.
+Confirmed D-148: Declare + tap is one tree event showing declaration, source
+tapping, and any automatic area creation. No separate response point lies between
+those effects; review/interruption is before/after. One Undo restores prior source
+orientations and occurrence/slot/grouping/order/area context. Separately invoked
+declaration/tapping retain distinct boundaries. D-149–D-151 settle the next three
+shortcut mappings; other cases and exact concurrency remain open.
+Confirmed D-149: without-tapping is one event including any area creation, with
+source orientations unchanged and one whole-action Undo.
+Confirmed D-150: during Untap, Untap all + advance is one event showing untapping
+and Untap → Upkeep, with one whole-action Undo.
+Confirmed D-151: during Draw, Draw one + advance is two events, drawing while
+still in Draw then advancing to Precombat main. Preserve the real intermediate
+review/interruption boundary; one Undo restores the whole invocation. No extra
+tap/Send; normal publication and exposure retention apply. Empty/no-change inputs
+still advance without fictitious card changes. Exact no-change feedback,
+partial-group/dependency handling, concurrency, and out-of-step mappings remain open.
 Pause/resume context is in the [session handoff](14-session-handoff.md).
 No UI draft/implementation authorized.

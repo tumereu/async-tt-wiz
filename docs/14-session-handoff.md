@@ -29,15 +29,16 @@ and acceptance scenarios take precedence over this summary.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-146** and **T-001–T-268**.
+- Current documentation includes **D-001–D-151** and **T-001–T-276**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
-  The 2026-10-19 checkpoint `fe0f146` records D-134–D-140. Current documentation
-  adds D-141–D-146; inspect git status/log for the latest checkpoint/working state.
+  The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
+  D-141–D-146 respectively. Current documentation adds D-147–D-151; inspect git
+  status/log for the latest checkpoint/working state.
 - Before editing, inspect `git status` and preserve any new user work.
 - Read [combat/Stack/projections](13-combat-stack-and-projections.md), especially
-   sections 13.2 and 13.4–13.23; [latest decisions and open questions](09-decisions.md);
-  and [history/undo](03-history-and-undo.md), especially sections 3.2, 3.4, 3.7.
+   sections 13.2 and 13.4–13.26; [latest decisions and open questions](09-decisions.md);
+   and [history/undo](03-history-and-undo.md), especially sections 3.2, 3.4, 3.7, 3.11.
 - Then consult [the capability worklist](12-touch-action-review.md),
   [controls](10-board-and-controls.md), [ping presentation](11-visual-action-language.md),
   [domain](02-domain-model.md), [actions](04-game-actions.md), and
@@ -53,7 +54,7 @@ and acceptance scenarios take precedence over this summary.
 - D-117: phase-appropriate multiselect offers **Declare + tap** and **Declare
   without tapping**. Both create the combat area if absent. Without-tapping
   preserves orientation, not forcibly untaps. D-146 also auto-creates for single-
-  card declaration; exact declaration quick-action visibility remains undecided.
+  card declaration; D-147 fixes multiselect quick visibility to Declare attackers.
 - D-118: drag blockers to specific attackers or valid blank/unassigned slots.
   Attacker spacing grows with assigned blocker count. No block/damage legality
   engine; no ordinary three-card pile limit automatically imposed on combat.
@@ -137,14 +138,39 @@ and acceptance scenarios take precedence over this summary.
   Undo restores removed projections/slots/roles/order/links and cleaned-up pairs.
   Source-card Remove and real-source/mixed-selection access remain separate;
   drag-back-to-source behavior and final menu layout are not decided.
-- D-145, latest batch: declaration shortcuts give each newly declared attacker
+- D-145: declaration shortcuts give each newly declared attacker
   its own pair; already-declared attackers retain their slots/grouping/order,
   including multi-attacker groups. Not the same as dropping a collection into a
   chosen slot. Exact new-pair order and existing-blocker source handling remain open.
-- D-146, latest batch: declaring a single card auto-creates an absent combat area
+- D-146: declaring a single card auto-creates an absent combat area
   without a separate creation action or implicit tap/source movement. Reuse an
   existing area without clearing/replacing it. Manual creation remains available;
-  absent-area drag targeting and declaration quick visibility/offerings remain open.
+  absent-area drag targeting and additional single-card quick offerings remain open.
+- D-147: both multiselect declaration quick actions appear only
+  during Declare attackers. Keep full context-action paths for the combinations/
+  constituents at other steps under D-121. No implicit execution, new single-card
+  quick offerings, participant/turn-player locks, or runtime legality/priority checks.
+- D-148: Declare + tap is one tree event showing projection
+  declaration, source tapping, and any automatic area creation. Review/interruption
+  is only before/after; these effects add no separate MTG reaction points. One
+  Undo restores prior orientations/occurrences/slots/grouping/order/area existence.
+  Separate declaration/tapping invocations remain distinct; other shortcut mappings
+  and exact concurrency remain open. This is not runtime timing/legality adjudication.
+- D-149, latest batch: Declare without tapping is one event including any
+  automatic area creation, preserving source orientation. One Undo restores
+  occurrence/slot/grouping/order/area context.
+- D-150, latest batch: during Untap, Untap all + advance is one event showing
+  scoped untapping and Untap → Upkeep, with no internal response boundary. One
+  Undo restores prior orientations/tracking; no-change sources still advance.
+- D-151, latest batch: during Draw, Draw one + advance is two events: draw portion
+  while tracking remains Draw, then advance to Precombat main. The intermediate
+  state is genuinely reviewable/interruptible; one Undo reverses both events.
+  No extra tap/Send or group-publication gate. Empty Library draws nothing but
+  still advances with the approved boundary and no invented card edits/loss;
+  exact no-change wording/feedback remains open. Normal exposure cutoff applies:
+  Undo retains actual draw exposure, not a trailing ordinary advance, while
+  restoring the pre-invocation state. Partial-group/dependency/concurrent handling
+  and out-of-step mappings remain open; see history section 3.11.
 
 ### Shared card state and area-specific projection lifetime
 
@@ -218,14 +244,16 @@ and acceptance scenarios take precedence over this summary.
 
 ## Suggested next question — not yet asked or approved
 
-Continue declaration quick visibility. A useful small next question is:
+Continue declaration source-role handling. A useful small next question is:
 
-> 1. Show both multiselect declaration quick actions only during Declare attackers?
-> Proposal: yes; keep full context-action paths available at other steps under D-121.
+> 1. If a declaration shortcut includes a source currently projected as a blocker,
+> move its existing occurrence into its own new attacker pair, rather than copying
+> it or leaving it as a blocker? Proposal: yes; keep the ordinary tap/without-tap
+> variant behavior and normal origin cleanup.
 
 This is only a suggested continuation. Do not mistake the question for a decision.
-This concerns quick visibility, not underlying access or legality. Do not infer
-extra single-card quick offerings or participant/turn-based editing restrictions.
+This settles non-drag role conversion, not new-pair order, inapplicable-source
+feedback, or a legality engine. Do not reopen approved shortcut event mappings.
 Do not reopen uniform slot-drop roles (including reverse projection drags), visual grouping, slot
 lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack multiplicity.
 
@@ -235,11 +263,12 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
   Stack reference/display/inspection/actions, duplicate-source multiselection,
   cover/exposure, link/ping target routing, source-Remove versus occurrence-only
   access/mixed-selection routing, and cleanup/undo/offline/concurrent behavior.
-- Combat: exact declaration quick visibility, absent-area drag targeting,
+- Combat: absent-area drag targeting, additional single-card quick offerings,
   empty/otherwise-mixed/inapplicable selections, attack destination, other-view
   applicability/moved-collection order/other removal paths, edge/between-pair
   targeting, new-pair order, existing-blocker declarations, capacity,
-  repeated-combat/area reuse, no-change records, and combined-action event mappings.
+  repeated-combat/area reuse, no-change presentation, and remaining event/concurrency
+  cases, including partial-group interruption/undo and out-of-step mappings.
 - Stack: actual-card versus projection entry, placement/order,
   quick-exit metadata/categories/multiface/missing data, destination routing and
   manual overrides. No ability picker/mandatory ability text is approved.
@@ -273,8 +302,9 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
   nevertheless required. No priority tracking/UI/Pass (D-105).
 - No turn-number editor or extra-turn scheduler; manual repeated steps may make
   counting approximate. End turn is one tap beside Next step. Separate Untap/
-  Draw and +advance variants remain; no inferred skip-untap exceptions or loss
-  from an empty Library. Those combinations still need reaction-event mappings.
+   Draw and +advance variants remain; no inferred skip-untap exceptions or loss
+   from an empty Library. D-150/D-151 fix normal-step +advance mappings; exact
+   no-change feedback, partial-group/concurrency, and out-of-step mappings remain open.
 - Retained cards entering configured Library/Graveyard/Exile lose counters and
   restore retained current-face default corner text; tokens disappear instead.
   Keep history/undo. Other unrelated move fields remain unchanged unless approved.

@@ -1260,8 +1260,21 @@ default, retaining existing attackers' slots/grouping/order. This does not alter
 same-slot collection drags. D-146 auto-creates an absent combat area for single-
 card declaration, without a separate creation action, implicit tapping, or source
 movement. Reuse existing areas without clearing/replacing them; separate manual
-creation remains available. New-pair order, absent-area drag targets, and quick
-visibility/offerings remain open.
+creation remains available. D-147 shows both multiselect declaration quick actions
+only during Declare attackers, preserving full context-action access at other
+steps. No implicit execution or legality/turn-player access restriction follows.
+New-pair order, absent-area drag targets, and additional single-card quick
+offerings remain open.
+D-148 makes Declare + tap one tree event covering projection declaration, source
+tapping, and any automatic area creation, with review/interruption only before/
+after it. One Undo restores the whole prior orientation/occurrence/slot/area
+context. Separately invoked declaration/tapping keep distinct boundaries; other
+shortcut mappings are not governed by a universal one-event default. D-149 makes
+without-tapping one event including any area creation. During their normal steps,
+D-150 makes Untap all + advance one event and D-151 makes Draw one + advance two:
+draw while still in Draw, then advance to Precombat main. Review/interruption
+between Draw events is effective, while one Undo reverses the invocation. No extra
+user tap/Send or runtime priority enforcement; see history section 3.11.
 
 ## 10.9 Worked interaction examples
 

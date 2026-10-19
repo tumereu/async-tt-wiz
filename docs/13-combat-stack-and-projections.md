@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-146 require case-by-case design before implementation. The
+(D-115). D-112–D-151 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -79,10 +79,10 @@ In multiselect mode, when the phase/step is appropriate, offer both:
 
 Both automatically create the combat area if absent, without a separate manual
 creation prerequisite. This is explicit composition, not inferred card text.
-Exact quick-action phase/step visibility, empty/mixed
-selections and the internal
-event/interruption/group mapping of combined shortcuts remain behavior questions;
-D-131 supplies whole-user-action undo unless an exception is approved.
+D-147 fixes quick visibility to Declare attackers. D-148 records Declare + tap
+as one event, including any automatic area creation. Empty/mixed selections and
+remaining applicability cases remain open. D-149 also makes without-tapping one
+event; D-131 supplies whole-user-action Undo for both variants.
 Do not infer a gesture or final layout beyond the specified multiselect offerings.
 D-145 gives each newly declared attacker its own pair for declaration shortcuts;
 existing attackers retain their slots. D-146 also auto-creates the area for a
@@ -148,7 +148,7 @@ Review behavior in these cases separately; capability approval is not approval
 of unanswered semantics or controls. UI drafts/concrete gesture choices are
 stage 3; schemas/technical choices follow in the relevant implementation work:
 
-1. **Attacker entry:** quick-action visibility steps, attack destination, single
+1. **Attacker entry:** attack destination, single
    versus multi-source behavior, empty/mixed selections, slot order/capacity,
    cancellation, and combined shortcut boundaries. Separate declaration/tap and
    multiselect variants are settled, not proposals.
@@ -303,8 +303,10 @@ assignments/incident links/placements, rather than requiring a separate undo for
 each effect. Normal history/branch/recovery and dependent-work rules apply.
 D-132 additionally confirms one event for this particular combination.
 Untap/Draw + advance and declaration combinations also use D-131's whole-user-
-action undo default; their reaction-point event mappings and any exceptions
-still need review.
+action undo default. D-148/D-149 make both declaration variants one event. D-150
+makes Untap + advance during Untap one event; D-151 makes Draw + advance during
+Draw two events with one Undo. Other cases/exceptions still need review; see
+[history mappings, section 3.11](03-history-and-undo.md).
 
 ## 13.10 Confirmed advance-and-close tree representation (D-132)
 
@@ -585,4 +587,60 @@ Separate manual area creation remains supported (D-116), and an existing area is
 reused rather than replaced, cleared, or duplicated. Normal whole-user-action
 Undo/history/branch/offline recovery applies; exact event/concurrency composition
 remains open. This does not settle absent-area drag targeting, authorize new
-single-card quick offerings, or fix declaration quick-action phase visibility.
+single-card quick offerings. D-147 separately fixes declaration quick visibility.
+
+## 13.24 Confirmed declaration quick visibility (D-147)
+
+Offer both **Declare + tap** and **Declare without tapping** as multiselect quick
+actions only during the **Declare attackers** step. Do not offer them as prominent
+quick actions at Beginning of combat, Declare blockers, combat damage, End of
+combat, or other phases/steps. Retain the established multiselect condition;
+this does not approve additional single-card quick offerings.
+
+This is a quick-visibility condition, not an underlying action-access or legality
+restriction. Both combinations and their constituent actions remain reachable
+through full context-action paths at other steps (D-121), subject to structural/
+applicability validation. Neither phase entry nor quick-action visibility executes
+anything automatically. Cooperative editing rights are unchanged; do not add
+participant/turn-player locks or runtime priority/attack legality checks.
+
+Default pairs, occurrence reuse, auto-area creation, and tap/without-tapping
+semantics remain as approved. Empty/inapplicable-selection feedback, new single-
+card offerings, and per-action event/concurrency mappings remain separate cases.
+
+## 13.25 Confirmed Declare + tap event mapping (D-148)
+
+Record one **Declare + tap** invocation as **one tree event** showing all its
+effects: declaring the selected attackers as projections, tapping their real
+sources, and automatically creating the combat area if absent. Include new slot
+pairs under D-145, preserve already-declared attackers under D-133, and record
+actual source orientation changes rather than inventing changes for tapped cards.
+
+There is no separate MTG response point between declaring attackers and tapping
+them, nor from creating the presentation area. Review/interruption is before or
+after this event, not between its effects. Do not represent it as separately
+interruptible events merely collapsed into one row. This specifies history
+boundaries, not runtime timing, priority, or legality adjudication.
+
+One Undo reverses the whole invocation under D-131: restore prior source
+orientations, occurrence/slot/grouping/order context, and whether the combat area
+existed. Do not undo unrelated earlier state or remove pre-existing attackers/
+groups. Normal dependency, branch, exposure/comment retention, offline, and sync
+contracts still apply; exact concurrency handling remains open.
+
+Separately invoking declaration and tapping retains separate user actions/events
+under D-116. D-149 separately settles without-tapping; D-148 is not a universal
+one-event rule for combined actions.
+
+## 13.26 Confirmed Declare without tapping event mapping (D-149)
+
+Record Declare without tapping as one tree event showing declaration and any
+automatic combat-area creation together. Preserve source orientation rather than
+untapping already-tapped sources. Apply established occurrence reuse/default
+pairs; review/interruption is before/after, not between area creation/declaration.
+
+One Undo restores the prior occurrences/slots/grouping/order and area existence,
+preserving real source state and unrelated prior groups (D-131). Separate manual
+area creation/declaration remain separate invocations when used separately. No
+runtime timing/legality adjudication is added. Exact concurrency and remaining
+selection/no-change presentation cases remain open.

@@ -536,15 +536,16 @@ Record actual edits and any advancement under normal history/undo/queue/sync
 contracts. D-101 advances to the next step, not the next whole phase: Untap →
 Upkeep, and Draw → Precombat main at the phase boundary. Do not skip Upkeep/Draw
 after Untap or execute another card operation merely on entering the next step.
-Exact participant association, no-op/failure behavior,
-atomic/group boundaries, and other shortcuts remain under review; no new
+Exact participant association, remaining no-op/failure presentation,
+concurrency/partial-group behavior, and other shortcuts remain under review; no new
 card-rule inference is implied.
 
 D-110 makes Untap all literal for the turn player's battlefield cards, with no
 dedicated skip-untap field/flag. Card text, notes, and markers do not install
 exclusions. Players manually re-tap exceptions. Standalone and +advance variants
 use the same scope and preserve unrelated card state. Exact participant
-association, remaining no-op records, and atomic/group behavior remain under review.
+association, remaining no-op presentation, and concurrency/partial-group behavior
+remain under review. D-150 settles the normal-step combined event boundary below.
 
 D-111 confirms valid no-change/empty-source behavior for combined shortcuts:
 Untap all + advance still goes to Upkeep when all scoped cards are already
@@ -552,8 +553,17 @@ untapped or there are none. Draw one + advance on an empty Library moves no
 card but still goes to Precombat main, without an automatic loss or other rule
 effect. Record the actual step transition; no card effect is fabricated. This
 does not waive structural validation for missing IDs/corrupt state or change
-standalone variants, which preserve tracking. Exact feedback/no-op records and
-atomic/group boundaries remain open.
+standalone variants, which preserve tracking. D-150/D-151 fix event counts;
+exact no-change feedback and concurrency/partial-group handling remain open.
+
+D-150 records Untap all + advance during Untap as one event: actual scoped
+untapping plus Untap → Upkeep. D-151 records Draw one + advance during Draw as
+two events: actual draw portion while tracking remains Draw, then Draw →
+Precombat main. The intermediate state is genuinely reviewable/interruptible.
+Each invocation is one Undo under D-131; restore prior orientations/card/container
+state and tracking as applicable. Empty sources retain actual no-card-change
+outcomes rather than fabricated draws; see history section 3.11 for exposure
+retention and remaining partial-group/out-of-step/concurrency cases.
 
 D-102 adds standalone Next step (tracking only, no card edits) and direct
 phase/step choice through the indicator for skips/corrections, without executing

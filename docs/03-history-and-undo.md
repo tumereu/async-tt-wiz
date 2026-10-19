@@ -128,8 +128,13 @@ rule does not merge atomic boundaries or settle automatic group formation.
 
 D-116 requires separately invoked combat-area creation, attacker declaration,
 and tapping to remain distinct user actions when invoked separately. D-117's
-combined multiselect shortcuts use D-131's whole-user-action undo default; their
-internal event/interruption mapping still needs specification. D-119
+combined multiselect shortcuts use D-131's whole-user-action undo default. D-148
+records Declare + tap, including any automatic area creation, as one tree event:
+no review/interruption between declaration and source tapping. One Undo restores
+prior orientations and occurrence/slot/area context. D-149 also makes Declare
+without tapping one event, including any automatic area creation. D-150/D-151
+fix normal-step Untap + advance as one event and Draw + advance as two, with one
+Undo per invocation; see section 3.11. D-119
 requires ping numbers across the single grouped event; exact ordering mutation
 and split/join/coalescing effects remain behavior questions, not permission to
 merge actions or lose historical ping context.
@@ -256,8 +261,11 @@ interruption/review is before or after it, not between its two effects. Area
 cleanup adds no distinct MTG reaction point; other combinations must retain any
 required boundaries. D-131 generalizes whole-user-action undo
 to other combinations unless an exception is agreed, including Untap/Draw + advance
-and declaration shortcuts. Their event/interruption boundaries still need review;
-multiple MTG reaction points must remain separate events. Normal dependent-work and
+and declaration shortcuts. D-148/D-149 make each declaration variant one event;
+D-150 makes Untap + advance during Untap one event, while D-151 makes Draw +
+advance during Draw two events with an effective intermediate Draw-step state.
+One Undo spans both events. Other mappings/exceptions and partial-group handling
+remain open. Multiple MTG reaction points must remain separate events. Normal dependent-work and
 exposure/comment retention rules still apply; a multi-event undo unit must not
 discard required recovery context merely to present one Undo.
 
@@ -431,3 +439,40 @@ information access means this is not a competitive fairness guarantee.
 Offline and online execution must store concrete outcomes that deterministic
 replay can apply identically. The algorithm and entropy policy must be specified
 before implementation; see the open decisions.
+
+## 3.11 Confirmed shortcut event mappings (D-149–D-151)
+
+These mappings distinguish an effective tree event/interruption boundary from a
+user invocation and its Undo unit (D-131). They do not authorize runtime priority,
+Pass, timing/legality adjudication, or automatic card-text effects.
+
+| Invocation | Recorded events | Undo scope |
+| --- | --- | --- |
+| Declare without tapping (D-149) | One event: declaration and any automatic area creation together; preserve source orientation. | One Undo restores prior occurrence/slot/grouping/order/area context. |
+| Untap all + advance during Untap (D-150) | One event: literal scoped untapping and Untap → Upkeep together. No separate response point inside Untap. | One Undo restores prior source orientations and phase/step. |
+| Draw one + advance during Draw (D-151) | Two events: draw portion while tracking remains Draw, then Draw → Precombat main. The intermediate state is genuinely reviewable/interruptible. | One Undo reverses both events, restoring prior card/container state and tracking. |
+
+For Draw + advance, show the actual resulting card/location state after the first
+event while still in Draw. Do not collapse the two events into an indivisible
+transition or merely decorative rows; an opponent can branch at that boundary.
+One invocation still completes without a second tap or Send. Completed events
+queue/sync under normal immediate-publication rules, not a group-completion gate.
+The preserved advance on the original continuation must not silently replay onto
+an interruption branch. Exact partial-group undo/dependency and concurrent
+publication protocols remain open.
+
+D-111 still applies: no affected untap cards does not prevent Untap → Upkeep;
+an empty Library draws no card but still advances, without automatic loss. Record
+actual effects, not fictitious untaps/drawn cards. The approved event counts and
+Draw-step boundary remain; exact no-change event wording/feedback remains open.
+
+Undo of an actual hidden-information exposure during the draw retains the original
+path through that exposure under D-89–D-91/D-95, while restoring the requested
+pre-invocation state. If the later advance exposes nothing and has no qualifying
+comment, omit that trailing ordinary event from the visible undone branch; retain
+internal recovery. One-Undo scope must not erase the recorded draw/exposure.
+
+Separately invoked constituent actions keep separate invocation/event/Undo
+identities. These are specific normal-step mappings, not permission to rewind
+tracking or infer event counts for unrelated/out-of-step combinations. Remaining
+concurrency, no-change presentation, and reaction-point exceptions need design.

@@ -129,8 +129,20 @@ D-145 gives each newly declared attacker its own pair for declaration shortcuts,
 keeping existing attackers' slots/grouping/order. Collection drags still share
 one target slot (D-142). D-146 auto-creates the combat area for single-card
 declaration if absent, without implicit tapping or source movement; reuse an
-existing area. Exact quick visibility/new-pair order and absent-area drag targeting
-remain open.
+existing area. D-147 shows both multiselect declaration quick actions only during
+Declare attackers; full context-action access remains at other steps (D-121).
+New-pair order, absent-area drag targeting, and additional single-card quick
+offerings remain open; do not infer legality or editing locks from quick visibility.
+D-148 records Declare + tap as one event showing declaration, source tapping,
+and any automatic area creation. Review/interruption is before/after it; one Undo
+restores prior orientations/occurrences/slots/grouping/order/area existence.
+Separate invocations remain separate. D-149 also makes without-tapping one event
+including any area creation. D-150 makes Untap all + advance during Untap one
+event; D-151 makes Draw one + advance during Draw two events, retaining a real
+Draw-step review/interruption boundary before Precombat main. Every invocation
+uses one Undo; no extra tap/Send. Empty/no-change sources still advance under
+D-111 without fabricated card changes. See history section 3.11 for mappings,
+exposure retention, and remaining partial-group/concurrency cases.
 D-134 separately allows unlimited independent Stack
 projections, including repeated effects from one source; removing one leaves the
 others and the source unchanged.

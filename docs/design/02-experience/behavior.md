@@ -448,7 +448,10 @@ The general rules are:
   without revealing covered card names (D-219). Group related activity rather than
   sending one push per primitive mutation; grouping must not delay game sync or
   require a group-completion tap.
-- Exact cadence, permissions/defaults, mute controls, foreground suppression,
+- For R1, use **Android notification channel settings**. Both in-app global and
+  per-game mute settings are **post-R1**, not required app settings (D-220).
+  Respect Android settings; push notifications remain in R1.
+- Exact cadence, permissions/defaults, channel categories, foreground suppression,
   multiple-device routing and additional alert categories remain open. See the
   [notification contract](../03-contracts/android-experience.md#59-notifications).
 

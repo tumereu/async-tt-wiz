@@ -76,7 +76,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-052 | Initially in the lobby, mainboard is in Library, sideboard in a separate Sideboard area, and other card areas are empty. Sideboard is unavailable during play, not a hidden accessible pile; play uses the prepared mainboard without merging in sideboard cards or deleting the saved sideboard (D-202). |
 | P-053 | Freely move cards between mainboard and sideboard in the lobby without format-legality, size or one-for-one exchange restrictions. Preserve game-local edits and own-Ready clearing; no in-game Sideboard access (D-191/D-203). |
 | P-054 | Changing the lobby starter selection clears only the changing player's Ready and preserves the other player's Ready; the changing player must ready again before game start (D-204). |
-| P-055 | Provide push notifications for new invitations and grouped opponent activity without revealing covered card names (D-219). Grouping must not delay immediate action synchronization or require group completion. Exact cadence, permissions/defaults, mute controls, foreground suppression and multiple-device routing remain open. |
+| P-055 | Provide push notifications for new invitations and grouped opponent activity without revealing covered card names (D-219). Grouping must not delay immediate action synchronization or require group completion. R1 uses Android notification channel settings; both in-app global/per-game mute settings are post-R1 (D-220). Exact cadence, permissions/defaults, channel categories, foreground suppression and multiple-device routing remain open. |
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.

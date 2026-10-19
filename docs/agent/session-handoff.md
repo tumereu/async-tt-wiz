@@ -60,10 +60,16 @@ activity, without revealing covered card names** (T-486–T-488). Primary contra
 [notifications](../design/03-contracts/android-experience.md#59-notifications).
 Consolidate related activity rather than one push per primitive mutation; do not
 delay immediate action sync or require a group-completion tap. Exact cadence,
-permissions/defaults, global/per-game mute controls, foreground suppression and
-multiple-device routing remain open, as do additional dedicated branch-switch/
-response-request alerts and unread/read behavior. Next useful topic: notification
-mute controls, not whether invitation/activity push notifications are required.
+permissions/defaults, channel categories, foreground suppression and multiple-device
+routing remain open, as do additional dedicated branch-switch/response-request
+alerts and unread/read behavior.
+
+**D-220 (T-489/T-490):** the owner deferred **both in-app global and per-game mute
+settings to post-R1**. **R1 uses Android notification channel settings**; respect
+those choices without an app-specific mute/settings screen. Do not defer D-219
+pushes, treat the settings as an R1 gap or infer one Android channel per game.
+Next useful product topic: saved-deck deletion and preservation of already
+selected lobby/game copies, not more R1 in-app notification settings.
 
 ## Current concurrency correction — D-179
 
@@ -467,7 +473,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-219** and **T-001–T-488**.
+- Current documentation includes **D-001–D-220** and **T-001–T-490**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

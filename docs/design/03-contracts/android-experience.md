@@ -473,13 +473,21 @@ opponent activity rather than sending one push per primitive change. Existing
 immediate-publication rules remain: coalescing must not delay synchronization or
 wait for a group-completion tap; each committed action is available immediately.
 
-Exact grouping window/cadence, notification permissions/defaults, global/per-game
-mute controls, foreground suppression and multiple-device routing remain open.
+**Confirmed R1 settings boundary (D-220):** use **Android's notification channel
+settings** for notification control in R1. Both proposed **in-app global mute**
+and **in-app per-game mute** settings are **post-R1**, not release requirements.
+Respect the user's Android notification settings; do not require an app-specific
+mute/settings screen for R1. This does not defer D-219's push notifications or
+require a separate Android channel for every game.
+
+Exact grouping window/cadence, notification permissions/defaults, Android channel
+categories, foreground suppression and multiple-device routing remain open.
 This approval does not separately confirm additional notification categories for
 explicit branch switches or response requests, or define an unread/read model.
 
-**Remaining proposals:** additional branch-switch/response-request alerts are
-subject to preferences. Notification previews should avoid covered identities
+**Remaining proposals:** additional branch-switch/response-request alerts and
+their preference behavior remain unapproved; do not turn these into R1 in-app
+settings contrary to D-220. Notification previews should avoid covered identities
 beyond the confirmed no-covered-card-names rule. Deep links open the referenced
 game/boundary but check current branch status and access.
 Stale notifications are harmless pointers to history, not instructions to replay

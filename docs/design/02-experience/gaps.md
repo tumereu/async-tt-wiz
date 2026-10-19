@@ -76,8 +76,10 @@ obligation or behavior is still proposed:
   optional manual group editing, live-follow, cross-device progress, response
   requests, additional notification behavior, and ephemeral presence. D-219
   confirms push notifications for new invitations and grouped opponent activity,
-  without covered card names. Cadence, permissions/defaults, mute controls,
-  foreground suppression and multiple-device routing remain open.
+  without covered card names. D-220 uses Android notification channel settings
+  for R1; both in-app global/per-game mute settings are post-R1, not release gaps.
+  Cadence, permissions/defaults, channel categories, foreground suppression and
+  multiple-device routing remain open.
 - Exact screen layouts, accessible alternatives, Android/device support, storage
   settings, and recovery-center flows. Accessibility/no-gesture-only access is the
   intended direction, not a finished interaction specification.
@@ -89,7 +91,8 @@ move a historical cursor. Proposed branch-switch notices preserve your view and
 offer a return/divergence control. D-219 confirms invitation/grouped-opponent-activity
 push notifications without covered card names, coalesced without delaying sync.
 Additional dedicated branch-change/response-request alerts remain proposed;
-notification controls and delivery details are not yet settled.
+R1 notification control uses Android channel settings (D-220), with exact channel
+categories and delivery details still open, not in-app mute settings to design for R1.
 Private-game membership still restricts outsiders; full access applies to the
 two participants, not everybody. Detailed protocols and controls remain proposed.
 
@@ -228,8 +231,10 @@ old future after a response. Exact overall release scope still needs sign-off.
    exact simultaneous-edit conflicts, device/session revocation, sync timing and
    personal-device-state transfer remain open, along
    with hosting, catalog/image rights,
-   offline storage/retention, device/language/accessibility support, notification/
-   privacy settings, and deletion/export guarantees. Protocols, randomness source,
+   offline storage/retention, device/language/accessibility support, remaining
+   notification/privacy behavior and deletion/export guarantees. D-220 defers both
+   in-app global/per-game notification mute settings beyond R1; use Android channel
+   settings for R1. Protocols, randomness source,
    APIs/migrations, backups, and performance follow in the relevant design stage.
 
 Known wording/status drift is tracked separately in the

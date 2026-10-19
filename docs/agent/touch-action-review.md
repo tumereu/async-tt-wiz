@@ -128,9 +128,13 @@ open. Do not silently promise cross-device drafts, pending queues, cursors,
 settings or all downloads. D-219 confirms push notifications for new invitations
 and grouped opponent activity without covered card names (T-486–T-488). Group
 related activity, not one push per mutation, without delaying immediate sync.
-Cadence, permissions/defaults, mute controls, foreground suppression, multi-device
-routing, extra categories and unread/read behavior remain open. Next useful topic:
-notification mute controls, not another invitation/activity push scope question. Narrower
+Cadence, permissions/defaults, channel categories, foreground suppression,
+multi-device routing, extra categories and unread/read behavior remain open.
+D-220 defers both in-app global/per-game mute settings to post-R1 (T-489/T-490):
+R1 uses Android notification channel settings, respecting the user's choices.
+Do not add R1 in-app settings, defer pushes or infer a channel per game.
+Next useful product topic: saved-deck deletion and already selected lobby/game
+copies, not more R1 in-app notification settings. Narrower
 invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck

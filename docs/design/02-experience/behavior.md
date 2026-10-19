@@ -32,8 +32,9 @@ The general rules are:
 ### Before the table: accounts, decks, and lobby
 
 - Log in to reach the main menu; registration is available. The menu offers
-  Logout, Manage decks, and Play. Users can add other users; **Friends** as a
-  separate menu name is still tentative.
+  Logout, Manage decks, and Play. Search by username and save users as contacts,
+  without mutual friend-request approval. **Friends** as a separate menu name
+  is still tentative.
 - Play shows current games, including pending invitations.
 - Invite an added user to a game. They can Accept or Decline in Play; accepting
   opens the lobby, not active play or an automatic Ready.

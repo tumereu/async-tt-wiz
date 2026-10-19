@@ -5,15 +5,25 @@
 - Users must log in before reaching the main menu. Registration is available;
   guest entry to the main menu is not part of this flow.
 - The main menu provides **Logout**, **Manage decks**, and **Play**.
-- Users can add other users. A separate **Friends** menu/feature name is tentative;
-  lookup, contact requests/acceptance and removal remain open. D-195 confirms
-  inviting an added user, not a mandatory mutual-friend approval process.
+- Users can **search by username and save users as contacts**, without a separate
+  friend request or mutual approval (D-196). A separate **Friends** menu/feature
+  name is tentative. Contact removal and exact search behavior remain open.
 - **Play** shows current games, including pending invitations. Basic invitation
   behavior is confirmed below; cancellation and completed-game handling are open.
 
 Authentication method, recovery, registration details and session persistence are
 not selected. This does not revoke D-182's downloaded read-only offline access;
 how an existing authenticated session supports it remains to be specified.
+
+## Adding users as contacts — D-196
+
+- Search by username and add the selected user to **your contacts**. Adding is a
+  saved contact choice, not a friend request requiring the other user's approval.
+- It does not automatically add you to their contacts or accept a game invitation
+  on their behalf. Game invitations still use recipient Accept/Decline (D-195).
+- Exact username/search grammar, contact removal, discoverability/privacy and
+  persistence details remain open. Username lookup does not select a login method
+  or decide registration/recovery fields.
 
 ## Inviting a player — D-195
 

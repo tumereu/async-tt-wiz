@@ -68,11 +68,13 @@ your own Ready, and lobby deck changes do not modify the saved deck.
 
 D-195 confirms invitations to added users, recipient Accept/Decline in Play,
 and opening the lobby on acceptance, without automatically readying or starting.
+D-196 confirms username search and saving users as contacts without mutual
+friend-request approval; this does not bypass game-invitation acceptance.
 
 | Screen | Main responsibilities |
 | --- | --- |
 | Login/registration | Login is required to reach the main menu; registration is available (D-188). Method, session persistence and recovery remain open. |
-| Main menu | Logout, Manage decks and Play (D-188). Users can add users; separate Friends naming/placement remains tentative. |
+| Main menu | Logout, Manage decks and Play (D-188). Username search/add saves contacts without mutual approval (D-196); separate Friends naming/placement remains tentative. |
 | Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Completed-game listing, catch-up state, pending work and branch-change presentation remain proposed. |
 | Game lobby/invite | Invite an added user; acceptance opens the lobby (D-195). Choose a deck, manage mainboard/sideboard, each player presses Ready; both ready starts the game (D-189/D-190). D-108 requires starter selection and turn 1 at Untap; exact setup/start operations and remaining invitation lifecycle remain open. |
 | Deck management | Import card lists only for now (D-189), not a full manual deck editor or an approved export feature. Import resolution and saved-deck details remain open. |

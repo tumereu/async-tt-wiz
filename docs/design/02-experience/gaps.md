@@ -15,7 +15,8 @@ obligation or behavior is still proposed:
   adding users, current games/pending invites, import-only deck management and
   a lobby with deck selection, mainboard/sideboard management and both-player
   Ready. D-195 confirms inviting an added user, Accept/Decline in Play and opening
-  the lobby on acceptance. Authentication/remaining invite details, fuller deck editing/export, configurable
+  the lobby on acceptance. D-196 confirms username search and saving contacts
+  without mutual approval. Authentication/remaining invite details, fuller deck editing/export, configurable
   starting arrangements and extra in-game areas remain open or proposed. D-192
   excludes automatic opening draws. D-193 specifies shuffle-and-draw N (default 7)
   and current-hand-size-minus-one actions in the Library context and as opening
@@ -56,7 +57,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    and lobby preparation with both-player Ready. Deck/mainboard/sideboard changes
    clear that player's Ready and do not change the saved deck. D-195 confirms
    added-user invitations with Accept/Decline in Play and lobby entry on acceptance.
-   Remaining: user-adding flow, decline/cancel/reinvite/persistence details,
+   D-196 confirms username search and saving contacts without mutual approval.
+   Remaining: exact search/contact removal/privacy, decline/cancel/reinvite/persistence details,
    import formats/errors, readiness prerequisites/withdrawal/other setup
    changes, start-versus-edit races, initial shuffle, starting arrangement/values,
    remaining mulligan per-card sequencing/concurrent count timing/count edges,

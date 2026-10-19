@@ -35,8 +35,10 @@ Do not reopen hand return or Beginning-versus-Untap visibility. Per-card orderin
 concurrent count timing/count edges and automatic starting shuffle remain open
 (T-406–T-413).
 D-195 confirms inviting an added user, recipient Accept/Decline in Play and lobby
-entry on acceptance, not Ready or game start (T-414–T-416). User lookup/contact
-approval/removal and decline/cancel/reinvite/persistence details remain open.
+entry on acceptance, not Ready or game start (T-414–T-416). D-196 confirms username
+search and saving users as contacts without mutual friend approval (T-417/T-418).
+Exact search/contact removal/privacy and decline/cancel/reinvite/persistence
+details remain open; authentication/registration/recovery are a useful next topic.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

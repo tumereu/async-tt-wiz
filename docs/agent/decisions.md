@@ -233,6 +233,7 @@
 | D-227 | After Undo, a new gameplay edit by the player who used Undo clears the Redo queue, even if reinsertion would still pass validation. | Owner selected clearing rather than retaining a removed mutation after making new play. Confirmed case: a successful new gameplay mutation by that player. This removes Redo availability, not retained history or explorer access. Opponent-activity invalidation, queue ownership across players/devices, ordering/anchors, rejected/no-op requests and optimistic/server clearing timing remain open. Do not infer that review/navigation or Redo reinsertion itself clears remaining entries. No implementation or delivery-stage transition is authorized. |
 | D-228 | Only your own new gameplay action clears your Redo queue; opponent actions do not. | Owner answered the opponent-action clearing question with “only own action.” Queue clearing is player-specific, not a shared reset. Retain entries across opponent actions and apply D-224's current relevant-state replay checks and N before reinsertion; an opponent action can make Redo unavailable without clearing the queue. Same-account/device queue scope/synchronization, order/anchors, rejected/no-op requests and exact optimistic/server clearing timing remain open. No expansion of Undo target authorship, history deletion, implementation or delivery-stage transition is authorized. |
 | D-229 | Redo restores the most recently undone mutation first, like a normal Undo/Redo stack. | Owner approved last-undone-first ordering for multiple Undos. Undo A then B means successful Redo B then A; order follows Undo operations, not original timeline sorting. D-224's replay checks/N and D-227/D-228's clearing rules still apply. Insertion anchors, blocked-next-entry handling and same-account/device synchronization remain open; do not silently skip/discard a blocked entry or infer a storage schema, implementation or delivery-stage transition. |
+| D-230 | A blocked next Redo disables Redo without skipping/discarding entries; Undo likewise targets only the most recent still-applied action, never skipping a blocked target. | Owner approved keeping a blocked Redo stack intact and added “likewise you can only undo the most recent action.” No arbitrary earlier-action picker or backward search for an eligible Undo target. D-224's replay/exposure/N rules still apply; successful Undo exposes the preceding candidate. Clarify whether “most recent” means latest own action despite later opponent actions or latest action by either player; do not silently settle author scope or revert to parent-pointer-only Undo. Insertion anchors, device synchronization and concurrency remain open. No implementation or delivery-stage transition is authorized. |
 
 **Latest selective Undo/Redo — D-224:** remove/reinsert a mutation only if every
 later mutation preserves its original relevant-state `(from, to)` tuple; compare
@@ -250,10 +251,12 @@ make Redo unavailable under D-224's replay checks/N. Clearing is player-specific
 and does not erase retained history. Same-account/device synchronization,
 rejected/no-op requests and exact clearing timing remain open.
 
-**Redo order — D-229:** last undone is first redone; Undo A then B means Redo
+**Redo order — D-229/D-230:** last undone is first redone; Undo A then B means Redo
 B then A when both are eligible. Replay checks/N still apply. Insertion anchors
-and handling a blocked next entry remain open; no automatic skip/discard policy
-has been approved.
+remain open. A blocked next entry disables Redo while retaining the stack; never
+skip/discard it. Undo likewise targets only the most recent still-applied action
+and never skips a blocked target. Latest-own versus latest-either-player scope
+still needs clarification; this is not arbitrary selective target picking.
 
 **Container order — D-225/D-226:** Library is ordered; Graveyard and Exile are unordered. Preserve
 top-card dependencies for Library draws, but allow independent Graveyard arrivals

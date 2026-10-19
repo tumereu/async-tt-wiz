@@ -93,8 +93,18 @@ like a normal Undo/Redo stack. If you Undo A and then B, successful Redo restore
 B and then A. This is the order of Undo operations, not a sort by the mutations'
 original timeline positions. Each reinsertion still requires D-224's relevant-state
 tuple test within N; insertion anchors are not settled by this ordering rule.
-If the next entry cannot be reinserted, whether to block Redo or permit another
-entry remains open. Do not silently discard or skip a blocked entry.
+**D-230 blocked-entry rule:** if that next mutation cannot be reinserted, disable
+Redo and keep the stack intact. Do not skip to an older eligible entry or discard
+the blocked entry. Opponent activity still does not clear the stack (D-228).
+
+**Undo target order — D-230:** Undo may target only the **most recent still-applied
+action**, not an arbitrarily selected earlier action. If that next Undo target
+fails the replay checks, exceeds N or is information-revealing, disable Undo;
+do not search backward for an older eligible target. After successful Undo, the
+preceding action becomes the next candidate. The author's scope of “most recent”
+still needs explicit clarification: latest own action despite later opponent
+actions, or latest action by either player. Do not silently decide that scope or
+use the no-skipping rule to replace removal-and-replay with parent-pointer Undo.
 
 **Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
 subject to replay/validation, so a target followed by e.g. a thousand opponent
@@ -104,9 +114,9 @@ permit a changed unchecked tail. Exact N and counting of mutation nodes versus
 multi-mutation invocations remain open; no time-based grouping or gameplay limit
 is implied.
 
-**Still open:** complete relevant-state definitions, candidate/author selection,
-insertion target's own preconditions, Redo queue cross-device scope/anchors and
-blocked-next-entry behavior (normal order is D-229),
+**Still open:** complete relevant-state definitions, Undo target author scope
+(latest-only/no-skipping is D-230), insertion target's own preconditions,
+Redo queue cross-device scope/anchors,
 invalidation cases beyond D-227/D-228, concurrent/stale checks, pending-request
 interaction, pointer/view
 updates, tree/node versioning, grouping and references to removed/replayed nodes.

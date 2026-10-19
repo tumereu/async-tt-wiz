@@ -362,8 +362,8 @@ The general rules are:
   but a move followed by a tap of the same card can be independent. Set a hard
   limit N on the suffix work; the value/counting unit and per-mutation relevant
   states still need definition. Selective Undo excludes information-revealing
-  targets. No compensating edit is appended. Pointer/button behavior, own-action
-  selection, Redo queue and rewritten-tree presentation remain open; the older
+  targets. No compensating edit is appended. Pointer/button behavior, Undo target
+  author scope, Redo queue details and rewritten-tree presentation remain open; the older
   parent-pointer description below is no longer the complete Undo definition.
 - **Redo after new play (D-227/D-228):** after Undo, only your own new gameplay
   edit clears your Redo queue, even if the removed mutations could still be
@@ -372,7 +372,12 @@ The general rules are:
   device queue synchronization and rejected/no-op requests still need decisions.
 - **Redo order (D-229):** restore the most recently undone mutation first, as in
   a normal Undo/Redo stack. Every reinsertion must still pass the replay checks
-  within N. Insertion anchors and handling a blocked next entry remain open.
+  within N. If that next entry is blocked, disable Redo and retain the stack;
+  never skip to an older entry (D-230). Insertion anchors remain open.
+- **Undo target order (D-230):** only the most recent still-applied action can be
+  undone. If it is blocked, disable Undo rather than skip to an older eligible
+  action. Whether “most recent” means latest own or latest by either player still
+  needs clarification; this does not replace the removal-and-replay safety rule.
 - **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
   unordered. Undo cannot change which card a later top-of-Library draw takes.
   Independent moves

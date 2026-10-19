@@ -180,7 +180,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    original/candidate timelines. A hard suffix-work cap N bounds eligibility
    calculation; revealing targets are excluded from selective Undo. Define each
    mutation's relevant state and N/counting unit. Remaining work also includes
-   candidate/author selection, Redo reinsertion anchors/blocked-entry handling, pointer/view
+   Undo target author scope, Redo reinsertion anchors, pointer/view
    controls, rewritten-tree/reference/grouping behavior and concurrent/stale checks.
    Earlier parent-pointer-only/remembered-head rules do not settle this new design;
    the stricter historical replay test does not change D-187 live acceptance.
@@ -191,8 +191,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    D-227/D-228 confirm that only your own new gameplay edit after Undo clears your
    Redo queue, even if reinsertion would remain valid. Opponent actions retain it,
    subject to current replay checks and N. D-229 confirms last-undone-first Redo
-   order. Same-account/device queue scope, insertion anchors, blocked-next-entry
-   handling, rejected/no-op requests and optimistic/server clearing timing
+   order. D-230 disables Redo on a blocked next entry without skipping/discarding;
+   Undo likewise targets only the most recent still-applied action, with no search
+   past a blocked target. Clarify latest own versus latest by either player.
+   Same-account/device queue scope, insertion anchors, rejected/no-op requests and
+   optimistic/server clearing timing
    remain open; clearing the queue does not erase retained history.
 4. **Concurrent online actions and connection loss.** D-182 removes offline game
    actions and later queue replay from initial delivery; downloaded history remains

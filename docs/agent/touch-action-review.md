@@ -38,7 +38,11 @@ D-195 confirms inviting an added user, recipient Accept/Decline in Play and lobb
 entry on acceptance, not Ready or game start (T-414–T-416). D-196 confirms username
 search and saving users as contacts without mutual friend approval (T-417/T-418).
 Exact search/contact removal/privacy and decline/cancel/reinvite/persistence
-details remain open; authentication/registration/recovery are a useful next topic.
+details remain open. D-197 confirms username/email/password registration,
+email/password login, email password reset and other users seeing usernames, not
+emails (T-419–T-422). Exact reset/session/verification and field validation remain
+open; do not reopen the credential/recovery-channel choices. A useful next
+substantial topic is deck-list import syntax and unresolved-card handling.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

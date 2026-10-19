@@ -11,9 +11,25 @@
 - **Play** shows current games, including pending invitations. Basic invitation
   behavior is confirmed below; cancellation and completed-game handling are open.
 
-Authentication method, recovery, registration details and session persistence are
-not selected. This does not revoke D-182's downloaded read-only offline access;
-how an existing authenticated session supports it remains to be specified.
+Registration/login/recovery behavior is confirmed below. Session persistence
+remains open; this does not revoke D-182's downloaded read-only offline access.
+How an existing authenticated session supports it remains to be specified.
+
+## Registration, login, and account privacy — D-197
+
+- **Register with username, email, and password.** Username is the identity shown
+  to other users and used for the existing contact search.
+- **Log in with email and password.** This selects the user-facing credential
+  flow, not an authentication provider, implementation or storage scheme.
+- **Reset forgotten passwords by email.** Exact reset link/code, expiry, delivery
+  failure and session-revocation behavior remain to be designed.
+- **Other users see your username, not your email.** Contact search/lists,
+  invitations and shared game presentation must not disclose account email.
+  Cooperative access to game information does not grant access to account email.
+
+Field validation/normalization, email verification, username changes, session
+persistence and account-change/recovery edge cases remain open. Do not infer a
+required email-verification gate or a second login method from this decision.
 
 ## Adding users as contacts — D-196
 
@@ -22,8 +38,8 @@ how an existing authenticated session supports it remains to be specified.
 - It does not automatically add you to their contacts or accept a game invitation
   on their behalf. Game invitations still use recipient Accept/Decline (D-195).
 - Exact username/search grammar, contact removal, discoverability/privacy and
-  persistence details remain open. Username lookup does not select a login method
-  or decide registration/recovery fields.
+  persistence details remain open. D-197 separately selects registration fields,
+  email/password login, email password reset and email privacy.
 
 ## Inviting a player — D-195
 

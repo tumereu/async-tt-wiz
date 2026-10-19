@@ -158,8 +158,10 @@ the initial schema merely to represent aura/equipment-like relationships.
 
 An authenticated account and a game participant are separate concepts. Account
 registration and login before the main menu are required (D-188); guest entry
-is not part of that flow. Authentication method, recovery/session persistence
-and invite credentials remain open. Games initially have a lobby state with deck
+is not part of that flow. D-197 selects username/email/password registration,
+email/password login and email password reset. Other users see usernames, not
+account emails; shared game access does not expose account email. Exact recovery/
+session mechanisms and invite credentials remain open. Games initially have a lobby state with deck
 selection and mainboard/sideboard management, and start once both players press
 Ready (D-189/D-190). Exact lifecycle/history representation remains open in the
 [primary contract](accounts-decks-and-lobby.md).

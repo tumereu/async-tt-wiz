@@ -16,7 +16,9 @@ obligation or behavior is still proposed:
   a lobby with deck selection, mainboard/sideboard management and both-player
   Ready. D-195 confirms inviting an added user, Accept/Decline in Play and opening
   the lobby on acceptance. D-196 confirms username search and saving contacts
-  without mutual approval. Authentication/remaining invite details, fuller deck editing/export, configurable
+  without mutual approval. D-197 confirms username/email/password registration,
+  email/password login, password reset by email and usernames rather than emails
+  visible to other users. Remaining account/invite details, fuller deck editing/export, configurable
   starting arrangements and extra in-game areas remain open or proposed. D-192
   excludes automatic opening draws. D-193 specifies shuffle-and-draw N (default 7)
   and current-hand-size-minus-one actions in the Library context and as opening
@@ -144,8 +146,10 @@ old future after a response. Exact overall release scope still needs sign-off.
    auto-placement/initialization; numeric grammar/limits; same-pile reorder versus
    entry resets; ambiguous metadata/defaults. Use shared contracts, not hundreds
    of special cases.
-9. **Product/platform choices.** Login/registration are confirmed, but identity
-   method/recovery/session persistence remain open, along with hosting, catalog/image rights,
+9. **Product/platform choices.** Registration fields, email/password login,
+   email password reset and username/email privacy are confirmed. Field validation,
+   verification, session persistence and recovery mechanics remain open, along
+   with hosting, catalog/image rights,
    offline storage/retention, device/language/accessibility support, notification/
    privacy settings, and deletion/export guarantees. Protocols, randomness source,
    APIs/migrations, backups, and performance follow in the relevant design stage.

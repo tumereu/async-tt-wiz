@@ -200,8 +200,9 @@
 | D-194 | Both opening/mulligan actions return the entire hand to Library before shuffling and drawing. Quick access is only the starting player's first turn's first step, Untap. | Owner answered both clarifications: first step only, and all hand cards return. Refines D-193's first-phase wording and settles its hand-return gap. The hand-size-minus-one variant uses the pre-return hand size; full-hand return is not a move of battlefield/sideboard cards. Context access remains outside the quick window. Preserve normal Library-entry resets, per-mutation sync/Undo and recorded random outcomes. Per-card ordering, concurrent count timing/nonpositive edges, other setup and invitations remain open; no implementation or stage transition is authorized. |
 | D-195 | Invite an added user to a game. The recipient has Accept/Decline in Play; accepting opens the lobby. | Owner approved the proposed invitation flow. Acceptance is not Ready or immediate game start; retain deck preparation and both-player Ready. Does not decide adding-user lookup/mutual approval, exclusive invitation methods, decline listing/history, cancellation/reinvite, persistence or competing lifecycle changes. Adding/sending does not imply recipient acceptance. No implementation or stage transition is authorized. |
 | D-196 | Search by username and save users as contacts, without a separate friend request or mutual approval. | Owner approved the recommended simple-contact model. Contact addition is for the adding user's list, not automatic reciprocal friendship or invitation acceptance; game invites still require recipient Accept/Decline (D-195). Friends naming, exact search/username grammar, contact removal/privacy/persistence and account login/registration/recovery methods remain open. No implementation or stage transition is authorized. |
+| D-197 | Register with username, email and password; log in with email/password; reset forgotten passwords by email. Other users see your username, not your email. | Owner approved all four account recommendations. Selects the user-facing credential/recovery flow and account-email privacy, not an auth provider, password/session storage scheme, email-verification gate or exact reset-link/code mechanics. Validation/normalization, username changes, session persistence/revocation and account-change/recovery edge cases remain open. Cooperative in-game access does not expose account email. No implementation or stage transition is authorized. |
 
-**Latest setup decisions — D-188–D-196:** authenticated main menu, adding users,
+**Latest setup decisions — D-188–D-197:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
 selection, mainboard/sideboard management and both-player Ready. Primary behavior:
 [accounts, decks, and lobby](../design/03-contracts/accounts-decks-and-lobby.md).
@@ -217,6 +218,11 @@ minus-one count based on the pre-return hand. Both are Library context actions;
 quick visibility is only turn 1's Untap. Remaining count/sequencing details and
 automatic starting shuffle remain open. Neither the assistant's immediately usable table nor its
 automatic draw-seven/manual-only-mulligans proposal was approved.
+
+D-197 selects username/email/password registration, email/password login,
+forgotten-password reset by email and usernames—not emails—visible to other
+users. Verification, exact reset/session mechanics and field validation remain
+open, not the basic login/registration method.
 
 **Latest acceptance correction — D-187:** ordinary actions normally succeed;
 do not compare old orientation, note text or Set values. Exceptional movement
@@ -360,7 +366,7 @@ behavior cases must not be silently deferred until coding.
 | ID | Question | Why it matters |
 | --- | --- | --- |
 | Q-08 | Hosted service, self-hosted service, or both? Who operates it? | Determines onboarding, cost, backup, and deployment. |
-| Q-09 | Which authentication method, registration/recovery/session behavior and multiple-device support? What are remaining contact/search/privacy details? | D-188 confirms required login and registration, not guest entry. D-195 confirms added-user invitations. D-196 confirms username search and saving contacts without mutual friend approval. Friends naming, exact search/username grammar, contact removal/privacy/persistence remain open; preserve downloaded read-only offline access. |
+| Q-09 | Which validation/verification, exact reset/session behavior and multiple-device support? What are remaining contact/search/privacy details? | D-188 requires login; D-197 selects username/email/password registration, email/password login, email password reset and username-versus-email privacy. D-195/D-196 confirm invitations and username-search contacts without mutual approval. Friends naming, exact search/username grammar, contact removal/discoverability/persistence remain open; preserve downloaded read-only offline access. |
 | Q-10 | Which starting operations/layouts, remaining mulligan shortcut details, readiness policies and fresh-table/rematch conveniences are first-release obligations? | D-189–D-191 confirm import-only deck management, lobby preparation/Ready and game-local edits. D-192 excludes automatic opening draws. D-193/D-194 specify return-whole-hand → shuffle → draw N (default seven) or pre-return hand size minus one, via Library context and turn-1 Untap quick actions. D-195 confirms added-user invitations, Accept/Decline in Play and lobby entry on acceptance. Per-card sequencing/concurrent count timing/count edges, starting shuffle, further setup/readiness/start-versus-edit behavior and remaining invitation/lobby lifecycle remain open. Presets/shortcuts cannot introduce inferred rules. |
 | Q-11 | Which generic pieces/links/faces/trackers are needed to represent complex manual-play scenarios? | Verify MTG coverage without game-specific entities or inferred actions. |
 | Q-12 | Required Android versions, device sizes, languages, distribution method? | Sets UI and platform contracts. |

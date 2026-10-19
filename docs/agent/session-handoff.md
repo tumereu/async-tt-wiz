@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-196:** owner requires login before the main
+**Latest setup decisions — D-188–D-197:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -41,8 +41,12 @@ D-195 confirms the next invitation proposal: choose an added user to invite;
 recipient Accept/Decline in Play; accepting opens the lobby, not Ready or active
 play. See T-414–T-416. D-196 approves username search and saving users as contacts
 without mutual friend-request approval. It does not automatically add you to the
-other user's contacts or accept a game invite. See T-417/T-418. Next useful topic:
-account registration/login/recovery behavior, not reopening mutual approval.
+other user's contacts or accept a game invite. See T-417/T-418. D-197 confirms
+all four account recommendations: register with username/email/password; log in
+with email/password; forgotten-password reset by email; other users see username,
+not email. Exact validation/verification/reset/session mechanics remain open, not
+the selected method/channel/privacy. See T-419–T-422. Next useful substantial
+topic: deck-list import syntax and unresolved-card handling.
 Exact search/contact removal/privacy, remaining invitation lifecycle, other readiness
 details, start-versus-edit races, account flows and initial values remain open.
 D-108 starter/turn-1 Untap and all gameplay sync/history
@@ -327,7 +331,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-196** and **T-001–T-418**.
+- Current documentation includes **D-001–D-197** and **T-001–T-422**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

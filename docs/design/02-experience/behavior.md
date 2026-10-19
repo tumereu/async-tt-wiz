@@ -35,6 +35,8 @@ The general rules are:
   Logout, Manage decks, and Play. Search by username and save users as contacts,
   without mutual friend-request approval. **Friends** as a separate menu name
   is still tentative.
+- Register with username, email and password; log in with email/password and
+  reset forgotten passwords by email. Other users see your username, not your email.
 - Play shows current games, including pending invitations.
 - Invite an added user to a game. They can Accept or Decline in Play; accepting
   opens the lobby, not active play or an automatic Ready.

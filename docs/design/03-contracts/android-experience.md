@@ -70,10 +70,12 @@ D-195 confirms invitations to added users, recipient Accept/Decline in Play,
 and opening the lobby on acceptance, without automatically readying or starting.
 D-196 confirms username search and saving users as contacts without mutual
 friend-request approval; this does not bypass game-invitation acceptance.
+D-197 confirms username/email/password registration, email/password login,
+password reset by email, and usernames—not emails—visible to other users.
 
 | Screen | Main responsibilities |
 | --- | --- |
-| Login/registration | Login is required to reach the main menu; registration is available (D-188). Method, session persistence and recovery remain open. |
+| Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). Validation, verification, session persistence and exact reset mechanics remain open. |
 | Main menu | Logout, Manage decks and Play (D-188). Username search/add saves contacts without mutual approval (D-196); separate Friends naming/placement remains tentative. |
 | Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Completed-game listing, catch-up state, pending work and branch-change presentation remain proposed. |
 | Game lobby/invite | Invite an added user; acceptance opens the lobby (D-195). Choose a deck, manage mainboard/sideboard, each player presses Ready; both ready starts the game (D-189/D-190). D-108 requires starter selection and turn 1 at Untap; exact setup/start operations and remaining invitation lifecycle remain open. |

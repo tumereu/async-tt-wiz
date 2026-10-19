@@ -137,7 +137,11 @@ allow a typical deck load or shuffle to fail unexpectedly.
   Both can access all in-game information by design.
 
 Login before the main menu and available registration are required (D-188), not
-guest entry; authentication/session/recovery mechanisms remain open. End-to-end
+guest entry. D-197 selects username/email/password registration, email/password
+login and password reset by email. Other users see usernames, not account emails;
+do not expose email in contact/invitation/game payloads to other users. Provider,
+credential/session storage and exact reset mechanics remain technical design or
+explicit behavior gaps, not an unselected login method. End-to-end
 encryption and self-hosting are also open choices, not implied by “private game.”
 
 ## 7.6 Reliability and operational contracts

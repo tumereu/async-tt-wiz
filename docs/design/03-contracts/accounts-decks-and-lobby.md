@@ -6,13 +6,27 @@
   guest entry to the main menu is not part of this flow.
 - The main menu provides **Logout**, **Manage decks**, and **Play**.
 - Users can add other users. A separate **Friends** menu/feature name is tentative;
-  lookup, requests/acceptance, removal, and invitation routing remain open.
-- **Play** shows current games, including pending invitations. Detailed invite
-  creation, acceptance/decline, cancellation and completed-game handling are open.
+  lookup, contact requests/acceptance and removal remain open. D-195 confirms
+  inviting an added user, not a mandatory mutual-friend approval process.
+- **Play** shows current games, including pending invitations. Basic invitation
+  behavior is confirmed below; cancellation and completed-game handling are open.
 
 Authentication method, recovery, registration details and session persistence are
 not selected. This does not revoke D-182's downloaded read-only offline access;
 how an existing authenticated session supports it remains to be specified.
+
+## Inviting a player — D-195
+
+1. Choose an **added user** to invite to a game.
+2. The recipient sees the pending invitation in **Play**, with **Accept** and
+   **Decline** actions.
+3. **Accept** opens that game's **lobby**. It is not Ready and does not immediately
+   start play; the existing deck preparation and both-player Ready flow applies.
+
+Decline does not accept/join the lobby. Its listing/history, inviter feedback,
+retry/reinvite and cancellation outcomes remain open. This confirms a path via
+added users, not a decision that every other invitation method is forbidden.
+Neither adding a user nor sending an invite bypasses the recipient's acceptance.
 
 ## Confirmed deck-management scope — D-189
 
@@ -85,7 +99,7 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
 - Readiness prerequisites, manually withdrawing Ready, and readiness effects of
   other setup changes. Deck/mainboard/sideboard changes clear the affected
   player's Ready (D-191), not an open policy.
-- Invite/lobby persistence, leaving/cancellation, reconnect and competing Ready/
+- Invite/lobby persistence, decline presentation, leaving/cancellation, reconnect and competing Ready/
   setup changes, with no requirement that both players remain online together yet
   decided.
 - Initial arrangement/values, starter-selection access, and which explicit setup

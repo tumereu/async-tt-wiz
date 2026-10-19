@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-194:** owner requires login before the main
+**Latest setup decisions — D-188–D-195:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -37,8 +37,11 @@ Beginning steps or each player's first turn. The minus-one count uses pre-return
 hand size. Do not reopen those choices, approve manual bottoming or fix N to seven.
 Per-card mutation order, concurrent count timing and count edges remain open;
 automatic starting shuffle was not separately approved. See T-406–T-413.
-Next substantial setup topic can be invitation flow. Other readiness details,
-start-versus-edit races, exact invite/account flows and initial values remain open.
+D-195 confirms the next invitation proposal: choose an added user to invite;
+recipient Accept/Decline in Play; accepting opens the lobby, not Ready or active
+play. See T-414–T-416. Next useful topic: how users are added (lookup/contact
+versus mutual friend approval). Remaining invitation lifecycle, other readiness
+details, start-versus-edit races, account flows and initial values remain open.
 D-108 starter/turn-1 Untap and all gameplay sync/history
 rules remain. No UI drafts, application code or stage transition are authorized.
 
@@ -321,7 +324,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-194** and **T-001–T-413**.
+- Current documentation includes **D-001–D-195** and **T-001–T-416**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

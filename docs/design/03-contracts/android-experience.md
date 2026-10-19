@@ -66,12 +66,15 @@ responsibilities below remain proposed unless separately confirmed.
 D-191 additionally confirms that changing your deck/mainboard/sideboard clears
 your own Ready, and lobby deck changes do not modify the saved deck.
 
+D-195 confirms invitations to added users, recipient Accept/Decline in Play,
+and opening the lobby on acceptance, without automatically readying or starting.
+
 | Screen | Main responsibilities |
 | --- | --- |
 | Login/registration | Login is required to reach the main menu; registration is available (D-188). Method, session persistence and recovery remain open. |
 | Main menu | Logout, Manage decks and Play (D-188). Users can add users; separate Friends naming/placement remains tentative. |
-| Games (Play) | Current games including pending invitations (D-190). Completed-game listing, catch-up state, pending work and branch-change presentation remain proposed. |
-| Game lobby/invite | Initially a lobby: choose a deck, manage mainboard/sideboard, each player presses Ready; both ready starts the game (D-189/D-190). D-108 requires starter selection and turn 1 at Untap; exact setup/start operations and invitation flow remain open. |
+| Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Completed-game listing, catch-up state, pending work and branch-change presentation remain proposed. |
+| Game lobby/invite | Invite an added user; acceptance opens the lobby (D-195). Choose a deck, manage mainboard/sideboard, each player presses Ready; both ready starts the game (D-189/D-190). D-108 requires starter selection and turn 1 at Untap; exact setup/start operations and remaining invitation lifecycle remain open. |
 | Deck management | Import card lists only for now (D-189), not a full manual deck editor or an approved export feature. Import resolution and saved-deck details remain open. |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |
 | Card/object inspector | Automatically show readable face art/text despite face-down table presentation, and both printed faces for multi-faced cards; modified state, available actions, attachments/history. Inspection does not change shared presentation. |

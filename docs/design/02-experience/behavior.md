@@ -35,13 +35,15 @@ The general rules are:
   Logout, Manage decks, and Play. Users can add other users; **Friends** as a
   separate menu name is still tentative.
 - Play shows current games, including pending invitations.
+- Invite an added user to a game. They can Accept or Decline in Play; accepting
+  opens the lobby, not active play or an automatic Ready.
 - Deck management currently imports card lists only, rather than providing a
   full manual deck-building editor.
 - A game begins in a lobby. Players choose decks and manage their mainboards/
   sideboards there, then each presses Ready. Once both are ready, the game starts.
   Changing your deck or mainboard/sideboard clears your own Ready; lobby deck
   changes affect only this game, not the saved deck. Other readiness details,
-  exact starting setup and invitation details remain open in
+  exact starting setup and remaining invitation lifecycle details are open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
 - Starting the game does **not** automatically draw opening hands. Mulligan quick
   actions return the whole hand to Library, shuffle, then draw N (default 7) or

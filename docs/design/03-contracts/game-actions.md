@@ -34,7 +34,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 
 | ID | Capability | Required manual behavior |
 | --- | --- | --- |
-| A-001 | Create game | Play lists current games/pending invites; games begin in a lobby with deck selection and mainboard/sideboard management. Both players press Ready to start (D-189/D-190); detailed invitation/setup behavior remains open. |
+| A-001 | Create game | Invite an added user; recipient has Accept/Decline in Play, with Accept opening the lobby (D-195). Play lists current games/pending invites. Lobby has deck selection/mainboard/sideboard management; both players press Ready to start (D-189/D-190). Remaining invitation lifecycle/setup details are open. |
 | A-002 | Card-list import | Deck editor is currently import-list-only (D-189). Full manual quantity/face/printing editing and export are not implied requirements. Exact import formats/resolution remain open; lobby mainboard/sideboard management is separately confirmed. |
 | A-003 | Instantiate objects | Create listed cards in explicitly selected containers; expose setup for editing. |
 | A-004 | Setup edits and mulligan shortcuts | Choose/configure starting arrangement, labels, and values where supported. No automatic opening draw (D-192). D-193/D-194 add return-whole-hand → shuffle → draw N (default 7) or pre-return hand size minus one, via Library context and turn-1 Untap quick actions. Per-card sequencing/concurrent count timing/count edges remain open in the accounts/decks/lobby contract. Ordinary moves/draw/shuffle remain available. |

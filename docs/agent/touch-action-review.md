@@ -25,7 +25,7 @@ starts once both players press Ready. See the
 [primary contract](../design/03-contracts/accounts-decks-and-lobby.md) and
 T-396–T-405. D-191 confirms that changing your deck/mainboard/sideboard clears
 your own Ready and lobby changes leave the saved deck untouched. Next substantive
-setup gaps: actual starting operations, invitation flow and remaining readiness/
+setup gaps: actual starting operations, remaining invitation lifecycle and readiness/
 start-versus-edit behavior. D-192 excludes automatic opening draws and requires
 mulligan quick actions. D-193 specifies shuffle-and-draw N (default seven) and
 current hand size minus one. D-194 confirms both return the whole hand first,
@@ -34,6 +34,9 @@ Both are Library context actions and quick actions only during turn 1's Untap.
 Do not reopen hand return or Beginning-versus-Untap visibility. Per-card ordering,
 concurrent count timing/count edges and automatic starting shuffle remain open
 (T-406–T-413).
+D-195 confirms inviting an added user, recipient Accept/Decline in Play and lobby
+entry on acceptance, not Ready or game start (T-414–T-416). User lookup/contact
+approval/removal and decline/cancel/reinvite/persistence details remain open.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

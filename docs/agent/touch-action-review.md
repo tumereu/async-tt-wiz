@@ -51,6 +51,13 @@ assistant's pause-until-resolved interaction gate is unapproved. Exact queue
 sizing/saturation, ordering/dependencies, animation composition and connection-loss
 recovery remain open, not blanket stop-and-wait. See T-371–T-374.
 
+D-184 settles ordering: each client sends in action order and the server checks/
+applies in arrival order. No sequencing dependency metadata or server-side client-
+order reconstruction; no acknowledgement wait between sends. Other-player actions
+may interleave, and later actions retain individual checks after a rejection.
+Exact ordered transport, provisional references and reconnect recovery remain
+open, not the basic ordering policy. See T-375–T-377.
+
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
 acceptance scenarios. Cockatrice capabilities are references, not automatic

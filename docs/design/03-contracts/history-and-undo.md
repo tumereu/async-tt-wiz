@@ -142,9 +142,17 @@ reason to cancel another valid action. Do not gate normal interaction behind an
 earlier acknowledgement or turn the queue into an atomic bulk commit. D-180
 animations reconcile individual results and incoming opponent mutations.
 
+**Confirmed ordering (D-184):** each client sends actions in the order it made
+them; the server validates and applies them in arrival order. Keep multiple
+actions in flight without waiting for earlier acknowledgements. Preserve order
+in delivery rather than adding per-action dependency metadata or server-side
+reordering to reconstruct client intent. Actions from the other player may
+interleave; each action still passes or fails its own current-head checks. A
+rejection does not block evaluation of later arrivals.
+
 Acknowledgement of a predicted mutation must not apply it twice. Animation does
 not gate persistence, publication or server acceptance. Exact animation composition,
-transport ordering/dependency mechanics, queue sizing/saturation and connection-loss
+ordered-transport selection, reference handling, queue sizing/saturation and connection-loss
 recovery remain open; these must preserve concurrent sending and individual
 outcomes rather than introduce a blanket wait-for-response interaction gate.
 Final timing, reduced-motion/accessibility presentation and layout remain later
@@ -155,10 +163,10 @@ Proposed action lifecycle:
 1. The user completes a direct operation or the necessary inputs for an action.
 2. Persist its state transition and outbound operation atomically, and display
    the result locally without waiting for a network round trip.
-3. If connected and dependencies permit, begin publication immediately. Do not
+3. If connected, begin publication immediately in client action order. Do not
    wait for a group to end, a timer, screen exit, or another user action.
-4. The service validates structural preconditions and commits history, branch
-   changes, and notification outbox records atomically.
+4. In arrival order, the service validates structural preconditions and commits
+   history, branch changes, and notification outbox records atomically.
 5. Mark the local result synchronized on acknowledgement; otherwise retain it
    visibly as pending, retryable, or failed work.
 
@@ -202,9 +210,10 @@ deliberately waiting to gather a group; every action boundary remains intact.
 - Do not require a pre-send review, editing mode, group completion, branch name,
   or explanation before synchronizing.
 
-Immediate means starting synchronization as soon as connectivity and operation
-dependencies allow, not promising zero network latency or Android background
-execution that the platform cannot guarantee. Exact latency targets remain open.
+Immediate means starting synchronization in send order as connectivity allows,
+without waiting for acknowledgements, not promising zero latency or Android
+background execution that the platform cannot guarantee. Exact latency targets
+remain open.
 
 ## 3.4 Sensible grouping
 

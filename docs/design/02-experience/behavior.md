@@ -316,6 +316,11 @@ The general rules are:
   another valid action or the whole sequence. Continue normal local interaction
   immediately rather than waiting for acknowledgements, hiding network latency
   wherever practical (D-183). This is not extended offline gameplay.
+- Send each client's actions in the order made; the server checks/applies actions
+  in arrival order, with other-player actions allowed to interleave (D-184).
+  Ordered delivery replaces sequencing dependency metadata, not individual
+  validation. Later actions still get checked when an earlier action fails;
+  sending and local interaction do not wait for acknowledgements.
 - Sync resumes automatically; retries must not duplicate actions or random results.
   Structural errors remain explicit recoverable failures, not excuses to lose
   selected cards or merge competing boards. Exact handling of a connection lost

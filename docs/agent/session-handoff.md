@@ -16,6 +16,16 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
+**Latest ordering clarification — D-184:** clients send actions in action order;
+the server validates/applies in arrival order. Preserve order in delivery rather
+than add sequencing dependency metadata or reconstruct client order on the server.
+Multiple actions remain in flight without acknowledgement waits (D-183). Other-
+player arrivals can interleave; every action gets its own check/result, including
+after an earlier rejection. Exact transport, provisional-reference mapping and
+reconnect recovery remain open, not the ordering policy. Semantic references and
+idempotency remain; no application code or stage transition is authorized.
+See T-375–T-377.
+
 **Latest clarification — D-183:** allow a small local online send queue, with
 individual actions sent concurrently and applying/failing individually. Keep
 normal interaction responsive through immediate local updates; users should not
@@ -259,7 +269,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-183** and **T-001–T-374**.
+- Current documentation includes **D-001–D-184** and **T-001–T-377**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

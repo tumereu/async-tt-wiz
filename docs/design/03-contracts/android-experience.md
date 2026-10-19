@@ -327,8 +327,14 @@ locally immediately; normal controls must not routinely wait for previous server
 acknowledgements. One rejection does not cancel another valid action or the whole
 queue. Use D-180 animations for individual rejections and incoming changes; keep
 pending versus accepted state honest without making latency a blocking workflow.
-Exact queue sizing/saturation, dependency/ordering mechanics and visual composition
+Exact queue sizing/saturation, reference handling and visual composition
 remain open, not a reason to impose stop-and-wait on normal play.
+
+D-184 preserves each client's action order through ordered sending and server
+arrival-order processing, without sequencing dependency metadata. Multiple actions
+remain in flight; sending and local feedback never routinely wait for previous
+acknowledgements. Other-player arrivals may interleave, and every action still
+receives its own validation/result even after an earlier rejection.
 
 Use explicit states: downloaded/current, offline/read-only, incomplete input,
 online-pending/sending, synchronized, rejected, explicitly branched, and uncertain

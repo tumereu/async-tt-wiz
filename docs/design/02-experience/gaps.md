@@ -82,9 +82,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    uncertain-request recovery and overlapping online-pending animation are open.
    D-183 confirms a small local online send queue, concurrent transmission and
    individual action success/failure with no routine acknowledgement gate on
-   interaction. Remaining queue work is exact sizing/saturation, transport
-   ordering/dependency mechanics and animation composition—not whether concurrent
-   sending or individual outcomes are supported.
+   interaction. D-184 fixes client send order and server arrival-order processing,
+   without sequencing dependency metadata or acknowledgement waits. Remaining
+   queue work is exact sizing/saturation, ordered-transport selection, provisional
+   references and animation composition—not whether concurrent sending, individual
+   outcomes or arrival-order processing are supported.
    D-179 replaces automatic conflict branching:
    explicit UI continuation intent and a message flag authorize an interruption;
    Undo supplies that intent automatically. Ordinary edits validate action-specific

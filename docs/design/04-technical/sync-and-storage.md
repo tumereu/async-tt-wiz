@@ -16,6 +16,13 @@ does not authorize stop-and-wait transport or a blanket acknowledgement barrier
 on ordinary local interaction. The queue hides normal network delays, not enables
 extended disconnected gameplay.
 
+**D-184 ordering:** clients send actions in their local action order; the server
+validates/applies them in arrival order. Multiple actions may be in flight without
+acknowledgement waits. Preserve ordering in delivery, not a per-action dependency
+graph or server-side reconstruction of client order. The exact ordered transport
+is not yet selected; independent requests that can overtake each other would not
+satisfy the ordered-send requirement.
+
 ## 6.1 Authority and local-first behavior
 
 Proposed topology: native Android clients plus a persistent shared service. The
@@ -52,7 +59,7 @@ alternatives remain recoverable; D-179 prohibits new implicit conflict branches.
 ## 6.2 Publication and concurrency
 
 Game actions may be made only with a connection in initial delivery. They begin
-publication immediately when dependency-ready; no offline queue is created.
+publication immediately in client action order; no offline gameplay queue is created.
 There is no Send step or waiting for group closure. Service acknowledgement establishes the
 shared result, not a notification or animation.
 
@@ -81,8 +88,10 @@ requested historical continuation. D-179 requires an explicit interruption flag
 and chosen boundary for the latter, and action-specific from/to conditions rather
 than a blanket unchanged-game-head check for ordinary edits. Undo supplies
 continuation intent automatically. Proposed additional fields include an
-idempotency key, game ID, action data, dependency and group references. Exact
-field names, revision scopes and schema remain technical design.
+idempotency key, game ID, action data and group references. D-184 uses ordered
+delivery rather than dependency metadata for sequencing. Object IDs and explicit
+historical-boundary references remain necessary semantic data, not a sequencing
+graph. Exact field names, revision scopes and schema remain technical design.
 
 D-183 requires individually queued actions and concurrent transmission. A slow
 acknowledgement must not routinely stall local interaction or prevent sending
@@ -92,9 +101,16 @@ action's unchanged from/to conditions individually at the current head; concurre
 transport does not merge requests into an atomic group or remove server-side
 validation/application ordering.
 
+D-184 fixes that ordering: process received actions in arrival order, including
+interleaved arrivals from both players. Do not reorder by client timestamps or
+wait for dependency declarations to reconstruct a sequence. A rejected arrival
+leaves shared state unchanged and does not prevent checking the next arrival.
+Ordered sending preserves a client's sequence on its connection, not an atomic
+uninterrupted block against the other player's actions.
+
 Authoritative parent mapping must support accepted current-head actions without
-changing their from/to conditions or interruption intent. Exact wire ordering,
-new-object/dependency handling, queue size/saturation and animation composition
+changing their from/to conditions or interruption intent. Exact ordered transport,
+new-object/reference handling, queue size/saturation and animation composition
 remain open; they must support the confirmed concurrent online pipeline, not
 restore stop-and-wait as a blanket policy. Preserve each operation's identity when
 resolving delivery uncertainty; do not resubmit as a different action/random draw.
@@ -115,7 +131,7 @@ Proposed outcomes:
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
 | Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
 | Invalid object/reference or structural constraint | Reject the affected publication with actionable structural error; explicit interruption cannot repair malformed actions. |
-| Explicit historical boundary or new-object reference not yet authoritative | Preserve the original reference/intent; exact dependency resolution remains protocol design. Do not substitute another historical base or impose a blanket acknowledgement-before-send policy on ordinary actions (D-183). |
+| Explicit historical boundary or new-object reference not yet authoritative | Check the original reference against state at arrival-order processing; do not substitute another base or wait on a sequencing dependency graph (D-184). A failed prerequisite does not cancel later actions whose own checks pass. Exact provisional-reference mapping remains protocol design, not an acknowledgement-before-send policy. |
 | Connection drops during an already-started online request | Outcome may be unknown, not necessarily rejected. Preserve operation identity and recoverable context; exact resolution/retry behavior remains open. No new offline gameplay queue or action creation (D-182). |
 
 **Confirmed D-179:** ordinary actions are attempted against the current head using

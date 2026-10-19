@@ -150,6 +150,13 @@ protocol, reconnect readiness, recovery ordering and treatment of online-buffere
 but not-yet-sent actions remain open. Preserve D-161's silent handling of stale
 Undo, D-184 delivery ordering and D-183 responsiveness during normal online play.
 
+**Session continuity (D-217):** app restarts preserve login while the session is
+valid. If it expires, ask for login again; after successful same-account login,
+return to the same game and recover pending already-sent actions under D-216.
+Authentication expiry is not proof that an action failed and must not erase its
+recovery context. Exact session mechanics and logout/account-switch handling
+remain open; see [session continuity](accounts-decks-and-lobby.md#session-continuity-and-reauthentication--d-217).
+
 **Confirmed presentation (D-180):** update local game state immediately to hide
 network latency; do not wait for server acceptance before showing the action. If
 the server rejects it, animate the local mutation backward as if it were undone.

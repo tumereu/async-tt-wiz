@@ -29,8 +29,18 @@ reconciliation and D-161 stale Undo remain; do not retry rejected requests as ne
 actions, cancel whole queues or permit offline gameplay. Exact navigation/
 dismissal, readiness, outcome lookup/retry protocol, recovery ordering and
 online-buffered-but-unsent handling remain open, not the automatic recovery policy.
-Next useful topic: session/login continuity when reconnection needs authentication,
-not another automatic-resend or gameplay-blocking question.
+
+## Latest session continuity — D-217
+
+The owner approved **staying logged in across app restarts** and, if the session
+expires, **asking for login again, then returning to the same game and recovering
+pending actions** (T-480–T-482). Preserve same-account game/request context and
+D-216 automatic already-sent recovery, without manual resend/duplicate execution;
+expiry alone is not rejection. Primary contract: [session continuity](../design/03-contracts/accounts-decks-and-lobby.md#session-continuity-and-reauthentication--d-217).
+Exact session lifetime/refresh/storage, failed/cancelled reauthentication, account
+switching, Logout's local-data behavior and expired-session offline access remain
+open; downloaded read-only access remains required. Multiple-device support is
+a useful next product question, not another session-persistence question.
 
 ## Current concurrency correction — D-179
 
@@ -145,7 +155,8 @@ access are still required. Do not interpret the cut as deletion authorization or
 a permanent-retention promise. Cross-game starter-selection retention/random
 timing and competing/replaced/stale suggestions remain open. D-215/D-216 settle
 disconnected gameplay blocking and automatic recovery of already-sent actions;
-exact recovery mechanics and session/login continuity remain R1 design work, not
+exact recovery mechanics remain R1 design work; D-217 settles session persistence
+and same-game return/recovery after expired-session login, not
 finished-session history variants. Narrower invite
 races/presentation and additional optional areas remain open. Do not reopen invitation
 expiry, starter options, initial placement or tiny cover-art variants.
@@ -433,7 +444,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-216** and **T-001–T-479**.
+- Current documentation includes **D-001–D-217** and **T-001–T-482**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

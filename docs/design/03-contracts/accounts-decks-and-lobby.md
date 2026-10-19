@@ -12,9 +12,9 @@
   behavior and cancellation authority are confirmed below; remaining lifecycle
   details and completed-game handling are open.
 
-Registration/login/recovery behavior is confirmed below. Session persistence
-remains open; this does not revoke D-182's downloaded read-only offline access.
-How an existing authenticated session supports it remains to be specified.
+Registration/login/recovery and session continuity are confirmed below. These
+do not revoke D-182's downloaded read-only offline access; exact interaction
+between expired sessions and offline access remains open.
 
 ## Registration, login, and account privacy — D-197
 
@@ -28,9 +28,26 @@ How an existing authenticated session supports it remains to be specified.
   invitations and shared game presentation must not disclose account email.
   Cooperative access to game information does not grant access to account email.
 
-Field validation/normalization, email verification, username changes, session
-persistence and account-change/recovery edge cases remain open. Do not infer a
+Field validation/normalization, email verification, username changes and
+account-change/recovery edge cases remain open. Do not infer a
 required email-verification gate or a second login method from this decision.
+
+## Session continuity and reauthentication — D-217
+
+- **Stay logged in across app restarts.** Restarting alone does not require the
+  user to enter credentials again while their session remains valid.
+- **If the session expires, ask the user to log in again.** After successful
+  login to the same account, **return to the same game and recover pending
+  actions**, rather than losing the game context or requiring manual resending.
+- Pending already-sent online actions retain their original request identities
+  and conditions. Use D-216 automatic recovery and D-185 reconciliation: no
+  duplicate execution, repeated random sampling or presumed rejection merely
+  because authentication expired. This does not authorize offline gameplay.
+
+Exact session lifetime/refresh/storage, failed or cancelled reauthentication,
+login to a different account, explicit Logout's local-data behavior and
+multiple-device support remain open. Preserve downloaded read-only access;
+this decision does not settle its expired-session navigation or local-data policy.
 
 ## Adding users as contacts — D-196
 

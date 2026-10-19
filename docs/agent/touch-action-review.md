@@ -115,8 +115,13 @@ execution (T-477–T-479). Preserve original identities/conditions, actual outco
 recorded randomness, D-185 reconciliation and D-161 stale Undo; do not invent
 fresh retries of rejections or offline gameplay. Navigation/dismissal, reconnect
 readiness, recovery protocol/ordering and buffered-but-unsent handling remain open.
-Next useful topic: session/login continuity when reconnection needs authentication,
-not another automatic-resend question. Narrower invitation race/presentation gaps remain.
+D-217 confirms staying logged in across restarts; after session expiry, ask for
+login again, then return to the same game and recover pending already-sent actions
+(T-480–T-482). Preserve same-account game/request context and D-216 no-manual-resend/
+no-duplicate recovery. Exact session mechanics, failed/cancelled login, account
+switching, Logout's local-data behavior and expired-session offline access remain
+open. Multiple-device support is a useful next product question; do not reopen
+session persistence. Narrower invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

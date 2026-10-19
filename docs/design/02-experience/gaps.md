@@ -214,8 +214,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    entry resets; ambiguous metadata/defaults. Use shared contracts, not hundreds
    of special cases.
 9. **Product/platform choices.** Registration fields, email/password login,
-   email password reset and username/email privacy are confirmed. Field validation,
-   verification, session persistence and recovery mechanics remain open, along
+   email password reset and username/email privacy are confirmed. D-217 confirms
+   staying logged in across restarts and, after session expiry, logging in again
+   to return to the same game and recover pending already-sent actions. Field
+   validation, verification, exact session/recovery mechanics, logout/account
+   switching, expired-session offline access and multiple-device support remain open, along
    with hosting, catalog/image rights,
    offline storage/retention, device/language/accessibility support, notification/
    privacy settings, and deletion/export guarantees. Protocols, randomness source,

@@ -374,8 +374,16 @@ Keep personal review/navigation separate from shared controls.
 offline gameplay behind it. This connection-loss dialog is not a routine gate
 while online actions await acknowledgements, and it does not mean in-flight
 requests were rejected. Downloaded read-only access remains in scope; exact
-dialog navigation/dismissal, reconnect readiness and automatic in-flight recovery
-remain open. Do not infer a particular retry policy from this presentation choice.
+dialog navigation/dismissal and reconnect readiness remain open. D-216 separately
+confirms automatic recovery of already-sent requests below.
+
+**Confirmed D-216:** after reconnecting, automatically recover already-sent online
+actions without manual resending or duplicate execution. Recover actual outcomes
+using original request identities/conditions; an already-committed action/random
+result must not execute/sample again. Use normal difference-only reconciliation
+for accepted/rejected outcomes, without retrying a rejection as a fresh action
+or cancelling other valid work. This does not enable offline actions. Exact
+recovery protocol/ordering/readiness and buffered-but-unsent handling remain open.
 
 **Confirmed D-183:** use a small local send queue, send online actions concurrently
 and reconcile each action's success/failure individually. Apply interactions
@@ -403,7 +411,8 @@ traversal/interruption playback remains unchanged.
 
 Use explicit states: downloaded/current, offline/read-only, incomplete input,
 online-pending/sending, synchronized, rejected, explicitly branched, and uncertain
-delivery/failed. Exact connection-readiness and mid-request-loss flow remain open;
+delivery/failed. Exact connection readiness and mid-request-loss recovery mechanics
+remain open within D-216's automatic/no-duplicate/no-manual-resend behavior;
 do not equate an unknown server outcome with rejection.
 
 The user can read cached cards and games offline, not continue play. Unavailable

@@ -404,7 +404,7 @@ The general rules are:
   actions**, including shared Undo/branch controls. This does not turn ordinary
   online acknowledgements into a blocking dialog or declare in-flight requests
   rejected. Downloaded read-only access remains; dialog navigation/dismissal and
-  exact recovery/readiness behavior are not yet settled.
+  exact reconnect-readiness behavior are not yet settled.
 - Online actions have a small local send queue and are sent concurrently. Each
   succeeds or fails individually under its own checks; one failure does not cancel
   another valid action or the whole sequence. Continue normal local interaction
@@ -421,9 +421,14 @@ The general rules are:
   [limited-locking policy](../03-contracts/optimistic-locking.md) supersedes the
   25-rule proposal; it is not approval of that batch's other details.
 - Sync resumes automatically; retries must not duplicate actions or random results.
-  Structural errors remain explicit recoverable failures, not excuses to lose
-  selected cards or merge competing boards. Exact handling of a connection lost
-  during an online request remains open; missing acknowledgement is not rejection.
+  **After reconnecting, automatically recover already-sent online actions** without
+  manual resending or executing anything twice. Recover their actual outcomes
+  under the original request identities/conditions; do not apply a committed
+  action again or retry a rejection as a fresh action. Preserve difference-only
+  reconciliation and other valid work. Missing acknowledgement is not rejection.
+  Structural errors remain recoverable failures, not excuses to lose selected
+  cards or merge competing boards. Exact recovery protocol/readiness and handling
+  of buffered but not-yet-sent online actions remain open; offline gameplay is excluded.
 - Essential stored card data remains usable offline; missing images can fall back
   to text. Sync, history, and notifications must not unnecessarily expose covered
   identities. Reviewing a retained line does not activate it.

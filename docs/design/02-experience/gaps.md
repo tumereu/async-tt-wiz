@@ -161,13 +161,16 @@ old future after a response. Exact overall release scope still needs sign-off.
    actions and later queue replay from initial delivery; downloaded history remains
    readable offline. Offline queue recovery is not an initial-delivery obligation.
    Online latency hiding remains, including recovery of requests that
-   may already have reached the server when the connection drops. Exact readiness,
-   uncertain-request recovery and exact animation scheduling remain open.
+   may already have reached the server when the connection drops. D-216 confirms
+   automatic recovery of already-sent actions after reconnect, without manual
+   resending or duplicate execution. Exact readiness, outcome lookup/retry
+   protocol/recovery ordering, online-buffered but not-yet-sent actions and
+   animation scheduling remain open, not whether recovery is automatic.
    D-215 confirms a **Reconnecting... dialog blocking gameplay actions when
    disconnected**, including shared Undo/branch controls under D-182. Dialog
-   navigation/dismissal, exact reconnect readiness and in-flight recovery remain
-   open; this is not approval of the preceding automatic-retry proposal or a
-   routine online acknowledgement barrier.
+   navigation/dismissal and exact reconnect readiness remain open. D-216 separately
+   approves automatic recovery for already-sent online actions; neither decision
+   introduces a routine online acknowledgement barrier or offline gameplay.
    D-183 confirms a small local online send queue, concurrent transmission and
    individual action success/failure with no routine acknowledgement gate on
    interaction. D-184 fixes client send order and server arrival-order processing,
@@ -188,7 +191,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    remain: preserve accepted work and valid pending predictions, correct genuinely
    invalid ones, and do not animate mere acknowledgements. D-177 deliberate
    history/interruption playback is distinct. Remaining work also includes exact
-   bookkeeping/scheduling, connection-loss recovery, simultaneous explicit
+   bookkeeping/scheduling, connection-loss recovery mechanics, simultaneous explicit
    interruptions and stale non-Undo controls; old conflict-branch/locking proposals
    are not release requirements.
 5. **References and projection controls.** Occurrence removal versus token-source

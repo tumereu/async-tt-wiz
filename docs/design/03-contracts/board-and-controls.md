@@ -3,7 +3,10 @@
 **Initial-delivery connectivity (D-182):** game edits and shared controls require
 a connection. Offline use is downloaded read-only history, not offline gameplay,
 Undo, Reset, new random outcomes or queued synchronization. Optimistic updates
-and animations still apply online; mid-request connection-loss recovery is open.
+and animations still apply online. D-215 shows a Reconnecting... dialog blocking
+gameplay when disconnected. D-216 automatically recovers already-sent actions
+after reconnect without manual resend or duplicate execution; exact recovery
+mechanics remain open.
 
 Status: gesture choices, snapping, diagonal piles, selection-aware dragging,
 top-insertion drops on special piles, visual stacking drops, and top/bottom

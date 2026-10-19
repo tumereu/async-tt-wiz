@@ -130,9 +130,25 @@ the opponent creates another continuation. The engine never calls the sequence
 requirement includes shared Undo and branch controls; do not create offline
 mutations behind the dialog. This is an actual connection-loss gate, not a
 routine wait for each online acknowledgement. Preserve downloaded read-only
-access; exact dialog navigation/dismissal, reconnect-readiness criteria and
-in-flight recovery remain open. The dialog does not declare unresolved requests
-failed or approve a particular automatic retry policy.
+access; exact dialog navigation/dismissal and reconnect-readiness criteria remain
+open. The dialog does not declare unresolved requests failed. D-216 separately
+confirms automatic recovery below.
+
+**Confirmed reconnect recovery (D-216):** after reconnecting, **automatically
+recover already-sent online actions**, without manual resending or executing an
+action twice. Preserve each original request's identity/conditions and recover
+its actual outcome; any delivery retry belongs to that same request, not a fresh
+user action. Already-committed mutations and recorded random results must not
+be applied/generated again. Reconcile accepted/rejected outcomes using D-185;
+recovery does not turn a rejected action into a new automatically resubmitted
+action, cancel other valid work or silently retarget requests. Missing responses
+remain unresolved until recovered, not presumed rejection.
+
+This is recovery of online requests that were already sent, not permission for
+offline gameplay or approval of an offline queue. Exact outcome lookup/retry
+protocol, reconnect readiness, recovery ordering and treatment of online-buffered
+but not-yet-sent actions remain open. Preserve D-161's silent handling of stale
+Undo, D-184 delivery ordering and D-183 responsiveness during normal online play.
 
 **Confirmed presentation (D-180):** update local game state immediately to hide
 network latency; do not wait for server acceptance before showing the action. If
@@ -179,7 +195,8 @@ D-185 removes unnecessary visible rewind/replay from ordinary online reconciliat
 Acknowledgement of a predicted mutation must not apply it twice. Animation does
 not gate persistence, publication or server acceptance. Exact animation scheduling,
 ordered-transport selection, reference handling, queue sizing/saturation and
-connection-loss recovery remain open; these must preserve concurrent sending,
+connection-loss recovery mechanics remain open; these must preserve D-216's
+automatic/no-duplicate/no-manual-resend behavior, concurrent sending,
 individual outcomes and D-185 difference-only corrections rather than introduce
 a blanket wait-for-response interaction gate. Final timing, reduced-motion/
 accessibility presentation and layout remain later design work.

@@ -109,10 +109,14 @@ guarantees. Next substantial R1 topic: in-flight connection-loss recovery.
 D-215 confirms **Reconnecting... when disconnected, blocking gameplay actions**
 (T-475/T-476). Preserve connected-only shared controls and downloaded read-only
 access; do not create offline actions or turn healthy online acknowledgement
-latency into this dialog. Navigation/dismissal/reconnect readiness and in-flight
-recovery remain open; the assistant's automatic-retry bundle was not approved.
-Next useful topic: resolving already-started online requests after reconnect,
-not another gameplay-blocking question. Narrower invitation race/presentation gaps remain.
+latency into this dialog. D-216 separately approves automatic recovery of
+already-sent online actions after reconnect, without manual resending or duplicate
+execution (T-477–T-479). Preserve original identities/conditions, actual outcomes,
+recorded randomness, D-185 reconciliation and D-161 stale Undo; do not invent
+fresh retries of rejections or offline gameplay. Navigation/dismissal, reconnect
+readiness, recovery protocol/ordering and buffered-but-unsent handling remain open.
+Next useful topic: session/login continuity when reconnection needs authentication,
+not another automatic-resend question. Narrower invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

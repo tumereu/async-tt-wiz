@@ -14,18 +14,23 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest connection-loss presentation — D-215
+## Latest connection-loss presentation and recovery — D-215/D-216
 
 The owner specified a **Reconnecting... dialog when disconnected**, then clarified
 that it **blocks gameplay actions** (T-475/T-476). D-182 already requires a
 connection for gameplay/shared Undo/branch controls; do not create offline actions
 behind the dialog. Preserve downloaded read-only access and D-183's normal online
 responsiveness: waiting for an acknowledgement alone is not a reason for this
-dialog. Exact navigation/dismissal, reconnect readiness and in-flight outcome/
-retry recovery remain open. The preceding assistant bundle was not approved by
-this presentation clarification; missing acknowledgement is not rejection.
-Next useful topic: automatic resolution of already-started online requests after
-reconnect, not another question about whether the dialog blocks game actions.
+dialog. D-216 then separately approves **automatic recovery of already-sent actions
+after reconnect**, without manual resending or executing anything twice
+(T-477–T-479). Preserve original request identities/conditions, recover actual
+outcomes and reuse recorded committed/random results. D-185 difference-only
+reconciliation and D-161 stale Undo remain; do not retry rejected requests as new
+actions, cancel whole queues or permit offline gameplay. Exact navigation/
+dismissal, readiness, outcome lookup/retry protocol, recovery ordering and
+online-buffered-but-unsent handling remain open, not the automatic recovery policy.
+Next useful topic: session/login continuity when reconnection needs authentication,
+not another automatic-resend or gameplay-blocking question.
 
 ## Current concurrency correction — D-179
 
@@ -138,8 +143,9 @@ scope, not an R1 blocker or implementation commitment. Current-game history,
 retained branches, Undo, exposure/comment preservation and downloaded read-only
 access are still required. Do not interpret the cut as deletion authorization or
 a permanent-retention promise. Cross-game starter-selection retention/random
-timing and competing/replaced/stale suggestions remain open. Next substantial
-R1 topic: connection loss during in-flight actions and automatic recovery, not
+timing and competing/replaced/stale suggestions remain open. D-215/D-216 settle
+disconnected gameplay blocking and automatic recovery of already-sent actions;
+exact recovery mechanics and session/login continuity remain R1 design work, not
 finished-session history variants. Narrower invite
 races/presentation and additional optional areas remain open. Do not reopen invitation
 expiry, starter options, initial placement or tiny cover-art variants.
@@ -427,7 +433,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-215** and **T-001–T-476**.
+- Current documentation includes **D-001–D-216** and **T-001–T-479**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -14,17 +14,23 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest strict Undo/Redo target order — D-230
+## Latest strict Undo/Redo target order — D-230/D-231
 
 Owner approved **disable Redo on a blocked next entry, keeping the stack intact**,
-and added **only the most recent action can be undone** (T-518/T-519). Never skip
+and added **only the most recent action can be undone** (T-518/T-519). D-231
+clarifies **your most recent still-applied action, even after later opponent
+actions** (T-520/T-521). Never target the opponent's action or fall back to it
+when no own action remains. Later opponent mutations stay applied and must pass
+D-224's unchanged relevant-state replay checks within N. Never skip
 a blocked Undo/Redo target to reach an older eligible entry; no arbitrary earlier
 Undo picker. D-224's replay/exposure/N rules remain. Successful Undo exposes the
-preceding candidate. One wording ambiguity remains: **latest own action despite
-later opponent actions, or latest action by either player?** Clarify this next;
-do not silently finalize author scope or revert to parent-pointer-only Undo.
+preceding own candidate. Latest-own scope is settled; do not reopen it or revert
+to author-independent parent-pointer-only Undo. Personal review and explicit
+historical activation remain separate; integration with activation is still open.
 Insertion anchors, device synchronization, concurrency and history representation
 remain open. No implementation or delivery-stage transition is authorized.
+Next substantial topic: represent removed/replayed continuations without changing
+the meaning of existing reviewed nodes, side branches or event-comment references.
 
 ## Latest Redo order — D-229
 
@@ -93,8 +99,8 @@ Tree replay reuses recorded outcomes, not new random draws/UI revelations.
 Primary contract: [selective Undo/Redo](../design/03-contracts/history-and-undo.md#selective-mutation-undoredo--d-224).
 This revises the earlier universal parent-pointer-only/remembered-head model;
 older fixtures/sections now describe rewind context, not settled selective-Undo
-behavior. Own-action candidate policy, insertion target preconditions, Redo queue/
-order/anchors, author restrictions, pointer/view-follow/control mapping, pending
+behavior. D-230/D-231 above settle latest-own/no-skipping selection. Insertion
+target preconditions, Redo queue device scope/anchors, pointer/view-follow/control mapping, pending
 requests, concurrency and node/reference/grouping rewrite remain open. The owner
 asked to be drilled about cases, not to finalize controls prematurely. Next useful
 topic: define relevant state for mutation kinds, starting with move versus tap
@@ -597,7 +603,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-230** and **T-001–T-519**.
+- Current documentation includes **D-001–D-231** and **T-001–T-521**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

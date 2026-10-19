@@ -13,9 +13,12 @@ endpoints for each later step, not delta/applicability/final board only. Same-co
 then untap B can allow it. Bound suffix replay/check work by hard N (value/counting
 unit open); revealing targets are not selectively undoable. This is not D-187 live
 locking or approval of the old 25-rule table. No appended compensation or physical
-history erasure is authorized. Candidate/authorship, insertion preconditions,
-Redo queue, pointer/view controls, pending/concurrent requests and tree/reference/
-grouping rewrites remain open; drill mutation relevant-state cases next.
+history erasure is authorized. D-230/D-231 restrict Undo to the latest still-applied
+own action even after opponent activity, with no blocked-target skipping. D-227–D-230
+fix last-undone-first Redo, blocked-entry disabling without skipping, and queue
+clearing only by own new play. Insertion preconditions/anchors, queue device scope,
+pointer/view controls, pending/concurrent requests and tree/reference/grouping
+rewrites remain open; resolve rewritten-history representation next.
 
 **Earlier branching (D-222):** root stores initial state; every later node is a
 mutation. Undo remembers the last active head; Redo follows toward it, not an

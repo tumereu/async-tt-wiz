@@ -15,9 +15,11 @@ describe that rewind model, not universal selective-Undo requirements. The new
 removal/reinsertion rule requires every subsequent mutation's relevant-state
 `(from, to)` tuple to remain identical under a hard suffix-work cap N. Selective
 Undo excludes information-revealing targets. Per-mutation state, N/counting,
-candidate/authorship, pointer/view controls, queue/history presentation and stale
+pointer/view controls, queue/history presentation and stale
 checks remain open. Do not use older fixtures to forbid selective removal,
 permit revealing targets, or silently apply D-161's pointer policy to it.
+D-230/D-231 fix the Undo target to the latest still-applied own action, without
+skipping a blocked own target; later opponent actions are preserved under replay.
 
 | ID | Scenario | Required outcome |
 | --- | --- | --- |
@@ -539,7 +541,9 @@ permit revealing targets, or silently apply D-161's pointer policy to it.
 | T-516 | Selectively Undo your counter increment, then opponent increments that same counter; reinserting yours would change their recorded relevant-state tuple. | Keep your queue but make that reinsertion unavailable under D-224. Do not bypass validation or discard the queue merely because opponent activity currently blocks Redo. D-229/D-230 require last-undone-first order and disable Redo on a blocked next entry without skipping it; insertion anchors remain open (D-228). |
 | T-517 | Successfully Undo mutation A, then mutation B. Both subsequent Redo reinsertions remain eligible within N, and no own new action clears the queue. | The first successful Redo restores B; the next restores A. Follow last-undone-first order, not original timeline sorting, and validate each reinsertion under D-224. Insertion anchors remain open; D-230 separately settles blocked-next-entry handling (D-229). |
 | T-518 | The most recently undone mutation cannot be reinserted after opponent activity, but an older Redo entry would pass validation. | Disable Redo and preserve the entire stack. Do not restore the older entry, reorder entries, or discard the blocked entry. Opponent activity does not clear the queue (D-228–D-230). |
-| T-519 | The most recent still-applied action in the eventual agreed author scope cannot be undone, but an older action would pass the replay checks. Separately test replay failure, information exposure and exceeding N. | Disable Undo; do not skip backward or offer arbitrary selection of the older target. Preserve D-224's safety/exposure/N rules. Latest-own versus latest-either-player author scope remains open (D-230). |
+| T-519 | Your most recent still-applied action cannot be undone, but an older own action would pass the replay checks. Separately test replay failure, information exposure and exceeding N, including later opponent activity. | Disable Undo; do not skip backward or offer arbitrary selection of the older target. Preserve D-224's safety/exposure/N rules and do not target the opponent's actions (D-230/D-231). |
+| T-520 | Your latest own action moves a card without exposing new information; the opponent subsequently taps that card. The tap's relevant tuple remains identical after removing the move, and the suffix is within N. | Undo removes your move and preserves the opponent's tap, even though the opponent authored the latest global action. The candidate is your most recent still-applied action, not the game head's author-independent parent step. After success, the preceding own action is the next candidate (D-224/D-231). |
+| T-521 | The current timeline has opponent gameplay actions but no still-applied own actions. | Undo is unavailable. Do not undo the opponent's latest action or search retained alternative branches for an own target. Personal review and explicit historical activation remain separate (D-231). |
 
 **D-224 supersedes the universal parent-pointer-only interpretation:** selective
 Undo/Redo uses exact later-mutation relevant-state tuple equality and bounded

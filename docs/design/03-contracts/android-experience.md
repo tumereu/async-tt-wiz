@@ -152,8 +152,12 @@ The table must always make these distinguishable:
 **Latest revision D-224:** selective removal/reinsertion requires every subsequent
 mutation's relevant-state `(from, to)` tuple to stay identical across timelines,
 within a hard suffix-work cap N. Information-revealing targets are not selectively
-undoable. Per-mutation relevant state, N/counting, pointer/view-follow behavior,
-candidate/author rules, Redo queue and final control mapping remain open. The
+undoable. D-230/D-231 allow Undo only for your most recent still-applied action,
+even after opponent activity; never skip a blocked own target or undo the opponent's.
+Redo is last-undone-first, blocked entries disable it without skipping, and only
+your own new gameplay edit clears your queue (D-227–D-230). Per-mutation relevant
+state, N/counting, pointer/view-follow behavior, queue device scope/insertion
+anchors and final control mapping remain open. The
 earlier parent-step/remembered-head controls below are rewind context, not the
 complete current definition of Undo/Redo; live action acceptance is unchanged.
 

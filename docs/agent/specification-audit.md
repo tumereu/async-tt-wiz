@@ -6,12 +6,19 @@ from the plain-language summary and tier reorganization.
 - **D-224 revises the universal parent-pointer Undo interpretation.** Selective
   mutation removal/reinsertion requires every later mutation's relevant-state
   `(from, to)` tuple to stay identical under a hard suffix-work cap N. Per-mutation
-  definitions, N/counting, candidates/authorship, reinsertion queue, pointer/view
+  definitions, N/counting, reinsertion anchors/device scope, pointer/view
   controls, concurrency and node/reference/grouping rewrite remain open. Revealing
   targets are not selectively undoable; no compensating edit is appended. This
   does not restore D-181-style old-field locking to live actions or approve the
   old 25-rule batch. Older pointer/remembered-head fixtures are rewind context,
   not grounds to reject selective editing or silently reuse stale-pointer policies.
+- **D-227–D-231 settle strict personal Undo/Redo targeting, not rewritten history.**
+  Undo targets the latest still-applied own action even after opponent activity;
+  preserve later opponent mutations under replay. Never skip a blocked own target
+  or undo the opponent's. Redo is last-undone-first and a blocked next entry disables
+  it without skipping/discarding. Only own new play clears your queue. These rules
+  do not settle insertion anchors, device synchronization, explicit activation
+  integration or how old nodes/comments/side branches retain their meaning.
 - **Earlier D-159/D-160 replaced earlier Undo semantics.** Pointer-rewind Undo is one shared
   parent-node pointer move, regardless of author; composites can require multiple
   presses. D-222 refines Redo/filtering: remember the last active head for Redo

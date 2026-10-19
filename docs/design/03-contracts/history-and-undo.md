@@ -24,7 +24,8 @@ offline play or an atomic queued sequence.
 longer the complete Undo/Redo contract. The owner is now designing selective
 mutation removal/reinsertion, with the confirmed safety rule below. Shared-head
 rewind, personal review and explicit tree activation remain distinct concepts;
-their final button mapping, author restrictions and view-follow behavior are open.
+their final button mapping and view-follow behavior are open. D-231 below settles
+selective Undo's latest-own-action scope.
 Do not infer acceptance of the assistant's shared remembered-Redo-head proposal.
 
 ### Selective mutation Undo/Redo — D-224
@@ -97,14 +98,18 @@ tuple test within N; insertion anchors are not settled by this ordering rule.
 Redo and keep the stack intact. Do not skip to an older eligible entry or discard
 the blocked entry. Opponent activity still does not clear the stack (D-228).
 
-**Undo target order — D-230:** Undo may target only the **most recent still-applied
-action**, not an arbitrarily selected earlier action. If that next Undo target
+**Undo target order — D-230/D-231:** Undo may target only **your most recent
+still-applied action on the current timeline**, even if the opponent acted later.
+Never target an opponent's action or an arbitrarily selected earlier own action.
+Later opponent mutations remain applied and must pass D-224's unchanged-tuple
+replay test. If that next Undo target
 fails the replay checks, exceeds N or is information-revealing, disable Undo;
 do not search backward for an older eligible target. After successful Undo, the
-preceding action becomes the next candidate. The author's scope of “most recent”
-still needs explicit clarification: latest own action despite later opponent
-actions, or latest action by either player. Do not silently decide that scope or
-use the no-skipping rule to replace removal-and-replay with parent-pointer Undo.
+preceding still-applied own action becomes the next candidate. If there is no own
+action, Undo is unavailable; do not fall back to an opponent's action. This
+author filter is not permission to skip a blocked latest own action. The rule
+governs Undo, not personal review or explicit historical activation; interaction
+with the latter remains open. Do not replace it with parent-pointer Undo.
 
 **Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
 subject to replay/validation, so a target followed by e.g. a thousand opponent
@@ -114,8 +119,7 @@ permit a changed unchecked tail. Exact N and counting of mutation nodes versus
 multi-mutation invocations remain open; no time-based grouping or gameplay limit
 is implied.
 
-**Still open:** complete relevant-state definitions, Undo target author scope
-(latest-only/no-skipping is D-230), insertion target's own preconditions,
+**Still open:** complete relevant-state definitions, insertion target's own preconditions,
 Redo queue cross-device scope/anchors,
 invalidation cases beyond D-227/D-228, concurrent/stale checks, pending-request
 interaction, pointer/view

@@ -239,6 +239,7 @@
 | D-233 | Undo cannot remove a branching point or reach back past one. | Owner chose blocking for simplicity, then explicitly extended it to actions before a fork. Disable Undo if the latest own target or a node between it and the current active head has multiple child continuations, even if replay would be safe. Do not skip the target, reattach alternatives or validate/rewrite all branches to permit removal. Explorer filtering does not bypass the boundary. Actions strictly after the latest fork remain subject to the ordinary latest-own/replay/exposure/N checks. Redo across a new fork, archive/restore effects, activation integration and historical references remain open. No implementation or stage transition is authorized. |
 | D-234 | Redo cannot reinsert an undone mutation before a newly created fork; retain the blocked stack even though that historical mutation may have no way to be applied again with current controls. | Owner approved the Redo fork boundary and explicitly acknowledged the loss of an application path. Disable Redo without skipping/discarding the entry, retargeting it to the head, rewriting all branches or creating a recovery branch. Retention is not a promise of eventual replay or a requirement for recovery controls. Opponent branching does not clear the queue (D-228); own new gameplay still clears it (D-227). A similar fresh action is not restoration of the historical mutation. Exact anchors, archive/restore effects and activation integration remain open, not promised escape hatches. No implementation or stage transition is authorized. |
 | D-235 | Each player's per-game Undo/Redo stack is shared game state, synchronized across that account's devices. | Owner approved Undo on phone/Redo on tablet and explicitly called it shared game state. This is not a device-local stack or one stack shared between opponents. Latest-own targeting includes the player's actions from any device; successful Undo/Redo, stack order and clearing synchronize across devices under current eligibility rules. Own new gameplay on either device clears that player's stack for the game; opponent actions do not. Exact simultaneous-device/stale requests, sync timing and protocol remain open. No transfer of pending-request queues, unfinished input or personal review cursors, implementation or stage transition is authorized. |
+| D-236 | Undo is a server request; two distinct requests count as two Undo presses, including across devices. Concurrent same-account gameplay must work, but special multi-device UX is not a priority. | Owner rejects the assistant's same-seen-node collision suppression. Process distinct Undo requests in server arrival order against the player's then-current latest still-applied action, preserving normal replay/exposure/N/fork/no-skipping checks. If both successive candidates qualify, remove both; a blocked/absent next candidate permits no further removal. Supersedes D-161 fixed-node stale-Undo assumptions for the current selective request design. Delivery retries of one request still recover one original outcome, not another Undo. Use normal concurrent gameplay ordering/acceptance rather than exclusive-device sessions, collision confirmations or routine acknowledgement barriers. Exact protocol/sync and other control races remain open. No implementation or stage transition is authorized. |
 
 **Latest selective Undo/Redo — D-224:** remove/reinsert a mutation only if every
 later mutation preserves its original relevant-state `(from, to)` tuple; compare
@@ -257,8 +258,15 @@ make Redo unavailable under D-224's replay checks/N. Clearing is player-specific
 and D-232 does not require an original explorer path after queue clearing.
 D-235 confirms that per-player stacks are shared game state across the account's
 devices, with clearing by own new play on either device. Removed-record retention
-after clearing, simultaneous/stale requests, sync timing, rejected/no-op requests
+after clearing, other control races, sync timing, rejected/no-op requests
 and exact clearing timing remain open.
+
+**Server Undo requests — D-236:** each distinct request counts as another Undo
+press against the current latest own candidate at the server, even when devices
+originally showed the same target. Do not suppress the second as a stale fixed-node
+request; ordinary eligibility still applies. Delivery retries remain idempotent.
+Concurrent same-account gameplay works through normal ordering/acceptance without
+special multi-device collision UX or exclusive-device restrictions.
 
 **Redo order — D-229/D-230:** last undone is first redone; Undo A then B means Redo
 B then A when both are eligible. Replay checks/N still apply. Insertion anchors

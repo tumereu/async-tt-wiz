@@ -67,7 +67,13 @@ this decision does not settle its expired-session navigation or local-data polic
   Redone on another, with unchanged own-action targeting, player-specific clearing
   and eligibility checks. See the [history contract](history-and-undo.md#selective-mutation-undoredo--d-224).
 
-Exact simultaneous same-account editing, concurrent deck/contact change conflicts,
+**D-236:** concurrent gameplay from the account's devices is supported through
+normal server ordering and action acceptance, without requiring one active device
+or special collision UX. Two distinct Undo requests count as two Undo presses,
+not a same-target collision to suppress; delivery retries still execute only once.
+See the [history contract](history-and-undo.md#selective-mutation-undoredo--d-224).
+
+Concurrent deck/contact change conflicts, remaining shared-control races,
 device/session revocation and sync timing remain open. Do not infer cross-device
 transfer of unfinished input, local pending-request queues, navigation/review
 cursors, settings or all cached downloads from this account-data decision.

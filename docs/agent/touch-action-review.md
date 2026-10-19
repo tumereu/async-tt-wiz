@@ -31,8 +31,13 @@ controls; do not invent a recovery feature or automatic clearing. Own new play
 still clears the stack. D-235 confirms per-player, per-game stacks as shared game
 state synchronized across that account's devices: latest-own includes any device,
 and own new play on either device clears that stack, not the opponent's.
-Resolve simultaneous-device/stale requests, insertion anchors, historical references
-and review cursors next, without assuming the original tree survives.
+Resolve insertion anchors, historical references and review cursors next, without
+assuming the original tree survives. D-236 settles concurrent Undo: each distinct
+server request counts as another press against the then-current latest own
+candidate, not a fixed-node request to suppress after another device acts.
+Normal eligibility and per-request idempotency remain. Concurrent same-account
+gameplay must work through existing server ordering/acceptance without exclusive
+device sessions or special collision UX; special multi-device UX is not a priority.
 Archive/activation integration remains open.
 
 **Earlier branching (D-222):** root stores initial state; every later node is a

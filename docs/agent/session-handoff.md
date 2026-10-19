@@ -14,6 +14,25 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest server Undo/concurrent-device correction — D-236
+
+Owner rejected the assistant's apply-once/discard-the-other-device proposal:
+**Undo is an Undo request to the server; two requests are like pressing Undo
+twice** (T-531–T-533). Each distinct request targets the then-current latest own
+action in server arrival order under ordinary eligibility. If both successive
+candidates are eligible, remove both. Do not pin requests to the clients' same
+seen node or suppress the second as stale. A blocked/absent next target makes no
+further removal; never skip it. Delivery retries of one request still recover
+one original outcome, not another Undo. This supersedes D-161 fixed-node stale
+Undo assumptions for the current selective request design.
+
+Concurrent same-account gameplay must work using normal ordering/acceptance;
+special multi-device UX is not a priority. Do not introduce exclusive-device
+sessions, collision confirmations or routine acknowledgement barriers. Move on
+from tiny device-UX cases to remaining historical references/cursors, relevant
+state or insertion anchors. Other control races and protocol details remain open.
+No implementation or stage transition is authorized.
+
 ## Latest cross-device Undo/Redo scope — D-235
 
 Owner approved synchronized Undo/Redo stacks across devices, adding **it is shared
@@ -22,11 +41,9 @@ device stack or one stack shared between opponents. Undo on phone can be Redone
 on tablet under current checks; latest-own targeting spans the account's devices.
 Successful Undo/Redo and own-new-play clearing synchronize between them. Opponent
 actions do not clear your stack. No transfer of pending-request queues, drafts or
-review cursors is implied. Exact sync timing and simultaneous/stale requests
-remain open. Next useful case: two devices invoke Undo for the same action;
-propose applying it once and silently reconciling the stale request, never
-retargeting it to the next own action. This is a proposal, not approved selective
-Undo concurrency behavior. No implementation or stage transition is authorized.
+review cursors is implied. D-236 above settles concurrent Undo requests and
+rejects the assistant's same-target stale-suppression proposal. Exact sync timing
+and other control races remain open. No implementation or stage transition is authorized.
 
 ## Latest Redo fork boundary — D-234
 
@@ -667,7 +684,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-235** and **T-001–T-530**.
+- Current documentation includes **D-001–D-236** and **T-001–T-533**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

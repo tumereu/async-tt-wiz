@@ -22,7 +22,7 @@ offline play or an atomic queued sequence.
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree
 
-**D-224–D-235 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
+**D-224–D-236 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
 still-applied mutation from the existing tree; Redo reinserts it, under the safety
 and stack rules below. These operations edit the tree, **not create branches**.
 Personal review and explicit historical activation remain distinct; their control
@@ -122,9 +122,32 @@ across devices, including last-undone-first order and blocked entries.
 Shared game state does not mean one author-independent stack for both players:
 preserve D-231 own-action targeting and D-228 player-specific clearing. A successful
 new gameplay edit from either of your devices clears your stack for that game;
-an opponent's action still does not. Exact simultaneous-device/stale-request
-handling, sync timing and protocol remain open. This decision does not approve
+an opponent's action still does not. D-236 below settles concurrent Undo requests.
+Exact sync timing, protocol and other control races remain open. This decision does not approve
 transfer of pending-request queues, unfinished input or personal review cursors.
+
+**Server Undo requests and concurrent devices — D-236:** Undo is a request to
+the server to Undo the player's then-current latest still-applied action under
+the normal eligibility rules. Process distinct requests in server arrival order.
+Two devices pressing Undo are equivalent to pressing Undo twice on one device:
+if both successive candidates are eligible, remove both, one per request.
+Do not pin both requests to the node the clients originally saw or discard the
+second merely because the first changed that target. If the next candidate is
+blocked or absent, the second request makes no further removal; it does not
+skip a target or bypass replay, exposure, N or fork restrictions.
+
+This supersedes the earlier D-161 fixed-node stale-Undo interpretation for these
+selective Undo requests. The assistant's same-target collision-suppression
+proposal was rejected. Distinct Undo invocations remain distinct from delivery
+retries of one request: retries recover that request's original outcome without
+another removal, including after a lost response/reconnect.
+
+Concurrent gameplay from the same account's devices must work through normal
+server arrival-order processing and existing action acceptance/reconciliation.
+Do not require an exclusive active device, special collision-confirmation UX or
+additional routine acknowledgement barriers. The owner does not prioritize
+special multi-device UX. Exact transport, sync timing and remaining non-Undo
+control races remain design work, not a reason to reopen this policy.
 
 **Redo order — D-229:** restore the **most recently undone mutation first**,
 like a normal Undo/Redo stack. If you Undo A and then B, successful Redo restores

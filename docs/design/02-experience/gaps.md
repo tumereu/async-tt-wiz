@@ -210,7 +210,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    remains separate.
    D-235 confirms per-player, per-game Undo/Redo stacks as shared game state across
    the account's devices, not device-local stacks or one stack for both players.
-   Same-account simultaneous/stale requests, sync timing, insertion anchors,
+   D-236 confirms concurrent same-account gameplay and server Undo requests:
+   two distinct requests count as two presses against successive current
+   candidates, not a same-seen-target collision to suppress. Retries of one
+   request still execute only once. Special multi-device UX is not a priority.
+   Other control races, sync timing, insertion anchors,
    rejected/no-op requests and optimistic/server clearing timing
    remain open. Older immutable-tree/retained-original-path assumptions do not
    apply to D-232 tree editing; genuine interruption branches remain distinct.

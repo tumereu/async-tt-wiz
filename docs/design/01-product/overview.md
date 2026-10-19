@@ -41,6 +41,8 @@ The app remembers and presents what happened; the players interpret the rules.
    Undo targets only your latest still-applied action; Redo is last-undone-first.
    Your per-game Undo/Redo stack is shared game state across your devices, while
    remaining separate from the opponent's stack (D-235).
+   Undo requests act on the server's current state; two requests count as two
+   presses, including from different devices (D-236).
    Neither skips a blocked target. Undo cannot remove a branching point or reach
    back past one (D-233); Redo cannot reinsert before a newly created fork (D-234).
    Such a Redo entry stays blocked and may have no recovery path.

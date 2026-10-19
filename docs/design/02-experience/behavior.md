@@ -385,8 +385,16 @@ The general rules are:
   synchronized across your devices. Undo on your phone and Redo on your tablet
   under the same eligibility checks. Your latest own action can come from either
   device; new gameplay from either clears your stack. The opponent retains a
-  separate stack, and their actions do not clear yours. Exact simultaneous-device
-  and stale-request handling remain open; personal review cursors are separate.
+  separate stack, and their actions do not clear yours. Personal review cursors
+  are separate.
+- **Concurrent devices (D-236):** Undo sends a request to the server. Two separate
+  Undo requests, even from devices showing the same action, count as two presses:
+  each targets your latest own candidate at its server-processing turn.
+  A blocked or absent next candidate stops further removal, without skipping it.
+  Retrying the same request never executes another Undo. Concurrent play across
+  your devices uses normal server ordering and acceptance, without special
+  collision safeguards or a single-active-device restriction. Special multi-device
+  UX is not a priority; exact sync/protocol and other control races remain open.
 - **Redo order (D-229):** restore the most recently undone mutation first, as in
   a normal Undo/Redo stack. Every reinsertion must still pass the replay checks
   within N. If that next entry is blocked, disable Redo and retain the stack;

@@ -209,8 +209,9 @@
 | D-203 | Freely swap cards between mainboard and sideboard in the lobby. | Owner explicitly confirms unrestricted lobby transfers in both directions; do not impose format-legality, size or one-for-one exchange requirements. Preserve D-191's game-local preparation/own-Ready clearing and D-202's complete exclusion of Sideboard during play. This does not approve a full saved-deck editor or new-card import during play. Exact controls remain later UI work; no implementation or stage transition is authorized. |
 | D-204 | Changing the lobby starter selection clears only the changing player's Ready, preserving the other player's Ready. | Owner corrected the assistant's proposal to clear both players. Require the changing player to ready again before start; retain both-player Ready and D-191's own-Ready deck-preparation rule. Manual Ready withdrawal was proposed alongside this but not separately approved by the correction. Starter defaults/edit access/random timing/reselection and start-versus-edit races remain open. No implementation or stage transition is authorized. |
 | D-205 | Ready requires your own selected deck without legality/size checks; allow withdrawal until start. Accepted Ready persists when leaving/disconnecting, without both players online. Resolve start-versus-change in server arrival order and start only once. | Owner approved all four lobby-transition recommendations together. Preserve own-Ready clearing for preparation/starter changes (D-191/D-204). Apply a lobby edit/withdrawal received before start before checking readiness; reject a late lobby change after start without altering/reopening the game. The second accepted Ready can start while the first player is away; this is not offline action creation. Retries reuse the existing start/shuffle outcomes, never restarting or resetting play. Starter defaults/access/random timing, cancellation/retention and lobby/game history boundaries remain open. No implementation or stage transition is authorized. |
+| D-206 | Leaving the lobby and cancelling the game must be separate actions. | Owner rejected the assistant's proposed leave-lobby-means-cancel behavior. Leaving alone does not cancel; cancellation is a distinct explicit action. Preserve D-205's Ready persistence when leaving the screen/disconnecting. Cancellation permissions, races with start, listing/retention and the other invitation-lifecycle recommendations remain open; the correction does not approve the rest of the preceding bundle. No implementation or stage transition is authorized. |
 
-**Latest setup decisions — D-188–D-205:** authenticated main menu, adding users,
+**Latest setup decisions — D-188–D-206:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
 selection, mainboard/sideboard management and both-player Ready. Primary behavior:
 [accounts, decks, and lobby](../design/03-contracts/accounts-decks-and-lobby.md).
@@ -234,6 +235,8 @@ Ready for starter-selection changes, preserving the other's; not both players.
 D-205 confirms selected-deck readiness without legality/size checks, manual
 withdrawal before start, Ready persistence without simultaneous online presence,
 server arrival-order start-versus-change handling and one-time start recovery.
+D-206 separates leaving the lobby from explicit cancellation; leaving alone does
+not cancel. The remaining invitation-lifecycle bundle is not approved.
 Remaining starter defaults/access/random timing, cancellation/retention,
 count/sequencing and other setup details are open. Neither the assistant's immediately usable table nor its
 automatic draw-seven/manual-only-mulligans proposal was approved.

@@ -466,6 +466,7 @@ in-flight delivery recovery remain distinct from supporting offline gameplay.
 | T-452 | An edit clearing its actor's Ready, or a manual withdrawal, reaches the server before the competing Ready that would otherwise start play. | Apply the earlier lobby change before checking readiness. Do not start using the cleared Ready; preserve the other player's Ready and require the changing player to ready again (D-191/D-204/D-205). |
 | T-453 | The second Ready starts play before a competing lobby edit or withdrawal reaches the server. | Reject the late lobby change without altering the started game or reopening its lobby. Do not apply late pregame deck/preparation/starter changes as gameplay edits (D-205). |
 | T-454 | Delivery of the second Ready/start is retried after play has started. | Recover the existing start without a duplicate start, fresh Library shuffles or life reset. Reuse stored outcomes; later gameplay remains intact (D-200/D-205). |
+| T-455 | A participant leaves the lobby without invoking Cancel game. | Do not cancel the game. Leaving and cancellation are distinct actions; cancellation requires its own explicit action. Leaving the screen preserves accepted Ready under D-205. Cancellation permissions, start races and listing/retention remain open (D-206). |
 
 D-159/D-160 settle parent-node Undo, retained ordinary alternatives behind a
 toggle and whole-branch exposure/comment visibility, replacing the last-exposure

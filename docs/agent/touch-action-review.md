@@ -73,6 +73,10 @@ and retries never start/shuffle again (T-448–T-454). Preserve own-Ready cleari
 Remaining starter defaults/access/random timing, cancellation/retention and
 lobby/game history boundaries are open. Next useful topic: invitation/lobby
 cancellation and persistence, not another readiness variant.
+D-206 rejects coupling Leave lobby to Cancel game: these must be separate
+actions, and leaving alone must not cancel (T-455). Preserve Ready persistence.
+Cancellation permissions/start races/listing/retention and the other proposed
+invitation defaults remain open; this correction did not approve the bundle.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

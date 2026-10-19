@@ -184,6 +184,17 @@ Starter defaults/access/random-resolution timing and the lobby-versus-game
 history/Undo boundary remain open. These rules do not introduce a separate host
 Start action or require online presence from both participants.
 
+## Leaving the lobby versus cancelling the game — D-206
+
+- **Leaving the lobby and cancelling the game are separate actions.** Leaving
+  alone must not cancel the game; cancellation requires its own explicit action.
+- Preserve D-205: leaving the lobby screen does not withdraw accepted Ready or
+  require both players to remain online.
+- Who may cancel, cancellation-versus-start races, cancelled-game presentation
+  and retention remain open. The assistant's earlier proposal that leaving an
+  accepted lobby cancels the game is rejected. Its other invitation-lifecycle
+  recommendations were not approved by this correction.
+
 ## Initial placement and lobby-only Sideboard — D-202
 
 - In the **lobby**, place each selected deck's **mainboard in Library** and its

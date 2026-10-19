@@ -158,6 +158,18 @@ publication gate. Existing gameplay mutations still synchronize immediately.
 D-108 still requires choosing the starter and beginning turn 1 at Untap without
 automatic card operations merely from entering that step.
 
+## Lobby starter selection — D-201
+
+- Choose the **starting player in the lobby**, offering **either player** and
+  **Random**. Random selects one of the two participants; it is not a separate
+  player or an automatic opening-hand action.
+- Use the selected starter (or recorded random result) as the turn player for
+  **turn 1 at Beginning/Untap** (D-108). Retain random outcomes for retries/review
+  rather than choosing a different starter when recovering the same operation.
+- Initial selection/default, when Random resolves, who can change the selection,
+  re-randomization and effects on Ready remain open. Starter selection does not
+  replace the existing both-player Ready gate or add a host Start action.
+
 ## Game-start shuffle and life — D-200
 
 - **Automatically shuffle each player's Library when the game starts.** This is
@@ -172,9 +184,9 @@ automatic card operations merely from entering that step.
   recorded shuffle orders for review/delivery retries rather than sampling again.
 
 This replaces the assistant's no-automatic-shuffle recommendation and editable
-lobby starting-life proposal. It does not by itself approve the rest of that
-proposal: exact initial area placement and starter-selection access/defaults
-remain open. Exact initialization/history sequencing also remains to be designed.
+lobby starting-life proposal. Exact initial area placement remains open; D-201
+separately confirms lobby starter selection with either player or Random.
+Exact initialization/history sequencing also remains to be designed.
 
 ## Opening hands and mulligan shortcuts — D-192
 
@@ -214,7 +226,9 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
 - Invite/lobby persistence, decline presentation, leaving/cancellation, reconnect and competing Ready/
   setup changes, with no requirement that both players remain online together yet
   decided.
-- Remaining initial arrangement/values and starter-selection access/defaults.
+- Remaining initial arrangement/values and starter-selection defaults, edit
+  access, random-resolution timing and readiness effects. D-201 settles lobby
+  placement and either-player/Random options.
   D-200 settles automatic game-start Library shuffles and 20 starting life, with
   no pregame life setting required. Automatic opening draws are excluded.
   Mulligan counts/default, full-hand return, return → shuffle → draw

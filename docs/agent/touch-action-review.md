@@ -49,12 +49,15 @@ to Arena. D-199 confirms named/renameable decks, cover art from one of a deck's
 cards, re-import Replace/Save as new, and unchanged already selected lobby/game
 copies (T-428–T-432). Do not reopen these choices or interpret metadata controls
 as a full card-list editor. Remaining import/metadata/deletion details are open;
-next useful substantial topic is remaining initial arrangement and starter
-selection, not a tiny cover-art questionnaire. D-200 confirms automatic Library
+next useful substantial topic is remaining initial arrangement, not a tiny
+cover-art questionnaire. D-200 confirms automatic Library
 shuffles on game start and 20 starting life, with no pregame life editor required;
 normal in-game life edits remain (T-433–T-436). The assistant's no-auto-shuffle/
 editable-starting-life proposal is not current behavior. Other proposed initial
 placement and starter-access/default details were not approved by that correction.
+D-201 separately confirms lobby starter selection with either player or Random
+(T-437–T-439). Defaults/edit access, random timing/reselection and readiness effects
+remain open; do not reopen the location or options.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

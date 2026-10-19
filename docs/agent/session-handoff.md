@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-200:** owner requires login before the main
+**Latest setup decisions — D-188–D-201:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -62,9 +62,12 @@ details remain open. D-200 corrects the next setup proposal: automatically shuff
 Libraries on game start; each player starts at 20 life, with no pregame life
 editability required now. Preserve in-game life edits and no automatic draw.
 Shuffling is a game-start operation, not every Untap entry/resume; retries reuse
-recorded orders. See T-433–T-436. The rest of that proposal (initial area layout/
-lobby starter selection access/defaults) was not separately approved. Next useful
-topic: remaining initial arrangement/starter selection, not tiny cover-art variants.
+recorded orders. See T-433–T-436. D-201 separately approves choosing the starter in
+the lobby, offering either player or Random; start turn 1 at Beginning/Untap with
+that starter and retain random outcomes for retries/review (T-437–T-439). Defaults,
+edit access, random timing/reselection and readiness effects remain open. Initial
+area layout is not separately approved. Next useful topic: remaining initial
+arrangement, not reopening starter options or tiny cover-art variants.
 Exact search/contact removal/privacy, remaining invitation lifecycle, other readiness
 details, start-versus-edit races, account flows and other initial values remain open.
 D-108 starter/turn-1 Untap and all gameplay sync/history
@@ -349,7 +352,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-200** and **T-001–T-436**.
+- Current documentation includes **D-001–D-201** and **T-001–T-439**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -1191,10 +1191,12 @@ invoking it in one tap without routine confirmation; Undo handles mistakes.
 No menu, hold, or extra confirmation step is required. Exact geometry and hit
 targets remain later work without weakening the approved one-tap interaction.
 
-Confirmed setup (D-108): choose the starting player during setup; begin turn 1
-at Beginning/Untap without automatic card operations. This initializes tracking,
-not opening-hand draws or a rules-driven setup procedure. Exact setup-screen
-placement, selection defaults, and change/recovery boundaries remain later work.
+Confirmed setup (D-108/D-201): choose the starting player **in the lobby**, offering
+either participant or **Random**; begin turn 1 at Beginning/Untap with that starter.
+Entering the step initializes tracking, not opening-hand draws or a rules-driven
+setup procedure. Exact control layout, defaults, edit access, random-resolution
+timing/reselection, readiness effects and change/recovery boundaries remain open.
+Retain the random starter result for retries/review of the same operation.
 
 D-192 additionally excludes automatic opening draws on game start. D-193/D-194
 require two Library context actions: return the whole hand → shuffle Library →

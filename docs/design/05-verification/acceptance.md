@@ -448,6 +448,9 @@ in-flight delivery recovery remain distinct from supporting offline gameplay.
 | T-434 | A new game starts, then a player manually changes life during play. | Initialize each player at 20 with no required pregame starting-life setting. Preserve normal in-game life controls; the fixed initial value is not a gameplay lock (D-200). |
 | T-435 | Game-start delivery is retried or a client resumes an already started game. | Reuse recorded start shuffle outcomes rather than newly shuffling; do not reset ongoing life to 20. This is recovery of the same start, not starting another game (D-200 and existing idempotent-randomness rules). |
 | T-436 | A started game later enters Untap through phase tracking. | Do not trigger game-start shuffling or reinitialize life merely because Untap is entered. D-108's tracking behavior remains separate from D-200's explicit game-start setup. |
+| T-437 | Players prepare a game in the lobby and explicitly select either participant as starter. | Offer both players as choices and use the selected participant as turn player at turn 1, Beginning/Untap. Choosing a starter is not itself Ready or game start (D-108/D-201). |
+| T-438 | Players select Random as the lobby starter option. | Select one of the two participants and use that result as the starting turn player. Do not treat Random as an extra player or infer an opening draw. Resolution timing/defaults/reselection remain open (D-201). |
+| T-439 | A random starter selection operation is retried or its result is reviewed. | Reuse the recorded result rather than choose another starter for the same operation. This does not decide whether or how a user can explicitly request a new random choice in the lobby (D-201). |
 
 D-159/D-160 settle parent-node Undo, retained ordinary alternatives behind a
 toggle and whole-branch exposure/comment visibility, replacing the last-exposure

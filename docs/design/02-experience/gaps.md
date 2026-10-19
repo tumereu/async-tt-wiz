@@ -36,8 +36,9 @@ obligation or behavior is still proposed:
   cover fallback and replacement metadata retention remain open.
 - D-200 confirms automatic Library shuffling on game start and 20 starting life,
   with no pregame life setting required. No automatic opening draw; in-game life
-  edits remain. Other initial placement/values and starter-selection access/
-  defaults remain open, not automatically approved from the preceding proposal.
+  edits remain. D-201 confirms lobby starter selection with either player or
+  Random. Other initial placement/values, starter defaults/edit access, random
+  timing/reselection and readiness effects remain open.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -77,7 +78,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    deletion/cover fallback/replacement metadata,
    readiness prerequisites/withdrawal/other setup
    changes, start-versus-edit races, remaining initial arrangement/values and
-   starter-selection access/defaults (starting shuffle and life 20 are settled),
+   starter-selection defaults/edit access/random timing/readiness effects (lobby
+   selection with either player or Random, starting shuffle and life 20 are settled),
    remaining mulligan per-card sequencing/concurrent count timing/count edges,
    missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.

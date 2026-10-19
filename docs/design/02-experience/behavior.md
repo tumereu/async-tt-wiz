@@ -52,6 +52,7 @@ The general rules are:
   sideboards there, then each presses Ready. Once both are ready, the game starts.
   Starting automatically shuffles both Libraries and gives each player 20 life;
   no starting-life setting is required. Life can still be edited during play.
+  Choose the starter in the lobby: either player or Random.
   Changing your deck or mainboard/sideboard clears your own Ready; lobby deck
   changes affect only this game, not the saved deck. Other readiness details,
   exact starting setup and remaining invitation lifecycle details are open in
@@ -231,7 +232,9 @@ The general rules are:
 
 ### 8. Turns and shortcuts
 
-- Choose the starter; begin turn 1 at Untap, with no automatic card operations.
+- Choose either player or Random as starter in the lobby; begin turn 1 at Untap.
+  Entering the step does not execute card actions; the game-start shuffle is a
+  separate setup operation.
   Track turn player/number and this fixed MTG sequence:
   **Untap → Upkeep → Draw → Precombat main → Beginning of combat → Declare
   attackers → Declare blockers → Combat damage → End of combat → Postcombat

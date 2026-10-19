@@ -24,8 +24,8 @@ obligation or behavior is still proposed:
   and current-hand-size-minus-one actions in the Library context and as opening
   quick actions. D-194 confirms both return the whole hand before shuffling and
   drawing, with quick visibility only at turn 1's Untap. Remaining shortcut
-  count/sequencing details are open. Lobby sideboarding does not settle an in-game
-  Sideboard area.
+  count/sequencing details are open. D-202 excludes in-game Sideboard access;
+  sideboard preparation is lobby-only.
 - D-198 confirms pasted common MTG text decklists (Arena/MTGO-style), optional
   printing details, standard mainboard/sideboard notation, flagged unresolved
   names without substitution, preserved input and no saving until errors are
@@ -37,8 +37,12 @@ obligation or behavior is still proposed:
 - D-200 confirms automatic Library shuffling on game start and 20 starting life,
   with no pregame life setting required. No automatic opening draw; in-game life
   edits remain. D-201 confirms lobby starter selection with either player or
-  Random. Other initial placement/values, starter defaults/edit access, random
-  timing/reselection and readiness effects remain open.
+  Random. D-202 confirms initial lobby mainboard → Library, sideboard → separate
+  Sideboard, other card areas empty, and no Sideboard access during play.
+  D-203 confirms free lobby transfers between mainboard/sideboard, without legality,
+  size or one-for-one restrictions; D-191 still clears own Ready and isolates saved decks.
+  Further setup values/optional areas, starter defaults/edit access, random timing/
+  reselection and readiness effects remain open.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -77,7 +81,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    remaining import dialect/printing/count details and saved-deck naming defaults/
    deletion/cover fallback/replacement metadata,
    readiness prerequisites/withdrawal/other setup
-   changes, start-versus-edit races, remaining initial arrangement/values and
+   changes, start-versus-edit races, further setup values/optional areas and
    starter-selection defaults/edit access/random timing/readiness effects (lobby
    selection with either player or Random, starting shuffle and life 20 are settled),
    remaining mulligan per-card sequencing/concurrent count timing/count edges,

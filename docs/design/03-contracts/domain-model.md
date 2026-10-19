@@ -164,7 +164,14 @@ email/password login and email password reset. Other users see usernames, not
 account emails; shared game access does not expose account email. Exact recovery/
 session mechanisms and invite credentials remain open. Games initially have a lobby state with deck
 selection and mainboard/sideboard management, and start once both players press
-Ready (D-189/D-190). Exact lifecycle/history representation remains open in the
+Ready (D-189/D-190). D-202 places mainboard in Library and sideboard in a separate
+Sideboard in the lobby, with other card areas initially empty. Play uses the
+prepared mainboard after free lobby mainboard/sideboard transfers (D-203), without
+format-legality, size or one-for-one exchange restrictions. Lobby changes remain
+game-local and clear own Ready (D-191). During play, the lobby sideboard is
+unavailable to game browsing/editing/moves, not merged into Library or deleted
+from the saved deck. Exact setup-data
+retention and lifecycle/history representation remain open in the
 [primary contract](accounts-decks-and-lobby.md).
 
 ## 2.3 Card and object state

@@ -141,6 +141,7 @@ yet a full deck-building editor.
 
 1. A game is initially in a **lobby** state, not immediately in active play.
 2. Players choose decks and manage mainboard/sideboard there.
+   D-202 defines the initial placement and lobby-only Sideboard below.
 3. Each player presses **Ready**. The game starts once **both** players are ready;
    one player's Ready alone does not start it. No separate host Start action is
    required by this flow.
@@ -157,6 +158,29 @@ publication gate. Existing gameplay mutations still synchronize immediately.
 
 D-108 still requires choosing the starter and beginning turn 1 at Untap without
 automatic card operations merely from entering that step.
+
+## Initial placement and lobby-only Sideboard — D-202
+
+- In the **lobby**, place each selected deck's **mainboard in Library** and its
+  **sideboard in a separate Sideboard area**; all other card areas start empty.
+  Players can prepare the mainboard/sideboard there under D-189/D-191.
+- **Freely move cards between mainboard and sideboard in the lobby (D-203).**
+  Allow either direction without enforcing format legality, board-size limits or
+  one-for-one exchanges. This changes only the game's prepared deck and clears
+  the editing player's Ready under D-191; it does not change the saved deck or
+  grant access to Sideboard during play. Exact controls belong to later UI design.
+- When play starts, use the prepared mainboard as the Library, with the automatic
+  shuffle from D-200 and no automatic opening draw (D-192).
+- **Sideboard is not available at all during the game.** Do not expose an in-game
+  Sideboard area, contents browser, or card/action path to view, edit or move cards
+  into/from that sideboard. This is not merely a covered pile or a collapsed dock.
+- This does not delete the saved deck's sideboard or merge those cards into the
+  Library. The saved-deck isolation rules remain. Exact retention of lobby setup
+  data and any later rematch/return-to-lobby flow remain open.
+
+This supersedes older proposals for an in-game Sideboard/extra-container access
+path. It is a product lifecycle boundary, not card-text or sideboarding-legality
+enforcement, and does not approve additional configurable gameplay areas.
 
 ## Lobby starter selection — D-201
 
@@ -184,8 +208,8 @@ automatic card operations merely from entering that step.
   recorded shuffle orders for review/delivery retries rather than sampling again.
 
 This replaces the assistant's no-automatic-shuffle recommendation and editable
-lobby starting-life proposal. Exact initial area placement remains open; D-201
-separately confirms lobby starter selection with either player or Random.
+lobby starting-life proposal. D-202 separately confirms initial placement and
+lobby-only Sideboard; D-201 confirms starter selection with either player or Random.
 Exact initialization/history sequencing also remains to be designed.
 
 ## Opening hands and mulligan shortcuts — D-192
@@ -226,9 +250,10 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
 - Invite/lobby persistence, decline presentation, leaving/cancellation, reconnect and competing Ready/
   setup changes, with no requirement that both players remain online together yet
   decided.
-- Remaining initial arrangement/values and starter-selection defaults, edit
+- Further setup values/optional areas and starter-selection defaults, edit
   access, random-resolution timing and readiness effects. D-201 settles lobby
-  placement and either-player/Random options.
+  placement and either-player/Random options. D-202 settles initial mainboard/
+  sideboard placement, empty other card areas and no in-game Sideboard access.
   D-200 settles automatic game-start Library shuffles and 20 starting life, with
   no pregame life setting required. Automatic opening draws are excluded.
   Mulligan counts/default, full-hand return, return → shuffle → draw

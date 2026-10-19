@@ -73,6 +73,8 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-049 | Save named decks, allow renaming and choose a cover from a deck's cards. Re-import offers Replace or Save as new; changing a saved deck leaves already selected lobby/game copies unchanged (D-199). |
 | P-050 | Automatically shuffle each player's Library on game start and initialize each player at 20 life, with no starting-life setting required now. Do not draw automatically; retain normal in-game life edits (D-200). |
 | P-051 | Choose the starter in the lobby, offering either player or Random; begin turn 1 at Beginning/Untap with that starter (D-108/D-201). |
+| P-052 | Initially in the lobby, mainboard is in Library, sideboard in a separate Sideboard area, and other card areas are empty. Sideboard is unavailable during play, not a hidden accessible pile; play uses the prepared mainboard without merging in sideboard cards or deleting the saved sideboard (D-202). |
+| P-053 | Freely move cards between mainboard and sideboard in the lobby without format-legality, size or one-for-one exchange restrictions. Preserve game-local edits and own-Ready clearing; no in-game Sideboard access (D-191/D-203). |
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.

@@ -53,6 +53,12 @@ The general rules are:
   Starting automatically shuffles both Libraries and gives each player 20 life;
   no starting-life setting is required. Life can still be edited during play.
   Choose the starter in the lobby: either player or Random.
+  Initially in the lobby, mainboard is in Library, sideboard in a separate
+  Sideboard area, and all other card areas are empty. Freely move cards between
+  mainboard and sideboard there, without legality, size or one-for-one restrictions.
+  **Sideboard is lobby-only: it cannot be browsed or used during the game.**
+  Start with the prepared mainboard;
+  do not add the remaining sideboard cards to Library or delete the saved sideboard.
   Changing your deck or mainboard/sideboard clears your own Ready; lobby deck
   changes affect only this game, not the saved deck. Other readiness details,
   exact starting setup and remaining invitation lifecycle details are open in

@@ -78,7 +78,7 @@ password reset by email, and usernames—not emails—visible to other users.
 | Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). Validation, verification, session persistence and exact reset mechanics remain open. |
 | Main menu | Logout, Manage decks and Play (D-188). Username search/add saves contacts without mutual approval (D-196); separate Friends naming/placement remains tentative. |
 | Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Completed-game listing, catch-up state, pending work and branch-change presentation remain proposed. |
-| Game lobby/invite | Invite/accept into lobby (D-195), prepare decks, select either player or Random as starter (D-201), both press Ready (D-189/D-190). Start shuffles Libraries and initializes life 20 without a required starting-life setting or automatic draw (D-200); begin turn 1 at Untap with the selected starter (D-108). Remaining setup/start/lifecycle details are open. |
+| Game lobby/invite | Invite/accept into lobby (D-195), prepare mainboard in Library and sideboard in separate Sideboard, other card areas initially empty (D-202). Select either player or Random as starter (D-201), both press Ready (D-189/D-190). Start shuffles Libraries and initializes life 20 without a required starting-life setting or automatic draw (D-200); begin turn 1 at Untap (D-108). Sideboard is unavailable during play, including browser/move paths (D-202). Remaining setup/lifecycle details are open. |
 | Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename decks, choose a cover from their cards, and re-import with Replace/Save as new; already selected lobby/game copies stay unchanged (D-199). Not a full card-list editor/export feature; remaining import/metadata/deletion details are open. |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |
 | Card/object inspector | Automatically show readable face art/text despite face-down table presentation, and both printed faces for multi-faced cards; modified state, available actions, attachments/history. Inspection does not change shared presentation. |
@@ -88,6 +88,10 @@ password reset by email, and usernames—not emails—visible to other users.
 | Sync/recovery center | Pending/rejected/failed work, explicit interruptions, retry/export/recover. |
 | Game communication | Context-linked messages, response requests, game activity. |
 | Settings/storage | Notifications, accessibility, cached data, account and data management. |
+
+Lobby preparation permits free transfers between mainboard and sideboard, without
+legality, size or one-for-one constraints (D-203). These clear own Ready and leave
+saved decks unchanged (D-191); Sideboard remains unavailable during play (D-202).
 
 D-69 card notes show short text directly on the card; long text may be
 ellipsized as the initial presentation, with full text in inspection/editor.

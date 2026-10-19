@@ -50,7 +50,8 @@ The app remembers and presents what happened; the players interpret the rules.
 - Entry requires login, with registration available. Manage decks currently
   imports card lists only. Play includes current games and pending invites;
   games begin in a lobby with deck selection and mainboard/sideboard preparation,
-  and start when both players press Ready.
+  and start when both players press Ready. Sideboard is lobby-only and is not
+  available during play.
 - Two players, native Android, manual play and asynchronous review are confirmed.
   **Initial delivery requires a connection for game actions (D-182).** Downloaded
   games remain readable offline; offline action creation and later queue replay

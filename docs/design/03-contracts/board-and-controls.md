@@ -100,8 +100,14 @@ The engine does not interpret those labels.
   while later card edits/moves through them affect the originals (D-123).
   Its layout and lifecycle are not settled by this older conceptual sketch.
 - Hands use an expandable fan/row rather than consuming the whole battlefield.
-- Extra labeled areas remain reachable through an expandable dock; a manual
-  MTG layout may name some Command, Sideboard, or Outside game.
+- Extra labeled areas, such as Command or Outside game, remain a proposed
+  expandable-dock capability. **Sideboard is lobby-only (D-202)**, not an in-game
+  extra area: no dock, contents browser, or view/edit/move path exposes it during
+  play. Initial lobby placement is mainboard in Library, sideboard in its separate
+  Sideboard area, and all other card areas empty; see the
+  [setup contract](accounts-decks-and-lobby.md#initial-placement-and-lobby-only-sideboard--d-202).
+  D-203 permits free mainboard/sideboard transfers in that lobby without legality,
+  size or one-for-one restrictions; own Ready clears and saved decks stay unchanged.
 - Player controls and review/undo stay reachable while the table pans/zooms.
 - Exact sizing, dock placement, large-screen layouts, and whether both zone
   docks fit at the default phone zoom require annotated wireframes.

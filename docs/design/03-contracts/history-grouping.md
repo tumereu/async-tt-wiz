@@ -1,6 +1,6 @@
 # Automatic history grouping — action inventory
 
-**Status:** D-162–D-171 confirm the rules identified below. Tentative owner ideas
+**Status:** D-162–D-174 confirm the rules identified below. Tentative owner ideas
 and assistant recommendations remain explicitly proposed. This is not a final
 action schema or an expansion of release scope.
 
@@ -36,7 +36,7 @@ still determines when it exists. Grouping never retroactively exposes a ping at
 an earlier node. This replaces the assistant's proposed separate ownership
 question, not the preservation of recorded ping context/numbering.
 
-## Confirmed grouping rules (D-163–D-171)
+## Confirmed grouping rules (D-163–D-174)
 
 **First rule, higher precedence than every other row (D-170):** a different
 action author always starts a new group. No forward/backward companion, matching
@@ -50,7 +50,10 @@ category or no-artificial-reset rule may bridge that author boundary.
 | Same-location card moves | The tuple model includes repeated Battlefield → Battlefield rearrangements; it does not require a separate grouping rule for each card or physical position. |
 | Projection creation onto Stack | Never group it with actual-card moves or another projection creation. Each Stack projection can group with taps and pings. Do not group repeated effects merely because they share a source. |
 | Real-card Stack moves | D-164 also isolates real-card Stack actions rather than grouping them by move tuple, so individual entries remain separately visible like Stack projections. Taps/pings remain the established companions. No casting/activation label or rules effect is inferred. |
-| Ordinary card edits and token removal | D-165/D-169/D-171 group card edits together, including counter/corner/text/note, manual face/cover edits and explicit token removal across cards. More-specific move/tap/Stack rules still apply. Player-explicit spells/abilities stay separately represented on Stack. Token creation/Clone and real-card Remove remain open. |
+| Ordinary card edits and token removal | D-165/D-169/D-171 group card edits together, including counter/corner/text/note, manual face/cover edits and explicit token removal across cards. More-specific move/tap/Stack rules still apply. Player-explicit spells/abilities stay separately represented on Stack. Token creation/Clone is covered below. |
+| Token creation and Clone | D-173: group token creation and Clone together, including interleaved customization edits: `[create token; edit; Clone; edit]`. Keep fresh independent token identities and every node; this is not projection creation. Do not infer a rule for arbitrary mixed categories. |
+| Player values/counters and persistent links | D-172: player value/counter edits and persistent-link creation/removal join the same ordinary edit family as card edits and token removal, not separate per-target/per-field families. Example: `[card counter; life change; link creation; card note]`. This does not classify participant-association edits or infer damage/targets. |
+| Event comments | D-172: join the preceding group without starting a new one, e.g. `[Stack entry; comment]`. Author changes still start a new group. Comments keep their own retained nodes; they do not merge Stack entries or become game-wide Chat. Historical placement and revision/edit/delete remain open. |
 | Combat projection creation/repositioning | Combat projections group together; D-166 extends this to combat repositioning of any kind, including role/slot/order changes. Projection removal and area creation are not silently classified as repositioning. |
 | View/Reveal display dismissal and combat closure | D-166: do not attach the dismissal/closure backward to the displayed-area group. Put it with the following action. Group-level review shows the display/combat state, then the next step applies closure plus the following action. Keep the closure node itself inspectable. |
 | Shuffle | D-167 groups successive Shuffles of the same target together. Different targets do not match; this is target identity, not simply both being Libraries. |
@@ -60,6 +63,10 @@ category or no-artificial-reset rule may bridge that author boundary.
 | Different action authors | D-170: highest-precedence new-group boundary, overriding all other rules including pings. This is the actor, not which participant's cards were edited. |
 
 These are literal presentation rules, not casting/payment/ability interpretation.
+**D-174 scope restriction:** non-token cards never disappear during play and have
+no Remove/delete action. There is no grouping case to decide for that rejected
+action. Token disappearance/removal and occurrence-only projection removal remain
+distinct supported operations.
 They preserve immediate publication and every effective node boundary. An existing
 group can grow without a Done button; waiting for a next action is not permission
 to delay publication of taps or other completed actions.
@@ -102,8 +109,8 @@ retained nodes are impossible.
 1. **Remaining same-author precedence:** author changes are already settled by
    D-170. Specify how forward companions meet isolated Stack entries or a
    backward tracking edit, rather than allowing both to erase the intended stop.
-2. **Other action families:** participant counters/values/associations, persistent
-   links, event comments, token creation/Clone/real-card Remove, View/Reveal opening
+2. **Other action families:** participant-association edits,
+   View/Reveal opening
    and inspection, combat-area creation and combat/Stack occurrence removal still
    need explicit categories. Do not turn “all card edits” into a universal rule
    overriding the separately approved move/projection actions.
@@ -131,13 +138,13 @@ changes or event mapping.
 | Combat occurrences/area | Create/close combat; declare with/without tapping; create/reuse projection by drag; role/slot/order changes; Remove from combat. | A-019, A-034 | D-163/D-166: projection creation/repositioning group; closure groups forward. Area creation/occurrence removal remain open. |
 | Stack occurrences | Create an ability projection, rearrange occurrences, remove one effect; keep actual-card exits under transfer. | A-035, A-036 | D-163: each Stack projection creation is isolated from moves/other projection creation, but groups with taps/pings. Layout/removal classification remains open. |
 | Card text/counters | Counter +/-/Set/remove; corner +/-/Set/Reset; card note and other descriptive-field edits. | A-010, A-018, A-020, A-024 | D-165/D-169/D-171: ordinary card/face/cover edits and token removal group together, not restricted to one card/field. |
-| Participant values/associations | Player counters and named values, named tracking sets, manual participant associations. | A-009, A-010, A-011, A-020, A-023 | Does an edit annotate preceding play or start a new group? Which repeated targets/fields can share one? No inferred damage or ownership changes. |
+| Participant values/associations | Player counters and named values, named tracking sets, manual participant associations. | A-009, A-010, A-011, A-020, A-023 | D-172: value/counter edits join the ordinary edit family across cards/players/fields. Participant-association edits remain open. No inferred damage or ownership changes. |
 | Shared faces/cover | Turn face down/up; switch printed face; explicit visual-composite changes. | A-007, A-008, A-018, A-025 | D-169: ordinary manual face/cover edits group with card edits; explicit spells/abilities stay separate on Stack. See rules evidence above. Broader visual-composite scope remains separately proposed. |
 | Inspection and reference displays | Logged covered-face inspection; full contents View; View/Reveal top/bottom N; dismiss a display. Already-visible inspection/navigation is not automatically a recorded exposure. | A-006, A-007 | D-166: dismissal groups forward, not with opening. Opening/inspection categories remain open. |
-| Creation/removal | Catalog token, Blank token, Clone, explicit real-card/token Remove; broader custom pieces only if approved. | A-003, A-013, A-014, A-016, A-021, A-024 | D-171: token removal joins ordinary card edits. Token creation/Clone and real-card Remove remain open. Distinguish source-card Remove from occurrence removal. |
-| Persistent links | Create/remove binary links, including selected-source fan-out and occurrence endpoints. | A-017, A-019 | Attach to earlier play, prepare later play, or form their own repeated-edit group? Pings are different. |
+| Creation/removal | Catalog token, Blank token, Clone, explicit token Remove; broader custom pieces only if approved. | A-003, A-013, A-014, A-016, A-021, A-024 | D-171: token removal joins ordinary card edits. D-173: token creation/Clone groups together with interleaved customization. D-174 forbids non-token Remove entirely; it is not an open grouping case. Distinguish token removal from occurrence removal. |
+| Persistent links | Create/remove binary links, including selected-source fan-out and occurrence endpoints. | A-017, A-019 | D-172: link creation/removal joins the ordinary edit family, including card/player edits. Links remain persistent connectors, not pings or inferred targets. |
 | Pings | Ping/Unping through mode or context action; selected-set changes; explicit historical association. | A-015, A-019 | D-168/D-170: no ping-start marker or ownership-selection step unless the higher-precedence author change requires a new group. First/root context and numbering remain open. |
-| Event comments | Submit an event-linked comment; revision/edit/delete behavior is separately unfinished. | A-028 | Which action/group does it explain, and does it affect grouping of subsequent actions? Comments remain ordinary retained nodes. |
+| Event comments | Submit an event-linked comment; revision/edit/delete behavior is separately unfinished. | A-028 | D-172: join the preceding group without a new group-start marker, subject to D-170. Comments remain ordinary retained nodes. Historical placement and revision/edit/delete remain open. |
 | Tracking and combined shortcuts | Next step, direct phase/step choice, End turn, Untap/Draw + advance, advance-and-close; use existing constituent event mappings. | A-008, A-022, A-034 | D-171: tracking joins the previous group, subject to D-170. Same-author compound precedence remains open. Keep approved nodes. |
 | Random tools | Roll die, Flip coin, Shuffle all; other random selection only if approved. | A-006, A-027 | D-167/D-171: same-target Shuffle groups; dice/coin runs start separately from prior play and attach forward. Stored results/exposure retention are unchanged. |
 | Setup/lifecycle | Setup configuration/initialization/correction, result/concession, rematch; import/custom authoring remains proposed scope. | A-001–A-004, A-026, A-029, A-030 | Which enter ordinary game history, and which need dedicated setup/lifecycle presentation? First settle the underlying scope where unfinished. |
@@ -153,8 +160,8 @@ classify separately unless an approved event mapping says so.
 1. Apply the confirmed rules rather than reopening real-card Stack isolation,
    same-tuple tap interleaving, combat rearrangements, closure direction, Undo
    continuation or the highest-precedence author boundary (D-170).
-2. Do not reopen D-169/D-171's approved face/cover and token-removal grouping,
-   forward dice/coin runs or backward tracking. Resolve only genuine remaining
+2. Do not reopen D-169/D-171/D-172's approved edit-family membership,
+   backward comments/tracking or forward dice/coin runs. Resolve only genuine remaining
    same-author precedence conflicts with concrete mixed sequences.
 3. Finish remaining action categories and first/leading-only/historical contexts
    without introducing an unnecessary ping ownership-selection workflow.

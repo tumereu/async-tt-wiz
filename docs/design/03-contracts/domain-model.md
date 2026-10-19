@@ -100,9 +100,10 @@ D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
 nodes on the ordinary tree path. The current path is already a branch; no
 comment-only fork entity/activation mechanism is required. Undo retains that
 whole abandoned continuation visibly if it contains an event comment (D-160).
-Exact message/
-comment schemas, group association, revisions/edit/delete, and unsent-delivery
-policies remain open; do not give all Message records one shared Undo policy.
+D-172 groups comments with preceding same-author play; D-170 still separates
+authors. Exact message/comment schemas, historical association, revisions/edit/delete
+and unsent-delivery policies remain open; do not give all Message records one
+shared Undo policy.
 
 The [visual action language](visual-action-language.md) presents literal
 operations and associated pings together. No cast/target legality objects,
@@ -177,10 +178,16 @@ Graveyard, or Exile from current state, rather than retaining them in the pile.
 This is declared destination behavior, not card-text/type/label-driven inference.
 Retain historical identity and prior fields for undo/recovery; exact reference
 handling and record composition remain open. D-85 applies across move controls:
-mixed selections move ordinary cards normally and remove tokens. It also confirms
-context Remove of ordinary cards/tokens, including selections, without a pile
-move or routine confirmation. Completed removals auto-queue/sync and retain
-undo/history. No broader token expiry rule is inferred.
+mixed selections move ordinary cards normally and remove tokens. Context Remove
+is token-only under D-174, superseding D-85's ordinary-card removal. Completed
+token removals auto-queue/sync and retain undo/history, without a pile move or
+routine confirmation. No broader token expiry rule is inferred.
+
+**D-174 invariant:** non-token cards do not disappear during gameplay. They
+remain game objects and move between locations; no Remove/delete operation,
+including a bulk/correction or projection entry point, may delete them. Token
+disappearance and occurrence-only projection removal are distinct supported
+operations. This does not change parent-pointer Undo or retained history.
 
 A move normally changes only specified container/position/layout fields and
 preserves counters, corner text, orientation, notes, links, and participant
@@ -201,8 +208,8 @@ D-76 makes destination taps toggle ping presence rather than add duplicates.
 Changing events exits local Ping input mode; historical display does not
 automatically re-enable it. Exact location matching and revision schema remain
 open, without discarding recoverable earlier ping states.
-Historical pings store their action/boundary context. Moving or deleting a
-referenced card does not retarget a ping to a different object; show its original
+Historical pings store their action/boundary context. Moving a referenced card
+or removing a referenced token does not retarget a ping to a different object; show its original
 context when the object is absent from the viewed state. The engine does not
 decide whether a relationship is still valid in a game's rules.
 
@@ -334,7 +341,7 @@ D-123 settles that source and projections share live card state: no independent
 projection corner text, counters, notes, faces/cover, or orientation. Card actions
 through either view operate on the real source. A projection dragged to a real
 destination moves that source with ordinary validation/reset/token-removal
-behavior. Duplicate-source selection, card-Remove versus occurrence-Remove entry,
+behavior. Duplicate-source selection, token-Remove versus occurrence-Remove entry,
 and link/ping endpoint routing remain separate behavior questions.
 
 D-122 removes the combat area and its projections/projection links without
@@ -343,12 +350,13 @@ prior edits made through projections. D-127 requires explicit closure, with an
 advance-out-of-combat + close shortcut; ordinary phase/turn changes do not close
 the area. Exact cleanup/history/concurrency composition remains open.
 
-D-124/D-125 distinguish occurrence lifetime by role. Any removal of a real card
+D-124/D-125 distinguish occurrence lifetime by role. Any departure of a source card
 from the battlefield removes its combat projections and their incident links,
 regardless of the operation's entry point. The same source departure/removal
 leaves Stack effect occurrences intact until explicit removal/resolution, even
 if the source was moved through that Stack projection or a token ceased to
-exist. A surviving effect need not have a currently existing actual source card;
+exist. Non-token cards cannot be deleted under D-174. A surviving effect from a
+removed token need not have a currently existing actual source card;
 missing-source presentation/inspection and card-action applicability need design.
 Do not fabricate a replacement card. Exact cleanup/history/concurrency composition
 also remains open.
@@ -425,7 +433,7 @@ D-144 supplies a Remove from combat context action for one or several selected
 combat occurrences. Remove only those projections/incident links, not real cards
 or Stack effects. Preserve surviving slot membership/order; remove fully empty
 pairs without closing the area. Whole-user-action Undo restores occurrences,
-roles/slots/order/links and pairs removed by cleanup. Source-card Remove and
+roles/slots/order/links and pairs removed by cleanup. Token-source Remove and
 real-source/mixed-selection access remain distinct review cases.
 
 D-145 gives each newly declared attacker its own pair when using declaration

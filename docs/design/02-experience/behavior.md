@@ -148,8 +148,9 @@ The general rules are:
 - Clone creates one independent **token** per selected card, even from an ordinary
   card. Copy face, covering, orientation, corner text, counters, notes, and retained
   defaults, but not links/pings. No Repeat last token or separate custom-token form.
-- Remove takes cards/tokens out of current state without a pile move or routine
-  confirmation. Removal and token disappearance remain recoverable.
+- Non-token cards never disappear during play: they move between locations and
+  have no Remove/delete action. Remove is available for tokens only, without a
+  pile move or routine confirmation. Token removal/disappearance remains recoverable.
 - Roll die gives one result, default d6 with optional sides; Flip coin gives one
   heads/tails result. Record who requested what and the outcome, without changing
   cards/counters. Every new roll/flip/shuffle is fresh, including after Undo.
@@ -189,8 +190,9 @@ The general rules are:
   remove one projection without removing its source or sibling effects.
 - **All card edits through projections affect the real card**, including a move
   into a real destination. Removing/repositioning an occurrence is different from
-  editing/removing its source. Source departure from Battlefield removes its
-  combat occurrences, but **not Stack effects**, even if the source is deleted.
+  editing/moving its source or removing a token source. Source departure from
+  Battlefield removes its
+  combat occurrences, but **not Stack effects**, even if a token source disappears.
 
 ### 8. Turns and shortcuts
 
@@ -232,7 +234,10 @@ The general rules are:
   tuple, including Battlefield → Battlefield rearrangements and taps interleaved
   between matching moves. Real-card Stack moves and each Stack projection creation
   remain separately visible, with taps/pings as companions. Ordinary card edits,
-  including manual face/cover changes, and token removal group together; combat
+  including manual face/cover changes, token removal, player values/counters and
+  persistent-link creation/removal group together. Token creation and Clone group
+  together with interleaved customization edits. Event comments join the previous
+  group without starting a new one; combat
   projection creation/repositioning groups together.
   Display dismissal/combat closure belongs with the next action, not the displayed
   state's group. Same-target Shuffles group; dice/coin runs start separately from

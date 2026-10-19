@@ -167,7 +167,8 @@ D-73 excludes separate Attach/follow-group controls initially. Binary links
 stay visual; use explicit multi-selection for joint card movement. G-08's core
 mode/context controls are confirmed through D-80; destination location matching,
 other gesture arbitration, menu lifetime, and revisions remain open.
-Exact action/group/history placement still needs later detailed review.
+D-172 groups persistent-link creation/removal with ordinary card/player edits.
+Exact event mappings and historical placement still need detailed review.
 
 ## 11.5 Branches, history, and recovery
 
@@ -203,8 +204,10 @@ another node on the current tree path, already a branch; undo moves back while
 retaining that existing path through the comment. No separate comment-only fork
 or activation workflow. Normal tree/base rules apply, and comments are retention
 visibility qualifiers for the whole abandoned continuation under D-160. Card
-notes/pings stay distinct. Exact group association,
-revisions/edit/delete, and unsent-chat delivery policies remain open.
+notes/pings stay distinct. D-172 makes event comments join the preceding group
+without a new group-start marker; D-170's author-change boundary still wins.
+Historical placement, revisions/edit/delete and unsent-chat delivery policies
+remain open.
 
 Common physical operations and pings need no explanatory text or mandatory
 labels. A participant may create a generic note/token with a label such as

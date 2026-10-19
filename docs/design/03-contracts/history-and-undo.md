@@ -144,10 +144,13 @@ execution that the platform cannot guarantee. Exact latency targets remain open.
 
 Groups affect presentation and notifications, never atomicity or interruptibility.
 
-D-162–D-171 specify sequence-based presentation groups and timeline group-start
+D-162–D-174 specify sequence-based presentation groups and timeline group-start
 markers. Same non-Stack move tuples group, including interleaved taps; real-card
 Stack moves and Stack projection creations remain separately visible. Ordinary
-card edits, manual face/cover edits and token removal group together. Combat
+card edits, manual face/cover edits, token removal, player values/counters and
+persistent-link creation/removal group together. Token creation and Clone group
+together with interleaved customization edits. Event comments join the preceding
+group without starting a new one. Combat
 projection creation/repositioning groups together; View/Reveal dismissal/combat
 closure belongs with the following action. Same-target
 Shuffles group; dice/coin runs start separately from prior play and attach to the
@@ -158,6 +161,11 @@ the highest-precedence author-change boundary, remaining action families and
 the MTG face-change rules check. Presentation groups still never change node-level
 Undo or interruption. Exact action/event mappings are not all complete;
 one invocation = one group is not adopted.
+
+D-174 forbids non-token Remove/delete entirely: cards move between locations,
+not out of the game. Token removal/disappearance remains supported, distinct from
+projection removal. There is no automatic-grouping question for a non-token
+Remove action, and this restriction does not change pointer-based Undo/history.
 
 D-129 distinguishes invocation, tree event, and presentation group. D-159/D-160
 set **one parent-node move per Undo**, replacing D-131's whole-invocation scope.
@@ -198,7 +206,7 @@ D-124/D-125 require area-specific projection lifetime in recorded states: source
 departure removes combat projections/incident links, whereas Stack effects
 survive until explicitly removed/resolved. Retain enough occurrence/source/link
 context for normal undo, branch review, and downloaded offline recovery, including
-Stack effects with removed sources. Exact cleanup operation/undo composition and
+Stack effects with removed token sources. Exact cleanup operation/undo composition and
 concurrent reference handling remain under review; do not apply one universal
 projection-removal rule in replay or recovery.
 

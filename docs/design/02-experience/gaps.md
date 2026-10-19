@@ -44,12 +44,16 @@ old future after a response. Exact overall release scope still needs sign-off.
 1. **Setup and release scope.** From invitation/deck import to a playable table:
    supported formats, starting arrangement/values/hands, missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.
-2. **History groups and pings.** D-162–D-171 establish the core sequence/marker
+2. **History groups and pings.** D-162–D-174 establish the core sequence/marker
    model, including real-card Stack isolation, same-tuple tap interleaving, grouped
    card/combat edits, forward display/combat closure and no ping/Undo markers.
    Manual face/cover edits join card edits; author changes override every other
    grouping rule. Token removal joins card edits; dice/coin runs attach forward
    separately from prior play; phase/turn tracking joins the previous group.
+   Player values/counters and link edits share the ordinary edit family; event
+   comments join the previous group without starting a new one. Token creation
+   and Clone group together with interleaved customization. Non-token Remove is
+   forbidden, not an open grouping case.
    Remaining: same-author precedence, other action families, leading-only/first
    contexts, mixed-tuple/compound/extra-location cases and numbering mutations.
    No separate ping ownership picker is needed. See the
@@ -65,9 +69,10 @@ old future after a response. Exact overall release scope still needs sign-off.
 4. **Concurrent/offline continuations.** Conflict-line activation, simultaneous
    switches, queued descendants on inactive lines, and stale non-Undo branch controls.
    Forking/no lost work are confirmed; the detailed no-ping-pong protocol is proposed.
-5. **References and projection controls.** Removing an occurrence versus its real
-   card; surviving Stack effects after source deletion; duplicate-source
-   selections; mixed link/ping endpoints; removed cards in View/Reveal displays.
+5. **References and projection controls.** Occurrence removal versus token-source
+   removal (non-token cards cannot be deleted); surviving Stack effects after
+   token disappearance; duplicate-source selections; mixed link/ping endpoints;
+   removed tokens in View/Reveal displays.
 6. **Combat/Stack entry and destinations.** Dragging before combat exists,
    remaining between-pair targeting, attack destination/player association,
    real-card versus projection Stack entry/order, quick-exit fallbacks for

@@ -595,9 +595,13 @@ Confirmed context-Ping behavior (D-79, selected-set rule revised by D-80):
    independently invert members or use an any/all-selected test (D-80).
    Exact context routing remains Q-30.
 
-Detailed revisions, association, other gestures, and grouping remain later
-review. Earlier required one-shot and P-15 drag-handle proposals are replaced by
-the mode direction; D-78 separately adds a context shortcut.
+Current grouping rules are in the [grouping contract](../design/03-contracts/history-grouping.md):
+D-168/D-170 give same-author pings no group-start marker, with author changes
+always splitting. D-172 puts persistent-link creation/removal in the ordinary
+card/player edit family. Historical association, numbering mutations, other
+gestures and remaining grouping cases still need review. Earlier required
+one-shot and P-15 drag-handle proposals are replaced by the mode direction;
+D-78 separately adds a context shortcut.
 
 ## 12.11 G-09: Creation, copies, and removal
 
@@ -638,14 +642,16 @@ in the destination. Retain history/undo recovery. Explicit per-instance token
 status, not card text/type/labels, determines this behavior. Exact records and
 removed-reference handling remain open.
 
-Confirmed removal controls (D-85):
+Confirmed removal controls (D-85, restricted by D-174):
 
 1. Apply token disappearance equally to context Move and other explicit moves
    into those three destinations. Mixed sets move ordinary cards normally and
    remove tokens; do not skip tokens or drop unrelated objects.
-2. Card/token context Remove supports selection scope, removes from current state
+2. Token context Remove supports token-selection scope, removes from current state
    rather than moving to a pile, and auto-queues/syncs with undo/history and no
-   routine confirmation dialog.
+   routine confirmation dialog. Non-token cards have no Remove/delete action;
+   bulk, correction and projection paths cannot delete them (D-174). Exact mixed
+   selection offerings/routing remain open within that restriction.
 
 Confirmed blank-token scope (D-86): one Blank token entry in the normal catalog
 replaces the proposed custom-token name/corner form. Creation is the same one-
@@ -850,7 +856,7 @@ behavior. Creating/assigning projections still preserves source placement.
 D-124/D-125 replace a universal projected-move cleanup proposal: anything taking
 the real card off the battlefield removes its combat projections/incident links,
 but its Stack effects remain until explicitly removed/resolved. This is independent
-of which occurrence/source invoked the move; Stack effects survive source removal
+of which occurrence/source invoked the move; Stack effects survive token-source removal
 too. Missing-source display/inspection/card-action applicability remains open.
 
 Confirmed D-126/D-139: when an attacker leaves, surviving cards stay grouped in
@@ -950,8 +956,9 @@ Confirmed D-144: Remove from combat is a context action for one or several selec
 combat projections. Remove only those occurrences/incident links, preserving real
 source state, Stack effects, other cards' grouping/order, and the open combat area.
 Clean up fully empty pairs normally. One Undo restores occurrences/roles/slots/
-order/links and cleaned-up pairs. Real-source/mixed-selection access, source-card
+order/links and cleaned-up pairs. Real-source/mixed-selection access, token-source
 Remove entry, drag-back behavior, menu layout, and event/concurrency remain open.
+Non-token source Remove is unavailable under D-174, not an unfinished feature.
 Confirmed D-145: declaration shortcuts place each newly declared attacker in its
 own pair by default; existing attackers retain slots/grouping/order, including
 existing multi-attacker groups. Collection drags still share the chosen slot.

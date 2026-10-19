@@ -28,9 +28,10 @@ D-122 removes combat projections/links without moving/untapping originals or
 undoing prior edits. D-123 makes card actions through projections affect the real
 card, including destination drops such as Graveyard. They are live views with
 shared card fields, not independent snapshots. Exact occurrence cleanup versus
-source-Remove routing remains open. D-124 removes combat projections when their
+token-source Remove routing remains open; non-token cards have no Remove action
+(D-174). D-124 removes combat projections when their
 source leaves the battlefield; D-125 leaves Stack effects until explicit removal/
-resolution, even after source removal. Missing-source Stack display/inspection/
+resolution, even after token-source removal. Missing-source Stack display/inspection/
 card actions remain behavior work, not UI drafts. D-126 keeps surviving blockers
 in their existing slot after attacker removal. D-139 retains the remaining visual
 group with other attackers, or a blocker-only pair if the final attacker leaves;
@@ -209,8 +210,10 @@ decided before implementation.
 - D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile from the
   current table rather than retaining them in the pile. This includes clones of
   ordinary cards. All move controls share this behavior; mixed sets move ordinary
-  cards normally and remove tokens. Context Remove also supports cards/tokens and
-  selections without a pile move or routine confirmation. Queue/sync and retain
+  cards normally and remove tokens. D-174 restricts context Remove to tokens and
+  token selections, without a pile move or routine confirmation. Non-token cards
+  remain in the game and move between locations; do not offer deletion through
+  any normal, bulk, correction or projection path. Queue/sync and retain
   undo/history; exact mixed-set records, routing/menu lifetime, and reference
   presentation remain under review.
 - D-86 provides a Blank token entry in the ordinary catalog, not a separate

@@ -40,22 +40,22 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
 | A-012 | Labeled-area movement | Move cards to/from areas such as Stack (renamed from Cast, D-113); record actual origin/destination, not inferred casting/payment/resolution. D-112–D-114 separately add explicitly chosen projections and contextual Stack actions. |
 | A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
-| A-014 | Pile order/edit | Reorder, duplicate, move, or remove selected objects in any pile; no built-in stack-resolution command. |
+| A-014 | Pile order/edit | Reorder, duplicate or move selected objects in any pile. Remove is token-only under D-174; non-token cards remain in the game. No built-in stack-resolution command. |
 | A-015 | Group/event-scoped pings | D-74–D-80 confirm event-scoped mode/toggles, retained review, selection-preserving switching, consumed ordinary taps, and one standard marker. Context Ping/Unping uses the menu-trigger card's state and applies uniformly to its selected-set scope without mode changes. Location matching, routing/menu lifetime, and revisions remain open. |
 | A-016 | Custom objects/copies | D-81–D-86 confirm single automatically placed catalog tokens (including one Blank entry), token-producing Clone with copied fields but no links/pings, and removal. No quantity/preview/Repeat shortcut or dedicated custom-token form. Exact placement/initialization, association fields, broader authoring, and boundaries remain open. |
 | A-017 | Generic visual links | D-70–D-73 confirm binary undirected unique pairs, context picking, fan-out/removal, and independent movement. Repeated Link preserves pairs; no labels/styles or separate initial Attach/follow tool. Joint movement uses explicit multi-selection. |
 | A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting game meaning. D-52/D-53 add plain corner text with pattern shortcuts; D-69 adds multiline card notes with short on-card text, optional long-text ellipsis, full inspection, and empty-text removal. |
 | A-019 | Board markers/connectors | D-119 adds event-wide ping order numbers. D-120 supports links between projections that disappear with endpoints. D-112/D-118 separately require explicit assigned/unassigned blocker projections and adaptive combat spacing; no inferred legality/damage from pings/links. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
-| A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. Context Remove applies to ordinary cards/tokens and selections, no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact routing/references/boundaries remain open. |
+| A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. D-174 restricts context Remove to tokens: non-token cards never disappear during play and have no Remove/delete action. Token Remove has no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact mixed-selection routing/references/boundaries remain open. |
 | A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106–D-108 add one-tap End turn/no number editor and starter/turn-1 setup. D-105 removes priority; D-109 leaves extra turns manual/approximately counted. D-111 advances combined shortcuts despite no untap changes or empty Library, with no inferred loss. Exact controls/schema/boundaries remain open. History/undo/branches/offline/sync apply; arbitrary markers remain separate. |
 | A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
 | A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
 | A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
 | A-026 | Additional containers | Access/configure extra labeled containers and move cards between them; no outside-game or sideboarding restrictions. |
 | A-027 | Randomness | D-87/D-92/D-93 confirm one-die Roll, Flip coin, fresh draws for new die/coin/Shuffle invocations (including after undo), and auto-synced stored results/orders reused for review/redo/retries. No opponent-action seed reset. Other random controls and exact generator/source/input/offline protocols remain open. |
-| A-028 | Communication | D-94 game-wide Chat is not undoable. D-95 event comments are ordinary current-path nodes retained even after undo, without a special comment-only branch mechanism. Exact comment/group association, revision/edit/delete, and unsent-chat policies remain open; card notes/pings and other proposed communication tools stay distinct. |
-| A-029 | Correction | Edit any supported tabletop field, add/remove mistaken objects, and bulk-correct state with a preview. |
+| A-028 | Communication | D-94 game-wide Chat is not undoable. D-95 event comments are ordinary current-path nodes retained even after undo, without a special comment-only branch mechanism. D-172 groups comments with preceding same-author play, subject to D-170. Historical association, revision/edit/delete and unsent-chat policies remain open; card notes/pings and other proposed communication tools stay distinct. |
+| A-029 | Correction | Edit supported tabletop fields and bulk-correct state with a preview. D-174 forbids non-token card deletion even as a correction; token removal and existing move/Undo controls remain available. Broader authoring/correction scope remains proposed. |
 | A-030 | Completion | Concede, record win/loss/draw or agreed result, reopen via undo, start rematch retaining completed history. |
 | A-031 | History controls | D-159/D-160: Undo moves the shared active pointer one parent back, regardless of author; retain all nodes for tree-based forward return. After replacement play, hide ordinary abandoned continuations behind Show hidden branches; keep whole exposure/comment continuations visible. D-161 silently discards a targeted Undo transition if no longer valid and reconciles local state. Review alone does not activate. Non-Undo branch controls and forward presentation remain open. |
 | A-032 | Export | Export decks and a complete game/history archive with declared information exposure. Exact formats remain open. |
@@ -72,10 +72,11 @@ structural/applicability validation remains. Exact menu paths are stage 3.
 D-123 applies normal card actions through projections to the real source card,
 not a local copy. This includes moves into Graveyard/other destinations with
 normal resets and token-removal exceptions. Projection/area lifecycle removal is
-distinct from source-card Remove; exact entry remains under review. D-124 removes
+distinct from token-source Remove; non-token cards have no Remove action (D-174).
+Exact token/occurrence entry remains under review. D-124 removes
 combat projections when the real card leaves the battlefield, regardless of
 entry point. D-125 retains Stack effects until explicit removal/resolution,
-including when their source moves or ceases to exist. A real-card move through a
+including when their source moves or a token source ceases to exist. A real-card move through a
 Stack projection does not itself remove that effect. D-126 keeps surviving
 blockers in their existing slot when an attacker disappears; D-139 retains the
 remaining group, with a blocker-only pair when its final attacker leaves;
@@ -124,7 +125,8 @@ D-144 adds Remove from combat as a context action for one or several selected
 combat projections, leaving real cards/Stack effects unchanged. Remove incident
 links and fully empty pairs normally, preserving remaining grouping/order and the
 open area. One Undo restores occurrences and cleaned-up slot/link context;
-source-card Remove and real-source/mixed-selection access remain separate cases.
+token-source Remove and real-source/mixed-selection access remain separate cases;
+no non-token source deletion is available (D-174).
 D-152 handles declarations of existing blockers: move each existing occurrence
 into its own new attacker pair, preserving identity/links rather than duplicating
 it. Apply the chosen tapping variant, retain other origin grouping, and remove

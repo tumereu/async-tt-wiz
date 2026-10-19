@@ -34,15 +34,16 @@ The owner requested commit/push after the design work and explicitly approved
 including the existing uncommitted tier reorganization with these Undo changes.
 No implementation or later-stage transition is authorized.
 
-## Grouping-design checkpoint — D-162–D-171
+## Grouping-design discussion — D-162–D-174
 
 The owner rejected one invocation = one group. Use incoming action type and
-current group contents, with group-start markers on the timeline. D-163–D-171
+current group contents, with group-start markers on the timeline. D-163–D-174
 confirm forward taps; pings add no group-start marker or ownership-picker step;
 non-Stack card moves group by ordered location tuple, including taps interleaved
 between matching moves; real-card Stack moves and each Stack projection remain
 separately visible with tap/ping companions; ordinary card/face/cover edits and
-token removal group together;
+token removal, player values/counters and persistent-link creation/removal group
+together; event comments join the preceding group without starting a new one;
 combat projection creation/repositioning groups together; display dismissal/combat closure
 groups forward, not backward; same-target Shuffles group; dice/coin runs start
 separately from prior play and group with the following action; phase/turn tracking
@@ -61,6 +62,16 @@ D-171 records approval of the token-removal, forward dice/coin and backward
 tracking recommendations together. Do not reopen them as tentative. Applying the
 closure rule to all future temporary-area types is still only a proposed
 generalization; existing View/Reveal/combat closure is confirmed.
+D-172 approves the player-value/counter, persistent-link and event-comment rules.
+Participant-association edits and historical/comment-revision semantics remain
+open. D-173 approves token creation/Clone grouping together with interleaved
+customization: `[create token; edit; Clone; edit]`. D-174 rejects non-token Remove
+entirely: cards do not disappear during the game, they move between locations.
+This supersedes D-85's ordinary-card context Remove and later source-deletion
+assumptions; do not ask for its grouping or reintroduce it through bulk,
+correction or projection controls. Token Remove/disappearance and occurrence-only
+removal remain. Next review inspection/projection grouping without reopening
+token creation/Clone, the approved edit family or token removal.
 
 The owner requested an MTG face-change rules check. Official Comprehensive Rules
 effective 2026-09-25 were checked: CR 116.1/116.2b/702.37e make morph face-up a
@@ -72,14 +83,15 @@ edits with card edits, representing explicit spells/abilities separately on Stac
 trigger detection, priority state or legality inference is authorized.
 Do not demand approval of every possible pair or invent rules from card text.
 Keep remaining policies explicitly proposed. Core grouping cases have
-T-297–T-320 acceptance scenarios. Detailed node review/Undo/interruption remains
+T-297–T-329 acceptance scenarios. Detailed node review/Undo/interruption remains
 even when normal group review applies dismissal plus the next action together.
 No grouping decision authorizes a publication delay or deleting an intermediate
 state. Continue from remaining action categories and rule precedence, not tiny
 questions about already-settled tuples or which user-facing owner to pick for pings.
-The previous docs checkpoint (including the approved tier reorganization) was
-committed/pushed as `815a912`; this grouping checkpoint is subsequent work, approved
-for documentation update and commit/push. Check git status/log for its commit.
+The Undo/tier-reorganization checkpoint was committed/pushed as `815a912`;
+the grouping checkpoint through D-171/T-320 was committed/pushed as `5a707aa`.
+D-172–D-174 are subsequent discussion work; inspect git status/log for their working state.
+Continue committing/pushing at natural checkpoints, not necessarily every answer.
 Remaining action families and same-author compound precedence are explicitly open;
 this is not completion of grouping design or authorization to implement.
 
@@ -121,7 +133,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-171** and **T-001–T-320**.
+- Current documentation includes **D-001–D-174** and **T-001–T-329**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
@@ -326,14 +338,15 @@ this is not completion of grouping design or authorization to implement.
   the original in place; this does not permanently pin source location.
 - Occurrence placement/assignment/removal is distinct from a card edit. Do not
   turn Remove projection, Stack effect removal, or combat-area closure into
-  source-card deletion. Exact card-Remove versus occurrence-Remove entry and
+   source-card deletion. Non-token cards cannot be deleted (D-174). Exact
+   token-Remove versus occurrence-Remove entry and
   link/ping routing still need decisions.
 - D-124: **anything taking the real card off the battlefield removes its combat
   projections**, whether invoked through the original or any projection, including
-  explicit source Remove/token disappearance. Battlefield repositioning alone
+   explicit token Remove/token disappearance. Battlefield repositioning alone
   does not qualify. Removed projections' incident links disappear.
 - D-125: **Stack effects remain until explicitly removed/resolved**, even when
-  their source moves/leaves/is removed, and even when the move was through that
+   their source moves/leaves or a token source disappears, and even when the move was through that
   Stack projection. Do not remove a Stack effect as a side effect of source
   departure. Missing-source display/inspection/card-action applicability is open;
   retaining the effect does not fabricate a new actual card.
@@ -400,7 +413,7 @@ source preservation, existing-attacker reuse, or approved event/Undo mappings.
 
 - **Q-33–Q-35 / G-11–G-13:** remaining combat role-change/entry cases, missing-source
   Stack reference/display/inspection/actions, duplicate-source multiselection,
-  cover/exposure, link/ping target routing, source-Remove versus occurrence-only
+   cover/exposure, link/ping target routing, token-source Remove versus occurrence-only
   access/mixed-selection routing, and cleanup/undo/offline/concurrent behavior.
 - Combat: absent-area drag targeting, additional single-card quick offerings,
   empty/otherwise-mixed/inapplicable selections, attack destination, other-view

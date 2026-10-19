@@ -180,7 +180,8 @@ stage 3; schemas/technical choices follow in the relevant implementation work:
    No ability picker/text entry is approved by implication.
 5. **Stack exit:** concrete buttons/gestures, metadata and multi-face categories,
    ambiguous/missing data, participant/destination placement, and manual overrides.
-   Projection removal must be distinguished from source-card Remove/move.
+   Projection removal must be distinguished from source-card moves and token
+   removal. Non-token source cards have no Remove/delete action (D-174).
 6. **Shared correctness:** projection/slot identities and membership, reference lifetime,
    occurrence-versus-source operation disambiguation, cover/inspection/exposure,
    geometry/selection, action and group boundaries, undo, branches, offline
@@ -214,7 +215,8 @@ card there, using the same stable identity, validation, resets, and token-remova
 exceptions as an ordinary move. The source's position is not permanently pinned
 by having a projection. Virtual slot placement/combat assignment and projection
 removal are distinct occurrence operations; do not turn combat-area cleanup or
-the approved Stack Remove projection into source-card deletion. Exact card-Remove
+the approved Stack Remove projection into source-card deletion. D-174 forbids
+non-token card deletion entirely. Exact token-Remove
 versus occurrence-Remove entry and link/ping endpoint routing under shared edits
 remain behavior questions. D-124/D-125 settle lifetime after source departure;
 missing-source Stack presentation/actions still require review.
@@ -227,14 +229,15 @@ on the occurrence's role, not on which view was used to edit/move the card.
 **Combat (D-124):** anything that removes the real card from the battlefield
 removes all its combat projections, whether attackers or blockers. This includes
 a move through the original, a combat projection, or a Stack projection, and
-explicit source-card Remove/token disappearance. Incident projection links
+explicit token Remove/token disappearance. Non-token cards move elsewhere; they
+cannot be deleted (D-174). Incident projection links
 disappear under D-120. Moving/repositioning within the battlefield does not meet
 this departure condition. There is no extra manual projection-cleanup step.
 D-126 keeps surviving blocker projections unassigned in place when their attacker
 disappears; do not remove or move their real source cards.
 
-**Stack (D-125):** the source leaving the battlefield, moving elsewhere, or being
-removed does not remove its Stack projections. Each effect occurrence remains
+**Stack (D-125):** the source leaving the battlefield, moving elsewhere, or a token
+source being removed does not remove its Stack projections. Each effect occurrence remains
 until explicitly removed/resolved, including when a move was performed through
 that Stack projection itself. Removing/resolving the occurrence removes its
 incident projection links, not the source card, and does not apply card-text
@@ -568,8 +571,9 @@ Retain the parent state for Undo (D-159), restoring the removed
 occurrences and prior slots/roles/order/incident links, including any pairs removed
 by this cleanup. Normal dependency, branch, offline, and sync contracts still
 apply; exact event/concurrency composition remains open. This occurrence-only
-action is distinct from source-card Remove. Its availability through a real source
-or mixed real/projection selection, source-Remove entry, drag-back-to-source
+action is distinct from token-source Remove; non-token cards have no Remove
+action (D-174). Its availability through a real source
+or mixed real/projection selection, token-Remove entry, drag-back-to-source
 behavior, and final menu layout remain separate cases. Context-action access is
 a confirmed interaction requirement now, not a new UI drafting stage.
 

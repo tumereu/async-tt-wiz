@@ -1016,15 +1016,20 @@ the historical instance. Do not require intermediate destination occupancy or
 discard the token's recoverable fields. Exact move/removal records and handling
 of links/trays/selections referring to removed objects remain open.
 
-Confirmed removal controls (D-85):
+Confirmed removal controls (D-85, restricted by D-174):
 
 1. Apply the same token disappearance to context Move and other explicit move
    controls targeting Library/Graveyard/Exile, not only drags. For mixed selected
    sets, move ordinary cards normally and remove tokens; do not skip tokens as
    inapplicable or discard unrelated selected cards. Exact boundaries stay open.
-2. Offer Remove in card/token context menus, including selection-scoped use.
-   Remove explicitly from current state without moving to a pile, automatically
-   queue/sync, and support undo/history without a routine confirmation dialog.
+2. Offer Remove for tokens, including token-selection use. Remove explicitly
+   from current state without moving to a pile, automatically queue/sync, and
+   support undo/history without a routine confirmation dialog.
+3. Non-token cards have no Remove/delete action: they remain in the game and
+   move between locations. Bulk actions and actions through projections must not
+   delete them. Exact mixed-selection offering/routing remains open; it cannot
+   authorize non-token deletion. Combat/Stack projection removal remains
+   occurrence-only and never deletes a non-token source card (D-174).
 
 Confirmed blank-token scope (D-86): include one Blank token definition in the
 normal token catalog, not a separate Create -> Custom token form. Choosing it
@@ -1254,7 +1259,8 @@ D-144 requires a **Remove from combat** context action for an individual combat
 projection or selected combat projections. This removes occurrences/incident
 links, not real cards or Stack effects; apply fully-empty-pair cleanup without
 closing the area. One Undo restores removed projections and prior slot/role/order/
-link context. Keep source-card Remove distinct. Exact menu layout and access
+link context. Non-token source cards have no Remove action (D-174); token removal
+is distinct from occurrence removal. Exact menu layout and access
 through real sources or mixed real/projection selections remain open.
 
 D-145 requires declaration shortcuts to give each new attacker its own pair by

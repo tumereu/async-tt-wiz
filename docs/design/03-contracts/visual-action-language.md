@@ -185,10 +185,12 @@ Exact event mappings and historical placement still need detailed review.
   route to messages/pings on retained alternatives.
 - **D-224 revision:** selective mutation removal/reinsertion preserves every later
   mutation's exact relevant-state `(from, to)` tuple under a hard suffix-work cap
-  N; information-revealing targets are not selectively undoable. Candidate/author
-  controls, tree rewrite/reference/grouping presentation and pointer/Redo-queue
-  integration remain open. Do not present this as an appended compensation or
-  silently reattach pings/comments to different historical meaning.
+  N; information-revealing targets are not selectively undoable. D-231 restricts
+  Undo to the latest own action. **D-232 edits the existing tree**, not creates
+  replacement branches or preserves an untouched original path. Reference/grouping,
+  review-cursor and side-branch handling remain open. Do not present this as appended
+  compensation, require an explorer branch for removed mutations, or silently
+  reattach/delete pings/comments as though their historical meaning were settled.
 - Earlier pointer-rewind Undo moves the shared active pointer one parent back (D-159). Retain every
   descendant. D-222 Redo follows the remembered last active head; a graphical
   explorer can explicitly activate any retained branch/node. Hide only single-player/

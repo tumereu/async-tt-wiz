@@ -29,7 +29,8 @@ The app remembers and presents what happened; the players interpret the rules.
 6. **History is inspectable and recoverable.** Step through actions, interrupt at
    a boundary, retain the old continuation, and undo mistakes. Exactly one line
    is active. Going back to continue from an earlier state requires an explicit
-   choice; Undo supplies that intent automatically. Ordinary concurrent edits
+   choice; Undo/Redo instead edit the existing tree without branching (D-232).
+   Ordinary concurrent edits
    normally apply at the current head unless impossible. Optimistic conflict
    guards are limited to moves and Stack additions: an addition sends the current
    Stack state and is rejected if it differs on the server. Rejection never
@@ -37,9 +38,11 @@ The app remembers and presents what happened; the players interpret the rules.
    reinserting a mutation only if every later mutation keeps its exact relevant
    before/after states, within a bounded suffix-work limit (D-224). This is stricter
    than live action acceptance; revealing mutations cannot be selectively undone.
-   The older parent-step Undo/remembered-head Redo controls are being reconciled
-   with that design; personal review remains distinct from changing shared play. Changed
-   play branches to a new active head. A graphical tree explorer can activate any
+   Undo targets only your latest still-applied action; Redo is last-undone-first.
+   Neither skips a blocked target. Undo removes and Redo reinserts mutations in
+   the existing tree, not a new branch or a preserved original alternative.
+   Personal review remains distinct from changing shared play. Explicit historical
+   continuation branches to a new active head. A graphical tree explorer can activate any
    retained branch/node. Only single-player/no-exposure alternatives qualify for
    hiding behind a separate toggle; mixed-player/exposure paths stay visible.
    Event comments also keep the whole alternative visible, even without a reveal.

@@ -3,6 +3,13 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
+- **D-232 confirms actual tree editing, not new branches.** Undo removes and Redo
+  reinserts a mutation in the existing tree. The assistant's revised-continuation/
+  untouched-original proposal was rejected. Do not preserve an original explorer
+  alternative, duplicate the suffix as a branch, require immutable ancestry or
+  force a post-Undo fork. Side branches, comments/pings, review cursors, IDs/cache
+  revisions, concurrency and removed-record retention after queue clearing remain
+  open; do not silently choose a deletion/retarget policy or physical storage scheme.
 - **D-224 revises the universal parent-pointer Undo interpretation.** Selective
   mutation removal/reinsertion requires every later mutation's relevant-state
   `(from, to)` tuple to stay identical under a hard suffix-work cap N. Per-mutation

@@ -161,6 +161,12 @@ anchors and final control mapping remain open. The
 earlier parent-step/remembered-head controls below are rewind context, not the
 complete current definition of Undo/Redo; live action acceptance is unchanged.
 
+**D-232:** Undo/Redo edit the existing tree by removal/reinsertion, without creating
+branches or keeping the pre-Undo path as an alternative. Removed mutations are
+available in the Redo stack, not a required explorer branch. Effects on review
+cursors, comments/pings, cached states and existing side branches remain open;
+do not silently switch historical context or assume an immutable old path remains.
+
 Earlier D-159/D-222 rewind model: Undo moves the shared active pointer one parent back and remembers
 the last active head; Redo follows the path toward that head with original
 states/results. Retain all descendants. Changed play branches and becomes active.
@@ -199,7 +205,7 @@ available when viewing history or an inactive branch; it must not discard drafts
    boundary, including one inside a group.
 4. Continue playback or explicitly choose to continue play at that historical
    node before editing. D-179 requires deliberate continuation intent; navigation
-   alone does not supply it. Undo supplies it automatically. Ordinary edits
+   alone does not supply it. D-232 Undo/Redo edit the tree without supplying it. Ordinary edits
    otherwise use D-187 current-state acceptance with limited move/Stack guards,
    not automatic historical forks.
 5. At the latest mutation, identify the current state without implying priority
@@ -220,11 +226,11 @@ changing the board under a user's finger.
 2. Explicitly choose to go back and continue from that state, then perform the
    reaction using ordinary board controls. This deliberate UI action supplies
    an interruption flag and chosen boundary in the server message (D-179).
-   Undo supplies continuation intent in the background without another prompt.
+   D-232 Undo/Redo are separate tree edits, not this branch-creation flow.
 3. The first completed reaction applies locally and automatically synchronizes
    branch creation/activation. Show the preserved original line and offer
     explicit **Return to original continuation** and **Delete branch and return**.
-    Normal Undo moves to the parent/fork; it does not jump to the original future.
+     D-232 Undo edits the existing tree; it is not Return to original continuation.
 4. Further reaction actions synchronize as they happen, grouped automatically.
 
 The UI must distinguish inspection from deliberately continuing here. Exact

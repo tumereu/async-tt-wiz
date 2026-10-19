@@ -15,7 +15,8 @@ Maintain three distinct state classes:
 1. **Board state:** cards/objects, labeled areas/containers, participants, named
    values, orientation, generic visual relationships, and first-class turn/
    phase/step tracking (D-96/D-105) at an action boundary. No priority state.
-2. **Shared history/control state:** immutable action nodes, branches, the active
+2. **Shared history/control state:** mutation nodes in a tree editable by Undo/Redo
+   (D-232), explicit interruption branches, the active
     game-state node pointer, archive status, publication/control records,
    and retained descendants (including hidden alternatives).
 3. **Personal presentation state:** review cursor, selected objects, camera,
@@ -52,9 +53,9 @@ history or authorize normalization of external catalog/import data.
 | Combat slot pair | One visual combat group with attacker-side and blocker-side projection membership/order (D-137/D-139). No individual attacker↔blocker assignments or inferred all-to-all blocking rules. D-138 supplies empty-pair removal/insertion/reflow; exact schema remains open. |
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
-| Action/mutation node | Stable ID, one parent ID, actor, one individual mutation, deterministic forward/rollback data, schema version. Never a multi-card invocation or playback group (D-176). |
+| Action/mutation node | ID, one parent ID in the accepted tree revision, actor, one individual mutation, deterministic forward/rollback data, schema version. D-232 edits tree ancestry; exact ID/version/reference semantics remain open. Never a multi-card invocation or playback group (D-176). |
 | Group | Ordered contiguous mutation IDs on one path, presented as one navigation/playback step with concurrent animation (D-177). Group-start markers and other metadata never replace node references. Exact schema remains proposed. |
-| Branch | Stable ID, fork boundary, head, origin branch, explicit continuation/Undo origin (D-179), author, title, archive status. Concurrent ordinary edits never implicitly create one. |
+| Branch | Stable ID, fork boundary, head, origin branch, explicit historical-continuation origin (D-179), author, title, archive status. Ordinary concurrent edits and D-232 Undo/Redo do not create branches. |
 | Control operation | Stable ID, actor, ordered server revision, operation kind, prior/new references, undo linkage. |
 | Random outcome | Stable ID, requested operation, concrete result, source/version metadata; retained with its action. |
 | Review position | Participant, viewed branch/path, boundary, known active revision; not a promise of rules acceptance. |
@@ -68,7 +69,9 @@ history or authorize normalization of external catalog/import data.
 D-176 distinguishes invocation, individual mutation node and playback group.
 Each mutation immediately extends or branches the chosen node/path and publishes
 independently. Bulk commands issue individual operations in a sensible recorded
-order. D-159/D-160 Undo follows one parent, regardless of author. D-176 supersedes
+order. D-231/D-232 Undo removes the latest still-applied own mutation from the
+existing tree, preserving later opponent transitions under D-224; Redo reinserts
+it without creating a branch. D-176 supersedes
 the older combined-node mappings, including D-132/D-148–D-150, and node splitting
 based on MTG reaction windows. Groups change navigation/concurrent animation,
 not tree structure. Both shared and client displayed-state references identify
@@ -78,7 +81,8 @@ resume and exact mutation selection through the paused bottom timeline.
 D-179/D-187 refine accepted ancestry without changing the mutation unit: ordinary
 actions apply at the current head unless impossible, with exceptional movement/
 Stack guards rather than general previous-value comparisons. Deliberate historical
-continuation carries an explicit flag and boundary; Undo supplies that intent automatically. A local
+continuation carries an explicit flag and boundary; D-232 Undo/Redo are tree edits,
+not implicit interruption intent. A local
 last-seen parent is not a blanket server head lock or implicit fork request.
 Persist the accepted parent and deterministic transition so replay includes
 intervening compatible edits. Exact pending-to-accepted node mapping remains open.
@@ -100,12 +104,16 @@ seed-epoch schema is required by D-92/D-93.
 relevant-state `(from, to)` tuples for every later mutation in both timelines,
 within a hard suffix-work cap N. Relevant state must be defined per mutation;
 the whole-board/card state is not automatically relevant. Selective Undo excludes
-information-revealing targets. Tree/node versioning, references, queue ownership,
-pointer/view changes and N/counting remain open; this does not approve physical
-erasure or a new graph schema. The earlier pointer model below is rewind context,
-not a prohibition on selective timeline editing.
+information-revealing targets. **D-232 confirms that removal/reinsertion edits the
+existing tree, not forks an untouched original beside a revised continuation.**
+Removed mutations enter the player's Redo stack, not a required explorer branch.
+Tree/node IDs/versioning, affected side branches/references/review cursors, queue
+device scope, pointer/view changes and N/counting remain open. Storage-level
+retention after queue clearing and physical schema are not decided. The earlier
+pointer/retention model below is superseded rewind context, not an immutable-tree
+constraint on Undo/Redo.
 
-D-159/D-222 retain every undone node in the mutation tree with its initial-state
+Earlier D-159/D-222 retain every undone node in the mutation tree with its initial-state
 root. Undo remembers the last active head; Redo follows the path toward that head
 using recorded states/results. Changed play creates a new active continuation.
 The graphical tree explorer permits activation of any retained branch/node, not
@@ -127,9 +135,10 @@ and publication remain Q-31; no separate permanent-marker entity is required.
 
 D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
 nodes on the ordinary tree path. The current path is already a branch; no
-comment-only fork entity/activation mechanism is required. Undo retains that
-whole abandoned continuation visibly if it contains an event comment, even with
-one author and no exposure (D-160/D-223).
+comment-only fork entity/activation mechanism is required. D-223 keeps actual
+retained alternative continuations with comments visible, even with one author
+and no exposure. D-232 Undo does not create an abandoned continuation to hold
+the original comment context; affected comment references remain unresolved.
 D-172 groups comments with preceding same-author play; D-170 still separates
 authors. Exact message/comment schemas, historical association, revisions/edit/delete
 and unsent-delivery policies remain open; do not give all Message records one
@@ -231,7 +240,7 @@ routine confirmation. No broader token expiry rule is inferred.
 remain game objects and move between locations; no Remove/delete operation,
 including a bulk/correction or projection entry point, may delete them. Token
 disappearance and occurrence-only projection removal are distinct supported
-operations. This does not change parent-pointer Undo or retained history.
+operations. D-232 tree-editing Undo is separate from deleting non-token cards.
 
 A move normally changes only specified container/position/layout fields and
 preserves counters, corner text, orientation, notes, links, and participant

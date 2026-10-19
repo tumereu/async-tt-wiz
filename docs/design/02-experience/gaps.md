@@ -158,7 +158,13 @@ old future after a response. Exact overall release scope still needs sign-off.
    contexts, mixed-tuple/compound/extra-location cases and numbering mutations.
    No separate ping ownership picker is needed. See the
    [grouping rules and remaining inventory](../03-contracts/history-grouping.md).
-3. **Undo/Redo pointer controls and visibility.** The earlier D-159 model confirms one parent-node
+3. **Undo/Redo tree edits, controls and visibility.** D-232 confirms that Undo/Redo
+   edit the existing tree, not create revised branches or preserve an untouched
+   pre-Undo alternative. Removed mutations live in the Redo stack; their storage
+   retention after clearing is open. Resolve affected side branches, review cursors,
+   node identity/versioning, cached states, comment/ping references and grouping.
+   No silent deletion/retargeting policy for those references is approved.
+   The earlier D-159 model confirmed one parent-node
    step regardless of author and retained forward history. D-222 confirms a root
    initial state/mutation tree, remembering the last active head on Undo and Redo
    toward it, new active branches on changed play, and a graphical explorer with
@@ -198,7 +204,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    remains separate.
    Same-account/device queue scope, insertion anchors, rejected/no-op requests and
    optimistic/server clearing timing
-   remain open; clearing the queue does not erase retained history.
+   remain open. Older immutable-tree/retained-original-path assumptions do not
+   apply to D-232 tree editing; genuine interruption branches remain distinct.
 4. **Concurrent online actions and connection loss.** D-182 removes offline game
    actions and later queue replay from initial delivery; downloaded history remains
    readable offline. Offline queue recovery is not an initial-delivery obligation.
@@ -221,7 +228,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    references and animation scheduling—not whether concurrent sending, individual
    outcomes or arrival-order processing are supported.
    D-179 replaces automatic conflict branching with explicit UI/message intent;
-   Undo supplies that intent automatically. D-187 now normally accepts ordinary
+   D-232 Undo/Redo edit the tree without supplying that intent. D-187 normally accepts ordinary
    actions at current state unless impossible, removing D-181's old-field checks
    and D-186's Set comparison. Moves retain source/destination guards; Stack
    additions send current client Stack state and reject if the server's Stack

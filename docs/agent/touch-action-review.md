@@ -18,7 +18,10 @@ own action even after opponent activity, with no blocked-target skipping. D-227â
 fix last-undone-first Redo, blocked-entry disabling without skipping, and queue
 clearing only by own new play. Insertion preconditions/anchors, queue device scope,
 pointer/view controls, pending/concurrent requests and tree/reference/grouping
-rewrites remain open; resolve rewritten-history representation next.
+handling remains open. D-232 confirms actual tree removal/reinsertion, not a new
+branch beside an untouched original. Removed mutations live in the Redo stack;
+retention after clearing remains open. Resolve affected side branches, historical
+references and review cursors next, without assuming the original tree survives.
 
 **Earlier branching (D-222):** root stores initial state; every later node is a
 mutation. Undo remembers the last active head; Redo follows toward it, not an

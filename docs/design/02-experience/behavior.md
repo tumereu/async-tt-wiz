@@ -300,8 +300,9 @@ The general rules are:
   One standard marker, no labels/styles; automatic numbers span the whole event.
 - Ordinary actions/pings should explain play without typing. Optional notes,
   event comments, and game-wide chat remain separate. Submitted chat is not
-  undoable. Event comments are tree nodes retained after Undo, not a special
-  comment-only branch workflow.
+  undoable. Event comments are ordinary tree nodes, not a special comment-only
+  branch workflow. References affected by D-232 tree edits remain to be specified;
+  do not assume an original alternative is created to retain their old context.
 - Actions sync immediately and form meaningful review groups automatically;
    grouping only controls navigation/playback and representation. Each group is
    one playback step whose changes animate concurrently, while each individual
@@ -337,10 +338,10 @@ The general rules are:
 - History retains alternatives with **one active line**. Interrupt at a recorded
   boundary by explicitly choosing to continue there, then start a new active
   continuation without approval voting. Mere scrubbing or editing a stale view
-  does not authorize branching; Undo supplies continuation intent automatically.
+  does not authorize branching. D-232 Undo/Redo edit the tree without branching.
   Keep the old future; never automatically replay it onto the response. An interruption
   can be left by explicitly returning to its retained original continuation;
-  branch deletion is recoverable archival. Normal Undo follows the active node's
+  branch deletion is recoverable archival. In the earlier rewind model, Undo follows the active node's
   parent, not automatically the old future's tip.
 - Ordinary edits apply at the server's current head unless genuinely impossible
   (D-187). Do not reject taps, notes, Set or other ordinary edits because their
@@ -354,7 +355,8 @@ The general rules are:
   separate seen/opponent detection, priority enforcement or a whole-game-head lock.
   Rejection/staleness never creates a branch. Historical
   continuation still requires an explicit flag/boundary and makes its new branch
-  current; Undo supplies the intent automatically (D-179).
+   current. D-232 Undo/Redo edit the existing tree rather than supply interruption
+   intent or create branches.
 - **Latest Undo/Redo revision (D-224):** selective deletion/reinsertion is allowed
   only when **every later mutation's relevant-state `(from, to)` tuple stays
   identical** in both timelines. This is stricter than live action applicability:
@@ -363,12 +365,20 @@ The general rules are:
   limit N on the suffix work; the value/counting unit and per-mutation relevant
   states still need definition. Selective Undo excludes information-revealing
   targets. No compensating edit is appended. Pointer/button behavior, Redo queue
-  details and rewritten-tree presentation remain open; the older
-  parent-pointer description below is no longer the complete Undo definition.
+  device/anchor details and affected references/views remain open; the older
+  parent-pointer description below is superseded for Undo/Redo.
+- **Tree editing (D-232):** Undo removes and Redo reinserts a mutation in the
+  existing tree. Neither creates a new branch or preserves the old path as an
+  alternative. Later actions replay in the edited tree, under D-224. Removed
+  mutations are held for Redo, not placed in an explorer branch. Side branches,
+  review cursors and comment/ping references affected by an edit need explicit
+  handling; do not silently delete or retarget them. Storage retention after
+  Redo-queue clearing remains open. Explicit interruptions can still branch.
 - **Redo after new play (D-227/D-228):** after Undo, only your own new gameplay
   edit clears your Redo queue, even if the removed mutations could still be
   safely reinserted. Opponent actions retain your queue, but can make reinsertion
-  fail the replay checks or exceed N. Retained history is not erased. Same-account/
+  fail the replay checks or exceed N. No original explorer path is required by
+  queue clearing (D-232). Same-account/
   device queue synchronization and rejected/no-op requests still need decisions.
 - **Redo order (D-229):** restore the most recently undone mutation first, as in
   a normal Undo/Redo stack. Every reinsertion must still pass the replay checks
@@ -402,7 +412,8 @@ The general rules are:
   no hidden-information exposure**, available through a separate Show hidden
   branches toggle (D-222). **An event comment also keeps the whole continuation
   visible, even for one player's no-reveal path** (D-223). Mixed-player/exposure/
-  event-comment paths remain visible in full; nothing is deleted. Covered inspection, View/Reveal,
+   event-comment paths remain visible in full; this filter deletes nothing. It does
+   not require preserving a path removed by D-232 Undo. Covered inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
   Already-visible inspection does not. Undo cannot erase a person's knowledge.
 - Earlier pointer-rewind Undo targets the specific node-to-parent step you invoked. If that step becomes

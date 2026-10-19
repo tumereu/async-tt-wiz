@@ -14,6 +14,28 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest tree-edit correction — D-232
+
+Owner rejected the assistant's proposal to create a revised continuation beside
+an untouched original: **Undo/Redo actually edit the tree, not create branches**
+(T-522/T-523). Eligible Undo of A on root → A → B produces root → B; eligible Redo
+reinserts A into that tree. Labels describe logical mutations, not fixed node IDs.
+Do not keep the pre-Undo path as an explorer alternative or duplicate the suffix
+as a new branch. Removed mutations are available in the personal Redo stack.
+Clearing it does not restore the removed node; storage retention/recovery after
+clearing remains open. Older immutable-tree/original-path-retention/automatic
+post-Undo-fork requirements are superseded for these controls. Genuine explicit
+interruption branches and D-223 filtering of actual alternatives remain distinct.
+
+D-224 safety/N, D-231 latest-own targeting and D-227–D-230 strict stack/clearing
+rules remain. Affected existing side branches, comment/ping references, review
+cursors, node IDs/versioning, caches and concurrency still need contracts. Do not
+silently delete unrelated branches/comments, retarget historical references or
+select a physical-storage rewrite scheme. Next useful case: a side branch forks
+at the mutation being removed; decide whether Undo is blocked or how that branch
+is adjusted. This is a substantial open case, not approval of the assistant's
+rejected original-history-preservation proposal. No implementation is authorized.
+
 ## Latest strict Undo/Redo target order — D-230/D-231
 
 Owner approved **disable Redo on a blocked next entry, keeping the stack intact**,
@@ -27,10 +49,9 @@ Undo picker. D-224's replay/exposure/N rules remain. Successful Undo exposes the
 preceding own candidate. Latest-own scope is settled; do not reopen it or revert
 to author-independent parent-pointer-only Undo. Personal review and explicit
 historical activation remain separate; integration with activation is still open.
-Insertion anchors, device synchronization, concurrency and history representation
+Insertion anchors, device synchronization, concurrency and affected-history handling
 remain open. No implementation or delivery-stage transition is authorized.
-Next substantial topic: represent removed/replayed continuations without changing
-the meaning of existing reviewed nodes, side branches or event-comment references.
+D-232 above settles editing the existing tree, not preserving an untouched original.
 
 ## Latest Redo order — D-229
 
@@ -46,8 +67,9 @@ No implementation or delivery-stage transition is authorized.
 
 After Undo, **only your own new gameplay edit clears your Redo queue**, even
 if the removed mutation could still be safely reinserted (T-514). The owner chose
-clearing over retaining it. This removes Redo availability, not retained history
-or explorer access. Confirmed case is a successful new gameplay mutation by the
+clearing over retaining it. D-232 does not require an original explorer path or
+retention of removed records after clearing; that storage policy remains open.
+Confirmed case is a successful new gameplay mutation by the
 player who used Undo. D-228 confirms opponent actions **do not clear your queue**
 (T-515/T-516). Retain entries and apply current D-224 replay checks/N; an opponent
 action may block reinsertion without clearing the queue. Clearing is player-specific,
@@ -122,7 +144,9 @@ no hidden-information exposure**, behind a separate explorer toggle, **unless
 they contain an event comment**. **D-223 confirms the event-comment exception**:
 keep the whole continuation visible even with one author/no exposure (T-500 and
 corrected T-186/T-292/T-323/T-354/T-499). Mixed-player/exposure/event-comment paths
-stay visible in full, including ordinary tails. All nodes remain retained.
+stay visible in full, including ordinary tails. The old blanket undone-node
+retention requirement is superseded by D-232 tree editing; do not create an
+original alternative solely to satisfy this earlier rewind description.
 D-224 above now takes precedence for selective Undo/Redo; earlier remembered-head
 scope does not settle the new reinsertion queue. Do not reopen the confirmed comment exception.
 
@@ -603,7 +627,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-231** and **T-001–T-521**.
+- Current documentation includes **D-001–D-232** and **T-001–T-523**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

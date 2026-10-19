@@ -18,14 +18,15 @@ sending. Normal interaction applies locally immediately and must not routinely
 wait for network acknowledgements. This is online latency hiding, not extended
 offline play or an atomic queued sequence.
 
-## 3.0 Current Undo model — parent-pointer navigation (D-159/D-160)
+<a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
-**Revision notice — D-224:** the earlier parent-pointer-only definition is no
-longer the complete Undo/Redo contract. The owner is now designing selective
-mutation removal/reinsertion, with the confirmed safety rule below. Shared-head
-rewind, personal review and explicit tree activation remain distinct concepts;
-their final button mapping and view-follow behavior are open. D-231 below settles
-selective Undo's latest-own-action scope.
+## 3.0 Current Undo/Redo model — editing the mutation tree
+
+**D-224–D-232 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
+still-applied mutation from the existing tree; Redo reinserts it, under the safety
+and stack rules below. These operations edit the tree, **not create branches**.
+Personal review and explicit historical activation remain distinct; their control
+mapping, interaction with tree edits and view-follow behavior remain open.
 Do not infer acceptance of the assistant's shared remembered-Redo-head proposal.
 
 ### Selective mutation Undo/Redo — D-224
@@ -37,6 +38,26 @@ in their recorded order and compare both their pre- and post-relevant states,
 not merely operation applicability, equal deltas or equal final board state.
 If any subsequent mutation cannot replay or either side of its tuple differs,
 the selective Undo/Redo is unavailable. This is not an appended compensating edit.
+
+**Tree editing — D-232:** Undo/Redo alter the existing mutation tree, not create
+a revised branch beside an untouched pre-Undo path. On an otherwise eligible
+linear path `root → A → B`, removing A produces `root → B`; reinserting A at the
+corresponding boundary restores `root → A → B`, subject to replay validation.
+The labels here identify logical mutations, not an approved node-ID/version schema.
+Do not retain an original alternative continuation solely because Undo/Redo edited
+the path, duplicate the suffix as a new branch, or append a compensating mutation.
+The removed mutation is available through the player's Redo stack, not a required
+explorer branch. Clearing that stack does not restore the removed node; persistence
+or recovery of removed records after clearing remains open.
+
+Explicit interruptions can still create branches; the explorer/filtering rules
+apply to branches that actually exist. Undo itself does not acquire historical
+continuation intent or require the next ordinary current-head edit to fork.
+Existing side branches at/after the edited node, event-comment/ping references,
+review cursors, IDs/versioning and cached states need explicit handling. This
+decision does not approve silently deleting an unrelated branch/comment or a
+specific retargeting policy. Nor does it require physical storage erasure or
+select an immutable-log versus mutable-record implementation.
 
 Each mutation kind must define its **relevant state**. Compare the same mutation's
 original accepted transition against its candidate transition, preserving target/
@@ -79,7 +100,8 @@ stored random results and exposure context, not new random samples or UI reveals
 **Redo invalidation after new play — D-227/D-228:** after Undo, only your own new
 gameplay edit clears your Redo queue. Previously removed mutations do not remain
 available through Redo merely because reinsertion would still pass D-224's tuple
-test. This clears Redo availability, not retained history or its explorer access.
+test. D-232 does not require an explorer copy of the removed path; retention or
+recovery of removed records after queue clearing remains open.
 The confirmed clearing case is a successful new gameplay mutation by the player
 who used Undo. Opponent actions do **not** clear that player's queue; retain its
 entries and recheck reinsertion against current state under D-224, including N.
@@ -124,9 +146,10 @@ Redo queue cross-device scope/anchors,
 invalidation cases beyond D-227/D-228, concurrent/stale checks, pending-request
 interaction, pointer/view
 updates, tree/node versioning, grouping and references to removed/replayed nodes.
-Removal here is from the candidate timeline, not authorization to permanently
-erase retained history or override D-223's comment visibility rule. Earlier
-parent-pointer fixtures below describe that rewind model, not blanket approval
+Removal changes the existing tree (D-232), not just a candidate branch. D-223's
+visibility rule still applies to actual remaining alternatives; affected comment
+references and side branches need separate handling. Earlier parent-pointer
+fixtures below describe that superseded rewind model, not blanket approval
 to use it instead of this selective rule. U-001 and older exposure/Redo recovery
 wording must be interpreted with this distinction until controls are settled.
 
@@ -191,7 +214,7 @@ and other combined invocations likewise require one press per constituent node.
 ## 3.1 Three positions that must never be confused
 
 - **Shared head / active state:** synchronized current game-state pointer. It may
-  be an internal node with retained descendants after Undo, not the furthest
+  be an internal node with retained descendants after explicit activation, not the furthest
   published node on a stored continuation.
 - **Review cursor:** boundary currently displayed to one participant.
 - **Local head:** provisional active state including that participant's completed
@@ -223,8 +246,8 @@ Keep existing source/spatial ordering defaults; do not invent a sorting workflow
 Every mutation is immediately recorded locally and published. D-179 refines its
 accepted parent: an ordinary edit is validated and appended at the current shared
 head, not necessarily the client's last-seen node. Only deliberate continuation
-intent authorizes branching from a historical node; Undo supplies that intent
-automatically. Persist and publish each online mutation under normal dependency
+intent authorizes branching from a historical node. D-232 Undo/Redo instead edit
+the existing tree and do not supply interruption intent. Persist and publish each online mutation under normal dependency
 constraints. Neither invocation completion nor animation/group completion is a
 publication boundary. The client state pointer always identifies a mutation node
 (or the root), never a group.
@@ -400,8 +423,8 @@ deliberately waiting to gather a group; every action boundary remains intact.
   preservation, numeric applicability or D-185 reconciliation.
 - Only an explicit UI choice to go back and continue, recorded as an interruption
   flag with the selected historical boundary, authorizes a new historical branch.
-  Its first accepted mutation creates and activates that continuation. Undo supplies
-  continuation intent in the background, without another UI step (D-179).
+  Its first accepted mutation creates and activates that continuation. D-232
+  Undo/Redo edit the existing tree instead of supplying continuation intent.
 - Initial delivery does not permit offline actions or reconnect replay of an
   offline gameplay queue (D-182). While online, local acceptance and branch
   activation remain provisional until acknowledged. D-180 specifies animated
@@ -532,8 +555,9 @@ response opportunity or accepted its legality.
 **Confirmed D-179:** reviewing, pausing or scrubbing to an old state is not itself
 permission to branch. The user must deliberately choose to go back and continue
 from that state; the client carries that intent in an explicit flag and chosen
-boundary in its server message. Undo supplies this continuation intent in the
-background. Final control naming/layout and the wire schema remain undecided.
+boundary in its server message. The earlier Undo-supplies-intent provision is
+superseded by D-232 tree editing. Final control naming/layout and wire schema
+remain undecided.
 
 For a path `root → A → B → C → D`, explicitly continuing after B with X creates
 `root → A → B → X`. The old path through C and D remains recoverable. On
@@ -598,12 +622,13 @@ over the same tree. See section 3.12 for returning after an interruption.
 
 ## 3.7 Full undo contract
 
-**D-224 precedence:** this section's parent-pointer operations/recovery table
+**D-224/D-232 precedence:** this section's parent-pointer operations/recovery table
 describe the earlier rewind model. They are not a prohibition on the selective
 removal/reinsertion contract in section 3.0, nor permission to selectively remove
 an information-revealing target. Reconciliation of these controls, U-001 exposure
 recovery and remembered-head versus reinsertion Redo remains open. Do not silently
-apply D-161's captured-parent stale policy to selective timeline editing.
+apply D-161's captured-parent stale policy to selective timeline editing, require
+an immutable tree, or preserve a pre-Undo alternative branch under D-232.
 
 Requirement U-001: **Every user-authored logical game edit has a discoverable
 undo or recovery path, except submitted game-wide chat (D-94) and acceptance of
@@ -626,7 +651,7 @@ access are unchanged. See the [lifecycle contract](accounts-decks-and-lobby.md).
 Non-undoable acceptance and deferring finished-session review do
 not authorize deleting prior history.
 
-Undo preserves the immutable tree and moves the shared active pointer one parent
+In the superseded rewind model, Undo preserves the immutable tree and moves the shared active pointer one parent
 back (D-159). It has no author filter, inverse-patch/dependency analysis, or
 whole-invocation targeting. Later work stays on retained descendants rather than
 being transformed or erased. At the root there is no earlier game-state node.
@@ -891,8 +916,8 @@ onto a new branch. No runtime priority/legality enforcement is added.
    an exact mutation boundary, including a boundary inside a displayed group.
 5. Continue playback from that node, or explicitly choose to continue play there
    before using ordinary game controls. D-179 requires deliberate continuation
-   intent for a historical branch, not just a paused cursor. Undo supplies that
-   intent automatically. Without it, ordinary edits use D-187 current-state
+   intent for a historical branch, not just a paused cursor. D-232 Undo/Redo edit
+   the tree without that intent. Without explicit continuation intent, ordinary edits use D-187 current-state
    acceptance/limited guards; a navigation/group boundary does not become a parent node.
 
 Backward/forward playback and scrubbing are personal traversal, not new Undo,

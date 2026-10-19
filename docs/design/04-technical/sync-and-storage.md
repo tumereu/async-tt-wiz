@@ -34,15 +34,19 @@ a small local online send queue and records needed to recover in-flight requests
 This is not an offline gameplay queue (D-182/D-183).
 
 There is one authoritative active game-state pointer/path per game on the service.
-It may point to an internal node with retained descendants after Undo. Online
+Historical activation may select an internal node with retained descendants. Online
 clients may display predictions awaiting acknowledgement; disconnected clients
 can review stale downloaded state but cannot make game actions. The UI must not
 claim current shared agreement for stale or unacknowledged state.
 
-Game action payloads are immutable once published. Control operations update
-branch/head references, archive status, and metadata through a separately
-ordered revision stream. Clients materialize state by action ancestry, not by
-wall-clock timestamps.
+**D-232 constraint:** Undo/Redo edit the existing mutation tree by removal and
+reinsertion; they do not publish revised branches beside unchanged original paths.
+The earlier immutable-payload/ancestry proposal must support this behavioral tree
+edit, not forbid it or expose an unwanted original alternative. Exact record
+mutability, revision/log encoding, IDs, affected side branches, cached states,
+review cursors and historical references remain open. Physical deletion or
+permanent retention after Redo-queue clearing is not selected. Clients materialize
+the accepted tree revision, not an immutable-parent assumption or timestamps alone.
 
 **D-224 behavioral revision:** selective timeline removal/reinsertion requires
 every later mutation's relevant-state `(from, to)` tuple to match its original
@@ -50,9 +54,11 @@ transition exactly, with a hard suffix-work cap N. This is stricter than D-187
 ordinary live acceptance. Per-mutation state, N/counting, atomic validation versus
 concurrent work, node versioning/reference retention and pointer/Redo-queue effects
 remain open technical/behavior work, not an approved storage rewrite algorithm.
-The earlier pointer control model below no longer defines all Undo/Redo behavior.
+The earlier pointer control model below is superseded for Undo/Redo. In particular,
+its original-node-retention and automatic post-Undo-fork assumptions do not apply
+to D-232. Existing genuine branches and D-223 filtering remain distinct.
 
-D-159/D-160 require an explicit active node pointer independent from retained
+Earlier D-159/D-160 required an explicit active node pointer independent from retained
 continuation tips. Undo moves it one parent back, regardless of actor; retained
 nodes are never physically deleted by Undo or replacement play. The pointer move
 is a control operation, not another board-action child. D-222 adds a remembered
@@ -103,8 +109,9 @@ design, constrained by these presentation invariants.
 D-176 requires one node per individual mutation and immediate publication of
 each node, including ordered operations from bulk/combined controls. Transport
 batching must not collapse nodes or wait for invocation/group/animation completion.
-D-159/D-160 make each node one Undo step. Retain invocation identity as context,
-not as an atomic multi-mutation payload or command to skip parents. Tree-based
+D-231 makes the latest still-applied own mutation the Undo target; D-232 edits
+the existing tree. Retain invocation identity as context,
+not as an atomic multi-mutation payload or command to skip targets. Reinsertion
 Redo and D-177 playback reuse recorded outcomes. Playback rollback/scrubbing are
 personal traversal, not new shared Undo or publication. Both shared and local
 displayed state reference mutation nodes, never groups. Exact protocol/schema
@@ -114,8 +121,8 @@ A publication must distinguish ordinary current-head edits from an explicitly
 requested historical continuation. D-179 requires an explicit interruption flag
 and chosen boundary for the latter. D-187 applies ordinary operations to current
 state unless impossible, retaining limited movement/Stack guards rather than
-previous-field-value or whole-game-head checks. Undo supplies
-continuation intent automatically. Proposed additional fields include an
+previous-field-value or whole-game-head checks. D-232 Undo/Redo do not supply
+historical-continuation intent. Proposed additional fields include an
 idempotency key, game ID, action data and group references. D-184 uses ordered
 delivery rather than dependency metadata for sequencing. Object IDs and explicit
 historical-boundary references remain necessary semantic data, not a sequencing
@@ -155,8 +162,8 @@ Proposed outcomes:
 | Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |
 | Same key with a different payload | Reject as idempotency-key misuse. |
-| Undo's specific node-to-parent transition is still valid | Apply that transition once; retain the original nodes. Do not retarget to another source/parent. |
-| Online Undo transition is no longer valid | Silently discard the request and reconcile local state (D-161). No warning/notification/confirmation/retry task; preserve retained nodes and recoverable online work. D-182 excludes offline Undo creation. |
+| D-232 Undo/Redo tree edit is eligible at the authoritative revision | Apply removal/reinsertion once without creating a branch, subject to D-224 replay/N and D-227–D-231 target/stack rules. Exact atomic revision guard and reference reconciliation remain open. |
+| Undo/Redo tree changes while validation/request is in progress | Exact recheck/rejection/reconciliation policy remains open; do not silently reuse D-161's superseded captured-parent rule, change targets or apply an unchecked suffix. D-182 excludes offline Undo creation. |
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
 | Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
 | Invalid object/reference or structural constraint | Reject the affected publication with actionable structural error; explicit interruption cannot repair malformed actions. |
@@ -226,8 +233,9 @@ rejection under D-187. Exact feature semantics and revision domains remain API/
 behavior design; the old batch's per-message CAS proposal was not approved.
 
 D-94 game-wide chat must not be retracted by gameplay Undo. D-95 event comments
-are ordinary nodes on the current path and remain in that retained history
-after undo; no special comment-only branch mechanism is needed. Exact comment/
+are ordinary nodes on the current path; no special comment-only branch mechanism
+is needed. D-232 Undo/Redo do not preserve an untouched original path for them;
+affected references/removal behavior remains open. Exact comment/
 group association, revisions, edit/delete, unsent chat delivery, and idempotent
 publication remain open. Do not apply a blanket message-undo policy to both.
 

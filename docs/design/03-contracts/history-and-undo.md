@@ -75,6 +75,16 @@ design, Undo is not offered for a target that revealed new information; this is
 distinct from reviewing/activating a retained historical state. Replay reuses
 stored random results and exposure context, not new random samples or UI reveals.
 
+**Redo invalidation after new play — D-227:** after Undo, making a new gameplay
+edit yourself clears the Redo queue. Previously removed mutations do not remain
+available through Redo merely because reinsertion would still pass D-224's tuple
+test. This clears Redo availability, not retained history or its explorer access.
+The confirmed case is a successful new gameplay mutation by the player who used
+Undo. Whether opponent activity also clears the queue, queue ownership across
+players/devices, rejected/no-op requests and exact optimistic/server clearing
+timing remain open. Do not generalize this to personal review/navigation or treat
+Redo reinsertion itself as new play that necessarily clears remaining entries.
+
 **Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
 subject to replay/validation, so a target followed by e.g. a thousand opponent
 actions cannot trigger a noticeably slow eligibility calculation. A valid but
@@ -84,8 +94,8 @@ multi-mutation invocations remain open; no time-based grouping or gameplay limit
 is implied.
 
 **Still open:** complete relevant-state definitions, candidate/author selection,
-insertion target's own preconditions, Redo queue ownership/order/anchors and edits
-after Undo, concurrent/stale checks, pending-request interaction, pointer/view
+insertion target's own preconditions, Redo queue ownership/order/anchors and
+invalidation cases beyond D-227, concurrent/stale checks, pending-request interaction, pointer/view
 updates, tree/node versioning, grouping and references to removed/replayed nodes.
 Removal here is from the candidate timeline, not authorization to permanently
 erase retained history or override D-223's comment visibility rule. Earlier

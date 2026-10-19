@@ -55,12 +55,21 @@ open; button wording/placement is stage 3.
 
 ## 5.1 Navigation and screens
 
+**Confirmed entry/setup (D-188–D-190):** login before the main menu, available
+registration, Logout/Manage decks/Play, adding users, current games including
+pending invites, import-only deck editing, and a lobby with deck selection,
+mainboard/sideboard management and both-player Ready. The
+[primary contract](accounts-decks-and-lobby.md) distinguishes these requirements
+from open details. Friends as a separate menu name is tentative. Other screen
+responsibilities below remain proposed unless separately confirmed.
+
 | Screen | Main responsibilities |
 | --- | --- |
-| Welcome/account | Explain cooperative access; authenticate or resume; account recovery. |
-| Games | Active/completed games; opponent, catch-up state, pending work, branch changes. |
-| New game/invite | Participant invitation, setup, trust disclosure, format/deck selection. Choose starting player and initialize turn 1 at Beginning/Untap without automatic card operations (D-108); exact screen/defaults remain open. |
-| Deck library/editor | Import, resolve names, edit quantities/zones, preview, export. |
+| Login/registration | Login is required to reach the main menu; registration is available (D-188). Method, session persistence and recovery remain open. |
+| Main menu | Logout, Manage decks and Play (D-188). Users can add users; separate Friends naming/placement remains tentative. |
+| Games (Play) | Current games including pending invitations (D-190). Completed-game listing, catch-up state, pending work and branch-change presentation remain proposed. |
+| Game lobby/invite | Initially a lobby: choose a deck, manage mainboard/sideboard, each player presses Ready; both ready starts the game (D-189/D-190). D-108 requires starter selection and turn 1 at Untap; exact setup/start operations and invitation flow remain open. |
+| Deck management | Import card lists only for now (D-189), not a full manual deck editor or an approved export feature. Import resolution and saved-deck details remain open. |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |
 | Card/object inspector | Automatically show readable face art/text despite face-down table presentation, and both printed faces for multi-faced cards; modified state, available actions, attachments/history. Inspection does not change shared presentation. |
 | Zone browser / pile actions | Pile tap opens contents and pile context actions together. Contents use card-type category columns with name search/filtering and hold inspection (D-50). Explicit View/Reveal is shared/logged: View shows faces to its actor and backs to the other participant; Reveal shows faces to both. Full-library contents hide overall order; explicit top/bottom-N displays preserve source order rather than type-grouping. Grouping/filtering never reorder stored contents; exact columns and covered opponent layout remain open. |

@@ -157,7 +157,12 @@ together through explicit selection. No anchor/follower entity is required in
 the initial schema merely to represent aura/equipment-like relationships.
 
 An authenticated account and a game participant are separate concepts. Account
-creation, guest support, and invite credentials are unresolved decisions.
+registration and login before the main menu are required (D-188); guest entry
+is not part of that flow. Authentication method, recovery/session persistence
+and invite credentials remain open. Games initially have a lobby state with deck
+selection and mainboard/sideboard management, and start once both players press
+Ready (D-189/D-190). Exact lifecycle/history representation remains open in the
+[primary contract](accounts-decks-and-lobby.md).
 
 ## 2.3 Card and object state
 

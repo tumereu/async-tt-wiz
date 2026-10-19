@@ -17,6 +17,16 @@ D-186's Set comparison and the old 25-rule review below; preserve deltas,
 unrelated fields, explicit historical intent and D-185 reconciliation. Do not
 restart the old numbered review or treat it as approved. See T-387–T-395.
 
+**Setup decisions (D-188–D-190):** required login and available registration;
+main-menu Logout/Manage decks/Play; adding users (Friends name tentative); Play
+lists current games/pending invites. Deck editing is import-list-only. A game
+begins in a lobby with deck selection and mainboard/sideboard management, and
+starts once both players press Ready. See the
+[primary contract](../design/03-contracts/accounts-decks-and-lobby.md) and
+T-396–T-402. Next substantive setup gaps: readiness changes, saved-deck isolation,
+invitation flow and actual starting operations. Do not silently approve full deck
+editing/export, a separate host Start, or the assistant's immediate-table proposal.
+
 **Current model (D-176/D-177):** one individual mutation per node, including
 ordered individual operations from bulk controls. Every mutation immediately
 extends/branches the chosen path and publishes. Groups are playback steps with

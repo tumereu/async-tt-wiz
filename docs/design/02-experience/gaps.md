@@ -11,8 +11,12 @@ retains the original Q-IDs.
 These appear in the product/action/UI drafts, but their exact first-release
 obligation or behavior is still proposed:
 
-- Game creation/invites, accounts, deck import/edit/export, configurable starting
-  arrangements, opening hands/redraws, extra areas such as Command/Sideboard.
+- D-188–D-190 confirm login/registration, main-menu Logout/Manage decks/Play,
+  adding users, current games/pending invites, import-only deck management and
+  a lobby with deck selection, mainboard/sideboard management and both-player
+  Ready. Authentication/invite details, fuller deck editing/export, configurable
+  starting arrangements, opening hands/redraws and extra in-game areas remain open
+  or proposed. Lobby sideboarding does not settle an in-game Sideboard area.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -42,7 +46,10 @@ old future after a response. Exact overall release scope still needs sign-off.
 ## Genuine gaps
 
 1. **Setup and release scope.** From invitation/deck import to a playable table:
-   supported formats, starting arrangement/values/hands, missing cards,
+   D-188–D-190 settle authenticated navigation, adding users, import-only decks
+   and lobby preparation with both-player Ready. Remaining: invite flow, import
+   formats/errors, readiness prerequisites/changes, saved-deck versus lobby
+   changes, initial shuffle, starting arrangement/values/hands, missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.
 2. **History groups and pings.** D-162–D-175 establish the core sequence/marker
    model, including real-card Stack isolation, same-tuple tap interleaving, grouped
@@ -122,7 +129,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    auto-placement/initialization; numeric grammar/limits; same-pile reorder versus
    entry resets; ambiguous metadata/defaults. Use shared contracts, not hundreds
    of special cases.
-9. **Product/platform choices.** Identity/recovery, hosting, catalog/image rights,
+9. **Product/platform choices.** Login/registration are confirmed, but identity
+   method/recovery/session persistence remain open, along with hosting, catalog/image rights,
    offline storage/retention, device/language/accessibility support, notification/
    privacy settings, and deletion/export guarantees. Protocols, randomness source,
    APIs/migrations, backups, and performance follow in the relevant design stage.

@@ -29,6 +29,19 @@ The general rules are:
 
 ## Confirmed behavior
 
+### Before the table: accounts, decks, and lobby
+
+- Log in to reach the main menu; registration is available. The menu offers
+  Logout, Manage decks, and Play. Users can add other users; **Friends** as a
+  separate menu name is still tentative.
+- Play shows current games, including pending invitations.
+- Deck management currently imports card lists only, rather than providing a
+  full manual deck-building editor.
+- A game begins in a lobby. Players choose decks and manage their mainboards/
+  sideboards there, then each presses Ready. Once both are ready, the game starts.
+  Readiness changes, exact starting setup and invitation details remain open in
+  the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
+
 ### 1. A cooperative table, not a rules referee
 
 - Either participant can edit either side, including inspecting hidden cards.

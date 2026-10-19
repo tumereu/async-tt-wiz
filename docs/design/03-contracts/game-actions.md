@@ -34,8 +34,8 @@ Incomplete input does not stream malformed or half-selected game actions.
 
 | ID | Capability | Required manual behavior |
 | --- | --- | --- |
-| A-001 | Create game | Invite a second person; choose starting configuration and decks. |
-| A-002 | Card-list import/edit | Import lists, resolve catalog entries, edit quantities, faces/printings, and generic labels/groupings without legality rules. |
+| A-001 | Create game | Play lists current games/pending invites; games begin in a lobby with deck selection and mainboard/sideboard management. Both players press Ready to start (D-189/D-190); detailed invitation/setup behavior remains open. |
+| A-002 | Card-list import | Deck editor is currently import-list-only (D-189). Full manual quantity/face/printing editing and export are not implied requirements. Exact import formats/resolution remain open; lobby mainboard/sideboard management is separately confirmed. |
 | A-003 | Instantiate objects | Create listed cards in explicitly selected containers; expose setup for editing. |
 | A-004 | Setup edits | Choose/configure starting arrangement, labels, and values; players perform any redraw/return process using ordinary moves. |
 | A-005 | Move cards | Move one/many objects between containers/areas and choose insertion order; no rule-dependent side effects. |

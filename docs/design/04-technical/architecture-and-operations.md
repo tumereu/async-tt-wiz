@@ -136,8 +136,9 @@ allow a typical deck load or shuffle to fail unexpectedly.
 - Do not describe the product as confidential between opposing players.
   Both can access all in-game information by design.
 
-End-to-end encryption, guest accounts, and self-hosting are open product choices;
-they must not be implied by “private game.”
+Login before the main menu and available registration are required (D-188), not
+guest entry; authentication/session/recovery mechanisms remain open. End-to-end
+encryption and self-hosting are also open choices, not implied by “private game.”
 
 ## 7.6 Reliability and operational contracts
 

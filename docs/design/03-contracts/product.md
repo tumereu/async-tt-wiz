@@ -64,6 +64,12 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-040 | Each tree node is one individual, deterministically reversible mutation, such as moving/tapping one card. Bulk and combined controls issue ordered individual mutations; groups never determine node granularity or publication. D-176 supersedes older combined-node and MTG-reaction-window mappings. Undo follows one parent node (D-159/D-160). |
 | P-041 | Non-token cards do not disappear during the game: they move between locations and have no Remove/delete action, including through bulk, correction or projection paths. Approved token disappearance/removal, projection removal and retained-history Undo remain distinct (D-174). |
 | P-042 | Returning after an interruption starts at the last local state, animates rollback to the fork, then plays the new continuation automatically or step by step. Playback can be paused; a horizontal bottom timeline permits left/right scrubbing to an exact mutation where play can continue (D-177). |
+| P-043 | Login is required before the main menu; registration is available. Main menu offers Logout, Manage decks and Play; users can add other users, while the Friends label/placement remains tentative (D-188). |
+| P-044 | Deck editing is currently card-list import only. A game lobby separately permits deck selection and mainboard/sideboard management, not an implied full saved-deck editor (D-189). |
+| P-045 | Play lists current games including pending invitations. Games begin in a lobby and start once both players press Ready, not immediately upon creation (D-190). |
+
+The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
+entry/setup behaviors and their remaining decisions.
 
 ## 1.3 Proposed first-release boundaries
 
@@ -71,6 +77,9 @@ Included:
 
 - Private two-player tables, card/deck import, editable setup, manual play,
   participant-recorded completion, and fresh tables retaining earlier history.
+  D-188–D-190 confirm authenticated entry, adding users, import-only deck
+  management and lobby mainboard/sideboard preparation with both-player Ready;
+  they do not approve a full deck editor or the remaining completion/rematch scope.
 - Configurable areas and ordered piles, card movement/orientation/faces, custom
   objects, named counters/values, generic links/markers, and free-form correction.
 - Individual action playback, suggested editable groups, branching, undo/redo,

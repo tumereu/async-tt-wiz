@@ -1243,7 +1243,7 @@ blocker projections and real/combat-projection views, join the chosen slot side-
 by-side, taking its role. Do not preserve/split prior roles or form an overlapping
 ordinary pile. Single projection drags work in either role direction. D-143 inserts
 at between-card positions inside a slot or appends on unused-space drops, keeping
-other cards' relative order. Moved-collection ordering, other-view applicability,
+other cards' relative order. Mixed-view/battlefield ordering, other-view applicability,
 mixed/empty-source cases, and missing-source Stack
 presentation/actions remain separate. See the [session handoff](14-session-handoff.md)
 for the continuation point.
@@ -1263,7 +1263,7 @@ movement. Reuse existing areas without clearing/replacing them; separate manual
 creation remains available. D-147 shows both multiselect declaration quick actions
 only during Declare attackers, preserving full context-action access at other
 steps. No implicit execution or legality/turn-player access restriction follows.
-New-pair order, absent-area drag targets, and additional single-card quick
+Order among multiple new pairs, absent-area drag targets, and additional single-card quick
 offerings remain open.
 D-148 makes Declare + tap one tree event covering projection declaration, source
 tapping, and any automatic area creation, with review/interruption only before/
@@ -1275,6 +1275,22 @@ D-150 makes Untap all + advance one event and D-151 makes Draw one + advance two
 draw while still in Draw, then advance to Precombat main. Review/interruption
 between Draw events is effective, while one Undo reverses the invocation. No extra
 user tap/Send or runtime priority enforcement; see history section 3.11.
+D-152 makes declaration shortcuts convert existing blockers by moving their same
+occurrences into individual new attacker pairs, preserving identities/links and
+normal variant tapping. Existing attackers and other origin cards retain grouping;
+fully empty origins disappear normally. Keep one-event/one-Undo declaration mappings;
+order among multiple new pairs and exact concurrency remain open.
+D-153 fixes new declaration pairs after surviving existing pairs, preserving
+existing pair contents/order. D-154 preserves the pre-drag order of cards moved
+together from one slot, including subsets/same-slot reorder; selection-tap order
+does not reorder them. Insert/append the sequence under D-143 without copies or
+source edits. Multiple-new-pair and mixed-view/battlefield ordering remain open.
+D-155 fixes two horizontal combat rows: blockers above, attackers below, with
+each pair's blocker slot above its attacker slot. Keep side-by-side slot contents
+and existing grouping/cleanup. D-156 separately fixes cross-slot combat drag order:
+selected blockers left-to-right, then selected attackers left-to-right, preserving
+each slot's order. Insert/append that sequence together; every moved card takes
+the destination role. Exact geometry remains stage 3.
 
 ## 10.9 Worked interaction examples
 

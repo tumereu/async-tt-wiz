@@ -118,20 +118,33 @@ projection selections: all go into the chosen slot side-by-side with its role,
 never split by earlier roles or overlapped into an ordinary pile. Source state
 and occurrence uniqueness remain unchanged. D-143 inserts on between-card drops
 inside a slot and appends on unused-space drops, preserving other cards' relative
-order. Moved-collection ordering, other-view applicability, and absent-area entry remain open;
+order. Mixed-view/battlefield ordering, other-view applicability, and absent-area entry remain open;
 repeated declaration still follows D-133 rather than drag retargeting.
 D-144 adds Remove from combat as a context action for one or several selected
 combat projections, leaving real cards/Stack effects unchanged. Remove incident
 links and fully empty pairs normally, preserving remaining grouping/order and the
 open area. One Undo restores occurrences and cleaned-up slot/link context;
 source-card Remove and real-source/mixed-selection access remain separate cases.
+D-152 handles declarations of existing blockers: move each existing occurrence
+into its own new attacker pair, preserving identity/links rather than duplicating
+it. Apply the chosen tapping variant, retain other origin grouping, and remove
+only fully empty origins. Existing attackers remain in their slots; each variant
+keeps its approved one-event/one-Undo mapping.
+D-153 appends new declaration pairs after surviving existing pairs. D-154 keeps
+the pre-drag order of cards moved together from one combat slot, inserting/
+appending that sequence under D-143, including same-slot reorders. Preserve
+other cards' order, occurrence identity, source state, and existing Undo scope;
+D-156 orders cross-slot combat drags by selected blockers left-to-right, then
+selected attackers left-to-right, retaining each slot's order. Insert/append the
+sequence together; all take the destination role. Mixed-view/battlefield and
+multiple-new-pair ordering remain separate cases.
 D-145 gives each newly declared attacker its own pair for declaration shortcuts,
 keeping existing attackers' slots/grouping/order. Collection drags still share
 one target slot (D-142). D-146 auto-creates the combat area for single-card
 declaration if absent, without implicit tapping or source movement; reuse an
 existing area. D-147 shows both multiselect declaration quick actions only during
 Declare attackers; full context-action access remains at other steps (D-121).
-New-pair order, absent-area drag targeting, and additional single-card quick
+Order among multiple new pairs, absent-area drag targeting, and additional single-card quick
 offerings remain open; do not infer legality or editing locks from quick visibility.
 D-148 records Declare + tap as one event showing declaration, source tapping,
 and any automatic area creation. Review/interruption is before/after it; one Undo

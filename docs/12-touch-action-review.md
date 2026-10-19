@@ -42,7 +42,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-08 | Attachments/relationships, visual links, and action-associated pings. | D-70–D-80 confirm binary links/no Attach tool and event-scoped pings. D-119 adds event-wide order numbers; D-120 projection links disappear with endpoints. Numbering mutation, endpoint routing, grouping, and exact geometry remain open. |
 | G-09 | Create, duplicate, remove, and repeat creation of cards/tokens/pieces. | D-81–D-86 confirm token creation/Clone/removal and one Blank catalog token instead of a custom form. Exact placement, initialization, references, and history boundaries remain later review; no wider custom authoring approved. |
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
-| G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | D-116–D-118 actions/combinations/blockers; D-120–D-124 links/access/cleanup/shared edits; D-126–D-132 cleanup/closure/undo/events; D-133/D-135 reuse/uniqueness; D-136–D-139 slot grouping/lifecycle; D-140–D-143 uniform drags/insertion; D-144 context Remove from combat; D-145 new declaration pairs; D-146 single-card auto-area; D-147 multiselect quick visibility at Declare attackers. Moved-collection/new-pair order, existing-blocker declarations, edge/between-pair/absent-area drag targets, other-view applicability, and additional single-card quick offerings remain open; UI drafts remain stage 3. |
+| G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | Confirmed: separate actions/declaration variants, shared source state, occurrence reuse/uniqueness, paired grouping/cleanup/reflow, uniform slot drops/insertion, context removal, declaration defaults/auto-area/visibility, and shortcut event mappings. D-152 settles existing-blocker declaration conversion. Moved-collection/new-pair order, edge/between-pair/absent-area drag targets, other-view applicability, and additional single-card quick offerings remain open. See primary contracts/decision register; UI drafts remain stage 3. |
 | G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. D-134 allows unlimited independent projections, including from one source. Missing-source display/actions and other entry/reference cases remain open. |
 | G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
 
@@ -950,7 +950,9 @@ Remove entry, drag-back behavior, menu layout, and event/concurrency remain open
 Confirmed D-145: declaration shortcuts place each newly declared attacker in its
 own pair by default; existing attackers retain slots/grouping/order, including
 existing multi-attacker groups. Collection drags still share the chosen slot.
-New-pair position/order, existing-blocker sources, and event/concurrency remain open.
+Order among multiple new pairs and exact concurrency remain open. D-153 settles
+append placement; D-152 settles existing
+blockers below; D-148/D-149 settle declaration event counts.
 Confirmed D-146: single-card declaration auto-creates an absent combat area like
 multiselect shortcuts, without implicit tapping/source movement or a separate
 creation action. Reuse an existing area without clearing/replacing it; manual
@@ -977,5 +979,30 @@ review/interruption boundary; one Undo restores the whole invocation. No extra
 tap/Send; normal publication and exposure retention apply. Empty/no-change inputs
 still advance without fictitious card changes. Exact no-change feedback,
 partial-group/dependency handling, concurrency, and out-of-step mappings remain open.
+Confirmed D-152: declaration shortcuts convert a currently projected blocker by
+moving its existing occurrence into its own new attacker pair, retaining identity/
+incident links, not duplicating/recreating. Apply normal +tap/without-tapping;
+existing attackers retain slots and other origin cards retain grouping. Remove
+only fully empty origins. Keep one-event/one-Undo declaration mappings; order among
+multiple new pairs, source-feedback/duplicate-view cases, and concurrency remain open.
+Confirmed D-153: append newly created declaration pairs after existing pairs,
+preserving surviving existing contents/order and retained attackers' slots.
+Order among several new pairs created together remains open.
+Confirmed D-154: when cards are dragged together from one combat slot, preserve
+their pre-drag relative order within the moved set, not selection-tap order.
+Insert/append that sequence under D-143, including subsets and same-slot reorder,
+without duplicating occurrences or editing sources. Other cards retain order.
+Mixed-view/battlefield order, multiple-new-pair order, no-change presentation,
+and exact concurrency remain open.
+Confirmed D-155: combat has two horizontal rows, blockers on the upper row and
+attackers on the lower row. Opposing slots remain paired across the rows with
+side-by-side contents and existing cleanup. D-156 separately approves row-first
+cross-slot drag ordering, not pair-first/attacker-first traversal.
+Confirmed D-156: cross-slot combat drags use selected blockers left-to-right,
+then selected attackers left-to-right, preserving each slot's pre-drag order.
+Insert/append the sequence together under D-143; all take the destination role
+under D-142. Preserve identities/links/source state and remaining grouping/order;
+apply empty-pair cleanup and whole-action Undo. Mixed-view/battlefield order,
+new-pair order, duplicate-source views, and exact concurrency remain open.
 Pause/resume context is in the [session handoff](14-session-handoff.md).
 No UI draft/implementation authorized.

@@ -29,15 +29,15 @@ and acceptance scenarios take precedence over this summary.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-151** and **T-001–T-276**.
+- Current documentation includes **D-001–D-156** and **T-001–T-284**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
-  D-141–D-146 respectively. Current documentation adds D-147–D-151; inspect git
-  status/log for the latest checkpoint/working state.
+  D-141–D-146 respectively. Checkpoint `7b33885` records D-147–D-151; current
+  documentation adds D-152–D-156. Inspect git status/log for the latest working state.
 - Before editing, inspect `git status` and preserve any new user work.
 - Read [combat/Stack/projections](13-combat-stack-and-projections.md), especially
-   sections 13.2 and 13.4–13.26; [latest decisions and open questions](09-decisions.md);
+   sections 13.2 and 13.4–13.30; [latest decisions and open questions](09-decisions.md);
    and [history/undo](03-history-and-undo.md), especially sections 3.2, 3.4, 3.7, 3.11.
 - Then consult [the capability worklist](12-touch-action-review.md),
   [controls](10-board-and-controls.md), [ping presentation](11-visual-action-language.md),
@@ -141,7 +141,8 @@ and acceptance scenarios take precedence over this summary.
 - D-145: declaration shortcuts give each newly declared attacker
   its own pair; already-declared attackers retain their slots/grouping/order,
   including multi-attacker groups. Not the same as dropping a collection into a
-  chosen slot. Exact new-pair order and existing-blocker source handling remain open.
+  chosen slot. D-153 fixes append placement; order among new pairs remains open.
+  D-152 settles existing blockers.
 - D-146: declaring a single card auto-creates an absent combat area
   without a separate creation action or implicit tap/source movement. Reuse an
   existing area without clearing/replacing it. Manual creation remains available;
@@ -156,13 +157,13 @@ and acceptance scenarios take precedence over this summary.
   Undo restores prior orientations/occurrences/slots/grouping/order/area existence.
   Separate declaration/tapping invocations remain distinct; other shortcut mappings
   and exact concurrency remain open. This is not runtime timing/legality adjudication.
-- D-149, latest batch: Declare without tapping is one event including any
+- D-149: Declare without tapping is one event including any
   automatic area creation, preserving source orientation. One Undo restores
   occurrence/slot/grouping/order/area context.
-- D-150, latest batch: during Untap, Untap all + advance is one event showing
+- D-150: during Untap, Untap all + advance is one event showing
   scoped untapping and Untap → Upkeep, with no internal response boundary. One
   Undo restores prior orientations/tracking; no-change sources still advance.
-- D-151, latest batch: during Draw, Draw one + advance is two events: draw portion
+- D-151: during Draw, Draw one + advance is two events: draw portion
   while tracking remains Draw, then advance to Precombat main. The intermediate
   state is genuinely reviewable/interruptible; one Undo reverses both events.
   No extra tap/Send or group-publication gate. Empty Library draws nothing but
@@ -171,6 +172,32 @@ and acceptance scenarios take precedence over this summary.
   Undo retains actual draw exposure, not a trailing ordinary advance, while
   restoring the pre-invocation state. Partial-group/dependency/concurrent handling
   and out-of-step mappings remain open; see history section 3.11.
+- D-152: a declaration shortcut including an existing blocker moves
+  that same occurrence into its own new attacker pair, preserving identity/links.
+  Apply variant tapping normally; existing attackers retain slots/grouping and
+  other origin cards stay grouped. Remove only fully empty origins. Preserve
+  one-event/one-Undo declaration mappings, restoring prior roles/slots/order/pairs/
+  source orientation as applicable. Order among new pairs and source-feedback/duplicate-
+  view/concurrent handling remain open.
+- D-153: newly created declaration pairs append after surviving
+  existing pairs; preserve existing contents/order and retained attackers' slots.
+  Applies to fresh attackers and converted blockers. Ordering multiple new pairs
+  among themselves remains open.
+- D-154: preserve current relative order when dragging a collection
+  from one combat slot, including subsets/same-slot reorders. Use source-slot order,
+  not selection-tap order, and insert/append that sequence under D-143. Preserve
+  other cards' order, identities/source state, and normal Undo. D-156 settles
+  cross-slot combat order; mixed-view/battlefield and multiple-new-pair order remain open.
+- D-155: combat has two horizontal rows, blockers above and
+  attackers below. Each opposing slot pair spans the rows. This clarifies spatial
+  layout only; the previous proposed pair-by-pair, attacker-first cross-slot drag
+  ordering was not approved. D-156 separately approves row-first ordering.
+- D-156, latest answer: cross-slot combat drags use selected blockers left-to-right,
+  then selected attackers left-to-right, preserving each slot's pre-drag order.
+  Insert/append that sequence together; all take the destination role. Preserve
+  identities/links/source state, remaining grouping/order, normal empty-pair cleanup,
+  and whole-action Undo. Mixed-view/battlefield order, order among new declaration
+  pairs, duplicate-source views, and exact concurrency remain open.
 
 ### Shared card state and area-specific projection lifetime
 
@@ -244,16 +271,15 @@ and acceptance scenarios take precedence over this summary.
 
 ## Suggested next question — not yet asked or approved
 
-Continue declaration source-role handling. A useful small next question is:
+Continue real battlefield collection order. A useful small next question is:
 
-> 1. If a declaration shortcut includes a source currently projected as a blocker,
-> move its existing occurrence into its own new attacker pair, rather than copying
-> it or leaving it as a blocker? Proposal: yes; keep the ordinary tap/without-tap
-> variant behavior and normal origin cleanup.
+> 1. For real battlefield cards dragged together into combat, use their current
+> visual order, top-to-bottom then left-to-right, rather than selection-tap order?
 
 This is only a suggested continuation. Do not mistake the question for a decision.
-This settles non-drag role conversion, not new-pair order, inapplicable-source
-feedback, or a legality engine. Do not reopen approved shortcut event mappings.
+This does not settle exact ordering for irregular/overlapping battlefield layouts,
+new declaration pairs, mixed real/projection views, or duplicate-source selection. Do not reopen
+existing-blocker conversion or approved shortcut event mappings.
 Do not reopen uniform slot-drop roles (including reverse projection drags), visual grouping, slot
 lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack multiplicity.
 
@@ -265,8 +291,8 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
   access/mixed-selection routing, and cleanup/undo/offline/concurrent behavior.
 - Combat: absent-area drag targeting, additional single-card quick offerings,
   empty/otherwise-mixed/inapplicable selections, attack destination, other-view
-  applicability/moved-collection order/other removal paths, edge/between-pair
-  targeting, new-pair order, existing-blocker declarations, capacity,
+  applicability/other removal paths, edge/between-pair targeting, mixed-view/
+  battlefield order and ordering new pairs among themselves, capacity,
   repeated-combat/area reuse, no-change presentation, and remaining event/concurrency
   cases, including partial-group interruption/undo and out-of-step mappings.
 - Stack: actual-card versus projection entry, placement/order,

@@ -431,8 +431,21 @@ shortcuts, preserving already-declared attackers' existing slots/grouping/order.
 Do not apply this per-source default to drags into a chosen slot (D-142).
 D-146 auto-creates an absent combat area for single-card declaration; reuse an
 existing area without clearing/replacing it. Plain declaration preserves source
-orientation/position/location. Exact new-pair ordering, existing-blocker source
-handling, absent-area drag targeting, and event/concurrency remain open.
+orientation/position/location. D-152 converts an existing blocker included in a
+declaration shortcut by moving its same occurrence into its own new attacker pair.
+Keep identity/incident links, normal variant tapping, and remaining origin grouping;
+remove only fully empty origins. Order among multiple new pairs, absent-area drag targeting, and
+exact concurrency remain open; D-148/D-149 fix one-event/one-Undo declaration mappings.
+
+D-153 appends newly created declaration pairs after surviving existing pairs;
+keep existing pairs' contents/order and already-declared attackers' slots.
+D-154 preserves source-slot relative order within a collection dragged from one
+combat slot, including a subset or same-slot reorder. Insert/append the sequence
+under D-143 without copies/source edits. D-155 fixes blockers above attackers in
+two rows; D-156 orders a cross-slot combat drag by selected blockers left-to-right,
+then selected attackers left-to-right, preserving each slot's order. The entire
+sequence takes the destination role. Mixed-view/real-battlefield order and order
+among multiple new pairs remain open.
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display

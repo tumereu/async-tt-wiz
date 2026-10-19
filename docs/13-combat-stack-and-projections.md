@@ -1,7 +1,7 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-151 require case-by-case design before implementation. The
+(D-115). D-112–D-156 require case-by-case design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
@@ -514,7 +514,8 @@ origins disappear normally (D-138/D-139). No legality or damage engine is implie
 
 The proposed special rule preserving roles in mixed attacker/blocker drags is
 rejected. D-143 settles within-slot insertion versus append while preserving the
-other cards' order. Moved-collection ordering and spacing remain open; geometry
+other cards' order. D-154 preserves moved order from one slot; D-156 settles
+cross-slot combat order. Mixed-view/battlefield ordering and spacing remain open. Geometry
 is stage 3. Non-battlefield/other-view applicability,
 duplicate-source view selection handling beyond occurrence uniqueness, between-
 pair side targeting, absent-area entry, no-change records, and event/concurrency
@@ -570,9 +571,10 @@ Declare + tap still taps its selected sources, and without-tapping preserves
 orientation (D-116/D-117).
 
 This differs deliberately from dragging a collection onto one slot, which places
-the whole collection there (D-142). Exact new-pair position/order relative to
-existing pairs and each other, handling sources currently projected as blockers,
-empty/inapplicable selections, and event/concurrency composition remain open.
+the whole collection there (D-142). D-153 appends new declaration pairs after
+surviving existing pairs. Order among multiple new pairs, empty/inapplicable
+selections, and exact concurrency remain open. D-152 settles existing blockers; D-148/D-149
+settle each declaration variant's one-event mapping.
 Do not duplicate a source's combat occurrence while resolving those cases.
 
 ## 13.23 Confirmed single-card declaration auto-creation (D-146)
@@ -644,3 +646,82 @@ preserving real source state and unrelated prior groups (D-131). Separate manual
 area creation/declaration remain separate invocations when used separately. No
 runtime timing/legality adjudication is added. Exact concurrency and remaining
 selection/no-change presentation cases remain open.
+
+## 13.27 Confirmed declaring an existing blocker as an attacker (D-152)
+
+If a declaration shortcut includes a source currently projected as a blocker,
+move that existing occurrence into its own new attacker pair, changing its role
+to attacker. Do not leave it as a blocker, copy it, or delete/recreate it. Preserve
+occurrence identity and one combat occurrence per source per area (D-135).
+
+Apply the selected variant normally: Declare + tap taps its real source; Declare
+without tapping preserves its current orientation, not forcibly untaps it. Apart
+from explicit +tap, this role/placement change leaves source state/location/
+battlefield position unchanged. Already-declared attackers in the same selection
+keep their existing slots/grouping/order; fresh sources receive their own new
+pairs under D-133/D-145.
+
+Remaining origin cards stay grouped in their slots; remove an origin pair only
+if both sides become empty, allowing visual reflow (D-138/D-139). Moving an
+occurrence without removing it does not remove its incident generic projection
+links. Each variant retains its one-event/one-Undo mapping under D-148/D-149;
+Undo restores prior roles/slots/grouping/order, cleaned-up pairs, and source
+orientation as applicable. D-153 appends the new attacker pairs after surviving
+existing pairs. Order among multiple new pairs, empty/inapplicable-source feedback,
+duplicate-source views, and exact concurrency remain separate cases.
+
+## 13.28 Confirmed append placement and single-slot moved order (D-153/D-154)
+
+**Declaration pairs (D-153):** append newly created declaration pairs after the
+existing pairs, rather than inserting among or before them. This applies to fresh
+attackers and existing blockers converted under D-152. Preserve surviving existing
+pairs' relative order and contents; fully empty origin cleanup still applies.
+Already-declared attackers remain in their existing slots, not appended again.
+Order among several new pairs created together remains a separate question.
+
+**Collection from one slot (D-154):** when several cards are dragged together from
+one combat slot, preserve their pre-drag relative order within the moved collection.
+For a subset, retain its source-slot sequence, not the order cards were selected.
+Insert that sequence together at a between-card drop position or append it on an
+unused-space drop (D-143). This also permits reordering within the same slot:
+move existing occurrences rather than copying them. Other cards retain their
+relative order; all moved cards still take the destination slot's role (D-142).
+
+Source-card state, occurrence identities/links, remaining grouping, and normal
+whole-user-action Undo/history recovery stay unchanged. D-156 settles collections
+drawn from several combat slots. Mixed-view/real-battlefield ordering, ordering multiple new
+declaration pairs among themselves, no-change presentation, and exact concurrent
+handling remain open. Exact pixel layout/drop hit regions remain stage 3.
+
+## 13.29 Confirmed two-row combat layout (D-155)
+
+Present combat in two horizontal rows: blockers in the upper row, attackers in
+the lower row. Each existing opposing slot pair spans those rows, keeping its
+blocker slot above its attacker slot. Multiple cards still sit side-by-side
+within their slot; pair grouping, one-sided pairs, and fully-empty-pair cleanup
+remain unchanged (D-138/D-139/D-142).
+
+This specifies spatial behavior, not exact geometry or a UI draft. D-156 separately
+settles row-first cross-slot drag ordering; the earlier pair-by-pair, attacker-first
+proposal was not approved. Single-slot order remains D-154 and destination role
+remains D-142.
+
+## 13.30 Confirmed cross-slot combat drag order (D-156)
+
+When dragging selected combat projections from several slots, use their pre-drag
+row order: selected blockers left-to-right across the upper row, then selected
+attackers left-to-right across the lower row. Preserve each slot's card order
+(D-154), filtering out unselected cards. Do not alternate attacker/blocker slots
+pair-by-pair or use selection-tap order.
+
+Insert the resulting sequence together at the chosen between-card position, or
+append on an unused-space drop (D-143). Every moved card takes the destination
+slot's role (D-142), regardless of its original row. This orders the collection;
+it does not preserve or split its former roles. Reuse occurrence identities,
+preserve source-card state/links and other cards' relative order/grouping, and
+remove only fully empty origin pairs. Normal whole-user-action Undo restores the
+prior roles/slots/order and cleaned-up pairs.
+
+Mixed real/projection-view ordering, real battlefield collection order, ordering
+multiple new declaration pairs, duplicate-source views, and exact concurrency
+remain separate cases. No implementation or exact layout geometry is authorized.

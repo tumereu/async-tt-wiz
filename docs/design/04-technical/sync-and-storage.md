@@ -50,8 +50,8 @@ nodes are never physically deleted by Undo or replacement play. The pointer move
 is a control operation, not another board-action child. D-222 adds a remembered
 last active head for Redo and a graphical explorer for explicit any-node activation.
 Only single-player/no-exposure inactive continuations qualify for hiding behind
-Show hidden branches; mixed-player/exposure paths stay visible in full. Preserve
-the older comment-visibility exception pending clarification against D-222. Sync must converge
+Show hidden branches, except event-comment paths also stay visible (D-223).
+Mixed-player/exposure/event-comment paths stay visible in full. Sync must converge
 on the shared tree/control state without confusing presentation filtering with
 deletion. D-161 binds Undo to a specific node-to-parent transition and silently
 discards it if no longer valid, reconciling client state without notifications.

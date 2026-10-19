@@ -164,8 +164,9 @@ old future after a response. Exact overall release scope still needs sign-off.
    toward it, new active branches on changed play, and a graphical explorer with
    explicit activation of any branch/node. No mandatory child picker is approved.
    Hide only single-player/no-exposure inactive continuations behind the explorer
-   toggle; mixed-player/exposure paths stay visible in full. The older event-comment
-   visibility exception is preserved pending clarification against that condition.
+   toggle; mixed-player/exposure paths stay visible in full. D-223 confirms event
+   comments also keep the whole continuation visible, even with one author/no exposure;
+   hide only single-player paths with neither exposure nor event comments.
    Remaining: remembered-head scope across users/devices and updates after explicit
    activation, concurrent/stale Redo/activation, detailed pre-fork/nested presentation,
    archive/restore controls and separate empty-interruption semantics. D-161 targets a specific Undo transition,

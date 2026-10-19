@@ -50,19 +50,19 @@ branch/node**, including an internal node or the root. Activation changes shared
 current state; viewing/scrubbing alone remains personal. A new edit after such
 historical activation continues from that selected state under D-179.
 
-**D-222 visibility:** hide inactive continuations that consist of **only one
-player's actions and no hidden-information exposure**, with a separate
-**Show hidden branches** toggle in the explorer. Mixed-player continuations and
-exposure-bearing continuations stay visible in full, including ordinary tails.
+**D-222/D-223 visibility:** hide inactive continuations that consist of **only one
+player's actions, no hidden-information exposure and no event comments**, with a
+separate **Show hidden branches** toggle in the explorer. Mixed-player,
+exposure-bearing and event-comment continuations stay visible in full, including ordinary tails.
 Hiding is presentation filtering, not deletion or access control; the active path
 and retained states remain available. Classify the alternative continuation,
 not the shared prefix; exact nested-branch presentation remains open.
 
-**Comment-rule clarification pending:** D-95/D-160 also keep a continuation with
-an event comment visible even without exposure. D-222's owner wording did not
-explicitly address that exception. Preserve it pending clarification rather than
-silently removing it or claiming the new condition resolves comment-only paths.
-All comments/nodes remain retained regardless of the eventual visibility choice.
+**Confirmed comment exception (D-223):** an event comment keeps the **whole
+continuation visible even if all its actions are by one player and no hidden
+information was exposed**. This explicitly preserves D-95/D-160's exception
+alongside D-222's single-player filtering condition. It affects explorer visibility,
+not shared activation, grouping, information-exposure classification or retention.
 
 The remembered-head scope across participants/devices, concurrent/stale Redo and
 tree activation, memory updates after explicit activation, and detailed pre-fork
@@ -514,10 +514,10 @@ being transformed or erased. At the root there is no earlier game-state node.
 To repair a value while keeping later play active, perform its normal edit now;
 this does not require a separate historical-Undo mode or correction wizard.
 
-After replacement play, only single-player/no-exposure inactive continuations
-qualify for default hiding under D-222, subject to the pending event-comment
-exception clarification in section 3.0. Mixed-player/exposure continuations remain
-visible in full. Hidden nodes retain identity, payloads, ancestry and stored random results;
+After replacement play, only single-player/no-exposure/no-comment inactive
+continuations qualify for default hiding (D-222/D-223). Mixed-player, exposure
+and event-comment continuations remain visible in full. Hidden nodes retain
+identity, payloads, ancestry and stored random results;
 the filter never changes game state. See section 3.9 for exposure classification.
 
 D-176 supersedes the old combined-node mappings for advance-and-close,
@@ -623,11 +623,10 @@ in-game undo capability.
 
 ### Information-gaining actions and undo branches
 
-Confirmed D-159/D-160/D-222: every undone continuation is retained. Default hiding
-requires a single-player continuation without exposure, available through Show
-hidden branches. Mixed-player/exposure continuations remain visible in full.
-The older event-comment visibility exception is preserved pending the explicit
-clarification described in section 3.0. No last-exposure cutoff, permanent board
+Confirmed D-159/D-160/D-222/D-223: every undone continuation is retained. Default
+hiding requires a single-player continuation without exposure or event comments,
+available through Show hidden branches. Mixed-player/exposure/event-comment
+continuations remain visible in full. No last-exposure cutoff, permanent board
 markers or ping overlays are required.
 
 Confirmed exposure coverage (D-89): library View/Reveal, otherwise-covered hand/
@@ -662,22 +661,20 @@ D-95 includes event-linked comments as retention points alongside hidden-info
 exposure. A submitted event comment is another node on the current tree path;
 that path is already a branch like any other. Apply the ordinary chosen-base/
 path rules, not a separate comment-only fork/activation mechanism. Undo moves
-back while preserving the existing path. D-160's whole-comment-continuation
-visibility remains pending clarification against D-222's new single-player/
-no-exposure filtering rule; do not silently drop that exception. Retention of
-the complete path and ordinary trailing nodes is unchanged.
+back while preserving the existing path. D-223 explicitly preserves D-160's
+whole-comment-continuation visibility even for a single-player/no-exposure path.
+Retain the complete path, including ordinary trailing nodes, without a last-comment cutoff.
 This differs from D-94 game-wide chat, which is outside game Undo. Exact comment
 group association, revision/edit/delete, and dependent/concurrent protocols remain
 later review, not an unresolved question of whether paths are already branches.
 
-Confirmed branch-level filtering (D-222 refines D-160, replacing D-91's cutoff):
+Confirmed branch-level filtering (D-222/D-223 refine D-160, replacing D-91's cutoff):
 
 1. Retain every node of the abandoned continuation after replacement play.
-2. If that continuation contains exposure or actions by both players, keep all of
-   it visible, including ordinary ancestors/intervening/trailing nodes.
-3. A single-player/no-exposure continuation qualifies for hiding behind Show
-   hidden branches. Preserve the prior event-comment visibility exception pending
-   clarification; its interaction with this new condition is not yet settled.
+2. If that continuation contains exposure, an event comment or actions by both
+   players, keep all of it visible, including ordinary ancestors/intervening/trailing nodes.
+3. A single-player continuation with neither exposure nor event comments qualifies
+   for hiding behind Show hidden branches.
 4. Visibility does not move the active pointer or hide unrelated alternatives.
    An exposure in the shared prefix alone does not make an ordinary abandoned
    suffix an exposure-bearing continuation.
@@ -688,7 +685,7 @@ not only the prefix ending at D. For an all-ordinary A–E by a single player,
 retain the same nodes but hide that alternative by default; if both players
 authored it, keep it visible. Either person can inspect/activate retained states;
 inspection alone never activates them. D-222 makes Redo follow its remembered
-head. Exact exposure capture/coalescing, comment-exception interaction, pre-fork
+head. Exact exposure capture/coalescing, pre-fork
 presentation and concurrent/non-Undo control details remain open.
 
 ## 3.10 Randomness and branching

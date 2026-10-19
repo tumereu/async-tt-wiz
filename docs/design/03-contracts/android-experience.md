@@ -154,10 +154,10 @@ the last active head; Redo follows the path toward that head with original
 states/results. Retain all descendants. Changed play branches and becomes active.
 A **graphical tree explorer** allows review and explicit activation of any retained
 branch/node, including internal nodes/root; reviewing alone does not activate.
-Hide only single-player/no-exposure inactive continuations behind a separate
-Show hidden branches toggle. Mixed-player/exposure continuations stay visible in
-full. The prior event-comment visibility exception remains pending clarification
-against D-222. Covered summaries do not automatically disclose identities.
+Hide only single-player inactive continuations without exposure or event comments
+behind a separate Show hidden branches toggle. Mixed-player/exposure/event-comment
+continuations stay visible in full (D-223), even for a one-author/no-reveal comment
+path. Covered summaries do not automatically disclose identities.
 Exact pre-fork/nested presentation, remembered-head user/device scope, concurrent/
 stale Redo/activation and exposure coalescing remain open; these are not pings or
 permanent board markers.
@@ -166,8 +166,8 @@ D-94/D-95 distinguish game-wide Chat (not undoable once submitted) from event-
 context comments (nodes on the ordinary current tree path, retained after undo).
 The path is already a branch; do not add a special comment-only fork workflow.
 Undo moves one parent back while retaining the whole comment-bearing abandoned
-continuation visibly under D-160; whether D-222 changes that comment exception
-needs clarification. Exact event/group association,
+continuation visibly under D-160, explicitly reaffirmed by D-223 even without
+exposure/other-player actions. Exact event/group association,
 revision/edit/delete, pending chat delivery, and editor submission remain open.
 
 Use text/icons as well as color. A prominent “Return to active game” control is

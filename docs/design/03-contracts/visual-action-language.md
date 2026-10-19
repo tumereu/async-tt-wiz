@@ -187,8 +187,9 @@ Exact event mappings and historical placement still need detailed review.
   descendant. D-222 Redo follows the remembered last active head; a graphical
   explorer can explicitly activate any retained branch/node. Hide only single-player/
   no-exposure inactive continuations behind a toggle; mixed-player/exposure paths
-  stay visible in full. The prior comment exception awaits clarification against
-  D-222. Exact pre-fork/nested presentation and concurrent control behavior remain open.
+  stay visible in full. D-223 also keeps an event-comment path visible in full,
+  even with one author and no exposure. Exact pre-fork/nested presentation and
+  concurrent control behavior remain open.
   Undo/remove/edit pings
   through recoverable records; a ping is
   not automatically classified as information-gaining merely because durable.
@@ -208,8 +209,8 @@ D-94 makes submitted game-wide chat non-undoable. D-95 makes an event comment
 another node on the current tree path, already a branch; undo moves back while
 retaining that existing path through the comment. No separate comment-only fork
 or activation workflow. Normal tree/base rules apply, and comments are retention
-visibility qualifiers for the whole abandoned continuation under D-160, pending
-clarification against D-222's single-player/no-exposure filtering rule. Card
+visibility qualifiers for the whole abandoned continuation under D-160/D-223,
+even with one author and no exposure. Card
 notes/pings stay distinct. D-172 makes event comments join the preceding group
 without a new group-start marker; D-170's author-change boundary still wins.
 Historical placement, revisions/edit/delete and unsent-chat delivery policies

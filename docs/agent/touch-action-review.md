@@ -10,9 +10,11 @@ mutation. Undo remembers the last active head; Redo follows toward it, not an
 arbitrary child or a mandatory fork picker. Changed play after Undo branches and
 becomes active. A graphical tree explorer can activate any retained node/branch;
 review alone is personal (T-493–T-499). Hide only single-player/no-exposure inactive
-continuations behind its separate toggle; mixed-player/exposure paths stay visible
-in full. Preserve the prior event-comment visibility exception pending explicit
-clarification; **ask that next**, not another basic Undo/Redo question.
+continuations **without event comments** behind its separate toggle. D-223 confirms
+event comments keep the whole continuation visible even with one author/no exposure
+(T-500); mixed-player/exposure/event-comment paths stay visible in full.
+Next useful branching topic: shared versus personal remembered Redo-head scope,
+not another comment-visibility question.
 Remembered-head scope across users/devices, activation updates, concurrent/stale
 controls, archive/restore and nested/pre-fork presentation remain open.
 
@@ -919,8 +921,8 @@ is implied; exact generator/input/offline protocols remain later work.
 Confirmed D-159/D-160: Undo moves the shared active pointer one parent back,
 regardless of author. D-222 remembers the last active head for Redo. Retain all
 descendants; hide only single-player/no-exposure inactive continuations behind
-Show hidden branches. Mixed-player/exposure paths stay visible; the older comment
-exception awaits clarification. Library View/
+Show hidden branches, except event-comment paths also stay visible under D-223.
+Mixed-player/exposure/event-comment paths remain fully visible. Library View/
 Reveal, covered-hand/card-face views including covered-face holds, and die/coin
 results are covered; ordinary visible-face holds/every search keystroke are not.
 Summaries do not automatically show covered identities. Branch review does not
@@ -938,7 +940,7 @@ Confirmed branch-level/exposure rules (D-91, refined by D-160):
 
 1. Retain the whole abandoned continuation. D-222 hides only single-player/
    no-exposure inactive paths behind a toggle; mixed-player/exposure paths remain
-   fully visible. Preserve the older comment exception pending clarification.
+   fully visible. D-223 confirms event comments also keep the whole path visible.
    Never trim a qualifying visible path at its last exposure/comment (D-160).
    Visibility does not change the active pointer or delete retained history.
 2. Any actual hidden-information exposure qualifies, including draws/moves/face

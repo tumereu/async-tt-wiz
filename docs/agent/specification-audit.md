@@ -8,8 +8,8 @@ from the plain-language summary and tier reorganization.
   presses. D-222 refines Redo/filtering: remember the last active head for Redo
   toward it, graphical any-node activation, and default hiding only for single-player/
   no-exposure inactive continuations. Mixed-player/exposure paths stay visible in
-  full. The prior event-comment visibility exception is preserved pending explicit
-  clarification against D-222; do not silently remove it or claim reconciliation. The decision
+  full. D-223 explicitly confirms the event-comment visibility exception even for
+  single-player/no-exposure continuations; hide only those without comments too. The decision
   register preserves original D-90/D-91/D-95 and D-131/D-151 wording for provenance,
   not as current requirements. No last-exposure cutoff, whole-invocation Undo or
   suffix-rollback preview remains. D-161 silently discards no-longer-valid specific

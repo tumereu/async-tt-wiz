@@ -365,9 +365,9 @@ The general rules are:
   activation of **any retained branch/node**, including the root/internal states.
 - Hide inactive continuations only when they contain **one player's actions and
   no hidden-information exposure**, available through a separate Show hidden
-  branches toggle (D-222). Mixed-player/exposure paths remain visible in full;
-  nothing is deleted. The older event-comment visibility exception is preserved
-  pending clarification of its interaction with D-222. Covered inspection, View/Reveal,
+  branches toggle (D-222). **An event comment also keeps the whole continuation
+  visible, even for one player's no-reveal path** (D-223). Mixed-player/exposure/
+  event-comment paths remain visible in full; nothing is deleted. Covered inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
   Already-visible inspection does not. Undo cannot erase a person's knowledge.
 - Undo targets the specific node-to-parent step you invoked. If that step becomes

@@ -102,9 +102,9 @@ using recorded states/results. Changed play creates a new active continuation.
 The graphical tree explorer permits activation of any retained branch/node, not
 just tips; personal review alone never activates. The active pointer is independent
 from retained tips and personal review. A filter hides only single-player/
-no-exposure inactive continuations behind Show hidden branches; mixed-player/
-exposure paths stay visible in full. Preserve the older event-comment visibility
-exception pending clarification against D-222. D-161 binds Undo to a specific node-to-parent transition;
+no-exposure inactive continuations without event comments behind Show hidden
+branches; mixed-player/exposure/event-comment paths stay visible in full (D-223).
+D-161 binds Undo to a specific node-to-parent transition;
 if no longer valid, silently discard it and reconcile local state. Offline Undo
 creation is excluded by D-182. Exact remembered-head user/device scope, updates
 after explicit activation, concurrent/stale controls, pre-fork/nested presentation
@@ -119,8 +119,8 @@ and publication remain Q-31; no separate permanent-marker entity is required.
 D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
 nodes on the ordinary tree path. The current path is already a branch; no
 comment-only fork entity/activation mechanism is required. Undo retains that
-whole abandoned continuation visibly if it contains an event comment (D-160),
-pending clarification of that exception against D-222's filtering condition.
+whole abandoned continuation visibly if it contains an event comment, even with
+one author and no exposure (D-160/D-223).
 D-172 groups comments with preceding same-author play; D-170 still separates
 authors. Exact message/comment schemas, historical association, revisions/edit/delete
 and unsent-delivery policies remain open; do not give all Message records one

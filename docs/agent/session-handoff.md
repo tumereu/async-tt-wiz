@@ -14,7 +14,7 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest branching clarification — D-222
+## Latest branching clarification — D-222/D-223
 
 Owner selected branching as the next topic and replaced the assistant's
 one-child/mandatory-fork-choice Redo proposal. **Root contains initial state;
@@ -26,11 +26,13 @@ review and explicit activation of **any retained branch/node**, including intern
 nodes/root; mere review never activates shared state (T-493–T-499).
 
 Hide inactive continuations only when they contain **one player's actions and
-no hidden-information exposure**, behind a separate explorer toggle. Mixed-player/
-exposure paths stay visible in full. **Next clarification:** D-95/D-160 previously
-also kept event-comment branches visible. The latest wording did not explicitly
-address that exception; preserve it pending a direct answer, rather than silently
-removing it or claiming the interaction is settled. All nodes remain retained.
+no hidden-information exposure**, behind a separate explorer toggle, **unless
+they contain an event comment**. **D-223 confirms the event-comment exception**:
+keep the whole continuation visible even with one author/no exposure (T-500 and
+corrected T-186/T-292/T-323/T-354/T-499). Mixed-player/exposure/event-comment paths
+stay visible in full, including ordinary tails. All nodes remain retained.
+Next useful branching topic: whether the remembered Redo head is shared game state
+or personal to each player/device. Do not reopen the confirmed comment exception.
 
 Primary contract: [history section 3.0](../design/03-contracts/history-and-undo.md#30-current-undo-model--parent-pointer-navigation-d-159d-160).
 Remembered-head user/device scope, updates after explicit activation, concurrent/
@@ -385,7 +387,7 @@ the parent tree node, regardless of author. Retain undone descendants and permit
 explicit forward activation through the tree; review alone remains personal.
 This earlier filtering summary is refined by D-222: hiding requires a single-player/
 no-exposure continuation; mixed-player/exposure paths stay visible, and the older
-comment exception awaits clarification. D-176 subsequently corrects
+comment exception is explicitly confirmed by D-223. D-176 subsequently corrects
 node granularity to individual mutations; an actual Draw + advance takes two
 Undo steps, while an empty draw adds no node. The older D-131/D-151
 Undo-scope decisions are superseded. D-160 confirms multiple presses for
@@ -509,7 +511,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-222** and **T-001–T-499**.
+- Current documentation includes **D-001–D-223** and **T-001–T-500**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
@@ -832,7 +834,7 @@ source preservation, existing-attacker reuse, or approved event/Undo mappings.
 - Undo moves the shared pointer one parent back, regardless of author, remembering
   the last active head for Redo (D-222). Retain all descendants; hide only single-player/
   no-exposure inactive continuations behind the explorer toggle. Mixed-player/
-  exposure paths stay visible; the older comment exception awaits clarification.
+  exposure/event-comment paths stay visible in full (D-223).
   Reviewing does not activate; explicit graphical-tree activation can select any
   retained node/branch. Submitted game-wide Chat is not undoable (D-94); event
   comments remain ordinary current-path nodes (D-95).

@@ -680,8 +680,8 @@ policies remain open. D-95 makes event comments ordinary nodes on the current
 tree path, retained through the comment when undone. That path is already a
 branch; no separate comment-only fork or activation control is needed. Apply
 normal tree/base rules. D-160 keeps the whole abandoned continuation visible
-if it contains a comment, without a cutoff; its interaction with D-222's
-single-player/no-exposure hiding rule awaits clarification. Exact comment/group association and
+if it contains a comment, without a cutoff; D-223 confirms this even for a
+single-player/no-exposure continuation. Exact comment/group association and
 revisions remain later work. Card
 notes, event pings, and ordinary editor drafts keep their distinct behavior.
 
@@ -1097,7 +1097,8 @@ remembers the last active head for Redo toward it. Retain all nodes; changed pla
 creates a new active branch, while a graphical explorer can activate any retained
 branch/node. Only single-player/no-exposure inactive continuations qualify for
 hiding behind Show hidden branches; mixed-player/exposure continuations stay
-visible. The prior event-comment visibility exception awaits clarification against D-222.
+visible. D-223 also keeps event-comment continuations visible in full, even with
+one author and no exposure; those paths do not qualify for hiding.
 Exposure coverage includes
 library View/Reveal, covered-hand/card-face viewing including covered-face holds,
 and die/coin results, but not every visible-card hold or search keystroke. Ordinary

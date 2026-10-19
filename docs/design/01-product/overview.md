@@ -39,7 +39,7 @@ The app remembers and presents what happened; the players interpret the rules.
    play branches to a new active head. A graphical tree explorer can activate any
    retained branch/node. Only single-player/no-exposure alternatives qualify for
    hiding behind a separate toggle; mixed-player/exposure paths stay visible.
-   The older comment-visibility exception needs clarification against this rule.
+   Event comments also keep the whole alternative visible, even without a reveal.
    Groups are playback steps whose changes animate concurrently, not tree nodes.
    On return after an interruption, animate from the last local state back to
    the fork, then forward along the new continuation. Pause automatic playback

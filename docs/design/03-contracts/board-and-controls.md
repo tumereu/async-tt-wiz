@@ -846,6 +846,15 @@ interaction):
 
 Confirmed counter-menu touch behavior (D-61, updated by D-67):
 
+D-186 confirms online optimistic locking for **existing counters**: +/- applies
+its delta to the current numeric value, so concurrent +1s both count. Set compares
+the previous stored value before replacement; stale Set rejects rather than
+overwriting a concurrent change. Nonnumeric text still makes arithmetic
+inapplicable. Record actual accepted before/after values for history and Undo.
+Absent/deleted-counter concurrency and other action categories are separately
+proposed in the [single locking review batch](optimistic-locking.md), not approved
+by this existing-counter decision.
+
 1. Put counter controls directly in the card context menu rather than requiring
    a separate Counters submenu. Each color exposes -1/+1/Set, e.g.
    `[ -1 Red ] Red: 3 [ +1 Red ] [ Set Red ]`. Keep action availability separate

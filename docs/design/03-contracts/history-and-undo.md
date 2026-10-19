@@ -213,6 +213,13 @@ deliberately waiting to gather a group; every action boundary remains intact.
   destination/structural constraints. Exact relevant conditions for remaining
   action categories still need contracts; detailed pending-queue composition is
   not settled by this rule.
+- **Confirmed existing-counter rule (D-186):** +/- applies its delta to the current
+  numeric value, so two concurrent +1s both count. Set compares the previous
+  stored value before replacing it; a stale Set fails instead of overwriting a
+  concurrent adjustment. Keep numeric applicability checks and record actual
+  accepted before/after values for deterministic replay and parent-step Undo.
+  This approval does not decide absent/deleted counters, corner-text arithmetic
+  or the other categories in the [single review batch](optimistic-locking.md).
 - Only an explicit UI choice to go back and continue, recorded as an interruption
   flag with the selected historical boundary, authorizes a new historical branch.
   Its first accepted mutation creates and activates that continuation. Undo supplies

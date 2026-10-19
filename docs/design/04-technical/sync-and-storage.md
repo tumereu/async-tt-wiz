@@ -170,6 +170,17 @@ existence, structural constraints and action applicability still hold. Exact loc
 conditions for remaining categories and exact reconciliation bookkeeping remain open;
 D-185 fixes the visible online-pending reconciliation behavior.
 
+D-186 confirms existing-counter arithmetic as an explicit relative operation:
+validate the current counter is numeric, apply the requested delta to that current
+number, and record actual accepted before/after values. Do not reject merely
+because the old number differs, or apply a stale predicted replacement snapshot.
+Counter Set instead compares its expected previous stored value and rejects on
+mismatch. Retries return the recorded operation result; history replay/Undo uses
+recorded values, not renewed arithmetic. Absent/deleted-counter handling and
+other category-specific conditions are proposed in the
+[single locking review batch](../03-contracts/optimistic-locking.md), not protocol
+requirements approved by D-186. Exact wire representation remains open.
+
 An explicit interruption instead names the historical boundary and intent to
 continue there. Validate the mutation in that selected state and make the new
 branch current, retaining the displaced continuation. Ordinary rejected work is

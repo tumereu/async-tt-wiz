@@ -394,6 +394,10 @@ in-flight delivery recovery remain distinct from supporting offline gameplay.
 | T-380 | An already-correct local prediction is acknowledged, including a repeated acknowledgement. | Resolve pending status/identity without extra board animation, duplicate mutation or visible rewind/replay. If new authoritative differences are learned separately, reconcile those differences only (D-185/D-180). |
 | T-381 | A rejected move makes a later local move prediction genuinely invalid; its server result is still pending. | Correct the invalid displayed prediction as part of difference-only reconciliation; do not leave an impossible predicted position. Preserve original request identity/conditions and resolve its actual outcome rather than fabricate server rejection, cancel the entire queue or retarget/resubmit it (D-185/D-183). |
 | T-382 | A move rejection arrives while a later note edit's prediction remains valid and unacknowledged. | Keep the pending note visible while animating the location correction; do not visibly roll it back and replay it merely to rebuild state. Acceptance is still pending, not fabricated. Deliberate historical traversal and D-177 interruption-resume playback remain separate and unchanged (D-185). |
+| T-383 | Both connected clients invoke +1 on the same existing numeric counter at 5 before either sees the other result. | Apply both deltas individually in arrival order: actual accepted values are 5 → 6 → 7. Do not reject the second solely because it originally saw 5, or overwrite 6 with another stale 6 (D-186). |
+| T-384 | A client prepares counter Set from 5 to 10, but an accepted +1 changes the current counter to 6 first. | Reject stale Set because its expected previous value 5 no longer holds; preserve 6 and reconcile only actual presentation differences. A relative increment is not permission for a stale absolute overwrite (D-186/D-185). |
+| T-385 | Counter Set from 5 to 10 applies before a concurrently prepared +1 that saw 5. | Apply the valid delta to current 10, producing 11. Record actual before/after 10 → 11; retry/review/parent-step Undo reuse that recorded operation without duplicate arithmetic or stale replacement (D-186). |
+| T-386 | A pending +1 on an existing numeric counter overlaps movement and unrelated note/orientation edits on its card, with the counter still present and numeric. | Apply the delta to the current number without a whole-card/location revision lock; preserve accepted unrelated fields. Numeric applicability and object existence still matter. Absent/deleted-counter races remain proposed, not covered by this approval (D-186/D-181). |
 
 D-159/D-160 settle parent-node Undo, retained ordinary alternatives behind a
 toggle and whole-branch exposure/comment visibility, replacing the last-exposure
@@ -402,6 +406,10 @@ repeated-view coalescing, pre-fork/forward presentation, non-Undo branch control
 and retention still need detailed fixtures. D-161 settles invalid targeted Undo:
 silently discard and reconcile concurrent online requests. D-182 supersedes the
 former offline-action fixtures; narrow online in-flight recovery remains open.
+
+The [single optimistic-locking review batch](../03-contracts/optimistic-locking.md)
+is not a blanket accepted test contract. T-383–T-386 cover D-186 only; proposed
+rules need owner review/correction before becoming confirmed acceptance scenarios.
 
 ## 8.2 Additional required test layers
 

@@ -16,6 +16,18 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
+**Latest counter decision and review request — D-186:** existing-counter +/-
+applies to the current numeric value, while Set checks the previous value before
+replacement. Record actual accepted before/after values; numeric applicability
+still holds. Owner requests **all optimistic-locking rules in one batch**, not
+further per-action questions. The [numbered review](../design/03-contracts/optimistic-locking.md)
+collects 25 rules covering the action catalog, with confirmed portions explicitly
+marked and every proposed extension still awaiting review/correction. In
+particular absent/deleted counters, corner/named-value arithmetic, removal,
+reset/cleanup, projections and non-Undo control conditions are not yet approved.
+Use the same numbers when incorporating corrections; do not infer blanket approval
+or implement. T-383–T-386 cover only D-186's confirmed existing-counter rule.
+
 **Latest reconciliation clarification — D-185:** current-board reconciliation
 targets accepted history plus remaining valid local predictions and animates only
 the actual correction, not visible rewind/replay of unaffected work. For a failed
@@ -279,7 +291,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-185** and **T-001–T-382**.
+- Current documentation includes **D-001–D-186** and **T-001–T-386**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

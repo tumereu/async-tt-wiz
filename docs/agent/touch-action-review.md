@@ -67,6 +67,15 @@ Acknowledgement alone adds no animation; do not fabricate server outcomes or
 rewrite requests. Exact bookkeeping/scheduling remains open, and D-177 deliberate
 history/interruption playback is unchanged. See T-378–T-382.
 
+D-186 confirms existing-counter current-value +/- deltas and previous-value-
+checked Set. The owner now requests all optimistic-locking rules in a **single
+review batch**, not more per-category questions. See the
+[25 numbered rules](../design/03-contracts/optimistic-locking.md): only explicitly
+confirmed portions are requirements; absent/deleted counters and every proposed
+extension remain unapproved. Incorporate corrections by number and preserve
+unsettled capability scope; no implementation is authorized. T-383–T-386 cover
+the approved existing-counter rule only.
+
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
 acceptance scenarios. Cockatrice capabilities are references, not automatic

@@ -328,6 +328,11 @@ The general rules are:
   Ordered delivery replaces sequencing dependency metadata, not individual
   validation. Later actions still get checked when an earlier action fails;
   sending and local interaction do not wait for acknowledgements.
+- Existing-counter +/- applies to the current number, so two concurrent +1s both
+  count. Set checks the previous value and rejects a stale overwrite (D-186).
+  Arithmetic still requires usable numeric text; absent/deleted-counter
+  concurrency and other lock categories remain proposals in the
+  [single review batch](../03-contracts/optimistic-locking.md).
 - Sync resumes automatically; retries must not duplicate actions or random results.
   Structural errors remain explicit recoverable failures, not excuses to lose
   selected cards or merge competing boards. Exact handling of a connection lost

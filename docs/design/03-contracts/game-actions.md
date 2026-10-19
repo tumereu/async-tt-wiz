@@ -349,6 +349,12 @@ required follow-up specification artifact.
 
 ## 4.6 Required per-action specification template
 
+The [single optimistic-locking review batch](optimistic-locking.md) covers all
+action categories above with numbered confirmed/proposed rules. D-186 confirms
+only existing-counter current-value deltas and previous-value-checked Set; do not
+treat the rest of that batch as approved coverage or silently extend the counter
+approval to absent/deleted counters, corner text or named trackers.
+
 Before implementation, every row above must be expanded into:
 
 1. Entry points and affected screens.

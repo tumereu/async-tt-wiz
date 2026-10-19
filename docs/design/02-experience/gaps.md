@@ -104,6 +104,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    bookkeeping/scheduling, connection-loss recovery, simultaneous explicit
    interruptions and stale non-Undo branch controls. Earlier no-ping-pong
    conflict-branch proposals are superseded, not approved.
+   D-186 additionally confirms existing-counter current-value deltas versus
+   previous-value-checked Set. The owner requested all remaining lock rules in
+   [one numbered review batch](../03-contracts/optimistic-locking.md); its proposed
+   portions remain unapproved, including absent/deleted counters and other relative
+   arithmetic. Do not fragment that review into another per-category questionnaire.
 5. **References and projection controls.** Occurrence removal versus token-source
    removal (non-token cards cannot be deleted); surviving Stack effects after
    token disappearance; duplicate-source selections; mixed link/ping endpoints;

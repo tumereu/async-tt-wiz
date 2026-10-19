@@ -9,7 +9,8 @@ service serializes shared game control operations. Each client stores downloaded
 game history, a materialized board cache, personal review state, drafts, and a
 durable outbound queue.
 
-There is one authoritative active branch per game on the service. Offline
+There is one authoritative active game-state pointer/path per game on the service.
+It may point to an internal node with retained descendants after Undo. Offline
 clients can each have different provisional views; the UI must not claim global
 agreement until synchronization. This is unavoidable when disconnected edits
 are allowed, not a second authoritative branch model.
@@ -19,17 +20,18 @@ branch/head references, archive status, and metadata through a separately
 ordered revision stream. Clients materialize state by action ancestry, not by
 wall-clock timestamps.
 
-D-90 separates internal retained records from the visible event tree: ordinary
-undo removes the action from that tree, whereas information-gaining undo retains
-a history branch. Sync must converge on that distinction without treating a
-visible-tree removal as irreversible deletion of redo/recovery data. Exact
-visibility/control schema, cutoff/group display, stale cursors, and redo/branch
-reconciliation remain to be specified. Conflict/interruption preservation is
-unchanged; do not apply ordinary-undo pruning to unrelated branches.
-D-91 fixes the visible retained path's endpoint at the last information-gaining
-action in the undone sequence, excluding trailing ordinary steps. Preserve
-internal recovery for the entire sequence and converge on the requested rollback
-board state. Exact concurrent/dependent-branch impact still needs a protocol.
+D-159/D-160 require an explicit active node pointer independent from retained
+continuation tips. Undo moves it one parent back, regardless of actor; retained
+nodes are never physically deleted by Undo or replacement play. The pointer move
+is a control operation, not another board-action child. After replacement play,
+ordinary abandoned continuations hide behind Show hidden branches; whole exposure/
+comment continuations remain visible, including ordinary tails. Sync must converge
+on the shared tree/control state without confusing presentation filtering with
+deletion. D-161 binds Undo to a specific node-to-parent transition and silently
+discards it if no longer valid, reconciling client state without notifications.
+This applies to concurrent/offline requests too. Exact schema, pre-fork/forward
+presentation and non-Undo branch-control outcomes remain open. Unrelated conflict/
+interruption preservation is unchanged.
 
 ## 6.2 Publication and concurrency
 
@@ -38,14 +40,13 @@ synchronizing immediately when online and dependency-ready. There is no Send
 step or waiting for group closure. Service acknowledgement establishes the
 shared result, not a notification or animation.
 
-D-131 requires user-action/group undo identity to survive publication, offline
-storage, retries, and branch recovery even when that action contains multiple
-reaction-point events. Retain the distinct effective boundaries needed for review/
-interruption; batching must not collapse them into one indivisible event. One
-Undo still targets the whole user action, subject to normal dependent-work and
-exposure/comment safeguards. This does not add a Send step, priority protocol, or
-wait for presentation-group closure. Exact publication/schema mechanics remain
-technical design, not a reason to change the behavior.
+D-131 requires distinct effective reaction-point events to survive publication,
+offline storage, retries and recovery; batching must not collapse them. D-159/
+D-160 make each node one Undo step, not the whole invocation/group. Retain
+invocation identity as context, not as a command to skip multiple parents. Tree-
+based Redo selects retained nodes with their original outcomes. No Send step,
+priority protocol or presentation-group publication gate is added. Exact
+publication/schema mechanics must support this behavior.
 
 A publication includes an idempotency key, game ID, intended base action ID,
 continuation/branch context, revision preconditions, desired operation, actions,
@@ -68,7 +69,10 @@ Proposed outcomes:
 | Descendant of an acknowledged conflict/interruption branch | Continue on the assigned branch; do not repeatedly reactivate it if another line is now active. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |
 | Same key with a different payload | Reject as idempotency-key misuse. |
-| Stale control command such as historical undo/archive | Re-evaluate its declared impact; return an explicit stale-control result if it would affect additional work. Never guess or discard that work. |
+| Undo's specific node-to-parent transition is still valid | Apply that transition once; retain the original nodes. Do not retarget to another source/parent. |
+| Undo transition is no longer valid, including after offline queuing | Silently discard the request and reconcile local state (D-161). No warning/notification/confirmation/retry task; preserve nodes and other queued work at their intended bases. |
+| Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
+| Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
 | Invalid object/reference/precondition even at the intended base | Reject whole publication with actionable structural error; branching cannot repair malformed actions. |
 | Base not yet synchronized | Resolve/upload the known parent chain first; do not substitute a different base. |
 | Temporary transport/server failure | Retain queued operation for retry with the same identity. |
@@ -91,7 +95,8 @@ therefore be moved differently on the alternative line without a false error.
 
 Automatic branching preserves/synchronizes a valid pending suffix. It does not
 require the user to choose accept, rebase, preserve, or discard. Optional follow-up
-actions are inspect, activate a retained line, undo/return, annotate, or create a
+actions are inspect, activate a retained node/line, move one parent back, explicitly
+return to the displaced continuation, annotate, or create a
 new correction. Automatic replay/merging between paths remains out of scope.
 
 An idempotent retry returns the same branch ID and activation record; it cannot
@@ -135,10 +140,12 @@ durable game queue, and never replays stale offline presence as current activity
 - Record dependencies between queued operations. An automatically branched parent
   carries its descendants onto the returned branch. A rejected/missing parent
   blocks dependent publications with recoverable state; never silently rebase.
-- Cancellation of an unsent operation is local and recoverable. If delivery may
-  already have occurred, first establish its outcome, then issue a normal undo
-  or archive operation automatically for the recorded undo intent. Do not pretend
-  an in-flight request can be unsent or require a second ordinary undo tap.
+- Undo of a pending node retains that node/outcome and queues the specific
+  node-to-parent control intent; exact unsent-node/control representation remains
+  technical design. If delivery may already have occurred, establish its outcome
+  and synchronize that intent without requiring another ordinary Undo press.
+  If no longer valid, discard silently and reconcile under D-161. Never replace
+  the intent with a different Undo/archive target or lose other queued actions.
 - Permanent errors leave a recoverable draft with explanation and export path.
 
 Queue state machine: completed action + local commit → queued → sending →

@@ -11,7 +11,8 @@ Maintain three distinct state classes:
    values, orientation, generic visual relationships, and first-class turn/
    phase/step tracking (D-96/D-105) at an action boundary. No priority state.
 2. **Shared history/control state:** immutable action nodes, branches, the active
-   branch pointer, archive status, publication records, and undo records.
+   active game-state node pointer, archive status, publication/control records,
+   and retained descendants (including hidden alternatives).
 3. **Personal presentation state:** review cursor, selected objects, camera,
    locally exposed card faces, accessibility settings, and draft workspace.
 
@@ -37,7 +38,7 @@ history or authorize normalization of external catalog/import data.
 
 | Entity | Identity and essential data |
 | --- | --- |
-| Game | Stable ID, participants, setup configuration, lifecycle state, active branch ID, control revision. |
+| Game | Stable ID, participants, setup configuration, lifecycle state, active game-state node ID and path/branch context, control revision. The active node need not be a retained branch tip (D-159). |
 | Participant | Stable ID, account reference, display name; neither seat owns exclusive editing rights. |
 | Card definition | Source/catalog ID or custom definition, version, names, faces, display text/data, default corner text (D-56), image references; never executable rules. |
 | Card instance | Stable game-local object ID, definition reference, optional participant associations, container, explicit editable state. |
@@ -58,19 +59,17 @@ history or authorize normalization of external catalog/import data.
 | Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced destination, and event-wide sequence shown as an order number (D-119). One standard marker/no user label/style controls (D-77). Exact ordering/edit/revision/schema behavior remains open. |
 | Generic link | Stable ID, supported endpoints, binary present/absent relationship; one standard connector/no user labels/styles (D-71). D-120 adds projection-to-projection endpoints whose links disappear with an endpoint projection. Other mixed projection endpoints remain open; no inferred game effect. |
 
-D-129 keeps user invocation, undo unit, visible game event/group, and atomic
-action boundary distinct. D-131 supplies whole-user-action/group undo as the
-general default, with exceptions recorded individually. A user action must have
-multiple events wherever MTG permits distinct reaction points; its undo unit can
-span those events. Specify event mappings without runtime priority/legality
-inference. These entities do not mandate a one-to-one schema. D-130 specifically
-confirms whole undo for advance-and-close; D-132 records its two effects as one
-event with no separate internal reaction boundary.
-Retain user-action ownership and restoration context across constituent records.
+D-129 distinguishes user invocation, tree event and presentation group. D-159/
+D-160 replace whole-invocation Undo with one move to the active node's parent,
+regardless of author. Multiple events in a composite require multiple presses;
+presentation split/join never changes parent links. D-131's distinct-MTG-reaction-
+point requirement remains, without runtime priority/legality inference. Retain
+invocation/actor context across constituent nodes. D-132 makes advance-and-close
+one event and consequently one Undo, restoring both effects together.
 
 Live cursor/activity presence is ephemeral transport data, not a persistent
 game-state entity. Proposed placement, pile, and marker behavior is defined in
-[the board contract](10-board-and-controls.md). Exact schemas remain open.
+[the board contract](board-and-controls.md). Exact schemas remain open.
 
 D-92 makes every new die/coin invocation a fresh draw, even after undo, replacing
 D-88's opponent-action seed reset and the pending gameplay draw-position model.
@@ -80,29 +79,32 @@ coincidentally match. D-93 applies the same fresh-new/fixed-recorded distinction
 to Shuffle's concrete order. Exact generator/source, input validation, and offline
 publication remain open; no gameplay seed-epoch schema is required by D-92/D-93.
 
-D-89/D-90 distinguish the visible event tree from retained internal recovery.
-Ordinary undone actions disappear from the visible tree; information-gaining
-actions remain as history branches with actor/source context and actual exposed
-references/results. Coverage includes explicit library View/Reveal, covered hand/
-card-face views including covered-face holds, and die/coin results. Covered
-summaries do not automatically disclose identities. A separate permanent-marker
-entity is not required by this decision. Exact exposure event placement, schema,
-coalescing, cutoff/group display, undo/redo reconciliation, and branch/offline
-publication remain Q-31. D-91 qualifies any actual hidden-information exposure,
-including draws/moves/face changes. For a mixed undone sequence, its retained
-visible path ends at the last information gain; trailing ordinary undone steps
-remain only in internal recovery. Earlier/intervening ordinary ancestors remain
-in the path. This does not change the requested rollback board state or authorize
-rewriting action payloads/pruning unrelated branches.
+D-159/D-160 retain every undone node. After replacement play, ordinary abandoned
+continuations are hidden by a presentation filter and available through Show
+hidden branches. A qualifying exposure or event comment keeps the whole abandoned
+continuation visible, including trailing ordinary nodes; there is no last-exposure
+cutoff. The active pointer is independent from retained tips and personal review.
+Explicit activation of a retained node permits Redo with original outcomes; review
+alone does not activate it. D-161 binds Undo to a specific node-to-parent transition;
+if no longer valid, silently discard it and reconcile local state, including after
+offline queuing. Exact pre-fork/forward presentation, non-Undo branch controls and
+protocol/schema details remain Q-16/Q-31.
+
+D-89/D-91 exposure coverage remains: library View/Reveal, covered hand/card-face
+views including covered-face holds, die/coin results, and any actual hidden-info
+exposure including draws/moves/face changes. Covered summaries do not automatically
+disclose identities. Exposure node placement/coalescing, schema, durable capture
+and publication remain Q-31; no separate permanent-marker entity is required.
 
 D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
 nodes on the ordinary tree path. The current path is already a branch; no
 comment-only fork entity/activation mechanism is required. Undo retains that
-path through its last qualifying exposure or event comment. Exact message/
+whole abandoned continuation visibly if it contains an event comment (D-160).
+Exact message/
 comment schemas, group association, revisions/edit/delete, and unsent-delivery
 policies remain open; do not give all Message records one shared Undo policy.
 
-The [visual action language](11-visual-action-language.md) presents literal
+The [visual action language](visual-action-language.md) presents literal
 operations and associated pings together. No cast/target legality objects,
 rules-completion states, or mechanical intent are inferred. D-112–D-120 do permit
 explicit combat declarations/assignments and ability-signaling projections, not
@@ -126,7 +128,7 @@ D-120 additionally supports links between projection endpoints. Such links
 disappear when an endpoint projection disappears, not silently retarget to the
 real source cards. Preserve recorded history/undo/branch recovery. Exact cleanup
 composition, concurrent endpoint removal, and mixed endpoint kinds remain open;
-see [projection behavior](13-combat-stack-and-projections.md#132-confirmed-combat-action-model).
+see [projection behavior](combat-stack-and-projections.md#132-confirmed-combat-action-model).
 
 D-119 requires event-wide ping order numbers, distinct from generic link state.
 No damage-order rules entity is implied; numbering mutations and group-edit
@@ -293,7 +295,7 @@ no colored counters are created automatically. A card genuinely having no
 applicable printed value is distinct from unavailable/incomplete provider data;
 D-65 uses a blank editable fallback for the latter. Overlapping-type/default
 mapping, custom definition authoring, and exact source-version selection remain
-open. Source feasibility is recorded in [catalog research](07-architecture-and-operations.md#73-card-catalog-and-decks).
+open. Source feasibility is recorded in [catalog research](../04-technical/architecture-and-operations.md#73-card-catalog-and-decks).
 
 Confirmed missing/offline/multi-face defaults (D-65):
 
@@ -326,7 +328,7 @@ occurrence kinds are permitted manual-play data, not inferred card rules.
 D-114 adds metadata/occurrence-dependent user-invoked Stack actions, not
 automatic resolution. Exact removal/lifecycle, identities, occurrence-versus-card
 operations, and history/offline/concurrency behavior still need design;
-see [the primary contract](13-combat-stack-and-projections.md).
+see [the primary contract](combat-stack-and-projections.md).
 
 D-123 settles that source and projections share live card state: no independent
 projection corner text, counters, notes, faces/cover, or orientation. Card actions
@@ -444,8 +446,15 @@ combat slot, including a subset or same-slot reorder. Insert/append the sequence
 under D-143 without copies/source edits. D-155 fixes blockers above attackers in
 two rows; D-156 orders a cross-slot combat drag by selected blockers left-to-right,
 then selected attackers left-to-right, preserving each slot's order. The entire
-sequence takes the destination role. Mixed-view/real-battlefield order and order
-among multiple new pairs remain open.
+sequence takes the destination role. D-157 orders real battlefield cards dragged
+together into combat by their pre-drag visual order, top-to-bottom then
+left-to-right, not selection-tap order. Create/reuse occurrences in that sequence
+without rearranging/tapping originals. Mixed-view order, order among multiple new
+pairs, and irregular/overlapping battlefield layout ordering remain open.
+D-158 fixes the spatial distinction: combat is a separate area between the two
+play areas. Drags create/reuse projections at their drop target; declaration quick
+actions place new attackers to the right of existing combat cards/pairs. Neither
+placement mode moves the real sources; explicit +tap alone changes orientation.
 
 Ordered moves name an insertion position; “top” and “bottom” do not depend on
 screen orientation. Multi-card moves specify the moved cards' order. Display
@@ -468,7 +477,7 @@ Confirmed initial-layout movement defaults: a drop onto a configured Library,
 Graveyard, or Exile pile inserts at its logical top; Context Move offers top and
 bottom for each. A drop onto an ordinary card forms/joins a visual pile, not a
 mechanical attachment or merged identity. See the primary
-[movement contract](10-board-and-controls.md#104-dragging-and-snapping).
+[movement contract](board-and-controls.md#104-dragging-and-snapping).
 D-49 preserves relative order for moves from one ordered source; cross-source
 ordering remains open. Do not infer randomization or other ordering behavior
 from the Cockatrice reference.
@@ -487,7 +496,7 @@ placement is replayable/undoable; personal pan/zoom and sorting are not moves.
 Confirmed ordinary-stack layout limit (D-39): at most three actual member cards.
 This limit is not applied to the special ordered-container piles or to selection
 size. A placement exceeding it is invalid rather than partially applied or
-automatically split; see [the primary pile contract](10-board-and-controls.md#105-ordinary-battlefield-piles).
+automatically split; see [the primary pile contract](board-and-controls.md#105-ordinary-battlefield-piles).
 
 Confirmed View/Reveal reference model (D-46): a temporary shared display
 references existing card IDs without becoming a second containing location or
@@ -573,8 +582,9 @@ D-150 records Untap all + advance during Untap as one event: actual scoped
 untapping plus Untap → Upkeep. D-151 records Draw one + advance during Draw as
 two events: actual draw portion while tracking remains Draw, then Draw →
 Precombat main. The intermediate state is genuinely reviewable/interruptible.
-Each invocation is one Undo under D-131; restore prior orientations/card/container
-state and tracking as applicable. Empty sources retain actual no-card-change
+Each node is one Undo under D-159/D-160: Untap + advance needs one press, Draw +
+advance needs two. The first Draw Undo keeps the card drawn and restores Draw
+tracking; the second returns to pre-draw state. Empty sources retain actual no-card-change
 outcomes rather than fabricated draws; see history section 3.11 for exposure
 retention and remaining partial-group/out-of-step/concurrency cases.
 

@@ -1,18 +1,30 @@
 # 13. Combat, Stack, and projections
 
 Status: required release scope in delivery stage 1, behavior specification
-(D-115). D-112–D-156 require case-by-case design before implementation. The
+(D-115). Confirmed behavior through D-158 is recorded below; remaining substantive
+cases need design before implementation. The
 proposal to stop at Untap/Draw shortcuts and ordinary controls for every other
 phase is rejected. No implementation is authorized by these capability decisions.
 
 This is the primary contract for combat/Stack projections and contextual Stack
-actions. Existing gesture requirements remain in [board controls](10-board-and-controls.md);
+actions. Existing gesture requirements remain in [board controls](board-and-controls.md);
 history, automatic queuing/sync, cooperative access, and undo still apply.
 Delivery order: behavior specification → adversarial review/refinement → UI
 drafts/decisions → iterative implementation. User-specified interaction requirements
 are recorded now; UI drafts/exact geometry remain stage 3, not current work.
 
 ## 13.1 Confirmed capabilities
+
+**Basic spatial model (D-158):** combat is a separate area between the player's
+play area and the opponent's. Dragging a battlefield card into combat creates
+its projection (or reuses its existing combat occurrence), leaving the original
+in place. A drag places the resulting occurrences where the user drops them;
+declaration quick actions instead add newly declared attackers to the right of
+existing combat cards/pairs (D-145/D-153). Already-declared attackers stay put.
+The area has blockers above attackers (D-155). Internal collection-order defaults
+do not override a drop target, reposition the real sources, or send dragged cards
+to the quick-action append position. No projections-first mixed-selection sorting
+rule was approved; do not introduce one or treat it as a required owner decision.
 
 1. **Temporary combat area (D-112):** present attacking and blocking cards in an
    area that makes visual attacker/blocker grouping easy. D-139 refines earlier
@@ -82,7 +94,7 @@ creation prerequisite. This is explicit composition, not inferred card text.
 D-147 fixes quick visibility to Declare attackers. D-148 records Declare + tap
 as one event, including any automatic area creation. Empty/mixed selections and
 remaining applicability cases remain open. D-149 also makes without-tapping one
-event; D-131 supplies whole-user-action Undo for both variants.
+event; D-159 supplies one parent-node Undo for either variant.
 Do not infer a gesture or final layout beyond the specified multiselect offerings.
 D-145 gives each newly declared attacker its own pair for declaration shortcuts;
 existing attackers retain their slots. D-146 also auto-creates the area for a
@@ -132,7 +144,7 @@ sequence to communicate damage-assignment order or anything else; there is no
 damage-order rules object or automatic calculation. Numbers are automatic
 presentation, not user-entered labels/styles. Event scope/toggle/history rules
 remain; exact ordering, removal/re-add numbering, and coalescing still need review.
-See [the primary ping contract](11-visual-action-language.md#114-pings-point-they-do-not-declare-mechanics).
+See [the primary ping contract](visual-action-language.md#114-pings-point-they-do-not-declare-mechanics).
 
 Links can connect projections to projections. When an endpoint projection
 disappears, those links disappear with it (D-120), not get transferred to source
@@ -290,23 +302,24 @@ outside combat remain open; do not infer a later-phase rewind policy.
 
 ## 13.9 Confirmed combined-action decision policy and undo scope (D-129/D-130)
 
-D-129 distinguishes invocation, undo unit, tree event/group, and atomic boundary.
-D-131 refines this with a general default: **one user action, including its whole
-combined group, is one Undo**. Tree events must remain separate wherever MTG
-permits reactions at distinct points. Specify mappings and exceptions per action;
-do not require fresh undo-scope approval for every combination. These are
-designed event boundaries, not runtime priority or legality enforcement.
+D-129 distinguishes invocation, tree event/group, and atomic boundary. D-159/
+D-160 replace whole-invocation Undo with **one move to the active node's parent,
+regardless of author**. Multiple Undo presses for composites are acceptable.
+D-131's distinct-reaction-point requirement remains: specify effective event
+boundaries without runtime priority or legality enforcement. Presentation groups
+do not alter parent links or Undo stepping.
 
 D-130: **advance out of combat + close combat area** is one undoable unit. One
 Undo restores the prior phase/step and the complete combat area/projections/
 assignments/incident links/placements, rather than requiring a separate undo for
 each effect. Normal history/branch/recovery and dependent-work rules apply.
 D-132 additionally confirms one event for this particular combination.
-Untap/Draw + advance and declaration combinations also use D-131's whole-user-
-action undo default. D-148/D-149 make both declaration variants one event. D-150
+Undo follows node boundaries for every combination. D-148/D-149 make both
+declaration variants one event. D-150
 makes Untap + advance during Untap one event; D-151 makes Draw + advance during
-Draw two events with one Undo. Other cases/exceptions still need review; see
-[history mappings, section 3.11](03-history-and-undo.md).
+Draw two events with two Undo steps. First return to Draw while retaining the
+drawn card, then to the pre-draw state. Other event mappings still need review; see
+[history mappings, section 3.11](history-and-undo.md).
 
 ## 13.10 Confirmed advance-and-close tree representation (D-132)
 
@@ -483,7 +496,7 @@ The drop side determines all resulting occurrence roles. Leave all real sources'
 battlefield positions, containing locations, orientation, and unrelated card state
 unchanged; no implicit tap/untap. Preserve other cards' grouping/membership/order
 and remove fully emptied origin pairs normally (D-138/D-139). This is one selected
-drag, not separate user invocations; D-131 supplies whole-user-action Undo. Exact
+drag, not separate user invocations; D-159 supplies parent-node Undo. Exact
 event/concurrency handling still needs review.
 
 This initially settled selected real battlefield cards; D-142 extends common-
@@ -515,11 +528,12 @@ origins disappear normally (D-138/D-139). No legality or damage engine is implie
 The proposed special rule preserving roles in mixed attacker/blocker drags is
 rejected. D-143 settles within-slot insertion versus append while preserving the
 other cards' order. D-154 preserves moved order from one slot; D-156 settles
-cross-slot combat order. Mixed-view/battlefield ordering and spacing remain open. Geometry
+cross-slot combat order; D-157 settles real battlefield collection order.
+Mixed-view ordering and spacing remain open. Geometry
 is stage 3. Non-battlefield/other-view applicability,
 duplicate-source view selection handling beyond occurrence uniqueness, between-
 pair side targeting, absent-area entry, no-change records, and event/concurrency
-composition remain open. Normal whole-user-action Undo and history/branch/offline
+composition remain open. Normal parent-node Undo and history/branch/offline
 recovery still apply; no new selection mode or gameplay Send is introduced.
 
 ## 13.20 Confirmed within-slot insertion and append (D-143)
@@ -532,7 +546,7 @@ whole dragged collection joins that slot side-by-side with its destination role.
 
 This is insertion within one slot, distinct from a between-pair drop creating a
 new pair under D-138. Creating/reusing occurrences, source-state preservation,
-empty-origin cleanup, and normal whole-user-action Undo/history recovery remain
+empty-origin cleanup, and normal parent-node Undo/history recovery remain
 unchanged. Retain the prior slot/order context for recovery. Ordering the moved
 collection itself across different sources/views, exact drop hit regions,
 same-target no-change records, and event/concurrency composition remain open.
@@ -550,7 +564,7 @@ paired-slot membership/order; a final attacker leaving retains the blocker-only
 pair. Remove a pair immediately only if both sides become empty, with permitted
 visual reflow; the combat area remains open even with no pairs (D-138/D-139).
 
-One invocation uses whole-user-action Undo (D-131), restoring the removed
+Retain the parent state for Undo (D-159), restoring the removed
 occurrences and prior slots/roles/order/incident links, including any pairs removed
 by this cleanup. Normal dependency, branch, offline, and sync contracts still
 apply; exact event/concurrency composition remains open. This occurrence-only
@@ -586,7 +600,7 @@ multiselect declaration shortcuts. Plain declaration leaves source orientation/
 position/location unchanged; auto-creation does not add implicit tap/untap.
 
 Separate manual area creation remains supported (D-116), and an existing area is
-reused rather than replaced, cleared, or duplicated. Normal whole-user-action
+reused rather than replaced, cleared, or duplicated. Normal parent-node
 Undo/history/branch/offline recovery applies; exact event/concurrency composition
 remains open. This does not settle absent-area drag targeting, authorize new
 single-card quick offerings. D-147 separately fixes declaration quick visibility.
@@ -624,7 +638,7 @@ after this event, not between its effects. Do not represent it as separately
 interruptible events merely collapsed into one row. This specifies history
 boundaries, not runtime timing, priority, or legality adjudication.
 
-One Undo reverses the whole invocation under D-131: restore prior source
+One Undo returns to this single node's parent under D-159: restore prior source
 orientations, occurrence/slot/grouping/order context, and whether the combat area
 existed. Do not undo unrelated earlier state or remove pre-existing attackers/
 groups. Normal dependency, branch, exposure/comment retention, offline, and sync
@@ -642,7 +656,7 @@ untapping already-tapped sources. Apply established occurrence reuse/default
 pairs; review/interruption is before/after, not between area creation/declaration.
 
 One Undo restores the prior occurrences/slots/grouping/order and area existence,
-preserving real source state and unrelated prior groups (D-131). Separate manual
+preserving real source state and unrelated prior groups (D-159). Separate manual
 area creation/declaration remain separate invocations when used separately. No
 runtime timing/legality adjudication is added. Exact concurrency and remaining
 selection/no-change presentation cases remain open.
@@ -688,8 +702,9 @@ move existing occurrences rather than copying them. Other cards retain their
 relative order; all moved cards still take the destination slot's role (D-142).
 
 Source-card state, occurrence identities/links, remaining grouping, and normal
-whole-user-action Undo/history recovery stay unchanged. D-156 settles collections
-drawn from several combat slots. Mixed-view/real-battlefield ordering, ordering multiple new
+parent-node Undo/history recovery apply. D-156 settles collections
+drawn from several combat slots; D-157 settles real battlefield collections.
+Mixed-view ordering, ordering multiple new
 declaration pairs among themselves, no-change presentation, and exact concurrent
 handling remain open. Exact pixel layout/drop hit regions remain stage 3.
 
@@ -719,9 +734,29 @@ append on an unused-space drop (D-143). Every moved card takes the destination
 slot's role (D-142), regardless of its original row. This orders the collection;
 it does not preserve or split its former roles. Reuse occurrence identities,
 preserve source-card state/links and other cards' relative order/grouping, and
-remove only fully empty origin pairs. Normal whole-user-action Undo restores the
+remove only fully empty origin pairs. Normal parent-node Undo restores the
 prior roles/slots/order and cleaned-up pairs.
 
-Mixed real/projection-view ordering, real battlefield collection order, ordering
+Mixed real/projection-view ordering, ordering
 multiple new declaration pairs, duplicate-source views, and exact concurrency
-remain separate cases. No implementation or exact layout geometry is authorized.
+remain separate cases. D-157 settles real battlefield collection order.
+No implementation or exact layout geometry is authorized.
+
+## 13.31 Confirmed real battlefield drag order (D-157)
+
+When real battlefield cards are dragged together into combat, order the selected
+sources by their pre-drag visual order: top-to-bottom, then left-to-right within
+each row. Filter out unselected cards; do not use selection-tap order or reorder
+the originals on the battlefield.
+
+Create/reuse each source's combat occurrence and insert/append the resulting
+sequence together in the chosen slot (D-140–D-143). Existing combat positions do
+not override the selected real views' visual order. All occurrences take the
+destination role; real source position/location/orientation stays unchanged.
+Preserve identities/links, other cards' relative order/grouping, normal fully-empty
+origin cleanup, and parent-node Undo.
+
+Mixed real/projection selections, duplicate-source views, order among new
+declaration pairs, exact ordering for irregular/overlapping battlefield layouts,
+and concurrency remain separate cases. This is a combat-drag order default, not
+a new declaration order or exact geometry specification.

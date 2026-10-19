@@ -52,7 +52,7 @@ force; this sequencing does not approve any pending grouping proposal.
 
 ## 12.2 G-01: Move one card
 
-Primary contract: [board and controls, sections 10.4–10.6](10-board-and-controls.md#104-dragging-and-snapping).
+Primary contract: [board and controls, sections 10.4–10.6](../design/03-contracts/board-and-controls.md#104-dragging-and-snapping).
 
 Already confirmed:
 
@@ -78,8 +78,8 @@ atomic/sequential grouping. These remain separate decisions.
 
 ## 12.3 G-02: Select multiple cards
 
-Primary contracts: [board controls](10-board-and-controls.md) and
-[bulk actions](04-game-actions.md#45-bulk-actions-and-selections).
+Primary contracts: [board controls](../design/03-contracts/board-and-controls.md) and
+[bulk actions](../design/03-contracts/game-actions.md#45-bulk-actions-and-selections).
 
 Confirmed starting point: multiple selected cards can be dragged. A selection
 itself is local presentation, not a shared game edit.
@@ -148,7 +148,7 @@ cross-area selections, multi-card ordering, and bulk action boundaries.
 
 ## 12.4 G-03: Tap/untap one card or a selected set
 
-Primary contract: [board gestures and ordinary piles](10-board-and-controls.md).
+Primary contract: [board gestures and ordinary piles](../design/03-contracts/board-and-controls.md).
 Single tap for tapped presentation is already confirmed; taps within
 selection-edit mode instead add/remove a card from selection.
 
@@ -178,7 +178,7 @@ wider-set/all-table shortcuts, rotation controls, and bulk boundaries remain ope
 The owner requested batching likely-yes questions (D-33) and named an exception
 to item 5. Items 1–4 are recorded as accepted (D-34); item 5 is rejected and
 replaced by D-35. Primary behavior is described
-in [board controls, section 10.3](10-board-and-controls.md#103-gesture-arbitration).
+in [board controls, section 10.3](../design/03-contracts/board-and-controls.md#103-gesture-arbitration).
 
 1. Pinch zoom alongside two-finger pan, in either mode.
 2. Hold/double tap retain Inspect/Actions in selection-edit mode without changing
@@ -200,7 +200,7 @@ Already confirmed: hold for large art/text; either participant can inspect all
 information. Covered presentation is not a permission boundary.
 
 Confirmed in D-37/D-38; primary contract is
-[board controls](10-board-and-controls.md#inspection-face-down-presentation-and-printed-faces):
+[board controls](../design/03-contracts/board-and-controls.md#inspection-face-down-presentation-and-printed-faces):
 
 1. Context Turn face down / Turn face up for one card or an explicit selection.
 2. Context Switch printed face for cards with multiple playable faces, distinct
@@ -251,7 +251,7 @@ extra control is specified. Special-container browsers are unaffected.
 ## 12.8 G-06: Special-pile browsing and direct controls
 
 Primary contract is
-[special-pile controls](10-board-and-controls.md#106-special-piles-library-graveyard-exile):
+[special-pile controls](../design/03-contracts/board-and-controls.md#106-special-piles-library-graveyard-exile):
 
 Confirmed in the owner's revisions (D-41–D-46):
 
@@ -351,8 +351,8 @@ remain separate proposals, not automatically approved with this revision.
 
 ## 12.9 G-07: Named values and counters
 
-Primary contracts: [additional touch controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play)
-and [participant/table values](02-domain-model.md#25-participanttable-values-and-markers).
+Primary contracts: [additional touch controls](../design/03-contracts/board-and-controls.md#108-additional-controls-needed-for-complete-play)
+and [participant/table values](../design/03-contracts/domain-model.md#25-participanttable-values-and-markers).
 
 Existing generic requirements remain authoritative: edits by either participant
 and no inferred game rules. Moves preserve state except for the declared
@@ -454,7 +454,7 @@ Conditionally approved database-default mappings (D-64):
 Creature P/T defaults are already confirmed by D-56. These are descriptive
 catalog/import mappings to one plain string, not game-rule behavior or automatic
 counter creation. The owner made approval conditional on available provider
-data; no provider is selected. See [source research](07-architecture-and-operations.md#73-card-catalog-and-decks).
+data; no provider is selected. See [source research](../design/04-technical/architecture-and-operations.md#73-card-catalog-and-decks).
 D-65 settles current-face Reset, blank fallback, and retained game defaults.
 Overlapping types, custom authoring, and exact source-version mapping remain open.
 
@@ -509,8 +509,8 @@ remain for later review.
 
 ## 12.10 G-08: Persistent links and relationships
 
-Primary contracts: [additional touch controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play)
-and [links versus pings](11-visual-action-language.md#114-pings-point-they-do-not-declare-mechanics).
+Primary contracts: [additional touch controls](../design/03-contracts/board-and-controls.md#108-additional-controls-needed-for-complete-play)
+and [links versus pings](../design/03-contracts/visual-action-language.md#114-pings-point-they-do-not-declare-mechanics).
 
 These are persistent board relationships, not action-associated pings. Linking
 does not classify a relationship as an aura/equipment attachment, target, combat
@@ -601,8 +601,8 @@ the mode direction; D-78 separately adds a context shortcut.
 
 ## 12.11 G-09: Creation, copies, and removal
 
-Primary contracts: [additional controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play)
-and [action catalog](04-game-actions.md#42-coverage-matrix).
+Primary contracts: [additional controls](../design/03-contracts/board-and-controls.md#108-additional-controls-needed-for-complete-play)
+and [action catalog](../design/03-contracts/game-actions.md#42-coverage-matrix).
 
 Confirmed token creation (D-81, simplified by D-82):
 
@@ -655,9 +655,9 @@ blank presentation/initialization and broader authoring scope remain later work.
 
 ## 12.12 G-10: Other table tools
 
-Primary contracts: [additional controls](10-board-and-controls.md#108-additional-controls-needed-for-complete-play),
-[action catalog](04-game-actions.md#42-coverage-matrix), and
-[randomness/history](03-history-and-undo.md#310-randomness-and-branching).
+Primary contracts: [additional controls](../design/03-contracts/board-and-controls.md#108-additional-controls-needed-for-complete-play),
+[action catalog](../design/03-contracts/game-actions.md#42-coverage-matrix), and
+[randomness/history](../design/03-contracts/history-and-undo.md#310-randomness-and-branching).
 
 Confirmed basic randomness controls (D-87):
 
@@ -680,22 +680,28 @@ review/redo/replay/retries reuse the recorded order. A repeated permutation by
 chance is valid. No new shuffle shortcut or hidden-order exposure classification
 is implied; exact generator/input/offline protocols remain later work.
 
-Confirmed D-89/D-90: ordinary undo removes its action from the visible event tree
-as if it never happened; information-gaining undo leaves a history branch. Keep
-internal redo/recovery without exposing ordinary undone branches. Library View/
+Confirmed D-159/D-160: Undo moves the shared active pointer one parent back,
+regardless of author. Retain all descendants. After replacement play, ordinary
+abandoned continuations hide behind Show hidden branches; exposure/comment
+continuations stay visible in full. Library View/
 Reveal, covered-hand/card-face views including covered-face holds, and die/coin
 results are covered; ordinary visible-face holds/every search keystroke are not.
 Summaries do not automatically show covered identities. Branch review does not
 activate it. Primary contract:
-[information-gaining undo branches](03-history-and-undo.md#information-gaining-actions-and-undo-branches).
+[information-gaining undo branches](../design/03-contracts/history-and-undo.md#information-gaining-actions-and-undo-branches).
 
-Confirmed mixed-sequence/exposure rules (D-91):
+D-161 binds Undo to a specific node-to-parent transition. If it is no longer
+valid, silently discard it and reconcile local state, without notification,
+confirmation or retry clutter. Do not retarget to unseen work. Concurrent/offline
+requests use the same rule; delivery retries retain their original idempotent
+outcomes. Other queued edits remain at their intended bases.
 
-1. Retain the undone path only through its last information-gaining action,
-   including ordinary steps before/between exposures. Omit trailing ordinary
-   undone actions from the visible tree; no exposure means no undone branch.
-   Keep internal recovery and restore the requested rollback state, not the
-   last exposure's resulting board. Group rendering/atomicity remains open.
+Confirmed branch-level/exposure rules (D-91, refined by D-160):
+
+1. Retain the whole abandoned continuation. Any exposure or event comment keeps
+   it fully visible, including trailing ordinary nodes; otherwise hide it behind
+   a toggle. Never trim the visible path at its last exposure/comment (D-160).
+   Visibility does not change the active pointer or delete retained history.
 2. Any actual hidden-information exposure qualifies, including draws/moves/face
    changes, not just View/hold. Do not infer personal knowledge or game rules.
 
@@ -816,7 +822,7 @@ advance. Exact no-op records, feedback, and atomic/group boundaries remain open.
 The no-more-phase-shortcuts proposal is rejected. D-112–D-114 require combat/
 Stack projections, explicit blocker assignment, and contextual Stack actions.
 Review all behavior cases before implementation, not only generic substitutes.
-The [primary contract](13-combat-stack-and-projections.md) tracks common source/
+The [primary contract](../design/03-contracts/combat-stack-and-projections.md) tracks common source/
 projection semantics, combat lifecycle, and Stack entry/exit separately.
 
 Confirmed D-116–D-118: area creation, attacker declaration, and tapping are
@@ -862,19 +868,18 @@ to Postcombat main. Do not offer the quick action at earlier combat steps; keep
 full non-quick access under D-121. Out-of-combat/missing-area handling and combined
 boundaries remain open.
 
-D-131 refines D-129: one Undo normally reverses one user action and its whole
-group, including a combined shortcut. Multiple MTG reaction points must be
-multiple events with meaningful review/interruption boundaries, not merely rows
-inside one indivisible transition. Specify mappings and exceptions per action,
-without priority/legality automation. D-130 confirms whole undo for advance-and-
-close; Untap/Draw + advance and declaration combinations use the same general
-undo default. D-148/D-149 make both declaration variants one event. D-150 makes
-normal-step Untap + advance one event; D-151 makes normal-step Draw + advance two,
-with a real Draw-step interruption boundary and one Undo per invocation.
+D-159/D-160 replace whole-invocation Undo with one parent-node move regardless
+of author. D-131's multiple-MTG-reaction-point events remain meaningful review/
+interruption boundaries, not decorative rows. Specify mappings without priority/
+legality automation. Multiple Undo presses for composites are acceptable.
+D-132 advance-and-close, D-148/D-149 declarations and D-150 normal-step Untap +
+advance have one node each. D-151 normal-step Draw + advance has two nodes with
+a real intermediate Draw-step state and two Undo steps.
 
 Confirmed D-132: advance-and-close is one event listing both effects, since area
 closure adds no distinct MTG reaction point. Interruption/review is before/after
-that event; one Undo restores both effects. Other actions still follow D-131.
+that event; one Undo restores both effects. Other actions use D-159's parent-node
+Undo and retain D-131's distinct-reaction-point boundaries.
 
 Confirmed D-133: repeated attacker declaration keeps existing attacker projections
 and adds only new attackers; Declare + tap still taps its selected sources.
@@ -923,7 +928,7 @@ Confirmed D-141: all selected real battlefield cards dragged onto one combat slo
 join that same slot and side, creating/reusing each source's occurrence, not one
 pair per source. Preserve reused identities and real source state; other cards
 stay grouped and fully empty origins disappear normally. One selected drag uses
-whole-user-action Undo. D-142 extends this to mixed combat-role/view selections;
+parent-node Undo (D-159). D-142 extends this to mixed combat-role/view selections;
 duplicate-source views, moved-collection order, and event/concurrency remain open;
 D-143 settles within-slot insertion versus append.
 Confirmed D-142: paired attacker/blocker slots are drop destinations, not card-role
@@ -938,7 +943,7 @@ and event/concurrency details remain open.
 Confirmed D-143: dropping between cards inside a combat slot inserts there;
 dropping into unused slot space appends. Preserve other cards' relative order.
 Distinguish this from between-pair drops creating a new pair. Uniform target-slot
-role routing, source preservation, occurrence reuse, and whole-user-action Undo
+role routing, source preservation, occurrence reuse, and parent-node Undo
 remain unchanged. Moved-collection order, hit regions, no-change records, and
 event/concurrency composition remain open.
 Confirmed D-144: Remove from combat is a context action for one or several selected
@@ -975,7 +980,7 @@ Confirmed D-150: during Untap, Untap all + advance is one event showing untappin
 and Untap → Upkeep, with one whole-action Undo.
 Confirmed D-151: during Draw, Draw one + advance is two events, drawing while
 still in Draw then advancing to Precombat main. Preserve the real intermediate
-review/interruption boundary; one Undo restores the whole invocation. No extra
+review/interruption boundary; D-159/D-160 make the invocation two Undo steps. No extra
 tap/Send; normal publication and exposure retention apply. Empty/no-change inputs
 still advance without fictitious card changes. Exact no-change feedback,
 partial-group/dependency handling, concurrency, and out-of-step mappings remain open.
@@ -992,7 +997,7 @@ Confirmed D-154: when cards are dragged together from one combat slot, preserve
 their pre-drag relative order within the moved set, not selection-tap order.
 Insert/append that sequence under D-143, including subsets and same-slot reorder,
 without duplicating occurrences or editing sources. Other cards retain order.
-Mixed-view/battlefield order, multiple-new-pair order, no-change presentation,
+Mixed-view order, multiple-new-pair order, no-change presentation,
 and exact concurrency remain open.
 Confirmed D-155: combat has two horizontal rows, blockers on the upper row and
 attackers on the lower row. Opposing slots remain paired across the rows with
@@ -1002,7 +1007,19 @@ Confirmed D-156: cross-slot combat drags use selected blockers left-to-right,
 then selected attackers left-to-right, preserving each slot's pre-drag order.
 Insert/append the sequence together under D-143; all take the destination role
 under D-142. Preserve identities/links/source state and remaining grouping/order;
-apply empty-pair cleanup and whole-action Undo. Mixed-view/battlefield order,
+apply empty-pair cleanup and whole-action Undo. Mixed-view order,
 new-pair order, duplicate-source views, and exact concurrency remain open.
-Pause/resume context is in the [session handoff](14-session-handoff.md).
+Confirmed D-157: real battlefield cards dragged together into combat use pre-drag
+visual order, top-to-bottom then left-to-right, not selection-tap order. Create/
+reuse their occurrences in that sequence and insert/append in the chosen slot,
+preserving originals and established role/identity/link/cleanup/Undo behavior.
+Mixed/duplicate views, new declaration pairs, irregular/overlapping battlefield
+layout ordering, and concurrency remain open.
+Pause/resume context is in the [session handoff](session-handoff.md).
+Confirmed D-158: combat is a separate area between the two play areas. Drags
+place created/reused projections at the drop target without moving originals;
+declaration quick actions add new attackers to the right of existing cards/pairs.
+Existing attackers stay put. Do not confuse internal collection order with
+destination placement. Withdraw the unapproved mixed-view projections-first
+sorting proposal and stop requesting speculative sorting decisions.
 No UI draft/implementation authorized.

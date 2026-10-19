@@ -57,7 +57,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-028 | Communication | D-94 game-wide Chat is not undoable. D-95 event comments are ordinary current-path nodes retained even after undo, without a special comment-only branch mechanism. Exact comment/group association, revision/edit/delete, and unsent-chat policies remain open; card notes/pings and other proposed communication tools stay distinct. |
 | A-029 | Correction | Edit any supported tabletop field, add/remove mistaken objects, and bulk-correct state with a preview. |
 | A-030 | Completion | Concede, record win/loss/draw or agreed result, reopen via undo, start rematch retaining completed history. |
-| A-031 | History controls | D-89–D-91: ordinary undos vanish from the visible tree; retain an undone path only through its last actual hidden-information exposure, including draw/move/face changes. Preserve internal recovery and the requested rollback state. Review/interrupt/switch/archive/restore/rename and draft recovery remain; exact cutoff display/dependency/redo protocols are open. |
+| A-031 | History controls | D-159/D-160: Undo moves the shared active pointer one parent back, regardless of author; retain all nodes for tree-based forward return. After replacement play, hide ordinary abandoned continuations behind Show hidden branches; keep whole exposure/comment continuations visible. D-161 silently discards a targeted Undo transition if no longer valid and reconciles local state. Review alone does not activate. Non-Undo branch controls and forward presentation remain open. |
 | A-032 | Export | Export decks and a complete game/history archive with declared information exposure. Exact formats remain open. |
 | A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |
 | A-034 | Combat projections/grouping | D-116 separates area creation/declaration/tap; D-117 adds multiselect combinations/auto-area. D-137/D-139 refine earlier assignment wording to visual paired-slot groups with no individual attacker↔blocker edges. Creation preserves source placement; D-123 routes later card edits/moves to the real card. D-122 removes combat projections/links without changing originals. Exact reference/combined-event handling remains open. |
@@ -118,7 +118,7 @@ projection selections: all go into the chosen slot side-by-side with its role,
 never split by earlier roles or overlapped into an ordinary pile. Source state
 and occurrence uniqueness remain unchanged. D-143 inserts on between-card drops
 inside a slot and appends on unused-space drops, preserving other cards' relative
-order. Mixed-view/battlefield ordering, other-view applicability, and absent-area entry remain open;
+order. Mixed-view ordering, other-view applicability, and absent-area entry remain open;
 repeated declaration still follows D-133 rather than drag retargeting.
 D-144 adds Remove from combat as a context action for one or several selected
 combat projections, leaving real cards/Stack effects unchanged. Remove incident
@@ -136,8 +136,17 @@ appending that sequence under D-143, including same-slot reorders. Preserve
 other cards' order, occurrence identity, source state, and existing Undo scope;
 D-156 orders cross-slot combat drags by selected blockers left-to-right, then
 selected attackers left-to-right, retaining each slot's order. Insert/append the
-sequence together; all take the destination role. Mixed-view/battlefield and
-multiple-new-pair ordering remain separate cases.
+sequence together; all take the destination role. D-157 orders real battlefield
+cards dragged together into combat by pre-drag visual order, top-to-bottom then
+left-to-right, not selection-tap order. Create/reuse occurrences in that sequence
+without changing originals. Mixed-view, multiple-new-pair, and irregular/
+overlapping battlefield layout ordering remain separate cases.
+D-158 clarifies the baseline: combat is a separate area between the play areas.
+Battlefield drags create/reuse projections where dropped, leaving originals in
+place. Declaration quick actions put new attackers to the right of existing
+combat cards/pairs; existing attackers stay put. Internal collection-order
+defaults never override the drop target. No projections-first mixed-drag rule
+was approved; that proposal is withdrawn.
 D-145 gives each newly declared attacker its own pair for declaration shortcuts,
 keeping existing attackers' slots/grouping/order. Collection drags still share
 one target slot (D-142). D-146 auto-creates the combat area for single-card
@@ -152,24 +161,22 @@ restores prior orientations/occurrences/slots/grouping/order/area existence.
 Separate invocations remain separate. D-149 also makes without-tapping one event
 including any area creation. D-150 makes Untap all + advance during Untap one
 event; D-151 makes Draw one + advance during Draw two events, retaining a real
-Draw-step review/interruption boundary before Precombat main. Every invocation
-uses one Undo; no extra tap/Send. Empty/no-change sources still advance under
+Draw-step review/interruption boundary before Precombat main. D-159/D-160 make
+each node one Undo: Draw + advance takes two presses, the one-event shortcuts one.
+No extra invocation tap/Send. Empty/no-change sources still advance under
 D-111 without fabricated card changes. See history section 3.11 for mappings,
 exposure retention, and remaining partial-group/concurrency cases.
 D-134 separately allows unlimited independent Stack
 projections, including repeated effects from one source; removing one leaves the
 others and the source unchanged.
 
-D-129 distinguishes undo units from tree events. D-131 sets the general rule:
-one Undo reverses one user action and its whole group, including a combined
-shortcut, unless an exception is approved. Where MTG permits reactions at distinct
-points, preserve those as multiple events/interruption boundaries within that
-user action; do not require more user invocations or undo taps. Specify the event
-mapping per action without runtime priority/legality enforcement. D-130 confirms
-whole undo for advance-and-close, restoring prior step and complete combat area;
-D-132 records that combination as one event because area closure adds no distinct
-MTG reaction point. Other combinations use the default undo rule but still need
-their event mappings, not an undecided undo scope.
+D-129 distinguishes invocations, tree events and presentation groups. D-159/
+D-160 replace whole-invocation Undo with one parent-node move regardless of author;
+composites may take several presses. D-131's distinct-MTG-reaction-point events
+remain, without runtime priority/legality enforcement or extra invocation taps.
+Presentation grouping cannot change Undo stepping. Advance-and-close still restores
+prior step and complete combat area in one Undo because D-132 makes it one node.
+Other event mappings still need specification.
 
 D-53 clarifies A-018's corner-text editing: store one plain string and offer
 quick actions according to patterns matched in its current text. Actions rewrite
@@ -190,15 +197,15 @@ For counters, whitespace-only text therefore removes the counter while ` 0 `
 becomes visible `0`; do not extend deletion-on-empty to unrelated fields.
 
 Pings, actual object edits, and ephemeral presence remain distinct; see
-[the board contract](10-board-and-controls.md) and
-[literal presentation](11-visual-action-language.md). Stack replaces the former
+[the board contract](board-and-controls.md) and
+[literal presentation](visual-action-language.md). Stack replaces the former
 Cast label. Grouping a move there with pings does not classify it as casting.
 Explicit projection/assignment/quick-action capabilities (A-034–A-036) are now
-required; their [primary contract](13-combat-stack-and-projections.md) must be
+required; their [primary contract](combat-stack-and-projections.md) must be
 specified case by case rather than excluded by the earlier generic-only wording.
 
 Confirmed touch movement for A-005/A-006/A-033 is specified in
-[board controls, section 10.4](10-board-and-controls.md#104-dragging-and-snapping):
+[board controls, section 10.4](board-and-controls.md#104-dragging-and-snapping):
 single-card drag unless multiple cards are selected, top insertion on special
 pile drops, ordinary-card drops forming/joining visual stacks, and Context Move
 to the top/bottom of library, graveyard, and exile. Multi-card order and the
@@ -209,7 +216,7 @@ Library UI decisions D-41–D-43 add combined contents/actions on pile tap,
 order-independent full-library browsing, and explicit View top N / Reveal top N
 commands with context actions on revealed cards. D-46 confirms the temporary
 shared reference-display model, explicit-dismissal lifetime, and Draw N shortcut in
-[special-pile controls](10-board-and-controls.md#106-special-piles-library-graveyard-exile).
+[special-pile controls](board-and-controls.md#106-special-piles-library-graveyard-exile).
 Draw N's user-selected preset label denotes literal top-N
 movement to a configured Hand destination, not an inferred game mechanic.
 
@@ -287,8 +294,10 @@ Explicit View/Reveal is confirmed shared/logged (D-44). D-89 includes covered-
 face hold inspection in exposure history; ordinary already-visible-face holds
 are not included. D-90 retains information-gaining undos as history branches.
 Any actual hidden-information exposure qualifies under D-91, including draw/
-move/face changes. Retain an undone path only through its last information gain.
-Exact coalescing, event placement, cutoff display, and redo remain Q-31.
+move/face changes. D-160 keeps the whole abandoned continuation visible when it
+contains exposure or an event comment, without a last-exposure cutoff. Exact
+coalescing, event placement, forward presentation and non-Undo branch controls
+remain Q-31.
 Inspection itself cannot be made epistemically reversible.
 
 ## 4.5 Bulk actions and selections
@@ -330,7 +339,7 @@ Before implementation, every row above must be expanded into:
 3. Atomic operations and exact state transition.
 4. Ordering, visibility, and exactly which generic fields change or stay intact.
 5. Review rendering and valid interruption boundaries.
-6. Undo/redo and historical rollback behavior.
+6. Parent-node Undo, retained-state forward return, and non-node control recovery.
 7. Offline behavior, preconditions, concurrency conflicts, and errors.
 8. Accessibility interaction and acceptance examples.
 9. Tap/action budget from the normal starting context, including selection,

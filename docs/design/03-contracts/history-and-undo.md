@@ -4,12 +4,52 @@ This is the core behavioral contract. Branching, recovery, instant sync, low-tap
 UX, and automatic conflict branching are owner decisions; detailed mechanisms
 below remain proposed where not explicitly confirmed.
 
+## 3.0 Current Undo model — parent-pointer navigation (D-159/D-160)
+
+**Confirmed.** The game has one
+shared active game-state pointer, separate from each participant's review cursor.
+It can point to an internal node even when that node has retained descendants.
+Undo moves this pointer to its parent: one tree node, regardless of author.
+It does not search for the requesting participant's last action, invert an old
+edit while keeping later edits, or undo an entire presentation/invocation group.
+The older historical-rollback preview proposal is not the Undo interaction.
+
+Retain the undone nodes and their original outcomes. Reviewing them alone does
+not activate them; explicitly making a retained node current can redo that state.
+Undo is a shared control change, not another board-action child node. It targets
+a specific node-to-parent transition; if that transition is no longer valid,
+discard it silently and reconcile local state (D-161; section 3.7).
+
+After Undo, making a new game edit creates a different continuation from the
+active node. Do not delete the old continuation. If it has no qualifying exposure
+or event comment, hide it from the normal tree and expose it through a
+**show hidden branches** toggle. Hiding is presentation filtering, not deletion,
+loss of recovery, or participant access control. This automatic hiding rule does
+not authorize hiding unrelated interruption/conflict alternatives.
+
+D-160 keeps the **whole abandoned continuation visible** if it contains a
+qualifying exposure or event comment, including ordinary steps after the last
+such node. This replaces D-91/D-95's visible-path cutoff, not D-89/D-91's exposure
+classification or D-95's inclusion of event comments.
+Ordinary undone history must remain available for forward return before a new
+edit too; its exact pre-fork presentation is not yet specified.
+
+Approved event boundaries do not change. Thus Draw + advance still produces two
+nodes: Undo from its final node returns to the post-draw Draw-step state; a second
+Undo returns to the pre-draw state. The one-node declaration, Untap + advance,
+and advance-and-close shortcuts still take one Undo to reach their predecessor.
+This replaces D-131's whole-invocation scope, not its distinct-reaction-point
+requirement. Composite actions may require multiple Undo presses.
+
 ## 3.1 Three positions that must never be confused
 
-- **Shared head:** latest published boundary on the active branch.
+- **Shared head / active state:** synchronized current game-state pointer. It may
+  be an internal node with retained descendants after Undo, not the furthest
+  published node on a stored continuation.
 - **Review cursor:** boundary currently displayed to one participant.
-- **Local head:** boundary including that participant's completed actions awaiting
-  synchronization. Incomplete form input is not a game-state boundary.
+- **Local head:** provisional active state including that participant's completed
+  actions/control changes awaiting synchronization. Incomplete form input is not
+  a game-state boundary.
 
 The UI labels which state it displays. “Current board” means shared head, not
 “the actions both people have reviewed.” A review cursor may lag the shared
@@ -29,7 +69,8 @@ participant may interrupt any of it later.
 A recorded atomic action corresponds to an explicit operation, not every internal
 field write. Examples: move a card, rotate it, add a ping, or change a named
 counter. Distinguish this from a user action/invocation, which may produce multiple
-recorded events/actions in one undoable group (D-131). Do not combine separate
+recorded events/actions in one invocation. Each node is a separate Undo step
+(D-159/D-160). Do not combine separate
 user actions because the engine guesses they form a game mechanic. A deliberately
 selected generic bulk operation can be atomic where no required response boundary
 is hidden.
@@ -38,7 +79,8 @@ An interruption is possible at the root or after any published atomic action,
 including an action inside a group. There is no boundary inside an atomic
 action. Before committing a compound action, the player can inspect its parts;
 when intermediate response points matter, record separate events/actions, which
-may still belong to one user action and its whole-group undo scope (D-131).
+may still belong to one user invocation/presentation group, but remain separate
+Undo steps (D-159).
 
 The engine does not infer/enforce response windows, casting, payment, or resolution.
 D-131 requires the behavior specification to provide separate events wherever
@@ -86,7 +128,7 @@ deliberately waiting to gather a group; every action boundary remains intact.
   branch atomically when synchronized. Further actions extend that new line.
 - A concurrent game-edit conflict automatically creates a branch at the intended
   base, preserving both continuations. It does not wait for a conflict dialog.
-  See [synchronization](06-sync-and-storage.md).
+  See [synchronization](../04-technical/sync-and-storage.md).
 - Offline actions use the same local workflow and synchronize automatically on
   reconnect. Local branch activation remains provisional until acknowledged.
 - Incomplete selections/forms may be cancelled without shared effects. Once an
@@ -102,18 +144,15 @@ execution that the platform cannot guarantee. Exact latency targets remain open.
 
 Groups affect presentation and notifications, never atomicity or interruptibility.
 
-D-129 distinguishes invocation, undo unit, tree event, and atomic boundary.
-D-131 now supplies the general default: **Undo reverses one user action and its
-whole group**, even if it contains multiple events. Specify exceptions individually;
-do not treat every combination as lacking an undo policy until separately approved.
-Multiple MTG reaction points require separate tree events/interruption boundaries,
-without requiring extra user invocations or undo taps. Event count/placement still
-needs case-by-case specification; neither a single invocation nor whole-group undo
-permits collapsing required reaction points. Presentation grouping alone must not
-rewrite user-action ownership or those boundaries; optional group split/join
-effects on undo targeting still need design. Schemas follow behavior, not vice versa.
+D-129 distinguishes invocation, tree event, and presentation group. D-159/D-160
+set **one parent-node move per Undo**, replacing D-131's whole-invocation scope.
+D-131's reaction-point requirement remains: multiple MTG reaction points need
+separate effective tree events/interruption boundaries, without extra invocation
+taps. Multiple Undo presses are acceptable. Event count/placement still needs
+case-by-case specification. Presentation groups and optional split/join never
+change parent links or Undo stepping. Schemas follow behavior, not vice versa.
 
-The [literal-action presentation](11-visual-action-language.md) groups related
+The [literal-action presentation](visual-action-language.md) groups related
 recorded operations and their action-linked pings. For example, a move to the
 Stack area and its pings can appear as one expandable unit without being
 classified as a cast. Completed constituent actions still sync immediately and
@@ -128,13 +167,13 @@ rule does not merge atomic boundaries or settle automatic group formation.
 
 D-116 requires separately invoked combat-area creation, attacker declaration,
 and tapping to remain distinct user actions when invoked separately. D-117's
-combined multiselect shortcuts use D-131's whole-user-action undo default. D-148
+combined multiselect shortcuts use the confirmed event mappings. D-148
 records Declare + tap, including any automatic area creation, as one tree event:
 no review/interruption between declaration and source tapping. One Undo restores
 prior orientations and occurrence/slot/area context. D-149 also makes Declare
 without tapping one event, including any automatic area creation. D-150/D-151
 fix normal-step Untap + advance as one event and Draw + advance as two, with one
-Undo per invocation; see section 3.11. D-119
+Undo per node (D-159); see section 3.11. D-119
 requires ping numbers across the single grouped event; exact ordering mutation
 and split/join/coalescing effects remain behavior questions, not permission to
 merge actions or lose historical ping context.
@@ -188,7 +227,9 @@ successful publication, the branch ending at X is active.
 Proposed application of the same selection rule to automatic conflicts: a newly
 created conflict branch becomes active when committed. Service commit order,
 not device timestamps, serializes simultaneous branch activations. The displaced
-line is retained, labeled, and available through one-step return/undo.
+line is retained, labeled, and available through explicit return/activation.
+Normal Undo goes to the active node's parent, not automatically to the displaced
+line's former tip.
 
 Activation occurs on branch creation, not every subsequent append. If another
 line later becomes active, already queued descendants continue on their assigned
@@ -242,67 +283,84 @@ comments, setup corrections, branch switching/archival, and result markers.
 Submitted game-wide chat is not undoable. Chat edit/delete, unsent-delivery
 cancellation, and ordinary text-editor draft behavior remain separate decisions.
 
-Undo preserves auditability. “Delete” and “discard” are reversible logical
-operations, not necessarily physical removal of recovery records. D-90 separates
-the visible event tree from internal redo/recovery: undo an ordinary non-
-information-gaining action by restoring the preceding tree as if that action
-never happened, without leaving an ordinary undone-action branch. Undo an
-information-gaining action by reverting its board effect while retaining it as
-a visible history branch. D-89/D-91 define exposure coverage and the retained
-branch cutoff below.
-Redo/recovery remains required; hidden recovery retention does not require
-ordinary undone nodes to remain in the visible tree. Exact schemas are open.
+Undo preserves the immutable tree and moves the shared active pointer one parent
+back (D-159). It has no author filter, inverse-patch/dependency analysis, or
+whole-invocation targeting. Later work stays on retained descendants rather than
+being transformed or erased. At the root there is no earlier game-state node.
+To repair a value while keeping later play active, perform its normal edit now;
+this does not require a separate historical-Undo mode or correction wizard.
 
-D-130 fixes **advance out of combat + close combat area** as one undoable unit.
-One Undo restores both the prior phase/step and the complete combat area with its
-projections, assignments, incident links, and placements. Do not require separate
-undo taps for advancement and closure. D-132 records both effects as one event:
-interruption/review is before or after it, not between its two effects. Area
-cleanup adds no distinct MTG reaction point; other combinations must retain any
-required boundaries. D-131 generalizes whole-user-action undo
-to other combinations unless an exception is agreed, including Untap/Draw + advance
-and declaration shortcuts. D-148/D-149 make each declaration variant one event;
-D-150 makes Untap + advance during Untap one event, while D-151 makes Draw +
-advance during Draw two events with an effective intermediate Draw-step state.
-One Undo spans both events. Other mappings/exceptions and partial-group handling
-remain open. Multiple MTG reaction points must remain separate events. Normal dependent-work and
-exposure/comment retention rules still apply; a multi-event undo unit must not
-discard required recovery context merely to present one Undo.
+After replacement play, ordinary abandoned continuations are hidden by default
+and discoverable through Show hidden branches. An exposure or event comment keeps
+the entire affected continuation visible, including trailing ordinary nodes
+(D-160). Hidden nodes retain identity, payloads, ancestry and stored random results;
+the filter never changes game state. See section 3.9 for exposure classification.
+
+Advance-and-close remains one Undo because D-132 makes it **one node**, containing
+both tracking and complete area cleanup. D-148/D-149 declarations and D-150 normal-
+step Untap + advance likewise have one node each. D-151 normal-step Draw + advance
+has **two nodes and two Undo steps**: first restore Draw tracking while keeping
+the drawn card, then return to the pre-draw state. Required reaction boundaries
+must not be collapsed to reduce Undo taps. Interruption at a composite action's
+intermediate node follows the same tree model; later constituent events remain
+on their original continuation, not replayed onto the interruption.
+
+Game-node Undo and recovery of non-node controls are distinct. Branch archival,
+metadata changes and unfinished input still require discoverable recovery under
+U-001; their control-specific recovery must not redefine normal Undo as a stack
+of heterogeneous commands. Exact controls for those recovery paths remain proposed.
 
 | Original operation | Required recovery behavior |
 | --- | --- |
-| Pending action not yet transmitted | Restore preceding local state; remove its queued effect safely; retain redo result. |
-| In-flight action with unknown outcome | Show undo intent immediately; establish the original outcome and synchronize the necessary compensating operation without a second ordinary undo tap. |
-| Published latest user action/its whole group | Restore the boundary before that user action, including all its constituent events (D-131), unless an explicit exception applies. D-90/D-91/D-95 prune ordinary undone nodes while retaining the required exposure/comment path; internal recovery remains. Exact event display and dependent-work details remain open. |
-| Historical action with later dependent actions | Preview rollback to its predecessor and retain internal recovery for the affected suffix, without blind inversion of later work. D-91 retains its visible branch only through the last information-gaining action; collaborator/stale-impact protocols remain open. |
-| Interruption | Restore the previously selected continuation, including its preserved suffix. |
-| Activate another branch | Restore the previous branch selection. |
-| Delete/archive branch | Restore the branch and its metadata; restore selection if explicitly requested. |
-| Group metadata edit | Restore previous title/boundaries without changing action payloads. |
+| Pending action not yet transmitted | Move the provisional pointer one parent back; retain its node/outcome for forward return. Exact queue representation remains technical design. |
+| In-flight action with unknown outcome | Show the local pointer move immediately; resolve original delivery and synchronize the specific transition without losing the node or requiring a duplicate ordinary Undo press. If no longer valid, silently discard and reconcile (D-161). |
+| Published current node | Move the active pointer to its parent, regardless of author or invocation/group membership. Retain descendants. |
+| Older action followed by later play | Normal Undo still moves only the current active node to its parent. Repeated Undo or explicit tree activation can select an older state; do not selectively invert the old action or preview a suffix deletion. |
+| Interruption | Normal Undo goes from the current node to its parent/fork. Explicitly activate the original retained continuation to return to its future, or use Delete branch and return. |
+| Activate another branch/node | Normal Undo follows the newly active node's parent, not the previous selection. Previous states remain available through explicit tree activation. |
+| Delete/archive branch | Provide branch restoration and metadata recovery separately from game-node Undo; restore selection if explicitly requested. |
+| Group metadata edit | Provide recovery of previous title/boundaries without changing action nodes, parent links or game-node Undo stepping. |
 | Submitted game-wide chat | No game Undo (D-94). Chat edit/delete and unsent-delivery policies remain open; do not promise generic message Undo. |
-| Event-linked comment undone | Move back along the ordinary event tree while retaining its existing path through the comment (D-95), not ordinary undone-node pruning. No separate comment-only fork is needed. |
+| Event-linked comment undone | Move to its parent. Retain the whole abandoned continuation visibly under D-160; no separate comment-only fork is needed. |
 | Game completion/concession marker | Reopen the game at the prior logical state. |
 | Die/coin result | Restore prior board state while retaining the information-gaining action/result as a history branch (D-89/D-90); redo reuses that result. Other random-operation classification remains open. |
 
-Undo operates against a known control revision. If other work happened after
-the targeted operation, show the affected continuation and require explicit
-confirmation. Do not apply a blind inverse patch across unrelated later edits.
+Undo is a synchronized control move, not another board-action child node: its
+control record can retain prior/new references without becoming the next gameplay
+parent. This avoids Undo merely undoing a previous Undo record on the next press.
+Redo through the tree selects the original stored state/outcome, not a new action
+invocation or random sample. Review alone never changes the active pointer.
 
-Undoing an old life change, for example, can rewind the continuation before that
-change. If the intent is to keep subsequent play and repair life now, offer a
-separate **correct current state** action. Label these as different operations.
+Rapid Undo must work before, during, and after acknowledgement. Pending/in-flight
+nodes and pointer intentions must survive restart/retry without disappearing or
+being applied twice.
 
-An undo itself is recorded and recoverable internally, without requiring an
-ordinary undone-action node/branch in the visible event tree (D-90). A record
-stores logical prior/new references needed for restoration; it does not depend on
-guessing an inverse from a human-readable description.
+**Confirmed stale-Undo behavior (D-161):**
 
-Undo automatically synchronizes. Rapid undo must work before, during, and after
-acknowledgement. Queue dependencies and unknown delivery outcomes cannot make
-an apparent cancellation silently reappear as a published action. If later
-collaborator work expands the rollback's impact, preserve that work and show the
-historical-rollback choice rather than blindly execute a queued inverse. This is
-distinct from an ordinary game edit, whose conflict automatically branches.
+- Capture the intended transition from a specific node to its parent when Undo
+  is invoked. Do not publish a generic “step back from whatever is current”
+  command or retarget the request after another participant changes state.
+- If that transition is still valid, apply it once. If it is no longer valid,
+  discard the request silently and reconcile the local current-game state, without
+  moving an unrelated personal historical review cursor.
+  No toast, warning, new notification/activity entry, confirmation or failed-work
+  retry task is needed; the corrected client state is the feedback.
+- Example: the client sees C and requests C → B, but D extends C before it applies.
+  Leave D active and reconcile the client; do not undo D or jump from D to B.
+- If both participants request C → B, one can apply it; the other becomes stale
+  and is silently discarded, not reinterpreted as B → A. A deliberate second Undo
+  based on the new B state is a different B → A transition.
+- Reconnecting applies the same rule to offline/provisional Undo. Discard only
+  the invalid control request, not retained game nodes or other queued edits.
+  Further edits retain their intended bases and use normal publication/conflict
+  rules; never silently rebase or erase them to reconcile the pointer.
+- Delivery retry of the same request uses its recorded outcome/idempotency
+  identity. If it already succeeded, return that result rather than applying it
+  again or treating the changed pointer as a new stale rejection. Resolving an old
+  result must not overwrite newer synchronized state with an obsolete snapshot.
+
+Non-Undo branch switches/archival and exact forward-selection controls still need
+their own stale-target behavior; D-161 is not blanket approval for every control.
 
 ## 3.8 Deleting an active interruption
 
@@ -311,7 +369,8 @@ distinct from an ordinary game edit, whose conflict automatically branches.
 1. Show the branch to be archived and the exact return continuation and board.
 2. Archive the selected branch and select the chosen return branch together.
 3. Leave all action nodes and descendants recoverable.
-4. Offer Undo, which restores both archive state and branch selection.
+4. Offer recovery of both archive state and branch selection. This is distinct
+   from normal game-node Undo (D-159); exact recovery-control wording is open.
 
 Default return target: the continuation displaced by this interruption, at its
 currently retained head. If that target has changed, is archived, or is missing
@@ -339,10 +398,11 @@ in-game undo capability.
 
 ### Information-gaining actions and undo branches
 
-Confirmed D-89/D-90: information-gaining actions leave branches in history when
-undone; ordinary undo restores the visible tree as if its action never happened.
-This replaces the earlier separate persistent-audit-marker proposal with history
-branch retention, without requiring permanent board markers or ping overlays.
+Confirmed D-159/D-160: every undone continuation is retained. After replacement
+play, hide ordinary abandoned continuations behind Show hidden branches, but keep
+the whole continuation visible if it contains an exposure or event comment.
+This replaces the older ordinary-node removal and last-exposure cutoff, without
+requiring permanent board markers or ping overlays.
 
 Confirmed exposure coverage (D-89): library View/Reveal, otherwise-covered hand/
 card-face viewing, covered-face hold inspection, and die/coin results. Ordinary
@@ -376,29 +436,29 @@ D-95 includes event-linked comments as retention points alongside hidden-info
 exposure. A submitted event comment is another node on the current tree path;
 that path is already a branch like any other. Apply the ordinary chosen-base/
 path rules, not a separate comment-only fork/activation mechanism. Undo moves
-back while preserving the existing path through the comment. In a mixed undone
-sequence, the D-91 cutoff is the last qualifying exposure or event comment;
-ordinary steps after it disappear from the visible tree, not internal recovery.
+back while preserving the existing path. D-160 keeps its whole abandoned
+continuation visible, including ordinary steps after the comment; there is no
+last-comment cutoff.
 This differs from D-94 game-wide chat, which is outside game Undo. Exact comment
 group association, revision/edit/delete, and dependent/concurrent protocols remain
 later review, not an unresolved question of whether paths are already branches.
 
-Confirmed mixed-sequence cutoff (D-91):
+Confirmed branch-level filtering (D-160, replacing D-91's cutoff):
 
-1. Within the affected undone group/suffix, retain the branch from the rollback
-   boundary through the last information-gaining action, including earlier and
-   intervening ordinary actions needed to retain the original path/context.
-2. Remove trailing ordinary undone actions after that last information gain from
-   the visible tree, retaining internal redo/recovery. If the undone sequence
-   contains no information gain, leave no visible undone branch.
-3. This cutoff changes retained visible history, not the requested rollback
-   state: undo still restores the chosen predecessor, not the last exposure's
-   resulting board. It does not authorize pruning unrelated existing branches.
+1. Retain every node of the abandoned continuation after replacement play.
+2. If that continuation contains any exposure or event comment, keep all of it
+   visible, including ordinary ancestors/intervening/trailing nodes.
+3. Otherwise hide it by default and make it available through Show hidden branches.
+4. Visibility does not move the active pointer or hide unrelated alternatives.
+   An exposure in the shared prefix alone does not make an ordinary abandoned
+   suffix an exposure-bearing continuation.
 
-Example: undo `ordinary A -> view B -> ordinary C -> roll D -> ordinary E`.
-Restore the state before A, retain the history branch through D, and omit E from
-the visible tree. Atomic boundaries, group rendering at the cutoff, dependent/
-collaborator edits, exact exposure triggers, and redo reconciliation remain open.
+Example: from `root → A → View B → C → roll D → E`, use five Undo presses to
+return to root, then create X. Keep the whole original continuation A–E visible,
+not only the prefix ending at D. For an all-ordinary A–E, retain the same nodes
+but hide that alternative by default. Either person can inspect/activate retained
+states; inspection alone never activates them. Exact exposure capture/coalescing,
+pre-fork presentation, forward-navigation and non-Undo control details remain open.
 
 ## 3.10 Randomness and branching
 
@@ -443,14 +503,15 @@ before implementation; see the open decisions.
 ## 3.11 Confirmed shortcut event mappings (D-149–D-151)
 
 These mappings distinguish an effective tree event/interruption boundary from a
-user invocation and its Undo unit (D-131). They do not authorize runtime priority,
+user invocation. D-159/D-160 make each node a separate Undo step. They do not
+authorize runtime priority,
 Pass, timing/legality adjudication, or automatic card-text effects.
 
 | Invocation | Recorded events | Undo scope |
 | --- | --- | --- |
 | Declare without tapping (D-149) | One event: declaration and any automatic area creation together; preserve source orientation. | One Undo restores prior occurrence/slot/grouping/order/area context. |
 | Untap all + advance during Untap (D-150) | One event: literal scoped untapping and Untap → Upkeep together. No separate response point inside Untap. | One Undo restores prior source orientations and phase/step. |
-| Draw one + advance during Draw (D-151) | Two events: draw portion while tracking remains Draw, then Draw → Precombat main. The intermediate state is genuinely reviewable/interruptible. | One Undo reverses both events, restoring prior card/container state and tracking. |
+| Draw one + advance during Draw (D-151) | Two events: draw portion while tracking remains Draw, then Draw → Precombat main. The intermediate state is genuinely reviewable/interruptible. | First Undo returns to Draw while keeping the drawn card; second Undo returns to the pre-draw state (D-159/D-160). |
 
 For Draw + advance, show the actual resulting card/location state after the first
 event while still in Draw. Do not collapse the two events into an indivisible
@@ -458,7 +519,8 @@ transition or merely decorative rows; an opponent can branch at that boundary.
 One invocation still completes without a second tap or Send. Completed events
 queue/sync under normal immediate-publication rules, not a group-completion gate.
 The preserved advance on the original continuation must not silently replay onto
-an interruption branch. Exact partial-group undo/dependency and concurrent
+an interruption branch. Undo/interruption at either node uses the ordinary
+parent-pointer model; exact concurrent
 publication protocols remain open.
 
 D-111 still applies: no affected untap cards does not prevent Untap → Upkeep;
@@ -466,11 +528,11 @@ an empty Library draws no card but still advances, without automatic loss. Recor
 actual effects, not fictitious untaps/drawn cards. The approved event counts and
 Draw-step boundary remain; exact no-change event wording/feedback remains open.
 
-Undo of an actual hidden-information exposure during the draw retains the original
-path through that exposure under D-89–D-91/D-95, while restoring the requested
-pre-invocation state. If the later advance exposes nothing and has no qualifying
-comment, omit that trailing ordinary event from the visible undone branch; retain
-internal recovery. One-Undo scope must not erase the recorded draw/exposure.
+Undo retains both nodes. If replacement play abandons a suffix containing an
+actual draw exposure, D-160 keeps its entire continuation visible, including the
+ordinary advance. If only the advance is undone/replaced, the draw is in the
+shared prefix; that ordinary abandoned advance can be hidden. Never erase the
+draw or sample a new outcome merely to return forward through the tree.
 
 Separately invoked constituent actions keep separate invocation/event/Undo
 identities. These are specific normal-step mappings, not permission to rewind

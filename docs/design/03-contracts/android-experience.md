@@ -4,16 +4,16 @@ Status: proposed interaction architecture. Annotated wireframes, exact layouts,
 visual design, and Android support versions remain to be specified.
 
 Confirmed card gestures and proposed drag/pile/intent details are defined in
-[Game board and controls](10-board-and-controls.md), the primary tabletop-input
+[Game board and controls](board-and-controls.md), the primary tabletop-input
 contract. Single tap taps, double tap opens actions, hold inspects, and drag moves
 with snapping. These replace the earlier undecided tap-versus-inspect mapping.
-The [visual action language](11-visual-action-language.md) defines the proposed
+The [visual action language](visual-action-language.md) defines the proposed
 Stack area, action-linked ping controls, literal grouped log presentation,
 and optional notes/chat. Ordinary flow should not require typing what just
 happened, and the engine must not guess what the actions mean in a game's rules.
 D-112–D-114 additionally require combat/Stack projections, visual attacker/blocker
 grouping (D-139), and contextual Stack actions. Their behavior is being specified in
-[the primary contract](13-combat-stack-and-projections.md). D-115 reserves new
+[the primary contract](combat-stack-and-projections.md). D-115 reserves new
 UI drafts, final layouts, and concrete control choices for delivery stage 3;
 current work is stage 1 behavior specification.
 
@@ -44,10 +44,10 @@ D-127 adds a combined advance out of combat + close area quick action. Ordinary
 phase/step changes and End turn leave the area open until explicit closure.
 Standalone advance/close and non-quick access to the combination remain available.
 D-128 shows the quick action only at End of combat, advancing to Postcombat main;
-the full path remains available. D-131 sets Undo to the whole user action/group,
-including combinations, with multiple events for distinct MTG reaction points.
-Event review/interruption must not be lost because Undo covers the whole group;
-specific mappings/exceptions still need design, not runtime timing enforcement.
+the full path remains available. D-159/D-160 set Undo to one parent node,
+regardless of author, replacing whole-invocation/group scope. D-131's distinct
+reaction-point events remain; composites can require multiple Undo presses.
+Specific event mappings still need design, not runtime timing enforcement.
 D-130 confirms whole undo for advance-and-close; D-132 shows it as one tree event
 listing both effects. Missing-area/out-of-combat handling remains open; button
 wording/placement is stage 3.
@@ -95,23 +95,20 @@ The table must always make these distinguishable:
 - Connection/synchronization state and number of pending actions.
 - Undo/redo availability and any operation awaiting confirmation.
 
-D-89/D-90: ordinary undo restores the visible event tree as if its action never
-happened, without ordinary undone-action branches. Information-gaining undos
-remain as visible history branches with their original context/results and
-undone/inactive status. Covered-view summaries do not automatically disclose
-identities. Internal recovery/redo remains available, distinct from tree clutter.
-Reviewing a branch does not activate it or reapply board state. D-91 retains an
-undone path only through its last information-gaining action, including any draw/
-move/face change exposing hidden info. Trailing ordinary undone actions disappear
-from the tree, not from internal recovery. Exact cutoff/group display, coalescing,
-undo/redo navigation, and offline presentation remain Q-31; these are not pings
+D-159/D-160: Undo moves the shared active pointer one parent back and retains all
+descendants. After replacement play, hide ordinary abandoned continuations behind
+Show hidden branches; exposure/comment continuations stay visible in full,
+including ordinary tails. Covered summaries do not automatically disclose identities.
+Reviewing a retained node does not activate it; explicit activation allows forward
+return/Redo with its original state/results. Exact pre-fork/forward presentation,
+exposure coalescing and non-Undo branch controls remain Q-31; these are not pings
 or permanent board markers.
 
 D-94/D-95 distinguish game-wide Chat (not undoable once submitted) from event-
 context comments (nodes on the ordinary current tree path, retained after undo).
 The path is already a branch; do not add a special comment-only fork workflow.
-Undo moves back while retaining the path through a comment, using the same
-cutoff principle as information-gaining steps. Exact event/group association,
+Undo moves one parent back while retaining the whole comment-bearing abandoned
+continuation visibly (D-160), without a cutoff. Exact event/group association,
 revision/edit/delete, pending chat delivery, and editor submission remain open.
 
 Use text/icons as well as color. A prominent “Return to active game” control is
@@ -139,7 +136,8 @@ changing the board under a user's finger.
    identifies the fork; a separate **Respond here** step is optional.
 3. The first completed reaction applies locally and automatically synchronizes
    branch creation/activation. Show the preserved original line and offer
-   **Undo interruption** and **Delete branch and return**.
+    explicit **Return to original continuation** and **Delete branch and return**.
+    Normal Undo moves to the parent/fork; it does not jump to the original future.
 4. Further reaction actions synchronize as they happen, grouped automatically.
 
 Use a persistent, lightweight “Editing here starts a new branch” indicator in
@@ -286,11 +284,13 @@ decided before implementation.
 
 - A persistent undo entry point complements any transient snackbar.
 - Show the exact object/action/branch affected, not merely “Undo.”
-- Ordinary local mistakes are one-step undo; historical rollback previews the
-  displaced later work.
+- Normal Undo moves one parent node back, regardless of author; composite actions
+  may require multiple presses. It is not selective historical rollback.
 - Branch “Delete” wording must disclose “recoverable from archived branches.”
-- If a collaborator has changed the active line, an old undo button must resolve
-  against the new revision and request confirmation rather than apply blindly.
+- Undo captures a specific node-to-parent transition (D-161). If it becomes invalid,
+  silently discard it and reconcile local state: no toast, warning, notification,
+  confirmation or retry chore. Never retarget it to unseen work. The same rule
+  applies after reconnect; non-Undo branch-control policies remain open.
 - Redo that would switch branches is labeled accordingly.
 
 ## 5.7 Offline, pending, and conflict states
@@ -305,7 +305,9 @@ unknown catalog entries may require connectivity and must say so.
 
 A queued action is not labeled delivered. A concurrent game edit automatically
 branches and synchronizes, with a non-blocking notice showing the divergence,
-active line, and quick return/undo. No accept/rebase/discard dialog is required.
+active line, and explicit return to a retained continuation. Normal Undo moves
+one parent back, not automatically to the displaced future. No accept/rebase/
+discard dialog is required.
 Both lines remain inspectable. Retry does not duplicate actions or branches.
 
 If the user is still editing a line that has become inactive, preserve their
@@ -362,7 +364,7 @@ Proposed rules:
   response boundaries as defined in the history contract. Fewer taps must not
   remove an opponent's chance to react.
 - Use undo for routine recoverable mistakes. Reserve blocking confirmation for
-  expanded-impact historical rollback, irreversible data erasure, or other
+  irreversible data erasure or other
   specifically documented risks. Ordinary concurrent game edits auto-branch.
 - Provide discoverable, accessible alternatives to shortcuts and gestures. A
   shortcut's tap savings cannot make the normal flow unusable.

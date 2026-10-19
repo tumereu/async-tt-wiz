@@ -1,0 +1,83 @@
+# Scope proposals and genuine gaps
+
+This accompanies the [behavior overview](behavior.md). Proposals are not approved
+requirements. These are missing outcomes or scope decisions, not a demand for a
+question about every button; existing general rules should resolve ordinary cases.
+The detailed [question register](../../agent/decisions.md#93-release-blocking-questions)
+retains the original Q-IDs.
+
+## Broader draft scope — not all confirmed
+
+These appear in the product/action/UI drafts, but their exact first-release
+obligation or behavior is still proposed:
+
+- Game creation/invites, accounts, deck import/edit/export, configurable starting
+  arrangements, opening hands/redraws, extra areas such as Command/Sideboard.
+- Arbitrary named player/card values, participant associations, generic pieces/
+  markers/custom definitions, and a broader correction tool. Their general purpose
+  is manual representation; exact authoring controls and scope are not settled.
+- Concede/record result, reopen through recovery, rematches retaining old history,
+  and complete game/history export.
+- Detailed review navigation, branch comparison/rename/switch/archive controls,
+  optional manual group editing, live-follow, cross-device progress, response
+  requests, notifications, and ephemeral presence.
+- Exact screen layouts, accessible alternatives, Android/device support, storage
+  settings, and recovery-center flows. Accessibility/no-gesture-only access is the
+  intended direction, not a finished interaction specification.
+
+The draft review flow distinguishes the shared current board, your historical
+view, and local pending work. It offers previous/next actions/groups, jump to a
+boundary/current board, and optional live-follow; incoming updates do not silently
+move a historical cursor. Proposed branch-switch notices preserve your view and
+offer a return/divergence control. Proposed notifications cover activity, branch
+changes, invitations, and response requests, coalesced without delaying sync.
+Private-game membership still restricts outsiders; full access applies to the
+two participants, not everybody. Detailed protocols and controls remain proposed.
+
+The documented release direction excludes inferred rules/legality, competitive
+anti-cheat, matchmaking/rankings/tournaments/clocks, public spectators/chat, AI
+opponents, multiplayer, non-Android gameplay clients, and automatic replay of an
+old future after a response. Exact overall release scope still needs sign-off.
+
+## Genuine gaps
+
+1. **Setup and release scope.** From invitation/deck import to a playable table:
+   supported formats, starting arrangement/values/hands, missing cards,
+   completion/rematch/export, and which broader authoring/correction tools ship.
+2. **History groups and pings.** The automatic grouping rule; which event a new
+   ping belongs to; historical additions; numbering after removal/re-add; how
+   optional group edits relate to event and Undo boundaries.
+3. **Undo/Redo pointer controls and visibility.** D-159 confirms one parent-node
+   step regardless of author, retained forward history, and hidden ordinary
+   replacement continuations available through a toggle. Remaining outcomes:
+   forward selection and pre-fork presentation, non-Undo branch controls, and
+   whether an empty interruption can pause/rewind. D-160 keeps qualifying exposure/
+   comment continuations visible in full. D-161 targets a specific Undo transition,
+   silently discarding it if no longer valid and reconciling local state. The
+   historical-rollback preview proposal no longer defines Undo.
+4. **Concurrent/offline continuations.** Conflict-line activation, simultaneous
+   switches, queued descendants on inactive lines, and stale non-Undo branch controls.
+   Forking/no lost work are confirmed; the detailed no-ping-pong protocol is proposed.
+5. **References and projection controls.** Removing an occurrence versus its real
+   card; surviving Stack effects after source deletion; duplicate-source
+   selections; mixed link/ping endpoints; removed cards in View/Reveal displays.
+6. **Combat/Stack entry and destinations.** Dragging before combat exists,
+   remaining between-pair targeting, attack destination/player association,
+   real-card versus projection Stack entry/order, quick-exit fallbacks for
+   unknown/multi-face data, and missing-area/out-of-step combined actions.
+   Special sorting policies do not solve these gaps.
+7. **Inspection and communication history.** Exposure logging/coalescing without
+   unwanted gameplay branching; View/Reveal dismissal/Undo; covered historical
+   summaries; comment/chat edit/delete, pending delivery, and response requests.
+8. **Shared action details.** A consistent policy for empty/no-change/stale/invalid
+   inputs and affected/skipped feedback; menu scope on unselected cards; token
+   auto-placement/initialization; numeric grammar/limits; same-pile reorder versus
+   entry resets; ambiguous metadata/defaults. Use shared contracts, not hundreds
+   of special cases.
+9. **Product/platform choices.** Identity/recovery, hosting, catalog/image rights,
+   offline storage/retention, device/language/accessibility support, notification/
+   privacy settings, and deletion/export guarantees. Protocols, randomness source,
+   APIs/migrations, backups, and performance follow in the relevant design stage.
+
+Known wording/status drift is tracked separately in the
+[agent specification audit](../../agent/specification-audit.md).

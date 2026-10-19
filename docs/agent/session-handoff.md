@@ -1,8 +1,38 @@
 # 14. Session handoff — resume behavior specification
 
 Updated 2026-10-19. This is continuation context, not a new source of requirements.
-Confirmed decisions are in [the register](09-decisions.md); detailed contracts
+Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
+
+## Current discussion — D-159–D-161
+
+The owner replaced whole-invocation Undo with one shared active-pointer move to
+the parent tree node, regardless of author. Retain undone descendants and permit
+explicit forward activation through the tree; review alone remains personal.
+After replacement play, ordinary abandoned continuations are hidden, not deleted,
+and available through a show-hidden-branches toggle. Approved event counts stay:
+Draw + advance consequently takes two Undo steps, not one. The older D-131/D-151
+Undo-scope decisions are superseded. D-160 confirms multiple presses for
+composites and keeps the whole abandoned continuation visible if it contains
+exposure or an event comment, including ordinary tails. There is no cutoff.
+The primary current rule is
+[history section 3.0](../design/03-contracts/history-and-undo.md#30-current-undo-model--parent-pointer-navigation-d-159d-160).
+
+D-161: Undo captures a specific node-to-parent transition; if no longer valid,
+discard it silently and reconcile client state, including on reconnect. No toast,
+warning, notification, confirmation or retry chore. Do not retarget to unseen work
+or lose other queued edits. Preserve idempotent outcomes on delivery retry.
+
+This Undo-design checkpoint has passed Markdown target/anchor, whitespace and
+decision/scenario-ID checks; repeat them for any further changes. Do not reopen
+parent-node scope, multiple composite Undo presses, retained alternatives,
+whole-branch visibility or silent stale-Undo discard. Other history gaps remain:
+automatic grouping/ping association, explicit forward/pre-fork presentation,
+non-Undo branch controls and exposure capture/coalescing. The next substantial
+design topic should be automatic groups and ping association, not tiny Undo variants.
+The owner requested commit/push after the design work and explicitly approved
+including the existing uncommitted tier reorganization with these Undo changes.
+No implementation or later-stage transition is authorized.
 
 ## Current stage and working agreement
 
@@ -21,6 +51,19 @@ and acceptance scenarios take precedence over this summary.
 - Keep questions and updates concise; explain only the relevant distinction.
   Do not repeatedly reopen confirmed decisions or ask separate approval for a
   default already established by a general principle.
+- Latest owner correction: the sorting questions became unnecessarily elaborate.
+  Re-anchor in D-158's spatial model. Do not resume speculative mixed-view sorting
+  questions or turn incidental collection-order details into product requirements.
+- Latest owner request: summarize the whole current design as simply as possible
+  without losing behavior, and identify genuine gaps. The result is
+  [Current design, in plain language](../design/02-experience/behavior.md). This is a
+  consolidation/audit, not approval of proposals or a new round of tiny questions.
+- Follow-up owner request: organize the design into high-to-low tiers, with agent
+  decisions/handoffs separately. The [tiered index](../README.md) is now the entry
+  point; product principles, experience, contracts, technical proposals and
+  verification live under `docs/design/`. Agent/process material lives here.
+  Scope/gaps are now a separate Tier 2 page; audit notes and delivery gates are
+  separate agent pages. Original chapter numbers and requirement IDs are retained.
 - New user-specified gestures/spatial behavior are requirements now; exact screen
   drafts, geometry, menus, and accessibility layouts follow in stage 3.
 - Synchronize the decision register, primary contracts, worklist, and acceptance
@@ -29,20 +72,25 @@ and acceptance scenarios take precedence over this summary.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-156** and **T-001–T-284**.
+- Current documentation includes **D-001–D-161** and **T-001–T-296**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
-  D-141–D-146 respectively. Checkpoint `7b33885` records D-147–D-151; current
-  documentation adds D-152–D-156. Inspect git status/log for the latest working state.
+  D-141–D-146 respectively. Checkpoint `7b33885` records D-147–D-151 and `8ba9419`
+  records D-152–D-156. Current documentation adds D-157/D-158; inspect git status/log
+  for the latest working state.
 - Before editing, inspect `git status` and preserve any new user work.
-- Read [combat/Stack/projections](13-combat-stack-and-projections.md), especially
-   sections 13.2 and 13.4–13.30; [latest decisions and open questions](09-decisions.md);
-   and [history/undo](03-history-and-undo.md), especially sections 3.2, 3.4, 3.7, 3.11.
-- Then consult [the capability worklist](12-touch-action-review.md),
-  [controls](10-board-and-controls.md), [ping presentation](11-visual-action-language.md),
-  [domain](02-domain-model.md), [actions](04-game-actions.md), and
-  [acceptance scenarios](08-verification-and-delivery.md).
+- Start with [product principles](../design/01-product/overview.md),
+  [user-facing behavior](../design/02-experience/behavior.md), and
+  [scope/gaps](../design/02-experience/gaps.md). Understand the whole design before
+  resuming a detailed feature conversation.
+- For combat-specific detail, read [combat/Stack/projections](../design/03-contracts/combat-stack-and-projections.md), especially
+   sections 13.2 and 13.4–13.31; [latest decisions and open questions](decisions.md);
+   and [history/undo](../design/03-contracts/history-and-undo.md), especially sections 3.2, 3.4, 3.7, 3.11.
+- Then consult [the capability worklist](touch-action-review.md),
+  [controls](../design/03-contracts/board-and-controls.md), [ping presentation](../design/03-contracts/visual-action-language.md),
+  [domain](../design/03-contracts/domain-model.md), [actions](../design/03-contracts/game-actions.md), and
+  [acceptance scenarios](../design/05-verification/acceptance.md).
 
 ## Latest confirmed behavior — do not reopen
 
@@ -112,7 +160,7 @@ and acceptance scenarios take precedence over this summary.
   slot all join that same slot and side, creating/reusing each source's occurrence,
   not one pair per source. Preserve reused identities and real source state; other
   cards retain grouping, fully empty origins disappear normally. One selected
-  drag uses whole-user-action Undo; event mapping remains open. D-142 extends
+  drag uses parent-node Undo (D-159); event mapping remains open. D-142 extends
   routing to mixed combat-role/view drags. Duplicate-source views and within-slot
   insertion order remain open.
 - D-142: combat is simply paired slots, one attacker and
@@ -165,12 +213,13 @@ and acceptance scenarios take precedence over this summary.
   Undo restores prior orientations/tracking; no-change sources still advance.
 - D-151: during Draw, Draw one + advance is two events: draw portion
   while tracking remains Draw, then advance to Precombat main. The intermediate
-  state is genuinely reviewable/interruptible; one Undo reverses both events.
+  state is genuinely reviewable/interruptible. D-159/D-160 replace its earlier
+  whole-invocation Undo: each node now takes one press, two in total.
   No extra tap/Send or group-publication gate. Empty Library draws nothing but
   still advances with the approved boundary and no invented card edits/loss;
-  exact no-change wording/feedback remains open. Normal exposure cutoff applies:
-  Undo retains actual draw exposure, not a trailing ordinary advance, while
-  restoring the pre-invocation state. Partial-group/dependency/concurrent handling
+  exact no-change wording/feedback remains open. D-160 retains the whole abandoned
+  continuation visibly if its suffix contains draw exposure, including the trailing
+  advance. Pointer-control/concurrent handling
   and out-of-step mappings remain open; see history section 3.11.
 - D-152: a declaration shortcut including an existing blocker moves
   that same occurrence into its own new attacker pair, preserving identity/links.
@@ -187,17 +236,29 @@ and acceptance scenarios take precedence over this summary.
   from one combat slot, including subsets/same-slot reorders. Use source-slot order,
   not selection-tap order, and insert/append that sequence under D-143. Preserve
   other cards' order, identities/source state, and normal Undo. D-156 settles
-  cross-slot combat order; mixed-view/battlefield and multiple-new-pair order remain open.
+  cross-slot combat order; D-157 real battlefield order. Mixed-view and multiple-new-pair order remain open.
 - D-155: combat has two horizontal rows, blockers above and
   attackers below. Each opposing slot pair spans the rows. This clarifies spatial
   layout only; the previous proposed pair-by-pair, attacker-first cross-slot drag
   ordering was not approved. D-156 separately approves row-first ordering.
-- D-156, latest answer: cross-slot combat drags use selected blockers left-to-right,
+- D-156: cross-slot combat drags use selected blockers left-to-right,
   then selected attackers left-to-right, preserving each slot's pre-drag order.
   Insert/append that sequence together; all take the destination role. Preserve
   identities/links/source state, remaining grouping/order, normal empty-pair cleanup,
-  and whole-action Undo. Mixed-view/battlefield order, order among new declaration
+  and parent-node Undo (D-159). D-157 settles real battlefield order. Mixed-view order, order among new declaration
   pairs, duplicate-source views, and exact concurrency remain open.
+- D-157: real battlefield cards dragged together into combat use
+  their pre-drag visual order, top-to-bottom then left-to-right, not selection-tap
+  order or their prior combat placement. Create/reuse and insert/append occurrences
+  in that sequence without changing originals. Normal destination-role routing,
+  identity/links/grouping/cleanup/Undo remain. Mixed/duplicate views, new declaration
+  pairs, irregular/overlapping layout ordering, and concurrency remain open.
+- D-158, latest correction: combat is a separate area between the player's play
+  area and the opponent's. Battlefield drags create/reuse projections where dropped,
+  leaving originals in place. Declaration quick actions add new attackers to the
+  right of existing combat cards/pairs; already-declared attackers stay put.
+  Collection-order defaults never override the drop target. The projections-first
+  mixed-selection sorting proposal is withdrawn, not approved or awaiting approval.
 
 ### Shared card state and area-specific projection lifetime
 
@@ -251,13 +312,11 @@ and acceptance scenarios take precedence over this summary.
   access. Structural/applicability validation still applies. Keep this when
   interpreting the End of combat quick-action restriction.
 - D-129 distinguishes user invocation, undo unit, tree event, and atomic boundary.
-  **D-131 is the current general principle:** Undo reverses **one user action and
-  its whole group**. A user action must have **multiple events wherever MTG permits
-  reactions at distinct points**, with real review/interruption boundaries. One
-  Undo may span those events. Specify mappings/exceptions individually; do not
-  leave every shortcut's default undo scope undecided or assume every action
-  necessarily has multiple events. This refines the earlier case-by-case-only
-  interpretation of undo scope.
+  **D-159/D-160 are the current Undo principle:** one press moves the shared active
+  pointer to its parent, regardless of author. D-131's **multiple events wherever
+  MTG permits reactions at distinct points** remain real review/interruption
+  boundaries. Composite invocations may require multiple presses. Specify event
+  mappings individually; presentation grouping never changes parent links.
 - Reaction-point design does **not** authorize runtime rules/priority adjudication,
   Pass, priority-holder state, or card-text interpretation. Players judge timing;
   specified events preserve places to review/interrupt/branch.
@@ -269,19 +328,24 @@ and acceptance scenarios take precedence over this summary.
 - D-119: pings show automatic order numbers across **all pings in the same grouped
   event**, not per attacker/source/purpose. No automatic damage interpretation.
 
-## Suggested next question — not yet asked or approved
+## Continuation after owner correction
 
-Continue real battlefield collection order. A useful small next question is:
+Start with the [product principles](../design/01-product/overview.md) and
+[plain-language behavior](../design/02-experience/behavior.md). Keep the
+small set of general usability rules central; distinguish substantive missing
+outcomes from details that can share one consistent default. Do not automatically
+turn the gap list into one owner question per edge case.
 
-> 1. For real battlefield cards dragged together into combat, use their current
-> visual order, top-to-bottom then left-to-right, rather than selection-tap order?
+The owner challenged the relevance of the mixed-view sorting proposal. It is
+withdrawn. No ordering question is pending. The next continuation should review
+the existing contracts against D-158's simple model, not request another sorting
+rule: separate central combat area, projections rather than moved originals,
+drag placement at the drop target, quick declarations at the right edge.
 
-This is only a suggested continuation. Do not mistake the question for a decision.
-This does not settle exact ordering for irregular/overlapping battlefield layouts,
-new declaration pairs, mixed real/projection views, or duplicate-source selection. Do not reopen
-existing-blocker conversion or approved shortcut event mappings.
-Do not reopen uniform slot-drop roles (including reverse projection drags), visual grouping, slot
-lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack multiplicity.
+Preserve earlier approved collection-order defaults only as internal order within
+the dropped collection; they never determine a different destination. Do not
+reopen uniform destination roles, paired grouping/two rows, occurrence uniqueness,
+source preservation, existing-attacker reuse, or approved event/Undo mappings.
 
 ## Remaining behavior work, not an implementation backlog
 
@@ -292,7 +356,7 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
 - Combat: absent-area drag targeting, additional single-card quick offerings,
   empty/otherwise-mixed/inapplicable selections, attack destination, other-view
   applicability/other removal paths, edge/between-pair targeting, mixed-view/
-  battlefield order and ordering new pairs among themselves, capacity,
+  irregular/overlapping battlefield ordering and ordering new pairs among themselves, capacity,
   repeated-combat/area reuse, no-change presentation, and remaining event/concurrency
   cases, including partial-group interruption/undo and out-of-step mappings.
 - Stack: actual-card versus projection entry, placement/order,
@@ -300,12 +364,11 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
   manual overrides. No ability picker/mandatory ability text is approved.
 - Pings: ordering capture, Unping/re-add numbering/gaps, selected-set ordering,
   group split/join/coalescing, historical numbers, and projection targeting.
-- **Q-04/Q-31:** per-action reaction-point event mappings/exceptions, action identity
-  versus editable presentation groups, optional group split/join undo targeting,
-  partial-group interruptions, dependency/collaborator safeguards, exposure/comment
-  cutoff rendering/coalescing, redo reconciliation, durable capture/publication,
-  offline/archive presentation, and retention. One-Undo scope must not erase
-  required intermediate history or hide reaction points.
+- **Q-04/Q-31:** remaining per-action reaction-point event mappings, exposure/comment
+  node placement/coalescing, non-Undo branch controls, forward/
+  pre-fork presentation, durable capture/publication, archive presentation and
+  retention. Presentation split/join never changes parent links or Undo stepping.
+  Parent-node Undo must not erase intermediate history or hide reaction points.
 - **Q-17:** random source/algorithm/bounds/offline/concurrent/idempotent/audit details.
   New roll/flip/Shuffle samples freshly even after Undo; replay/retry/redo uses
   recorded results/orders. Equal outcomes by chance are allowed.
@@ -313,7 +376,7 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
   View/Reveal lifecycle/history, metadata mappings/default refresh/reset edges,
   applicability versus structural errors, numeric grammar/no-op records, grouping/
   playback, communication edit/delete, and remaining setup/product behavior.
-- Use the full [open-question register](09-decisions.md) and capability worklist;
+- Use the full [open-question register](decisions.md) and capability worklist;
   this is not an exhaustive replacement. Do not silently drop required scope.
 
 ## Baseline constraints easy to accidentally regress
@@ -339,11 +402,12 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
 - Generic links, pings, combat assignments, and source-card state are distinct.
   No Attach/follow-group feature. Clone creates fresh independent tokens, not
   projections; a token catalog selection creates one token immediately.
-- Undo restores the requested rollback state. Retain the original undone path
-  through its last actual hidden-information exposure **or event comment**, not
-  trailing ordinary steps; retain internal recovery. Reviewing it does not activate
-  it. Submitted game-wide Chat is not undoable (D-94); event comments are ordinary
-  current-path nodes retained after undo (D-95).
+- Undo moves the shared pointer one parent back, regardless of author. Retain all
+  descendants. After replacement play, hide ordinary abandoned continuations behind
+  Show hidden branches; exposure/comment continuations stay visible in full, with
+  no cutoff (D-159/D-160). Reviewing does not activate; explicit tree activation
+  allows forward return. Submitted game-wide Chat is not undoable (D-94); event
+  comments remain ordinary current-path nodes (D-95).
 - Trim leading/trailing whitespace on completed user-entered text; preserve
   internal spacing/newlines. Counter/notes/corner semantics remain field-specific.
 - Card-provider research is feasibility only; no provider/terms/caching policy is
@@ -353,6 +417,8 @@ lifecycle/reflow, combat occurrence uniqueness, repeated attackers, or Stack mul
 
 - For documentation checkpoints: run `git diff --check`, check local Markdown
   target files, and ensure decision/scenario table IDs are unique and contiguous.
+  Search the tiered directories recursively, including local heading fragments;
+  there are no longer flat numbered files directly under `docs/`.
   Check for obsolete proposals contradicting the latest confirmed answer.
 - There are no application tests/builds to run yet. Documentation checks do not
   mean stage 1, adversarial review, UI decisions, or implementation are complete.

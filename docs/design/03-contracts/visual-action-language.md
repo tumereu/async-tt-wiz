@@ -53,16 +53,16 @@ Changing an area's label alone does not install these operations. Explicit
 configuration/occurrence data and user invocations are distinct from inferring
 rules from names, generic drags, pings, or card text. No automatic priority,
 payment, resolution, or legality engine is implied. See
-[the primary projection contract](13-combat-stack-and-projections.md).
+[the primary projection contract](combat-stack-and-projections.md).
 
 ## 11.3 One visible unit, literal constituent records
 
-D-129 distinguishes undo units from tree events. D-131 sets whole-user-action/
-group undo as the general rule, while requiring multiple tree events wherever
-MTG allows distinct reaction points. These must preserve meaningful state/review/
-interruption boundaries, not just split one indivisible change into decorative
-rows. One Undo can cover all those events; exceptions and specific event mappings
-need individual decisions. No runtime priority/legality inference is authorized.
+D-129 distinguishes invocations, tree events and presentation groups. D-159/
+D-160 make Undo one parent-node move, replacing whole-invocation/group scope.
+D-131 still requires multiple effective tree events wherever MTG allows distinct
+reaction points, not decorative rows over an indivisible transition. Composites
+may require multiple Undo presses. Presentation split/join never changes parent
+links. No runtime priority/legality inference is authorized.
 D-130 confirms whole undo for advance-and-close; D-132 records it as one event
 listing both the step transition and area closure, with no separate internal
 reaction boundary. This does not impose a universal combined-action format.
@@ -175,11 +175,11 @@ Exact action/group/history placement still needs later detailed review.
   silently pointing at a replacement object.
 - Display only applicable path/context records when reviewing a branch, with a
   route to messages/pings on retained alternatives.
-- Undo restores the board state. D-90 removes ordinary undone actions from the
-  visible event tree but retains information-gaining undos as history branches
-  (D-89), separate from internal recovery. D-91 ends a retained undone path at
-  its last actual hidden-information exposure; omit trailing ordinary actions.
-  Exact cutoff rendering/reconciliation remains open. Undo/remove/edit pings
+- Undo moves the shared active pointer one parent back (D-159). Retain every
+  descendant. After replacement play, ordinary abandoned continuations hide
+  behind a toggle; exposure/comment continuations stay visible in full (D-160),
+  with no last-exposure cutoff. Exact pre-fork/forward presentation remains open.
+  Undo/remove/edit pings
   through recoverable records; a ping is
   not automatically classified as information-gaining merely because durable.
 - Adding a communicative ping while inspecting history does not by itself select
@@ -198,7 +198,8 @@ D-94 makes submitted game-wide chat non-undoable. D-95 makes an event comment
 another node on the current tree path, already a branch; undo moves back while
 retaining that existing path through the comment. No separate comment-only fork
 or activation workflow. Normal tree/base rules apply, and comments are retention
-checkpoints under D-91. Card notes/pings stay distinct. Exact group association,
+visibility qualifiers for the whole abandoned continuation under D-160. Card
+notes/pings stay distinct. Exact group association,
 revisions/edit/delete, and unsent-chat delivery policies remain open.
 
 Common physical operations and pings need no explanatory text or mandatory

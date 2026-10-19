@@ -29,7 +29,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-005 | History is a tree, with exactly one active branch in each game. |
 | P-006 | An interruption makes its new branch active; no approval vote is required. |
 | P-007 | Players can delete the interruption and return to the earlier continuation. |
-| P-008 | Game edits have undo/recovery support; submitted game-wide chat is non-undoable (D-94). D-89–D-91 remove ordinary undos from the visible tree but retain paths through their last information gain. D-95 event-comment nodes are also retained checkpoints on ordinary tree paths. Internal recovery is distinct from visible history. |
+| P-008 | Game edits have undo/recovery support; submitted game-wide chat is non-undoable (D-94). D-159/D-160 make Undo one shared active-pointer move to its parent, regardless of author. Retain all descendants for forward return. After replacement play, hide ordinary abandoned continuations behind Show hidden branches; keep whole exposure/comment continuations visible. |
 | P-009 | Either participant can manipulate any participant's tabletop state. |
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |
@@ -61,7 +61,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-037 | A source leaving the battlefield loses its combat projections (D-124), but its Stack effects remain until explicitly removed/resolved even if the source itself is removed (D-125). Lifetime is area-specific, not determined by which view invoked the move. |
 | P-038 | When an attacker leaves, surviving cards stay grouped in their existing slots, with real cards unchanged; the final attacker's departure leaves a blocker-only pair (D-126 refined by D-139). D-138 permits visual reflow with stable membership/order, removes fully empty pairs, and inserts a pair on between-pair drops without regrouping survivors. |
 | P-039 | Combat area persists until explicitly closed, not automatically on ordinary phase/step changes or End turn. Provide combined advance out of combat + close, while retaining separate operations and full non-quick access (D-127). Offer the quick action only at End of combat, advancing to Postcombat main (D-128). |
-| P-040 | Undo reverses one user action and its whole group; that user action must contain multiple tree events wherever MTG permits reactions at distinct points (D-131, refining D-129). One Undo can cover several events. Specify event mappings and any exceptions individually, without runtime priority/legality inference. Advance-and-close specifically has whole-combination undo (D-130). |
+| P-040 | A user invocation must contain multiple tree events wherever MTG permits reactions at distinct points (D-131). D-159/D-160 make each node one Undo step, replacing whole-invocation Undo; multiple presses for composites are acceptable. Specify event mappings without runtime priority/legality inference. Advance-and-close remains one Undo because D-132 makes it one node. |
 
 ## 1.3 Proposed first-release boundaries
 
@@ -117,7 +117,7 @@ Included:
 - D-111 lets combined shortcuts advance with nothing to untap or an empty
   Library. Empty draws move no card and do not automatically cause a loss.
 - D-112–D-114 require combat/Stack projections, blocker assignments, and contextual
-  Stack actions. [Their primary contract](13-combat-stack-and-projections.md)
+  Stack actions. [Their primary contract](combat-stack-and-projections.md)
   separates confirmed capabilities from pending per-case controls/lifecycles.
 - D-105 removes engine priority state, indicators, Pass controls, and priority-
   legality validation. Players queue actions and use interruption/branching to
@@ -143,7 +143,7 @@ Not included in the proposed first release:
 Detailed first-release coverage still needs approval. The generic/no-inference
 boundary is confirmed. “All MTG actions” means the generic primitives let players
 represent their own play, not that the engine recognizes those mechanics.
-[The action catalog](04-game-actions.md) defines that distinction.
+[The action catalog](game-actions.md) defines that distinction.
 
 ## 1.4 Product principles
 
@@ -163,8 +163,9 @@ represent their own play, not that the engine recognizes those mechanics.
    precision-only gesture.
 9. **Act, sync, undo.** A completed action applies locally and synchronizes
    automatically. Prefer direct manipulation and easy undo over routine dialogs,
-   explicit batching, or repeated confirmation. Irreversible deletion and
-   historical rollback with expanded impact still need explicit choices.
+   explicit batching, or repeated confirmation. Irreversible deletion still needs
+   an explicit choice. D-161 silently discards an Undo transition if no longer
+   valid and reconciles client state; non-Undo branch-control policies remain open.
 10. **Show facts, not inferred intent.** Present moves, pings, rotations, and value
     changes clearly enough that players usually need no narration. Do not turn
     those facts into an inferred spell/target/effect summary. Text remains optional.
@@ -181,14 +182,14 @@ represent their own play, not that the engine recognizes those mechanics.
 | Boundary | A state before the first action or after an atomic action. |
 | Review cursor | The boundary a particular participant is currently viewing. |
 | Branch | A named continuation from an existing boundary. |
-| Active branch | The single authoritative continuation selected for the game. |
-| Head | The last published action of a branch; the projected current board. |
+| Active branch | The single selected path ending at the shared active game-state pointer, which may have retained descendants. |
+| Head | A retained continuation's furthest recorded node. The shared active state can be an earlier node after Undo; current board does not mean furthest published descendant. |
 | Draft | Recoverable local work not yet shared: pending actions, failed work, or incomplete input. Not a required pre-send phase. |
 | Interrupt | Start a new continuation at a reviewed boundary and activate it. |
 | Publish | Automatically synchronize a completed local action to shared history. A protocol operation, not a required button. |
 | Conflict branch | A continuation automatically created at the intended base of an edit that collided with shared changes. |
 | Archive/delete | Reversibly hide a branch, without erasing its contents. |
-| Undo | Restore a prior logical result without destroying recoverable history. |
+| Undo | Move the shared active game-state pointer to its parent node, regardless of author, retaining descendants for forward return. |
 
 ## 1.6 Success criteria
 

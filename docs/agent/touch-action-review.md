@@ -41,8 +41,13 @@ Exact search/contact removal/privacy and decline/cancel/reinvite/persistence
 details remain open. D-197 confirms username/email/password registration,
 email/password login, email password reset and other users seeing usernames, not
 emails (T-419–T-422). Exact reset/session/verification and field validation remain
-open; do not reopen the credential/recovery-channel choices. A useful next
-substantial topic is deck-list import syntax and unresolved-card handling.
+open; do not reopen the credential/recovery-channel choices. D-198 confirms common
+exported MTG text decklists, optional printing/sideboard notation, flagged
+unknown/ambiguous names without substitution, preserved input and no saving until
+errors are resolved (T-423–T-427). Do not invent a custom grammar or restrict cards
+to Arena. Next useful topic: saved-deck naming/reimport lifecycle and isolation
+from already selected game/lobby decks; remaining import dialect/printing/count
+details are still open.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

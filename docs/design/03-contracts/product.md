@@ -69,6 +69,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-045 | Play lists current games including pending invitations. Invite an added user; the recipient has Accept/Decline in Play, and accepting opens the lobby (D-195). Games start once both players press Ready, not upon creation or invite acceptance (D-190). |
 | P-046 | Do not draw opening hands automatically on game start (D-192). Provide return-whole-hand → shuffle → draw N (default 7) or pre-return hand size minus one as Library context actions and quick actions only during turn 1's Untap step (D-193/D-194). |
 | P-047 | Register with username, email and password; log in with email/password; reset forgotten passwords by email. Other users see usernames, not account emails (D-197). |
+| P-048 | Import common MTG plain-text deck exports rather than a custom syntax, with optional printing details and mainboard/sideboard notation. Flag unknown/ambiguous names without substitution, preserve input and require resolving errors before saving (D-198). |
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.

@@ -201,8 +201,9 @@
 | D-195 | Invite an added user to a game. The recipient has Accept/Decline in Play; accepting opens the lobby. | Owner approved the proposed invitation flow. Acceptance is not Ready or immediate game start; retain deck preparation and both-player Ready. Does not decide adding-user lookup/mutual approval, exclusive invitation methods, decline listing/history, cancellation/reinvite, persistence or competing lifecycle changes. Adding/sending does not imply recipient acceptance. No implementation or stage transition is authorized. |
 | D-196 | Search by username and save users as contacts, without a separate friend request or mutual approval. | Owner approved the recommended simple-contact model. Contact addition is for the adding user's list, not automatic reciprocal friendship or invitation acceptance; game invites still require recipient Accept/Decline (D-195). Friends naming, exact search/username grammar, contact removal/privacy/persistence and account login/registration/recovery methods remain open. No implementation or stage transition is authorized. |
 | D-197 | Register with username, email and password; log in with email/password; reset forgotten passwords by email. Other users see your username, not your email. | Owner approved all four account recommendations. Selects the user-facing credential/recovery flow and account-email privacy, not an auth provider, password/session storage scheme, email-verification gate or exact reset-link/code mechanics. Validation/normalization, username changes, session persistence/revocation and account-change/recovery edge cases remain open. Cooperative in-game access does not expose account email. No implementation or stage transition is authorized. |
+| D-198 | Paste common MTG text deck exports, not a custom format. Flag unknown/ambiguous names without substitution; preserve pasted text and resolve errors before saving. | Owner approved quantity/name lines with optional sideboard, error reporting/no substitution, preserved input and blocked saving, then clarified to use a standard widely exported format. Specify the common Arena/MTGO-style text conventions with optional set/collector details and standard sideboard notation; this is not a formal universal standard or an Arena-only card pool. No partial saved deck dropping unresolved entries. Less-common dialect/extra-section mappings, printing defaults/fallbacks, quantity validation/limits, saved-deck lifecycle and exact resolution controls remain open. No provider, full editor/export, URL/CSV/XML import or implementation authorization is implied. |
 
-**Latest setup decisions — D-188–D-197:** authenticated main menu, adding users,
+**Latest setup decisions — D-188–D-198:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
 selection, mainboard/sideboard management and both-player Ready. Primary behavior:
 [accounts, decks, and lobby](../design/03-contracts/accounts-decks-and-lobby.md).
@@ -223,6 +224,12 @@ D-197 selects username/email/password registration, email/password login,
 forgotten-password reset by email and usernames—not emails—visible to other
 users. Verification, exact reset/session mechanics and field validation remain
 open, not the basic login/registration method.
+
+D-198 specifies common MTG text import (Arena/MTGO-style conventions), optional
+printing details and standard mainboard/sideboard notation. Unknown/ambiguous
+names block saving, with original input preserved and no silent substitution.
+Use existing exported formats, not an app-specific grammar. Saved-deck lifecycle
+and remaining dialect/printing/count details are still open.
 
 **Latest acceptance correction — D-187:** ordinary actions normally succeed;
 do not compare old orientation, note text or Set values. Exceptional movement
@@ -371,7 +378,7 @@ behavior cases must not be silently deferred until coding.
 | Q-11 | Which generic pieces/links/faces/trackers are needed to represent complex manual-play scenarios? | Verify MTG coverage without game-specific entities or inferred actions. |
 | Q-12 | Required Android versions, device sizes, languages, distribution method? | Sets UI and platform contracts. |
 | Q-13 | Notification provider/preferences, read-receipt visibility, response-request behavior? | Defines async coordination without false rules consent. |
-| Q-14 | Card catalog/images, deck-list import formats and resolution/error handling? | D-189 confirms import-only deck editing; export/full manual editing remain unapproved proposals. Requires verified provider terms and exact data contracts. D-64 makes corner-default mapping conditional on available data; feasibility research in section 7.3 does not select a provider. |
+| Q-14 | Card catalog/images, remaining import dialect/extra-section/printing/count details and exact error-resolution controls? | D-189 confirms import-only decks. D-198 requires common exported MTG text with optional printing details/sideboard notation, flagged unknown/ambiguous names, preserved input, no silent substitution and no saving until errors are resolved. Provider terms/data contracts remain open; export/full manual editing are unapproved proposals. D-64 conditions corner defaults on available data; feasibility research does not select a provider. |
 
 ### Detailed correctness and operations
 

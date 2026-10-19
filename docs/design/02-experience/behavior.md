@@ -41,7 +41,10 @@ The general rules are:
 - Invite an added user to a game. They can Accept or Decline in Play; accepting
   opens the lobby, not active play or an automatic Ready.
 - Deck management currently imports card lists only, rather than providing a
-  full manual deck-building editor.
+  full manual deck-building editor. Paste common MTG text exports, with quantities,
+  names, optional set/collector details and standard mainboard/sideboard notation.
+  Unknown/ambiguous cards are flagged without substitution. Keep the original
+  text for correction; all import errors must be resolved before saving.
 - A game begins in a lobby. Players choose decks and manage their mainboards/
   sideboards there, then each presses Ready. Once both are ready, the game starts.
   Changing your deck or mainboard/sideboard clears your own Ready; lobby deck

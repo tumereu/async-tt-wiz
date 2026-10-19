@@ -61,13 +61,59 @@ Neither adding a user nor sending an invite bypasses the recipient's acceptance.
   approved release requirements by implication from older draft catalogs.
 - In a game's lobby, a player chooses a deck and can manage its **mainboard and
   sideboard**. This lobby capability is distinct from a full saved-deck editor.
-- Supported list syntax, card resolution/errors, saved-deck naming/replacement,
-  and import replacement behavior remain open.
+- D-198 specifies common MTG text import and unresolved-card handling below.
+  Saved-deck naming/replacement and import replacement behavior remain open.
 - **Lobby changes are game-local (D-191):** choosing/preparing a deck and changing
   its mainboard/sideboard for this game do not modify the saved deck.
 
 The existing no-rules-referee boundary remains: these controls do not imply
 format-legality validation or automated sideboarding rules.
+
+## Deck-list import compatibility and errors — D-198
+
+Use the **common MTG plain-text decklist format** exported by existing tools,
+not a project-specific syntax. The compatibility target is Arena/MTGO-style
+**text lists**, not a claim to support every tool's proprietary export.
+
+- Paste one `quantity Card Name` entry per line, such as `4 Lightning Bolt`.
+- Accept the common optional printing suffix `(SET) collector-number`, such as
+  `3 Verdant Catacombs (MH2) 260`; users need not strip exported printing details.
+- Preserve mainboard/sideboard separation: support `Deck`/`Sideboard` sections,
+  `SB:` sideboard entries, and the conventional blank-line sideboard separator in
+  headerless MTGO-style text. Blank spacing in an explicitly sectioned list does
+  not replace its section labels. A plain mainboard-only list also works.
+- This is **syntax compatibility**, not an Arena-only card pool or format-legality
+  restriction. Do not filter out otherwise supported paper cards merely because
+  they are absent from Arena.
+- **Flag unknown or ambiguous card names; never silently substitute cards.** Keep
+  the pasted text available for correction, and require resolving import errors
+  before saving. Do not save a partial deck with unresolved entries dropped.
+
+Example of the supported common shape:
+
+```text
+Deck
+4 Tarmogoyf
+3 Verdant Catacombs (MH2) 260
+
+Sideboard
+2 Surgical Extraction
+```
+
+The real-world basis is documented by
+[ManaBox's import/export guide](https://manabox.app/guides/decks/import-export/),
+which identifies quantity/name with optional set/number as the common format used
+by Arena and websites, and
+[Wizards' Arena import guide](https://mtgarena-support.wizards.com/hc/en-us/articles/360049857771-Importing-a-Deck),
+which demonstrates plain quantity/name lists. These are compatibility references,
+not adoption of those apps' collection, legality, editor or confirmation flows.
+
+Exact less-common dialects, name/face normalization, printing defaults/fallbacks,
+quantity validation/limits and extra-section mappings (Commander/Companion/etc.)
+remain open. Do not silently discard an unhandled section or its cards. CSV,
+XML `.dek`, direct URL fetching and a card-data provider are not selected merely
+by accepting this shared text format. The error-resolution control itself is not
+yet a full deck-building editor.
 
 ## Confirmed lobby-to-game flow — D-190
 

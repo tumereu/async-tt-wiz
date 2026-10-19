@@ -24,9 +24,13 @@ retention after clearing remains open. D-233 blocks Undo of a branching point or
 an action before one on the active path, even if replay is safe; never skip the
 blocked latest own target or reattach alternatives. Actions after the latest fork
 retain normal eligibility. Explorer filtering does not bypass the boundary.
-Resolve Redo across new forks, historical references and review cursors next,
-without assuming the original tree survives. Archive/activation integration
-remains open.
+D-234 likewise blocks Redo reinsertion before a newly created fork, retaining
+the stack without skipping/discarding entries. The owner acknowledged that the
+historical mutation may then have no way to be applied again with current
+controls; do not invent a recovery feature or automatic clearing. Own new play
+still clears the stack. Resolve queue device scope/anchors, historical references
+and review cursors next, without assuming the original tree survives.
+Archive/activation integration remains open.
 
 **Earlier branching (D-222):** root stores initial state; every later node is a
 mutation. Undo remembers the last active head; Redo follows toward it, not an

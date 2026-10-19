@@ -396,7 +396,13 @@ The general rules are:
   is a fork or lies before a fork on the path to the active head; do not skip it
   or reattach alternatives. Actions after the latest fork remain eligible under
   the usual checks. Hiding a branch in the explorer does not bypass this rule.
-  Redo across a newly created fork and archive/activation integration remain open.
+- **Redo fork boundary (D-234):** if a new fork would require reinserting an
+  undone action before it, disable Redo and retain the stack. Do not skip the
+  entry, move it to the current head or create a recovery branch. The historical
+  mutation can become unusable with the current controls; retaining it does not
+  guarantee a recovery path. Opponent branching does not clear the stack; your
+  own new gameplay edit still does. Exact anchors and archive/activation
+  integration remain open, not promised ways around the boundary.
 - **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
   unordered. Undo cannot change which card a later top-of-Library draw takes.
   Independent moves

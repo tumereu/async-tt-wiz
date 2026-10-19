@@ -22,7 +22,7 @@ offline play or an atomic queued sequence.
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree
 
-**D-224–D-233 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
+**D-224–D-234 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
 still-applied mutation from the existing tree; Redo reinserts it, under the safety
 and stack rules below. These operations edit the tree, **not create branches**.
 Personal review and explicit historical activation remain distinct; their control
@@ -149,8 +149,20 @@ under the usual latest-own, replay, exposure and N rules. For example:
 - In the same tree, an eligible own action B can be undone without removing F
   or changing C. No branching point lies at or after B on its active path.
 
-This settles Undo's side-branch boundary, not Redo across a newly created fork,
-archive/restore effects or integration with explicit historical activation.
+**Redo fork boundary — D-234:** if a fork created after Undo would require
+reinserting the queued mutation before that fork, disable Redo and retain the
+stack. Do not skip/discard the blocked entry, reinsert it at the current head,
+rewrite all branches or create a recovery branch. This is a structural block
+even when relevant-state replay would pass. Opponent branching does not clear
+your stack (D-228); your own new gameplay edit still clears it (D-227).
+
+The owner explicitly acknowledged that the historical mutation may then have
+no way to be applied again with the current controls. Keeping the stack is not
+a promise of eventual replay or a requirement for a new recovery control.
+Performing a similar operation as a fresh gameplay action is not restoring that
+historical mutation and remains subject to ordinary acceptance and queue clearing.
+Exact insertion anchors, archive/restore effects and integration with explicit
+historical activation remain open; do not assume they provide an escape hatch.
 
 **Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
 subject to replay/validation, so a target followed by e.g. a thousand opponent

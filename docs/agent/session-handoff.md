@@ -14,6 +14,20 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest Redo fork boundary — D-234
+
+Owner approved blocking Redo reinsertion before a newly created fork while
+retaining the stack, and explicitly observed that the historical mutation then
+has no way to be applied again with current controls (T-527/T-528). Accept this
+limitation, not a requirement for recovery controls. Do not skip/discard the entry,
+retarget it to the current head, rewrite all branches or create a recovery branch.
+Opponent branching still does not clear the queue; own new gameplay still does.
+A similar fresh action is not restoration of the historical mutation. Exact
+anchors and archive/activation integration remain open, not promised escape hatches.
+Next useful gap: same-account/device Redo-stack scope, or historical references
+and review cursors affected by otherwise eligible linear edits. No implementation
+or stage transition is authorized.
+
 ## Latest Undo fork boundary — D-233
 
 Owner chose **no Undo of a branching point**, then added **or past one**, for
@@ -22,11 +36,10 @@ and the current active head has multiple children, disable Undo even if replay
 would be safe. Never skip the target or reattach/replay alternatives to permit
 removal. Explorer filtering does not change the boundary. Actions strictly after
 the latest fork still use the normal latest-own/replay/exposure/N checks.
-This settles Undo's side-branch handling, not Redo across a fork created while an
-entry is queued, archive/restore effects or explicit activation integration.
-Next useful case: should a newly created fork likewise block an older queued Redo
-insertion, while retaining the queue under D-228/D-230? Historical references,
-cursors and concurrency remain open. No implementation is authorized.
+This settles Undo's side-branch handling; D-234 above settles Redo across a new
+fork while an entry is queued. Archive/restore effects, explicit activation
+integration, historical references, cursors and concurrency remain open.
+No implementation is authorized.
 
 ## Latest tree-edit correction — D-232
 
@@ -640,7 +653,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-233** and **T-001–T-526**.
+- Current documentation includes **D-001–D-234** and **T-001–T-528**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -164,8 +164,10 @@ old future after a response. Exact overall release scope still needs sign-off.
    retention after clearing is open. D-233 blocks Undo at a branching point or
    before one on the current active path, without skipping the blocked latest own
    target or rewriting alternatives. Actions after the latest fork still use the
-   usual checks. Redo across a new fork and archive/activation integration remain
-   open. Resolve review cursors, node identity/versioning, cached states,
+   usual checks. D-234 blocks Redo reinsertion before a newly created fork while
+   retaining the stack, accepting that the historical mutation may have no recovery
+   path with current controls. Exact anchors and archive/activation integration
+   remain open. Resolve review cursors, node identity/versioning, cached states,
    comment/ping references and grouping.
    No silent deletion/retargeting policy for those references is approved.
    The earlier D-159 model confirmed one parent-node

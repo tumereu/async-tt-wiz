@@ -40,7 +40,9 @@ The app remembers and presents what happened; the players interpret the rules.
    than live action acceptance; revealing mutations cannot be selectively undone.
    Undo targets only your latest still-applied action; Redo is last-undone-first.
    Neither skips a blocked target. Undo cannot remove a branching point or reach
-   back past one (D-233). Undo removes and Redo reinserts mutations in
+   back past one (D-233); Redo cannot reinsert before a newly created fork (D-234).
+   Such a Redo entry stays blocked and may have no recovery path.
+   Undo removes and Redo reinserts mutations in
    the existing tree, not a new branch or a preserved original alternative.
    Personal review remains distinct from changing shared play. Explicit historical
    continuation branches to a new active head. A graphical tree explorer can activate any

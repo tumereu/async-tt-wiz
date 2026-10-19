@@ -74,7 +74,10 @@ obligation or behavior is still proposed:
   guarantees are not selected by deferring finished-game review.
 - Detailed review navigation, branch comparison/rename/switch/archive controls,
   optional manual group editing, live-follow, cross-device progress, response
-  requests, notifications, and ephemeral presence.
+  requests, additional notification behavior, and ephemeral presence. D-219
+  confirms push notifications for new invitations and grouped opponent activity,
+  without covered card names. Cadence, permissions/defaults, mute controls,
+  foreground suppression and multiple-device routing remain open.
 - Exact screen layouts, accessible alternatives, Android/device support, storage
   settings, and recovery-center flows. Accessibility/no-gesture-only access is the
   intended direction, not a finished interaction specification.
@@ -83,8 +86,10 @@ The draft review flow distinguishes the shared current board, your historical
 view, and local pending work. It offers previous/next actions/groups, jump to a
 boundary/current board, and optional live-follow; incoming updates do not silently
 move a historical cursor. Proposed branch-switch notices preserve your view and
-offer a return/divergence control. Proposed notifications cover activity, branch
-changes, invitations, and response requests, coalesced without delaying sync.
+offer a return/divergence control. D-219 confirms invitation/grouped-opponent-activity
+push notifications without covered card names, coalesced without delaying sync.
+Additional dedicated branch-change/response-request alerts remain proposed;
+notification controls and delivery details are not yet settled.
 Private-game membership still restricts outsiders; full access applies to the
 two participants, not everybody. Detailed protocols and controls remain proposed.
 

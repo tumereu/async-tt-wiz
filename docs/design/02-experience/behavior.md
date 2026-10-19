@@ -442,6 +442,16 @@ The general rules are:
   to text. Sync, history, and notifications must not unnecessarily expose covered
   identities. Reviewing a retained line does not activate it.
 
+### 12. Notifications
+
+- Provide push notifications for **new invitations and grouped opponent activity**,
+  without revealing covered card names (D-219). Group related activity rather than
+  sending one push per primitive mutation; grouping must not delay game sync or
+  require a group-completion tap.
+- Exact cadence, permissions/defaults, mute controls, foreground suppression,
+  multiple-device routing and additional alert categories remain open. See the
+  [notification contract](../03-contracts/android-experience.md#59-notifications).
+
 ## Scope and unresolved behavior
 
 See [scope proposals and genuine gaps](gaps.md). Detailed feature contracts are

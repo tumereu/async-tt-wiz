@@ -467,14 +467,21 @@ Required proposals for approval:
 
 ## 5.9 Notifications
 
-Notify for grouped activity, explicit interruptions/branch switches,
-invitations, and explicit response requests, subject to preferences.
-Consolidate related actions; do not send one push per primitive change.
-Notification coalescing must not delay action synchronization or wait for an
-explicit group-completion tap. Each committed action is available immediately.
+**Confirmed D-219:** provide **push notifications for new invitations and grouped
+opponent activity**, **without revealing covered card names**. Consolidate related
+opponent activity rather than sending one push per primitive change. Existing
+immediate-publication rules remain: coalescing must not delay synchronization or
+wait for a group-completion tap; each committed action is available immediately.
 
-Notification text does not reveal covered card identities by default. Deep links
-open the referenced game/boundary but check current branch status and access.
+Exact grouping window/cadence, notification permissions/defaults, global/per-game
+mute controls, foreground suppression and multiple-device routing remain open.
+This approval does not separately confirm additional notification categories for
+explicit branch switches or response requests, or define an unread/read model.
+
+**Remaining proposals:** additional branch-switch/response-request alerts are
+subject to preferences. Notification previews should avoid covered identities
+beyond the confirmed no-covered-card-names rule. Deep links open the referenced
+game/boundary but check current branch status and access.
 Stale notifications are harmless pointers to history, not instructions to replay
 an operation. Push failure cannot affect game-state correctness.
 

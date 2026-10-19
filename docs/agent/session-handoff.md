@@ -51,8 +51,19 @@ connected-only/no-duplicate recovery contracts. Exact simultaneous same-account
 editing, concurrent deck/contact conflicts, device/session revocation, sync timing
 and personal-device-state transfer remain open. Do not infer transfer of drafts,
 local pending queues, review/navigation cursors, settings or all cached downloads.
-Next useful product topic: notification triggers/defaults, not whether multiple
-devices are supported. No implementation or stage transition is authorized.
+No implementation or stage transition is authorized.
+
+## Latest notifications — D-219
+
+The owner approved **push notifications for new invitations and grouped opponent
+activity, without revealing covered card names** (T-486–T-488). Primary contract:
+[notifications](../design/03-contracts/android-experience.md#59-notifications).
+Consolidate related activity rather than one push per primitive mutation; do not
+delay immediate action sync or require a group-completion tap. Exact cadence,
+permissions/defaults, global/per-game mute controls, foreground suppression and
+multiple-device routing remain open, as do additional dedicated branch-switch/
+response-request alerts and unread/read behavior. Next useful topic: notification
+mute controls, not whether invitation/activity push notifications are required.
 
 ## Current concurrency correction — D-179
 
@@ -456,7 +467,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-218** and **T-001–T-485**.
+- Current documentation includes **D-001–D-219** and **T-001–T-488**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -125,8 +125,12 @@ contacts and games synchronized (T-483–T-485). Preserve deck-copy isolation an
 existing game identity/participants/recovery; simultaneous same-account edits,
 deck/contact conflicts, revocation, sync timing and personal-state transfer remain
 open. Do not silently promise cross-device drafts, pending queues, cursors,
-settings or all downloads. Next useful product topic: notification triggers/defaults,
-not another session-persistence/multiple-device support question. Narrower
+settings or all downloads. D-219 confirms push notifications for new invitations
+and grouped opponent activity without covered card names (T-486–T-488). Group
+related activity, not one push per mutation, without delaying immediate sync.
+Cadence, permissions/defaults, mute controls, foreground suppression, multi-device
+routing, extra categories and unread/read behavior remain open. Next useful topic:
+notification mute controls, not another invitation/activity push scope question. Narrower
 invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck

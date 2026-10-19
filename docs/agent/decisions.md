@@ -222,6 +222,7 @@
 | D-216 | After reconnecting, automatically recover already-sent actions without manual resending or executing anything twice. | Owner approved the automatic recovery/no-manual-resend/no-duplicate recommendation. Preserve original request identities/conditions, recover actual outcomes and reuse already-committed results/random outcomes; reconcile per D-185, not fresh retries of rejected actions or whole-queue cancellation. Preserve D-161 stale Undo, D-182 no offline gameplay, D-183 responsiveness and D-215 disconnected blocking. Exact outcome lookup/retry protocol, recovery ordering/readiness and online-buffered-but-unsent handling remain open. No implementation or stage transition is authorized. |
 | D-217 | Stay logged in across app restarts; if the session expires, ask for login again, then return to the same game and recover pending actions. | Owner approved both session persistence and expired-session return/recovery. For successful same-account login, preserve game context and already-sent request identities/conditions; use D-216 automatic recovery without manual resend/duplicate execution and D-185 reconciliation. Expiry alone is not action rejection. Exact lifetime/refresh/storage, failed/cancelled login, different-account login, explicit Logout's local-data behavior, expired-session offline access and multiple-device support remain open. Preserve D-182 downloaded read-only access; no offline gameplay, implementation or stage transition is authorized. |
 | D-218 | Support the same account on multiple devices, with saved decks, contacts and games synchronized between them. | Owner approved all three account-data categories. Preserve saved-deck/lobby/game-copy isolation, existing game identity/participants, connected-only gameplay and no-duplicate recovery. Exact simultaneous same-account editing, concurrent deck/contact conflicts, device/session revocation and sync timing remain open; do not infer transfer of drafts, local pending queues, navigation/review cursors, settings or all downloads. No finished-game archive, application implementation or stage transition is authorized. |
+| D-219 | Provide push notifications for new invitations and grouped opponent activity, without revealing covered card names. | Owner approved the notification recommendation. Consolidate related opponent activity rather than one push per primitive mutation; preserve immediate synchronization without group-completion waits. Exact cadence/grouping, permissions/defaults, mute controls, foreground suppression and multiple-device routing remain open. Dedicated branch-switch/response-request categories and unread/read behavior are not separately approved. No application implementation or stage transition is authorized. |
 
 **Latest setup decisions — D-188–D-214:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
@@ -285,6 +286,12 @@ saved decks, contacts and games synchronized between them. Preserve deck-copy
 isolation and existing game/recovery contracts. Exact simultaneous editing,
 deck/contact conflicts, device/session revocation, timing and personal-device-state
 transfer remain open. See [account data](../design/03-contracts/accounts-decks-and-lobby.md#multiple-devices-and-account-data--d-218).
+
+**Notifications — D-219:** provide push notifications for new invitations and
+grouped opponent activity, without covered card names. Do not send one push per
+primitive mutation or delay immediate sync for notification grouping. Cadence,
+permissions/defaults, mute controls, foreground suppression, multiple-device
+routing and additional alert categories remain open. See [notifications](../design/03-contracts/android-experience.md#59-notifications).
 
 D-198 specifies common MTG text import (Arena/MTGO-style conventions), optional
 printing details and standard mainboard/sideboard notation. Unknown/ambiguous

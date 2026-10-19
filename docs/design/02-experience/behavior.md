@@ -370,6 +370,9 @@ The general rules are:
   safely reinserted. Opponent actions retain your queue, but can make reinsertion
   fail the replay checks or exceed N. Retained history is not erased. Same-account/
   device queue synchronization and rejected/no-op requests still need decisions.
+- **Redo order (D-229):** restore the most recently undone mutation first, as in
+  a normal Undo/Redo stack. Every reinsertion must still pass the replay checks
+  within N. Insertion anchors and handling a blocked next entry remain open.
 - **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
   unordered. Undo cannot change which card a later top-of-Library draw takes.
   Independent moves

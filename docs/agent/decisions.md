@@ -232,6 +232,7 @@
 | D-226 | Graveyard and Exile have no order-related actions; both are unordered, with ordinary membership moves rather than top/bottom or visual-placement variants. | Owner rejects retaining order-related actions for Graveyard and explicitly extends the rule to Exile. Resolves D-225's open control reconciliation and supersedes older all-three-piles top/bottom contracts: no top/bottom insertion/selection, reorder or shuffle for these containers, even for visual placement. Library order/actions remain; specific-card moves from an unordered source may choose Library top/bottom as destination. Personal type/name browser sorting is not a container-order action. Independent Exile arrivals follow the same relevant-state independence as Graveyard, subject to D-224's other checks. Exact collapsed-pile presentation and other-container policies remain separate; no rules enforcement, implementation or delivery-stage transition is authorized. |
 | D-227 | After Undo, a new gameplay edit by the player who used Undo clears the Redo queue, even if reinsertion would still pass validation. | Owner selected clearing rather than retaining a removed mutation after making new play. Confirmed case: a successful new gameplay mutation by that player. This removes Redo availability, not retained history or explorer access. Opponent-activity invalidation, queue ownership across players/devices, ordering/anchors, rejected/no-op requests and optimistic/server clearing timing remain open. Do not infer that review/navigation or Redo reinsertion itself clears remaining entries. No implementation or delivery-stage transition is authorized. |
 | D-228 | Only your own new gameplay action clears your Redo queue; opponent actions do not. | Owner answered the opponent-action clearing question with “only own action.” Queue clearing is player-specific, not a shared reset. Retain entries across opponent actions and apply D-224's current relevant-state replay checks and N before reinsertion; an opponent action can make Redo unavailable without clearing the queue. Same-account/device queue scope/synchronization, order/anchors, rejected/no-op requests and exact optimistic/server clearing timing remain open. No expansion of Undo target authorship, history deletion, implementation or delivery-stage transition is authorized. |
+| D-229 | Redo restores the most recently undone mutation first, like a normal Undo/Redo stack. | Owner approved last-undone-first ordering for multiple Undos. Undo A then B means successful Redo B then A; order follows Undo operations, not original timeline sorting. D-224's replay checks/N and D-227/D-228's clearing rules still apply. Insertion anchors, blocked-next-entry handling and same-account/device synchronization remain open; do not silently skip/discard a blocked entry or infer a storage schema, implementation or delivery-stage transition. |
 
 **Latest selective Undo/Redo — D-224:** remove/reinsert a mutation only if every
 later mutation preserves its original relevant-state `(from, to)` tuple; compare
@@ -248,6 +249,11 @@ your queue, even if reinsertion remains valid. Opponent actions retain it but ca
 make Redo unavailable under D-224's replay checks/N. Clearing is player-specific
 and does not erase retained history. Same-account/device synchronization,
 rejected/no-op requests and exact clearing timing remain open.
+
+**Redo order — D-229:** last undone is first redone; Undo A then B means Redo
+B then A when both are eligible. Replay checks/N still apply. Insertion anchors
+and handling a blocked next entry remain open; no automatic skip/discard policy
+has been approved.
 
 **Container order — D-225/D-226:** Library is ordered; Graveyard and Exile are unordered. Preserve
 top-card dependencies for Library draws, but allow independent Graveyard arrivals

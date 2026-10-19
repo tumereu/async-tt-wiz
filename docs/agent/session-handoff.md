@@ -14,6 +14,17 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest Redo order — D-229
+
+Owner approved **last-undone-first Redo**, like a normal Undo/Redo stack (T-517).
+Undo A then B means successful Redo B then A, following Undo-operation order,
+not original timeline sorting. Each reinsertion still passes D-224's checks/N;
+D-227/D-228 clearing rules remain. Insertion anchors and what to do when the next
+entry cannot be reinserted are open; do not silently skip or discard it. Next useful
+case: opponent activity blocks the next Redo entry while an older entry remains
+valid. Should Redo be blocked, or may the older entry be restored instead?
+No implementation or delivery-stage transition is authorized.
+
 ## Latest Redo queue invalidation — D-227/D-228
 
 After Undo, **only your own new gameplay edit clears your Redo queue**, even
@@ -26,9 +37,9 @@ action may block reinsertion without clearing the queue. Clearing is player-spec
 not a shared game reset. Same-account/device queue scope/synchronization,
 rejected/no-op requests and exact optimistic/server clearing timing remain open.
 Do not infer that personal review/navigation or Redo reinsertion itself clears
-remaining entries. Next useful question: should multiple Undos be redone in
-last-undone-first order? Insertion anchors and handling an unavailable next entry
-also remain open. No implementation is authorized.
+remaining entries. D-229 above now settles normal last-undone-first order;
+insertion anchors and handling an unavailable next entry remain open.
+No implementation is authorized.
 
 ## Latest container-order clarification — D-225/D-226
 
@@ -575,7 +586,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-228** and **T-001–T-516**.
+- Current documentation includes **D-001–D-229** and **T-001–T-517**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

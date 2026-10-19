@@ -88,6 +88,14 @@ synchronization, rejected/no-op requests and exact optimistic/server clearing
 timing remain open. Do not generalize this to personal review/navigation or treat
 Redo reinsertion itself as new play that necessarily clears remaining entries.
 
+**Redo order — D-229:** restore the **most recently undone mutation first**,
+like a normal Undo/Redo stack. If you Undo A and then B, successful Redo restores
+B and then A. This is the order of Undo operations, not a sort by the mutations'
+original timeline positions. Each reinsertion still requires D-224's relevant-state
+tuple test within N; insertion anchors are not settled by this ordering rule.
+If the next entry cannot be reinserted, whether to block Redo or permit another
+entry remains open. Do not silently discard or skip a blocked entry.
+
 **Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
 subject to replay/validation, so a target followed by e.g. a thousand opponent
 actions cannot trigger a noticeably slow eligibility calculation. A valid but
@@ -97,7 +105,8 @@ multi-mutation invocations remain open; no time-based grouping or gameplay limit
 is implied.
 
 **Still open:** complete relevant-state definitions, candidate/author selection,
-insertion target's own preconditions, Redo queue cross-device scope/order/anchors,
+insertion target's own preconditions, Redo queue cross-device scope/anchors and
+blocked-next-entry behavior (normal order is D-229),
 invalidation cases beyond D-227/D-228, concurrent/stale checks, pending-request
 interaction, pointer/view
 updates, tree/node versioning, grouping and references to removed/replayed nodes.

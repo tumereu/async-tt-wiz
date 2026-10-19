@@ -96,6 +96,15 @@ to Shuffle's concrete order. Exact generator/source, input validation, and onlin
 publication remain open; offline generation is excluded by D-182. No gameplay
 seed-epoch schema is required by D-92/D-93.
 
+**D-224 revision:** selective deletion/insertion of a mutation requires identical
+relevant-state `(from, to)` tuples for every later mutation in both timelines,
+within a hard suffix-work cap N. Relevant state must be defined per mutation;
+the whole-board/card state is not automatically relevant. Selective Undo excludes
+information-revealing targets. Tree/node versioning, references, queue ownership,
+pointer/view changes and N/counting remain open; this does not approve physical
+erasure or a new graph schema. The earlier pointer model below is rewind context,
+not a prohibition on selective timeline editing.
+
 D-159/D-222 retain every undone node in the mutation tree with its initial-state
 root. Undo remembers the last active head; Redo follows the path toward that head
 using recorded states/results. Changed play creates a new active continuation.

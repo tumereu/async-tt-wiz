@@ -158,7 +158,7 @@ old future after a response. Exact overall release scope still needs sign-off.
    contexts, mixed-tuple/compound/extra-location cases and numbering mutations.
    No separate ping ownership picker is needed. See the
    [grouping rules and remaining inventory](../03-contracts/history-grouping.md).
-3. **Undo/Redo pointer controls and visibility.** D-159 confirms one parent-node
+3. **Undo/Redo pointer controls and visibility.** The earlier D-159 model confirms one parent-node
    step regardless of author and retained forward history. D-222 confirms a root
    initial state/mutation tree, remembering the last active head on Undo and Redo
    toward it, new active branches on changed play, and a graphical explorer with
@@ -175,6 +175,15 @@ old future after a response. Exact overall release scope still needs sign-off.
    personal resume traversal: last local state → animated rollback to fork →
    grouped forward playback, with pause and exact scrubbing on a bottom timeline.
    This traversal is not shared Undo/activation.
+   **Latest revision D-224:** selective mutation deletion/insertion requires every
+   later mutation's relevant-state `(from, to)` tuple to match exactly between
+   original/candidate timelines. A hard suffix-work cap N bounds eligibility
+   calculation; revealing targets are excluded from selective Undo. Define each
+   mutation's relevant state and N/counting unit. Remaining work also includes
+   candidate/author selection, Redo reinsertion queue/order/anchors, pointer/view
+   controls, rewritten-tree/reference/grouping behavior and concurrent/stale checks.
+   Earlier parent-pointer-only/remembered-head rules do not settle this new design;
+   the stricter historical replay test does not change D-187 live acceptance.
 4. **Concurrent online actions and connection loss.** D-182 removes offline game
    actions and later queue replay from initial delivery; downloaded history remains
    readable offline. Offline queue recovery is not an initial-delivery obligation.

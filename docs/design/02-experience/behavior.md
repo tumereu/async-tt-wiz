@@ -350,13 +350,23 @@ The general rules are:
   Rejection/staleness never creates a branch. Historical
   continuation still requires an explicit flag/boundary and makes its new branch
   current; Undo supplies the intent automatically (D-179).
-- Undo moves the shared active state to its parent node, regardless of who made
+- **Latest Undo/Redo revision (D-224):** selective deletion/reinsertion is allowed
+  only when **every later mutation's relevant-state `(from, to)` tuple stays
+  identical** in both timelines. This is stricter than live action applicability:
+  successive increments of the same counter prevent removing the earlier one,
+  but a move followed by a tap of the same card can be independent. Set a hard
+  limit N on the suffix work; the value/counting unit and per-mutation relevant
+  states still need definition. Selective Undo excludes information-revealing
+  targets. No compensating edit is appended. Pointer/button behavior, own-action
+  selection, Redo queue and rewritten-tree presentation remain open; the older
+  parent-pointer description below is no longer the complete Undo definition.
+- In the earlier rewind model, Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
    select its state, while merely reviewing it does not make it current. Bulk and
    combined shortcuts create individual mutation nodes, not one whole-invocation
    node. Undo follows one parent per press even when several mutations animate
    together. An empty draw contributes no invented card-move node.
-- Undo remembers the last active head; **Redo follows the path toward that head**,
+- In that earlier rewind model, Undo remembers the last active head; **Redo follows the path toward that head**,
   not a silent choice among children or a mandatory fork picker (D-222). Further
   Undo presses keep that destination. Changing/intervening after Undo creates a
   new active continuation and retains the old one, rather than replaying its
@@ -370,7 +380,7 @@ The general rules are:
   event-comment paths remain visible in full; nothing is deleted. Covered inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
   Already-visible inspection does not. Undo cannot erase a person's knowledge.
-- Undo targets the specific node-to-parent step you invoked. If that step becomes
+- Earlier pointer-rewind Undo targets the specific node-to-parent step you invoked. If that step becomes
   invalid because shared state changed, silently discard it and reconcile the
   local state—no warning, notification or automatic retry against another node.
   Undo requires a connection in initial delivery (D-182); it cannot be queued

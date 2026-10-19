@@ -3,7 +3,16 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
-- **D-159/D-160 replace earlier Undo semantics.** Normal Undo is one shared
+- **D-224 revises the universal parent-pointer Undo interpretation.** Selective
+  mutation removal/reinsertion requires every later mutation's relevant-state
+  `(from, to)` tuple to stay identical under a hard suffix-work cap N. Per-mutation
+  definitions, N/counting, candidates/authorship, reinsertion queue, pointer/view
+  controls, concurrency and node/reference/grouping rewrite remain open. Revealing
+  targets are not selectively undoable; no compensating edit is appended. This
+  does not restore D-181-style old-field locking to live actions or approve the
+  old 25-rule batch. Older pointer/remembered-head fixtures are rewind context,
+  not grounds to reject selective editing or silently reuse stale-pointer policies.
+- **Earlier D-159/D-160 replaced earlier Undo semantics.** Pointer-rewind Undo is one shared
   parent-node pointer move, regardless of author; composites can require multiple
   presses. D-222 refines Redo/filtering: remember the last active head for Redo
   toward it, graphical any-node activation, and default hiding only for single-player/

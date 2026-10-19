@@ -6,6 +6,16 @@ approval of the superseded batch's individual feature/edge-case policies.
 
 ## Current acceptance policy — D-187
 
+**Separate selective-Undo validation (D-224):** removing/reinserting a historical
+mutation requires every later mutation's relevant-state `(from, to)` tuple to
+remain identical across the original and candidate timelines, within a hard
+suffix-work limit N. This is intentionally stricter than ordinary online action
+acceptance below: two current-value increments may both apply live, while removing
+the first is forbidden if it changes the second's tuple. It does **not** restore
+general old-field locks to live play or approve the old 25-rule batch. Exact
+per-mutation relevant state and N remain open; see
+[selective Undo/Redo](history-and-undo.md#selective-mutation-undoredo--d-224).
+
 - **Normally apply the action to current state.** Reject an ordinary game action
   only when performing that requested operation is genuinely impossible. Access,
   valid input/references, current applicability and structural invariants still

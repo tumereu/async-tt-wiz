@@ -44,6 +44,14 @@ branch/head references, archive status, and metadata through a separately
 ordered revision stream. Clients materialize state by action ancestry, not by
 wall-clock timestamps.
 
+**D-224 behavioral revision:** selective timeline removal/reinsertion requires
+every later mutation's relevant-state `(from, to)` tuple to match its original
+transition exactly, with a hard suffix-work cap N. This is stricter than D-187
+ordinary live acceptance. Per-mutation state, N/counting, atomic validation versus
+concurrent work, node versioning/reference retention and pointer/Redo-queue effects
+remain open technical/behavior work, not an approved storage rewrite algorithm.
+The earlier pointer control model below no longer defines all Undo/Redo behavior.
+
 D-159/D-160 require an explicit active node pointer independent from retained
 continuation tips. Undo moves it one parent back, regardless of actor; retained
 nodes are never physically deleted by Undo or replacement play. The pointer move

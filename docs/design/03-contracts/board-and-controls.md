@@ -1092,7 +1092,15 @@ shuffle may reproduce a prior permutation by chance. D-93 itself adds no shuffle
 shortcuts and does not imply that covered order was exposed; D-193 later adds
 explicit shuffle-and-draw compositions using the same recorded-randomness model.
 
-Confirmed D-159/D-222: Undo moves the shared active pointer one parent back and
+**D-224 revision:** selective Undo/Redo removes/reinserts a mutation only if all
+later mutations retain identical relevant-state `(from, to)` tuples, within a
+hard suffix-work cap N. The relevant state for a tap must allow a prior independent
+move of the same card to be removed; two edits of the same counter may instead
+block each other. Selective Undo excludes revealing targets. Per-mutation state,
+N and pointer/control/Redo-queue integration remain open. The following earlier
+rewind/exposure summary does not override that selective rule.
+
+Earlier D-159/D-222 rewind model: Undo moves the shared active pointer one parent back and
 remembers the last active head for Redo toward it. Retain all nodes; changed play
 creates a new active branch, while a graphical explorer can activate any retained
 branch/node. Only single-player/no-exposure inactive continuations qualify for

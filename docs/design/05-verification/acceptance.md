@@ -10,6 +10,15 @@ Downloaded offline review remains; former offline action/queue fixtures below
 are superseded, not hidden implementation obligations. Online latency hiding and
 in-flight delivery recovery remain distinct from supporting offline gameplay.
 
+**D-224 Undo/Redo revision:** older parent-step/remembered-head fixtures below
+describe that rewind model, not universal selective-Undo requirements. The new
+removal/reinsertion rule requires every subsequent mutation's relevant-state
+`(from, to)` tuple to remain identical under a hard suffix-work cap N. Selective
+Undo excludes information-revealing targets. Per-mutation state, N/counting,
+candidate/authorship, pointer/view controls, queue/history presentation and stale
+checks remain open. Do not use older fixtures to forbid selective removal,
+permit revealing targets, or silently apply D-161's pointer policy to it.
+
 | ID | Scenario | Required outcome |
 | --- | --- | --- |
 | T-001 | Make four instantly synchronized actions in one automatic group; opponent steps through it. | Each atomic intermediate boundary is inspectable, even before group closure. |
@@ -512,8 +521,20 @@ in-flight delivery recovery remain distinct from supporting offline gameplay.
 | T-498 | An inactive continuation includes actions by both players but no exposure/comment. | Keep the whole continuation visible; lack of hidden-information exposure alone is insufficient for hiding. Do not count a shared-prefix author's action as authorship of the alternative suffix (D-222). |
 | T-499 | An inactive single-player continuation contains hidden-information exposure followed by ordinary actions. | Keep the whole continuation visible, including ordinary tails. Preserve recorded exposures/results and all nodes, not only a prefix ending at the exposure. Event comments independently keep a continuation visible under D-223 (D-222). |
 | T-500 | One player makes an ordinary edit, submits an event comment and makes further ordinary edits, without any hidden-information exposure; Undo and replace that continuation. | Keep the whole abandoned continuation visible in the explorer, including all ordinary tails, without needing Show hidden branches. The event-comment exception overrides hiding despite single authorship/no exposure. Retain all nodes; mere viewing still does not activate the path (D-223). |
+| T-501 | Your counter increment records 0 → 1; the opponent's later increment records 1 → 2. Attempt selective removal of yours. | Undo is unavailable: the opponent's candidate transition would be 0 → 1, not the original 1 → 2. Equal +1 deltas and ordinary action applicability are insufficient (D-224). |
+| T-502 | Move a card, then the opponent taps that same card; remove the move within the suffix-work limit. | Allow selective removal when the move is otherwise removable and the tap's relevant (from, to) tuple is identical. Keep the tap; do not compare unrelated position as part of tapping or restore an entire old card snapshot. Other movement effects still need their own relevant-state definition (D-224). |
+| T-503 | Tap card A, then the opponent untaps card B; remove A's tap within the suffix-work limit. | Allow selective removal when otherwise eligible and B's relevant transition is unchanged. Different-object orientation work must not be rejected by a whole-board/orientation-family lock (D-224). |
+| T-504 | Your edit records counter 0 → 1; a later Set records 1 → 5. Attempt selective removal of your edit. | Reject: replayed Set would record 0 → 5. Equal final values do not compensate for changed relevant pre-state; both from and to must match for every later mutation (D-224). |
+| T-505 | A counter edit is selectively removed when it has no later dependent work; opponent then increments that counter. Attempt Redo reinsertion before their increment. | Redo is unavailable if reinsertion changes that later increment's relevant (from, to) tuple. Apply the same suffix-equality rule to insertion, not only deletion; exact queue/candidate ownership and anchors remain open (D-224). |
+| T-506 | A candidate removal/insertion has a replay suffix exceeding the hard configured limit N, though the suffix appears independent. | Do not run unbounded eligibility replay or accept after checking only its prefix. The over-limit candidate is unavailable; N exists to bound responsiveness cost, not to expire gameplay/history. Exact N and counting unit remain open (D-224). |
+| T-507 | A selective-Undo target revealed new hidden information. | Do not offer selective removal for that target, even if a bounded suffix would otherwise preserve every tuple. This does not erase the retained exposure or settle explicit historical activation/rewind controls (D-224). |
+| T-508 | Two ordinary live increments reach the same numeric counter in order; separately evaluate removing the first from history. | Live increments both apply to current values under D-187/D-186. Historical selective removal instead requires exact suffix tuple equality and fails when the later transition changes. Do not restore general previous-value locks to synchronous play or revive the superseded 25-rule batch (D-224). |
+| T-509 | Tap a card, then opponent untaps that card. Attempt selective removal of the tap. | Reject if replaying the untap would become a no-op or otherwise change its original relevant pre/post tuple. Do not silently drop/rewrite that later mutation merely because it remains executable. Compare each later transition, not just the resulting board (D-224). |
 
-D-159/D-222 settle parent-node Undo, remembered-head Redo, graphical any-node
+**D-224 supersedes the universal parent-pointer-only interpretation:** selective
+Undo/Redo uses exact later-mutation relevant-state tuple equality and bounded
+work. Per-mutation definitions and integration with rewind/review/Redo queues
+remain open. The earlier D-159/D-222 model settled parent-node Undo, remembered-head Redo, graphical any-node
 activation and single-player/no-exposure hiding behind a toggle; mixed-player/
 exposure paths remain visible in full. D-223 confirms event comments also keep
 the whole continuation visible, even with one author and no exposure. D-89/D-91

@@ -20,7 +20,68 @@ offline play or an atomic queued sequence.
 
 ## 3.0 Current Undo model — parent-pointer navigation (D-159/D-160)
 
-**Confirmed.** The game has one
+**Revision notice — D-224:** the earlier parent-pointer-only definition is no
+longer the complete Undo/Redo contract. The owner is now designing selective
+mutation removal/reinsertion, with the confirmed safety rule below. Shared-head
+rewind, personal review and explicit tree activation remain distinct concepts;
+their final button mapping, author restrictions and view-follow behavior are open.
+Do not infer acceptance of the assistant's shared remembered-Redo-head proposal.
+
+### Selective mutation Undo/Redo — D-224
+
+**Confirmed safety rule:** allow deletion/insertion of a mutation in a timeline
+only if **every subsequent mutation has an identical relevant-state `(from, to)`
+tuple in the original and candidate timelines**. Replay the subsequent mutations
+in their recorded order and compare both their pre- and post-relevant states,
+not merely operation applicability, equal deltas or equal final board state.
+If any subsequent mutation cannot replay or either side of its tuple differs,
+the selective Undo/Redo is unavailable. This is not an appended compensating edit.
+
+Each mutation kind must define its **relevant state**. Compare the same mutation's
+original accepted transition against its candidate transition, preserving target/
+field identity and recorded choices/results; do not substitute another object
+with an equal value. Relevant state is not automatically the whole board or even
+the whole card: the owner explicitly allows removing a card move while retaining
+a later tap of that same card. Exact per-mutation state definitions remain work
+to do; this rule does not approve the superseded 25-rule locking table.
+
+Owner examples:
+
+- Same counter: your `0 → 1`, then opponent's `1 → 2`. Removing your increment
+  would make theirs `0 → 1`: **Undo unavailable**, despite the same +1 delta and
+  both increments being valid normal online actions.
+- Move a card, then opponent taps it: **Undo of the move is allowed** when the
+  move is otherwise removable and the tap's relevant before/after state is
+  identical. Keep the tap; do not compare unrelated position as part of tapping.
+- Tap one card, then opponent untaps another: **Undo of your tap is allowed**
+  when the later mutation's relevant tuple is unchanged.
+
+The same suffix-tuple test applies to **Redo reinsertion**. In this selective
+design, Undo is not offered for a target that revealed new information; this is
+distinct from reviewing/activating a retained historical state. Replay reuses
+stored random results and exposure context, not new random samples or UI reveals.
+
+**Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
+subject to replay/validation, so a target followed by e.g. a thousand opponent
+actions cannot trigger a noticeably slow eligibility calculation. A valid but
+over-limit candidate is unavailable; do not validate only a convenient prefix or
+permit a changed unchecked tail. Exact N and counting of mutation nodes versus
+multi-mutation invocations remain open; no time-based grouping or gameplay limit
+is implied.
+
+**Still open:** complete relevant-state definitions, candidate/author selection,
+insertion target's own preconditions, Redo queue ownership/order/anchors and edits
+after Undo, concurrent/stale checks, pending-request interaction, pointer/view
+updates, tree/node versioning, grouping and references to removed/replayed nodes.
+Removal here is from the candidate timeline, not authorization to permanently
+erase retained history or override D-223's comment visibility rule. Earlier
+parent-pointer fixtures below describe that rewind model, not blanket approval
+to use it instead of this selective rule. U-001 and older exposure/Redo recovery
+wording must be interpreted with this distinction until controls are settled.
+
+### Earlier parent-pointer rewind model — scope under revision
+
+**Earlier confirmed model (D-159/D-160/D-222).** The game has one
 shared active game-state pointer, separate from each participant's review cursor.
 It can point to an internal node even when that node has retained descendants.
 Undo moves this pointer to its parent: one tree node, regardless of author.
@@ -485,6 +546,13 @@ over the same tree. See section 3.12 for returning after an interruption.
   participant to reopen the group.
 
 ## 3.7 Full undo contract
+
+**D-224 precedence:** this section's parent-pointer operations/recovery table
+describe the earlier rewind model. They are not a prohibition on the selective
+removal/reinsertion contract in section 3.0, nor permission to selectively remove
+an information-revealing target. Reconciliation of these controls, U-001 exposure
+recovery and remembered-head versus reinsertion Redo remains open. Do not silently
+apply D-161's captured-parent stale policy to selective timeline editing.
 
 Requirement U-001: **Every user-authored logical game edit has a discoverable
 undo or recovery path, except submitted game-wide chat (D-94) and acceptance of

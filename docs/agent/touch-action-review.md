@@ -5,7 +5,19 @@ earlier touch decisions as requirements/history, but current new decisions focus
 on behavior. Adversarial review/refinement is stage 2, UI drafts/concrete controls
 stage 3, and iterative implementation stage 4+. No implementation is authorized.
 
-**Latest branching (D-222):** root stores initial state; every later node is a
+**Latest selective Undo/Redo (D-224, T-501–T-509):** removal/reinsertion requires
+every later mutation's relevant-state `(from, to)` tuple to stay identical across
+original/candidate timelines. Define relevant state per mutation; compare both
+endpoints for each later step, not delta/applicability/final board only. Same-counter
++1 then +1 blocks removing the first; move then tap of the same card and tap A
+then untap B can allow it. Bound suffix replay/check work by hard N (value/counting
+unit open); revealing targets are not selectively undoable. This is not D-187 live
+locking or approval of the old 25-rule table. No appended compensation or physical
+history erasure is authorized. Candidate/authorship, insertion preconditions,
+Redo queue, pointer/view controls, pending/concurrent requests and tree/reference/
+grouping rewrites remain open; drill mutation relevant-state cases next.
+
+**Earlier branching (D-222):** root stores initial state; every later node is a
 mutation. Undo remembers the last active head; Redo follows toward it, not an
 arbitrary child or a mandatory fork picker. Changed play after Undo branches and
 becomes active. A graphical tree explorer can activate any retained node/branch;
@@ -13,8 +25,8 @@ review alone is personal (T-493–T-499). Hide only single-player/no-exposure in
 continuations **without event comments** behind its separate toggle. D-223 confirms
 event comments keep the whole continuation visible even with one author/no exposure
 (T-500); mixed-player/exposure/event-comment paths stay visible in full.
-Next useful branching topic: shared versus personal remembered Redo-head scope,
-not another comment-visibility question.
+The D-224 selective design above supersedes treating this as the complete Undo
+definition; pointer rewind remains distinct. Do not reopen comment visibility.
 Remembered-head scope across users/devices, activation updates, concurrent/stale
 controls, archive/restore and nested/pre-fork presentation remain open.
 

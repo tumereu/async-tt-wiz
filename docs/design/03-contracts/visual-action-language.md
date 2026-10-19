@@ -183,7 +183,13 @@ Exact event mappings and historical placement still need detailed review.
   silently pointing at a replacement object.
 - Display only applicable path/context records when reviewing a branch, with a
   route to messages/pings on retained alternatives.
-- Undo moves the shared active pointer one parent back (D-159). Retain every
+- **D-224 revision:** selective mutation removal/reinsertion preserves every later
+  mutation's exact relevant-state `(from, to)` tuple under a hard suffix-work cap
+  N; information-revealing targets are not selectively undoable. Candidate/author
+  controls, tree rewrite/reference/grouping presentation and pointer/Redo-queue
+  integration remain open. Do not present this as an appended compensation or
+  silently reattach pings/comments to different historical meaning.
+- Earlier pointer-rewind Undo moves the shared active pointer one parent back (D-159). Retain every
   descendant. D-222 Redo follows the remembered last active head; a graphical
   explorer can explicitly activate any retained branch/node. Hide only single-player/
   no-exposure inactive continuations behind a toggle; mixed-player/exposure paths

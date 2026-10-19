@@ -149,7 +149,15 @@ The table must always make these distinguishable:
 - Connection/synchronization state and number of pending actions.
 - Undo/redo availability and any operation awaiting confirmation.
 
-D-159/D-222: Undo moves the shared active pointer one parent back and remembers
+**Latest revision D-224:** selective removal/reinsertion requires every subsequent
+mutation's relevant-state `(from, to)` tuple to stay identical across timelines,
+within a hard suffix-work cap N. Information-revealing targets are not selectively
+undoable. Per-mutation relevant state, N/counting, pointer/view-follow behavior,
+candidate/author rules, Redo queue and final control mapping remain open. The
+earlier parent-step/remembered-head controls below are rewind context, not the
+complete current definition of Undo/Redo; live action acceptance is unchanged.
+
+Earlier D-159/D-222 rewind model: Undo moves the shared active pointer one parent back and remembers
 the last active head; Redo follows the path toward that head with original
 states/results. Retain all descendants. Changed play branches and becomes active.
 A **graphical tree explorer** allows review and explicit activation of any retained
@@ -361,6 +369,10 @@ decided before implementation.
   generic publication gate.
 
 ## 5.6 Undo and destructive-looking actions
+
+**D-224 scope:** the parent-step/remembered-head entries below describe the
+earlier rewind controls. Selective removal/reinsertion uses its stricter suffix
+tuple test; do not assume the same control mapping or stale-request behavior.
 
 - A persistent undo entry point complements any transient snackbar.
 - Show the exact object/action/branch affected, not merely “Undo.”

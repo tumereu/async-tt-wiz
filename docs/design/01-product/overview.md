@@ -33,9 +33,12 @@ The app remembers and presents what happened; the players interpret the rules.
    normally apply at the current head unless impossible. Optimistic conflict
    guards are limited to moves and Stack additions: an addition sends the current
    Stack state and is rejected if it differs on the server. Rejection never
-   creates a branch. Undo moves the shared active pointer one parent node back,
-   regardless of author.
-   Undo remembers the last active head; Redo follows the path toward it. Changed
+   creates a branch. The latest selective Undo/Redo design allows removing or
+   reinserting a mutation only if every later mutation keeps its exact relevant
+   before/after states, within a bounded suffix-work limit (D-224). This is stricter
+   than live action acceptance; revealing mutations cannot be selectively undone.
+   The older parent-step Undo/remembered-head Redo controls are being reconciled
+   with that design; personal review remains distinct from changing shared play. Changed
    play branches to a new active head. A graphical tree explorer can activate any
    retained branch/node. Only single-player/no-exposure alternatives qualify for
    hiding behind a separate toggle; mixed-player/exposure paths stay visible.

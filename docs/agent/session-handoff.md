@@ -68,8 +68,19 @@ alerts and unread/read behavior.
 settings to post-R1**. **R1 uses Android notification channel settings**; respect
 those choices without an app-specific mute/settings screen. Do not defer D-219
 pushes, treat the settings as an R1 gap or infer one Android channel per game.
-Next useful product topic: saved-deck deletion and preservation of already
-selected lobby/game copies, not more R1 in-app notification settings.
+
+## Latest saved-deck deletion and editing isolation — D-221
+
+The owner approved deleting a saved deck from the collection while preserving
+copies already selected in lobbies/games, then added **editing works the same
+way** (T-491/T-492), reaffirming D-199. Keep game-local preparation and active play;
+no replacement deck is required merely because its saved source was deleted.
+Primary contract: [saved-deck isolation](../design/03-contracts/accounts-decks-and-lobby.md#saved-deck-deletion-and-copy-isolation--d-221).
+Exact deletion confirmation/recovery/retention, backup erasure and concurrent
+delete/edit/select races remain open. Do not infer trash/restore, gameplay Undo,
+full manual deck editing or deletion of in-game cards/history. Continue remaining
+account/contact lifecycle or broader R1 gaps, not edit/delete copy isolation or
+post-R1 in-app notification settings.
 
 ## Current concurrency correction — D-179
 
@@ -113,7 +124,8 @@ T-423–T-427. D-199: owner approved named saved decks, re-import Replace/Save a
 and unchanged already selected lobby/game copies; explicitly added naming/
 renaming and choosing one of a deck's cards as cover art. Card-list editing remains
 import-only; metadata controls do not approve a full deck builder or art upload.
-See T-428–T-432. Naming defaults/duplicates, deletion, cover fallback/re-import
+See T-428–T-432. Naming defaults/duplicates, deletion safeguards/recovery/retention/
+concurrent races (D-221 settles its scope/isolation), cover fallback/re-import
 metadata retention and remaining dialect/extra-section/printing/count/resolution
 details remain open. D-200 corrects the next setup proposal: automatically shuffle
 Libraries on game start; each player starts at 20 life, with no pregame life
@@ -473,7 +485,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-220** and **T-001–T-490**.
+- Current documentation includes **D-001–D-221** and **T-001–T-492**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

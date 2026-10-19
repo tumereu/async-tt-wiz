@@ -48,7 +48,8 @@ errors are resolved (T-423–T-427). Do not invent a custom grammar or restrict 
 to Arena. D-199 confirms named/renameable decks, cover art from one of a deck's
 cards, re-import Replace/Save as new, and unchanged already selected lobby/game
 copies (T-428–T-432). Do not reopen these choices or interpret metadata controls
-as a full card-list editor. Remaining import/metadata/deletion details are open.
+as a full card-list editor. Remaining import/metadata and deletion safeguards/
+recovery/retention/concurrent races are open; D-221 settles deletion scope/isolation.
 D-200 confirms automatic Library
 shuffles on game start and 20 starting life, with no pregame life editor required;
 normal in-game life edits remain (T-433–T-436). The assistant's no-auto-shuffle/
@@ -133,8 +134,12 @@ multi-device routing, extra categories and unread/read behavior remain open.
 D-220 defers both in-app global/per-game mute settings to post-R1 (T-489/T-490):
 R1 uses Android notification channel settings, respecting the user's choices.
 Do not add R1 in-app settings, defer pushes or infer a channel per game.
-Next useful product topic: saved-deck deletion and already selected lobby/game
-copies, not more R1 in-app notification settings. Narrower
+D-221 confirms deleting from the saved collection while preserving selected
+lobby/game copies; the owner explicitly says editing works the same way
+(T-491/T-492), reaffirming D-199. Keep game-local preparation and active play.
+Deletion safeguards/recovery/retention and concurrent delete/edit/select races
+remain open, not copy isolation. Continue remaining account/contact lifecycle or
+broader R1 gaps, not post-R1 in-app notification settings. Narrower
 invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck

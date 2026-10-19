@@ -62,6 +62,10 @@ The general rules are:
 - Name/rename saved decks and choose one of a deck's cards as its cover art.
   Re-import can Replace an existing deck or Save as new. Changing a saved deck
   does not change copies already selected in lobbies or games.
+- Delete a saved deck to remove it from your collection. **Both editing and
+  deleting saved decks preserve already selected lobby/game copies** (D-221),
+  including their game-local preparation and active play. Exact deletion
+  confirmation/recovery and storage retention remain open.
 - A game begins in a lobby. Players choose decks and manage their mainboards/
   sideboards there, then each presses Ready. Once both are ready, the game starts.
   Starting automatically shuffles both Libraries and gives each player 20 life;

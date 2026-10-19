@@ -224,6 +224,7 @@
 | D-218 | Support the same account on multiple devices, with saved decks, contacts and games synchronized between them. | Owner approved all three account-data categories. Preserve saved-deck/lobby/game-copy isolation, existing game identity/participants, connected-only gameplay and no-duplicate recovery. Exact simultaneous same-account editing, concurrent deck/contact conflicts, device/session revocation and sync timing remain open; do not infer transfer of drafts, local pending queues, navigation/review cursors, settings or all downloads. No finished-game archive, application implementation or stage transition is authorized. |
 | D-219 | Provide push notifications for new invitations and grouped opponent activity, without revealing covered card names. | Owner approved the notification recommendation. Consolidate related opponent activity rather than one push per primitive mutation; preserve immediate synchronization without group-completion waits. Exact cadence/grouping, permissions/defaults, mute controls, foreground suppression and multiple-device routing remain open. Dedicated branch-switch/response-request categories and unread/read behavior are not separately approved. No application implementation or stage transition is authorized. |
 | D-220 | Both in-app global and per-game notification mute settings are post-R1; R1 uses Android notification channel settings. | Owner deferred both proposed app settings and specified the existing Android controls as sufficient for R1. Respect Android settings; do not add an R1 in-app mute/settings requirement or defer D-219 pushes. Exact channel categories, permission/default behavior, cadence, foreground suppression and multiple-device routing remain open; do not infer a channel per game. No application implementation or stage transition is authorized. |
+| D-221 | Deleting a saved deck removes it from the collection but preserves copies already selected in lobbies or games; editing has the same isolation. | Owner approved deletion scope, then explicitly added that editing works the same way, reaffirming D-199. Preserve game-local preparation and active play; do not require replacing a selected deck because its saved source was deleted. D-218 account-data sync remains; exact deletion confirmation/recovery/retention, backup erasure and concurrent delete/edit/select races remain open. This is not permission to delete in-game cards/history or approval of a trash/restore feature, gameplay-Undo path, full manual deck editor, implementation or stage transition. |
 
 **Latest setup decisions — D-188–D-214:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
@@ -303,8 +304,15 @@ names block saving, with original input preserved and no silent substitution.
 Use existing exported formats, not an app-specific grammar. D-199 confirms
 named/renameable saved decks, cover art chosen from their cards and re-import
 Replace/Save as new without changing already selected lobby/game copies. Naming
-defaults/duplicates, deletion, cover fallback/re-import metadata and remaining
+defaults/duplicates, deletion confirmation/recovery/retention/concurrent races,
+cover fallback/re-import metadata and remaining
 dialect/printing/count details are still open.
+
+**Saved-deck isolation — D-221:** deleting removes a deck from the saved collection;
+both editing and deleting preserve already selected lobby/game copies, their
+game-local preparation and active play. This reaffirms D-199 for edits. Exact
+deletion safeguards/recovery/retention and concurrent races remain open. See
+[saved-deck deletion](../design/03-contracts/accounts-decks-and-lobby.md#saved-deck-deletion-and-copy-isolation--d-221).
 
 **Connection-loss presentation — D-215:** show a **Reconnecting...** dialog while
 disconnected, blocking gameplay actions. Shared Undo/branch controls still need

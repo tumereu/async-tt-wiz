@@ -139,11 +139,27 @@ format-legality validation or automated sideboarding rules.
   do not change the saved deck either. Selecting/reselecting a deck is still an
   explicit lobby action subject to the existing Ready-clearing rule.
 
-Exact naming/default/duplicate-name rules, deletion, default cover selection,
+Exact naming/default/duplicate-name rules, default cover selection,
 cover fallback when its card is removed by re-import or imagery is unavailable,
 and metadata retention across Replace/Save as new remain open. No full manual
 card-list editor, art upload/cropping tool or saved-deck version-history feature
 is approved by these controls.
+
+## Saved-deck deletion and copy isolation — D-221
+
+- **Deleting a saved deck removes it from your saved-deck collection**, but
+  **preserves copies already selected in lobbies or games**.
+- The owner explicitly confirmed **editing works the same way**: saved-deck
+  edits do not alter already selected lobby/game copies, reaffirming D-199.
+  Preserve their game-local mainboard/sideboard preparation and any active play;
+  do not require a replacement deck merely because its saved source was deleted.
+- This is saved-deck management, not deletion of in-game cards or history.
+  The account's saved collection remains synchronized under D-218; exact
+  concurrent delete-versus-edit/select handling across devices remains open.
+
+Exact deletion confirmation/recovery, storage retention and backup erasure remain
+open. This decision does not promise a trash/restore feature, permanent data erasure
+or a gameplay-Undo path for saved-deck deletion.
 
 ## Deck-list import compatibility and errors — D-198
 

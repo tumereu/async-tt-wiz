@@ -32,8 +32,11 @@ obligation or behavior is still proposed:
   resolved. Less-common dialects/extra sections, default printings, import limits
   remain open; there is no custom list format. D-199 confirms named/renameable
   decks, a cover chosen from a deck's cards, Replace/Save as new on re-import and
-  unchanged already selected lobby/game copies. Default/duplicate names, deletion,
-  cover fallback and replacement metadata retention remain open.
+  unchanged already selected lobby/game copies. D-221 confirms deletion from the
+  saved collection and reiterates that both editing/deleting preserve selected
+  lobby/game copies. Default/duplicate names, cover fallback, replacement metadata,
+  deletion confirmation/recovery/retention and concurrent delete/edit/select races
+  remain open.
 - D-200 confirms automatic Library shuffling on game start and 20 starting life,
   with no pregame life setting required. No automatic opening draw; in-game life
   edits remain. D-201 confirms lobby starter selection with either player or
@@ -114,7 +117,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    Remaining: exact search/contact removal/privacy, decline presentation/feedback,
    pending-invite duplicates, cancellation races and retention/archive behavior,
    remaining import dialect/printing/count details and saved-deck naming defaults/
-   deletion/cover fallback/replacement metadata,
+   deletion confirmation/recovery/retention and concurrent races, cover fallback/
+   replacement metadata (D-221 settles deletion scope and edit/delete copy isolation),
    readiness effects of further setup controls, remaining lobby cancellation/
    retention, further setup values/optional areas and
    starter-selection defaults/edit access/random timing (lobby

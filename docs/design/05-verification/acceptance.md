@@ -20,6 +20,9 @@ checks remain open. Do not use older fixtures to forbid selective removal,
 permit revealing targets, or silently apply D-161's pointer policy to it.
 D-230/D-231 fix the Undo target to the latest still-applied own action, without
 skipping a blocked own target; later opponent actions are preserved under replay.
+D-235 makes each player's per-game stack shared game state across their devices,
+not device-local history or a single stack for both players. Simultaneous-device
+and stale-request outcomes still need a contract.
 
 **D-232 tree-edit precedence:** Undo/Redo edit the existing tree, without creating
 branches or retaining the pre-Undo path as an explorer alternative. Older fixtures
@@ -561,6 +564,8 @@ the assistant's rejected revised-continuation/untouched-original design.
 | T-526 | Fork F has children B and C (alternative); the active path continues B → D. B is your latest own, non-revealing mutation, D is an independent opponent mutation, and removal is otherwise eligible within N. | Allow Undo of B: the earlier fork alone does not block actions after it. Replace F → B → D with F → D, retaining C unchanged and D active; B enters the personal Redo stack. F still has children D/C, so further Undo cannot remove F or reach back past it. D-234 separately governs Redo before a newly created fork (D-232/D-233). |
 | T-527 | Undo A on root → A → F → B, producing root → F → B. The opponent then explicitly creates an alternative C at F, leaving F with children B/C and C active. Reinserting queued A would precede the new fork, even though replay would otherwise be safe. | Disable Redo and retain the whole stack. Preserve both continuations; do not skip/discard A, insert it at the active head, rewrite all branches or create a recovery branch. Opponent branching does not clear the stack. Hiding an alternative in the explorer does not bypass the boundary (D-228/D-230/D-234). |
 | T-528 | A queued mutation remains blocked by T-527's fork, with no own new gameplay edit to clear the queue. | Retain the blocked entry without promising eventual replay or offering an unapproved restoration route. Accept that the historical mutation has no application path with current controls. A later successful own new gameplay action clears the queue normally; performing a similar fresh operation is not reinserting the historical mutation (D-227/D-234). |
+| T-529 | Make an action on your phone, synchronize your tablet and Undo that latest own action there. Synchronize the phone again and invoke an otherwise eligible Redo. | Treat both devices as the same player's game state: Undo can target the phone-authored action and Redo on the phone restores the tablet-undone mutation once. Synchronize stack order and consumption; no device-local duplicate entry or manual history transfer. Preserve all replay/exposure/N/fork checks (D-235). |
+| T-530 | Your phone has synchronized an Undo entry to your tablet. Make a successful new gameplay edit on the tablet; separately test an opponent action while an entry exists. | Own new play clears your per-game stack across both devices, not the opponent's stack. Opponent play retains your shared stack, subject to current eligibility. Devices do not maintain divergent clearing or stack ownership. Exact simultaneous/stale request handling remains open (D-228/D-235). |
 
 **D-224 supersedes the universal parent-pointer-only interpretation:** selective
 Undo/Redo uses exact later-mutation relevant-state tuple equality and bounded

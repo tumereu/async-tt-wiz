@@ -16,7 +16,7 @@ locking or approval of the old 25-rule table. No appended compensation or physic
 history erasure is authorized. D-230/D-231 restrict Undo to the latest still-applied
 own action even after opponent activity, with no blocked-target skipping. D-227–D-230
 fix last-undone-first Redo, blocked-entry disabling without skipping, and queue
-clearing only by own new play. Insertion preconditions/anchors, queue device scope,
+clearing only by own new play. Insertion preconditions/anchors,
 pointer/view controls, pending/concurrent requests and tree/reference/grouping
 handling remains open. D-232 confirms actual tree removal/reinsertion, not a new
 branch beside an untouched original. Removed mutations live in the Redo stack;
@@ -28,7 +28,10 @@ D-234 likewise blocks Redo reinsertion before a newly created fork, retaining
 the stack without skipping/discarding entries. The owner acknowledged that the
 historical mutation may then have no way to be applied again with current
 controls; do not invent a recovery feature or automatic clearing. Own new play
-still clears the stack. Resolve queue device scope/anchors, historical references
+still clears the stack. D-235 confirms per-player, per-game stacks as shared game
+state synchronized across that account's devices: latest-own includes any device,
+and own new play on either device clears that stack, not the opponent's.
+Resolve simultaneous-device/stale requests, insertion anchors, historical references
 and review cursors next, without assuming the original tree survives.
 Archive/activation integration remains open.
 

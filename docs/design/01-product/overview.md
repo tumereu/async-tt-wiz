@@ -39,6 +39,8 @@ The app remembers and presents what happened; the players interpret the rules.
    before/after states, within a bounded suffix-work limit (D-224). This is stricter
    than live action acceptance; revealing mutations cannot be selectively undone.
    Undo targets only your latest still-applied action; Redo is last-undone-first.
+   Your per-game Undo/Redo stack is shared game state across your devices, while
+   remaining separate from the opponent's stack (D-235).
    Neither skips a blocked target. Undo cannot remove a branching point or reach
    back past one (D-233); Redo cannot reinsert before a newly created fork (D-234).
    Such a Redo entry stays blocked and may have no recovery path.

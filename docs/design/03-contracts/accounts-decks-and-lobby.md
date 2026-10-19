@@ -62,6 +62,10 @@ this decision does not settle its expired-session navigation or local-data polic
   state/history under the existing game contracts. Another device is not another
   game participant. D-182's connected-only gameplay and D-216's no-duplicate
   recovery remain; this does not add offline gameplay or finished-game archives.
+- **D-235:** each player's per-game Undo/Redo stack is shared game state across
+  their devices, not a local pending-request queue. Undo on one device can be
+  Redone on another, with unchanged own-action targeting, player-specific clearing
+  and eligibility checks. See the [history contract](history-and-undo.md#selective-mutation-undoredo--d-224).
 
 Exact simultaneous same-account editing, concurrent deck/contact change conflicts,
 device/session revocation and sync timing remain open. Do not infer cross-device

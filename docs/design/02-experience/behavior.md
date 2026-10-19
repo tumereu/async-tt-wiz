@@ -365,7 +365,7 @@ The general rules are:
   limit N on the suffix work; the value/counting unit and per-mutation relevant
   states still need definition. Selective Undo excludes information-revealing
   targets. No compensating edit is appended. Pointer/button behavior, Redo queue
-  device/anchor details and affected references/views remain open; the older
+  anchor details and affected references/views remain open; the older
   parent-pointer description below is superseded for Undo/Redo.
 - **Tree editing (D-232):** Undo removes and Redo reinserts a mutation in the
   existing tree. Neither creates a new branch or preserves the old path as an
@@ -379,8 +379,14 @@ The general rules are:
   edit clears your Redo queue, even if the removed mutations could still be
   safely reinserted. Opponent actions retain your queue, but can make reinsertion
   fail the replay checks or exceed N. No original explorer path is required by
-  queue clearing (D-232). Same-account/
-  device queue synchronization and rejected/no-op requests still need decisions.
+  queue clearing (D-232). Rejected/no-op requests and exact clearing timing still
+  need decisions.
+- **Across devices (D-235):** your per-game Undo/Redo stack is shared game state,
+  synchronized across your devices. Undo on your phone and Redo on your tablet
+  under the same eligibility checks. Your latest own action can come from either
+  device; new gameplay from either clears your stack. The opponent retains a
+  separate stack, and their actions do not clear yours. Exact simultaneous-device
+  and stale-request handling remain open; personal review cursors are separate.
 - **Redo order (D-229):** restore the most recently undone mutation first, as in
   a normal Undo/Redo stack. Every reinsertion must still pass the replay checks
   within N. If that next entry is blocked, disable Redo and retain the stack;

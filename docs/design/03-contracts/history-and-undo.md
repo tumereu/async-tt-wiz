@@ -22,7 +22,7 @@ offline play or an atomic queued sequence.
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree
 
-**D-224–D-234 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
+**D-224–D-235 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
 still-applied mutation from the existing tree; Redo reinserts it, under the safety
 and stack rules below. These operations edit the tree, **not create branches**.
 Personal review and explicit historical activation remain distinct; their control
@@ -107,10 +107,24 @@ The confirmed clearing case is a successful new gameplay mutation by the player
 who used Undo. Opponent actions do **not** clear that player's queue; retain its
 entries and recheck reinsertion against current state under D-224, including N.
 An opponent edit may make Redo unavailable without clearing the queue. Clearing
-is player-specific, not a shared game-wide reset. Same-account/device queue
-synchronization, rejected/no-op requests and exact optimistic/server clearing
+is player-specific, not a shared game-wide reset. D-235 below confirms cross-device
+stack synchronization. Rejected/no-op requests and exact optimistic/server clearing
 timing remain open. Do not generalize this to personal review/navigation or treat
 Redo reinsertion itself as new play that necessarily clears remaining entries.
+
+**Shared game state across devices — D-235:** each player's Undo/Redo stack
+belongs to that account in that game and synchronizes across their devices; it
+is not device-local. Undo on a phone can be Redone on a tablet, subject to the
+same current eligibility checks. Latest-own targeting includes that player's
+actions from any device. Successful Undo/Redo and stack clearing are reflected
+across devices, including last-undone-first order and blocked entries.
+
+Shared game state does not mean one author-independent stack for both players:
+preserve D-231 own-action targeting and D-228 player-specific clearing. A successful
+new gameplay edit from either of your devices clears your stack for that game;
+an opponent's action still does not. Exact simultaneous-device/stale-request
+handling, sync timing and protocol remain open. This decision does not approve
+transfer of pending-request queues, unfinished input or personal review cursors.
 
 **Redo order — D-229:** restore the **most recently undone mutation first**,
 like a normal Undo/Redo stack. If you Undo A and then B, successful Redo restores
@@ -173,7 +187,7 @@ multi-mutation invocations remain open; no time-based grouping or gameplay limit
 is implied.
 
 **Still open:** complete relevant-state definitions, insertion target's own preconditions,
-Redo queue cross-device scope/anchors,
+Redo insertion anchors,
 invalidation cases beyond D-227/D-228, concurrent/stale checks, pending-request
 interaction, pointer/view
 updates, tree/node versioning, grouping and references to removed/replayed nodes.

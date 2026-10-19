@@ -14,6 +14,20 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest cross-device Undo/Redo scope — D-235
+
+Owner approved synchronized Undo/Redo stacks across devices, adding **it is shared
+game state** (T-529/T-530). Each account has its own stack per game, not a local
+device stack or one stack shared between opponents. Undo on phone can be Redone
+on tablet under current checks; latest-own targeting spans the account's devices.
+Successful Undo/Redo and own-new-play clearing synchronize between them. Opponent
+actions do not clear your stack. No transfer of pending-request queues, drafts or
+review cursors is implied. Exact sync timing and simultaneous/stale requests
+remain open. Next useful case: two devices invoke Undo for the same action;
+propose applying it once and silently reconciling the stale request, never
+retargeting it to the next own action. This is a proposal, not approved selective
+Undo concurrency behavior. No implementation or stage transition is authorized.
+
 ## Latest Redo fork boundary — D-234
 
 Owner approved blocking Redo reinsertion before a newly created fork while
@@ -24,8 +38,8 @@ retarget it to the current head, rewrite all branches or create a recovery branc
 Opponent branching still does not clear the queue; own new gameplay still does.
 A similar fresh action is not restoration of the historical mutation. Exact
 anchors and archive/activation integration remain open, not promised escape hatches.
-Next useful gap: same-account/device Redo-stack scope, or historical references
-and review cursors affected by otherwise eligible linear edits. No implementation
+D-235 above settles same-account/device stack scope. Historical references
+and review cursors affected by otherwise eligible linear edits remain open. No implementation
 or stage transition is authorized.
 
 ## Latest Undo fork boundary — D-233
@@ -653,7 +667,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-234** and **T-001–T-528**.
+- Current documentation includes **D-001–D-235** and **T-001–T-530**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

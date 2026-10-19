@@ -208,8 +208,10 @@ old future after a response. Exact overall release scope still needs sign-off.
    actions, preserving those later actions under replay; never skip a blocked own
    target or fall back to an opponent's action. Historical activation integration
    remains separate.
-   Same-account/device queue scope, insertion anchors, rejected/no-op requests and
-   optimistic/server clearing timing
+   D-235 confirms per-player, per-game Undo/Redo stacks as shared game state across
+   the account's devices, not device-local stacks or one stack for both players.
+   Same-account simultaneous/stale requests, sync timing, insertion anchors,
+   rejected/no-op requests and optimistic/server clearing timing
    remain open. Older immutable-tree/retained-original-path assumptions do not
    apply to D-232 tree editing; genuine interruption branches remain distinct.
 4. **Concurrent online actions and connection loss.** D-182 removes offline game

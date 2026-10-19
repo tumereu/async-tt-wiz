@@ -267,17 +267,19 @@ The general rules are:
   can be left by explicitly returning to its retained original continuation;
   branch deletion is recoverable archival. Normal Undo follows the active node's
   parent, not automatically the old future's tip.
-- Ordinary game edits are attempted at the server's current head, even if another
-  action happened meanwhile. Each sends action-specific “from” and “to” conditions;
-  both must still be valid. Moving a card to empty space requires the card to
-  remain at its stated source and the destination to remain empty. If valid,
-  append there without a branch; otherwise reject the action. A stale view or
-  failed condition never implicitly creates a branch. An intentional interruption
-  carries an explicit flag and chosen historical boundary and makes its new branch
-  current (D-179). Check only state relevant to the action: tapping checks previous
-  orientation, editing a note checks previous text. A card move alone does not
-  invalidate either if the action still applies; unrelated card fields are
-  preserved (D-181). Exact conditions for remaining action types remain open.
+- Ordinary edits apply at the server's current head unless genuinely impossible
+  (D-187). Do not reject taps, notes, Set or other ordinary edits because their
+  previous field values changed. Absolute edits write the requested value;
+  relative edits use current applicable data, preserving unrelated fields.
+  Moves retain source/destination guards: an empty-space move needs the card at
+  its stated source and an empty destination. Stack additions also need protection
+  against silently covering a concurrent entry: include the current local Stack
+  state in the addition request and reject if it differs from the server's current
+  Stack state. This applies to real-card entry and projection creation, without
+  separate seen/opponent detection, priority enforcement or a whole-game-head lock.
+  Rejection/staleness never creates a branch. Historical
+  continuation still requires an explicit flag/boundary and makes its new branch
+  current; Undo supplies the intent automatically (D-179).
 - Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
    redo its state, while merely reviewing it does not make it current. Bulk and
@@ -329,10 +331,10 @@ The general rules are:
   validation. Later actions still get checked when an earlier action fails;
   sending and local interaction do not wait for acknowledgements.
 - Existing-counter +/- applies to the current number, so two concurrent +1s both
-  count. Set checks the previous value and rejects a stale overwrite (D-186).
-  Arithmetic still requires usable numeric text; absent/deleted-counter
-  concurrency and other lock categories remain proposals in the
-  [single review batch](../03-contracts/optimistic-locking.md).
+  count. Set writes the requested value without a previous-value comparison
+  (D-187 revising D-186). Arithmetic still requires usable numeric data. The
+  [limited-locking policy](../03-contracts/optimistic-locking.md) supersedes the
+  25-rule proposal; it is not approval of that batch's other details.
 - Sync resumes automatically; retries must not duplicate actions or random results.
   Structural errors remain explicit recoverable failures, not excuses to lose
   selected cards or merge competing boards. Exact handling of a connection lost

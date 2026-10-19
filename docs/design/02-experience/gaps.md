@@ -87,28 +87,22 @@ old future after a response. Exact overall release scope still needs sign-off.
    queue work is exact sizing/saturation, ordered-transport selection, provisional
    references and animation scheduling—not whether concurrent sending, individual
    outcomes or arrival-order processing are supported.
-   D-179 replaces automatic conflict branching:
-   explicit UI continuation intent and a message flag authorize an interruption;
-   Undo supplies that intent automatically. Ordinary edits validate action-specific
-   from/to conditions at the current head and append or reject without branching.
-   D-180 confirms immediate local latency hiding, Undo-like animated rollback on
-   rejection and animated incoming mutations; this is not shared Undo or a new
-   branch. D-181 confirms relevant-state-only locks: orientation for tapping,
-   previous text for a note edit; movement alone does not invalidate either if
-   still applicable. D-185 fixes current-board reconciliation: accepted history
-   plus remaining valid predictions, with only actual differences animated. Preserve
-   accepted local/opponent changes and valid pending work; correct invalid later
-   predictions without visible rewind/replay of unaffected work. Acknowledgements
-   alone do not animate. D-177 history/interruption playback remains unchanged.
-   Remaining: lock conditions for other action categories, reconciliation
+   D-179 replaces automatic conflict branching with explicit UI/message intent;
+   Undo supplies that intent automatically. D-187 now normally accepts ordinary
+   actions at current state unless impossible, removing D-181's old-field checks
+   and D-186's Set comparison. Moves retain source/destination guards; Stack
+   additions send current client Stack state and reject if the server's Stack
+   state differs. The Stack comparator is settled, not an opponent/seen detector;
+   remaining work is exact snapshot representation, provisional references and
+   precise move guards, not a general previous-value table. The
+   [old 25-rule proposal](../03-contracts/optimistic-locking.md) is superseded,
+   not approved. D-180/D-185 immediate feedback and difference-only reconciliation
+   remain: preserve accepted work and valid pending predictions, correct genuinely
+   invalid ones, and do not animate mere acknowledgements. D-177 deliberate
+   history/interruption playback is distinct. Remaining work also includes exact
    bookkeeping/scheduling, connection-loss recovery, simultaneous explicit
-   interruptions and stale non-Undo branch controls. Earlier no-ping-pong
-   conflict-branch proposals are superseded, not approved.
-   D-186 additionally confirms existing-counter current-value deltas versus
-   previous-value-checked Set. The owner requested all remaining lock rules in
-   [one numbered review batch](../03-contracts/optimistic-locking.md); its proposed
-   portions remain unapproved, including absent/deleted counters and other relative
-   arithmetic. Do not fragment that review into another per-category questionnaire.
+   interruptions and stale non-Undo controls; old conflict-branch/locking proposals
+   are not release requirements.
 5. **References and projection controls.** Occurrence removal versus token-source
    removal (non-token cards cannot be deleted); surviving Stack effects after
    token disappearance; duplicate-source selections; mixed link/ping endpoints;

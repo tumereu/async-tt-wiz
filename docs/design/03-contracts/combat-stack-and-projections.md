@@ -12,6 +12,17 @@ history, automatic queuing/sync, cooperative access, and undo still apply.
 D-182 limits initial-delivery game actions/shared controls to connected use.
 Downloaded history can be inspected offline; offline recovery references below
 do not authorize offline play, shared Undo or a later-synchronized gameplay queue.
+
+**Stack-entry safety (D-187):** most actions apply to current state unless
+impossible; broad previous-value locks are withdrawn. Card moves and creation of
+Stack projections are the exceptional guarded cases. Every real-card entry/new
+Stack projection sends the client's current Stack state with the request. The
+server compares against current Stack state and rejects on mismatch, with atomic
+compare-and-apply in arrival order. This prevents accidentally covering a concurrent
+entry without separate seen/opponent detection, priority, casting legality or a
+whole-board lock. Later queued entries use their locally predicted pre-action
+Stack state, not an acknowledgement gate. Exact snapshot encoding/equality
+representation and provisional-ID mapping remain technical design.
 Delivery order: behavior specification → adversarial review/refinement → UI
 drafts/decisions → iterative implementation. User-specified interaction requirements
 are recorded now; UI drafts/exact geometry remain stage 3, not current work.

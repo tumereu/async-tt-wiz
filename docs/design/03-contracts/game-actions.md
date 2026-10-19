@@ -6,7 +6,9 @@ schemas proposed. MTG examples are uses of primitives, not recognized mechanics.
 **Initial-delivery scope (D-182):** making game actions and shared controls
 requires a connection, including new random actions and Undo. Downloaded history
 is readable offline, but there is no offline action creation/queue replay. Online
-optimistic updates, current-head locking and animation remain D-179–D-181.
+optimistic updates and animation remain. D-187 applies ordinary actions at the
+current head unless impossible; optimistic guards are limited to movement and
+Stack additions, not previous-value checks for ordinary fields.
 
 ## 4.1 Shared action envelope
 
@@ -349,11 +351,11 @@ required follow-up specification artifact.
 
 ## 4.6 Required per-action specification template
 
-The [single optimistic-locking review batch](optimistic-locking.md) covers all
-action categories above with numbered confirmed/proposed rules. D-186 confirms
-only existing-counter current-value deltas and previous-value-checked Set; do not
-treat the rest of that batch as approved coverage or silently extend the counter
-approval to absent/deleted counters, corner text or named trackers.
+The [limited-locking policy](optimistic-locking.md) records D-187's replacement
+for the former 25-rule review: ordinary actions normally apply to current state;
+only movement and Stack additions have optimistic conflict guards. Changed old
+orientation/text/counter values are not rejection reasons for ordinary edits,
+including Set. The former batch's detailed category rules were not approved.
 
 Before implementation, every row above must be expanded into:
 

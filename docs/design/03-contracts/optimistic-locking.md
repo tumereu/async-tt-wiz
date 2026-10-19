@@ -1,10 +1,65 @@
-# Optimistic locking — single review batch
+# Action acceptance and limited optimistic locking
 
-Status: **owner review requested; not a blanket approval.** D-186 confirms only
-the existing-counter rule in item 3. Other confirmed portions below restate
-D-161/D-179–D-185 and earlier contracts; every proposed portion awaits approval
-or correction by number. This is a behavior proposal, not an API/schema choice,
-new feature authorization or a delivery-stage transition.
+Status: **D-187 confirmed**, replacing broad previous-value locking and the former
+25-rule proposal. This remains behavior specification, not implementation or
+approval of the superseded batch's individual feature/edge-case policies.
+
+## Current acceptance policy — D-187
+
+- **Normally apply the action to current state.** Reject an ordinary game action
+  only when performing that requested operation is genuinely impossible. Access,
+  valid input/references, current applicability and structural invariants still
+  apply; do not bypass the three-card pile cap, delete non-token cards, invent
+  missing objects or perform arithmetic on unusable text.
+- **No general previous-value comparison.** Taps, notes, face/cover/text edits,
+  counter Set and other ordinary edits do not fail merely because the old value
+  changed. Preserve the operation's existing meaning: absolute edits write the
+  requested value, relative edits use current applicable data. A Set prepared at
+  5 may write 10 after another request changed the counter to 6. Record 6 → 10,
+  not the stale predicted 5 → 10. Preserve unrelated fields and actual Undo data.
+- **Exceptional guard: card movement.** Retain the chosen card's expected source
+  and destination conditions. An empty-space move needs that card still at its
+  stated source and the target still empty; do not move another occupant, choose
+  a different card or silently relocate the destination. Approved pile joins
+  retain their own structural/capacity rules; exact remaining movement guards
+  are not approved merely by preserving this exception.
+- **Exceptional guard: Stack additions/projection creation.** Send the client's
+  current Stack state with a move into Stack or a new Stack projection. The
+  server compares it with current authoritative Stack state; if different, reject.
+  If equal and the action is structurally possible, apply it. Compare-and-apply
+  is atomic and follows arrival order. This prevents accidentally covering a
+  concurrent opponent entry without a separate opponent/seen/read-receipt model;
+  the predicate is state equality, not who changed it. It is not priority/legality
+  enforcement or a whole-game-head check. Each later queued addition uses its
+  locally predicted pre-action Stack state, including earlier queued additions,
+  without acknowledgement waits. Snapshot encoding/equality representation and
+  provisional-ID mapping remain technical design; the comparator itself is settled.
+- **Keep the existing online pipeline.** Small local queue, ordered sends with
+  multiple actions in flight, arrival-order application and individual outcomes
+  remain D-183/D-184. Most ordinary actions succeed. Rejections still use D-185
+  difference-only animated reconciliation; acknowledgement alone does not animate.
+- **Keep deliberate history semantics.** D-179 explicit historical continuation
+  and D-161's captured Undo transition are unchanged. The general acceptance
+  simplification does not authorize implicit forks, generic retargeting of Undo
+  or adoption of the old batch's proposed non-Undo branch-control policies.
+
+D-187 explicitly supersedes D-181's previous orientation/note comparisons and
+D-186's previous-value Set check. Relevant-field preservation and current-value
+counter deltas remain; this does not turn the old batch's absent-counter,
+cleanup, Clone, shuffle, projection, tracking or lifecycle rules into approved
+requirements. Exact no-change/edge-case semantics and payloads still follow the
+existing operation contracts or require specification, not speculative locks.
+
+## Superseded review proposal — not current requirements
+
+The owner replaced the overall policy instead of approving/correcting the
+25-item batch. Keep it below as historical proposal context only. Its old status
+labels refer to that earlier discussion; they do not override D-187 or require
+another numbered review. Do not restore its general comparisons or treat its
+unapproved alternatives as acceptance criteria.
+
+<details>
+<summary>Former 25-rule batch (superseded)</summary>
 
 [History and Undo](history-and-undo.md#33-immediate-action-synchronization) owns
 the confirmed publication/reconciliation model. This document collects the
@@ -235,7 +290,8 @@ combat/Stack (13, 16–18), exposure/randomness (9–10, 19–20), bulk/correcti
 every shared mutation. This is coverage of locking behavior, not a claim that
 all feature details are complete.
 
-Review/correct the numbered items as one batch. No proposed item becomes a
-confirmed acceptance requirement until the owner responds. Exact payloads,
-ordered transport, queue capacity, mutation cleanup decomposition, animation
-scheduling and connection-loss recovery remain separate specification work.
+The review request for this list was superseded by D-187. Exact payloads, ordered
+transport, queue capacity, mutation cleanup decomposition, animation scheduling
+and connection-loss recovery remain separate specification work.
+
+</details>

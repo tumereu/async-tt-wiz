@@ -102,7 +102,8 @@ human examples covering:
 
 - Authentication/session lifecycle, device registration, invitations, membership.
 - Game creation/setup/list/read, incremental history sync, node retrieval.
-- Automatic action publication, action-specific from/to optimistic locks,
+- Automatic publication, permissive current-state acceptance with limited
+  movement/Stack optimistic guards (D-187),
   explicit interruption intent and activation, switch branch,
   rollback, archive/restore, undo/redo, and incremental grouping edits.
 - Context messages, review progress, completion/rematch, deck/catalog access.

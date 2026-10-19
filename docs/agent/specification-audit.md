@@ -24,11 +24,20 @@ from the plain-language summary and tier reorganization.
 - **D-179 replaces automatic conflict forks.** Historical D-13/conflict references
   do not authorize branching on stale ordinary edits. Historical continuation
   needs deliberate UI intent and an explicit server-message flag/boundary; Undo
-  supplies intent automatically. Ordinary actions validate from/to conditions at
-  the current head and append or reject. D-176/D-177 still define mutation units
+  supplies intent automatically. D-187 now normally applies ordinary actions to
+  current state with limited movement/Stack guards, not general old-field checks.
+  D-176/D-177 still define mutation units
   and playback, not unconditional fixed-parent publication from a review cursor.
   P-11's conflict-activation protocol and the assistant's four-rule proposal are
-  superseded/unapproved; per-action locking and rejection/queue recovery remain open.
+  superseded/unapproved; exact guarded movement/Stack representation and recovery remain open.
+- **D-187 replaces broad optimistic locking.** Reject ordinary actions only when
+  genuinely impossible; previous orientation/note/Set values are not locks.
+  D-181's comparisons and D-186's Set comparison are superseded. Card moves retain
+  source/destination guards; real-card Stack entries/new Stack projections send
+  current client Stack state and reject if server Stack state differs. No separate
+  unseen-opponent detector or whole-game-head lock. The 25-rule proposal is
+  historical/unapproved, not a list to restore; snapshot representation and
+  provisional references remain technical design, not a missing comparator choice.
 - **D-182 cuts offline actions from initial delivery.** Downloaded history remains
   read-only offline. Earlier offline-play, Undo, Reset and random-action queue
   references are superseded, including historical decision scope; do not restore

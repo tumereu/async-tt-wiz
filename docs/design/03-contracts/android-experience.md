@@ -130,7 +130,8 @@ available when viewing history or an inactive branch; it must not discard drafts
 4. Continue playback or explicitly choose to continue play at that historical
    node before editing. D-179 requires deliberate continuation intent; navigation
    alone does not supply it. Undo supplies it automatically. Ordinary edits
-   otherwise use current-head from/to validation, not automatic historical forks.
+   otherwise use D-187 current-state acceptance with limited move/Stack guards,
+   not automatic historical forks.
 5. At the latest mutation, identify the current state without implying priority
    passing, legality approval or consent.
 
@@ -355,10 +356,14 @@ images fall back to text; an unavailable card definition must not prevent inspec
 an existing object's stored essential data. Joining an unknown game or importing
 unknown catalog entries may require connectivity and must say so.
 
-An online-pending action is not labeled delivered. D-179 attempts ordinary edits
-at the current head using their action-specific from/to conditions: accept if both hold,
-reject otherwise. Do not make an accidental branch because the view was stale or
-another player acted. D-180 requires immediate local state updates to hide latency;
+An online-pending action is not labeled delivered. D-187 normally applies ordinary
+edits to current state unless impossible, without previous orientation/text/Set
+comparisons. Move source/destination guards and Stack-state comparison are
+exceptions: Stack additions send the client's current Stack state and reject if
+the server's Stack state differs. No seen/opponent detector, priority model or
+whole-game-head lock. D-179 still prohibits accidental branches from stale views
+or concurrency.
+D-180 requires immediate local state updates to hide latency;
 on rejection, animate the predicted change backward as if undone. The animation
 explains the correction without a required text explanation or acknowledgement.
 This does not publish a shared Undo, create a branch or undo the opponent's work.

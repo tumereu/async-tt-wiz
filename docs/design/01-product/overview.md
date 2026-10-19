@@ -30,9 +30,11 @@ The app remembers and presents what happened; the players interpret the rules.
    a boundary, retain the old continuation, and undo mistakes. Exactly one line
    is active. Going back to continue from an earlier state requires an explicit
    choice; Undo supplies that intent automatically. Ordinary concurrent edits
-   apply at the current head only if their action-specific conditions still hold;
-   otherwise they are rejected, not turned into branches. Undo
-   moves the shared active pointer one parent node back, regardless of author.
+   normally apply at the current head unless impossible. Optimistic conflict
+   guards are limited to moves and Stack additions: an addition sends the current
+   Stack state and is rejected if it differs on the server. Rejection never
+   creates a branch. Undo moves the shared active pointer one parent node back,
+   regardless of author.
    Retained alternatives permit forward return; ordinary abandoned continuations
    hide behind a toggle, while exposure/comment continuations stay fully visible.
    Groups are playback steps whose changes animate concurrently, not tree nodes.

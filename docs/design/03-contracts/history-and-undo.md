@@ -1,15 +1,15 @@
 # 3. History, review, and undo
 
 This is the core behavioral contract. Branching, recovery, instant sync, low-tap
-UX, deliberate interruption and action-specific optimistic locking are owner
+UX, deliberate interruption and limited optimistic locking are owner
 decisions; detailed mechanisms below remain proposed where not explicitly confirmed.
 
 **Initial-delivery connectivity (D-182):** making game actions and shared controls
 requires a connection. Downloaded history remains readable/reviewable offline;
 personal traversal is not shared Undo or activation. Do not create offline game
 mutations or an action queue for later synchronization. D-180 optimistic updates
-and D-179/D-181 locking still apply to online actions. Connection loss during an
-already-started online request is a narrower recovery problem, not permission to
+and D-187's permissive acceptance/limited guards apply online. Connection loss
+during an already-started online request is a narrower recovery problem, not permission to
 continue playing offline; its exact outcome/retry flow remains open.
 
 D-183 clarifies that online-only does **not** mean one action at a time or no
@@ -137,8 +137,8 @@ incoming history does not silently move a historical cursor.
 
 **Confirmed online pipeline (D-183):** queue actions individually in a small local
 send queue and send concurrently. Each action applies or fails individually under
-its own D-179/D-181 checks; one rejection is not a whole-sequence rejection or a
-reason to cancel another valid action. Do not gate normal interaction behind an
+its own D-187 validation/exception guards; one rejection is not a whole-sequence
+rejection or a reason to cancel another valid action. Do not gate normal interaction behind an
 earlier acknowledgement or turn the queue into an atomic bulk commit. D-180
 animations reconcile individual results and incoming opponent mutations.
 
@@ -187,39 +187,52 @@ Proposed action lifecycle:
 5. Mark the local result synchronized on acknowledgement; otherwise retain it
    visibly as pending, retryable, or failed work.
 
-Publishing submits action-specific from/to conditions, explicit interruption
-intent and its chosen boundary when applicable, action data, and group references.
+Publishing submits the requested operation and any limited movement/Stack guards,
+explicit interruption intent and its chosen boundary when applicable, action data,
+and group references (D-187).
 Exact wire fields remain technical design. “Publish” names a protocol
 operation, not an extra interaction. Transport batching is allowed only without
 deliberately waiting to gather a group; every action boundary remains intact.
 
 - Without explicit historical-continuation intent, attempt the action at the
   current shared head. A changed head alone is not grounds for rejection or a fork.
-- Both action-specific from/to conditions must hold there. If they do, append the
-  mutation to that head, preserving unrelated intervening changes. Otherwise reject
-  the action without a game-state mutation or branch. Do not silently change its
-  requested source, destination or expected values to make it succeed.
+- **Confirmed default acceptance (D-187):** apply ordinary actions to current state
+  unless performing the requested operation is genuinely impossible. Changed
+  orientation, text, counters or a game/card revision is not by itself a conflict.
+  Absolute edits write the requested value; relative edits operate on current
+  applicable data. Do not compare previous field values for taps, notes, Set or
+  other ordinary edits. Preserve unrelated fields and record actual accepted
+  before/after data for deterministic review/Undo, not a stale whole-card snapshot.
+  Access, valid input/references, applicability and structural invariants remain;
+  this is not permission to edit another game or perform arithmetic on unusable
+  text. Keep existing operation meanings, not arbitrary substitution or new effects.
+- Optimistic conflict guards are **exceptions**, currently card movement and
+  making Stack projections/entries. They can reject stale intent even when an
+  unguarded operation could be performed. Do not spread them into general
+  compare-previous-value checks. The [limited-locking policy](optimistic-locking.md)
+  supersedes the earlier 25-rule proposal, not approves it.
 - Example: moving a card into an empty position requires that the card still be
   at its stated source and the destination still be empty. Another unrelated
   action may have occurred without invalidating either check. This example does
   not prohibit approved drops onto occupied ordinary piles; those actions need
   their own destination conditions.
-- **Confirmed lock granularity (D-181):** check only the state relevant to the
-  action, not the whole card or game revision. A tap/orientation edit checks the
-  previous orientation; a note edit checks the previous note text. Neither fails
-  merely because the card moved, provided the action remains applicable. Preserve
-  unrelated current fields rather than restoring a whole stale card snapshot.
-  Relevant-field locking does not waive object existence, applicability or
-  destination/structural constraints. Exact relevant conditions for remaining
-  action categories still need contracts; detailed pending-queue composition is
-  not settled by this rule.
-- **Confirmed existing-counter rule (D-186):** +/- applies its delta to the current
-  numeric value, so two concurrent +1s both count. Set compares the previous
-  stored value before replacing it; a stale Set fails instead of overwriting a
-  concurrent adjustment. Keep numeric applicability checks and record actual
-  accepted before/after values for deterministic replay and parent-step Undo.
-  This approval does not decide absent/deleted counters, corner-text arithmetic
-  or the other categories in the [single review batch](optimistic-locking.md).
+- **Stack safeguard (D-187, clarified by owner):** moving a real card to Stack or
+  creating a Stack projection includes the client's current Stack state in the
+  request. Compare it with authoritative current Stack state when processing;
+  if different, reject that request. Compare and apply atomically, so two additions
+  with the same expected state cannot both change Stack successfully. This guards
+  against unintentionally covering a concurrent opponent entry, but uses **state
+  equality**, not separate opponent/seen/read-receipt detection or a whole-game
+  head check. Subsequent local additions use the locally predicted Stack state
+  including earlier queued additions; do not wait for acknowledgements. Exact
+  snapshot encoding/equality representation and provisional-ID mapping remain
+  technical design, not the compare-and-reject behavior.
+- **Counter update (D-186 as revised by D-187):** +/- still applies its delta to
+  current numeric data. Set now writes its requested value without comparing the
+  previous number/text. A stale Set may replace a concurrent adjustment in arrival
+  order; record the actual overwritten value for Undo. D-187 supersedes D-181's
+  orientation/note comparisons and D-186's Set comparison, not relevant-field
+  preservation, numeric applicability or D-185 reconciliation.
 - Only an explicit UI choice to go back and continue, recorded as an interruption
   flag with the selected historical boundary, authorizes a new historical branch.
   Its first accepted mutation creates and activates that continuation. Undo supplies
@@ -686,8 +699,8 @@ onto a new branch. No runtime priority/legality enforcement is added.
 5. Continue playback from that node, or explicitly choose to continue play there
    before using ordinary game controls. D-179 requires deliberate continuation
    intent for a historical branch, not just a paused cursor. Undo supplies that
-   intent automatically. Without it, ordinary edits use current-head from/to
-   validation; a navigation/group boundary does not become a parent node.
+   intent automatically. Without it, ordinary edits use D-187 current-state
+   acceptance/limited guards; a navigation/group boundary does not become a parent node.
 
 Backward/forward playback and scrubbing are personal traversal, not new Undo,
 activation or mutation publications. Preserve retained alternatives and pending

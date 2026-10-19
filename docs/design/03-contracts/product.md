@@ -38,7 +38,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-014 | Cover the manual actions needed to play MTG, rather than a small subset limited to a demonstration game. |
 | P-015 | Every individual mutation immediately saves locally and synchronizes automatically; there is no gameplay Send step, bulk/group publication gate or animation dependency (D-176). D-179 determines its accepted parent. D-183 requires a small local online send queue, concurrent transmission and per-action outcomes without routine acknowledgement waits. D-184 requires clients to send in action order and the server to process in arrival order, not reconstruct order from dependency metadata. |
 | P-016 | Minimize taps and other user actions throughout the UX. |
-| P-017 | Branching from the past requires deliberate UI continuation intent and an explicit message flag; Undo supplies intent automatically. Without that intent, validate action-specific from/to conditions at the current head, append if valid and reject otherwise. Concurrent changes alone never create a branch (D-179, superseding D-13). |
+| P-017 | Historical branching requires deliberate UI continuation intent and an explicit message flag; Undo supplies intent automatically (D-179). Otherwise apply ordinary actions to current state unless impossible, with optimistic guards limited to movement and Stack additions (D-187). Stack-entry requests include current client Stack state and reject if server Stack state differs. No previous orientation/text/Set checks; concurrency/rejection never creates a branch. |
 | P-018 | Drag cards to move them; drops snap to grid locations or slots. |
 | P-019 | Cards can form piles with underlying cards peeking out diagonally. |
 | P-020 | Single tap taps a card; double tap opens all available actions; hold shows large art/text. |
@@ -158,8 +158,10 @@ represent their own play, not that the engine recognizes those mechanics.
 5. **No secret security claims.** A face-down card is a display convention.
 6. **Branch deliberately; validate ordinary edits.** Explicitly continuing from
    the past preserves the original future and makes the new line current. Ordinary
-   edits can follow compatible concurrent changes, but failed from/to conditions
-   reject them rather than overwrite state or create accidental branches (D-179).
+   edits normally apply to current state unless impossible. Only movement and
+   Stack additions have optimistic conflict guards (D-187); rejection never
+   creates an accidental branch. Ordinary absolute edits may replace a field
+   changed meanwhile, while preserving unrelated state.
 7. **The board is understandable without the chat.** Actions carry sufficient
    structured details to explain state changes.
 8. **Mobile-first interaction.** No required right-click, hover, keyboard, or
@@ -193,7 +195,7 @@ represent their own play, not that the engine recognizes those mechanics.
 | Draft | Recoverable local work not yet shared: pending actions, failed work, or incomplete input. Not a required pre-send phase. |
 | Interrupt | Explicitly choose to continue from an earlier boundary, then create and activate that continuation; the message carries that intent. Undo supplies continuation intent automatically (D-179). |
 | Publish | Automatically synchronize a completed local action to shared history. A protocol operation, not a required button. |
-| Optimistic lock | Action-specific from/to conditions checked at the current head before an ordinary edit is accepted. Failed checks reject the edit; they do not create a conflict branch (D-179). |
+| Optimistic lock | Exceptional stale-intent guard for movement or Stack additions, not a default previous-value check on ordinary edits (D-187). Failure rejects that action without a conflict branch. |
 | Archive/delete | Reversibly hide a branch, without erasing its contents. |
 | Undo | Move the shared active game-state pointer to its parent node, regardless of author, retaining descendants for forward return. |
 

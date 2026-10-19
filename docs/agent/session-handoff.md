@@ -16,17 +16,23 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest counter decision and review request — D-186:** existing-counter +/-
-applies to the current numeric value, while Set checks the previous value before
-replacement. Record actual accepted before/after values; numeric applicability
-still holds. Owner requests **all optimistic-locking rules in one batch**, not
-further per-action questions. The [numbered review](../design/03-contracts/optimistic-locking.md)
-collects 25 rules covering the action catalog, with confirmed portions explicitly
-marked and every proposed extension still awaiting review/correction. In
-particular absent/deleted counters, corner/named-value arithmetic, removal,
-reset/cleanup, projections and non-Undo control conditions are not yet approved.
-Use the same numbers when incorporating corrections; do not infer blanket approval
-or implement. T-383–T-386 cover only D-186's confirmed existing-counter rule.
+**Latest acceptance correction — D-187:** owner changed their mind: normally
+accept ordinary actions unless genuinely impossible. Do not compare old
+orientation, note text, counter Set or other ordinary field values. Absolute
+edits apply requested values to current state; relative edits use current
+applicable data, preserving unrelated fields and actual before/after history.
+Only card movement and Stack additions/projection creation have optimistic
+conflict guards. Moves retain source/destination checks. Owner clarified the
+Stack rule: **send current client Stack state with the request; compare against
+current server Stack state and reject if different**. Compare-and-apply atomically;
+no opponent/seen/read-receipt detector or whole-game-head lock. Later queued
+entries use locally predicted pre-action Stack state without acknowledgement
+waits. Exact snapshot encoding/equality representation and provisional-ID mapping
+remain technical design. The [25-rule batch](../design/03-contracts/optimistic-locking.md)
+is superseded, not approved or awaiting numbered review. Preserve D-161 Undo,
+D-179 deliberate branches and D-183–D-185 pipeline/reconciliation. Do not infer
+new feature scope or implementation authorization. See T-387–T-395 and corrected
+T-363–T-366/T-384; D-186 deltas remain, but its Set comparison is superseded.
 
 **Latest reconciliation clarification — D-185:** current-board reconciliation
 targets accepted history plus remaining valid local predictions and animates only
@@ -82,13 +88,10 @@ pending work remains open. The assistant's proposal to proceed with independent
 queued actions and retain dependent ones was not approved by this answer.
 See history section 3.3 and T-358–T-362.
 
-**D-181 follow-up:** lock only state relevant to the action. Tapping checks previous
-orientation; editing a note checks previous text. Neither fails merely because the
-card moved if the action remains applicable. Preserve unrelated current fields;
-no whole-card/game revision lock or stale whole-card replacement. Object existence,
-applicability and structural/destination constraints remain. Exact remaining
-action-category conditions and pending-queue recovery/composition are still open;
-do not reopen this granularity rule as an undecided policy. T-363–T-366 cover it.
+**Historical D-181:** relevant-field preservation and no whole-card replacement
+remain. D-187 supersedes previous orientation/note comparisons; ordinary actions
+normally apply to current state, with actual applicability/structure checks.
+Do not restore the historical comparisons from older summaries/tests.
 
 The owner rejected automatic conflict branching. An interruption must be a
 deliberate UI choice to go back and continue from a chosen state, carried by an
@@ -96,8 +99,9 @@ explicit flag and boundary in the server message. Undo supplies continuation
 intent in the background, without another user step. Scrubbing, a stale view or
 editing an inactive line alone is not permission to branch.
 
-Otherwise attempt the action at the current server head using action-specific
-optimistic locking: both from/to conditions must hold. A move into empty space
+Otherwise apply the action at the current server head under D-187's permissive
+baseline and limited guards. For movement, both source/destination conditions
+must hold. A move into empty space
 requires the card still at its stated source and the destination still empty.
 Compatible intervening work does not invalidate the action; append at the current
 head if valid, reject if not, with no implicit fork. Approved pile joins need their
@@ -108,7 +112,7 @@ D-179 supersedes D-13/P-11 and implicit edit-from-review/always-fixed-parent
 readings of D-176/D-177, not one mutation per node, immediate publication or
 personal animated playback. The assistant's preceding four-rule conflict proposal
 was not approved. Do not resume the no-ping-pong conflict-branch questionnaire.
-Remaining substantial work: per-action lock conditions, exact reconciliation
+Remaining substantial work: precise move guards and Stack snapshot representation, exact reconciliation
 bookkeeping/scheduling within D-185, connection loss during requests,
 simultaneous explicit interruptions and stale non-Undo controls. Exact wire fields
 and final continuation-control layout are not yet decided. Primary behavior is
@@ -291,7 +295,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-186** and **T-001–T-386**.
+- Current documentation includes **D-001–D-187** and **T-001–T-395**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

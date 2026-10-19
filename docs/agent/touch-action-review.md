@@ -5,6 +5,18 @@ earlier touch decisions as requirements/history, but current new decisions focus
 on behavior. Adversarial review/refinement is stage 2, UI drafts/concrete controls
 stage 3, and iterative implementation stage 4+. No implementation is authorized.
 
+**Latest acceptance correction (D-187):** normally accept ordinary actions unless
+truly impossible. No general previous orientation/text/Set comparisons. Card
+moves keep source/destination guards; Stack entries/new projections send current
+client Stack state and reject if different from current server Stack state.
+Compare-and-apply atomically; no opponent/seen detector or whole-game-head lock.
+Use predicted pre-action Stack state for later local queued entries without
+acknowledgement waits. Snapshot encoding/equality representation and provisional
+references remain technical design. D-187 supersedes D-181's old-field checks,
+D-186's Set comparison and the old 25-rule review below; preserve deltas,
+unrelated fields, explicit historical intent and D-185 reconciliation. Do not
+restart the old numbered review or treat it as approved. See T-387–T-395.
+
 **Current model (D-176/D-177):** one individual mutation per node, including
 ordered individual operations from bulk controls. Every mutation immediately
 extends/branches the chosen path and publishes. Groups are playback steps with
@@ -67,14 +79,11 @@ Acknowledgement alone adds no animation; do not fabricate server outcomes or
 rewrite requests. Exact bookkeeping/scheduling remains open, and D-177 deliberate
 history/interruption playback is unchanged. See T-378–T-382.
 
-D-186 confirms existing-counter current-value +/- deltas and previous-value-
-checked Set. The owner now requests all optimistic-locking rules in a **single
-review batch**, not more per-category questions. See the
-[25 numbered rules](../design/03-contracts/optimistic-locking.md): only explicitly
-confirmed portions are requirements; absent/deleted counters and every proposed
-extension remain unapproved. Incorporate corrections by number and preserve
-unsettled capability scope; no implementation is authorized. T-383–T-386 cover
-the approved existing-counter rule only.
+Historical D-186 confirmed current-value counter deltas and a Set comparison;
+D-187 keeps deltas but removes that comparison. The requested
+[25-rule review](../design/03-contracts/optimistic-locking.md) was superseded by
+the new permissive baseline, not approved. Do not continue its pending numbered
+review or infer its absent-counter/cleanup/Clone/other detailed policies.
 
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and

@@ -74,10 +74,10 @@ not tree structure. Both shared and client displayed-state references identify
 nodes, never groups. D-177 specifies animated backward/forward traversal on
 resume and exact mutation selection through the paused bottom timeline.
 
-D-179 refines accepted ancestry without changing the mutation unit: ordinary
-actions append at the current head if their action-specific from/to conditions
-hold, otherwise they are rejected. Deliberate historical continuation carries an
-explicit flag and boundary; Undo supplies that intent automatically. A local
+D-179/D-187 refine accepted ancestry without changing the mutation unit: ordinary
+actions apply at the current head unless impossible, with exceptional movement/
+Stack guards rather than general previous-value comparisons. Deliberate historical
+continuation carries an explicit flag and boundary; Undo supplies that intent automatically. A local
 last-seen parent is not a blanket server head lock or implicit fork request.
 Persist the accepted parent and deterministic transition so replay includes
 intervening compatible edits. Exact pending-to-accepted node mapping remains open.
@@ -264,14 +264,14 @@ counters for empty text, and leaves absence unchanged for empty text. Absence is
 zero only as an arithmetic starting point, not a visible intermediate counter.
 No recolor action is needed, and target/color uniqueness remains.
 
-D-186 confirms that an existing counter's +/- operation adjusts the current
-numeric value at acceptance, not a stale client number. Set checks the previous
-stored value before replacement. Accepted history retains the actual before/after
-values; replay/Undo use that recorded mutation, not a fresh application of the
-original delta to whatever is now current. Numeric applicability remains. Exact
-absent/deleted-counter concurrency and extensions to corner/named-value arithmetic
-are proposed in the [single locking review batch](optimistic-locking.md), not
-settled by D-186.
+D-186/D-187: an existing counter's +/- adjusts the current numeric value at
+acceptance, not a stale client number. Set writes the requested value without
+comparing previous text/number, including after a concurrent adjustment. Accepted
+history retains actual before/after values; replay/Undo use that recorded mutation,
+not renewed arithmetic or an old client snapshot. Numeric applicability and
+existing absent-counter behavior remain. D-187's
+[limited-locking policy](optimistic-locking.md) supersedes broad previous-value
+locks and the 25-rule proposal without approving its category-specific details.
 
 D-67 also fixes selection applicability: evaluate the chosen action per target,
 skip targets on which it would be unusable, and enable the mass action if at

@@ -368,9 +368,12 @@ The general rules are:
 - This just ensures both understand what is happening; no win-history or
   scorekeeping feature is required. End turn, leaving the screen and cancelling
   an unstarted game remain separate actions.
-- Competing/replaced suggestions, stale acceptance,
-  returned-lobby preparation/Ready/reset, subsequent games and prior-session
-  history behavior remain open in the
+- On return, restore the last lobby-prepared decks and mainboard/sideboard
+  choices, not the final in-game card state or updated saved decks. **Clear both
+  players' Ready**; both must ready again before a fresh game starts. Ordinary
+  starting setup applies again, including fresh shuffles, 20 life and no automatic draw.
+- Competing/replaced suggestions, stale acceptance, prior-session history and
+  starter-selection retention/random resolution across games remain open in the
   [lifecycle contract](../03-contracts/accounts-decks-and-lobby.md).
 
 ### 11. Offline and failure behavior

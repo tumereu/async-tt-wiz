@@ -443,8 +443,9 @@ other player must accept before both return to lobby. This supersedes D-210's
 unilateral, non-undoable End game design; do not apply that exception to suggestions.
 D-212 separately confirms that acceptance/return to lobby is **not undoable**.
 Do not use Undo to reverse that transition or reopen the ended play session;
-pending suggestions remain ordinary undoable board state. Returned-lobby setup
-and prior-session history behavior remain open in the
+pending suggestions remain ordinary undoable board state. D-213 restores the
+last prepared decks/mainboard/sideboard, clears both Ready and requires both
+players to ready again for a fresh game. Prior-session history behavior remains open in the
 [lifecycle contract](accounts-decks-and-lobby.md). Non-undoable acceptance does
 not authorize deleting prior history.
 

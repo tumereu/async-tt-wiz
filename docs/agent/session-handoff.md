@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-212:** owner requires login before the main
+**Latest setup decisions — D-188–D-213:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -113,10 +113,16 @@ keep D-210's blanket Undo prohibition, unilateral confirmation, or assume an
 additional dialog. Suggestions use normal mutation/Undo. D-212 separately confirms
 **acceptance/return to lobby is not undoable** (T-469, corrected T-025/T-467).
 Do not reopen ended play through Undo or apply non-undoability to pending suggestions.
-This is a specific U-001 exception, not a revival of D-210. Also open:
-competing/replaced/stale suggestions, returned-lobby preparation/Ready/reset and
-subsequent fresh-game/history behavior. Next topic: returned-lobby setup. Narrower invite races/
-presentation and additional optional areas remain open. Do not reopen invitation
+This is a specific U-001 exception, not a revival of D-210. D-213 approves all
+three return-to-lobby recommendations: restore last lobby-prepared decks and
+mainboard/sideboard choices, clear both Ready and require both players to ready
+again for a fresh game (T-470–T-472). Use game-local preparation, not final
+gameplay state or updated saved decks. The fresh start uses ordinary setup,
+without automatic opening draw; do not auto-restart on previous readiness.
+Prior-session history, cross-game starter-selection retention/random timing and
+competing/replaced/stale suggestions remain open. Next useful topic: prior-session
+history versus a fresh game's history, not win-history/scorekeeping. Narrower invite
+races/presentation and additional optional areas remain open. Do not reopen invitation
 expiry, starter options, initial placement or tiny cover-art variants.
 Exact search/contact removal/privacy, remaining invitation lifecycle, starter
 defaults/access/random timing, lobby/game history, account flows and other initial values remain open.
@@ -402,7 +408,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-212** and **T-001–T-469**.
+- Current documentation includes **D-001–D-213** and **T-001–T-472**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -96,8 +96,12 @@ feature is required. Do not preserve D-210's blanket Undo exception, unilateral
 confirmation or infer an additional dialog. D-212 separately makes acceptance/
 return to lobby non-undoable (T-469); pending suggestions remain undoable.
 Preserve this specific U-001 exception without reviving D-210. Competing/replaced/
-stale suggestions, returned-lobby preparation/Ready/reset, subsequent fresh games
-and prior history remain open. Next topic: returned-lobby setup.
+stale suggestions and prior history remain open. D-213 restores last lobby-prepared
+decks/mainboard/sideboard, clears both Ready and requires both players to ready
+again for a fresh game (T-470–T-472). Restore game-local preparation, not final
+gameplay state or updated saved decks; no automatic restart. Fresh games use normal
+starting setup. Cross-game starter-selection retention/random timing remains open.
+Next topic: prior-session history versus a fresh game's history, not scorekeeping.
 Narrower invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck

@@ -94,8 +94,10 @@ state. The other player must accept; acceptance returns both players to the lobb
 No win-history/scorekeeping feature is required. This supersedes D-210's unilateral
 confirmation-dialog/non-undoable End game. D-212 separately makes acceptance/return
 to lobby non-undoable, not the pending suggestion. Competing/replaced suggestions,
-stale acceptance, returned-lobby setup and prior-session
-history behavior remain open. Do not infer an extra confirmation dialog.
+stale acceptance and prior-session history behavior remain open. D-213 restores
+last lobby-prepared decks/mainboard/sideboard on return, clears both Ready and
+requires both players to ready again for a fresh game. Starter-selection retention/
+random resolution across games remains open. Do not infer an extra confirmation dialog.
 
 For the inviter, a pending invitation is already an open lobby: allow deck
 preparation/Ready before acceptance, and use Cancel game to cancel its pending

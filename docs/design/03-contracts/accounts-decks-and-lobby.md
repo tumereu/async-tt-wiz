@@ -194,8 +194,10 @@ automatic card operations merely from entering that step.
   checking readiness. A cleared Ready must be supplied again; do not start using
   that player's previous Ready. If play has already started, reject the late
   lobby edit/withdrawal without changing the started game or reopening its lobby.
-- **Start the game only once.** Retries recover the existing start and recorded
+- **Apply each game's start only once.** Retries recover that start and recorded
   shuffle outcomes, not a second start, new shuffle or life reset (D-200).
+  A deliberately started fresh game after returning to lobby is a new start
+  under D-213, not a retry of the ended game's start.
 
 Starter defaults/access/random-resolution timing and the lobby-versus-game
 history/Undo boundary remain open. These rules do not introduce a separate host
@@ -243,9 +245,29 @@ Start action or require online presence from both participants.
   design. Do not retain that blanket Undo prohibition or infer an extra confirmation
   dialog on top of proposal/acceptance. End turn, leaving a screen and cancelling
   an unstarted game remain separate actions.
-- Competing/replaced suggestions and stale acceptance, returned-lobby preparation/Ready/reset,
-  subsequent fresh games and prior-session history behavior remain open. Do not
-  infer automatic restarting, permanent history deletion or a score archive.
+- Competing/replaced suggestions, stale acceptance and prior-session history
+  behavior remain open. D-213 defines returned-lobby preparation and readiness
+  below. Do not infer automatic restarting, permanent history deletion or a score archive.
+
+## Returned-lobby preparation and a fresh game — D-213
+
+- **Restore each player's last lobby-prepared deck and mainboard/sideboard
+  choices.** Use the game-local preparation used for the game that just ended,
+  not the final positions/state of cards during play or an automatic refresh
+  from the saved deck. Saved-deck isolation remains unchanged (D-191/D-199).
+- **Clear both players' Ready when returning after accepted game end.** This
+  lifecycle reset is distinct from the own-Ready clearing for lobby preparation/
+  starter edits (D-191/D-204), and from merely leaving the lobby (D-205).
+- **Both players must ready again before a fresh game starts.** Do not restart
+  automatically on returning or carry previous readiness into the next game.
+  Players can prepare/change decks in the lobby through the existing controls.
+- A fresh start uses the ordinary setup rules: prepared mainboards in Library,
+  automatic fresh shuffles, 20 life each, other card areas empty, turn 1 at Untap
+  and no automatic opening draws. Sideboard is again unavailable during play.
+  Retrying that same fresh start reuses its recorded outcomes, not another start.
+- Prior-session history access/retention and exact starter-selection retention/
+  random-resolution behavior across games remain open. This does not approve
+  win-history/scorekeeping, reopening ended play or deletion of its history.
 
 ## Initial placement and lobby-only Sideboard — D-202
 
@@ -263,8 +285,9 @@ Start action or require online presence from both participants.
   Sideboard area, contents browser, or card/action path to view, edit or move cards
   into/from that sideboard. This is not merely a covered pile or a collapsed dock.
 - This does not delete the saved deck's sideboard or merge those cards into the
-  Library. The saved-deck isolation rules remain. Exact retention of lobby setup
-  data and any later rematch/return-to-lobby flow remain open.
+  Library. The saved-deck isolation rules remain. D-213 restores the last
+  lobby-prepared mainboard/sideboard when returning after an accepted ending;
+  prior-session history behavior remains open.
 
 This supersedes older proposals for an in-game Sideboard/extra-container access
 path. It is a product lifecycle boundary, not card-text or sideboarding-legality
@@ -361,10 +384,12 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   shortcut work: per-card mutation order, concurrent count timing and count edges.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
-- Result-suggestion replacement/competition and stale acceptance;
-  returned-lobby preparation/Ready/reset and subsequent-game
-  behavior. D-211 confirms undoable suggestions, other-player acceptance, return
+- Result-suggestion replacement/competition and stale acceptance; prior-session
+  history and starter-selection retention/random resolution across games.
+  D-211 confirms undoable suggestions, other-player acceptance, return
   of both players to lobby and no required win-history feature, superseding D-210.
   D-212 makes acceptance/return to lobby non-undoable, not the pending suggestion.
+  D-213 restores the last lobby-prepared decks/mainboard/sideboard, clears both
+  Ready and requires both to ready again for a fresh game.
 
 These are behavior gaps, not authorization for application code or UI drafts.

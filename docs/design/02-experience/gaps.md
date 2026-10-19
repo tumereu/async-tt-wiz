@@ -63,8 +63,10 @@ obligation or behavior is still proposed:
   the other player accepts, then both return to lobby**. No win-history/scorekeeping
   feature is required. D-212 makes acceptance/return to lobby non-undoable while
   pending suggestions remain undoable. Competing/replaced suggestions,
-  stale acceptance, returned-lobby preparation/Ready/reset, subsequent fresh games,
-  prior-session history and complete game/history export remain open.
+  stale acceptance, prior-session history, starter-selection retention/random
+  resolution across games and complete game/history export remain open. D-213
+  restores the last prepared decks/mainboard/sideboard on return, clears both
+  Ready and requires both to ready again for a fresh game.
 - Detailed review navigation, branch comparison/rename/switch/archive controls,
   optional manual group editing, live-follow, cross-device progress, response
   requests, notifications, and ephemeral presence.
@@ -108,11 +110,14 @@ old future after a response. Exact overall release scope still needs sign-off.
    online presence, start-versus-change ordering and one-time start recovery. Also open:
    remaining mulligan per-card sequencing/concurrent count timing/count edges,
    missing cards,
-   returned-lobby reset/subsequent-game/history behavior after End game, export,
+   prior-session history and starter-selection retention/random resolution after
+   returning to lobby, export,
    and which broader authoring/correction tools ship. D-211 settles undoable
    win/loss/draw suggestions and other-player acceptance returning both to lobby;
    D-212 settles non-undoable acceptance; competing/stale suggestions remain open. No
    win-history feature is required, and D-210's blanket non-undoability is superseded.
+   D-213 settles restored lobby-prepared decks/mainboard/sideboard, both Ready
+   cleared on return and both-player readiness required for a fresh game.
    D-192 excludes automatic opening draws; mulligan quick actions are required,
    not optional scope or a manual-moves-only procedure.
 2. **History groups and pings.** D-162–D-175 establish the core sequence/marker

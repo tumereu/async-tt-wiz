@@ -311,6 +311,11 @@ The general rules are:
   (D-182). Show connection and online-pending/accepted/rejected states honestly.
   Preserve recoverable unfinished input and records of already-started online
   requests; this does not authorize offline action submission.
+- Online actions have a small local send queue and are sent concurrently. Each
+  succeeds or fails individually under its own checks; one failure does not cancel
+  another valid action or the whole sequence. Continue normal local interaction
+  immediately rather than waiting for acknowledgements, hiding network latency
+  wherever practical (D-183). This is not extended offline gameplay.
 - Sync resumes automatically; retries must not duplicate actions or random results.
   Structural errors remain explicit recoverable failures, not excuses to lose
   selected cards or merge competing boards. Exact handling of a connection lost

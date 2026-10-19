@@ -21,6 +21,8 @@ The app remembers and presents what happened; the players interpret the rules.
    Send, mandatory explanations, grouping chores, or routine confirmations. Each
    tree node is one mutation, such as moving or tapping one card; bulk controls
    issue an ordered sequence of individual operations, not one atomic bulk node.
+   A small local send queue transmits actions concurrently; each succeeds or fails
+   individually. Normal interaction does not wait for network acknowledgements.
 6. **History is inspectable and recoverable.** Step through actions, interrupt at
    a boundary, retain the old continuation, and undo mistakes. Exactly one line
    is active. Going back to continue from an earlier state requires an explicit

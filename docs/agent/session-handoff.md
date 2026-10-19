@@ -16,6 +16,17 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
+**Latest clarification — D-183:** allow a small local online send queue, with
+individual actions sent concurrently and applying/failing individually. Keep
+normal interaction responsive through immediate local updates; users should not
+notice network delay for most, ideally all, controls. A rejection is not whole-
+queue/sequence cancellation, and online-only does not mean no queue or one request
+at a time. The assistant's pause-until-resolved interaction-gate proposal was not
+approved. D-182 still excludes extended offline gameplay. Exact sizing/saturation,
+wire ordering/new-object dependencies, animation composition and real connection-
+loss recovery remain open; do not turn those gaps into a routine acknowledgement
+barrier or another tiny per-control questionnaire. See T-371–T-374.
+
 **Latest scope correction — D-182:** initial delivery requires a connection to
 make game actions, including shared Undo/branch controls. Downloaded history is
 still readable offline, but there is no offline gameplay creation/queue replay.
@@ -248,7 +259,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-182** and **T-001–T-370**.
+- Current documentation includes **D-001–D-183** and **T-001–T-374**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

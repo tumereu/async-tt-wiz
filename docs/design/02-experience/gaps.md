@@ -80,6 +80,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    Online latency hiding remains, including recovery of requests that
    may already have reached the server when the connection drops. Exact readiness,
    uncertain-request recovery and overlapping online-pending animation are open.
+   D-183 confirms a small local online send queue, concurrent transmission and
+   individual action success/failure with no routine acknowledgement gate on
+   interaction. Remaining queue work is exact sizing/saturation, transport
+   ordering/dependency mechanics and animation composition—not whether concurrent
+   sending or individual outcomes are supported.
    D-179 replaces automatic conflict branching:
    explicit UI continuation intent and a message flag authorize an interruption;
    Undo supplies that intent automatically. Ordinary edits validate action-specific

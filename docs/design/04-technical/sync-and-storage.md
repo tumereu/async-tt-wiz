@@ -10,13 +10,19 @@ offline gameplay creation or queue replay on reconnect. Online optimistic update
 remain; uncertain delivery of an already-started online request still needs
 recovery, not an offline-play protocol.
 
+**D-183 clarification:** a small local send queue of individual online actions is
+required. Send actions concurrently and apply/fail each independently. Online-only
+does not authorize stop-and-wait transport or a blanket acknowledgement barrier
+on ordinary local interaction. The queue hides normal network delays, not enables
+extended disconnected gameplay.
+
 ## 6.1 Authority and local-first behavior
 
 Proposed topology: native Android clients plus a persistent shared service. The
 service serializes shared game control operations. Each client stores downloaded
-game history, a materialized board cache, personal review state, unfinished input
-and records needed to recover already-started online requests. This is not an
-offline action queue (D-182).
+game history, a materialized board cache, personal review state, unfinished input,
+a small local online send queue and records needed to recover in-flight requests.
+This is not an offline gameplay queue (D-182/D-183).
 
 There is one authoritative active game-state pointer/path per game on the service.
 It may point to an internal node with retained descendants after Undo. Online
@@ -78,19 +84,27 @@ continuation intent automatically. Proposed additional fields include an
 idempotency key, game ID, action data, dependency and group references. Exact
 field names, revision scopes and schema remain technical design.
 
-The former offline per-game queue proposal is not an initial-delivery requirement
-(D-182). Exact limits/composition for overlapping online requests remain open;
-online-only does not by itself approve one outstanding request at a time or an
-unbounded pending chain. Authoritative parent mapping must support accepted
-current-head actions without changing their from/to conditions or interruption
-intent. Preserve operation identity when resolving a request that may already
-have reached the server; do not resubmit it as a different action or random draw.
+D-183 requires individually queued actions and concurrent transmission. A slow
+acknowledgement must not routinely stall local interaction or prevent sending
+other actions. Each request has its own result: a failed action does not make
+another valid action fail as part of a rejected queue/sequence. Validate every
+action's unchanged from/to conditions individually at the current head; concurrent
+transport does not merge requests into an atomic group or remove server-side
+validation/application ordering.
+
+Authoritative parent mapping must support accepted current-head actions without
+changing their from/to conditions or interruption intent. Exact wire ordering,
+new-object/dependency handling, queue size/saturation and animation composition
+remain open; they must support the confirmed concurrent online pipeline, not
+restore stop-and-wait as a blanket policy. Preserve each operation's identity when
+resolving delivery uncertainty; do not resubmit as a different action/random draw.
 
 Proposed outcomes:
 
 | Situation | Outcome |
 | --- | --- |
 | Ordinary edit; from/to conditions hold at current head | Append there and advance the shared pointer atomically, even if other actions committed meanwhile. |
+| One of several concurrently sent ordinary actions fails | Reject only that action; another action whose own checks pass may still apply. Do not cancel/roll back the whole send queue or require a sequence-level retry (D-183). |
 | Ordinary edit; either from/to condition fails at current head | Reject without changing shared game state or creating a branch. Animate the predicted local mutation backward under D-180. Retain recoverable local work; detailed recovery/online-pending composition remains open. |
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
 | Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
@@ -101,7 +115,7 @@ Proposed outcomes:
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
 | Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
 | Invalid object/reference or structural constraint | Reject the affected publication with actionable structural error; explicit interruption cannot repair malformed actions. |
-| Base not yet synchronized | Resolve/upload the known parent chain first; do not substitute a different base. |
+| Explicit historical boundary or new-object reference not yet authoritative | Preserve the original reference/intent; exact dependency resolution remains protocol design. Do not substitute another historical base or impose a blanket acknowledgement-before-send policy on ordinary actions (D-183). |
 | Connection drops during an already-started online request | Outcome may be unknown, not necessarily rejected. Preserve operation identity and recoverable context; exact resolution/retry behavior remains open. No new offline gameplay queue or action creation (D-182). |
 
 **Confirmed D-179:** ordinary actions are attempted against the current head using
@@ -165,7 +179,9 @@ durable game history, and never replays stale offline presence as current activi
 ## 6.4 Online request durability
 
 D-182 supersedes the durable offline gameplay queue and its replay/dependency
-state machine. Do not implement it as an initial-delivery obligation.
+state machine. D-183 separately requires a small online send queue with concurrent
+transmission and per-action outcomes. Do not conflate the two or remove the online
+queue to avoid supporting offline play.
 
 Keep recoverable unfinished input separate from accepted game history. Persist
 enough context for an online request whose outcome may be unknown after network
@@ -176,8 +192,10 @@ request. Missing acknowledgement alone does not prove rejection or justify an
 Undo-like rollback as a known server rejection.
 
 Exact connection readiness, uncertain-request resolution, whether/how to retry,
-and overlapping online-pending limits/composition remain open. None of these
-permits new actions while disconnected or an offline gameplay replay queue.
+queue sizing/saturation and animation composition remain open. D-183 rules out a
+blanket wait-for-acknowledgement interaction gate; D-182 still excludes extended
+offline gameplay/replay. Do not interpret ordinary network latency as permission
+to freeze otherwise available local controls.
 
 D-105 requires no priority state or Pass record to queue, publish, or interrupt
 actions. Do not add priority-based publication ordering or legality rejection.

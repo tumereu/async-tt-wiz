@@ -12,6 +12,12 @@ and D-179/D-181 locking still apply to online actions. Connection loss during an
 already-started online request is a narrower recovery problem, not permission to
 continue playing offline; its exact outcome/retry flow remains open.
 
+D-183 clarifies that online-only does **not** mean one action at a time or no
+local send buffer. A small local queue holds individual actions for concurrent
+sending. Normal interaction applies locally immediately and must not routinely
+wait for network acknowledgements. This is online latency hiding, not extended
+offline play or an atomic queued sequence.
+
 ## 3.0 Current Undo model — parent-pointer navigation (D-159/D-160)
 
 **Confirmed.** The game has one
@@ -129,11 +135,20 @@ participant are also applied with animations, rather than unexplained board
 replacement. Preserve D-177 grouping and personal historical review positions;
 incoming history does not silently move a historical cursor.
 
+**Confirmed online pipeline (D-183):** queue actions individually in a small local
+send queue and send concurrently. Each action applies or fails individually under
+its own D-179/D-181 checks; one rejection is not a whole-sequence rejection or a
+reason to cancel another valid action. Do not gate normal interaction behind an
+earlier acknowledgement or turn the queue into an atomic bulk commit. D-180
+animations reconcile individual results and incoming opponent mutations.
+
 Acknowledgement of a predicted mutation must not apply it twice. Animation does
-not gate persistence, publication or server acceptance. Exact interleaving with
-later pending local work, rejection recovery and dependent-queue handling remain
-open. Final timing, reduced-motion/accessibility presentation and layout remain
-later design work.
+not gate persistence, publication or server acceptance. Exact animation composition,
+transport ordering/dependency mechanics, queue sizing/saturation and connection-loss
+recovery remain open; these must preserve concurrent sending and individual
+outcomes rather than introduce a blanket wait-for-response interaction gate.
+Final timing, reduced-motion/accessibility presentation and layout remain later
+design work.
 
 Proposed action lifecycle:
 

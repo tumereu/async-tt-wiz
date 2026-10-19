@@ -43,6 +43,14 @@ recovery, connection readiness and overlapping online predictions remain open;
 the assistant's queued-sequence proposal was not approved. Do not restart a full
 offline queue-design discussion. See T-367–T-370.
 
+D-183 clarifies the online pipeline: a small local send queue, concurrent sending,
+individual success/failure and immediate local interaction without routine network
+waits. D-182 does not prohibit that queue or require one in-flight request. A
+failed action does not cancel another valid action or the whole queue. The
+assistant's pause-until-resolved interaction gate is unapproved. Exact queue
+sizing/saturation, ordering/dependencies, animation composition and connection-loss
+recovery remain open, not blanket stop-and-wait. See T-371–T-374.
+
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
 acceptance scenarios. Cockatrice capabilities are references, not automatic

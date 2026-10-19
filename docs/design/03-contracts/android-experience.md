@@ -321,6 +321,15 @@ shared controls, including Undo and branch activation. Offline use is read-only
 for downloaded games/history; there is no offline gameplay queue to replay later.
 Keep personal review/navigation separate from shared controls.
 
+**Confirmed D-183:** use a small local send queue, send online actions concurrently
+and reconcile each action's success/failure individually. Apply interactions
+locally immediately; normal controls must not routinely wait for previous server
+acknowledgements. One rejection does not cancel another valid action or the whole
+queue. Use D-180 animations for individual rejections and incoming changes; keep
+pending versus accepted state honest without making latency a blocking workflow.
+Exact queue sizing/saturation, dependency/ordering mechanics and visual composition
+remain open, not a reason to impose stop-and-wait on normal play.
+
 Use explicit states: downloaded/current, offline/read-only, incomplete input,
 online-pending/sending, synchronized, rejected, explicitly branched, and uncertain
 delivery/failed. Exact connection-readiness and mid-request-loss flow remain open;

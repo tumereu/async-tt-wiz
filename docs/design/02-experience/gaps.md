@@ -30,7 +30,10 @@ obligation or behavior is still proposed:
   printing details, standard mainboard/sideboard notation, flagged unresolved
   names without substitution, preserved input and no saving until errors are
   resolved. Less-common dialects/extra sections, default printings, import limits
-  and saved-deck naming/replacement remain open; there is no custom list format.
+  remain open; there is no custom list format. D-199 confirms named/renameable
+  decks, a cover chosen from a deck's cards, Replace/Save as new on re-import and
+  unchanged already selected lobby/game copies. Default/duplicate names, deletion,
+  cover fallback and replacement metadata retention remain open.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -66,7 +69,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    added-user invitations with Accept/Decline in Play and lobby entry on acceptance.
    D-196 confirms username search and saving contacts without mutual approval.
    Remaining: exact search/contact removal/privacy, decline/cancel/reinvite/persistence details,
-   remaining import dialect/printing/count details and saved-deck lifecycle,
+   remaining import dialect/printing/count details and saved-deck naming defaults/
+   deletion/cover fallback/replacement metadata,
    readiness prerequisites/withdrawal/other setup
    changes, start-versus-edit races, initial shuffle, starting arrangement/values,
    remaining mulligan per-card sequencing/concurrent count timing/count edges,

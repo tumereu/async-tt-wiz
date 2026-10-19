@@ -56,18 +56,40 @@ Neither adding a user nor sending an invite bypasses the recipient's acceptance.
 
 ## Confirmed deck-management scope — D-189
 
-- The deck editor currently supports **card-list import only**. A full manual
+- Saved deck **card-list editing is import-only**. Naming/renaming and selecting
+  cover art are separately supported (D-199). A full manual
   deck-building editor, individual quantity/printing edits, and export are not
   approved release requirements by implication from older draft catalogs.
 - In a game's lobby, a player chooses a deck and can manage its **mainboard and
   sideboard**. This lobby capability is distinct from a full saved-deck editor.
 - D-198 specifies common MTG text import and unresolved-card handling below.
-  Saved-deck naming/replacement and import replacement behavior remain open.
+  D-199 specifies saved-deck naming, covers and re-import behavior below.
 - **Lobby changes are game-local (D-191):** choosing/preparing a deck and changing
   its mainboard/sideboard for this game do not modify the saved deck.
 
 The existing no-rules-referee boundary remains: these controls do not imply
 format-legality validation or automated sideboarding rules.
+
+## Saved decks, covers, and re-import — D-199
+
+- Save **named decks**, and allow **naming/renaming** a deck.
+- Select **one of that deck's cards as its cover art**. This is saved-deck
+  presentation metadata, not a card edit, face change or additional game object.
+- Re-import offers **Replace** an existing saved deck or **Save as new**. Replace
+  updates the chosen saved deck; Save as new creates a separate saved deck rather
+  than overwriting the original. D-198's unresolved-error rule applies before
+  either save; an invalid re-import must not replace a valid saved list.
+- **Already selected lobby/game copies remain unchanged when the saved deck
+  changes.** A selected deck is game-local preparation, not a live reference whose
+  card list updates behind a player's back. This complements D-191: lobby edits
+  do not change the saved deck either. Selecting/reselecting a deck is still an
+  explicit lobby action subject to the existing Ready-clearing rule.
+
+Exact naming/default/duplicate-name rules, deletion, default cover selection,
+cover fallback when its card is removed by re-import or imagery is unavailable,
+and metadata retention across Replace/Save as new remain open. No full manual
+card-list editor, art upload/cropping tool or saved-deck version-history feature
+is approved by these controls.
 
 ## Deck-list import compatibility and errors — D-198
 

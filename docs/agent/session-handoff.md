@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-198:** owner requires login before the main
+**Latest setup decisions — D-188–D-199:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -52,9 +52,14 @@ format exported by many MTG tools. Primary contract specifies common Arena/MTGO-
 style text conventions with optional set/collector details and standard sideboard
 notation, backed by ManaBox/Wizards references. No bespoke format, Arena-only card
 pool, full editor/export, URL/CSV/XML import or provider is selected. See
-T-423–T-427. Next useful substantial topic: saved-deck naming/reimport lifecycle
-and isolation from decks already selected in games/lobbies. Remaining dialect/
-extra-section/printing/count details and exact resolution controls are open.
+T-423–T-427. D-199: owner approved named saved decks, re-import Replace/Save as new
+and unchanged already selected lobby/game copies; explicitly added naming/
+renaming and choosing one of a deck's cards as cover art. Card-list editing remains
+import-only; metadata controls do not approve a full deck builder or art upload.
+See T-428–T-432. Naming defaults/duplicates, deletion, cover fallback/re-import
+metadata retention and remaining dialect/extra-section/printing/count/resolution
+details remain open. Next useful substantial topic: initial table arrangement/
+values and starter selection, not tiny cover-art variants.
 Exact search/contact removal/privacy, remaining invitation lifecycle, other readiness
 details, start-versus-edit races, account flows and initial values remain open.
 D-108 starter/turn-1 Untap and all gameplay sync/history
@@ -339,7 +344,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-198** and **T-001–T-427**.
+- Current documentation includes **D-001–D-199** and **T-001–T-432**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

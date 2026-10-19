@@ -45,9 +45,12 @@ open; do not reopen the credential/recovery-channel choices. D-198 confirms comm
 exported MTG text decklists, optional printing/sideboard notation, flagged
 unknown/ambiguous names without substitution, preserved input and no saving until
 errors are resolved (T-423–T-427). Do not invent a custom grammar or restrict cards
-to Arena. Next useful topic: saved-deck naming/reimport lifecycle and isolation
-from already selected game/lobby decks; remaining import dialect/printing/count
-details are still open.
+to Arena. D-199 confirms named/renameable decks, cover art from one of a deck's
+cards, re-import Replace/Save as new, and unchanged already selected lobby/game
+copies (T-428–T-432). Do not reopen these choices or interpret metadata controls
+as a full card-list editor. Remaining import/metadata/deletion details are open;
+next useful substantial topic is initial table arrangement/values and starter
+selection, not a tiny cover-art questionnaire.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

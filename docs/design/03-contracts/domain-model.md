@@ -45,6 +45,7 @@ history or authorize normalization of external catalog/import data.
 | --- | --- |
 | Game | Stable ID, participants, setup configuration, lifecycle state, active game-state node ID and path/branch context, control revision. The active node need not be a retained branch tip (D-159). |
 | Participant | Stable ID, account reference, display name; neither seat owns exclusive editing rights. |
+| Saved deck | Named mainboard/sideboard list with rename support and a cover selected from its cards. Replace or save a new deck on re-import. Already selected lobby/game copies are isolated from saved-deck changes, and lobby edits leave the saved deck unchanged (D-191/D-199). Exact storage/schema/metadata retention remains open. |
 | Card definition | Source/catalog ID or custom definition, version, names, faces, display text/data, default corner text (D-56), image references; never executable rules. |
 | Card instance | Stable game-local object ID, definition reference, optional participant associations, container, explicit editable state. |
 | Projection | Live virtual occurrence of a source card, not a Clone/token or second containment. Creation preserves source placement; card edits/moves affect the real card (D-123). Source departure removes combat occurrences (D-124), not Stack effects, which require explicit removal/resolution (D-125). Exact identity/schema/missing-source behavior and link/ping routing remain open. |

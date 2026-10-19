@@ -202,8 +202,9 @@
 | D-196 | Search by username and save users as contacts, without a separate friend request or mutual approval. | Owner approved the recommended simple-contact model. Contact addition is for the adding user's list, not automatic reciprocal friendship or invitation acceptance; game invites still require recipient Accept/Decline (D-195). Friends naming, exact search/username grammar, contact removal/privacy/persistence and account login/registration/recovery methods remain open. No implementation or stage transition is authorized. |
 | D-197 | Register with username, email and password; log in with email/password; reset forgotten passwords by email. Other users see your username, not your email. | Owner approved all four account recommendations. Selects the user-facing credential/recovery flow and account-email privacy, not an auth provider, password/session storage scheme, email-verification gate or exact reset-link/code mechanics. Validation/normalization, username changes, session persistence/revocation and account-change/recovery edge cases remain open. Cooperative in-game access does not expose account email. No implementation or stage transition is authorized. |
 | D-198 | Paste common MTG text deck exports, not a custom format. Flag unknown/ambiguous names without substitution; preserve pasted text and resolve errors before saving. | Owner approved quantity/name lines with optional sideboard, error reporting/no substitution, preserved input and blocked saving, then clarified to use a standard widely exported format. Specify the common Arena/MTGO-style text conventions with optional set/collector details and standard sideboard notation; this is not a formal universal standard or an Arena-only card pool. No partial saved deck dropping unresolved entries. Less-common dialect/extra-section mappings, printing defaults/fallbacks, quantity validation/limits, saved-deck lifecycle and exact resolution controls remain open. No provider, full editor/export, URL/CSV/XML import or implementation authorization is implied. |
+| D-199 | Save named decks; re-import offers Replace or Save as new, without changing already selected lobby/game copies. Allow naming/renaming a deck and choosing one of its cards as cover art. | Owner approved the saved-deck proposal and explicitly added rename/cover selection. Saved-deck list editing remains import-only; metadata controls do not approve a full deck builder, art uploads or deck-version history. Replace targets the chosen saved deck; Save as new is separate; D-198 errors must be resolved before either save. Complements D-191's isolation in the opposite direction. Naming defaults/duplicates, deletion, cover fallback and metadata retention across re-import remain open. No implementation or stage transition is authorized. |
 
-**Latest setup decisions — D-188–D-198:** authenticated main menu, adding users,
+**Latest setup decisions — D-188–D-199:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
 selection, mainboard/sideboard management and both-player Ready. Primary behavior:
 [accounts, decks, and lobby](../design/03-contracts/accounts-decks-and-lobby.md).
@@ -228,8 +229,11 @@ open, not the basic login/registration method.
 D-198 specifies common MTG text import (Arena/MTGO-style conventions), optional
 printing details and standard mainboard/sideboard notation. Unknown/ambiguous
 names block saving, with original input preserved and no silent substitution.
-Use existing exported formats, not an app-specific grammar. Saved-deck lifecycle
-and remaining dialect/printing/count details are still open.
+Use existing exported formats, not an app-specific grammar. D-199 confirms
+named/renameable saved decks, cover art chosen from their cards and re-import
+Replace/Save as new without changing already selected lobby/game copies. Naming
+defaults/duplicates, deletion, cover fallback/re-import metadata and remaining
+dialect/printing/count details are still open.
 
 **Latest acceptance correction — D-187:** ordinary actions normally succeed;
 do not compare old orientation, note text or Set values. Exceptional movement

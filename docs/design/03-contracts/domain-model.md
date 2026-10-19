@@ -96,16 +96,19 @@ to Shuffle's concrete order. Exact generator/source, input validation, and onlin
 publication remain open; offline generation is excluded by D-182. No gameplay
 seed-epoch schema is required by D-92/D-93.
 
-D-159/D-160 retain every undone node. After replacement play, ordinary abandoned
-continuations are hidden by a presentation filter and available through Show
-hidden branches. A qualifying exposure or event comment keeps the whole abandoned
-continuation visible, including trailing ordinary nodes; there is no last-exposure
-cutoff. The active pointer is independent from retained tips and personal review.
-Explicit activation of a retained node permits Redo with original outcomes; review
-alone does not activate it. D-161 binds Undo to a specific node-to-parent transition;
+D-159/D-222 retain every undone node in the mutation tree with its initial-state
+root. Undo remembers the last active head; Redo follows the path toward that head
+using recorded states/results. Changed play creates a new active continuation.
+The graphical tree explorer permits activation of any retained branch/node, not
+just tips; personal review alone never activates. The active pointer is independent
+from retained tips and personal review. A filter hides only single-player/
+no-exposure inactive continuations behind Show hidden branches; mixed-player/
+exposure paths stay visible in full. Preserve the older event-comment visibility
+exception pending clarification against D-222. D-161 binds Undo to a specific node-to-parent transition;
 if no longer valid, silently discard it and reconcile local state. Offline Undo
-creation is excluded by D-182. Exact pre-fork/forward presentation, non-Undo branch
-controls and protocol/schema details remain Q-16/Q-31.
+creation is excluded by D-182. Exact remembered-head user/device scope, updates
+after explicit activation, concurrent/stale controls, pre-fork/nested presentation
+and protocol/schema details remain Q-16/Q-31.
 
 D-89/D-91 exposure coverage remains: library View/Reveal, covered hand/card-face
 views including covered-face holds, die/coin results, and any actual hidden-info
@@ -116,7 +119,8 @@ and publication remain Q-31; no separate permanent-marker entity is required.
 D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
 nodes on the ordinary tree path. The current path is already a branch; no
 comment-only fork entity/activation mechanism is required. Undo retains that
-whole abandoned continuation visibly if it contains an event comment (D-160).
+whole abandoned continuation visibly if it contains an event comment (D-160),
+pending clarification of that exception against D-222's filtering condition.
 D-172 groups comments with preceding same-author play; D-170 still separates
 authors. Exact message/comment schemas, historical association, revisions/edit/delete
 and unsent-delivery policies remain open; do not give all Message records one

@@ -35,8 +35,11 @@ The app remembers and presents what happened; the players interpret the rules.
    Stack state and is rejected if it differs on the server. Rejection never
    creates a branch. Undo moves the shared active pointer one parent node back,
    regardless of author.
-   Retained alternatives permit forward return; ordinary abandoned continuations
-   hide behind a toggle, while exposure/comment continuations stay fully visible.
+   Undo remembers the last active head; Redo follows the path toward it. Changed
+   play branches to a new active head. A graphical tree explorer can activate any
+   retained branch/node. Only single-player/no-exposure alternatives qualify for
+   hiding behind a separate toggle; mixed-player/exposure paths stay visible.
+   The older comment-visibility exception needs clarification against this rule.
    Groups are playback steps whose changes animate concurrently, not tree nodes.
    On return after an interruption, animate from the last local state back to
    the fork, then forward along the new continuation. Pause automatic playback

@@ -5,6 +5,17 @@ earlier touch decisions as requirements/history, but current new decisions focus
 on behavior. Adversarial review/refinement is stage 2, UI drafts/concrete controls
 stage 3, and iterative implementation stage 4+. No implementation is authorized.
 
+**Latest branching (D-222):** root stores initial state; every later node is a
+mutation. Undo remembers the last active head; Redo follows toward it, not an
+arbitrary child or a mandatory fork picker. Changed play after Undo branches and
+becomes active. A graphical tree explorer can activate any retained node/branch;
+review alone is personal (T-493–T-499). Hide only single-player/no-exposure inactive
+continuations behind its separate toggle; mixed-player/exposure paths stay visible
+in full. Preserve the prior event-comment visibility exception pending explicit
+clarification; **ask that next**, not another basic Undo/Redo question.
+Remembered-head scope across users/devices, activation updates, concurrent/stale
+controls, archive/restore and nested/pre-fork presentation remain open.
+
 **Latest acceptance correction (D-187):** normally accept ordinary actions unless
 truly impossible. No general previous orientation/text/Set comparisons. Card
 moves keep source/destination guards; Stack entries/new projections send current
@@ -138,8 +149,8 @@ D-221 confirms deleting from the saved collection while preserving selected
 lobby/game copies; the owner explicitly says editing works the same way
 (T-491/T-492), reaffirming D-199. Keep game-local preparation and active play.
 Deletion safeguards/recovery/retention and concurrent delete/edit/select races
-remain open, not copy isolation. Continue remaining account/contact lifecycle or
-broader R1 gaps, not post-R1 in-app notification settings. Narrower
+remain open, not copy isolation. Owner now chose branching (D-222 above), not
+more account/deck/settings questions. Narrower
 invitation race/presentation gaps remain.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
@@ -906,9 +917,10 @@ chance is valid. No new shuffle shortcut or hidden-order exposure classification
 is implied; exact generator/input/offline protocols remain later work.
 
 Confirmed D-159/D-160: Undo moves the shared active pointer one parent back,
-regardless of author. Retain all descendants. After replacement play, ordinary
-abandoned continuations hide behind Show hidden branches; exposure/comment
-continuations stay visible in full. Library View/
+regardless of author. D-222 remembers the last active head for Redo. Retain all
+descendants; hide only single-player/no-exposure inactive continuations behind
+Show hidden branches. Mixed-player/exposure paths stay visible; the older comment
+exception awaits clarification. Library View/
 Reveal, covered-hand/card-face views including covered-face holds, and die/coin
 results are covered; ordinary visible-face holds/every search keystroke are not.
 Summaries do not automatically show covered identities. Branch review does not
@@ -924,9 +936,10 @@ D-179's background historical-continuation intent and chosen boundary.
 
 Confirmed branch-level/exposure rules (D-91, refined by D-160):
 
-1. Retain the whole abandoned continuation. Any exposure or event comment keeps
-   it fully visible, including trailing ordinary nodes; otherwise hide it behind
-   a toggle. Never trim the visible path at its last exposure/comment (D-160).
+1. Retain the whole abandoned continuation. D-222 hides only single-player/
+   no-exposure inactive paths behind a toggle; mixed-player/exposure paths remain
+   fully visible. Preserve the older comment exception pending clarification.
+   Never trim a qualifying visible path at its last exposure/comment (D-160).
    Visibility does not change the active pointer or delete retained history.
 2. Any actual hidden-information exposure qualifies, including draws/moves/face
    changes, not just View/hold. Do not infer personal knowledge or game rules.

@@ -149,20 +149,25 @@ The table must always make these distinguishable:
 - Connection/synchronization state and number of pending actions.
 - Undo/redo availability and any operation awaiting confirmation.
 
-D-159/D-160: Undo moves the shared active pointer one parent back and retains all
-descendants. After replacement play, hide ordinary abandoned continuations behind
-Show hidden branches; exposure/comment continuations stay visible in full,
-including ordinary tails. Covered summaries do not automatically disclose identities.
-Reviewing a retained node does not activate it; explicit activation allows forward
-return/Redo with its original state/results. Exact pre-fork/forward presentation,
-exposure coalescing and non-Undo branch controls remain Q-31; these are not pings
-or permanent board markers.
+D-159/D-222: Undo moves the shared active pointer one parent back and remembers
+the last active head; Redo follows the path toward that head with original
+states/results. Retain all descendants. Changed play branches and becomes active.
+A **graphical tree explorer** allows review and explicit activation of any retained
+branch/node, including internal nodes/root; reviewing alone does not activate.
+Hide only single-player/no-exposure inactive continuations behind a separate
+Show hidden branches toggle. Mixed-player/exposure continuations stay visible in
+full. The prior event-comment visibility exception remains pending clarification
+against D-222. Covered summaries do not automatically disclose identities.
+Exact pre-fork/nested presentation, remembered-head user/device scope, concurrent/
+stale Redo/activation and exposure coalescing remain open; these are not pings or
+permanent board markers.
 
 D-94/D-95 distinguish game-wide Chat (not undoable once submitted) from event-
 context comments (nodes on the ordinary current tree path, retained after undo).
 The path is already a branch; do not add a special comment-only fork workflow.
 Undo moves one parent back while retaining the whole comment-bearing abandoned
-continuation visibly (D-160), without a cutoff. Exact event/group association,
+continuation visibly under D-160; whether D-222 changes that comment exception
+needs clarification. Exact event/group association,
 revision/edit/delete, pending chat delivery, and editor submission remain open.
 
 Use text/icons as well as color. A prominent “Return to active game” control is
@@ -366,7 +371,9 @@ decided before implementation.
   silently discard it and reconcile local state: no toast, warning, notification,
   confirmation or retry chore. Never retarget it to unseen work. The same rule
   applies after reconnect; non-Undo branch-control policies remain open.
-- Redo that would switch branches is labeled accordingly.
+- D-222 Redo follows the remembered last active head, not an arbitrary child or
+  mandatory fork picker. Deliberately selecting another branch/node is a separate
+  graphical-tree activation; exact control labels/layout remain later UI work.
 
 ## 5.7 Offline, pending, and conflict states
 

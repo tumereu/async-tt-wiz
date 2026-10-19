@@ -5,13 +5,17 @@ from the plain-language summary and tier reorganization.
 
 - **D-159/D-160 replace earlier Undo semantics.** Normal Undo is one shared
   parent-node pointer move, regardless of author; composites can require multiple
-  presses. After replacement play, retain ordinary abandoned continuations behind
-  a toggle and keep whole exposure/comment continuations visible. The decision
+  presses. D-222 refines Redo/filtering: remember the last active head for Redo
+  toward it, graphical any-node activation, and default hiding only for single-player/
+  no-exposure inactive continuations. Mixed-player/exposure paths stay visible in
+  full. The prior event-comment visibility exception is preserved pending explicit
+  clarification against D-222; do not silently remove it or claim reconciliation. The decision
   register preserves original D-90/D-91/D-95 and D-131/D-151 wording for provenance,
   not as current requirements. No last-exposure cutoff, whole-invocation Undo or
   suffix-rollback preview remains. D-161 silently discards no-longer-valid specific
   Undo transitions and reconciles local state, with no notification clutter.
-  Non-Undo branch controls and exact pre-fork/forward presentation remain open.
+  Remembered-head user/device scope, activation updates, concurrent/stale Redo/
+  activation, archive/restore and exact pre-fork/nested presentation remain open.
 - **D-176/D-177 correct the mutation/playback model.** One node is one individual
   mutation, including individual operations from bulk commands. Every mutation
   immediately extends/branches the chosen path and publishes. Older combined-node

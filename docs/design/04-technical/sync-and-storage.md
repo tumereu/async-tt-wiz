@@ -47,15 +47,18 @@ wall-clock timestamps.
 D-159/D-160 require an explicit active node pointer independent from retained
 continuation tips. Undo moves it one parent back, regardless of actor; retained
 nodes are never physically deleted by Undo or replacement play. The pointer move
-is a control operation, not another board-action child. After replacement play,
-ordinary abandoned continuations hide behind Show hidden branches; whole exposure/
-comment continuations remain visible, including ordinary tails. Sync must converge
+is a control operation, not another board-action child. D-222 adds a remembered
+last active head for Redo and a graphical explorer for explicit any-node activation.
+Only single-player/no-exposure inactive continuations qualify for hiding behind
+Show hidden branches; mixed-player/exposure paths stay visible in full. Preserve
+the older comment-visibility exception pending clarification against D-222. Sync must converge
 on the shared tree/control state without confusing presentation filtering with
 deletion. D-161 binds Undo to a specific node-to-parent transition and silently
 discards it if no longer valid, reconciling client state without notifications.
 This applies to concurrent online requests too. Offline Undo creation is excluded
-by D-182. Exact schema, pre-fork/forward presentation and non-Undo branch-control
-outcomes remain open. Retained existing
+by D-182. Exact remembered-head user/device scope, memory changes on activation,
+concurrent/stale Redo/activation, schema and pre-fork/nested presentation remain
+open. Retained existing
 alternatives remain recoverable; D-179 prohibits new implicit conflict branches.
 
 ## 6.2 Publication and concurrency

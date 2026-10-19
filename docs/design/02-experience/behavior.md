@@ -352,15 +352,22 @@ The general rules are:
   current; Undo supplies the intent automatically (D-179).
 - Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
-   redo its state, while merely reviewing it does not make it current. Bulk and
+   select its state, while merely reviewing it does not make it current. Bulk and
    combined shortcuts create individual mutation nodes, not one whole-invocation
    node. Undo follows one parent per press even when several mutations animate
    together. An empty draw contributes no invented card-move node.
-- Playing differently after Undo retains the abandoned continuation. Hide ordinary
-  alternatives by default, with a show-hidden-branches toggle; never delete them
-  just because play takes another path. Exposure and event-comment paths remain
-  visible in full, including ordinary trailing steps; there is no last-exposure/
-  comment cutoff. Covered inspection, View/Reveal,
+- Undo remembers the last active head; **Redo follows the path toward that head**,
+  not a silent choice among children or a mandatory fork picker (D-222). Further
+  Undo presses keep that destination. Changing/intervening after Undo creates a
+  new active continuation and retains the old one, rather than replaying its
+  actions onto the new branch. Redo reuses recorded states and random results.
+- A **graphical tree explorer** supports personal review and explicit shared
+  activation of **any retained branch/node**, including the root/internal states.
+- Hide inactive continuations only when they contain **one player's actions and
+  no hidden-information exposure**, available through a separate Show hidden
+  branches toggle (D-222). Mixed-player/exposure paths remain visible in full;
+  nothing is deleted. The older event-comment visibility exception is preserved
+  pending clarification of its interaction with D-222. Covered inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
   Already-visible inspection does not. Undo cannot erase a person's knowledge.
 - Undo targets the specific node-to-parent step you invoked. If that step becomes

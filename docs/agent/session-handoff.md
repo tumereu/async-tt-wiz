@@ -14,6 +14,30 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest branching clarification — D-222
+
+Owner selected branching as the next topic and replaced the assistant's
+one-child/mandatory-fork-choice Redo proposal. **Root contains initial state;
+mutation nodes form a tree. Undo remembers the last active head; Redo follows
+toward it.** Multiple Undo presses retain the destination, even with other
+children. Changed play/interruption after Undo creates a new active continuation;
+retain the old one and its recorded outcomes. A **graphical tree explorer** permits
+review and explicit activation of **any retained branch/node**, including internal
+nodes/root; mere review never activates shared state (T-493–T-499).
+
+Hide inactive continuations only when they contain **one player's actions and
+no hidden-information exposure**, behind a separate explorer toggle. Mixed-player/
+exposure paths stay visible in full. **Next clarification:** D-95/D-160 previously
+also kept event-comment branches visible. The latest wording did not explicitly
+address that exception; preserve it pending a direct answer, rather than silently
+removing it or claiming the interaction is settled. All nodes remain retained.
+
+Primary contract: [history section 3.0](../design/03-contracts/history-and-undo.md#30-current-undo-model--parent-pointer-navigation-d-159d-160).
+Remembered-head user/device scope, updates after explicit activation, concurrent/
+stale Redo/activation, nested/pre-fork presentation and archive/restore details
+remain open. D-161 stale Undo and D-179 deliberate intent remain; no offline
+mutations, finished-game archives, implementation or stage transition are authorized.
+
 ## Latest connection-loss presentation and recovery — D-215/D-216
 
 The owner specified a **Reconnecting... dialog when disconnected**, then clarified
@@ -78,9 +102,8 @@ no replacement deck is required merely because its saved source was deleted.
 Primary contract: [saved-deck isolation](../design/03-contracts/accounts-decks-and-lobby.md#saved-deck-deletion-and-copy-isolation--d-221).
 Exact deletion confirmation/recovery/retention, backup erasure and concurrent
 delete/edit/select races remain open. Do not infer trash/restore, gameplay Undo,
-full manual deck editing or deletion of in-game cards/history. Continue remaining
-account/contact lifecycle or broader R1 gaps, not edit/delete copy isolation or
-post-R1 in-app notification settings.
+full manual deck editing or deletion of in-game cards/history. The owner has now
+chosen branching next (D-222 above), not more account/deck/settings questions.
 
 ## Current concurrency correction — D-179
 
@@ -360,8 +383,9 @@ Do not reopen the approved display/projection presentation rules.
 The owner replaced whole-invocation Undo with one shared active-pointer move to
 the parent tree node, regardless of author. Retain undone descendants and permit
 explicit forward activation through the tree; review alone remains personal.
-After replacement play, ordinary abandoned continuations are hidden, not deleted,
-and available through a show-hidden-branches toggle. D-176 subsequently corrects
+This earlier filtering summary is refined by D-222: hiding requires a single-player/
+no-exposure continuation; mixed-player/exposure paths stay visible, and the older
+comment exception awaits clarification. D-176 subsequently corrects
 node granularity to individual mutations; an actual Draw + advance takes two
 Undo steps, while an empty draw adds no node. The older D-131/D-151
 Undo-scope decisions are superseded. D-160 confirms multiple presses for
@@ -485,7 +509,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-221** and **T-001–T-492**.
+- Current documentation includes **D-001–D-222** and **T-001–T-499**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
@@ -805,11 +829,12 @@ source preservation, existing-attacker reuse, or approved event/Undo mappings.
 - Generic links, pings, combat assignments, and source-card state are distinct.
   No Attach/follow-group feature. Clone creates fresh independent tokens, not
   projections; a token catalog selection creates one token immediately.
-- Undo moves the shared pointer one parent back, regardless of author. Retain all
-  descendants. After replacement play, hide ordinary abandoned continuations behind
-  Show hidden branches; exposure/comment continuations stay visible in full, with
-  no cutoff (D-159/D-160). Reviewing does not activate; explicit tree activation
-  allows forward return. Submitted game-wide Chat is not undoable (D-94); event
+- Undo moves the shared pointer one parent back, regardless of author, remembering
+  the last active head for Redo (D-222). Retain all descendants; hide only single-player/
+  no-exposure inactive continuations behind the explorer toggle. Mixed-player/
+  exposure paths stay visible; the older comment exception awaits clarification.
+  Reviewing does not activate; explicit graphical-tree activation can select any
+  retained node/branch. Submitted game-wide Chat is not undoable (D-94); event
   comments remain ordinary current-path nodes (D-95).
 - Trim leading/trailing whitespace on completed user-entered text; preserve
   internal spacing/newlines. Counter/notes/corner semantics remain field-specific.

@@ -680,7 +680,8 @@ policies remain open. D-95 makes event comments ordinary nodes on the current
 tree path, retained through the comment when undone. That path is already a
 branch; no separate comment-only fork or activation control is needed. Apply
 normal tree/base rules. D-160 keeps the whole abandoned continuation visible
-if it contains a comment, without a cutoff. Exact comment/group association and
+if it contains a comment, without a cutoff; its interaction with D-222's
+single-player/no-exposure hiding rule awaits clarification. Exact comment/group association and
 revisions remain later work. Card
 notes, event pings, and ordinary editor drafts keep their distinct behavior.
 
@@ -1091,9 +1092,12 @@ shuffle may reproduce a prior permutation by chance. D-93 itself adds no shuffle
 shortcuts and does not imply that covered order was exposed; D-193 later adds
 explicit shuffle-and-draw compositions using the same recorded-randomness model.
 
-Confirmed D-159/D-160: Undo moves the shared active pointer one parent back and
-retains all nodes. After replacement play, ordinary abandoned continuations hide
-behind Show hidden branches; whole exposure/comment continuations stay visible.
+Confirmed D-159/D-222: Undo moves the shared active pointer one parent back and
+remembers the last active head for Redo toward it. Retain all nodes; changed play
+creates a new active branch, while a graphical explorer can activate any retained
+branch/node. Only single-player/no-exposure inactive continuations qualify for
+hiding behind Show hidden branches; mixed-player/exposure continuations stay
+visible. The prior event-comment visibility exception awaits clarification against D-222.
 Exposure coverage includes
 library View/Reveal, covered-hand/card-face viewing including covered-face holds,
 and die/coin results, but not every visible-card hold or search keystroke. Ordinary

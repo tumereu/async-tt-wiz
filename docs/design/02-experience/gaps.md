@@ -159,11 +159,16 @@ old future after a response. Exact overall release scope still needs sign-off.
    No separate ping ownership picker is needed. See the
    [grouping rules and remaining inventory](../03-contracts/history-grouping.md).
 3. **Undo/Redo pointer controls and visibility.** D-159 confirms one parent-node
-   step regardless of author, retained forward history, and hidden ordinary
-   replacement continuations available through a toggle. Remaining outcomes:
-   shared forward activation and pre-fork presentation, non-Undo branch controls, and
-   whether an empty interruption can pause/rewind. D-160 keeps qualifying exposure/
-   comment continuations visible in full. D-161 targets a specific Undo transition,
+   step regardless of author and retained forward history. D-222 confirms a root
+   initial state/mutation tree, remembering the last active head on Undo and Redo
+   toward it, new active branches on changed play, and a graphical explorer with
+   explicit activation of any branch/node. No mandatory child picker is approved.
+   Hide only single-player/no-exposure inactive continuations behind the explorer
+   toggle; mixed-player/exposure paths stay visible in full. The older event-comment
+   visibility exception is preserved pending clarification against that condition.
+   Remaining: remembered-head scope across users/devices and updates after explicit
+   activation, concurrent/stale Redo/activation, detailed pre-fork/nested presentation,
+   archive/restore controls and separate empty-interruption semantics. D-161 targets a specific Undo transition,
    silently discarding it if no longer valid and reconciling local state. The
    historical-rollback preview proposal no longer defines Undo. D-177 specifies
    personal resume traversal: last local state → animated rollback to fork →

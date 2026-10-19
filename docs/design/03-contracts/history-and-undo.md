@@ -29,25 +29,45 @@ edit while keeping later edits, or undo an entire presentation/invocation group.
 The older historical-rollback preview proposal is not the Undo interaction.
 
 Retain the undone nodes and their original outcomes. Reviewing them alone does
-not activate them; explicitly making a retained node current can redo that state.
+not activate them; explicitly making a retained node current selects that state.
 Undo is a shared control change, not another board-action child node. It targets
 a specific node-to-parent transition; if that transition is no longer valid,
 discard it silently and reconcile local state (D-161; section 3.7).
 
-After Undo, making a new game edit creates a different continuation from the
-active node. Do not delete the old continuation. If it has no qualifying exposure
-or event comment, hide it from the normal tree and expose it through a
-**show hidden branches** toggle. Hiding is presentation filtering, not deletion,
-loss of recovery, or participant access control. This automatic hiding rule does
-not authorize hiding unrelated retained alternatives, including older conflict
-branches.
+**Confirmed branching and Redo clarification (D-222):** the game-state tree has a
+root containing the initial state; each subsequent node records a mutation.
+When Undo moves back, **remember the last active head and Redo toward that head**.
+For `root → A → B → C`, Undo to B and then A remembers C; forward Redo follows
+A → B → C, not a guessed child or a mandatory path picker at every fork.
+Retained alternative children do not by themselves make this remembered path
+ambiguous. Restore recorded states/results, without new mutations or randomness.
 
-D-160 keeps the **whole abandoned continuation visible** if it contains a
-qualifying exposure or event comment, including ordinary steps after the last
-such node. This replaces D-91/D-95's visible-path cutoff, not D-89/D-91's exposure
-classification or D-95's inclusion of event comments.
-Ordinary undone history must remain available for forward return before a new
-edit too; its exact pre-fork presentation is not yet specified.
+After Undo, interrupting/making changes branches from the selected node and makes
+the new continuation the active head. Keep the previous continuation; Redo is
+not a way to replay its mutations onto the new branch. A **graphical tree
+explorer** lets either player review and **explicitly activate any retained
+branch/node**, including an internal node or the root. Activation changes shared
+current state; viewing/scrubbing alone remains personal. A new edit after such
+historical activation continues from that selected state under D-179.
+
+**D-222 visibility:** hide inactive continuations that consist of **only one
+player's actions and no hidden-information exposure**, with a separate
+**Show hidden branches** toggle in the explorer. Mixed-player continuations and
+exposure-bearing continuations stay visible in full, including ordinary tails.
+Hiding is presentation filtering, not deletion or access control; the active path
+and retained states remain available. Classify the alternative continuation,
+not the shared prefix; exact nested-branch presentation remains open.
+
+**Comment-rule clarification pending:** D-95/D-160 also keep a continuation with
+an event comment visible even without exposure. D-222's owner wording did not
+explicitly address that exception. Preserve it pending clarification rather than
+silently removing it or claiming the new condition resolves comment-only paths.
+All comments/nodes remain retained regardless of the eventual visibility choice.
+
+The remembered-head scope across participants/devices, concurrent/stale Redo and
+tree activation, memory updates after explicit activation, and detailed pre-fork
+presentation remain open. D-161's stale-Undo rule is unchanged and is not blanket
+approval of the same policy for other controls.
 
 D-176 clarifies the node unit: **one individual mutation**, not a bulk operation,
 combined shortcut or playback group. One Undo still follows one parent. Earlier
@@ -432,8 +452,10 @@ switch. A participant reviewing the old continuation is notified and can choose
 to inspect it or navigate to the divergence; the UI must not silently teleport
 their cursor past unreviewed actions.
 
-Either participant can also activate an existing non-archived branch explicitly.
-Activation changes the selected continuation, not the contents of either line.
+D-222 confirms the graphical tree explorer and explicit activation of any
+retained branch/node, not just a branch tip. Activation changes shared current
+state, not the contents of either line. Any archive/restore interaction still
+needs its own behavior; this is not approval of archival controls' details.
 
 The preserved suffix is not automatically replayed on top of a reaction. It may
 refer to objects, positions, or values that are no longer present. A future reuse
@@ -492,10 +514,10 @@ being transformed or erased. At the root there is no earlier game-state node.
 To repair a value while keeping later play active, perform its normal edit now;
 this does not require a separate historical-Undo mode or correction wizard.
 
-After replacement play, ordinary abandoned continuations are hidden by default
-and discoverable through Show hidden branches. An exposure or event comment keeps
-the entire affected continuation visible, including trailing ordinary nodes
-(D-160). Hidden nodes retain identity, payloads, ancestry and stored random results;
+After replacement play, only single-player/no-exposure inactive continuations
+qualify for default hiding under D-222, subject to the pending event-comment
+exception clarification in section 3.0. Mixed-player/exposure continuations remain
+visible in full. Hidden nodes retain identity, payloads, ancestry and stored random results;
 the filter never changes game state. See section 3.9 for exposure classification.
 
 D-176 supersedes the old combined-node mappings for advance-and-close,
@@ -529,8 +551,9 @@ of heterogeneous commands. Exact controls for those recovery paths remain propos
 Undo is a synchronized control move, not another board-action child node: its
 control record can retain prior/new references without becoming the next gameplay
 parent. This avoids Undo merely undoing a previous Undo record on the next press.
-Redo through the tree selects the original stored state/outcome, not a new action
-invocation or random sample. Review alone never changes the active pointer.
+Redo follows the remembered last active head (D-222); explicit tree activation
+can instead select any retained node. Both use original stored states/outcomes,
+not new action invocations or random samples. Review alone never changes the active pointer.
 
 Rapid Undo must work before, during, and after acknowledgement. Pending/in-flight
 nodes and pointer intentions must survive restart/retry without disappearing or
@@ -600,11 +623,12 @@ in-game undo capability.
 
 ### Information-gaining actions and undo branches
 
-Confirmed D-159/D-160: every undone continuation is retained. After replacement
-play, hide ordinary abandoned continuations behind Show hidden branches, but keep
-the whole continuation visible if it contains an exposure or event comment.
-This replaces the older ordinary-node removal and last-exposure cutoff, without
-requiring permanent board markers or ping overlays.
+Confirmed D-159/D-160/D-222: every undone continuation is retained. Default hiding
+requires a single-player continuation without exposure, available through Show
+hidden branches. Mixed-player/exposure continuations remain visible in full.
+The older event-comment visibility exception is preserved pending the explicit
+clarification described in section 3.0. No last-exposure cutoff, permanent board
+markers or ping overlays are required.
 
 Confirmed exposure coverage (D-89): library View/Reveal, otherwise-covered hand/
 card-face viewing, covered-face hold inspection, and die/coin results. Ordinary
@@ -638,29 +662,34 @@ D-95 includes event-linked comments as retention points alongside hidden-info
 exposure. A submitted event comment is another node on the current tree path;
 that path is already a branch like any other. Apply the ordinary chosen-base/
 path rules, not a separate comment-only fork/activation mechanism. Undo moves
-back while preserving the existing path. D-160 keeps its whole abandoned
-continuation visible, including ordinary steps after the comment; there is no
-last-comment cutoff.
+back while preserving the existing path. D-160's whole-comment-continuation
+visibility remains pending clarification against D-222's new single-player/
+no-exposure filtering rule; do not silently drop that exception. Retention of
+the complete path and ordinary trailing nodes is unchanged.
 This differs from D-94 game-wide chat, which is outside game Undo. Exact comment
 group association, revision/edit/delete, and dependent/concurrent protocols remain
 later review, not an unresolved question of whether paths are already branches.
 
-Confirmed branch-level filtering (D-160, replacing D-91's cutoff):
+Confirmed branch-level filtering (D-222 refines D-160, replacing D-91's cutoff):
 
 1. Retain every node of the abandoned continuation after replacement play.
-2. If that continuation contains any exposure or event comment, keep all of it
-   visible, including ordinary ancestors/intervening/trailing nodes.
-3. Otherwise hide it by default and make it available through Show hidden branches.
+2. If that continuation contains exposure or actions by both players, keep all of
+   it visible, including ordinary ancestors/intervening/trailing nodes.
+3. A single-player/no-exposure continuation qualifies for hiding behind Show
+   hidden branches. Preserve the prior event-comment visibility exception pending
+   clarification; its interaction with this new condition is not yet settled.
 4. Visibility does not move the active pointer or hide unrelated alternatives.
    An exposure in the shared prefix alone does not make an ordinary abandoned
    suffix an exposure-bearing continuation.
 
 Example: from `root → A → View B → C → roll D → E`, use five Undo presses to
 return to root, then create X. Keep the whole original continuation A–E visible,
-not only the prefix ending at D. For an all-ordinary A–E, retain the same nodes
-but hide that alternative by default. Either person can inspect/activate retained
-states; inspection alone never activates them. Exact exposure capture/coalescing,
-pre-fork presentation, forward-navigation and non-Undo control details remain open.
+not only the prefix ending at D. For an all-ordinary A–E by a single player,
+retain the same nodes but hide that alternative by default; if both players
+authored it, keep it visible. Either person can inspect/activate retained states;
+inspection alone never activates them. D-222 makes Redo follow its remembered
+head. Exact exposure capture/coalescing, comment-exception interaction, pre-fork
+presentation and concurrent/non-Undo control details remain open.
 
 ## 3.10 Randomness and branching
 

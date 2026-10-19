@@ -351,12 +351,13 @@ decided before implementation.
   controls. Binary links do not make neighbors move; existing multi-selection
   handles deliberate joint movement.
 - Drag/drop is the primary card-movement interaction, with grid/slot snapping.
-  Confirmed: drag one card unless multiple are selected; special-pile drops go
-  on top; dropping onto an ordinary card forms/joins its visual stack. The
-  double-tap sheet includes Move to at least the top/bottom of library,
-  graveyard, and exile. Detailed controls are in the primary board contract;
-  selection gestures remain open. Explicit Move/reorder controls also support
-  accessibility and precision.
+  Confirmed: drag one card unless multiple are selected; Library drops go on top;
+  Graveyard/Exile drops add unordered membership; dropping onto an ordinary card
+  forms/joins its visual stack. The double-tap sheet includes Move to Library
+  top/bottom, Graveyard, and Exile. Graveyard/Exile have no order-related actions,
+  including visual-placement variants (D-226). Detailed controls are in the primary
+  board contract; selection gestures remain open. Explicit Move and, for ordered
+  containers only, reorder controls also support accessibility and precision.
 - A compact activity strip shows the automatic current group, pending status,
   and undo. No gameplay Send/Done button is required to share actions.
 - Group labels and boundaries are optionally editable after automatic

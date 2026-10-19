@@ -56,18 +56,19 @@ Owner examples:
 - Tap one card, then opponent untaps another: **Undo of your tap is allowed**
   when the later mutation's relevant tuple is unchanged.
 
-**Container-order clarification — D-225:** Library is ordered; Graveyard is
-unordered. Relevant state includes ordering dependencies when the operation
-depends on them, not only fields it writes. With Library `[A, B, C]` top first,
+**Container-order clarification — D-225/D-226:** Library is ordered; Graveyard
+and Exile are unordered, with no order-related actions. Relevant state includes
+ordering dependencies when the operation depends on them, not only fields it
+writes. With Library `[A, B, C]` top first,
 removing an otherwise eligible move of A before a later draw of B is unavailable:
 replay must neither draw A instead nor silently take B from below the top.
 Conversely, moving A to Graveyard and then independently moving B there permits
-removing A's move when otherwise eligible. Graveyard contents/absolute indices
+removing A's move when otherwise eligible. Graveyard/Exile contents/absolute indices
 must not create an ordering dependency for B's move; keep B's membership and
 other relevant transitions unchanged. This is not a whole-container contents lock.
-Earlier Graveyard top/bottom/ordered-presentation controls need reconciliation;
-whether to retain them as visual placement or remove them remains open. Do not
-infer an ordering policy for Exile or other containers from this clarification.
+D-226 removes the earlier Graveyard/Exile top/bottom, reorder and other
+order-related controls, including visual-placement variants. Browser sorting is
+still presentation only; do not infer ordering policy for other containers.
 
 The same suffix-tuple test applies to **Redo reinsertion**. In this selective
 design, Undo is not offered for a target that revealed new information; this is

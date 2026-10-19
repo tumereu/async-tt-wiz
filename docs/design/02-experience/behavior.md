@@ -161,13 +161,17 @@ The general rules are:
 
 ### 4. Library, Graveyard, Exile, and viewing
 
-- Drop onto a special pile to put a card on top. Context Move offers top/bottom of
-  all three piles. Drag its top-card surface to move the top card; tap the pile
-  to open contents and actions together.
+- Library is ordered: drops insert on top and Context Move offers top/bottom.
+  Graveyard and Exile are unordered: move cards into them without an insertion
+  position. They have no order-related actions, including top/bottom, reorder or
+  shuffle, even as visual placement (D-226). Drag Library's top-card surface to
+  move its top card; a visible Graveyard/Exile card is addressed by identity, not
+  position. Tap a pile to open contents and actions together.
 - Contents browsers have name search/filtering and inspection. Initial defaults
   are one main-type column per card, Other for unknown types, alphabetical names,
   horizontal column scrolling and vertical scrolling within columns. These display
-  choices never reorder the pile and are explicitly revisable.
+  choices never change container membership or Library order and are explicitly
+  revisable.
 - The full Library browser hides underlying order. Explicit View/Reveal top or
   bottom N shows actual source order, marking the bottommost card for bottom N.
 - **View is logged/shared:** faces for the person viewing, backs for the other.
@@ -179,7 +183,8 @@ The general rules are:
 - Draw one needs no quantity picker. Draw N moves top N into Hand. Also support
   View/Reveal bottom N and Move top/bottom N to a chosen destination. N starts at
   one with +/- and numeric entry, clamped to the available count. Moves from one
-  ordered source preserve source order at either destination end.
+  ordered source into an ordered destination preserve source order at either end;
+  Graveyard/Exile destinations have no order to preserve.
 - Library shuffle uses the whole pile, not top/bottom-N subsets; viewing does not
   shuffle. The explicit shuffle-and-draw actions above are additional compositions.
 
@@ -360,11 +365,11 @@ The general rules are:
   targets. No compensating edit is appended. Pointer/button behavior, own-action
   selection, Redo queue and rewritten-tree presentation remain open; the older
   parent-pointer description below is no longer the complete Undo definition.
-- **Container order (D-225):** Library is ordered; Graveyard is unordered. Undo
-  cannot change which card a later top-of-Library draw takes. Independent moves
-  into Graveyard need not block each other merely because its contents or display
-  positions differ. Older Graveyard top/bottom controls need reconciliation;
-  keeping them as visual placement versus removing them remains open.
+- **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
+  unordered. Undo cannot change which card a later top-of-Library draw takes.
+  Independent moves
+  into Graveyard/Exile need not block each other merely because unrelated contents
+  or display positions differ. No Graveyard/Exile order-related controls remain.
 - In the earlier rewind model, Undo moves the shared active state to its parent node, regardless of who made
   that node. Retain descendants; explicitly returning to one through the tree can
    select its state, while merely reviewing it does not make it current. Bulk and

@@ -523,12 +523,13 @@ Ordered moves name an insertion position; “top” and “bottom” do not depe
 screen orientation. Multi-card moves specify the moved cards' order. Display
 sorting is distinct from changing actual container order.
 
-**D-225:** Library is ordered; Graveyard is unordered. Relevant-state replay
+**D-225/D-226:** Library is ordered; Graveyard and Exile are unordered, with no
+order-related actions or insertion positions. Relevant-state replay
 checks include order dependencies for operations such as drawing the top Library
-card, but not Graveyard contents/absolute indices for independent moves into it.
-Earlier Graveyard logical-top/bottom descriptions below need reconciliation;
-retaining visual placement controls versus removing them remains open. Do not
-extend this ordering decision to Exile or infer whole-container replay locks.
+card, but not unrelated Graveyard/Exile contents/absolute indices for independent
+moves into them. Do not retain top/bottom or reorder as visual-placement actions;
+personal browser sorting/filtering remains presentation only. Do not infer
+whole-container replay locks or an ordering policy for other containers.
 
 Confirmed library-browser convention (D-42): the full contents view does not
 expose actual library order. Its order-independent presentation does not alter
@@ -543,13 +544,14 @@ and sorts by name independently of stored order. These presentation defaults may
 be revised; exact category mapping and covered opponent-facing grouping remain
 open. These are presentation conventions, not access control.
 
-Confirmed initial-layout movement defaults: a drop onto a configured Library,
-Graveyard, or Exile pile inserts at its logical top; Context Move offers top and
-bottom for each. A drop onto an ordinary card forms/joins a visual pile, not a
+Confirmed initial-layout movement defaults: a Library drop inserts at its logical
+top; Context Move offers Library top/bottom. Graveyard/Exile drops and context
+moves add membership without ordering or position choices (D-226).
+A drop onto an ordinary card forms/joins a visual pile, not a
 mechanical attachment or merged identity. See the primary
 [movement contract](board-and-controls.md#104-dragging-and-snapping).
-D-49 preserves relative order for moves from one ordered source; cross-source
-ordering remains open. Do not infer randomization or other ordering behavior
+D-49 preserves relative order for moves from one ordered source into an ordered
+destination; cross-source ordering remains open. Do not infer randomization or other ordering behavior
 from the Cockatrice reference.
 
 A staged search or selection is a draft workspace, not a second location for
@@ -564,7 +566,7 @@ piling or unpiling does not change unrelated object values or links. Shared
 placement is replayable/undoable; personal pan/zoom and sorting are not moves.
 
 Confirmed ordinary-stack layout limit (D-39): at most three actual member cards.
-This limit is not applied to the special ordered-container piles or to selection
+This limit is not applied to the special container piles or to selection
 size. A placement exceeding it is invalid rather than partially applied or
 automatically split; see [the primary pile contract](board-and-controls.md#105-ordinary-battlefield-piles).
 

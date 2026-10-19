@@ -14,19 +14,24 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest container-order clarification — D-225
+## Latest container-order clarification — D-225/D-226
 
 Owner approved independent Graveyard arrivals not blocking selective Undo,
 explicitly because **Library is ordered; Graveyard is unordered** (T-510/T-511).
+D-226 extends unordered behavior to Exile and confirms **no order-related actions
+for Graveyard/Exile**, including top/bottom insertion/selection, reorder, shuffle,
+or visual-placement variants (T-512/T-513). Ordinary moves into each have no
+insertion position; moves of specific cards from either into Library can still
+choose Library top/bottom. Personal type/name browser sorting is presentation,
+not a container-order action. Older all-three-piles top/bottom wording is superseded.
 Relevant state includes order dependencies for top-of-Library draws: never draw
 a different card or silently take the recorded target from beneath another card.
-Independent Graveyard arrivals do not depend on its contents/absolute indices.
-All other D-224 checks, exposure restrictions and N still apply. Older top/bottom
-Graveyard placement/ordered-presentation wording now needs reconciliation; keeping
-those controls as visual placement versus removing them is **open**, not approved.
-Do not infer Exile/other-container ordering or add MTG rules enforcement. Next
-useful question: resolve those existing Graveyard controls before finalizing their
-presentation, then continue mutation relevant-state cases.
+Independent Graveyard/Exile arrivals do not depend on unrelated contents/absolute
+indices. All other D-224 checks, exposure restrictions and N still apply. Exact
+collapsed-pile presentation and other-container ordering remain separate. Do not
+reopen the resolved Graveyard/Exile controls or add MTG rules enforcement. Next
+useful topic: continue mutation relevant-state cases, then Redo insertion anchors
+and queue behavior; do not settle remaining controls without owner approval.
 
 ## Latest selective Undo/Redo safety rule — D-224
 
@@ -554,7 +559,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-225** and **T-001–T-511**.
+- Current documentation includes **D-001–D-226** and **T-001–T-513**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

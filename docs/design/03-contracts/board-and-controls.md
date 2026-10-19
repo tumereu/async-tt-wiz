@@ -9,9 +9,10 @@ after reconnect without manual resend or duplicate execution; exact recovery
 mechanics remain open.
 
 Status: gesture choices, snapping, diagonal piles, selection-aware dragging,
-top-insertion drops on special piles, visual stacking drops, and top/bottom
-context moves for library/graveyard/exile are confirmed. Layout, detailed hit testing, and
-communication mechanisms below are proposals for review. The owner additionally
+top-insertion drops on Library, unordered Graveyard/Exile moves, visual stacking
+drops, and top/bottom context moves for Library are confirmed (D-226). Layout,
+detailed hit testing and communication mechanisms below are proposals for review.
+The owner additionally
 requires mostly text-free understandable play, optional text/messages, and
 action-scoped pings. The engine is confirmed generic/rules-agnostic; the literal
 move-and-ping presentation for the Stack area is defined in
@@ -37,9 +38,9 @@ the [Android experience](android-experience.md) and
 | B-006 | Hold a card | Show large artwork and readable card text. |
 | B-007 | Special piles | Library, graveyard, and exile have dedicated pile representations. |
 | B-008 | Drag scope | Drag one card unless multiple cards have been selected; an ordinary pile is not implicitly selected. |
-| B-009 | Drop on a special pile | Insert at the top of the configured library, graveyard, or exile pile. |
+| B-009 | Drop on a special pile | Insert at the top of Library; add to unordered Graveyard/Exile without an insertion-position choice (D-226). |
 | B-010 | Drop on another ordinary card | Put the moved card onto that card's visual combined stack; no attachment or mechanical merge. |
-| B-011 | Context Move | The double-tap action sheet offers at least top and bottom destinations for library, graveyard, and exile. |
+| B-011 | Context Move | The double-tap action sheet offers Library top/bottom, Move to Graveyard, and Move to Exile. No order-related actions for Graveyard/Exile (D-226). |
 | B-012 | Tap selected / Untap selected | In selection-edit mode, explicit commands set the selected set uniformly while ordinary card taps edit membership. Outside that mode, use the selection-aware card-tap gesture. |
 
 Gestures operate on either participant's cards. Ownership does not restrict
@@ -286,8 +287,9 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   explicitly cleared or replaced, including replacement by a new rectangle or
   clearing when an unselected card is dragged or tapped. Successful movement
   leaves selection-edit mode on/off as it was (D-34).
-- Dropping onto a library, graveyard, or exile pile inserts at its top. Bottom
-  insertion is available through Context Move; a drop does not ask top/bottom.
+- Dropping onto Library inserts at its top; bottom insertion is available through
+  Context Move. Graveyard/Exile drops add membership without an insertion index.
+  None of these drops asks top/bottom (D-226).
   D-84/D-85 override insertion for tokens: a token moved into those configured
   destinations is removed from current state, with recoverable history.
 - D-55/D-56 add destination-entry resets for configured Graveyard, Exile, and
@@ -303,19 +305,19 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   combined stack, creating a visual pile or joining the existing one. The
   destination card is not moved to another container, and neither card becomes
   a rules attachment, copy, or mechanically merged object. Special container
-  slots retain their configured top-insertion behavior.
-- The double-tap action sheet includes Move with at least six destination
-  choices: top/bottom of Library, top/bottom of Graveyard, and top/bottom of
-  Exile. Either participant's corresponding containers are accessible; the
-  exact destination-picker layout remains open. These are ordered-placement
-  operations, not inferred draw/discard/etc. commands.
+  slots retain their configured ordered or unordered movement behavior.
+- The double-tap action sheet includes Move to Library top/bottom, Graveyard,
+  and Exile. Either participant's corresponding containers are accessible; the
+  exact destination-picker layout remains open. Graveyard/Exile have no top/bottom
+  variants or other order-related actions (D-226). These are literal moves,
+  not inferred draw/discard/etc. commands.
 - Multi-card selection permits dragging several cards; D-176 records individual
   card moves in a sensible order. Existing source/spatial order defaults apply;
   remaining ordering cases do not permit an atomic bulk history node.
 
-Top insertion is generic configured-pile behavior in the initial layout, not a
-special consequence of the strings Library, Graveyard, or Exile. Relabeling the
-same configured pile does not change its drop behavior. Moves retain the
+Ordered versus unordered movement is configured behavior in the initial layout,
+not a special consequence of the strings Library, Graveyard, or Exile. Relabeling
+the same configured pile does not change its drop behavior. Moves retain the
 existing unrelated-field preservation, immediate queue/sync, and undo contracts.
 
 Proposed drag lifecycle:
@@ -334,8 +336,9 @@ Destination classes:
 - **Existing battlefield pile target:** add to that visual pile, with a clear
   before-drop highlight. Dropping on an ordinary card forms/joins its visual
   stack; do not accidentally attach, mechanically merge, or copy cards.
-- **Container slot:** change container with explicit insertion ordering, leaving
-  unrelated object fields intact. Library/graveyard/exile drops insert on top.
+- **Container slot:** change container, with insertion ordering only for an ordered
+  destination, leaving unrelated object fields intact. Library drops insert on
+  top; Graveyard/Exile drops add membership without ordering.
   Show its label, not just a colored rectangle.
 - **Other labeled area:** perform the configured generic placement operation.
   A generic move into Stack cannot infer targets, payment, or resolution.
@@ -356,8 +359,9 @@ its orientation on an ordinary battlefield reposition.
 Still required: grid dimensions/scaling, snap radius, pile acceptance region,
 collision handling, edge autoscroll, zoom anchoring, orientation footprints,
 empty-area bounds, multi-card order, and insertion defaults for other ordered
-containers. The three special-pile top-drop defaults are confirmed. No unreviewed
-pixel constants should determine these behaviors during implementation.
+containers. Library top-drop and unordered Graveyard/Exile membership defaults
+are confirmed (D-226). No unreviewed pixel constants should determine these
+behaviors during implementation.
 
 ## 10.5 Ordinary battlefield piles
 
@@ -423,18 +427,19 @@ card. It operates on multiple cards only after ordinary explicit selection.
 
 Special piles represent container contents, unlike the layout-only piles above.
 
-**D-225 clarification:** Library is ordered; Graveyard is unordered. For selective
-Undo/Redo, order-dependent Library operations retain their ordering dependencies;
-independent moves into Graveyard do not depend on its contents/order/absolute
-indices. The earlier Graveyard top/bottom and ordered-presentation descriptions
-below are under revision: retaining those controls as visual placement versus
-removing them is open. They must not override Graveyard's unordered semantics.
-This does not decide Exile's ordering; see
+**D-225/D-226:** Library is ordered; Graveyard and Exile are unordered and have
+**no order-related actions**, including top/bottom insertion or selection, reorder,
+or shuffle. Do not keep these as visual-placement actions. Context Move offers
+one destination per Graveyard/Exile, without an insertion position. Browser
+sorting/filtering remains personal presentation, not container reordering.
+Specific-card moves from Graveyard/Exile may still choose Library top/bottom as
+their destination; that orders Library, not the source. For selective Undo/Redo,
+Library operations preserve their relevant ordering dependencies; independent
+Graveyard/Exile arrivals do not depend on unrelated contents/absolute indices. See
 [selective Undo/Redo](history-and-undo.md#selective-mutation-undoredo--d-224).
 
-Earlier confirmed incoming movement: dropping a card onto any of these three configured
-piles inserts it at the top. Context Move offers both top and bottom for each;
-see section 10.4.
+Incoming drops insert at Library's top or add to Graveyard/Exile membership;
+see section 10.4. This supersedes the earlier all-three-piles top/bottom contract.
 
 Confirmed pile entry (D-41): a single tap on the pile control opens its contents
 and exposes its pile context actions together, rather than requiring a separate
@@ -445,8 +450,8 @@ must remain distinct from pile-control gestures.
 | Pile | Default presentation | Proposed direct controls |
 | --- | --- | --- |
 | Library | Configured covered pile and count; logical top/bottom exist, but the full contents browser must not show library order (D-42). | Confirmed: contents + actions on tap; View/Reveal top or bottom N, Draw one/N, Move top/bottom N, and Shuffle all (D-43/D-46/D-48). No top/bottom shuffle shortcuts. Direct pile-card drag and exact reorder controls remain proposed. |
-| Graveyard | Latest/top card and diagonal edges for underlying cards, count. | Confirmed: tap pile control for contents + actions. Proposed: direct visible-card drag and ordered contents presentation. |
-| Exile | Similar pile layout, respecting covered presentation; optional labeled subsets. | Confirmed: tap pile control for contents + actions. Proposed: direct visible-card drag, ordered contents, and optional labeled subsets. |
+| Graveyard | Unordered contents and count; exact collapsed-pile display remains open. | Confirmed: contents + actions on tap; move specific cards, with no order-related actions (D-226). Visible-card drag must identify the actual card, not a logical top position. |
+| Exile | Unordered contents and count, respecting covered presentation; optional labeled subsets remain proposed. | Confirmed: contents + actions on tap; move specific cards, with no order-related actions (D-226). Visible-card drag must identify the actual card, not a logical top position. |
 
 These are explicit display/container settings in a preset, not behaviors derived
 from the names. A pile with any other label can use exactly the same settings.
@@ -461,9 +466,9 @@ records that literal move, not “draw.” Moving it anywhere else uses the same
 operation. A browser changes actual container order only through an explicit
 reorder operation; sorting/filtering the displayed list is local presentation.
 
-Top/bottom refer to logical order, not screen orientation. Insertion order for
-multiple cards and display subsets still need specification as generic
-container behavior. Empty piles remain valid drop targets
+For ordered containers, top/bottom refer to logical order, not screen orientation.
+Insertion order for multiple cards and display subsets still need specification
+as generic container behavior. Empty piles remain valid drop targets
 and retain their label and count. No conventionally covered
 pile leaks names through diagonal edges, drag ghosts, or routine notifications.
 Explicit inspection is allowed under the cooperative trust model.
@@ -567,26 +572,30 @@ Confirmed N-card input/ordering defaults (D-49):
    separately permits action-inapplicability skipping. Empty-source
    behavior, exact count feedback, and stale/offline boundary validation remain
    to be specified.
-4. Multi-card moves from one ordered source preserve the cards' relative source
-   order at the destination, whether inserted on top or bottom. Do not reverse
-   their order through repeated insertion. Existing destination members keep
-   their relative order. Cross-source selections and bulk action boundaries
+4. Multi-card moves from one ordered source into an ordered destination preserve
+   the cards' relative source order, whether inserted on top or bottom. Do not
+   reverse their order through repeated insertion. Existing destination members keep
+   their relative order. Graveyard/Exile destinations add membership without a
+   destination order (D-226); individual mutations still have recorded execution
+   order. Cross-source selections and bulk action boundaries
    remain separate decisions.
 
 Confirmed pile interactions and browser layout (D-50):
 
-1. Drag from a special pile's top-card surface to move that actual top card;
+1. Drag from Library's top-card surface to move that actual top card. For unordered
+   Graveyard/Exile, a visible-card drag addresses that specific displayed card,
+   not a logical top position (D-226);
    tapping the pile still opens contents and actions. Exact card/control hit
    regions and drag-versus-tap thresholds remain to be designed.
 2. Contents browsers show cards in type-category columns like Cockatrice, not
    the proposed top-to-bottom Graveyard/Exile list. This is display grouping
-   only, not a change to stored pile order. Full-library browsing still hides
-   source order; explicit top/bottom-N displays retain their ordered presentation
+   only, not a container reorder or membership change. Full-library browsing still
+   hides source order; explicit top/bottom-N displays retain their ordered presentation
    rather than regrouping by type. D-51 supplies initial column defaults;
    category definitions, multi-type precedence, and exact layout/gestures remain
    to be specified.
 3. Contents browsers support name search/filtering and hold inspection. Search
-   and filtering change only the browser presentation, never stored pile order
+   and filtering change only the browser presentation, never Library order
    or card locations. Explicit opening/View remains shared/logged; per-keystroke
    logging and exact search controls are not settled by this decision.
 
@@ -610,9 +619,9 @@ Opponent-facing covered View layout, including whether category labels/grouping
 would disclose card metadata, remains open. Do not treat category columns as
 permission to expose faces or names contrary to D-44.
 
-Still open: exact special-pile top-card drag hit regions, other visible-card
+Still open: exact Library top-card drag hit regions, other visible-card
 dragging, browser selection controls, column details, other bulk
-conveniences, actual reorder controls, and exact gesture
+conveniences, actual reorder controls for ordered containers, and exact gesture
 arbitration. No blanket approval of those earlier proposals is implied by the
 library-specific decisions above.
 

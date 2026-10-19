@@ -38,8 +38,8 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-002 | Card-list import and saved decks | Import-only card-list editing (D-189). D-198 requires common MTG text with printing/sideboard notation, flagged unresolved names, preserved input and no saving until resolved. D-199 adds naming/renaming, cover art from a deck's cards and Replace/Save as new re-import. D-221 removes deleted saved decks from the collection and confirms both editing/deleting preserve already selected lobby/game copies. Full manual card-list editing/export are not implied. Remaining dialect/printing/count/metadata and deletion confirmation/recovery/retention/concurrent races are open; lobby mainboard/sideboard management is separate. |
 | A-003 | Instantiate objects and lobby preparation | Initial lobby placement: mainboard → Library, sideboard → separate Sideboard; all other card areas empty (D-202). Freely transfer cards between mainboard/sideboard without legality/size/one-for-one restrictions (D-203); own Ready clears and saved decks stay unchanged (D-191). Start uses the prepared mainboard; Sideboard is unavailable during play. Further custom instantiation/setup remains proposed where not separately confirmed. |
 | A-004 | Setup edits and mulligan shortcuts | Lobby starter selection offers either player or Random (D-201); changing it clears only the changing player's Ready, preserving the other's (D-204). Start shuffles Libraries and initializes life 20 without a required starting-life editor (D-200). Further initial setup remains proposed where not confirmed. No automatic draw (D-192). D-193/D-194 add return-whole-hand → shuffle → draw N (default 7) or pre-return hand size minus one, via Library context and turn-1 Untap quick actions. Sequencing/count edges remain open; ordinary in-game life/move/draw/shuffle controls remain. |
-| A-005 | Move cards | Move one/many objects between containers/areas and choose insertion order; no rule-dependent side effects. |
-| A-006 | Ordered-pile operations | Select top/bottom/N, move to an explicit destination, inspect/reveal, search, reorder, shuffle the whole pile, and choose randomly. D-48 excludes library top/bottom shuffle shortcuts. |
+| A-005 | Move cards | Move one/many objects between containers/areas; choose insertion order only for ordered destinations, not Graveyard/Exile (D-226). No rule-dependent side effects. |
+| A-006 | Ordered-pile operations | Select top/bottom/N, move to an explicit destination, inspect/reveal, search, reorder, shuffle the whole pile, and choose randomly. D-48 excludes library top/bottom shuffle shortcuts. D-226 excludes all order-related actions for unordered Graveyard/Exile; ordinary browsing and specific-card moves remain. |
 | A-007 | Row/fan operations | View, arrange, cover/uncover, select, and move cards; labels such as Hand do not alter semantics. |
 | A-008 | Orientation/faces | Tap/untap presentation, rotate, choose face, cover/uncover, and edit labels. D-100/D-110 make Untap all literal for the turn player's battlefield, with no skip flag/inferred exclusions; manually re-tap exceptions. Both standalone/+advance variants preserve unrelated fields. |
 | A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
@@ -214,9 +214,11 @@ specified case by case rather than excluded by the earlier generic-only wording.
 
 Confirmed touch movement for A-005/A-006/A-033 is specified in
 [board controls, section 10.4](board-and-controls.md#104-dragging-and-snapping):
-single-card drag unless multiple cards are selected, top insertion on special
-pile drops, ordinary-card drops forming/joining visual stacks, and Context Move
-to the top/bottom of library, graveyard, and exile. Multi-card order and the
+single-card drag unless multiple cards are selected, top insertion on Library
+drops, unordered membership additions for Graveyard/Exile, ordinary-card drops
+forming/joining visual stacks, and Context Move to Library top/bottom, Graveyard,
+or Exile. D-226 excludes order-related Graveyard/Exile actions, including visual
+placement variants. Multi-card order and the
 remaining bulk-action details below are not yet approved; D-49 separately fixes
 relative order for multi-card moves from one ordered source.
 
@@ -243,8 +245,9 @@ and source-order preservation for moves from one ordered source. Empty sources,
 cross-source order and precise validation remain open. D-176 fixes individual
 card-mutation nodes for bulk moves.
 
-D-50 confirms direct top-card dragging from special piles and contents browsers
-with type-category columns, name search/filtering, and hold inspection. Column
+D-50/D-226 support direct top-card dragging from Library and specific-visible-card
+dragging from unordered Graveyard/Exile. Contents browsers have type-category
+columns, name search/filtering, and hold inspection. Column
 grouping is display-only and does not replace explicit ordered top/bottom-N
 displays. D-51 approves initial one-category-per-card, alphabetical-column, and
 narrow-screen scroll defaults as a revisable starting point. Exact category

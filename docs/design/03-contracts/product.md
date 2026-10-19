@@ -44,7 +44,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-020 | Single tap taps a card; double tap opens all available actions; hold shows large art/text. |
 | P-021 | The board has distinct areas, including special library, graveyard, and exile piles. |
 | P-022 | Game flow is understandable mostly without writing explanations; optional text input and messages remain supported. |
-| P-023 | Pings are associated with a specific action rather than floating independently of the game flow. |
+| P-023 | Pings retain specific recorded timeline context rather than floating independently of play. D-168/D-170 clarify that same-author pings add no group-start marker and need no separate owner-action picker; author changes start a new group and effective boundaries remain preserved. |
 | P-024 | The engine is generic and rules-agnostic; MTG is a manual-play use case, not hard-coded mechanics. |
 | P-025 | Present literal actions and pings as recorded; players infer their game meaning. |
 | P-026 | Area names, card metadata, and pings must not imply game-specific state transitions or automatic side effects. |

@@ -13,6 +13,7 @@ neither unfinished behavior nor implementation.
 | [Game actions](game-actions.md) | Capability coverage, bulk actions, preservation and explicit exceptions. |
 | [Combat and Stack](combat-stack-and-projections.md) | Projections, spatial placement, grouping, lifecycle, shortcuts. |
 | [History and Undo](history-and-undo.md) | Review, events, grouping, interruptions, recovery. |
+| [Automatic grouping](history-grouping.md) | Confirmed timeline grouping/closure rules, tentative policies, MTG face-change rules check and remaining inventory. |
 | [Communication](visual-action-language.md) | Literal action presentation, pings, links, optional text. |
 | [Android experience](android-experience.md) | Proposed journeys, navigation, accessibility, device/error states. |
 

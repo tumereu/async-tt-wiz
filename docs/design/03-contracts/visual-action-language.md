@@ -140,10 +140,14 @@ unpinged -> Ping all selected, pinged -> Unping all selected. Do not use an
 any/all-selected test or independently invert mixed states. Preserve
 selection/unrelated state. Exact context routing and menu lifetime remain open.
 
-The current action association is always visible. A new selected action changes
-that context; adding a ping to an older action is explicit. A setup/root entry
-can supply context before the first move. Free-standing discussion goes in chat,
-not a ping with a guessed action association.
+D-168 clarifies the user model: a ping is placed on the timeline without a new
+group-start marker, not assigned through an additional “owner action” picker.
+The selected timeline context and effective ping boundary remain visible; adding
+a historical ping must not silently change a different boundary or make it appear
+retroactively. D-170 makes an author change start a new group even for a ping;
+the no-ping-marker rule never overrides author separation. Exact first/root
+context remains open.
+Free-standing discussion goes in Chat, not a guessed grouping/ownership workflow.
 
 Persistent generic links are confirmed by D-70: card context Link -> pick a
 card/player endpoint, with no incidental target tap/untap or player-menu action.

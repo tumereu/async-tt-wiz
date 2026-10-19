@@ -44,9 +44,16 @@ old future after a response. Exact overall release scope still needs sign-off.
 1. **Setup and release scope.** From invitation/deck import to a playable table:
    supported formats, starting arrangement/values/hands, missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.
-2. **History groups and pings.** The automatic grouping rule; which event a new
-   ping belongs to; historical additions; numbering after removal/re-add; how
-   optional group edits relate to event and Undo boundaries.
+2. **History groups and pings.** D-162–D-171 establish the core sequence/marker
+   model, including real-card Stack isolation, same-tuple tap interleaving, grouped
+   card/combat edits, forward display/combat closure and no ping/Undo markers.
+   Manual face/cover edits join card edits; author changes override every other
+   grouping rule. Token removal joins card edits; dice/coin runs attach forward
+   separately from prior play; phase/turn tracking joins the previous group.
+   Remaining: same-author precedence, other action families, leading-only/first
+   contexts, mixed-tuple/compound/extra-location cases and numbering mutations.
+   No separate ping ownership picker is needed. See the
+   [grouping rules and remaining inventory](../03-contracts/history-grouping.md).
 3. **Undo/Redo pointer controls and visibility.** D-159 confirms one parent-node
    step regardless of author, retained forward history, and hidden ordinary
    replacement continuations available through a toggle. Remaining outcomes:

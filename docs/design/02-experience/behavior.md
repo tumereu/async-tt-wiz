@@ -227,6 +227,22 @@ The general rules are:
 - Actions sync immediately and form meaningful review groups automatically;
   grouping never hides interruption boundaries or delays publication. Review
   one action at a time. Reviewing is not accepting legality or waiving a response.
+- Core grouping rules: taps group forward with the next action; pings join the
+  existing group; actual-card moves group by the same ordered origin/destination
+  tuple, including Battlefield → Battlefield rearrangements and taps interleaved
+  between matching moves. Real-card Stack moves and each Stack projection creation
+  remain separately visible, with taps/pings as companions. Ordinary card edits,
+  including manual face/cover changes, and token removal group together; combat
+  projection creation/repositioning groups together.
+  Display dismissal/combat closure belongs with the next action, not the displayed
+  state's group. Same-target Shuffles group; dice/coin runs start separately from
+  prior play, then group with the following action. Phase/turn tracking joins the
+  previous group. Same-author pings and Undo do not add group-start markers;
+  resuming continues prior grouping context.
+  Author changes always start a new group, overriding all other rules—even for
+  pings or forward/backward companions. Remaining categories and mixed-sequence
+  precedence are explicitly open in the
+  [grouping contract](../03-contracts/history-grouping.md).
 - History retains alternatives with **one active line**. Interrupt at a recorded
   boundary to start a new active continuation without approval voting. Keep the
   old future; never automatically replay it onto the response. An interruption

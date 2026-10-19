@@ -144,6 +144,21 @@ execution that the platform cannot guarantee. Exact latency targets remain open.
 
 Groups affect presentation and notifications, never atomicity or interruptibility.
 
+D-162–D-171 specify sequence-based presentation groups and timeline group-start
+markers. Same non-Stack move tuples group, including interleaved taps; real-card
+Stack moves and Stack projection creations remain separately visible. Ordinary
+card edits, manual face/cover edits and token removal group together. Combat
+projection creation/repositioning groups together; View/Reveal dismissal/combat
+closure belongs with the following action. Same-target
+Shuffles group; dice/coin runs start separately from prior play and attach to the
+following action. Phase/turn tracking joins the previous group. Same-author pings
+add no group-start marker, and Undo/resuming does not artificially reset grouping. See the
+[primary grouping rules and open precedence cases](history-grouping.md) for scope,
+the highest-precedence author-change boundary, remaining action families and
+the MTG face-change rules check. Presentation groups still never change node-level
+Undo or interruption. Exact action/event mappings are not all complete;
+one invocation = one group is not adopted.
+
 D-129 distinguishes invocation, tree event, and presentation group. D-159/D-160
 set **one parent-node move per Undo**, replacing D-131's whole-invocation scope.
 D-131's reaction-point requirement remains: multiple MTG reaction points need
@@ -193,7 +208,8 @@ Proposed grouping rules:
   pings, author/session boundaries, and optional manual split/join. No card-text,
   area-name, or game-mechanics inference and no required intent-selection dialog.
 - Start a new group at an explicit user split, a context change according to
-  approved generic heuristics, or an interruption. Do not combine authors.
+  approved generic heuristics, or an interruption. D-163 confirms no combined
+  authors; other proposed separators still need review.
 - A group can be open and grow as actions synchronize. An opponent can review
   it immediately without waiting for closure. Closing a group is presentation
   metadata, not a gameplay commit or required user action.
@@ -205,6 +221,12 @@ Proposed grouping rules:
 - Boundaries and action summaries remain visible when a group is collapsed.
 - A review control opens the next group but advances one action at a time.
   “View group result” is an explicit shortcut, not the only navigation mode.
+
+D-166 refines normal display/area-close progression: show the revealed/combat
+state, then the following group result including dismissal plus its next action,
+without a mandatory standalone dismissal stop. Detailed node-by-node inspection
+remains available; the older proposed review-control wording above must not force
+an extra stop between that closure and the next action.
 
 Exact generic grouping heuristics remain an open specification item. They must
 work without extra routine taps or interpreting game mechanics. A threshold may

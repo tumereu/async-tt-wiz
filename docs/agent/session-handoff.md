@@ -34,6 +34,55 @@ The owner requested commit/push after the design work and explicitly approved
 including the existing uncommitted tier reorganization with these Undo changes.
 No implementation or later-stage transition is authorized.
 
+## Grouping-design checkpoint — D-162–D-171
+
+The owner rejected one invocation = one group. Use incoming action type and
+current group contents, with group-start markers on the timeline. D-163–D-171
+confirm forward taps; pings add no group-start marker or ownership-picker step;
+non-Stack card moves group by ordered location tuple, including taps interleaved
+between matching moves; real-card Stack moves and each Stack projection remain
+separately visible with tap/ping companions; ordinary card/face/cover edits and
+token removal group together;
+combat projection creation/repositioning groups together; display dismissal/combat closure
+groups forward, not backward; same-target Shuffles group; dice/coin runs start
+separately from prior play and group with the following action; phase/turn tracking
+joins the previous group. Undo/resuming does not itself insert group markers. D-170 settles the
+author rule as highest precedence over every grouping rule, including pings and
+forward/backward companions. B's ping after A's action starts B's group; no
+mixed-author group or ownership picker is needed.
+
+The [grouping inventory](../design/03-contracts/history-grouping.md) covers the
+existing capability catalog, including proposed scope, and separates ordinary
+game actions from exposure/annotation/control/local activities. Exact action/event
+mappings are not all complete. Do not reopen resolved real-card Stack, tap
+interleaving, combat repositioning, closure direction or ping ownership questions.
+Do not reopen the author-change precedence question resolved by D-170.
+D-171 records approval of the token-removal, forward dice/coin and backward
+tracking recommendations together. Do not reopen them as tentative. Applying the
+closure rule to all future temporary-area types is still only a proposed
+generalization; existing View/Reveal/combat closure is confirmed.
+
+The owner requested an MTG face-change rules check. Official Comprehensive Rules
+effective 2026-09-25 were checked: CR 116.1/116.2b/702.37e make morph face-up a
+non-stack special action that cannot itself be responded to; the face-down spell
+and resulting triggered abilities use the stack. CR 603.3/117.2e distinguish
+trigger placement/resolution timing. The grouping page contains source links and
+the recommendation subsequently approved in D-169: group ordinary face/cover
+edits with card edits, representing explicit spells/abilities separately on Stack. No automatic
+trigger detection, priority state or legality inference is authorized.
+Do not demand approval of every possible pair or invent rules from card text.
+Keep remaining policies explicitly proposed. Core grouping cases have
+T-297–T-320 acceptance scenarios. Detailed node review/Undo/interruption remains
+even when normal group review applies dismissal plus the next action together.
+No grouping decision authorizes a publication delay or deleting an intermediate
+state. Continue from remaining action categories and rule precedence, not tiny
+questions about already-settled tuples or which user-facing owner to pick for pings.
+The previous docs checkpoint (including the approved tier reorganization) was
+committed/pushed as `815a912`; this grouping checkpoint is subsequent work, approved
+for documentation update and commit/push. Check git status/log for its commit.
+Remaining action families and same-author compound precedence are explicitly open;
+this is not completion of grouping design or authorization to implement.
+
 ## Current stage and working agreement
 
 - **Documentation only. No application implementation or scaffolding exists or
@@ -72,7 +121,7 @@ No implementation or later-stage transition is authorized.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-161** and **T-001–T-296**.
+- Current documentation includes **D-001–D-171** and **T-001–T-320**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

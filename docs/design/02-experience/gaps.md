@@ -79,13 +79,13 @@ old future after a response. Exact overall release scope still needs sign-off.
    readable offline. Offline queue recovery is not an initial-delivery obligation.
    Online latency hiding remains, including recovery of requests that
    may already have reached the server when the connection drops. Exact readiness,
-   uncertain-request recovery and overlapping online-pending animation are open.
+   uncertain-request recovery and exact animation scheduling remain open.
    D-183 confirms a small local online send queue, concurrent transmission and
    individual action success/failure with no routine acknowledgement gate on
    interaction. D-184 fixes client send order and server arrival-order processing,
    without sequencing dependency metadata or acknowledgement waits. Remaining
    queue work is exact sizing/saturation, ordered-transport selection, provisional
-   references and animation composition—not whether concurrent sending, individual
+   references and animation scheduling—not whether concurrent sending, individual
    outcomes or arrival-order processing are supported.
    D-179 replaces automatic conflict branching:
    explicit UI continuation intent and a message flag authorize an interruption;
@@ -95,11 +95,15 @@ old future after a response. Exact overall release scope still needs sign-off.
    rejection and animated incoming mutations; this is not shared Undo or a new
    branch. D-181 confirms relevant-state-only locks: orientation for tapping,
    previous text for a note edit; movement alone does not invalidate either if
-   still applicable. Remaining: lock conditions for other action categories,
-   rejection recovery and animation composition with online-pending work or
-   another interruption, simultaneous explicit interruptions, and stale non-Undo
-   branch controls. Earlier no-ping-pong conflict-branch proposals are superseded,
-   not approved.
+   still applicable. D-185 fixes current-board reconciliation: accepted history
+   plus remaining valid predictions, with only actual differences animated. Preserve
+   accepted local/opponent changes and valid pending work; correct invalid later
+   predictions without visible rewind/replay of unaffected work. Acknowledgements
+   alone do not animate. D-177 history/interruption playback remains unchanged.
+   Remaining: lock conditions for other action categories, reconciliation
+   bookkeeping/scheduling, connection-loss recovery, simultaneous explicit
+   interruptions and stale non-Undo branch controls. Earlier no-ping-pong
+   conflict-branch proposals are superseded, not approved.
 5. **References and projection controls.** Occurrence removal versus token-source
    removal (non-token cards cannot be deleted); surviving Stack effects after
    token disappearance; duplicate-source selections; mixed link/ping endpoints;

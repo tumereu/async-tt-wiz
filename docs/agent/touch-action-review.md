@@ -58,6 +58,15 @@ may interleave, and later actions retain individual checks after a rejection.
 Exact ordered transport, provisional references and reconnect recovery remain
 open, not the basic ordering policy. See T-375–T-377.
 
+D-185 settles ordinary reconciliation composition: use accepted history plus
+remaining valid local predictions, animating only actual corrections without
+visible rewind/replay of unaffected work. A failed move followed by a successful
+tap returns the card while keeping it tapped. Preserve accepted local/opponent
+work and valid pending predictions; correct invalid later predictions too.
+Acknowledgement alone adds no animation; do not fabricate server outcomes or
+rewrite requests. Exact bookkeeping/scheduling remains open, and D-177 deliberate
+history/interruption playback is unchanged. See T-378–T-382.
+
 This is a review worklist, not a second interaction contract. Approved decisions
 must be reflected in the relevant primary document, decision register, and
 acceptance scenarios. Cockatrice capabilities are references, not automatic

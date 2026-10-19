@@ -24,6 +24,8 @@ The app remembers and presents what happened; the players interpret the rules.
    A small local send queue transmits actions concurrently; each succeeds or fails
    individually. Normal interaction does not wait for network acknowledgements.
    Clients send actions in order; the server processes them in arrival order.
+   Corrections animate only what must change, preserving accepted work and valid
+   local predictions rather than visibly rewinding and replaying unaffected edits.
 6. **History is inspectable and recoverable.** Step through actions, interrupt at
    a boundary, retain the old continuation, and undo mistakes. Exactly one line
    is active. Going back to continue from an earlier state requires an explicit

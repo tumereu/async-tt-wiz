@@ -336,6 +336,15 @@ remain in flight; sending and local feedback never routinely wait for previous
 acknowledgements. Other-player arrivals may interleave, and every action still
 receives its own validation/result even after an earlier rejection.
 
+**Confirmed D-185:** reconcile the current board against accepted history plus
+remaining valid local predictions, animating only the actual correction. Preserve
+accepted local/opponent changes and valid pending predictions; correct genuinely
+invalid later predictions too. A failed move followed by a successful tap moves
+the card back while keeping it tapped, without a visible untap/replay or stale
+snapshot restoration. Acknowledgement alone adds no animation. Exact scheduling
+and reduced-motion presentation remain later design; D-177 deliberate history
+traversal/interruption playback remains unchanged.
+
 Use explicit states: downloaded/current, offline/read-only, incomplete input,
 online-pending/sending, synchronized, rejected, explicitly branched, and uncertain
 delivery/failed. Exact connection-readiness and mid-request-loss flow remain open;
@@ -354,9 +363,10 @@ on rejection, animate the predicted change backward as if undone. The animation
 explains the correction without a required text explanation or acknowledgement.
 This does not publish a shared Undo, create a branch or undo the opponent's work.
 Animate incoming opponent mutations too; preserve personal historical cursors.
-Preserve recoverable rejected work; detailed recovery, animation composition and
-online-pending handling remain open. D-161's silent stale-Undo discard remains
-specific to Undo, not a blanket policy for rejected ordinary actions.
+Preserve recoverable rejected work; exact request recovery, prediction bookkeeping
+and animation scheduling remain open within D-185's confirmed behavior.
+D-161's silent stale-Undo discard remains specific to Undo, not a blanket policy
+for rejected ordinary actions.
 
 An explicitly requested historical continuation makes its branch current and
 preserves the displaced line for inspection/return. Normal Undo moves one parent

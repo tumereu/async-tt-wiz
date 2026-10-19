@@ -70,8 +70,22 @@ intent or create a branch. Incoming opponent mutations are also applied through
 animations. Keep authoritative state, pending predictions and presentation
 distinct: animations neither delay synchronization nor establish acceptance, and
 acknowledgement must not apply an already-predicted mutation twice. Preserve
-personal historical cursors. Exact composition with online-pending work and
-rejection recovery remain open.
+personal historical cursors.
+
+D-185 confirms the reconciliation target: accepted history plus remaining valid
+local predictions. Animate only the difference from the displayed board to that
+target, not a visible full rollback/replay of unaffected mutations. Retain accepted
+local/opponent changes and valid pending predictions; correct genuinely invalid
+later predictions as well. Example: a rejected move followed by an accepted tap
+returns the card to its authoritative location without untapping it. An
+acknowledgement alone neither repeats the mutation nor adds an animation.
+
+Internal recomputation is not visible history traversal or a new shared mutation.
+Do not turn a locally invalid prediction into a fabricated server rejection or
+rewrite/cancel the original in-flight request; preserve identity and resolve its
+actual outcome. D-177 interruption-resume/history playback remains unchanged.
+Exact reducer/prediction bookkeeping and animation scheduling remain technical
+design, constrained by these presentation invariants.
 
 D-176 requires one node per individual mutation and immediate publication of
 each node, including ordered operations from bulk/combined controls. Transport
@@ -110,7 +124,7 @@ uninterrupted block against the other player's actions.
 
 Authoritative parent mapping must support accepted current-head actions without
 changing their from/to conditions or interruption intent. Exact ordered transport,
-new-object/reference handling, queue size/saturation and animation composition
+new-object/reference handling, queue size/saturation and animation scheduling
 remain open; they must support the confirmed concurrent online pipeline, not
 restore stop-and-wait as a blanket policy. Preserve each operation's identity when
 resolving delivery uncertainty; do not resubmit as a different action/random draw.
@@ -121,7 +135,7 @@ Proposed outcomes:
 | --- | --- |
 | Ordinary edit; from/to conditions hold at current head | Append there and advance the shared pointer atomically, even if other actions committed meanwhile. |
 | One of several concurrently sent ordinary actions fails | Reject only that action; another action whose own checks pass may still apply. Do not cancel/roll back the whole send queue or require a sequence-level retry (D-183). |
-| Ordinary edit; either from/to condition fails at current head | Reject without changing shared game state or creating a branch. Animate the predicted local mutation backward under D-180. Retain recoverable local work; detailed recovery/online-pending composition remains open. |
+| Ordinary edit; either from/to condition fails at current head | Reject without changing shared game state or creating a branch. Animate the actual correction under D-180/D-185, preserving accepted changes and valid pending predictions; correct genuinely invalid later predictions too. No visible rewind/replay of unaffected work. Retain recoverable request context; exact bookkeeping/scheduling remains open. |
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
 | Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |
@@ -153,7 +167,8 @@ check the previous orientation, note edits the previous note text. An intervenin
 card move does not reject either if the action remains applicable. Preserve
 unrelated current fields; do not apply a stale whole-card replacement. Object
 existence, structural constraints and action applicability still hold. Exact lock
-conditions for remaining categories and online-pending composition remain open.
+conditions for remaining categories and exact reconciliation bookkeeping remain open;
+D-185 fixes the visible online-pending reconciliation behavior.
 
 An explicit interruption instead names the historical boundary and intent to
 continue there. Validate the mutation in that selected state and make the new
@@ -208,9 +223,10 @@ request. Missing acknowledgement alone does not prove rejection or justify an
 Undo-like rollback as a known server rejection.
 
 Exact connection readiness, uncertain-request resolution, whether/how to retry,
-queue sizing/saturation and animation composition remain open. D-183 rules out a
-blanket wait-for-acknowledgement interaction gate; D-182 still excludes extended
-offline gameplay/replay. Do not interpret ordinary network latency as permission
+queue sizing/saturation and animation scheduling remain open. D-185 fixes
+difference-only corrections with accepted work and valid predictions preserved.
+D-183 rules out a blanket wait-for-acknowledgement interaction gate; D-182 still
+excludes extended offline gameplay/replay. Do not interpret ordinary network latency as permission
 to freeze otherwise available local controls.
 
 D-105 requires no priority state or Pass record to queue, publish, or interrupt

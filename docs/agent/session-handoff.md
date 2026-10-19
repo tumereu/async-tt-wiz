@@ -16,6 +16,16 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
+**Latest reconciliation clarification — D-185:** current-board reconciliation
+targets accepted history plus remaining valid local predictions and animates only
+the actual correction, not visible rewind/replay of unaffected work. For a failed
+move followed by a successful tap, return the card while keeping it tapped.
+Preserve accepted local/opponent work and valid pending predictions; correct
+genuinely invalid later predictions too. Acknowledgement alone adds no animation. Do not fabricate server
+results or rewrite in-flight requests; exact bookkeeping/scheduling remains open.
+D-177 deliberate history/interruption playback is unchanged. No implementation
+or stage transition is authorized. See T-378–T-382.
+
 **Latest ordering clarification — D-184:** clients send actions in action order;
 the server validates/applies in arrival order. Preserve order in delivery rather
 than add sequencing dependency metadata or reconstruct client order on the server.
@@ -86,8 +96,8 @@ D-179 supersedes D-13/P-11 and implicit edit-from-review/always-fixed-parent
 readings of D-176/D-177, not one mutation per node, immediate publication or
 personal animated playback. The assistant's preceding four-rule conflict proposal
 was not approved. Do not resume the no-ping-pong conflict-branch questionnaire.
-Remaining substantial work: per-action lock conditions, rejection recovery and
-animation composition with online-pending work, connection loss during requests,
+Remaining substantial work: per-action lock conditions, exact reconciliation
+bookkeeping/scheduling within D-185, connection loss during requests,
 simultaneous explicit interruptions and stale non-Undo controls. Exact wire fields
 and final continuation-control layout are not yet decided. Primary behavior is
 [history sections 3.3/3.5](../design/03-contracts/history-and-undo.md#33-immediate-action-synchronization);
@@ -269,7 +279,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-184** and **T-001–T-377**.
+- Current documentation includes **D-001–D-185** and **T-001–T-382**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

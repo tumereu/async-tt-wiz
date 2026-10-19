@@ -305,6 +305,13 @@ The general rules are:
   explains the correction. It is not a shared Undo or branch. Incoming mutations
   from the other player are also applied with animations, preserving personal
   historical review positions (D-180). Animation never delays synchronization.
+- Reconcile the current board to accepted history plus remaining valid local
+  predictions, animating only the necessary correction (D-185). A failed move
+  followed by a successful tap returns the card while keeping it tapped; do not
+  briefly undo/replay accepted work or erase the opponent's changes. Keep valid
+  pending predictions and correct genuinely invalid later ones. Acknowledgements
+  alone add no animation. This does not change deliberate history traversal or
+  D-177 interruption-resume playback.
 - Initial delivery requires a connection to make game actions, including Undo
   and shared branch controls. Downloaded games remain readable/reviewable offline,
   but do not create offline mutations or a gameplay queue to replay on reconnect

@@ -150,13 +150,30 @@ reordering to reconstruct client intent. Actions from the other player may
 interleave; each action still passes or fails its own current-head checks. A
 rejection does not block evaluation of later arrivals.
 
+**Confirmed reconciliation (D-185):** reconcile the displayed current board
+against accepted history plus remaining valid local predictions. Animate only
+the actual difference needed to reach that state; do not visibly rewind/replay
+unaffected work. Preserve accepted local and opponent changes and still-valid
+pending predictions. If a move fails but the following tap succeeds, animate
+the card back to its authoritative location while keeping it tapped, without
+briefly untapping it or restoring a stale whole-card snapshot. Correct later
+predictions that genuinely become invalid too, rather than cancelling the entire
+pending sequence. Acknowledgement alone causes no extra animation or duplicate
+application; newly learned authoritative differences still need reconciliation.
+
+This is presentation reconciliation, not permission to manufacture server results,
+retarget pending requests or change their identity/conditions. Preserve unresolved
+request context until its actual result is established. D-177's deliberate history
+traversal and interruption-resume rollback/playback remain distinct and unchanged;
+D-185 removes unnecessary visible rewind/replay from ordinary online reconciliation.
+
 Acknowledgement of a predicted mutation must not apply it twice. Animation does
-not gate persistence, publication or server acceptance. Exact animation composition,
-ordered-transport selection, reference handling, queue sizing/saturation and connection-loss
-recovery remain open; these must preserve concurrent sending and individual
-outcomes rather than introduce a blanket wait-for-response interaction gate.
-Final timing, reduced-motion/accessibility presentation and layout remain later
-design work.
+not gate persistence, publication or server acceptance. Exact animation scheduling,
+ordered-transport selection, reference handling, queue sizing/saturation and
+connection-loss recovery remain open; these must preserve concurrent sending,
+individual outcomes and D-185 difference-only corrections rather than introduce
+a blanket wait-for-response interaction gate. Final timing, reduced-motion/
+accessibility presentation and layout remain later design work.
 
 Proposed action lifecycle:
 
@@ -203,8 +220,8 @@ deliberately waiting to gather a group; every action boundary remains intact.
 - Initial delivery does not permit offline actions or reconnect replay of an
   offline gameplay queue (D-182). While online, local acceptance and branch
   activation remain provisional until acknowledged. D-180 specifies animated
-  rejection feedback. Retain recoverable online work; exact in-flight recovery
-  and overlapping online-pending behavior remain open.
+  rejection feedback, composed under D-185. Retain recoverable online work;
+  exact in-flight recovery and animation scheduling remain open.
 - Incomplete selections/forms may be cancelled without shared effects. Once an
   action is completed, use Undo rather than assuming it is still private.
 - Do not require a pre-send review, editing mode, group completion, branch name,

@@ -211,8 +211,9 @@
 | D-205 | Ready requires your own selected deck without legality/size checks; allow withdrawal until start. Accepted Ready persists when leaving/disconnecting, without both players online. Resolve start-versus-change in server arrival order and start only once. | Owner approved all four lobby-transition recommendations together. Preserve own-Ready clearing for preparation/starter changes (D-191/D-204). Apply a lobby edit/withdrawal received before start before checking readiness; reject a late lobby change after start without altering/reopening the game. The second accepted Ready can start while the first player is away; this is not offline action creation. Retries reuse the existing start/shuffle outcomes, never restarting or resetting play. Starter defaults/access/random timing, cancellation/retention and lobby/game history boundaries remain open. No implementation or stage transition is authorized. |
 | D-206 | Leaving the lobby and cancelling the game must be separate actions. | Owner rejected the assistant's proposed leave-lobby-means-cancel behavior. Leaving alone does not cancel; cancellation is a distinct explicit action. Preserve D-205's Ready persistence when leaving the screen/disconnecting. Cancellation permissions, races with start, listing/retention and the other invitation-lifecycle recommendations remain open; the correction does not approve the rest of the preceding bundle. No implementation or stage transition is authorized. |
 | D-207 | Either player can cancel an unstarted game without the other's approval. | Owner approved equal cancellation authority, not inviter-only cancellation or a two-player vote. Preserve D-206's separation of leaving and cancellation. Cancellation-versus-start races, listing/retention, pending-invitation lifecycle and started-game completion remain open; this does not approve the earlier lifecycle bundle. No implementation or stage transition is authorized. |
+| D-208 | For the inviter, an invite is already an open lobby: select a deck and ready before acceptance; Cancel game cancels the invite. Decline retains the lobby and allows reinvitation. | Owner clarified the inviter's unified game/lobby model, then explicitly rejected destroying the lobby on recipient Decline. The inviter can prepare and ready while waiting; acceptance opens the same lobby for the recipient without marking them Ready or resetting inviter preparation. Decline leaves the inviter's lobby/preparation/readiness intact and permits reinviting the recipient; it is not Cancel game. Recipient acceptance remains required. Exact decline presentation/feedback, pending expiry/duplicates, cancellation races and retention remain open; do not infer approval of the preceding default bundle or opponent replacement. No implementation or stage transition is authorized. |
 
-**Latest setup decisions — D-188–D-207:** authenticated main menu, adding users,
+**Latest setup decisions — D-188–D-208:** authenticated main menu, adding users,
 import-only deck editing, current games/pending invites and a lobby with deck
 selection, mainboard/sideboard management and both-player Ready. Primary behavior:
 [accounts, decks, and lobby](../design/03-contracts/accounts-decks-and-lobby.md).
@@ -240,6 +241,9 @@ D-206 separates leaving the lobby from explicit cancellation; leaving alone does
 not cancel. D-207 allows either player to cancel an unstarted game without the
 other's approval. Cancellation-versus-start races and listing/retention remain
 open; the remaining invitation-lifecycle bundle is not approved.
+D-208 clarifies that the inviter already has an open lobby and can prepare/ready
+before acceptance. Cancel game cancels its pending invite; Decline instead keeps
+the lobby and preparation/readiness, allowing reinvitation to that same lobby.
 Remaining starter defaults/access/random timing, cancellation/retention,
 count/sequencing and other setup details are open. Neither the assistant's immediately usable table nor its
 automatic draw-seven/manual-only-mulligans proposal was approved.

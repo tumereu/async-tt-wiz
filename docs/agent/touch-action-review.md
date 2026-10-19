@@ -79,6 +79,13 @@ D-207 separately allows either player to cancel an unstarted game without the
 other's approval (T-456). Cancellation-versus-start races/listing/retention and
 the other proposed invitation defaults remain open; neither answer approved
 the earlier lifecycle bundle.
+D-208 unifies the inviter's pending invite with an already-open lobby: allow deck
+preparation and Ready before acceptance; Cancel game cancels its pending invite.
+Recipient Decline retains that lobby/preparation/readiness and allows reinvitation
+to the same lobby. Acceptance opens it for the recipient without automatic Ready
+or clearing inviter setup (T-457–T-460). Do not invent a separate outgoing-cancel
+flow or destroy the lobby on Decline. Expiry/duplicates, decline presentation/
+feedback, cancellation races and retention remain open.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

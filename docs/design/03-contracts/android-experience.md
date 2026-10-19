@@ -89,6 +89,11 @@ password reset by email, and usernames—not emails—visible to other users.
 | Game communication | Context-linked messages, response requests, game activity. |
 | Settings/storage | Notifications, accessibility, cached data, account and data management. |
 
+For the inviter, a pending invitation is already an open lobby: allow deck
+preparation/Ready before acceptance, and use Cancel game to cancel its pending
+invite. Recipient Decline retains that lobby for reinvitation; Accept opens the
+same lobby for the recipient without automatically readying them (D-208).
+
 Lobby preparation permits free transfers between mainboard and sideboard, without
 legality, size or one-for-one constraints (D-203). These clear own Ready and leave
 saved decks unchanged (D-191); Sideboard remains unavailable during play (D-202).

@@ -38,8 +38,11 @@ The general rules are:
 - Register with username, email and password; log in with email/password and
   reset forgotten passwords by email. Other users see your username, not your email.
 - Play shows current games, including pending invitations.
-- Invite an added user to a game. They can Accept or Decline in Play; accepting
-  opens the lobby, not active play or an automatic Ready.
+- Invite an added user to a game. For you, it is already an open lobby: select/
+  prepare your deck and ready while waiting. Cancel game also cancels the pending
+  invite. The recipient can Accept or Decline in Play; accepting opens the same
+  lobby for them, not active play or an automatic Ready. Declining leaves your
+  lobby and preparation/readiness intact, and you can reinvite them.
 - Saved deck card-list editing currently uses import, rather than a full manual
   deck-building editor. Paste common MTG text exports, with quantities,
   names, optional set/collector details and standard mainboard/sideboard notation.

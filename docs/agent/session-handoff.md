@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-207:** owner requires login before the main
+**Latest setup decisions — D-188–D-208:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -92,6 +92,15 @@ D-207 separately approves either player cancelling an unstarted game without
 the other's approval (T-456). Do not restrict this to the inviter or require an
 opponent response. Cancellation-versus-start races and presentation/retention
 remain open, as do pending-invitation lifecycle and started-game completion.
+D-208 corrects the invitation model: for the inviter, the invite is already an
+open lobby where they can select/prepare their deck and ready before acceptance.
+Cancel game cancels the pending invite. The owner's follow-up explicitly says
+recipient Decline does not destroy the lobby: retain it and inviter preparation/
+readiness, and allow reinvitation to the same lobby (T-457–T-460). Acceptance
+opens that lobby for the recipient, not an automatic Ready or game start. Do not
+require acceptance before inviter preparation or turn Decline into cancellation.
+Expiry, duplicate handling, decline presentation/feedback, cancellation races and
+retention remain open; none of the earlier unapproved defaults are silently adopted.
 Setup-data retention/rematch and additional optional areas remain open. Next
 useful topic: invitation/lobby cancellation and persistence, not reopening
 readiness, starter options, initial placement or tiny cover-art variants.
@@ -379,7 +388,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-207** and **T-001–T-456**.
+- Current documentation includes **D-001–D-208** and **T-001–T-460**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

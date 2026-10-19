@@ -48,6 +48,9 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | A result is suggested but not accepted; separately, the opponent accepts it. | A pending suggestion is undoable board state; acceptance is not undoable and returns both to the prepared lobby with Ready cleared. Submitted game-wide chat is also not gameplay-undoable. | D-94/D-211/D-212/D-213. |
 | Concurrent result suggestions or an acceptance racing removal/end of play cannot both apply. | Process in normal server arrival order: the first applicable action takes effect; discard the later incompatible request. Do not replace the first suggestion, keep multiple pending suggestions, infer acceptance or retarget a failed request. Compatible actions still use their normal acceptance rules. | [Ending play](../03-contracts/accounts-decks-and-lobby.md#result-suggestion-acceptance-and-return-to-lobby--d-211), D-184/D-187/D-239; T-538/T-539. |
 | A submitted chat message needs correction. | Send another message; submitted chat has no Undo, Edit or Delete. Simple chat has no planned expansions, not a deferred editing/deletion roadmap. This does not change event-comment Undo or decide account erasure/retention. | [Optional text](../03-contracts/visual-action-language.md#116-optional-text), D-94/D-240; T-540. |
+| An event comment needs correction. | No dedicated Edit/Delete. Use ordinary eligible Undo or add another comment; dependency and other Undo checks still apply. | [Optional text](../03-contracts/visual-action-language.md#116-optional-text), D-241; T-541. |
+| A saved deck is deleted or an unstarted lobby cancelled. | No trash/restore feature. Preserve already selected lobby/game deck copies; do not confuse these exclusions with current-game branch restoration or permanent server erasure. | [Account/deck/lobby contract](../03-contracts/accounts-decks-and-lobby.md), D-241; T-542. |
+| A player explicitly logs out or switches accounts. | Logout removes private downloaded content but preserves protected already-sent recovery records. Never expose one account's private content/recovery records to another. Server retention/account erasure remains privacy/service design. | [Logout](../03-contracts/accounts-decks-and-lobby.md#logout-and-account-private-downloads--d-241), D-241; T-543. |
 
 ## Genuine gaps
 
@@ -57,10 +60,14 @@ not resolved by the table above; no option is silently approved here.
 
 | Missing outcome | Why current rules do not finish it | Primary contract / tracking |
 | --- | --- | --- |
-| **Dedicated event-comment correction scope.** Are separate comment Edit/Delete controls needed beyond ordinary Undo? | D-240 settles simple chat without editing/deletion or planned expansions; it does not select a dedicated event-comment revision feature. Ordinary Undo of eligible comments and dependency checks remain governed by existing rules. Treat additional tools as scope, not a required new Undo policy. | [Optional text](../03-contracts/visual-action-language.md#116-optional-text), Q-26/Q-31. |
 | **Inspection after source disappearance.** What information remains inspectable in a surviving Stack effect/reference display after its token source disappears? | Keeping the occurrence/reference is settled, as is the impossibility of editing a nonexistent source. Last-known card state versus only retained reference/printed information is not specified; do not silently recreate the token. | [Projection lifetime](../03-contracts/combat-stack-and-projections.md#135-confirmed-area-specific-lifetime-d-124d-125), Q-28/Q-33/Q-35. |
-| **User-visible recovery and privacy promises.** Is saved-deck/cancelled-game deletion recoverable, and what downloaded account data survives Logout/account switching or erasure? | Copy isolation and removal from current lists do not promise trash/restore, permanent deletion or local-data retention. Those are real recovery/privacy choices; backup/storage mechanics are separate. | [Accounts/decks/lobby](../03-contracts/accounts-decks-and-lobby.md), Q-09/Q-18/Q-19. |
-| **Remaining release scope.** Which still-proposed authoring/coordination capabilities belong in R1? | A generic data model or an old draft does not approve custom non-card pieces, arbitrary authoring/layout tools, fuller deck editing/export, manual group editing, response requests/read receipts or extra areas/import formats. Review the scope bundle rather than design every hypothetical tool. | [Broader draft scope](#broader-draft-scope--not-all-confirmed), Q-11/Q-13/Q-14/Q-27. |
+
+**D-241 batch status:** the owner accepted the other three areas together and
+requested a concrete gameplay example for inspection before deciding it. The
+last-known-source snapshot remains a proposal. This leaves one known product
+edge-case area in this list, not a claim of exhaustive specification completion.
+Server retention/account-erasure obligations remain explicit privacy/service work,
+not silently resolved by the no-trash/Logout choices.
 
 This is not a certification that behavior specification is complete. Further
 edge cases may be found, but an owner question needs a concrete unresolved
@@ -80,9 +87,10 @@ keeps stable tracking IDs while replacing the original mixed question queue.
 Older "open" wording elsewhere is not an automatic owner-question queue. Known
 drift and the pruning rationale are in the [specification audit](../../agent/specification-audit.md).
 
-## Broader draft scope — not all confirmed
+## Broader draft scope — D-241 release exclusion
 
-Do not silently include or exclude these because they appeared in an older draft:
+The remaining proposed authoring/coordination extras are excluded from R1 by
+D-241, not a queue of individual feature questions. In particular:
 
 - Arbitrary named values/participant associations, custom non-card pieces/markers,
   general authoring/layout or correction tools beyond the approved tabletop tools.
@@ -93,6 +101,9 @@ Do not silently include or exclude these because they appeared in an older draft
   alert categories, presence and recovery-center features.
 
 Generic primitives and capability inventories do not approve these features.
+No expansion roadmap is implied. Preserve all confirmed capabilities and the
+previously explicit D-214/D-220 deferrals; do not remove existing automatic
+grouping, token/Clone controls, direct placement or current-game branch recovery.
 Existing confirmed accounts/import/lobby/gameplay/history/push behavior remains in
 the [overview](behavior.md); it is not another scope question here.
 

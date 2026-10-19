@@ -690,8 +690,9 @@ Confirmed optional communication direction (D-94/D-95):
 2. A group/event context Note/Reply action opens a multiline editor linked to
    that event. Keep these optional text records distinct from card notes and
    pings; text is not required to explain an action. Trim completed input under
-   D-59 without publishing unfinished text. Exact threads, editing/removal,
-   submission controls, and historical/branch association remain later review.
+   D-59 without publishing unfinished text. D-241 excludes dedicated comment
+   Edit/Delete; use eligible ordinary Undo or another comment. Submission controls
+   and historical/branch association still need contract/UI completion.
 
 D-94 excludes submitted game-wide chat from Undo. D-240 also excludes Edit/Delete
 for sent chat: corrections use another message, with no planned expansions.
@@ -700,8 +701,8 @@ tree path, retained through the comment when undone. That path is already a
 branch; no separate comment-only fork or activation control is needed. Apply
 normal tree/base rules. D-160 keeps the whole abandoned continuation visible
 if it contains a comment, without a cutoff; D-223 confirms this even for a
-single-player/no-exposure continuation. Exact comment/group association and
-revisions remain later work. Card
+single-player/no-exposure continuation. Exact comment/group association remains
+contract work; D-241 excludes dedicated comment-revision controls. Card
 notes, event pings, and ordinary editor drafts keep their distinct behavior.
 
 Confirmed event-scoped toggle details (D-76):

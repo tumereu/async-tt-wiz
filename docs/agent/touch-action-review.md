@@ -16,6 +16,17 @@ review/revision, not a separate question for each consequence.
 In particular, a comment dependent on a move already blocks Undo of that move
 under D-224; it is not a fresh reference-policy choice. No next-question quota.
 
+**Remaining-gap batch — D-241 (T-541–T-544):** owner accepted all except
+source-disappearance inspection, asking for a concrete example first. No dedicated
+event-comment Edit/Delete; correct with eligible Undo or another comment. No
+trash/restore for deleted saved decks/cancelled lobbies. Explicit Logout removes
+private downloads but preserves protected already-sent recovery records, isolated
+from other accounts. Remaining proposed authoring/coordination extras are out of
+R1; preserve confirmed controls and prior deferrals. Server retention/account
+erasure remains privacy/service design. Last-known-source inspection is still a
+proposal, not approved. Continue automatically with batches, not one prompted
+question at a time. Older “open” scope labels below do not reopen this batch.
+
 **Simple chat — D-240 (T-540; updated T-184):** sent messages have no Edit/Delete
 or gameplay Undo; send another message to correct one. No planned expansions:
 do not put chat editing/deletion on a deferred-feature roadmap. Event-comment

@@ -44,10 +44,28 @@ required email-verification gate or a second login method from this decision.
   duplicate execution, repeated random sampling or presumed rejection merely
   because authentication expired. This does not authorize offline gameplay.
 
-Exact session lifetime/refresh/storage, failed or cancelled reauthentication,
-login to a different account and explicit Logout's local-data behavior remain
-open. D-218 separately confirms multiple-device support. Preserve downloaded read-only access;
-this decision does not settle its expired-session navigation or local-data policy.
+Exact session lifetime/refresh/storage, failed or cancelled reauthentication and
+expired-session navigation remain specification work. D-218 confirms multiple
+devices; D-241 below settles explicit Logout cleanup and cross-account isolation.
+Session expiry alone is not an explicit Logout or permission to lose pending work.
+
+### Logout and account-private downloads — D-241
+
+- **Explicit Logout removes private downloaded content from the device.** This
+  does not delete server-side decks/games or invalidate selected deck copies.
+  Downloaded read-only access remains available in the account's ordinary use;
+  it is not a promise to retain that content after deliberate Logout.
+- **Preserve protected recovery records for already-sent requests.** Logout is
+  not proof of rejection. Retain the original account/game/request context needed
+  for same-account automatic outcome recovery, without executing anything twice
+  or exposing those records through another account.
+- **Never expose one account's private data to another account.** Apply account
+  isolation when switching accounts as well as after Logout. Recovery of the
+  previous account's requests does not become the new account's gameplay.
+- Exact storage protection, cleanup/re-download and outcome-recovery mechanics
+  remain technical work. Server retention and account-erasure obligations remain
+  privacy/service design; this decision promises neither immediate permanent
+  erasure nor indefinite server retention.
 
 ## Multiple devices and account data — D-218
 
@@ -167,9 +185,10 @@ is approved by these controls.
   The account's saved collection remains synchronized under D-218; exact
   concurrent delete-versus-edit/select handling across devices remains open.
 
-Exact deletion confirmation/recovery, storage retention and backup erasure remain
-open. This decision does not promise a trash/restore feature, permanent data erasure
-or a gameplay-Undo path for saved-deck deletion.
+**D-241 excludes a trash/restore feature for deleted saved decks.** Keep selected
+lobby/game copies intact; there is no saved-deck gameplay-Undo path. Exact
+confirmation presentation, server retention and backup erasure belong to UI or
+privacy/service/technical design, not an unresolved in-app restoration promise.
 
 ## Deck-list import compatibility and errors — D-198
 
@@ -278,10 +297,12 @@ Start action or require online presence from both participants.
 - **While waiting for acceptance, the inviter uses Cancel game to cancel the
   pending invite (D-208).** Recipient Decline is different: it retains the lobby
   and permits reinvitation, rather than cancelling the game.
-- **Cancelled games leave current games (D-209).** This listing change does not
-  decide permanent deletion, archive visibility or restoration guarantees.
-- Cancellation-versus-start races and cancelled-game retention/archive behavior
-  remain open. D-207 does not define cancellation of a started game or its result.
+- **Cancelled games leave current games (D-209), with no trash/restore feature
+  for cancelled lobbies (D-241).** This does not promise permanent server erasure
+  or alter restoration of archived branches within a current game.
+- Cancellation-versus-start contracts and cancelled-game server retention need
+  completion in their proper lanes. D-207 does not define cancellation of a
+  started game or its result.
   The assistant's earlier proposal that leaving an
   accepted lobby cancels the game is rejected. Its other invitation-lifecycle
   recommendations were not approved by this correction.

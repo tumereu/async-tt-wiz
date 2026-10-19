@@ -14,6 +14,32 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest remaining-gap batch — D-241
+
+Owner said **otherwise good**, accepting the batch except inspection, for which
+they requested a concrete gameplay scenario. Record the acceptance, not approval
+of the inspection proposal. Confirmed outcomes (T-541–T-544):
+
+- No dedicated event-comment Edit/Delete; use ordinary eligible Undo or another
+  comment, without bypassing replay/dependency or other normal checks.
+- No trash/restore for deleted saved decks or cancelled lobbies. Selected deck
+  copies and current-game branch restoration remain intact.
+- Explicit Logout removes private downloaded content but preserves protected
+  recovery records for already-sent requests; never expose one account's data to
+  another. Server retention/account erasure remains privacy/service design.
+- Exclude remaining proposed authoring/coordination extras from R1: custom-piece/
+  layout editors, fuller deck editing/export, manual group editing, branch
+  comparison/renaming, response requests/read receipts, presence, extra areas/
+  formats and additional alert categories. Preserve confirmed features and prior
+  D-214/D-220 deferrals. No expansion roadmap or stage transition is implied.
+
+One known product edge-case area remains in the pruned list: read-only inspection
+of a surviving Stack effect/reference after its token source disappears. Showing
+last-known modified source state remains proposed; explain a real case before
+requesting its decision. Do not manufacture extra owner questions from contract/
+test, technical or later-UI work. Continue automatically in reviewable batches;
+the owner should not need to prompt for each item. No implementation is authorized.
+
 ## Latest chat scope — D-240
 
 Owner selected **simple scope for chat, no planned expansions** (T-540; updated
@@ -749,7 +775,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-240** and **T-001–T-540**.
+- Current documentation includes **D-001–D-241** and **T-001–T-544**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

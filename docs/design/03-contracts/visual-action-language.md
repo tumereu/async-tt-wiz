@@ -228,9 +228,11 @@ visibility qualifiers for the whole abandoned continuation under D-160/D-223,
 even with one author and no exposure. Card
 notes/pings stay distinct. D-172 makes event comments join the preceding group
 without a new group-start marker; D-170's author-change boundary still wins.
-Event-comment historical placement and dedicated revision/edit/delete scope,
-plus unsent-chat delivery handling, remain separate specification work. D-240's
-chat scope does not change event comments' ordinary Undo eligibility.
+**D-241 confirms no dedicated event-comment Edit/Delete.** Correct a comment
+through ordinary eligible Undo or by adding another comment; do not bypass
+latest-own, replay/dependency, exposure, fork or N checks. Dedicated revision
+controls are not required. Historical placement and unsent-chat delivery handling
+still need contract completion, not another correction-scope decision.
 
 Common physical operations and pings need no explanatory text or mandatory
 labels. A participant may create a generic note/token with a label such as

@@ -262,10 +262,19 @@ introduced.
 
 If the real source no longer exists in current state (for example a removed
 token), preserve the Stack effect occurrence. Its displayed reference/inspection
-and applicability of source-card actions still need design; do not invent a new
-actual card or silently remove the effect. Normal history/undo/branch/offline
-recovery applies to both lifecycle rules; exact operation composition/concurrent
+still needs design; source-card edits cannot apply to a nonexistent source.
+Do not invent a new actual card or silently remove the effect. Normal
+history/undo/branch/offline recovery applies to both lifecycle rules; exact operation composition/concurrent
 reference handling remain under review.
+
+**Concrete inspection example under discussion, not an approved policy:** a
+token copy of Spikeshot Goblin has modified corner text `5/2`. Its controller
+creates an ability projection on Stack, then the opponent destroys the token.
+The token disappears while the ability remains. A player later holds that effect
+to inspect its source: should it show the token's last-known modified `5/2`
+state, rather than only printed information or a reference to a missing source?
+The proposed last-known read-only display is still awaiting the owner's answer
+under D-241. The players, not the app, determine the ability's damage.
 
 ## 13.6 Confirmed attacker-removal cleanup and slot stability (D-126/D-138)
 

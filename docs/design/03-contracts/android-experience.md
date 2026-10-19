@@ -81,11 +81,11 @@ timing and transfer of personal device state remain open; see the
 
 | Screen | Main responsibilities |
 | --- | --- |
-| Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). Stay logged in across restarts; after session expiry, ask for login again, then return to the same game and recover pending already-sent actions without manual resend/duplicates (D-217). Validation, verification, exact session/reset mechanics and logout/account-switch/offline-session handling remain open. |
+| Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). Stay logged in across restarts; after session expiry, ask for login again, then return to the same game and recover pending already-sent actions without manual resend/duplicates (D-217). D-241 removes private downloads on explicit Logout, preserving protected already-sent recovery records and forbidding cross-account access. Validation, verification, exact session/reset/recovery mechanics and expired-session navigation need completion. |
 | Main menu | Logout, Manage decks and Play (D-188). Username search/add saves contacts without mutual approval (D-196); separate Friends naming/placement remains tentative. |
 | Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Finished-session history archives/review are optional future work, not R1 (D-214). Catch-up state, pending work and branch-change presentation remain proposed. |
 | Game lobby/invite | Invite/accept into lobby (D-195), prepare mainboard in Library and sideboard in separate Sideboard, other card areas initially empty (D-202). Select either player or Random as starter (D-201), both press Ready (D-189/D-190). Start shuffles Libraries and initializes life 20 without a required starting-life setting or automatic draw (D-200); begin turn 1 at Untap (D-108). Sideboard is unavailable during play, including browser/move paths (D-202). Remaining setup/lifecycle details are open. |
-| Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename decks, choose a cover from their cards, and re-import with Replace/Save as new (D-199). Delete saved decks from the collection; both editing/deleting leave selected lobby/game copies unchanged (D-221). Not a full card-list editor/export feature; remaining import/metadata, deletion confirmation/recovery/retention and concurrent races are open. |
+| Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename decks, choose a cover from their cards, and re-import with Replace/Save as new (D-199). Delete saved decks from the collection; both editing/deleting leave selected lobby/game copies unchanged (D-221). D-241 excludes fuller deck editing/export and deleted-deck trash/restore. Approved-import/metadata, confirmation presentation, server retention and concurrent-race contracts need completion. |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |
 | Card/object inspector | Automatically show readable face art/text despite face-down table presentation, and both printed faces for multi-faced cards; modified state, available actions, attachments/history. Inspection does not change shared presentation. |
 | Zone browser / pile actions | Pile tap opens contents and pile context actions together. Contents use card-type category columns with name search/filtering and hold inspection (D-50). Explicit View/Reveal is shared/logged: View shows faces to its actor and backs to the other participant; Reveal shows faces to both. Full-library contents hide overall order; explicit top/bottom-N displays preserve source order rather than type-grouping. Grouping/filtering never reorder stored contents; exact columns and covered opponent layout remain open. |
@@ -189,8 +189,10 @@ Undo moves one parent back while retaining the whole comment-bearing abandoned
 continuation visibly under D-160, explicitly reaffirmed by D-223 even without
 exposure/other-player actions. D-240 keeps chat simple: submitted messages have no
 Edit/Delete, corrections use another message, and no expansions are planned.
-Exact event/group association, dedicated event-comment revision scope, pending
-chat delivery and editor submission remain separate work.
+D-241 excludes dedicated event-comment Edit/Delete; correct with eligible
+ordinary Undo or another comment. Exact event/group association, pending chat
+delivery and editor submission remain separate work. Other proposed screens/tools
+are subject to D-241's R1 exclusions, not approved by this inventory.
 
 Use text/icons as well as color. A prominent “Return to active game” control is
 available when viewing history or an inactive branch; it must not discard drafts.

@@ -85,6 +85,17 @@ notification behavior and remaining proposals.
 
 ## 1.3 Proposed first-release boundaries
 
+**Confirmed scope override — D-241:** the owner excludes the remaining proposed
+authoring/coordination extras from R1: custom-piece/layout editors, fuller deck
+editing/export, manual group editing, branch comparison/renaming, response
+requests/read receipts, presence, extra areas/import formats and additional alert
+categories. Broader draft inventories below or elsewhere do not approve those
+features. Preserve every already confirmed capability: catalog/Blank tokens and
+Clone, direct placement, ordinary text/counter/link tools, automatic grouping,
+tree review/activation, common text import, deck metadata/lobby preparation and
+invitation/grouped-activity pushes remain included. No expansion roadmap is
+implied, and prior explicit deferrals under D-214/D-220 remain unchanged.
+
 Included:
 
 - Private two-player tables, card/deck import, editable setup, manual play,

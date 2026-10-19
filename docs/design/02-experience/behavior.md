@@ -40,8 +40,11 @@ The general rules are:
 - Stay logged in across app restarts. If your session expires, log in again,
   then return to the same game and automatically recover pending already-sent
   actions without manual resending or duplicate execution (D-217). Exact session
-  mechanics, logout/account-switch handling and expired-session offline access
-  remain open; downloaded read-only access is not removed.
+  mechanics and expired-session offline navigation still need contracts. Explicit
+  Logout removes private downloaded content, preserving protected recovery records
+  for already-sent requests; another account must never access that data (D-241).
+  Session expiry alone is not deliberate Logout. Server retention/account-erasure
+  obligations remain privacy/service design.
 - Use the same account on multiple devices, with saved decks, contacts and games
   synchronized between them (D-218). Existing lobby/game deck copies stay isolated
   from saved-deck changes. Exact simultaneous-edit conflict handling and transfer
@@ -52,7 +55,8 @@ The general rules are:
   invite. The recipient can Accept or Decline in Play; accepting opens the same
   lobby for them, not active play or an automatic Ready. Declining leaves your
   lobby and preparation/readiness intact, and you can reinvite them. Pending
-  invites never expire automatically. Cancelled games leave current games;
+  invites never expire automatically. Cancelled games leave current games, with
+  no trash/restore feature for cancelled lobbies (D-241);
   declined lobbies remain available to the inviter there.
 - Saved deck card-list editing currently uses import, rather than a full manual
   deck-building editor. Paste common MTG text exports, with quantities,
@@ -64,8 +68,9 @@ The general rules are:
   does not change copies already selected in lobbies or games.
 - Delete a saved deck to remove it from your collection. **Both editing and
   deleting saved decks preserve already selected lobby/game copies** (D-221),
-  including their game-local preparation and active play. Exact deletion
-  confirmation/recovery and storage retention remain open.
+  including their game-local preparation and active play. There is no trash/restore
+  for deleted saved decks (D-241); confirmation presentation and server retention
+  remain UI/privacy/service work.
 - A game begins in a lobby. Players choose decks and manage their mainboards/
   sideboards there, then each presses Ready. Once both are ready, the game starts.
   Starting automatically shuffles both Libraries and gives each player 20 life;
@@ -302,6 +307,8 @@ The general rules are:
   event comments, and game-wide chat remain separate. Submitted chat is not
   undoable and cannot be edited or deleted after submission. Send another
   message to correct it. Chat stays simple, with no planned expansions (D-240).
+  Event comments have no dedicated Edit/Delete either: use ordinary eligible Undo
+  or another comment to correct them (D-241).
   Event comments are ordinary tree nodes, not a special comment-only
   branch workflow. References affected by D-232 tree edits remain to be specified;
   do not assume an original alternative is created to retain their old context.
@@ -549,6 +556,12 @@ The general rules are:
   [notification contract](../03-contracts/android-experience.md#59-notifications).
 
 ## Scope and unresolved behavior
+
+The remaining proposed authoring/coordination extras are excluded from R1
+(D-241), including custom-piece/layout editors, fuller deck editing/export,
+manual group editing, branch comparison/renaming, response requests/read receipts,
+presence, extra areas/formats and additional alert categories. Existing confirmed
+tools remain included; this adds no expansion roadmap or stage authorization.
 
 See [scope proposals and genuine gaps](gaps.md). Detailed feature contracts are
 in [Tier 3](../03-contracts/README.md); agent interpretation notes and handoffs are

@@ -12,9 +12,9 @@ resolutions and sources**, allowing revision/acceptance together. Do not confuse
 that batch review with a new approval requirement for every derived consequence.
 Mark truly unresolved choices/proposals separately.
 
-The [pruned list](../design/02-experience/gaps.md) now contains 29 worked
-spec-derived cases (plus D-238's resolved review-cursor case), four concrete
-remaining product/scope decision areas, and separate contract, technical, later-UI
+The [pruned list](../design/02-experience/gaps.md) now contains 32 worked
+spec-derived cases (plus D-238's resolved review-cursor case), one known remaining
+product edge-case area, and separate contract, technical, later-UI
 and platform/service work. The
 [Q-register](decisions.md#93-release-blocking-questions) replaces its mixed question
 queue with a classification preserving every Q-ID. Neither list claims exhaustive
@@ -22,14 +22,14 @@ behavior coverage or authorizes implementation/a delivery-stage transition.
 
 | Former broad "gap" bucket | Pruned disposition |
 | --- | --- |
-| Setup/import/lobby/lifecycle | Existing selection/copy isolation, Ready, start ordering, shuffling and no-opening-draw outcomes are derived, not new questions. D-239 corrects the competing-result-suggestion gap label: normal server order/applicability keeps the first applicable action and discards the later incompatible request, not latest-suggestion replacement. Unapproved extra tooling/formats remain scope choices; initialization/validation/default mechanics need contract/UI/technical completion. |
+| Setup/import/lobby/lifecycle | Existing selection/copy isolation, Ready, start ordering, shuffling and no-opening-draw outcomes are derived, not new questions. D-239 corrects the competing-result-suggestion gap label: normal server order/applicability keeps the first applicable action and discards the later incompatible request, not latest-suggestion replacement. D-241 excludes remaining proposed extra tooling/formats and trash/restore; initialization/validation/default mechanics need contract/UI/technical completion. |
 | Groups/pings | Apply approved author/category/companion/context rules to worked sequences first. Escalate only a demonstrated unresolved precedence conflict; categories, leading/compound cases and numbering are not automatically separate policy questions. |
 | Undo/Redo/references | Core replay/target/order/clearing/fork/device/server-request rules are settled. Dependent comments/references block removal under D-224; their deletion/reattachment is not an open alternative. D-238 now settles personal viewing of a deleted node: fall back to its parent, repeatedly if needed to reach a surviving ancestor/root. Anchor/ID/cache/replay-field mappings are contract/technical work. |
 | Online concurrency/reconnect | Arrival-order acceptance, immediate predictions, individual outcomes, difference-only reconciliation and automatic already-sent recovery are approved. Protocol/unsent-request/animation cases need explicit contract coverage against those rules, not routine safeguards or another offline queue. |
 | Projections/Stack/combat | Source-versus-occurrence routing, cleanup/retention, slot reuse/placement and source-state preservation are approved. Inspection information after a token source disappears is a genuine remaining case. Apply existing rules to ordinary variants; geometry/control presentation is later UI. |
-| Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. D-240 settles simple chat: no sent-message editing/deletion or planned expansions. Dedicated event-comment revision tools remain unapproved scope; ordinary comment Undo and dependent-comment blocking still follow existing rules. |
+| Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. D-240 settles simple chat; D-241 excludes dedicated event-comment Edit/Delete. Correct comments through eligible Undo or another comment, without bypassing dependency checks. Source-disappearance inspection remains proposed pending a concrete example/owner decision. |
 | Empty/invalid/multi-target actions | Actual-mutation/no-invented-node, no-skipping/structural validity, selected-target applicability and entry-reset rules determine ordinary outcomes. Complete tables/tests; numeric/resource bounds and feedback details belong in technical/UI work. |
-| Product/platform/privacy | Additional authoring/coordination scope and user-visible recovery/erasure/local-data promises remain explicit choices. Device targets, service/provider/rights, notifications, operations and accessibility presentation retain their proper decision stages. Already-deferred R1 cuts are not gaps. |
+| Product/platform/privacy | D-241 excludes remaining proposed authoring/coordination extras and saved-deck/cancelled-lobby trash/restore. Logout clears private downloads while preserving protected already-sent recovery records; cross-account access is forbidden. Server retention/account-erasure obligations remain privacy/service work. Device targets, provider/rights, notification mechanics, operations and accessibility retain their proper stages. Prior explicit deferrals are unchanged. |
 
 Before promoting any older "open" wording into a question, show the concrete
 case, the unresolved competing outcomes and why approved rules do not decide it.

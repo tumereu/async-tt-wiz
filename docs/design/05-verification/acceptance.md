@@ -25,7 +25,8 @@ skipping a blocked own target; later opponent actions are preserved under replay
 branches or retaining the pre-Undo path as an explorer alternative. Older fixtures
 requiring immutable ancestry, original-branch retention after Undo or automatic
 post-Undo branching describe the superseded pointer model. D-223 filtering still
-applies to actual branches; side-branch/reference/cursor handling and removed-record
+applies to actual branches; D-233 blocks Undo at or before a fork on the active
+path. Redo across new forks, reference/cursor handling and removed-record
 retention after Redo-queue clearing remain open. Do not use old fixtures to require
 the assistant's rejected revised-continuation/untouched-original design.
 
@@ -554,6 +555,9 @@ the assistant's rejected revised-continuation/untouched-original design.
 | T-521 | The current timeline has opponent gameplay actions but no still-applied own actions. | Undo is unavailable. Do not undo the opponent's latest action or search retained alternative branches for an own target. Personal review and explicit historical activation remain separate (D-231). |
 | T-522 | On linear path root → A → B, A is your latest own mutation and B is a later opponent mutation. Removing A passes D-224 within N; there are no side branches or historical references affected. | Edit the existing tree to root → B. Preserve B's relevant transition. Do not create a revised branch, retain root → A → B as an alternative, or append a compensation. A is available through the player's Redo stack, not a required explorer branch. Node-ID/version encoding remains open (D-232). |
 | T-523 | Redo A at the corresponding boundary in T-522, with reinsertion eligible under D-224 within N. | Edit the existing tree back to root → A → B, without creating another branch or preserving root → B as an alternative. Reuse recorded choices/results and consume the successful Redo entry normally; exact insertion-anchor protocol remains open (D-232). |
+| T-524 | Your latest own action A is the branching point in root → A with children B (active) and C (alternative). Replay would otherwise be safe within N. | Disable Undo: a branching point cannot be removed. Preserve the tree, active state and Redo stack; do not skip to an earlier own action, reattach B/C or create a duplicate original tree. The same boundary applies when C is hidden by the explorer filter (D-233). |
+| T-525 | Your latest own action A precedes fork F in root → A → F, whose children are B (active) and C (alternative). All later actions are the opponent's, and replay would otherwise be safe. | Disable Undo: it cannot reach back past F. Preserve both continuations without replaying/rewriting the branches to permit removing A. Do not skip the blocked target (D-230/D-231/D-233). |
+| T-526 | Fork F has children B and C (alternative); the active path continues B → D. B is your latest own, non-revealing mutation, D is an independent opponent mutation, and removal is otherwise eligible within N. | Allow Undo of B: the earlier fork alone does not block actions after it. Replace F → B → D with F → D, retaining C unchanged and D active; B enters the personal Redo stack. F still has children D/C, so further Undo cannot remove F or reach back past it. Redo across fork changes remains separately open (D-232/D-233). |
 
 **D-224 supersedes the universal parent-pointer-only interpretation:** selective
 Undo/Redo uses exact later-mutation relevant-state tuple equality and bounded

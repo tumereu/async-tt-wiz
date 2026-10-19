@@ -22,7 +22,7 @@ offline play or an atomic queued sequence.
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree
 
-**D-224–D-232 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
+**D-224–D-233 supersede parent-pointer-only Undo/Redo.** Undo removes your latest
 still-applied mutation from the existing tree; Redo reinserts it, under the safety
 and stack rules below. These operations edit the tree, **not create branches**.
 Personal review and explicit historical activation remain distinct; their control
@@ -53,9 +53,10 @@ or recovery of removed records after clearing remains open.
 Explicit interruptions can still create branches; the explorer/filtering rules
 apply to branches that actually exist. Undo itself does not acquire historical
 continuation intent or require the next ordinary current-head edit to fork.
-Existing side branches at/after the edited node, event-comment/ping references,
-review cursors, IDs/versioning and cached states need explicit handling. This
-decision does not approve silently deleting an unrelated branch/comment or a
+The D-233 fork boundary below prevents Undo from changing existing side branches.
+Event-comment/ping references, review cursors, IDs/versioning and cached states
+still need explicit handling. This decision does not approve silently deleting
+an unrelated branch/comment or a
 specific retargeting policy. Nor does it require physical storage erasure or
 select an immutable-log versus mutable-record implementation.
 
@@ -132,6 +133,24 @@ action, Undo is unavailable; do not fall back to an opponent's action. This
 author filter is not permission to skip a blocked latest own action. The rule
 governs Undo, not personal review or explicit historical activation; interaction
 with the latter remains open. Do not replace it with parent-pointer Undo.
+
+**Fork boundary — D-233:** Undo cannot remove a branching point or reach back
+past one. A branching point is a tree node with multiple child continuations;
+if the target itself or any node on the path from it to the current active head
+is a branching point, disable Undo even if all replay checks would pass. Do not
+skip the blocked latest own target, reattach the alternatives or replay all branches
+to make removal possible. Explorer filtering does not remove a branch and cannot
+bypass this boundary. Actions strictly after the latest fork remain candidates
+under the usual latest-own, replay, exposure and N rules. For example:
+
+- `root → A`, with children B (active) and C (alternative): A cannot be undone.
+- `root → A → F`, with F's children B (active) and C (alternative): A cannot
+  be undone either; Undo would reach back past F.
+- In the same tree, an eligible own action B can be undone without removing F
+  or changing C. No branching point lies at or after B on its active path.
+
+This settles Undo's side-branch boundary, not Redo across a newly created fork,
+archive/restore effects or integration with explicit historical activation.
 
 **Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
 subject to replay/validation, so a target followed by e.g. a thousand opponent

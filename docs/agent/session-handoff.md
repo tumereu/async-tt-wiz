@@ -14,6 +14,20 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest Undo fork boundary — D-233
+
+Owner chose **no Undo of a branching point**, then added **or past one**, for
+simplicity (T-524–T-526). If the latest own target itself or any node between it
+and the current active head has multiple children, disable Undo even if replay
+would be safe. Never skip the target or reattach/replay alternatives to permit
+removal. Explorer filtering does not change the boundary. Actions strictly after
+the latest fork still use the normal latest-own/replay/exposure/N checks.
+This settles Undo's side-branch handling, not Redo across a fork created while an
+entry is queued, archive/restore effects or explicit activation integration.
+Next useful case: should a newly created fork likewise block an older queued Redo
+insertion, while retaining the queue under D-228/D-230? Historical references,
+cursors and concurrency remain open. No implementation is authorized.
+
 ## Latest tree-edit correction — D-232
 
 Owner rejected the assistant's proposal to create a revised continuation beside
@@ -28,13 +42,12 @@ post-Undo-fork requirements are superseded for these controls. Genuine explicit
 interruption branches and D-223 filtering of actual alternatives remain distinct.
 
 D-224 safety/N, D-231 latest-own targeting and D-227–D-230 strict stack/clearing
-rules remain. Affected existing side branches, comment/ping references, review
-cursors, node IDs/versioning, caches and concurrency still need contracts. Do not
+rules remain. D-233 above now blocks Undo at/before a fork. Comment/ping references,
+review cursors, node IDs/versioning, caches and concurrency still need contracts. Do not
 silently delete unrelated branches/comments, retarget historical references or
-select a physical-storage rewrite scheme. Next useful case: a side branch forks
-at the mutation being removed; decide whether Undo is blocked or how that branch
-is adjusted. This is a substantial open case, not approval of the assistant's
-rejected original-history-preservation proposal. No implementation is authorized.
+select a physical-storage rewrite scheme. The owner rejected the assistant's
+proposal to reattach and validate all affected branches; do not reopen that
+settled Undo case. No implementation is authorized.
 
 ## Latest strict Undo/Redo target order — D-230/D-231
 
@@ -627,7 +640,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-232** and **T-001–T-523**.
+- Current documentation includes **D-001–D-233** and **T-001–T-526**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

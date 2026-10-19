@@ -20,8 +20,13 @@ clearing only by own new play. Insertion preconditions/anchors, queue device sco
 pointer/view controls, pending/concurrent requests and tree/reference/grouping
 handling remains open. D-232 confirms actual tree removal/reinsertion, not a new
 branch beside an untouched original. Removed mutations live in the Redo stack;
-retention after clearing remains open. Resolve affected side branches, historical
-references and review cursors next, without assuming the original tree survives.
+retention after clearing remains open. D-233 blocks Undo of a branching point or
+an action before one on the active path, even if replay is safe; never skip the
+blocked latest own target or reattach alternatives. Actions after the latest fork
+retain normal eligibility. Explorer filtering does not bypass the boundary.
+Resolve Redo across new forks, historical references and review cursors next,
+without assuming the original tree survives. Archive/activation integration
+remains open.
 
 **Earlier branching (D-222):** root stores initial state; every later node is a
 mutation. Undo remembers the last active head; Redo follows toward it, not an

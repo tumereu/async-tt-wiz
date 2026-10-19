@@ -370,9 +370,10 @@ The general rules are:
 - **Tree editing (D-232):** Undo removes and Redo reinserts a mutation in the
   existing tree. Neither creates a new branch or preserves the old path as an
   alternative. Later actions replay in the edited tree, under D-224. Removed
-  mutations are held for Redo, not placed in an explorer branch. Side branches,
-  review cursors and comment/ping references affected by an edit need explicit
-  handling; do not silently delete or retarget them. Storage retention after
+  mutations are held for Redo, not placed in an explorer branch. D-233 below
+  prevents Undo at or before a fork. Review cursors and comment/ping references
+  affected by an edit still need explicit handling; do not silently delete or
+  retarget them. Storage retention after
   Redo-queue clearing remains open. Explicit interruptions can still branch.
 - **Redo after new play (D-227/D-228):** after Undo, only your own new gameplay
   edit clears your Redo queue, even if the removed mutations could still be
@@ -390,6 +391,12 @@ The general rules are:
   their presence alone does not block Undo. Never Undo an opponent's action,
   including when you have no own action to undo. Personal review and explicit
   historical activation remain distinct controls.
+- **Fork boundary (D-233):** Undo cannot remove a branching point or reach back
+  past one, even if replay would be safe. Disable Undo when the latest own target
+  is a fork or lies before a fork on the path to the active head; do not skip it
+  or reattach alternatives. Actions after the latest fork remain eligible under
+  the usual checks. Hiding a branch in the explorer does not bypass this rule.
+  Redo across a newly created fork and archive/activation integration remain open.
 - **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
   unordered. Undo cannot change which card a later top-of-Library draw takes.
   Independent moves

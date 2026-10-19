@@ -161,8 +161,12 @@ old future after a response. Exact overall release scope still needs sign-off.
 3. **Undo/Redo tree edits, controls and visibility.** D-232 confirms that Undo/Redo
    edit the existing tree, not create revised branches or preserve an untouched
    pre-Undo alternative. Removed mutations live in the Redo stack; their storage
-   retention after clearing is open. Resolve affected side branches, review cursors,
-   node identity/versioning, cached states, comment/ping references and grouping.
+   retention after clearing is open. D-233 blocks Undo at a branching point or
+   before one on the current active path, without skipping the blocked latest own
+   target or rewriting alternatives. Actions after the latest fork still use the
+   usual checks. Redo across a new fork and archive/activation integration remain
+   open. Resolve review cursors, node identity/versioning, cached states,
+   comment/ping references and grouping.
    No silent deletion/retargeting policy for those references is approved.
    The earlier D-159 model confirmed one parent-node
    step regardless of author and retained forward history. D-222 confirms a root

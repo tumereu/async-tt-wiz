@@ -1202,7 +1202,10 @@ draw N (default seven), or draw the pre-return hand size minus one. Both are als
 quick actions **only during turn 1's Untap step**. Context access remains outside
 that window. Per-card sequencing/concurrent count timing/count edges remain open in the
 [setup contract](accounts-decks-and-lobby.md#opening-hands-and-mulligan-shortcuts--d-192).
-This does not approve automatic starting shuffle or a rules-driven mulligan gate.
+D-200 separately requires automatic game-start Library shuffling and 20 starting
+life, without a required pregame life editor. This is not a shuffle on every
+Untap entry or an automatic opening draw; ordinary in-game life edits remain.
+No rules-driven mulligan gate is approved.
 
 D-109 rejects the proposed Start another turn shortcut and any extra-turn
 scheduler. Players handle extra turns through existing manual phase/step controls.

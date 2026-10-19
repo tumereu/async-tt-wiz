@@ -158,6 +158,24 @@ publication gate. Existing gameplay mutations still synchronize immediately.
 D-108 still requires choosing the starter and beginning turn 1 at Untap without
 automatic card operations merely from entering that step.
 
+## Game-start shuffle and life — D-200
+
+- **Automatically shuffle each player's Library when the game starts.** This is
+  part of the lobby-to-game transition, not something that waits for a player to
+  use an opening-hand shortcut.
+- **Each player starts at 20 life.** A starting-life setting/editor is not
+  required now. This does not remove the existing manual life edits during play.
+- **Do not draw automatically** (D-192). The explicit opening-hand/mulligan
+  actions still return the whole hand, shuffle again and draw when invoked.
+- Starting a game is distinct from entering Untap through tracking or resuming
+  the app. Those activities do not repeat initial shuffles or reset life. Retain
+  recorded shuffle orders for review/delivery retries rather than sampling again.
+
+This replaces the assistant's no-automatic-shuffle recommendation and editable
+lobby starting-life proposal. It does not by itself approve the rest of that
+proposal: exact initial area placement and starter-selection access/defaults
+remain open. Exact initialization/history sequencing also remains to be designed.
+
 ## Opening hands and mulligan shortcuts — D-192
 
 - **Do not draw opening hands automatically when the game starts.** Starting
@@ -181,8 +199,8 @@ automatic card operations merely from entering that step.
   D-49 available-card clamp for the N-card draw; do not reopen that default.
   No automatic mulligan-count tracking, keep-hand gate or card-text/format rules
   are implied. The preceding proposal's manual-bottoming step was not approved.
-- The assistant's automatic draw-seven proposal was rejected. Starting shuffle
-  and initial Library order were not separately approved by that correction.
+- The assistant's automatic draw-seven proposal was rejected. D-200 separately
+  confirms the automatic game-start shuffle, not an automatic draw.
 
 The ordinary Draw/Draw N, move and Shuffle actions remain available. Any agreed
 compound shortcut must preserve individual mutation nodes, immediate sync and
@@ -196,9 +214,10 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
 - Invite/lobby persistence, decline presentation, leaving/cancellation, reconnect and competing Ready/
   setup changes, with no requirement that both players remain online together yet
   decided.
-- Initial arrangement/values, starter-selection access, and which explicit setup
-  operations occur on starting, including shuffle. Automatic opening draws are
-  excluded. Mulligan counts/default, full-hand return, return → shuffle → draw
+- Remaining initial arrangement/values and starter-selection access/defaults.
+  D-200 settles automatic game-start Library shuffles and 20 starting life, with
+  no pregame life setting required. Automatic opening draws are excluded.
+  Mulligan counts/default, full-hand return, return → shuffle → draw
   order and Library context/turn-1 Untap quick access are settled. Remaining
   shortcut work: per-card mutation order, concurrent count timing and count edges.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed

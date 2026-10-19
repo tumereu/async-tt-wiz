@@ -71,6 +71,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-047 | Register with username, email and password; log in with email/password; reset forgotten passwords by email. Other users see usernames, not account emails (D-197). |
 | P-048 | Import common MTG plain-text deck exports rather than a custom syntax, with optional printing details and mainboard/sideboard notation. Flag unknown/ambiguous names without substitution, preserve input and require resolving errors before saving (D-198). |
 | P-049 | Save named decks, allow renaming and choose a cover from a deck's cards. Re-import offers Replace or Save as new; changing a saved deck leaves already selected lobby/game copies unchanged (D-199). |
+| P-050 | Automatically shuffle each player's Library on game start and initialize each player at 20 life, with no starting-life setting required now. Do not draw automatically; retain normal in-game life edits (D-200). |
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.

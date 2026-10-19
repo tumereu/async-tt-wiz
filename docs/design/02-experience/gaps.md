@@ -34,6 +34,10 @@ obligation or behavior is still proposed:
   decks, a cover chosen from a deck's cards, Replace/Save as new on re-import and
   unchanged already selected lobby/game copies. Default/duplicate names, deletion,
   cover fallback and replacement metadata retention remain open.
+- D-200 confirms automatic Library shuffling on game start and 20 starting life,
+  with no pregame life setting required. No automatic opening draw; in-game life
+  edits remain. Other initial placement/values and starter-selection access/
+  defaults remain open, not automatically approved from the preceding proposal.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
   is manual representation; exact authoring controls and scope are not settled.
@@ -72,7 +76,8 @@ old future after a response. Exact overall release scope still needs sign-off.
    remaining import dialect/printing/count details and saved-deck naming defaults/
    deletion/cover fallback/replacement metadata,
    readiness prerequisites/withdrawal/other setup
-   changes, start-versus-edit races, initial shuffle, starting arrangement/values,
+   changes, start-versus-edit races, remaining initial arrangement/values and
+   starter-selection access/defaults (starting shuffle and life 20 are settled),
    remaining mulligan per-card sequencing/concurrent count timing/count edges,
    missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.

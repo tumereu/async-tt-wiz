@@ -50,6 +50,8 @@ The general rules are:
   does not change copies already selected in lobbies or games.
 - A game begins in a lobby. Players choose decks and manage their mainboards/
   sideboards there, then each presses Ready. Once both are ready, the game starts.
+  Starting automatically shuffles both Libraries and gives each player 20 life;
+  no starting-life setting is required. Life can still be edited during play.
   Changing your deck or mainboard/sideboard clears your own Ready; lobby deck
   changes affect only this game, not the saved deck. Other readiness details,
   exact starting setup and remaining invitation lifecycle details are open in
@@ -57,8 +59,8 @@ The general rules are:
 - Starting the game does **not** automatically draw opening hands. Mulligan quick
   actions return the whole hand to Library, shuffle, then draw N (default 7) or
   the pre-return hand size minus one. Both are Library context actions, also
-  quick actions **only during turn 1's Untap step**. Automatic starting shuffle
-  remains undecided; invoking either shortcut explicitly shuffles.
+  quick actions **only during turn 1's Untap step**. These explicit actions shuffle
+  again even though the Libraries were already shuffled on game start.
 
 ### 1. A cooperative table, not a rules referee
 

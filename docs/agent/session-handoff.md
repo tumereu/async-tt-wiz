@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-199:** owner requires login before the main
+**Latest setup decisions — D-188–D-200:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -36,7 +36,7 @@ shuffling/drawing, and quick visibility only during turn 1's Untap step, not all
 Beginning steps or each player's first turn. The minus-one count uses pre-return
 hand size. Do not reopen those choices, approve manual bottoming or fix N to seven.
 Per-card mutation order, concurrent count timing and count edges remain open;
-automatic starting shuffle was not separately approved. See T-406–T-413.
+automatic starting shuffle is now confirmed by D-200 below. See T-406–T-413.
 D-195 confirms the next invitation proposal: choose an added user to invite;
 recipient Accept/Decline in Play; accepting opens the lobby, not Ready or active
 play. See T-414–T-416. D-196 approves username search and saving users as contacts
@@ -58,10 +58,15 @@ renaming and choosing one of a deck's cards as cover art. Card-list editing rema
 import-only; metadata controls do not approve a full deck builder or art upload.
 See T-428–T-432. Naming defaults/duplicates, deletion, cover fallback/re-import
 metadata retention and remaining dialect/extra-section/printing/count/resolution
-details remain open. Next useful substantial topic: initial table arrangement/
-values and starter selection, not tiny cover-art variants.
+details remain open. D-200 corrects the next setup proposal: automatically shuffle
+Libraries on game start; each player starts at 20 life, with no pregame life
+editability required now. Preserve in-game life edits and no automatic draw.
+Shuffling is a game-start operation, not every Untap entry/resume; retries reuse
+recorded orders. See T-433–T-436. The rest of that proposal (initial area layout/
+lobby starter selection access/defaults) was not separately approved. Next useful
+topic: remaining initial arrangement/starter selection, not tiny cover-art variants.
 Exact search/contact removal/privacy, remaining invitation lifecycle, other readiness
-details, start-versus-edit races, account flows and initial values remain open.
+details, start-versus-edit races, account flows and other initial values remain open.
 D-108 starter/turn-1 Untap and all gameplay sync/history
 rules remain. No UI drafts, application code or stage transition are authorized.
 
@@ -344,7 +349,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-199** and **T-001–T-432**.
+- Current documentation includes **D-001–D-200** and **T-001–T-436**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

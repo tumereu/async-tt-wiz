@@ -32,7 +32,7 @@ current hand size minus one. D-194 confirms both return the whole hand first,
 then shuffle, then draw; use pre-return hand size for the minus-one variant.
 Both are Library context actions and quick actions only during turn 1's Untap.
 Do not reopen hand return or Beginning-versus-Untap visibility. Per-card ordering,
-concurrent count timing/count edges and automatic starting shuffle remain open
+concurrent count timing/count edges remain open
 (T-406–T-413).
 D-195 confirms inviting an added user, recipient Accept/Decline in Play and lobby
 entry on acceptance, not Ready or game start (T-414–T-416). D-196 confirms username
@@ -49,8 +49,12 @@ to Arena. D-199 confirms named/renameable decks, cover art from one of a deck's
 cards, re-import Replace/Save as new, and unchanged already selected lobby/game
 copies (T-428–T-432). Do not reopen these choices or interpret metadata controls
 as a full card-list editor. Remaining import/metadata/deletion details are open;
-next useful substantial topic is initial table arrangement/values and starter
-selection, not a tiny cover-art questionnaire.
+next useful substantial topic is remaining initial arrangement and starter
+selection, not a tiny cover-art questionnaire. D-200 confirms automatic Library
+shuffles on game start and 20 starting life, with no pregame life editor required;
+normal in-game life edits remain (T-433–T-436). The assistant's no-auto-shuffle/
+editable-starting-life proposal is not current behavior. Other proposed initial
+placement and starter-access/default details were not approved by that correction.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

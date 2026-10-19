@@ -75,13 +75,16 @@ design, Undo is not offered for a target that revealed new information; this is
 distinct from reviewing/activating a retained historical state. Replay reuses
 stored random results and exposure context, not new random samples or UI reveals.
 
-**Redo invalidation after new play — D-227:** after Undo, making a new gameplay
-edit yourself clears the Redo queue. Previously removed mutations do not remain
+**Redo invalidation after new play — D-227/D-228:** after Undo, only your own new
+gameplay edit clears your Redo queue. Previously removed mutations do not remain
 available through Redo merely because reinsertion would still pass D-224's tuple
 test. This clears Redo availability, not retained history or its explorer access.
-The confirmed case is a successful new gameplay mutation by the player who used
-Undo. Whether opponent activity also clears the queue, queue ownership across
-players/devices, rejected/no-op requests and exact optimistic/server clearing
+The confirmed clearing case is a successful new gameplay mutation by the player
+who used Undo. Opponent actions do **not** clear that player's queue; retain its
+entries and recheck reinsertion against current state under D-224, including N.
+An opponent edit may make Redo unavailable without clearing the queue. Clearing
+is player-specific, not a shared game-wide reset. Same-account/device queue
+synchronization, rejected/no-op requests and exact optimistic/server clearing
 timing remain open. Do not generalize this to personal review/navigation or treat
 Redo reinsertion itself as new play that necessarily clears remaining entries.
 
@@ -94,8 +97,9 @@ multi-mutation invocations remain open; no time-based grouping or gameplay limit
 is implied.
 
 **Still open:** complete relevant-state definitions, candidate/author selection,
-insertion target's own preconditions, Redo queue ownership/order/anchors and
-invalidation cases beyond D-227, concurrent/stale checks, pending-request interaction, pointer/view
+insertion target's own preconditions, Redo queue cross-device scope/order/anchors,
+invalidation cases beyond D-227/D-228, concurrent/stale checks, pending-request
+interaction, pointer/view
 updates, tree/node versioning, grouping and references to removed/replayed nodes.
 Removal here is from the candidate timeline, not authorization to permanently
 erase retained history or override D-223's comment visibility rule. Earlier

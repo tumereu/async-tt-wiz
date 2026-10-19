@@ -188,10 +188,11 @@ old future after a response. Exact overall release scope still needs sign-off.
    order dependencies for replay. D-226 resolves the old top/bottom-control mismatch:
    no Graveyard/Exile order-related actions, even as visual placement. Exact
    collapsed-pile presentation and other containers' ordering remain separate.
-   D-227 confirms that your new gameplay edit after Undo clears the Redo queue,
-   even if reinsertion would remain valid. Opponent-activity invalidation, queue
-   ownership/order/anchors, rejected/no-op requests and optimistic/server clearing
-   timing remain open; clearing the queue does not erase retained history.
+   D-227/D-228 confirm that only your own new gameplay edit after Undo clears your
+   Redo queue, even if reinsertion would remain valid. Opponent actions retain it,
+   subject to current replay checks and N. Same-account/device queue scope,
+   order/anchors, rejected/no-op requests and optimistic/server clearing timing
+   remain open; clearing the queue does not erase retained history.
 4. **Concurrent online actions and connection loss.** D-182 removes offline game
    actions and later queue replay from initial delivery; downloaded history remains
    readable offline. Offline queue recovery is not an initial-delivery obligation.

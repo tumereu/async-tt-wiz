@@ -365,10 +365,11 @@ The general rules are:
   targets. No compensating edit is appended. Pointer/button behavior, own-action
   selection, Redo queue and rewritten-tree presentation remain open; the older
   parent-pointer description below is no longer the complete Undo definition.
-- **Redo after new play (D-227):** after Undo, making a new gameplay edit yourself
-  clears the Redo queue, even if the removed mutations could still be safely
-  reinserted. Retained history is not erased. Opponent activity, queue ownership
-  across players/devices and rejected/no-op requests still need decisions.
+- **Redo after new play (D-227/D-228):** after Undo, only your own new gameplay
+  edit clears your Redo queue, even if the removed mutations could still be
+  safely reinserted. Opponent actions retain your queue, but can make reinsertion
+  fail the replay checks or exceed N. Retained history is not erased. Same-account/
+  device queue synchronization and rejected/no-op requests still need decisions.
 - **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
   unordered. Undo cannot change which card a later top-of-Library draw takes.
   Independent moves

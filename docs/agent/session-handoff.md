@@ -14,17 +14,21 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest Redo queue invalidation — D-227
+## Latest Redo queue invalidation — D-227/D-228
 
-After Undo, **making a new gameplay edit yourself clears the Redo queue**, even
+After Undo, **only your own new gameplay edit clears your Redo queue**, even
 if the removed mutation could still be safely reinserted (T-514). The owner chose
 clearing over retaining it. This removes Redo availability, not retained history
 or explorer access. Confirmed case is a successful new gameplay mutation by the
-player who used Undo; opponent activity, queue ownership across players/devices,
+player who used Undo. D-228 confirms opponent actions **do not clear your queue**
+(T-515/T-516). Retain entries and apply current D-224 replay checks/N; an opponent
+action may block reinsertion without clearing the queue. Clearing is player-specific,
+not a shared game reset. Same-account/device queue scope/synchronization,
 rejected/no-op requests and exact optimistic/server clearing timing remain open.
 Do not infer that personal review/navigation or Redo reinsertion itself clears
-remaining entries. Next useful question: does an opponent's new gameplay mutation
-also clear the queue, or only your own new edit? No implementation is authorized.
+remaining entries. Next useful question: should multiple Undos be redone in
+last-undone-first order? Insertion anchors and handling an unavailable next entry
+also remain open. No implementation is authorized.
 
 ## Latest container-order clarification — D-225/D-226
 
@@ -571,7 +575,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-227** and **T-001–T-514**.
+- Current documentation includes **D-001–D-228** and **T-001–T-516**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

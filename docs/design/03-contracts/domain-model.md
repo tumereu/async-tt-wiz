@@ -49,7 +49,7 @@ history or authorize normalization of external catalog/import data.
 | Saved deck | Named mainboard/sideboard list with rename support and a cover selected from its cards. Replace or save a new deck on re-import. Already selected lobby/game copies are isolated from saved-deck changes, and lobby edits leave the saved deck unchanged (D-191/D-199). Exact storage/schema/metadata retention remains open. |
 | Card definition | Source/catalog ID or custom definition, version, names, faces, display text/data, default corner text (D-56), image references; never executable rules. |
 | Card instance | Stable game-local object ID, definition reference, optional participant associations, container, explicit editable state. |
-| Projection | Live virtual occurrence of a source card, not a Clone/token or second containment. Creation preserves source placement; card edits/moves affect the real card (D-123). Source departure removes combat occurrences (D-124), not Stack effects, which require explicit removal/resolution (D-125). Exact identity/schema/missing-source behavior and link/ping routing remain open. |
+| Projection | Virtual occurrence, not a Clone/token or second containment. Card edits/moves affect the existing real source (D-123). Combat stays live-linked and cleans up on Battlefield departure (D-124). Stack remains live-linked across locations, including creation from Graveyard/Exile; only token disappearance freezes read-only last-live source information (D-242). Stack effects require explicit removal/resolution (D-125). Identity/schema/snapshot mappings and link/ping routing need contract/technical completion. |
 | Combat slot pair | One visual combat group with attacker-side and blocker-side projection membership/order (D-137/D-139). No individual attacker↔blocker assignments or inferred all-to-all blocking rules. D-138 supplies empty-pair removal/insertion/reflow; exact schema remains open. |
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
@@ -402,9 +402,9 @@ automatic resolution. Exact removal/lifecycle, identities, occurrence-versus-car
 operations, and history/offline/concurrency behavior still need design;
 see [the primary contract](combat-stack-and-projections.md).
 
-D-123 settles that source and projections share live card state: no independent
-projection corner text, counters, notes, faces/cover, or orientation. Card actions
-through either view operate on the real source. A projection dragged to a real
+D-123/D-242 settle that existing sources and projections share live card state:
+no independent projection corner text, counters, notes, faces/cover or orientation.
+Card actions through either view operate on the real source. A projection dragged to a real
 destination moves that source with ordinary validation/reset/token-removal
 behavior. Duplicate-source selection, token-Remove versus occurrence-Remove entry,
 and link/ping endpoint routing remain separate behavior questions.
@@ -421,10 +421,13 @@ regardless of the operation's entry point. The same source departure/removal
 leaves Stack effect occurrences intact until explicit removal/resolution, even
 if the source was moved through that Stack projection or a token ceased to
 exist. Non-token cards cannot be deleted under D-174. A surviving effect from a
-removed token need not have a currently existing actual source card;
-missing-source presentation/inspection and card-action applicability need design.
-Do not fabricate a replacement card. Exact cleanup/history/concurrency composition
-also remains open.
+removed token need not have a currently existing actual source card. D-242 retains
+read-only last-live displayed/inspectable source information for those Stack
+effects, with original source identity/provenance but no replacement card or
+editable frozen source. Live existing sources remain linked across locations;
+Graveyard/Exile source projection creation is supported. Source-card actions cannot
+edit a nonexistent token; occurrence layout/removal remains separate and available.
+Exact record/cleanup/history/concurrency mappings remain specification work.
 
 D-126/D-139 retain surviving blockers in their existing slot when an attacker
 leaves: remaining attackers keep the group together; the final attacker's
@@ -457,7 +460,8 @@ adds another occurrence; explicit removal/resolution of one leaves its siblings
 and source unchanged. Independence applies to occurrence identity/lifetime, not
 card fields: all still reference the same live source state under D-123. Source
 departure/removal leaves all those Stack effects intact under D-125. Duplicate-
-source multiselection and missing-source behavior still require review.
+source multiselection and snapshot-record mappings still need contract completion;
+D-242 settles token-disappearance information and source-action applicability.
 
 D-137 organizes combat into paired opposing attacker/blocker slots, supporting
 multiple projections on either side (and valid empty sides), with visual slot

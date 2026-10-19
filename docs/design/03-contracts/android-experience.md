@@ -33,7 +33,11 @@ token-source Remove routing remains open; non-token cards have no Remove action
 (D-174). D-124 removes combat projections when their
 source leaves the battlefield; D-125 leaves Stack effects until explicit removal/
 resolution, even after token-source removal. Missing-source Stack display/inspection/
-card actions remain behavior work, not UI drafts. D-126 keeps surviving blockers
+card actions are now settled by D-242: keep existing sources linked across
+locations, including Graveyard/Exile; only token disappearance freezes read-only
+last-live source information, without source-card editing or recreating a token.
+Stack projection creation from Graveyard/Exile is supported. Exact rendering and
+record mappings remain UI/technical work. D-126 keeps surviving blockers
 in their existing slot after attacker removal. D-139 retains the remaining visual
 group with other attackers, or a blocker-only pair if the final attacker leaves;
 there are no individual attacker↔blocker assignments inside a pair. D-138 replaces literal

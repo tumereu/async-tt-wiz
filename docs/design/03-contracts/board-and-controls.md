@@ -64,6 +64,10 @@ operation disambiguation still needs case-by-case design. D-124 removes combat
 projections when their source leaves the battlefield, regardless of entry point;
 D-125 retains Stack effects until explicit removal/resolution, even if a move was
 performed through the Stack projection itself or the source no longer exists.
+D-242 keeps Stack sources linked across locations, including Graveyard/Exile
+sources and creation there. Only token disappearance freezes last-live source
+information for read-only inspection. Do not offer source-card edits on the frozen
+copy or recreate the token; occurrence layout/removal remains available.
 
 ## 10.2 Proposed board areas
 
@@ -1329,8 +1333,9 @@ by-side, taking its role. Do not preserve/split prior roles or form an overlappi
 ordinary pile. Single projection drags work in either role direction. D-143 inserts
 at between-card positions inside a slot or appends on unused-space drops, keeping
 other cards' relative order. Mixed-view ordering, other-view applicability,
-mixed/empty-source cases, and missing-source Stack
-presentation/actions remain separate. See the [session handoff](../../agent/session-handoff.md)
+mixed/empty-source cases and record mappings remain separate. D-242 settles Stack
+token-disappearance inspection and source-action applicability; exact presentation
+is later UI work. See the [session handoff](../../agent/session-handoff.md)
 for the continuation point.
 
 D-144 requires a **Remove from combat** context action for an individual combat

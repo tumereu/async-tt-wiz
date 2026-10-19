@@ -52,18 +52,20 @@ rule was approved; do not introduce one or treat it as a required owner decision
    D-137 organizes the area into pairs of opposing attacker/blocker slots, each
    side supporting multiple projections; see section 13.15 for pending refinements.
 2. **Projections (D-112/D-123):** creating a virtual card occurrence leaves the
-   actual card at its battlefield position. Attackers/blockers use this
+   actual card at its source position/location. Attackers/blockers use this
    representation. A projection references the same source card; it is not a
    Clone, token, duplicate card instance, or second actual containing location.
    Card state is live/shared and card actions write through to the source,
    including subsequent moves. D-124/D-125 distinguish combat and Stack lifetime
-   after source departure. Exact identity/schema and missing-source presentation
-   remain open, not live-versus-snapshot or independent-state routing.
+   after source departure. D-242 keeps Stack sources live across locations and
+   freezes read-only source state only when a token disappears. Exact identity/
+   schema and cleanup mappings remain contract/technical work.
 3. **Stack naming and ability projections (D-113):** rename the former Cast area
-   to Stack. Battlefield permanents can be projected there to signal an activated
-   ability without moving the original card. D-134 allows unlimited independent
-   Stack projections, including several from the same source. This is an explicit
-   player action, not ability detection, automatic cost payment, or priority tracking.
+   to Stack. D-242 explicitly permits ability projections from Graveyard and
+   Exile as well as Battlefield, without moving the original card. D-134 allows
+   unlimited independent Stack projections, including several from the same source.
+   This is an explicit player action, not ability detection, automatic cost payment
+   or priority tracking.
 4. **Contextual Stack actions (D-114):** offer quick actions according to what is
    there: actual instant/sorcery card → Graveyard; actual permanent card →
    Battlefield; projection → remove that projection, not its source card. These
@@ -219,11 +221,12 @@ Exact removal controls and action/undo composition remain open. D-127 requires
 explicit closure; ordinary phase/turn changes do not close the area. Normal
 history/branch recovery still applies.
 
-D-123: card actions through a projection always apply to its real source card.
-Projections are live views, not editable snapshots. Tap/untap, corners, counters,
-notes, faces/cover, and other card-state changes refer to the same shared card
-state, whether invoked through the source or a projection. No separate local
-copy of those card fields is introduced for combat or Stack occurrences.
+D-123/D-242: while its source exists, card actions through a projection apply to
+that real source card. Projections are live views, not editable snapshots.
+Tap/untap, corners, counters, notes, faces/cover and other card-state changes refer
+to the same shared card state, whether invoked through the source or a projection. No separate local
+copy of those card fields is introduced for combat or Stack occurrences while
+the source exists. D-242's token-disappearance fallback below is read-only.
 
 Dragging a projection into Graveyard or another real destination moves the actual
 card there, using the same stable identity, validation, resets, and token-removal
@@ -234,7 +237,7 @@ the approved Stack Remove projection into source-card deletion. D-174 forbids
 non-token card deletion entirely. Exact token-Remove
 versus occurrence-Remove entry and link/ping endpoint routing under shared edits
 remain behavior questions. D-124/D-125 settle lifetime after source departure;
-missing-source Stack presentation/actions still require review.
+token-disappearance presentation/actions follow D-242 below.
 
 ## 13.5 Confirmed area-specific lifetime (D-124/D-125)
 
@@ -260,21 +263,48 @@ effects automatically. Links between surviving projections are not removed just
 because their sources changed location. No priority or automatic resolution is
 introduced.
 
-If the real source no longer exists in current state (for example a removed
-token), preserve the Stack effect occurrence. Its displayed reference/inspection
-still needs design; source-card edits cannot apply to a nonexistent source.
-Do not invent a new actual card or silently remove the effect. Normal
-history/undo/branch/offline recovery applies to both lifecycle rules; exact operation composition/concurrent
-reference handling remain under review.
+### Live Stack sources and token-disappearance snapshot — D-242
 
-**Concrete inspection example under discussion, not an approved policy:** a
-token copy of Spikeshot Goblin has modified corner text `5/2`. Its controller
-creates an ability projection on Stack, then the opponent destroys the token.
-The token disappears while the ability remains. A player later holds that effect
-to inspect its source: should it show the token's last-known modified `5/2`
-state, rather than only printed information or a reference to a missing source?
-The proposed last-known read-only display is still awaiting the owner's answer
-under D-241. The players, not the app, determine the ability's damage.
+**Keep Stack projections linked while the real source exists, regardless of its
+location.** Creating a Stack projection from Graveyard or Exile is supported as
+well as from Battlefield. Creation preserves source placement/state, uses normal
+D-187 Stack-addition guards, and performs no automatic casting, cost payment or
+rules validation. Combat remains a live view of its Battlefield source under
+D-123/D-124; its occurrence is removed when that source leaves Battlefield.
+
+A non-token source moving Battlefield → Graveyard → Exile remains the same
+live-linked card. Do not freeze or unlink its Stack effects on zone departure.
+Source edits, including edits through a Stack projection, update that real card
+and all its surviving live views. Apply existing destination resets normally;
+the projection reflects the resulting current fields. Moving the source does
+not move/reorder its independent Stack effect occurrences.
+
+**Only token disappearance switches surviving Stack projections to an unlinked,
+read-only copy of their source's last live state.** This covers explicit token
+Remove and disappearance through an approved destination move. Retain the
+source's last displayed/inspectable card state immediately before disappearance,
+including modified corner text, counters, notes, orientation and face/cover
+context. It is not a snapshot from projection creation. Preserve existing
+covered-information/inspection conventions; the fallback does not newly reveal
+covered information in routine presentation.
+
+Keep the effect occurrence and source identity/provenance for inspection/history,
+but do not create an actual replacement card, Clone or editable token. Source-
+card actions cannot edit a nonexistent source or mutate the frozen copy. Normal
+occurrence layout/removal remains available; removing one effect does not remove
+sibling effects or their retained inspection information.
+
+For example, a token copy of Spikeshot Goblin creates an effect while `1/2`, then
+its corner text changes to `5/2`. The effect updates live. If the token then
+disappears, inspection retains `5/2`, not its earlier `1/2` or just printed data.
+If an ordinary card instead moves to Graveyard or Exile, keep it linked rather
+than using this token-only fallback. Players, not the app, determine damage or
+other rules consequences.
+
+Record enough source/effect context for deterministic history, eligible Undo/
+Redo, retries and downloaded review. Do not replace a recorded frozen state with
+unrelated current data during replay. Exact schema, cleanup mutation mappings and
+concurrent reference bookkeeping remain contract/technical specification work.
 
 ## 13.6 Confirmed attacker-removal cleanup and slot stability (D-126/D-138)
 
@@ -293,8 +323,7 @@ surviving pairs' contents and relative order rather than automatically regroupin
 cards. Exact area bounds/geometry and rendering are stage 3.
 
 Preserve assignment and placement context for normal history/undo/branch/offline
-review. D-127 separately fixes explicit area closure; missing-source Stack
-presentation remains open.
+review. D-127 fixes explicit area closure; D-242 fixes token-source Stack inspection.
 
 ## 13.7 Confirmed explicit closure and advance shortcut (D-127)
 
@@ -375,9 +404,11 @@ Stack occurrences and the real source unchanged (D-114/D-120/D-125). Independent
 effect lifetime does not mean independent card state: while the source exists,
 all projections still share its live card fields and write-through actions under
 D-123. Source departure/removal does not remove any of its Stack effects (D-125).
+Under D-242, a surviving real source stays linked across locations; only token
+disappearance freezes read-only last-live source information for its effects.
 
 Normal history/undo/branch/offline recovery applies. Placement/order, duplicate-
-source multiselection, missing-source presentation/actions, and exact concurrent
+source multiselection, snapshot-record mappings and exact concurrent
 operation handling remain separate behavior questions. No ability picker,
 automatic activation, cost payment, resolution, or legality checking is added.
 

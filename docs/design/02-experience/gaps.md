@@ -35,7 +35,8 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | The history node you are viewing is deleted. | Fall back to its parent, remaining in personal review. Repeat along the parent chain if necessary to reach a surviving ancestor/root; do not retain a detached snapshot, jump to live play or create a branch. Cursors on surviving nodes stay there. | [Review cursor fallback](../03-contracts/history-and-undo.md#selective-mutation-undoredo--d-224), D-238; T-535–T-537. |
 | Undo would remove a fork or reach back before one, including a hidden alternative. | Block Undo. Explorer filtering is not branch removal. Actions strictly after the latest fork remain subject to ordinary eligibility. | D-233. |
 | A new fork would put a queued Redo insertion before it. | Block Redo and retain the stack, even if replay would be safe. No recovery route is promised for the stranded mutation. | D-234. |
-| A real source leaves Battlefield, including a disappearing token. | Remove its combat occurrences/incident links; keep independent Stack effects until explicitly removed. Do not invent a replacement source for actions on a nonexistent token. Inspection details are a separate open case below. | [Projection lifetime](../03-contracts/combat-stack-and-projections.md#135-confirmed-area-specific-lifetime-d-124d-125), D-120/D-124/D-125/D-187. |
+| A real source leaves Battlefield, including a disappearing token. | Remove its combat occurrences/incident links; retain independent Stack effects. Existing sources stay live-linked across locations. Only token disappearance freezes the last live source state as read-only information, not an editable replacement card. | [Projection lifetime](../03-contracts/combat-stack-and-projections.md#135-confirmed-area-specific-lifetime-d-124d-125), D-120/D-124/D-125/D-242. |
+| A Stack effect is created from Graveyard/Exile, or its source moves there. | Creation leaves the source in place; source/effect card fields remain linked while the source exists, with normal Stack-addition guards and destination resets. Never freeze merely on Battlefield departure or at effect creation. | [Stack source contract](../03-contracts/combat-stack-and-projections.md#live-stack-sources-and-token-disappearance-snapshot--d-242), D-242; T-545–T-548. |
 | A projection is edited, repositioned or removed. | Card edits affect the real source; occurrence layout/removal does not delete or independently edit that source. Non-token cards have no Remove action. | D-123/D-174. |
 | A card referenced by View/Reveal moves elsewhere. | Keep the original reference and update its location; do not refill the display or copy the card. | D-46/D-47. |
 | A bulk/combined shortcut changes several things, or draws from an empty Library. | Record individual actual mutations in sensible order, not one atomic invocation node. Empty draw adds no invented move; a combined tracking advance still happens. | D-176; [turn shortcuts](behavior.md#8-turns-and-shortcuts), D-111. |
@@ -54,20 +55,17 @@ References point to the primary contracts; D-IDs identify the approved basis.
 
 ## Genuine gaps
 
-These are concrete remaining product choices identified in this pruning. Existing
-rules constrain them but do not uniquely select the missing outcome. They are
-not resolved by the table above; no option is silently approved here.
+**No unresolved product choices remain in this identified/pruned batch.** D-241
+settled correction/recovery/privacy/scope outcomes; D-242 settles Stack source
+inspection: stay linked while the source exists, including Graveyard/Exile, and
+freeze read-only last-live state only on token disappearance. Combat stays linked
+and keeps its Battlefield-departure cleanup. Q-28/Q-33/Q-35 now track contract/
+test and technical/UI completion, not another approval of that policy.
 
-| Missing outcome | Why current rules do not finish it | Primary contract / tracking |
-| --- | --- | --- |
-| **Inspection after source disappearance.** What information remains inspectable in a surviving Stack effect/reference display after its token source disappears? | Keeping the occurrence/reference is settled, as is the impossibility of editing a nonexistent source. Last-known card state versus only retained reference/printed information is not specified; do not silently recreate the token. | [Projection lifetime](../03-contracts/combat-stack-and-projections.md#135-confirmed-area-specific-lifetime-d-124d-125), Q-28/Q-33/Q-35. |
-
-**D-241 batch status:** the owner accepted the other three areas together and
-requested a concrete gameplay example for inspection before deciding it. The
-last-known-source snapshot remains a proposal. This leaves one known product
-edge-case area in this list, not a claim of exhaustive specification completion.
+This is a batch status, not a certification that all behavior has been verified.
 Server retention/account-erasure obligations remain explicit privacy/service work,
-not silently resolved by the no-trash/Logout choices.
+not silently resolved by the no-trash/Logout choices. Other reference mappings
+must be completed against existing rules, escalating only a demonstrated new gap.
 
 This is not a certification that behavior specification is complete. Further
 edge cases may be found, but an owner question needs a concrete unresolved

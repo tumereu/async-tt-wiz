@@ -17,6 +17,9 @@ The app remembers and presents what happened; the players interpret the rules.
    from card text or names.
 4. **A projection is another view, not another card.** Creating one leaves the
    original in place; card edits through it affect that same original.
+   Stack projections stay linked across source locations, including Graveyard
+   and Exile. Only token disappearance leaves a read-only last-live snapshot;
+   combat projections stay live-linked and disappear on Battlefield departure.
 5. **Act, sync, undo.** Completed edits save and synchronize automatically, without
    Send, mandatory explanations, grouping chores, or routine confirmations. Each
    tree node is one mutation, such as moving or tapping one card; bulk controls

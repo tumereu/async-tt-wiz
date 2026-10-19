@@ -607,6 +607,10 @@ context for normal undo, branch review, and downloaded offline recovery, includi
 Stack effects with removed token sources. Exact cleanup operation/undo composition and
 concurrent reference handling remain under review; do not apply one universal
 projection-removal rule in replay or recovery.
+D-242 retains read-only last-live source state only on token disappearance;
+existing sources remain linked across locations, including Graveyard/Exile.
+Replay/retries must reproduce the recorded source/effect and frozen inspection
+context, not substitute a new card or silently use an activation-time snapshot.
 
 Proposed grouping rules:
 

@@ -267,6 +267,15 @@ The general rules are:
   independent Stack effects may reference the same source. Contextual shortcuts
   move a real instant/sorcery to Graveyard, a real permanent to Battlefield, or
   remove one projection without removing its source or sibling effects.
+- Stack ability projections can also be created from Graveyard or Exile, leaving
+  the source in place (D-242). Keep them live-linked wherever the real source
+  moves; a non-token card's zone change does not freeze the projection. Card edits
+  through it still affect that same real source, including ordinary move resets.
+  Only token disappearance leaves an unlinked, read-only copy of the source's
+  last live state, not its state at effect creation. Keep that information
+  inspectable without recreating a token or allowing edits to the frozen copy.
+  Removing an effect still removes only that occurrence; combat remains live-linked
+  and is cleaned up when its source leaves Battlefield. No automatic rules math.
 - **All card edits through projections affect the real card**, including a move
   into a real destination. Removing/repositioning an occurrence is different from
   editing/moving its source or removing a token source. Source departure from

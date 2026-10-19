@@ -14,6 +14,30 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
+## Latest Stack source/inspection decision — D-242
+
+Owner accepts last-live inspection but corrects the proposed boundary: **only
+token disappearance unlinks/freezes a Stack projection** (T-545–T-548). An
+existing real source remains linked wherever it moves, including Graveyard and
+Exile; ability projections can be created from those zones too, leaving the source
+in place. Do not freeze on Battlefield departure or at effect creation. Source
+edits/write-through and normal destination resets stay live while the source exists.
+
+When a token disappears through Remove or a configured destination, retain its
+last live displayed/inspectable card state as read-only source information for
+surviving Stack effects. No replacement actual card/Clone, editing the snapshot
+or editing the nonexistent source. Preserve source identity/provenance, cover/
+inspection conventions and recorded history/retry outcomes. Effect occurrences
+remain independently removable. Combat stays linked and cleans up on source
+departure from Battlefield. No automatic card-rule calculation is approved.
+
+The previously last identified product gap in the pruned batch is now resolved.
+Continue contract/test completion and consistency work automatically; ask only
+about a demonstrated new missing outcome/contradiction. Privacy/service and later
+UI/technical work remain in their lanes. **No stage transition or implementation
+is authorized.** The all-Stack-creation-snapshot and freeze-on-ordinary-departure
+proposals were not selected.
+
 ## Latest remaining-gap batch — D-241
 
 Owner said **otherwise good**, accepting the batch except inspection, for which
@@ -33,10 +57,8 @@ of the inspection proposal. Confirmed outcomes (T-541–T-544):
   formats and additional alert categories. Preserve confirmed features and prior
   D-214/D-220 deferrals. No expansion roadmap or stage transition is implied.
 
-One known product edge-case area remains in the pruned list: read-only inspection
-of a surviving Stack effect/reference after its token source disappears. Showing
-last-known modified source state remains proposed; explain a real case before
-requesting its decision. Do not manufacture extra owner questions from contract/
+At that checkpoint source-disappearance inspection remained undecided; D-242
+above now settles it. Do not manufacture extra owner questions from contract/
 test, technical or later-UI work. Continue automatically in reviewable batches;
 the owner should not need to prompt for each item. No implementation is authorized.
 
@@ -775,7 +797,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-241** and **T-001–T-544**.
+- Current documentation includes **D-001–D-242** and **T-001–T-548**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and
@@ -959,7 +981,8 @@ this is not completion of grouping design or authorization to implement.
   Remove/resolve each separately without removing siblings or the real source;
   remove its incident links normally. Card fields remain shared (D-123), and all
   effects survive source departure/removal (D-125). Placement/order, duplicate-
-  source selection, missing-source behavior, and concurrency remain open.
+  source selection, record mappings and concurrency need contract completion;
+  D-242 settles missing-token-source behavior.
 - D-123: projections are **live views of the same real card**, not independent
   editable copies/snapshots. Card actions through them always affect that real
   card: orientation, corners, counters, notes, printed face/cover, and moves.
@@ -978,7 +1001,9 @@ this is not completion of grouping design or authorization to implement.
 - D-125: **Stack effects remain until explicitly removed/resolved**, even when
    their source moves/leaves or a token source disappears, and even when the move was through that
   Stack projection. Do not remove a Stack effect as a side effect of source
-  departure. Missing-source display/inspection/card-action applicability is open;
+  departure. D-242 keeps existing sources linked across locations, including
+  Graveyard/Exile, and preserves read-only last-live state only on token
+  disappearance. No source-card edits apply to the frozen copy/nonexistent token;
   retaining the effect does not fabricate a new actual card.
 - D-120: projection-to-projection links use occurrence endpoints, disappear with
   a removed endpoint, and never silently retarget to real sources. Other mixed
@@ -1038,8 +1063,8 @@ source preservation, existing-attacker reuse, or approved event/Undo mappings.
 
 ## Remaining behavior work, not an implementation backlog
 
-- **Q-33–Q-35 / G-11–G-13:** remaining combat role-change/entry cases, missing-source
-  Stack reference/display/inspection/actions, duplicate-source multiselection,
+- **Q-33–Q-35 / G-11–G-13:** remaining combat role-change/entry mappings, D-242's
+  recorded Stack token-fallback context, duplicate-source multiselection,
    cover/exposure, link/ping target routing, token-source Remove versus occurrence-only
   access/mixed-selection routing, and cleanup/undo/offline/concurrent behavior.
 - Combat: absent-area drag targeting, additional single-card quick offerings,

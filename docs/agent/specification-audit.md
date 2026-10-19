@@ -12,9 +12,9 @@ resolutions and sources**, allowing revision/acceptance together. Do not confuse
 that batch review with a new approval requirement for every derived consequence.
 Mark truly unresolved choices/proposals separately.
 
-The [pruned list](../design/02-experience/gaps.md) now contains 32 worked
-spec-derived cases (plus D-238's resolved review-cursor case), one known remaining
-product edge-case area, and separate contract, technical, later-UI
+The [pruned list](../design/02-experience/gaps.md) now contains 33 worked
+spec-derived cases (plus D-238's resolved review-cursor case), no unresolved
+product choices in that identified batch, and separate contract, technical, later-UI
 and platform/service work. The
 [Q-register](decisions.md#93-release-blocking-questions) replaces its mixed question
 queue with a classification preserving every Q-ID. Neither list claims exhaustive
@@ -26,8 +26,8 @@ behavior coverage or authorizes implementation/a delivery-stage transition.
 | Groups/pings | Apply approved author/category/companion/context rules to worked sequences first. Escalate only a demonstrated unresolved precedence conflict; categories, leading/compound cases and numbering are not automatically separate policy questions. |
 | Undo/Redo/references | Core replay/target/order/clearing/fork/device/server-request rules are settled. Dependent comments/references block removal under D-224; their deletion/reattachment is not an open alternative. D-238 now settles personal viewing of a deleted node: fall back to its parent, repeatedly if needed to reach a surviving ancestor/root. Anchor/ID/cache/replay-field mappings are contract/technical work. |
 | Online concurrency/reconnect | Arrival-order acceptance, immediate predictions, individual outcomes, difference-only reconciliation and automatic already-sent recovery are approved. Protocol/unsent-request/animation cases need explicit contract coverage against those rules, not routine safeguards or another offline queue. |
-| Projections/Stack/combat | Source-versus-occurrence routing, cleanup/retention, slot reuse/placement and source-state preservation are approved. Inspection information after a token source disappears is a genuine remaining case. Apply existing rules to ordinary variants; geometry/control presentation is later UI. |
-| Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. D-240 settles simple chat; D-241 excludes dedicated event-comment Edit/Delete. Correct comments through eligible Undo or another comment, without bypassing dependency checks. Source-disappearance inspection remains proposed pending a concrete example/owner decision. |
+| Projections/Stack/combat | D-242 settles Stack sources across locations, including creation from Graveyard/Exile: keep live links while the source exists; only token disappearance freezes read-only last-live source state. Combat remains live-linked with Battlefield-departure cleanup. Source/occurrence mappings, replay/snapshot records and geometry remain contract/technical/UI work, not new policy questions. |
+| Inspection/communication | Capture/association and read-only offline compatibility need specification work, without inventing offline shared events. D-240 settles simple chat; D-241 excludes dedicated event-comment Edit/Delete. Correct comments through eligible Undo or another comment without bypassing dependencies. D-242 settles Stack token-source inspection without creating an editable replacement card. |
 | Empty/invalid/multi-target actions | Actual-mutation/no-invented-node, no-skipping/structural validity, selected-target applicability and entry-reset rules determine ordinary outcomes. Complete tables/tests; numeric/resource bounds and feedback details belong in technical/UI work. |
 | Product/platform/privacy | D-241 excludes remaining proposed authoring/coordination extras and saved-deck/cancelled-lobby trash/restore. Logout clears private downloads while preserving protected already-sent recovery records; cross-account access is forbidden. Server retention/account-erasure obligations remain privacy/service work. Device targets, provider/rights, notification mechanics, operations and accessibility retain their proper stages. Prior explicit deferrals are unchanged. |
 

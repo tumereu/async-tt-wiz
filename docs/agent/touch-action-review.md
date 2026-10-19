@@ -16,6 +16,16 @@ review/revision, not a separate question for each consequence.
 In particular, a comment dependent on a move already blocks Undo of that move
 under D-224; it is not a fresh reference-policy choice. No next-question quota.
 
+**Stack live-source/token fallback — D-242 (T-545–T-548):** live-linked while the
+real source exists, including Graveyard/Exile. Projection creation from those
+zones is supported without moving the source. Only token disappearance freezes
+read-only last-live source state; no creation-time or ordinary-zone-departure
+snapshot. Preserve write-through source edits, normal destination resets, Stack
+guards, source provenance and cover/inspection conventions. No replacement card
+or editable snapshot; effects remain independently removable. Combat stays linked
+and is removed on Battlefield departure. The last identified gap in the pruned
+batch is settled; finish contracts/tests without manufacturing another question.
+
 **Remaining-gap batch — D-241 (T-541–T-544):** owner accepted all except
 source-disappearance inspection, asking for a concrete example first. No dedicated
 event-comment Edit/Delete; correct with eligible Undo or another comment. No
@@ -23,8 +33,8 @@ trash/restore for deleted saved decks/cancelled lobbies. Explicit Logout removes
 private downloads but preserves protected already-sent recovery records, isolated
 from other accounts. Remaining proposed authoring/coordination extras are out of
 R1; preserve confirmed controls and prior deferrals. Server retention/account
-erasure remains privacy/service design. Last-known-source inspection is still a
-proposal, not approved. Continue automatically with batches, not one prompted
+erasure remains privacy/service design. D-242 above subsequently settles the
+source-inspection policy. Continue automatically with batches, not one prompted
 question at a time. Older “open” scope labels below do not reopen this batch.
 
 **Simple chat — D-240 (T-540; updated T-184):** sent messages have no Edit/Delete
@@ -345,7 +355,7 @@ Proposed sequence; groups can be split or reordered during review:
 | G-10 | Other table tools: dice/coins, turn/phase/step tracking, markers, messages, and optional convenience calculations. | D-87/D-89–D-111 confirm existing tools/tracking/shortcuts. No priority or extra-turn action. No-further-phase-shortcuts proposal rejected; required combat/Stack work continues in G-11–G-13 under D-112–D-115. |
 | G-11 | Temporary combat area, attacker/blocker projections, and paired-slot grouping. | Confirmed: separate actions/declaration variants, shared source state, occurrence reuse/uniqueness, paired grouping/cleanup/reflow, uniform slot drops/insertion, context removal, declaration defaults/auto-area/visibility, and shortcut event mappings. D-152 settles existing-blocker declaration conversion. Moved-collection/new-pair order, edge/between-pair/absent-area drag targets, other-view applicability, and additional single-card quick offerings remain open. See primary contracts/decision register; UI drafts remain stage 3. |
 | G-12 | Stack naming, real cards versus activated-ability projections, and source/reference behavior. | D-113 requires Stack virtual occurrences; D-123 shares real-card edits/moves. D-125 retains effects despite source departure/removal until explicit removal/resolution. D-134 allows unlimited independent projections, including from one source. Missing-source display/actions and other entry/reference cases remain open. |
-| G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 requires explicit effect removal/resolution independent of source departure. Category/routing/missing-source cases remain open; no automatic resolution. |
+| G-13 | Contextual Stack quick actions for real cards and projections. | D-114 requires instant/sorcery → Graveyard, permanent → Battlefield, projection → remove projection. D-125 keeps effect removal/resolution independent of source departure. D-242 settles live sources across locations and read-only last-live state only on token disappearance. Finish category/routing/record mappings; no automatic resolution. |
 
 Detailed action grouping, interruption boundaries, and playback follow capability
 and touch-control review. Existing confirmed history/sync requirements remain in
@@ -1171,7 +1181,8 @@ D-124/D-125 replace a universal projected-move cleanup proposal: anything taking
 the real card off the battlefield removes its combat projections/incident links,
 but its Stack effects remain until explicitly removed/resolved. This is independent
 of which occurrence/source invoked the move; Stack effects survive token-source removal
-too. Missing-source display/inspection/card-action applicability remains open.
+too. D-242 settles missing-token-source display/inspection as read-only last-live
+state, with no source-card edits; existing sources stay linked across locations.
 
 Confirmed D-126/D-139: when an attacker leaves, surviving cards stay grouped in
 their slots; the final attacker's departure leaves a blocker-only pair, not a
@@ -1203,8 +1214,8 @@ Confirmed D-134: Stack allows unlimited independent projections, including sever
 from the same source. Repeated creation adds occurrences rather than reusing them;
 remove/resolve each separately without removing siblings or the source. Card
 fields remain shared; source departure/removal leaves all Stack effects intact.
-Ordering, duplicate-source selection, missing-source behavior, and concurrency
-remain separate review cases.
+Ordering, duplicate-source selection, snapshot-record mappings and concurrency
+remain contract/technical work; D-242 settles token-disappearance behavior.
 Confirmed D-135: at most one projection per real card per combat area, across
 attacker/blocker roles. Dragging an attacker to a blocker position moves that
 same occurrence, preserving identity and leaving real source state unchanged.

@@ -530,7 +530,8 @@ Confirmed additional library shortcuts (D-48):
 3. Move top N / Move bottom N to an explicitly chosen destination, using generic
    ordered-card movement. D-49 fixes relative destination order; D-176 records
    individual card-move nodes.
-4. Shuffle all is the only library shuffle shortcut. Do not offer Shuffle top N
+4. Standalone Shuffle all shuffles the whole Library; D-193 also adds combined
+   shuffle-and-draw actions. Do not offer Shuffle top N
    or Shuffle bottom N. No automatic shuffle merely because a pile was viewed.
    Stored shuffle outcomes and their undo/redo contract remain governed by the
    history/randomness specifications.
@@ -539,7 +540,8 @@ Confirmed N-card input/ordering defaults (D-49):
 
 1. Show bottom-N subsets in their normal source top-to-bottom order, with the
    bottommost card marked; do not reverse the subset to bottom-first.
-2. N-input starts at one and offers +/- plus numeric entry. Quick Draw one skips
+2. N-input starts at one and offers +/- plus numeric entry, except D-193's
+   shuffle-and-draw N action defaults to seven. Quick Draw one skips
    that picker; completing the required inputs executes without a separate Send.
 3. Clamp a requested N to the source's available card count rather than rejecting
    an oversized request. This applies to quantity-based View/Reveal/Draw/Move
@@ -1076,8 +1078,9 @@ new offline random actions.
 
 D-93 confirms every explicit new Shuffle samples a fresh order, including after
 undo; review/replay/redo and retransmission reuse the recorded order. A fresh
-shuffle may reproduce a prior permutation by chance. This adds no shuffle
-shortcuts beyond Shuffle all and does not imply that covered order was exposed.
+shuffle may reproduce a prior permutation by chance. D-93 itself adds no shuffle
+shortcuts and does not imply that covered order was exposed; D-193 later adds
+explicit shuffle-and-draw compositions using the same recorded-randomness model.
 
 Confirmed D-159/D-160: Undo moves the shared active pointer one parent back and
 retains all nodes. After replacement play, ordinary abandoned continuations hide
@@ -1193,9 +1196,12 @@ at Beginning/Untap without automatic card operations. This initializes tracking,
 not opening-hand draws or a rules-driven setup procedure. Exact setup-screen
 placement, selection defaults, and change/recovery boundaries remain later work.
 
-D-192 additionally excludes automatic opening draws on game start and requires
-mulligan quick actions, rather than ordinary moves alone. Exact shortcut effects
-and opening-draw access remain open in the
+D-192 additionally excludes automatic opening draws on game start. D-193 requires
+shuffle-and-draw N (default seven) and shuffle-and-draw current hand size minus one,
+both as Library context actions and as quick actions in the starting player's
+first turn/first phase. Whether the quick window includes the whole Beginning
+phase or only Untap, existing-hand return, and exact sequencing/count edges remain
+open in the
 [setup contract](accounts-decks-and-lobby.md#opening-hands-and-mulligan-shortcuts--d-192).
 This does not approve automatic starting shuffle or a rules-driven mulligan gate.
 

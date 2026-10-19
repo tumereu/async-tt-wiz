@@ -56,9 +56,19 @@ automatic card operations merely from entering that step.
   after both players ready does not itself draw cards.
 - **Provide mulligan quick actions.** Requiring players to perform every
   mulligan operation through ordinary moves alone is not the approved design.
-- Exact shortcut offerings and operations remain open: hand return, shuffle,
-  redraw count, repeated mulligans, and any player-chosen bottoming. No automatic
-  mulligan-count tracking, keep-hand gate or card-text/format rules are implied.
+- **Two shuffle-and-draw actions (D-193):** one shuffles the Library and draws
+  **N**, with **7 as the default**; the other shuffles and draws **current hand
+  size minus one**, rather than an assumed fixed seven or automatic mulligan count.
+- Both are available as **Library context actions**. They are also quick actions
+  during the **starting player's first turn, first phase**. Whether that means
+  the entire Beginning phase or only its first step, Untap, needs clarification;
+  do not silently approve one interpretation.
+- Whether both actions first return the existing hand to the Library still needs
+  confirmation. Exact count-capture timing, nonpositive-count cases, hand-return
+  order if included, and any bottoming behavior remain open. Retain the ordinary
+  D-49 available-card clamp for the N-card draw; do not reopen that default.
+  No automatic mulligan-count tracking, keep-hand gate or card-text/format rules
+  are implied. The preceding proposal's manual-bottoming step was not approved.
 - The assistant's automatic draw-seven proposal was rejected. Starting shuffle
   and initial Library order were not separately approved by that correction.
 
@@ -76,7 +86,9 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
   decided.
 - Initial arrangement/values, starter-selection access, and which explicit setup
   operations occur on starting, including shuffle. Automatic opening draws are
-  excluded; exact mulligan quick actions and opening-draw access remain open.
+  excluded. Mulligan action counts/default and Library context access are settled;
+  existing-hand return, exact opening quick-action window and remaining shortcut
+  sequencing/edge outcomes are open.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
 

@@ -44,8 +44,11 @@ The general rules are:
   exact starting setup and invitation details remain open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
 - Starting the game does **not** automatically draw opening hands. Mulligan quick
-  actions are included, but their exact return/shuffle/redraw steps are not yet
-  decided. Automatic starting shuffle remains undecided too.
+  actions shuffle and draw N (default 7), or shuffle and draw current hand size
+  minus one. Both are Library context actions, also quick actions in the starting
+  player's first turn's first phase. Existing-hand return and whether that quick
+  window is all of Beginning or just Untap still need clarification. Automatic
+  starting shuffle remains undecided too.
 
 ### 1. A cooperative table, not a rules referee
 
@@ -131,7 +134,8 @@ The general rules are:
   View/Reveal bottom N and Move top/bottom N to a chosen destination. N starts at
   one with +/- and numeric entry, clamped to the available count. Moves from one
   ordered source preserve source order at either destination end.
-- Shuffle all is the only Library shuffle shortcut; viewing does not shuffle.
+- Library shuffle uses the whole pile, not top/bottom-N subsets; viewing does not
+  shuffle. The explicit shuffle-and-draw actions above are additional compositions.
 
 ### 5. Text, counters, notes, and links
 

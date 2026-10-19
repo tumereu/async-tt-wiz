@@ -27,8 +27,12 @@ T-396–T-405. D-191 confirms that changing your deck/mainboard/sideboard clears
 your own Ready and lobby changes leave the saved deck untouched. Next substantive
 setup gaps: actual starting operations, invitation flow and remaining readiness/
 start-versus-edit behavior. D-192 excludes automatic opening draws and requires
-mulligan quick actions; exact shortcut operations and starting shuffle remain
-open (T-406/T-407). Do not resume the assistant's automatic draw-seven/manual-only
+mulligan quick actions. D-193 specifies shuffle-and-draw N (default seven) and
+current hand size minus one, both Library context actions and quick actions in
+the starting player's first turn/first phase. Clarify existing-hand return and
+Beginning-versus-Untap quick visibility before treating them as approved. Count
+edges/sequencing and automatic starting shuffle remain open (T-406–T-411).
+Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.
 

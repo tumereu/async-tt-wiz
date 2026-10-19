@@ -16,7 +16,7 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current concurrency correction — D-179
 
-**Latest setup decisions — D-188–D-204:** owner requires login before the main
+**Latest setup decisions — D-188–D-205:** owner requires login before the main
 menu; registration is available. Main menu has Logout, Manage decks and Play.
 Users can add users; Friends as a separate name/menu remains tentative. Play
 shows current games including pending invites. Deck editor currently supports
@@ -76,13 +76,19 @@ lobby, without legality, size or one-for-one constraints. Keep own-Ready clearin
 and saved-deck isolation under D-191; see T-444/T-445.
 D-204 corrects the assistant's next proposal: starter-selection changes clear
 only the changing player's Ready, preserving the other's. Do not clear both;
-the changing player must ready again (T-446/T-447). Manual Ready withdrawal was
-proposed alongside this but not separately approved, so remains open.
+the changing player must ready again (T-446/T-447). D-205 separately approves
+all four lobby-transition recommendations: Ready requires your own selected deck
+without legality/size checks; manual withdrawal is allowed until start; accepted
+Ready persists when leaving/disconnecting without both players online; server
+arrival order decides start-versus-edit/withdrawal, and retries never start or
+shuffle again (T-448–T-454). Apply a lobby change received first before checking
+readiness; reject late lobby changes after start without altering/reopening play.
+This is not offline Ready creation or a simultaneous-presence requirement.
 Setup-data retention/rematch and additional optional areas remain open. Next
-useful topic: remaining lobby readiness/start behavior, not reopening starter
-options, initial placement or tiny cover-art variants.
-Exact search/contact removal/privacy, remaining invitation lifecycle, other readiness
-details, start-versus-edit races, account flows and other initial values remain open.
+useful topic: invitation/lobby cancellation and persistence, not reopening
+readiness, starter options, initial placement or tiny cover-art variants.
+Exact search/contact removal/privacy, remaining invitation lifecycle, starter
+defaults/access/random timing, lobby/game history, account flows and other initial values remain open.
 D-108 starter/turn-1 Untap and all gameplay sync/history
 rules remain. No UI drafts, application code or stage transition are authorized.
 
@@ -365,7 +371,7 @@ this is not completion of grouping design or authorization to implement.
 
 ## Checkpoint and first reads
 
-- Current documentation includes **D-001–D-204** and **T-001–T-447**.
+- Current documentation includes **D-001–D-205** and **T-001–T-454**.
 - The 2026-10-18 handoff checkpoint was `68c4793`, recording D-132 (one advance-
   and-close event) and D-133 (no duplicate attacker on repeated declaration).
   The 2026-10-19 checkpoints `fe0f146` and `c23632c` record D-134–D-140 and

@@ -24,9 +24,9 @@ begins in a lobby with deck selection and mainboard/sideboard management, and
 starts once both players press Ready. See the
 [primary contract](../design/03-contracts/accounts-decks-and-lobby.md) and
 T-396–T-405. D-191 confirms that changing your deck/mainboard/sideboard clears
-your own Ready and lobby changes leave the saved deck untouched. Next substantive
-setup gaps: actual starting operations, remaining invitation lifecycle and readiness/
-start-versus-edit behavior. D-192 excludes automatic opening draws and requires
+your own Ready and lobby changes leave the saved deck untouched. Later decisions
+below settle starting operations and readiness/start ordering; remaining invitation
+lifecycle details are still open. D-192 excludes automatic opening draws and requires
 mulligan quick actions. D-193 specifies shuffle-and-draw N (default seven) and
 current hand size minus one. D-194 confirms both return the whole hand first,
 then shuffle, then draw; use pre-return hand size for the minus-one variant.
@@ -65,8 +65,14 @@ deck isolation (T-444/T-445).
 Remove older in-game Sideboard/extra-container implications, not the saved
 sideboard data. D-204 corrects the latest proposal: changing starter selection
 clears only the changing player's Ready, preserving the other player's, not both
-(T-446/T-447). Manual Ready withdrawal remains open; the correction did not
-separately approve it. Next useful topic: remaining lobby readiness/start behavior.
+(T-446/T-447). D-205 separately approves the full lobby-transition bundle:
+Ready needs your own selected deck without legality/size checks; allow manual
+withdrawal before start; accepted Ready persists when leaving/disconnecting,
+without both players online; server arrival order settles start-versus-change,
+and retries never start/shuffle again (T-448–T-454). Preserve own-Ready clearing.
+Remaining starter defaults/access/random timing, cancellation/retention and
+lobby/game history boundaries are open. Next useful topic: invitation/lobby
+cancellation and persistence, not another readiness variant.
 Do not resume the assistant's automatic draw-seven/manual-only
 mulligans proposal or silently approve full deck
 editing/export, a separate host Start, or the assistant's immediate-table proposal.

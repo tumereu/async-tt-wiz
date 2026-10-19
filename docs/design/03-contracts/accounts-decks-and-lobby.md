@@ -149,8 +149,8 @@ yet a full deck-building editor.
 **Ready follows your deck preparation (D-191):** changing your chosen deck or
 mainboard/sideboard clears **your own Ready**, not the other player's. You must
 press Ready again for the changed preparation before both-player readiness can
-start the game. This rule applies while the game is still in the lobby; the exact
-race between a lobby edit and game start remains to be specified.
+start the game. This rule applies while the game is still in the lobby; D-205
+settles start-versus-edit ordering below.
 
 This supersedes the assistant's immediate-playable-table suggestion; it was not
 approved. A lobby Ready control is pregame coordination, not a gameplay Send or
@@ -158,6 +158,31 @@ publication gate. Existing gameplay mutations still synchronize immediately.
 
 D-108 still requires choosing the starter and beginning turn 1 at Untap without
 automatic card operations merely from entering that step.
+
+## Ready, persistence, and competing start changes — D-205
+
+- **Ready requires your own selected deck.** The other player need not already
+  have selected theirs for you to ready. Do not enforce format legality or deck
+  size as a Ready prerequisite.
+- **You can manually withdraw Ready until the game starts.** Preserve the other
+  player's Ready. Existing deck/preparation and starter-selection changes still
+  clear only the changing player's Ready (D-191/D-204).
+- **Accepted Ready persists when you leave the lobby or disconnect.** Both players
+  need not be online simultaneously; the second accepted Ready can start play
+  while the first player is away. Leaving the screen/disconnecting is not a
+  withdrawal or lobby cancellation. This does not authorize making Ready or other
+  shared changes offline.
+- **Process competing lobby changes and start in server arrival order.** If an
+  edit or withdrawal arrives first while still in the lobby, apply it before
+  checking readiness. A cleared Ready must be supplied again; do not start using
+  that player's previous Ready. If play has already started, reject the late
+  lobby edit/withdrawal without changing the started game or reopening its lobby.
+- **Start the game only once.** Retries recover the existing start and recorded
+  shuffle outcomes, not a second start, new shuffle or life reset (D-200).
+
+Starter defaults/access/random-resolution timing and the lobby-versus-game
+history/Undo boundary remain open. These rules do not introduce a separate host
+Start action or require online presence from both participants.
 
 ## Initial placement and lobby-only Sideboard — D-202
 
@@ -196,8 +221,8 @@ enforcement, and does not approve additional configurable gameplay areas.
 - **Changing the starter selection clears only the changing player's Ready
   (D-204), preserving the other player's Ready.** The changing player must ready
   again before play can start. This replaces the assistant's proposal to clear
-  both players. It does not separately approve a manual Withdraw Ready control;
-  that remains open, as do start-versus-edit races and Random-resolution timing.
+  both players. D-205 separately approves manual withdrawal and start-versus-edit
+  ordering; Random-resolution timing remains open.
 
 ## Game-start shuffle and life — D-200
 
@@ -249,13 +274,14 @@ parent-step Undo under D-176; its exact mutation sequence still needs design.
 
 ## Remaining behavior decisions
 
-- Readiness prerequisites, manually withdrawing Ready, and readiness effects of
-  other setup changes. Deck/mainboard/sideboard changes clear the affected
-  player's Ready (D-191); starter-selection changes clear only the changing
-  player's Ready (D-204). Both preserve the other player's Ready.
-- Invite/lobby persistence, decline presentation, leaving/cancellation, reconnect and competing Ready/
-  setup changes, with no requirement that both players remain online together yet
-  decided.
+- Readiness effects of any further approved setup controls. D-205 settles the
+  selected-deck prerequisite without legality/size checks, manual withdrawal,
+  Ready persistence without simultaneous online presence, server arrival-order
+  start-versus-change handling and one-time start recovery. D-191/D-204 still
+  clear only the changing player's Ready for preparation/starter changes.
+- Remaining invitation/lobby lifecycle: decline presentation, cancellation,
+  reinvitation and retention. Leaving the lobby screen or disconnecting does not
+  withdraw accepted Ready (D-205); explicit cancellation is a separate open flow.
 - Further setup values/optional areas and starter-selection defaults, edit
   access and random-resolution timing. D-201 settles lobby
   placement and either-player/Random options. D-202 settles initial mainboard/

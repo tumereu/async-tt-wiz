@@ -42,7 +42,11 @@ obligation or behavior is still proposed:
   D-203 confirms free lobby transfers between mainboard/sideboard, without legality,
   size or one-for-one restrictions; D-191 still clears own Ready and isolates saved decks.
   D-204 confirms starter-selection changes clear only the changing player's Ready,
-  preserving the other player's. Further setup values/optional areas, starter
+  preserving the other player's. D-205 confirms own-deck selection as the Ready
+  prerequisite without legality/size checks, manual withdrawal before start,
+  Ready persistence without both players online, server arrival-order handling
+  of start-versus-change and one-time start recovery. Further setup values/optional
+  areas, starter
   defaults/edit access and random timing/reselection remain open.
 - Arbitrary named player/card values, participant associations, generic pieces/
   markers/custom definitions, and a broader correction tool. Their general purpose
@@ -81,10 +85,12 @@ old future after a response. Exact overall release scope still needs sign-off.
    Remaining: exact search/contact removal/privacy, decline/cancel/reinvite/persistence details,
    remaining import dialect/printing/count details and saved-deck naming defaults/
    deletion/cover fallback/replacement metadata,
-   readiness prerequisites/withdrawal/other setup
-   changes, start-versus-edit races, further setup values/optional areas and
+   readiness effects of further setup controls, remaining lobby cancellation/
+   retention, further setup values/optional areas and
    starter-selection defaults/edit access/random timing (lobby
-   selection with either player or Random, starting shuffle and life 20 are settled),
+   selection with either player or Random, starting shuffle and life 20 are settled).
+   D-205 settles Ready prerequisites/withdrawal, persistence without simultaneous
+   online presence, start-versus-change ordering and one-time start recovery. Also open:
    remaining mulligan per-card sequencing/concurrent count timing/count edges,
    missing cards,
    completion/rematch/export, and which broader authoring/correction tools ship.

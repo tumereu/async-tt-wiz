@@ -93,7 +93,12 @@ Lobby preparation permits free transfers between mainboard and sideboard, withou
 legality, size or one-for-one constraints (D-203). These clear own Ready and leave
 saved decks unchanged (D-191); Sideboard remains unavailable during play (D-202).
 Changing the lobby starter selection likewise clears only the changing player's
-Ready, preserving the other player's (D-204). Manual Ready withdrawal remains open.
+Ready, preserving the other player's (D-204). D-205 permits manual withdrawal until
+start and requires your own selected deck to ready, without legality/size checks.
+Accepted Ready persists when leaving/disconnecting; both players need not be
+online together. Server arrival order settles start-versus-change; late lobby
+changes are rejected after start and retries never start/shuffle again. See the
+[primary setup contract](accounts-decks-and-lobby.md).
 
 D-69 card notes show short text directly on the card; long text may be
 ellipsized as the initial presentation, with full text in inspection/editor.

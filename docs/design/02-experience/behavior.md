@@ -61,8 +61,14 @@ The general rules are:
   Start with the prepared mainboard;
   do not add the remaining sideboard cards to Library or delete the saved sideboard.
   Changing your deck or mainboard/sideboard clears your own Ready; lobby deck
-  changes affect only this game, not the saved deck. Other readiness details,
-  exact starting setup and remaining invitation lifecycle details are open in
+  changes affect only this game, not the saved deck.
+  Ready requires your own selected deck, without legality or deck-size checks;
+  you can withdraw it until start. Accepted Ready persists when you leave or
+  disconnect, so both players need not be online together. Start-versus-change
+  follows server arrival order: apply a lobby change received first, or reject a
+  late lobby change after start without altering the game. Retrying never starts
+  or shuffles the game again. Further setup and invitation lifecycle details are
+  open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
 - Starting the game does **not** automatically draw opening hands. Mulligan quick
   actions return the whole hand to Library, shuffle, then draw N (default 7) or

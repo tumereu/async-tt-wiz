@@ -110,8 +110,9 @@ the whole-board/card state is not automatically relevant. Selective Undo exclude
 information-revealing targets. **D-232 confirms that removal/reinsertion edits the
 existing tree, not forks an untouched original beside a revised continuation.**
 Removed mutations enter the player's Redo stack, not a required explorer branch.
-Tree/node IDs/versioning, affected side branches/references/review cursors, queue
-device scope, pointer/view changes and N/counting remain open. Storage-level
+Tree/node IDs/versioning, reference encoding, pointer mechanics and N/counting
+remain technical work. D-235 settles shared per-account/per-game stacks; D-238
+settles deleted-review-node parent fallback. Storage-level
 retention after queue clearing and physical schema are not decided. The earlier
 pointer/retention model below is superseded rewind context, not an immutable-tree
 constraint on Undo/Redo.
@@ -130,11 +131,13 @@ idempotent recovery for delivery retries; D-161 captured-parent Undo is retired.
 Offline event creation is excluded by D-246. Exact concurrent activation,
 pre-fork/nested presentation and protocol/schema remain technical/UI work.
 
-D-89/D-91 exposure coverage remains: library View/Reveal, covered hand/card-face
-views including covered-face holds, die/coin results, and any actual hidden-info
-exposure including draws/moves/face changes. Covered summaries do not automatically
-disclose identities. Exposure node placement/coalescing, schema, durable capture
-and publication remain Q-31; no separate permanent-marker entity is required.
+D-252 revises inspection: own-area holds show real faces without an event;
+opponent-area holds conceal hidden information; explicit Inspect other side logs
+viewing, separately from Flip. Library View/Reveal, die/coin and other actual
+revealing edits retain exposure obligations. The
+[participation mapping](history-and-undo.md#exposure-participation-in-controls-and-visibility)
+defines placement, latest-own barriers, Redo clearing, replay and branch filtering.
+Physical encoding/coalescing remains technical; no permanent-marker entity is required.
 
 D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
 nodes on the ordinary tree path. The current path is already a branch; no
@@ -596,9 +599,9 @@ original object. The display persists until explicit dismissal. D-47 fixes its
 shown card IDs/source order: do not auto-refill as the source changes. Moved
 cards retain entries with updated location indicators. Either participant may
 dismiss the display; log dismissal and preserve cards and historical records.
-Do not implement a new zone or copy-on-reveal model. Exact source-context schema,
-historical rendering/undo, deletion/removal behavior, and detailed controls remain
-open.
+Do not implement a new zone or copy-on-reveal model. The reference lifetime matrix
+below fixes movement/absence/restoration semantics. Exact source-context schema,
+historical rendering and detailed controls remain technical/UI work.
 
 ## 2.5 Participant/table values and markers
 
@@ -649,16 +652,16 @@ Record actual edits and any advancement under normal history/undo/queue/sync
 contracts. D-101 advances to the next step, not the next whole phase: Untap →
 Upkeep, and Draw → Precombat main at the phase boundary. Do not skip Upkeep/Draw
 after Untap or execute another card operation merely on entering the next step.
-Exact participant association, remaining no-op/failure presentation,
-concurrency/partial-group behavior, and other shortcuts remain under review; no new
-card-rule inference is implied.
+Configured region/container bindings and partial/interleaved outcomes follow
+[operation composition](operation-composition.md#composite-commands-and-quick-action-scope).
+Exact feedback/layout remains UI work; no new card-rule inference is implied.
 
 D-110 makes Untap all literal for the turn player's battlefield cards, with no
 dedicated skip-untap field/flag. Card text, notes, and markers do not install
 exclusions. Players manually re-tap exceptions. Standalone and +advance variants
-use the same scope and preserve unrelated card state. Exact participant
-association, remaining no-op presentation, and concurrency/partial-group behavior
-remain under review. D-176 requires individual untap mutations plus any advancement.
+use the same captured configured-region scope and preserve unrelated card state.
+No-change targets fabricate no nodes; interleaving uses individual outcomes and
+relative tracking. D-176 requires individual untap mutations plus any advancement.
 
 D-111 confirms valid no-change/empty-source behavior for combined shortcuts:
 Untap all + advance still goes to Upkeep when all scoped cards are already
@@ -667,13 +670,14 @@ card but still goes to Precombat main, without an automatic loss or other rule
 effect. Record the actual step transition; no card effect is fabricated. This
 does not waive structural validation for missing IDs/corrupt state or change
 standalone variants, which preserve tracking. D-176 records actual mutations only;
-exact no-change feedback and concurrency/partial-group handling remain open.
+exact no-change feedback remains UI work; individual outcomes follow composition.
 
 D-176 supersedes D-150's combined-node mapping: Untap all + advance issues one
 mutation per changed card followed by tracking advancement. Draw + advance issues
 an actual card move, if any, then advancement; an empty Library contributes no
 invented draw mutation. Every node is individually navigable and is one Undo
-under D-159/D-160. See history sections 3.11–3.12 for mutation sequences,
+subject to latest-own selective-Undo eligibility, not parent-pointer Undo. See
+history sections 3.11–3.12 for mutation sequences,
 exposure retention and grouped playback, which never merges these nodes.
 
 D-102 adds standalone Next step (tracking only, no card edits) and direct
@@ -740,7 +744,7 @@ and formatting remain open.
 | D-007 | Applying the same root state and stored action path yields identical game state. |
 | D-008 | An atomic action either applies fully or does not apply. |
 | D-009 | Ordered containers contain a well-defined, duplicate-free object sequence. |
-| D-010 | Invalid IDs and malformed container/pile structures are rejected or explicitly repaired, never silently dropped. Generic visual links are not constrained by game-specific relationship rules. |
+| D-010 | Unknown/malformed/foreign IDs are rejected. Malformed container/pile structures are rejected or explicitly repaired, never silently dropped. A known ID absent through normal lifetime/history changes is not malformed: historical dereference uses recorded context; current actions recheck applicability. Generic visual links are not constrained by game-specific relationship rules. |
 | D-011 | Either participant can issue the same tabletop editing operations. |
 | D-012 | Hidden presentation never implies access-control protection between participants. |
 | D-013 | Only explicitly requested generic fields change; labels, card text, pings, and area membership cannot trigger inferred game mechanics. |
@@ -758,3 +762,29 @@ text/notes, colored card/player counters/life, catalog/Blank tokens/Clone, pings
 links and ordinary edits. Arbitrary custom-piece/definition/named-tracker/layout
 editors are excluded (D-241). In-scope edits still have typed reversible changes
 and readable summaries; no arbitrary scripts or unvalidated database blobs.
+
+## 2.8 Reference lifetime and reachability
+
+This matrix completes S-07 from existing identity, cleanup, D-47/D-238/D-242 and
+D-248 rules. It does not apply Stack's last-live snapshot policy universally.
+
+| Reference kind | Target moves | Target disappears | Restoration, path switch and tree revision |
+| --- | --- | --- | --- |
+| View/Reveal Library tray | Keep captured IDs/order; update current location indicator. Never refill. Actions dereference the same real card. | **Invariant-excluded in R1:** tokens disappear instead of entering Library; non-token cards cannot be deleted. A token in a Library tray is malformed-state coverage, not a new snapshot feature. | Recorded display belongs to its original context; dismissal/restoration uses that display identity, not a fresh slice. Relevant references block a tree edit that would change their context. |
+| Live card/participant link | Follow endpoint identity/position without moving either endpoint or changing card fields. | Remove incident live links in the triggering disappearance transition. No dangling endpoint, replacement endpoint or automatic snapshot. | Exact inverse restores the same pair/link identity. Switching paths materializes that path's live links. Independent eligible tree edits preserve relevant endpoint/link transitions. |
+| Projection link | Follow explicit occurrence identity, not silently its source. | Remove incident links when that occurrence disappears. A Stack effect surviving its token source keeps its own occurrence links; links to the vanished real token do not survive. | Reverse restores the original occurrences/links/slots. No new mixed-endpoint capability is approved. |
+| Combat occurrence | Source leaving Battlefield removes occurrence and incident links; clean fully empty pairs atomically. | Same cleanup on token Remove/disappearance. | Exact inverse restores original source/occurrence/slot/link identities. No source-follow snapshot. |
+| Stack source reference | Stay live-linked across ordinary source locations and resets. | Token disappearance alone freezes last-live inspectable state, read-only, with provenance. The effect remains independently removable. | Reverse source disappearance re-links the same surviving occurrences to the restored token; replay reuses the recorded snapshot/inverse, not a replacement source. |
+| Selection / bound menu or editor | Keep selected/captured IDs; recheck current applicability. Movement never substitutes a new target. | Remove absent items from live selection; close/disable unusable bound controls. Remaining targets follow D-67, not silent omission of malformed IDs. | Personal selection is not restored by shared Undo and does not jump to another path's replacements. A restored card can be selected anew; an existing captured editor still cannot redirect its IDs. |
+| Ping / comment / exposure historical reference | Retain original object/location and viewed boundary/revision, separate from recording context. | Legitimate historical absence: offer original recorded context, never a malformed-ID error, dangling live action or replacement object. No new universal last-live snapshot. | A dependent reference blocks changing/removing its relevant context under D-224. Unrelated eligible edits preserve the reference and logical source node; branch switching never migrates endorsement/overlays. |
+| Personal review cursor | Remain on the selected surviving node, displaying its revised state. | If that node is removed, fall to its parent repeatedly to the nearest surviving ancestor/root (D-238). | No detached snapshot, live-head jump, shared activation or new cursor mutation. |
+
+Classify references before applying D-67: unknown/foreign IDs are errors; known
+historical absence is valid read-only context; a known but vanished live target is
+currently inapplicable. Bulk applicability is not authority to drop malformed
+references. Deleting an endpoint cannot leave a published orphan boundary; the
+triggering transition retains the inverse needed for eligible restoration.
+
+Token restoration is conditional on ordinary latest-own, exposure, dependency,
+fork and N checks; reverse traversal can inspect the inverse even when shared Undo
+is blocked. The matrix promises no new restoration controls or trash feature.

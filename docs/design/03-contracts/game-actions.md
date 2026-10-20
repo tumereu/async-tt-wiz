@@ -102,12 +102,13 @@ Missing-source Stack presentation/actions remain under review in the primary
 projection contract; no automatic effect execution is introduced.
 
 D-127 adds advance out of combat + close combat area as an explicit combined
-shortcut, with a full non-quick path and standalone advance/close still available.
+shortcut. D-253 permits it to be quick-only, with standalone advance/close available.
 Ordinary Next step, direct phase changes, and End turn leave the area open.
 Closure uses D-122 without source edits or Stack-effect cleanup. D-128 offers the
-quick action only at End of combat and advances to Postcombat main. Full non-quick
-access remains; out-of-combat/missing-area handling and combined boundaries still
-need design. Ordinary Next step at End of combat does not close the area.
+quick action only at End of combat and normally advances to Postcombat main.
+Publish tracking then invariant-closed closure; absent area makes closure a no-op.
+Individual full paths, not the combination, remain available at other steps.
+Ordinary Next step at End of combat does not close the area.
 
 D-133: repeated declaration reuses existing attacker projections rather than
 duplicating them; add only new attackers from the selected sources. Declare + tap
@@ -312,11 +313,13 @@ Covering a card does not remove its identity from synchronized data. No tooltip,
 notification, default log summary, or background preview should unnecessarily
 spoil a covered card. Explicit inspection can expose it.
 
-Explicit View/Reveal is confirmed shared/logged (D-44). D-89 includes covered-
-face hold inspection in exposure history; ordinary already-visible-face holds
-are not included. D-90 retains information-gaining undos as history branches.
-Any actual hidden-information exposure qualifies under D-91, including draw/
-move/face changes. D-160 keeps the whole abandoned continuation visible when it
+Explicit View/Reveal is shared/logged (D-44). D-252 replaces blanket covered-hold
+logging: own-area hold shows real faces without an event; opponent-area hold
+does not expose hidden information. Explicit Inspect other side is a logged
+inspection, distinct from Flip's shared-state edit. Other actual exposure from
+draw/move/face changes remains recorded. Revealing targets cannot be selectively
+undone; genuine retained alternatives, not Undo-created copies, are filtered by
+exposure/comment/author participation. D-160 keeps the whole alternative visible when it
 contains exposure or an event comment, without a last-exposure cutoff. D-222 also
 keeps mixed-player continuations visible and limits hiding to single-player/
 no-exposure paths, while D-223 confirms event comments remain a visibility exception. Exact
@@ -335,8 +338,10 @@ identity domain; normalize once before emitting individual mutations (R-09):
   token-source Remove and Clone) resolve live views to their real source IDs and
   deduplicate aliases. Selecting X and two of its effects applies +1 once, moves
   X once, or creates one Clone, not three. Different real card/token IDs remain
-  distinct even when their definitions/fields are equal. Clone copies the captured
-  live source under its existing field rules; it cannot clone a frozen snapshot.
+  distinct even when their definitions/fields are equal. Clone captures source
+  identity, then copies its current accepted fields under the
+  [live-input rules](operation-composition.md#bind-identities-and-choices-not-predicted-output-snapshots);
+  it cannot clone a frozen snapshot.
 - Occurrence operations (effect removal/layout, Remove from combat) address distinct
   occurrence IDs. Two effects from X are two removals, not one source deletion.
   Combat create/reuse resolves by source+area, preserving its one-occurrence rule.
@@ -379,6 +384,9 @@ but never merges their nodes or makes a group the client's state pointer.
 
 Use approved source-order and spatial defaults without another ordering picker.
 Record the chosen sequence so forward/backward traversal is deterministic.
+The [ordered-lowering algorithm](operation-composition.md#ordered-multi-object-lowering)
+defines each source check/destination anchor and intermediate board, including
+same-container subsets and top insertion without reversal.
 Existing applicability skipping, destination order, and whole-drop structural
 validation remain: an overflowing drop can be rejected before creating any
 mutations without making a valid bulk move one atomic history operation.

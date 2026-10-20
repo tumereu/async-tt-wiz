@@ -42,7 +42,8 @@ The general rules are:
   actions without manual resending or duplicate execution (D-217). Exact session
   mechanics and expired-session offline navigation still need contracts. Explicit
   Logout removes private downloaded content, preserving protected recovery records
-  for already-sent requests; another account must never access that data (D-241).
+  for already-sent requests and logged exposure durably initiated online before
+  transmission; another account must never access/publish that data (D-241).
   Session expiry alone is not deliberate Logout. Server retention/account-erasure
   obligations remain privacy/service design.
 - Use the same account on multiple devices, with saved decks, contacts and games
@@ -95,6 +96,8 @@ The general rules are:
   unstarted game without the other's approval. Further setup and invitation
   lifecycle details are open in
   the [accounts/decks/lobby contract](../03-contracts/accounts-decks-and-lobby.md).
+  Lobby requests bind their original preparation round: delayed old Ready, edits
+  or cancellation cannot first apply after play ends and the same lobby reopens.
 - Starting the game does **not** automatically draw opening hands. Mulligan quick
   actions return the whole hand to Library, shuffle, then draw N (default 7) or
   the pre-return hand size minus one. Both are Library context actions, also
@@ -141,8 +144,8 @@ The general rules are:
   each card's state; Set supplies common text. Skip cards on which the individual
   action is unusable; disable only if none qualify. This never permits silently
   dropping invalid IDs or partially executing an invalid placement.
-- Targeted quick actions and their component actions also have a full action path;
-  they are not available exclusively through a phase-specific shortcut.
+- Individual constituent actions have full paths outside quick windows. Combined
+  shortcuts may be quick-only (D-253); existing Library-context mulligans remain.
 
 ### 3. Cards, placement, and ordinary piles
 
@@ -156,9 +159,10 @@ The general rules are:
 - Cards retain identity and unrelated state when moved; links do not make other
   cards follow. Moving does not infer ownership/control changes.
 - Face down/up and choosing a printed face are separate context actions, also
-  available for selections where applicable. Inspection shows the face despite
-  covering, and both printed faces for multi-faced cards, without changing shared
-  presentation. Switching printed face alone preserves current corner text.
+  available for selections where applicable. Own-area hold shows real faces
+  without logging; opponent-area hold conceals hidden information. Context
+  Inspect other side logs viewing without flipping; Flip separately changes
+  shared presentation (D-252). Switching printed face preserves current corner text.
 - **Explicit move exceptions:** entering configured Library, Graveyard, or Exile
   removes card counters and restores default corner text; tokens disappear instead
   of staying in those piles. These rules apply across move controls. Do not infer
@@ -204,7 +208,7 @@ The general rules are:
   Add step or recolor tool. Missing-counter +1/-1 creates `1`/`-1`; nonnumeric
   counters cannot be incremented. Zero stays visible; empty text removes it.
 - Corner text may be explicitly blank. Reset restores the retained default for
-  the selected printed face without changing counters. Defaults use available
+  the face selected when processed, without changing counters. Defaults use available
   printed P/T, loyalty, or defense; missing metadata means blank, not guessed data.
   Defaults are retained with the game for offline use and provider stability.
 - Notes use a multiline editor; short text appears on the card, longer text may
@@ -226,8 +230,8 @@ The general rules are:
 - Create → Token opens a searchable catalog, including Blank. Picking creates
   one independent token automatically on the table: no quantity, placement, or
   confirmation step. Customize Blank through ordinary text/counter/note edits.
-- Clone creates one independent **token** per selected card, even from an ordinary
-  card. Copy face, covering, orientation, corner text, counters, notes, and retained
+- Clone creates one independent **token** per selected live source when processed,
+  even from an ordinary card. Copy face, covering, orientation, corner text, counters, notes, and retained
   defaults, but not links/pings. No Repeat last token or separate custom-token form.
 - Non-token cards never disappear during play: they move between locations and
   have no Remove/delete action. Remove is available for tokens only, without a
@@ -264,7 +268,8 @@ The general rules are:
 - Combat remains open, even empty, until explicitly closed. Phase changes/End turn
   do not close it. Closing removes combat projections/links without changing real
   cards. At End of combat, an advance-and-close quick action goes to Postcombat
-  main; advance and close also exist separately and through a full combined path.
+  main. The combination can be quick-only; advance and close remain separately
+  available at other steps without an invented out-of-combat combined meaning.
 - Stack contains real cards or explicitly created ability projections. Unlimited
   independent Stack effects may reference the same source. Contextual shortcuts
   move a real instant/sorcery to Graveyard, a real permanent to Battlefield, or
@@ -334,10 +339,11 @@ The general rules are:
    automatic playback; the horizontal timeline at the bottom can be dragged
    left/right to select the exact mutation where you want to continue. Merely
    navigating does not publish another game edit or change the shared active line.
-- Core grouping rules: taps group forward with the next action; pings join the
-  existing group; actual-card moves group by the same ordered origin/destination
-  tuple, including Battlefield → Battlefield rearrangements and taps interleaved
-  between matching moves. Real-card Stack moves and each Stack projection creation
+- Core grouping rules: a tap begins a new group unless the current group contains
+  only taps/pings; the following substantive action joins that run (D-251).
+  Pings join the existing group; actual-card moves group by the same ordered origin/destination
+  tuple, including Battlefield → Battlefield rearrangements, but never merge back
+  across the new tap boundary. Real-card Stack moves and each Stack projection creation
   remain separately visible, with taps/pings as companions. Ordinary card edits,
   including manual face/cover changes, token removal, player values/counters and
   persistent-link creation/removal group together. Token creation and Clone group
@@ -352,9 +358,11 @@ The general rules are:
   previous group. Same-author pings and Undo do not add group-start markers;
   resuming continues prior grouping context.
   Author changes always start a new group, overriding all other rules—even for
-  pings or forward/backward companions. Remaining categories and mixed-sequence
-  precedence are explicitly open in the
-  [grouping contract](../03-contracts/history-grouping.md).
+  pings or forward/backward companions. The
+  [category contract](../03-contracts/history-grouping.md) and
+  [scenario matrix](../05-verification/grouping-matrix.md) define pairings,
+  prefix growth and planned E2E/playtest coverage. Ping scopes/ordinals cannot
+  silently change when presentation is recomputed.
 - History retains alternatives with **one active line**. Interrupt at a recorded
   boundary by explicitly choosing to continue there, then start a new active
   continuation without approval voting. Mere scrubbing or editing a stale view
@@ -371,7 +379,9 @@ The general rules are:
   its stated source and an empty destination. Stack additions also need protection
   against silently covering a concurrent entry: include the current local Stack
   state in the addition request and reject if it differs from the server's current
-  Stack state. This applies to real-card entry and projection creation, without
+  Stack state in the operation's execution context. Explicit historical continuation
+  compares at its chosen boundary, not the displaced head. This applies to real-card
+  entry and projection creation, without
   separate seen/opponent detection, priority enforcement or a whole-game-head lock.
   D-247 compares the ordered current real-card/effect entries, including distinct
   occurrence/source identities—not card text/counters, source movement/freezing,
@@ -462,19 +472,25 @@ The general rules are:
   no hidden-information exposure**, available through a separate Show hidden
   branches toggle (D-222). **An event comment also keeps the whole continuation
   visible, even for one player's no-reveal path** (D-223). Mixed-player/exposure/
-   event-comment paths remain visible in full; this filter deletes nothing. It does
-   not require preserving a path removed by D-232 Undo. Covered inspection, View/Reveal,
+  event-comment paths remain visible in full; this filter deletes nothing. It does
+  not require preserving a path removed by D-232 Undo. Explicit logged inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
   Already-visible inspection does not. Undo cannot erase a person's knowledge.
 - No offline operation may create a game event (D-246), including covered-face/
-  other-face inspection requiring new exposure logging. Downloaded recorded visible
-  content and personal traversal remain readable. Online exposure is captured
+  other-face inspection requiring new exposure logging. Own-area hold is unlogged
+  and may read downloaded real faces; opponent holds conceal hidden information.
+  Downloaded recorded visible content and personal traversal remain readable.
+  Online exposure is captured
   before display and survives rejected predictions/restart without an automatic
   gameplay branch; recovering already-initiated records is not offline play.
 - Historical pings/comments record at current shared context while referring to
   the selected historical context separately. Do not insert them into old history,
   activate it, merge non-contiguous groups or render future overlays at old boundaries.
   Later-added references are separately identified with their recording event.
+- A successful logged inspection is an own revealing action even without a card
+  edit: it blocks skipping back through Undo and clears that player's Redo. Own-area
+  hold does neither. Exposure-only records use recording-context branch membership,
+  retain their viewed-context route and do not create an automatic gameplay branch.
 
 ### 10. Ending play
 

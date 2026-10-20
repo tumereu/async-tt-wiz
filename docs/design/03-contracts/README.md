@@ -12,6 +12,7 @@ neither unfinished behavior nor implementation.
 | [Domain model](domain-model.md) | Card/object identity, state, containers, references, invariants. |
 | [Board and controls](board-and-controls.md) | Touch, selection, movement, piles, menus, table controls. |
 | [Game actions](game-actions.md) | Capability coverage, bulk actions, preservation and explicit exceptions. |
+| [Operation composition](operation-composition.md) | Shared execution context, live input binding, ordered lowering and composite-command scope. |
 | [Combat and Stack](combat-stack-and-projections.md) | Projections, spatial placement, grouping, lifecycle, shortcuts. |
 | [History and Undo](history-and-undo.md) | Review, events, grouping, interruptions, recovery. |
 | [Action acceptance and limited locking](optimistic-locking.md) | D-187 permissive acceptance, movement/Stack safeguards, and the superseded 25-rule review. |

@@ -538,3 +538,30 @@ recommendation, batched under D-237.
 - Validate local links/anchors, IDs and whitespace, inspect the staged paths, then
   commit and push each completed batch with `./scripts/save.sh <edited paths...>`.
   Report failures without force-pushing, bypassing checks or discarding user work.
+
+## Documentation follow-up after owner discussion
+
+The report above preserves its reviewed baseline and unapproved recommendations.
+The owner then selected D-251–D-253; current contracts and stable test oracles
+implement those corrections, not every proposed resolution from the discussion.
+This is documentation disposition, not executable test evidence or permission
+to advance stages.
+
+| Finding | Disposition / primary source | Verification specification |
+| --- | --- | --- |
+| S-01 | Derived: [one execution state](../design/03-contracts/operation-composition.md#select-execution-state-before-validating-an-operation) before applicability/Stack/movement guards; ordinary head versus deliberate historical boundary. Limited-locking, Stack and technical contracts synchronized. | T-579–T-580, existing T-028/T-353/T-389/T-390 context rule. |
+| S-02 | Derived: [preparation-round intent fencing](../design/03-contracts/accounts-decks-and-lobby.md#persistent-lobby-and-fresh-play-identities), distinct from persistent lobby and play incarnation; no blanket revision lock. | T-581–T-582, both delayed first delivery and committed-loss recovery. |
+| S-03 | Owner correction D-251 replaces D-250: first tap starts a group unless current group is taps/pings-only; next anchor joins without later backward merge. [Stable ping context](../design/03-contracts/history-grouping.md#categories-keys-and-stable-ping-meaning) plus a [complete category matrix](../design/05-verification/grouping-matrix.md) preserve prefix toggle/mode meaning. | T-304/T-574 corrected; T-583–T-584, GM-01–GM-22 and 156 planned transition cells with variants. |
+| S-04 | [Exposure participation](../design/03-contracts/history-and-undo.md#exposure-participation-in-controls-and-visibility) distinguishes board edits, explicit exposure events and local unlogged holds. D-252 removes automatic opponent hidden-face holds and own-hold logging. Logged exposure remains an own revealing action; recording context governs branch membership. | T-072/T-073/T-174/T-368/T-559/T-561 corrected; T-585–T-587/T-601 cover controls/filtering as well as durable logging. |
+| S-05 | Derived [live input binding](../design/03-contracts/operation-composition.md#bind-identities-and-choices-not-predicted-output-snapshots): explicit identities/choices versus authoritative Reset/Clone/Shuffle reads and fixed accepted outcomes. No old batch locks. | T-588–T-590, plus historical Redo fidelity T-562/T-563. |
+| S-06 | [Ordered lowering](../design/03-contracts/operation-composition.md#ordered-multi-object-lowering) fixes normalized sequence, reduced destination gap, prefix anchors, source-command dependencies, no-op members and individual partial outcomes. | T-591–T-593, exact intermediate nodes and inverse rather than final list alone. |
+| S-07 | Derived [reference lifetime/reachability matrix](../design/03-contracts/domain-model.md#28-reference-lifetime-and-reachability) separates live cleanup, Stack freeze, historical absence, bound controls and invariant-excluded Library token trays. | T-594–T-596 and corrected T-165; malformed IDs stay model/protocol fixtures, not impossible UI scenarios. |
+| S-08 | D-253 corrects the premise: individual full paths required, combinations can be quick-only. No full-menu advance-and-close outside End of combat. [Composite contract](../design/03-contracts/operation-composition.md#composite-commands-and-quick-action-scope) fixes captured region/targets, relative tracking, no-op closure and per-constituent interleaving. | T-221/T-232/T-233/T-235/T-269/T-407/T-409 corrected; T-597–T-599. |
+| S-09 | Derived [protected recovery obligations](../design/03-contracts/accounts-decks-and-lobby.md#logout-and-account-private-downloads--d-241) include actual logged exposure captured online before send. Cache clearing, account isolation and no offline event creation remain distinct. | T-600–T-601, T-543/T-560 and Logout journey variants. |
+| S-10 | Corrected the active stable assertions themselves: T-060/T-174/T-232/T-268/T-462, board comment retention/excluded pieces, account placement attribution/extra areas and domain/Android settled stack/cursor wording. Further source checks remove conflicting hold/tap/full-combination assertions affected by owner corrections. | Documentation links/anchors, stable IDs, matrix shape, whitespace and targeted obsolete-wording checks. No passing application tests claimed. |
+
+All ten findings now have a documented behavioral outcome or explicit technical/
+UI completion boundary. Owner selections are distinguished from derived repairs;
+the scope is still specification-only. Physical IDs/encoding, replay budgets,
+service privacy/retention and later UI details remain real work, not silently
+declared complete or converted into new gameplay questions.

@@ -3,7 +3,23 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
-## October 20 adversarial-review reconciliation
+## Latest October 20 follow-up review repairs
+
+The [October 20 disposition](adversarial-review-2026-10-20.md#documentation-follow-up-after-owner-discussion)
+tracks S-01–S-10, owner decisions D-251–D-253 and T-579–T-601. Tap runs now start
+new groups unless the existing group is taps/pings-only, replacing D-250. Own-area
+holds show real faces with no event; opponent holds conceal hidden sides, with
+separate logged Inspect other side and shared-state Flip. Full-path parity applies
+to individual constituents, not necessarily quick combinations.
+
+Shared command-context/input-binding/ordered-lowering and reference-lifetime
+contracts replace case-by-case backlog items. Exposure participation/durability
+covers Undo/Redo/filtering and capture-before-send Logout. Stable active oracles
+and inventories were corrected directly. The grouping matrix plans 156 transition
+cells and 22 prefix-sensitive traces for later real-app E2E/playtest revision;
+these are not executed tests or implementation authorization.
+
+## Earlier October 19 review reconciliation
 
 The [October 19 review follow-up](adversarial-review-2026-10-19.md#documentation-follow-up--2026-10-20)
 tracks repairs for R-01–R-15 and owner clarifications D-245–D-250. Old active
@@ -15,7 +31,7 @@ are still open or a reason to ask settled questions again.
 Undo checks all retained successors independently of personal viewing; offline
 inspection creates no event; Stack equality compares current ordered entries;
 Actions captures context targets; trimming is not credential normalization; taps
-are transparent to matching groups. Target fidelity, invariant closure, annotation
+were transparent under D-250, since replaced by D-251 above. Target fidelity, invariant closure, annotation
 contexts, identity normalization, incarnation fencing and replay cost obligations
 now have general contracts plus T-554–T-578/E2E journey coverage. Representation,
 numeric budgets, credential strength/provider and service retention remain proper

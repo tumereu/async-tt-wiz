@@ -63,10 +63,14 @@ Session expiry alone is not an explicit Logout or permission to lose pending wor
   does not delete server-side decks/games or invalidate selected deck copies.
   Downloaded read-only access remains available in the account's ordinary use;
   it is not a promise to retain that content after deliberate Logout.
-- **Preserve protected recovery records for already-sent requests.** Logout is
+- **Preserve protected recovery obligations, not merely sent requests.** Logout is
   not proof of rejection. Retain the original account/game/request context needed
   for same-account automatic outcome recovery, without executing anything twice
-  or exposing those records through another account.
+  or exposing those records through another account. This includes actual logged
+  exposure initiated online and captured before display even if not transmitted
+  yet. Protect its content/context across Logout/process death; recover only as
+  the original account. Ordinary cache clearing must not erase that obligation.
+  This does not authorize offline inspection or general unsent gameplay replay.
 - **Never expose one account's private data to another account.** Apply account
   isolation when switching accounts as well as after Logout. Recovery of the
   previous account's requests does not become the new account's gameplay.
@@ -466,9 +470,11 @@ Exact initialization/history sequencing also remains to be designed.
   the sideboard. The hand-size-minus-one count refers to the hand **before** its
   cards are returned: a six-card hand requests five, not minus one after emptying
   it. Hand moves use the normal Library-entry preservation/reset rules.
-- Exact concurrent count-capture timing, nonpositive-count cases, hand-return
-  mutation order, and any bottoming behavior remain open. Retain the ordinary
-  D-49 available-card clamp for the N-card draw; do not reopen that default.
+- Bind hand identities and pre-return count at invocation; use max(0, hand size
+  minus one), displayed hand order for returns, then Shuffle of accepted current
+  Library membership and guarded top-first draws under the
+  [composite contract](operation-composition.md#composite-commands-and-quick-action-scope).
+  Retain the ordinary D-49 available-card clamp for the N-card draw.
   No automatic mulligan-count tracking, keep-hand gate or card-text/format rules
   are implied. The preceding proposal's manual-bottoming step was not approved.
 - The assistant's automatic draw-seven proposal was rejected. D-200 separately
@@ -476,7 +482,8 @@ Exact initialization/history sequencing also remains to be designed.
 
 The ordinary Draw/Draw N, move and Shuffle actions remain available. Any agreed
 compound shortcut must preserve individual mutation nodes, immediate sync and
-eligible latest-own Undo under D-224/D-231; its exact sequence still needs design.
+eligible latest-own Undo under D-224/D-231; individual conflicts retain their
+actual partial outcomes, not an atomic invocation or replacement draw.
 
 ### Persistent lobby and fresh play identities
 
@@ -489,6 +496,16 @@ Reinvitation also preserves each request's original attempt/outcome: retrying a
 past Accept/Decline is not a response to the new invitation. This derives from
 fresh-start and no-retarget/idempotency requirements, not a new duplicate-invite
 policy; exact identity/fencing representation is technical work (R-12).
+
+Each lobby-preparation round is also a distinct intent lifetime. Returning from
+ended play creates a fresh preparation round even though the lobby/deck IDs are
+unchanged. Ready, withdrawal, selected-deck/mainboard/sideboard/starter changes
+and Cancel game bind their originating round. A first delivery from an old round
+cannot change a later round or satisfy its fresh Ready requirement. A committed
+old request recovers its original result without reapplying or overwriting the
+returned lobby. This is lifecycle fencing, not a whole-lobby revision lock:
+compatible edits within one round still use normal arrival-order applicability.
+Exact generations/IDs are technical work (S-02).
 
 ## Remaining behavior decisions
 
@@ -505,15 +522,15 @@ policy; exact identity/fencing representation is technical work (R-12).
   and the lobby surviving Decline for reinvitation. Leaving the screen or
   disconnecting does not withdraw accepted Ready (D-205); cancellation is a
   separate explicit action (D-206/D-207).
-- Further setup values/optional areas and starter-selection defaults, edit
-  access and random-resolution timing. D-201 settles lobby
-  placement and either-player/Random options. D-202 settles initial mainboard/
+- Starter-selection defaults, edit access and random-resolution timing. Additional
+  areas/setup authoring beyond confirmed scope are excluded by D-241. D-201 settles
+  either-player/Random starter options. D-202 settles initial mainboard/
   sideboard placement, empty other card areas and no in-game Sideboard access.
   D-200 settles automatic game-start Library shuffles and 20 starting life, with
   no pregame life setting required. Automatic opening draws are excluded.
   Mulligan counts/default, full-hand return, return → shuffle → draw
   order and Library context/turn-1 Untap quick access are settled. Remaining
-  shortcut work: per-card mutation order, concurrent count timing and count edges.
+  shortcut representation/feedback follows the shared composition contract.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
 - Starter-selection retention/random resolution across games. Concurrent result
@@ -526,4 +543,5 @@ policy; exact identity/fencing representation is technical work (R-12).
   D-213 restores the last lobby-prepared decks/mainboard/sideboard, clears both
   Ready and requires both to ready again for a fresh game.
 
-These are behavior gaps, not authorization for application code or UI drafts.
+This is classified remaining contract/technical/UI work, not an automatic queue
+of owner questions or authorization for application code/UI drafts.

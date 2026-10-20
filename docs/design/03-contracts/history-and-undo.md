@@ -150,7 +150,10 @@ An opponent edit may make Redo unavailable without clearing the queue. Clearing
 is player-specific, not a shared game-wide reset. D-235 below confirms cross-device
 stack synchronization. Rejected/no-op requests are not successful new gameplay
 mutations and do not clear the stack; exact optimistic/server bookkeeping remains
-technical work. Do not generalize clearing to personal review/navigation or treat
+technical work. An actual logged exposure is a successful effective action even
+without a board edit, including exposure retained from a rejected prediction;
+apply the participation table below. D-252 own-area holds are not such actions.
+Do not generalize clearing to personal review/navigation or treat
 Redo reinsertion itself as new play that necessarily clears remaining entries.
 
 **Shared game state across devices — D-235:** each player's Undo/Redo stack
@@ -200,7 +203,8 @@ Redo and keep the stack intact. Do not skip to an older eligible entry or discar
 the blocked entry. Opponent activity still does not clear the stack (D-228).
 
 **Undo target order — D-230/D-231:** Undo may target only **your most recent
-still-applied action on the current timeline**, even if the opponent acted later.
+still-applied action on the current timeline**, including effective logged exposure
+actions without a board edit, even if the opponent acted later.
 Never target an opponent's action or an arbitrarily selected earlier own action.
 Later opponent mutations remain applied and must pass D-224's unchanged-tuple
 replay test. If that next Undo target
@@ -280,7 +284,8 @@ Numeric N/counting and wire/storage representation are technical specification
 work, not new Undo policy. D-233/D-234 already settle fork boundaries, D-235 stack
 device scope and D-236 server Undo requests. Dependent references fail D-224's
 test rather than being silently retargeted. Rejected/no-op requests create no
-successful new gameplay mutation and therefore do not trigger D-227 clearing.
+successful new gameplay mutation and therefore do not trigger D-227 clearing;
+actual retained exposure is a separate successful action as mapped below.
 
 **Review cursor fallback — D-238:** if the node currently being viewed is deleted,
 move that personal review cursor to the deleted node's parent and display the
@@ -688,7 +693,8 @@ Grouping constraints:
   pings and author/path boundaries. No card-text,
   area-name, or game-mechanics inference and no required intent-selection dialog.
 - Determine group starts from the [sequence algorithm](history-grouping.md#deterministic-sequence-resolution).
-  Intervening taps never split otherwise matching anchors (D-250); author
+  D-251 starts a tap group unless the current group contains only taps/pings;
+  its following anchor joins, without merging the preceding group. Author
   boundaries always win. Navigation/Undo alone adds no artificial marker.
 - A group can be open and grow as actions synchronize. An opponent can review
   it immediately without waiting for closure. Closing a group is presentation
@@ -910,14 +916,15 @@ Actual retained alternatives follow D-222/D-223 filtering: only single-player
 paths without exposure or comments qualify for default hiding. Undo creates no
 alternative copy (D-232); revealing targets cannot be removed (D-224).
 
-Confirmed exposure coverage (D-89): library View/Reveal, otherwise-covered hand/
-card-face viewing, covered-face hold inspection, and die/coin results. Ordinary
-inspection of already-visible faces and every search keystroke are not included.
+Exposure coverage, revised by D-252: explicit Inspect other side, library
+View/Reveal, and die/coin results. Own-area hold inspection shows real faces
+without an event; opponent-area hold does not show hidden faces. Ordinary
+visible inspection and every search keystroke are not exposure records.
 This records what the interface showed/generated, not what a player remembers.
 D-91 generalizes this to any action exposing otherwise-hidden information,
 including draws, moves, and face changes that display covered information to
-either participant. Classification depends on actual interface exposure, not
-the command name, printed game rules, or a guess about the person's knowledge.
+either participant. Except for D-252's own-area hold, classification depends on
+actual interface exposure, not the command name, printed rules or guessed knowledge.
 An ordinary visible-face gesture/keystroke is not itself an exposure record;
 if its result actually exposes hidden information, that exposure still qualifies.
 Covered-face inspection logs an exposure without requiring a board-state edit
@@ -927,10 +934,12 @@ follows the lifecycle below.
 ### Exposure lifecycle and offline inspection — D-246
 
 - New event-producing inspection requires a connection, even with cached faces.
-  Offline traversal and reading already-recorded visible content remain available;
-  do not expose an otherwise-covered face through a new hold/browser/other-face
-  inspector action that would require a new exposure event. Explain the connection
-  requirement rather than silently dropping logging or queuing offline events.
+  D-252 own-area holds create no event and may read downloaded real faces offline;
+  opponent-area holds never silently disclose hidden information.
+  Offline traversal and reading already-recorded visible content remain available.
+  An explicit Inspect other side/View/Reveal requiring a new event cannot bypass
+  that requirement through cached content. Explain the connection requirement
+  rather than silently dropping logging or queuing offline events.
 - Online exposure records the actor, play incarnation, viewed boundary/revision,
   source/object and printed-face references, actual content/result shown, and its
   effective recording context. A multi-face inspector includes any otherwise-
@@ -953,6 +962,47 @@ Persistence/outcome linkage and event-stream encoding are technical work. Captur
 must not depend solely on a gameplay mutation succeeding, nor require delaying
 all ordinary online actions for server acknowledgement. If capture is unavailable,
 do not show new hidden content without its required record.
+
+### Exposure participation in controls and visibility
+
+S-04 is completed by distinguishing a board transition from an effective logged
+action. “No board edit” is not “no action.” Apply the same actor/no-skipping rules
+to a successful explicit logged inspection as to another information-revealing
+action; storage outside the mutation-node payload does not exempt it.
+
+| Case | Effective placement / board transition | Undo / Redo | Visibility and replay participation |
+| --- | --- | --- | --- |
+| Own-area hold or permitted visible-face navigation | Local only; no record or board transition. | Does not change latest-own candidate or clear Redo. | No group/filter/replay/N participation. |
+| Accepted revealing move/Flip or View/Reveal | Exposure is associated with its accepted mutation and actual effective boundary. | That revealing latest-own action blocks Undo; a successful new own action clears own Redo. | Count once as its event plus its reference/payload work; retain concrete shown content. |
+| Explicit Inspect other side with no board edit | Effective exposure event at current recording context; viewed context retained separately. No inserted historical mutation or new gameplay branch. | It is the actor's latest own action and cannot be selectively removed. Do not skip it to Undo a prior tap. It clears that actor's Redo across devices. | V grouping anchor; recording-context membership and exact viewed references participate in suffix dependencies/N. |
+| Actual logged exposure from a rejected prediction | Retain the actual disclosure as its own effective event, with failed request/prediction context; no invented successful draw/move. | The board rejection is not new play, but the actual completed disclosure is an exposure action with the same barrier/clearing behavior as standalone inspection. Capture failure before display creates neither. | No automatic gameplay branch; retain/deduplicate disclosure even across recovery. |
+
+An exposure-only event has a stable causal position and effective revision at its
+recording boundary, ordered with other accepted actions. It need not add a second
+board-transition node or a child branch to an internal state with a retained
+future. Personal views can distinguish before/after that effective event without
+fabricating a card edit. Latest-own selection includes these effective actions on
+the shared timeline, not only nodes that move cards. A later opponent edit does
+not bypass the actor's revealing barrier or clear the other player's Redo.
+Exposure records on the retained successor chain also enter full D-245 dependency
+validation; their data/reference costs cannot be omitted from N/resource budgets.
+Exact side-record/node encoding and same-boundary cursor representation are technical.
+
+For filtering, “contains exposure” means its **recording-context** membership,
+not every path merely inspected by that record. Inspecting an inactive alternative
+from current play records the action on current play and links to the viewed
+alternative without activating it. The referenced alternative does not become
+exposure-bearing merely from that incoming reference; its original exposure/
+comment/author records still decide filtering. Keep the original-context route
+discoverable even if the alternative qualifies for Show hidden branches. A shared
+prefix exposure alone still does not qualify an otherwise ordinary suffix.
+
+Durability protects the obligation, not a send boolean: logged exposure captured
+online before display survives a loss before transmission, process death, Logout
+and account switching. Clear ordinary private downloads on Logout but retain this
+account-protected recovery record. Another account may neither inspect nor publish
+it. Original-account recovery records the actual exposure once, including for an
+ended incarnation, without reopening play or overwriting a fresh game's board.
 
 Retain actor, operation/source context, exposed references or concrete result,
 and a route to the original step in the retained history. Distinguish undone/

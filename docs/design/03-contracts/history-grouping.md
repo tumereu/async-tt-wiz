@@ -1,8 +1,9 @@
 # Automatic history grouping — action inventory
 
-**Status:** D-162–D-177 confirm the rules identified below. Tentative owner ideas
-and assistant recommendations remain explicitly proposed. This is not a final
-action schema or an expansion of release scope.
+**Status:** D-251 confirms the tap-run correction and category-based scenario
+matrix. It supersedes D-250 and D-164's matching-moves-across-taps exception.
+Other confirmed family rules remain. This is not an action schema, an in-app
+group editor or an implementation authorization.
 
 [History section 3.4](history-and-undo.md#34-sensible-grouping) owns the invariants:
 immediate publication, effective node boundaries, latest-own tree-editing Undo and no inferred
@@ -33,9 +34,11 @@ on the immediately preceding action:
 - Repeated battlefield rearrangements may belong together, without absorbing a
   later Hand → Stack move into the same group.
 
-Resolve groups from the recorded sequence, not an irreversible append-or-start
-choice for each arriving tap. Consider the group's anchors and companions, not
-merely its final node. D-250 clarifies that intervening taps never cause splitting.
+Resolve groups from the recorded sequence and current category context, not just
+the preceding operation. D-251 now makes the first tap after substantive play a
+new group immediately. Further taps/pings can grow that run, and its following
+substantive action joins it. A later anchor never moves that run back into the
+preceding group. This replaces the earlier provisional-tap regrouping rule.
 
 “Substantial” or “anchor” is review vocabulary, not a new engine-recognized cast,
 payment or resolution. We must enumerate the literal cases that play that role.
@@ -51,43 +54,84 @@ question, not the preservation of recorded ping context/numbering.
 
 ### Deterministic sequence resolution
 
-1. Work on one path in recorded order. Author changes are hard boundaries and
-   override every companion rule; no grouping across distinct paths/incarnations.
-2. For choosing whether neighboring substantive actions match, treat intervening
-   taps as transparent (D-250). Matching non-Stack move tuples remain together;
-   apply the same principle to other matching families. Taps never introduce a
-   separator that would not exist without them. Isolated Stack entries/removals,
-   different move tuples and other approved anchor differences still separate.
-3. If the surrounding anchors match, put the intervening taps in that group. If
-   the anchors require separate groups, attach the taps forward under D-163.
-   Leading taps likewise attach forward. A trailing tap run is immediately
-   reviewable as provisional presentation, pending a following anchor; no fake
-   follow-up or delayed publication is needed. Pings/comments/tracking already
-   attached within a contiguous tap run retain their nodes/effective boundaries.
-4. Apply confirmed backward companions (comments/tracking/pings) to the preceding
-   same-author group. With no predecessor, use a leading group; never manufacture
-   a gameplay action. Forward closures and dice/coin runs start a new immediately
-   reviewable segment, separate from prior play, and absorb the following anchor.
-   Backward companions in that pending segment attach there; they do not pull it
-   into the previous group. An isolated anchor remains isolated from subsequent
-   independent anchors, even when it absorbs forward companions.
-5. Group markers may be resolved as a prefix grows, but mutation identity, order,
-   ping effective boundaries, author separation and personal review node never
-   change for grouping. Recompute deterministically after eligible tree edits.
-   Batch and incremental receipt of the same path must give the same final groups.
+1. Work on one path/incarnation in effective recorded order. Author changes always
+   start a new group, including for companions. Local unlogged inspection, mode
+   changes and Chat are not grouping inputs.
+2. A tap/untap starts a new group unless the current same-author group contains
+   only taps and pings. In that case append it. Pings alone in a leading group
+   also qualify. A comment/tracking record is not a ping: it attaches backward
+   but makes a following tap start a new group.
+3. A taps/pings-only run accepts its following substantive action as anchor.
+   Thereafter the group uses that anchor's family/key; another tap starts a new
+   run. Do not merge the preceding move/edit group back across the tap boundary,
+   even if the following move/edit matches it.
+4. Pings/comments/tracking append to the preceding same-author segment. With no
+   predecessor use a leading group. Closures and dice/coin runs start a forward
+   segment, separate from completed prior play, and absorb the following anchor;
+   they can fill a pending tap/forward segment rather than create an empty extra
+   boundary. Backward companions remain there. A tap still applies rule 2.
+5. Other anchors join only matching families/keys below. Stack entries/removals
+   and explicit inspection/View/Reveal openings each require a distinct anchor
+   group, but can fill a segment containing only forward companions. Token
+   creation groups also accept their interleaved customization edits. An ordinary
+   edit group does not absorb a subsequent token creation merely by proximity.
+6. Publish every effective record immediately. A trailing companion segment is
+   already reviewable; no future anchor is required to finalize Ping/Unping.
+   Extending a prefix does not relocate earlier markers, change ping ownership,
+   renumber past additions or reset an input mode through retroactive regrouping.
+   Recompute deterministically after eligible tree edits subject to stable ping
+   semantic dependencies below. Batch/incremental receipt gives the same result.
 
 Examples (one author; `|` is a group boundary):
 
-- `move H→B; tap; move H→B` is one group (D-164/D-250).
-- `move H→B | tap; Stack entry`: the Stack entry, not the tap, requires separation.
-- `edit; tap; edit` remains one ordinary edit group.
+- `move H→B | tap; move H→B` has two groups (D-251).
+- `move H→B | tap; Stack entry`: the tap starts the new segment; the entry fills it.
+- `edit | tap; edit` has two groups.
+- `move; ping X | tap; ping X; tap; Stack entry` has two independent ping contexts.
+- `tap; ping; tap; move | tap; move` has two groups, not one matching-move group.
 - `View | dismiss; tracking; Stack entry`: closure starts forward, tracking attaches
   to that preceding pending segment; it does not merge the View with the entry.
 - `edit | roll; tracking; edit`: the random run starts separately and attaches
   forward; the backward tracking companion belongs to that run's segment.
 
-These apply the existing family/companion rules, not a new user approval workflow.
+These apply D-251 and the existing family/companion rules, not an approval workflow.
 Excluded manual group editors are not a fallback for ambiguous runtime grouping.
+
+### Categories, keys and stable ping meaning
+
+The [grouping matrix](../05-verification/grouping-matrix.md) is the pairwise and
+multi-step E2E specification. Category rules live here; the matrix gives named
+traces and every-prefix assertions so later owner-approved playtest changes can
+update one rule and its affected tests together, not hard-code each button pair.
+
+Use the **current group's** anchor family and key, not merely its last operation:
+M = non-Stack moves keyed by ordered origin/destination; I = isolated Stack
+entry/removal; E = ordinary edits; C = token/Clone creation plus customization;
+K = combat edits; L = Stack layout/order; V = explicit logged inspection/View/Reveal;
+H = Shuffle keyed by target; F = pending closure; R = pending dice/coin run;
+T = pending tap run; P = ping; B = backward comment/tracking. These are literal
+categories, not game-rule interpretation. Accepted revealing board edits keep
+their ordinary category; a standalone actual-exposure record uses V. Local own-area
+hold inspection under D-252 has no category because it creates no event.
+
+At each prefix, the recording group is the operational Ping/Unping scope. Starting
+a tap group therefore starts an unpinged context; it does not Unping X in the
+preceding move group. A context action binds that group and target at opening.
+Within it, subsequent pings toggle the existing record normally; destination taps
+in Ping mode are P, never simultaneous T operations. A genuinely new group exits
+Ping mode; adding an anchor to an existing tap/forward segment does not.
+
+Record the addressed ping presence/removal and owning context as semantic
+identity, independent of rendered separators. Eligible Undo/Redo cannot merge
+previously independent toggle scopes, reinterpret Unping as another event's
+removal or create duplicate same-context destinations. Apply D-224's exact
+relevant-context test: if a proposed tree edit would change those meanings, block
+it rather than rewrite pings. Equivalent presentation regrouping is allowed only
+with original scopes/ordinals/effective boundaries intact; no UI ownership picker.
+Number additions in recorded order within their context, starting at 1. Unping
+does not renumber surviving pings; re-add gets the next ordinal. A delivery retry
+adds no ordinal. Selection Ping emits additions in normalized displayed target
+order and skips already-present destinations, not independent inversions.
 
 ## Confirmed grouping rules (D-163–D-175)
 
@@ -97,7 +141,7 @@ category or no-artificial-reset rule may bridge that author boundary.
 
 | Incoming action/context | Confirmed behavior |
 | --- | --- |
-| Tap actions | Taps group forward with the next action. D-164 also confirms a tap between two same-tuple moves does not split their group: `[Hand → Battlefield A; tap B; Hand → Battlefield C]` is one group. |
+| Tap actions | D-251: begin a new group unless the current group contains only taps/pings. The next substantive action joins the tap run; another tap after that anchor begins a new group, even between matching moves. |
 | Pings | Same-author pings join the existing group and insert no group-start marker (D-168). If the author changes, D-170 starts a new group even for a ping. No separate ownership-selection step. |
 | Actual-card moves outside Stack | Group moves with the same ordered (origin, destination) tuple. Hand, Battlefield, Exile, Graveyard and Library are the listed non-Stack locations. Different directions are different tuples. |
 | Same-location card moves | The tuple model includes repeated Battlefield → Battlefield rearrangements; it does not require a separate grouping rule for each card or physical position. |
@@ -108,14 +152,14 @@ category or no-artificial-reset rule may bridge that author boundary.
 | Player values/counters and persistent links | D-172: player value/counter edits and persistent-link creation/removal join the same ordinary edit family as card edits and token removal, not separate per-target/per-field families. Example: `[card counter; life change; link creation; card note]`. This does not classify participant-association edits or infer damage/targets. |
 | Event comments | D-172: join the preceding group without starting a new one, e.g. `[Stack entry; comment]`. Author changes still start a new group. Comments keep individual nodes; they do not merge Stack entries or become game-wide Chat. D-241 excludes dedicated Edit/Delete; use eligible Undo or another comment. Historical placement needs contract completion. |
 | Combat-area creation and projection edits | Combat projections group together; D-166 includes repositioning of any kind, including role/slot/order changes. D-175 explicitly adds combat-area creation and occurrence removal to this family: `[create combat; declare; reposition; remove occurrence]`. Closure remains the separate forward case below; removal does not delete a real source. |
-| Explicit View/Reveal openings | D-175: each opening starts a separate review group, e.g. `[move cards] → [View top 3] → [Reveal bottom 2]`. Keep each displayed result easy to revisit. Existing companion rules and author separation remain; covered-face inspection and exact exposure-record attachment are not settled here. |
+| Explicit inspection/View/Reveal openings | Each explicit logged opening is a distinct V anchor, e.g. `[moves] → [View top 3] → [Reveal bottom 2]`. Pending forward companions can join it; a second opening cannot. D-252 own-area hold inspection is unlogged, so never splits a group. |
 | Stack rearrangements | D-175: repeated Stack layout/order adjustments group together, separately from Stack entries and removals. Preserve occurrence identities and each recorded boundary; this does not settle underlying ordering controls or action/event mappings. |
 | Explicit Stack-effect removal | D-175: each removal stays separately visible, like individual Stack entries: `[remove effect A] → [remove effect B]`. Existing companion rules still apply. D-176 makes bulk removal an ordered sequence of individual removal mutations, not an atomic bulk node; grouping remains presentation. Remove occurrences, not sources or sibling effects. |
 | View/Reveal display dismissal and combat closure | D-166: do not attach the dismissal/closure backward to the displayed-area group. Put it with the following action. Group-level review shows the display/combat state, then the next step applies closure plus the following action. Keep the closure node itself inspectable. |
 | Shuffle | D-167 groups successive Shuffles of the same target together. Different targets do not match; this is target identity, not simply both being Libraries. |
-| Dice/coin tools | D-167/D-171: dice and coin invocations form one random-tool run, separate from prior play and grouped with the following action. Example: `[real card → Stack] | [roll/flip run; following effect]`, not `[real card → Stack; roll] | [effect]`. The effect remains a player-explicit action, not inferred from the result. |
+| Dice/coin tools | D-167/D-171: dice and coin invocations form one random-tool run, separate from prior play and grouped with the following action. Example: `[real card → Stack] \| [roll/flip run; following effect]`, not `[real card → Stack; roll] \| [effect]`. The effect remains a player-explicit action, not inferred from the result. |
 | Phase/turn tracking | D-171: Next step, direct phase/step changes and End turn join the previous group. Author changes still start a new group. Keep constituent nodes and approved combined-action mappings; Draw + advance retains its two real boundaries. |
-| Undo, replacement play and resuming | D-168: continue the previous grouping context rather than inserting an artificial group-start marker because of Undo or navigation/resuming. Classify subsequent actions by ordinary rules at their actual base. D-232 Undo/Redo edit the existing tree without branches; how affected group boundaries/references update remains open. Grouping itself does not rewrite the tree or merge distinct paths. |
+| Undo, replacement play and resuming | Continue actual grouping context rather than insert a marker merely for navigation/Undo. D-232 edits the tree without branches; recomputation must preserve recorded ping toggle scopes/ordinals and exact relevant references, otherwise block the tree edit. Encoding/rendering remains technical/UI work. |
 | Different action authors | D-170: highest-precedence new-group boundary, overriding all other rules including pings. This is the actor, not which participant's cards were edited. |
 
 These are literal presentation rules, not casting/payment/ability interpretation.
@@ -162,19 +206,21 @@ retained nodes are impossible.
 
 ### Remaining mapping work
 
-1. **Action mapping:** use the sequence resolution above and test prefix growth,
-   rather than reopening tap transparency or settled family membership.
+1. **Action mapping:** use the category/prefix matrix above; D-251 replaces tap
+   transparency. Further playtest revisions need an explicit rule/test update.
 2. **Other action families:** participant-association authoring is excluded from
    R1. Covered-face inspection is a distinct exposure event with its viewed and
-   recording contexts, not an ordinary card-field edit. D-175 settles
+   recording contexts when explicitly invoked under D-252; own-area holds are
+   unlogged. It is not an ordinary card-field edit. D-175 settles
    explicit View/Reveal openings, combat-area creation/removal and Stack
    rearrangement/removal grouping. Do not turn “all card edits” into a universal rule
    overriding the separately approved move/projection actions.
-3. **No next/previous group:** use the leading/provisional groups above. Exact
+3. **No next/previous group:** use the leading/pending segments above. Exact
    marker rendering remains later UI work; no fake follow-up event is needed.
-4. **Remaining compound/location cases:** mixed-tuple bulk moves, optional extra
-   locations and playback grouping of shortcut constituents. D-176 fixes
-   individual-mutation nodes; exact cleanup decomposition/order is separate from grouping.
+4. **Compound/location coverage:** map each actual shortcut constituent to the
+   categories above and operation-composition ordering. Extra locations are
+   excluded by D-241; do not make them runtime inputs. Further irregular spatial
+   ties/rendering remain technical/UI work, not new node granularity.
 5. **Historical additions:** distinguish recording and referenced contexts under
    the annotation contract. No manual group editing/ownership picker in R1.
 
@@ -188,15 +234,15 @@ changes or event mapping.
 
 | Category | Literal cases to cover | Catalog coverage | Confirmed direction / remaining question |
 | --- | --- | --- | --- |
-| Orientation | Tap, untap, rotate; single/selected cards; standalone Untap all. | A-008 | D-163/D-164: forward taps; taps between same-tuple moves do not split. Compound Untap/tracking precedence remains open. |
+| Orientation | Tap, untap, rotate; single/selected cards; standalone Untap all. | A-008 | D-251 tap-run boundary; per-card bulk nodes use the same T category. Tracking attaches backward. |
 | Same-area layout | Battlefield repositioning; ordinary-pile join/split/reorder; Hand arrangement; same-container reorder. Combat layout is listed separately below. | A-005, A-007, A-014, A-025, A-033 | D-163: actual-card moves group by ordered tuple, including Battlefield → Battlefield. Interleaving and mixed tuples remain open. |
 | Actual-card transfer | Hand → Stack, Stack → Battlefield/Graveyard, other area/container moves; Draw one/N and top/bottom-N moves; single/selected cards. | A-005, A-006, A-007, A-012, A-014, A-026, A-036 | D-163/D-164: non-Stack moves group by tuple, including interleaved taps; real-card Stack remains isolated. Mixed tuples/extra locations remain open. |
 | Combat occurrences/area | Create/close combat; declare with/without tapping; create/reuse projection by drag; role/slot/order changes; Remove from combat. | A-019, A-034 | D-163/D-166/D-175: area creation and projection creation/repositioning/removal group together; closure groups forward. D-176 records individual mutations, not combined invocation nodes. |
 | Stack occurrences | Create an ability projection, rearrange occurrences, remove one effect; keep actual-card exits under transfer. | A-035, A-036 | D-163: each Stack projection creation is isolated from moves/other projection creation, but groups with taps/pings. D-175: rearrangements group separately from entries/removals; each explicit effect removal stays separately visible. D-176: bulk removal issues individual mutations. |
 | Card text/counters | Counter +/-/Set/remove; corner +/-/Set/Reset; card note and other descriptive-field edits. | A-010, A-018, A-020, A-024 | D-165/D-169/D-171: ordinary card/face/cover edits and token removal group together, not restricted to one card/field. |
-| Participant values/associations | Player counters and named values, named tracking sets, manual participant associations. | A-009, A-010, A-011, A-020, A-023 | D-172: value/counter edits join the ordinary edit family across cards/players/fields. Participant-association edits remain open. No inferred damage or ownership changes. |
+| Participant values/associations | Confirmed life/counter tools; broader named tracking/association authoring is excluded by D-241. | A-009, A-010, A-011, A-020, A-023 | D-172: in-scope value/counter edits join E across cards/players/fields. No inferred damage, ownership changes or excluded-authoring grouping inputs. |
 | Shared faces/cover | Turn face down/up; switch printed face. | A-007, A-008, A-018, A-025 | D-169: ordinary manual face/cover edits group with card edits; explicit Stack effects stay separate. General composite authoring is excluded from R1. |
-| Inspection and reference displays | Logged covered-face inspection; full contents View; View/Reveal top/bottom N; dismiss a display. Already-visible inspection/navigation is not automatically a recorded exposure. | A-006, A-007 | D-175: each explicit View/Reveal opening starts a separate review group. D-166: dismissal groups forward, not with opening. Covered-face inspection grouping/record attachment remain open. |
+| Inspection and reference displays | Explicit Inspect other side; full contents View; View/Reveal top/bottom N; dismissal. Own-area hold and permitted visible-face navigation are unlogged. | A-006, A-007 | V anchors and F dismissal under the category contract; exposure participation is in history. |
 | Creation/removal | Catalog token, Blank token, Clone, explicit token Remove; broader custom pieces only if approved. | A-003, A-013, A-014, A-016, A-021, A-024 | D-171: token removal joins ordinary card edits. D-173: token creation/Clone groups together with interleaved customization. D-174 forbids non-token Remove entirely; it is not an open grouping case. Distinguish token removal from occurrence removal. |
 | Persistent links | Create/remove binary links, including selected-source fan-out and occurrence endpoints. | A-017, A-019 | D-172: link creation/removal joins the ordinary edit family, including card/player edits. Links remain persistent connectors, not pings or inferred targets. |
 | Pings | Ping/Unping through mode/context; selected-set changes; historical references. | A-015, A-019 | No new marker except author separation; leading/root group and effective recording/reference contexts follow the sequence/annotation contracts. No owner picker. |

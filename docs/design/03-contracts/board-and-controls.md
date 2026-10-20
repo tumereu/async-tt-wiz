@@ -49,13 +49,11 @@ has the specified eligible Undo/recovery path, not unconditional reversibility.
 Menus, zoom, selection previews, and cancelled gestures do not create
 game-state actions.
 
-D-121: no targeted action is quick-action-exclusive. Every combined targeted
-shortcut and each constituent action must remain reachable through a full action
-path, such as the target's context menu or an equivalent selection-aware path.
-Phase/step or multiselect conditions may control prominent quick-action offerings,
-not remove access to the underlying actions. Structural/applicability validation
-still applies. Exact menu organization is stage 3; this does not require every
-button in every menu or change existing direct-tap/selection gestures.
+D-253 corrects D-121: every **individual constituent action** remains reachable
+through a full action path outside its quick window. Combined shortcuts can be
+quick-only; advance-and-close is End-of-combat-only. Explicitly confirmed Library
+context mulligans remain available. Structural/applicability validation still
+applies. Exact menus are stage 3; this does not require every button everywhere.
 
 D-123: card actions through projections apply to the real source, including
 moving that card by dragging a projection into a real destination such as
@@ -247,10 +245,9 @@ Unping still chooses its uniform action from the captured trigger card (D-80).
 Item 5 (explicit selected-set tap commands available with the mode off) was
 rejected and replaced by D-35's selection-aware single-tap gesture above.
 
-For a covered individual card, hold uses the agreed full-access inspection
-convention; it does not reveal it to the shared table. D-89 records this covered-
-face exposure; exact triggers/coalescing remain Q-31. A pile's back/header is a control, not an
-individual card to rotate; see special-pile controls below.
+For a covered individual card, use the side-sensitive inspection rules below.
+A pile's back/header is a control, not an individual card to rotate; holding it
+does not expose Library order or secretly invoke View/Reveal.
 
 TalkBack and alternative controls expose explicit Tap/Untap, Move, Actions,
 and Inspect commands without requiring timing-sensitive gestures or dragging.
@@ -275,26 +272,36 @@ Confirmed context controls (D-37):
   switching across different definitions remain open. D-176 fixes individual
   target mutations for bulk edits.
 
-Confirmed inspector behavior (D-38):
+### Side-sensitive inspection — D-252
 
-- Hold-to-inspect automatically shows the card's available face art and readable
-  text even when its shared presentation is face down. For a multi-faced card,
-  automatically show both printed faces and their text; do not require an extra
-  uncover or face-switch action to inspect the other side. Inspector layout on
-  different screen sizes still needs a wireframe.
-- This is the existing large-art/text inspector (called hover-inspect in review),
-  not a requirement for touch hardware to support hover. It works in either
-  normal or selection-edit mode, for either participant's cards.
-- Inspection is local presentation: do not turn up, rotate, move, switch the
-  shared printed face, or change selection merely to display inspector content.
-  D-89 later confirms exposure logging for covered-face inspection, not ordinary
-   already-visible-face holds; exact event placement/coalescing remains Q-31.
+D-252 revises D-38/D-89's blanket covered-face hold behavior:
 
-D-246 limits offline inspection to reading already-recorded visible content.
-Any hold/browser/other-face inspection requiring a new exposure event needs a
-connection, even when the face data is downloaded. Online actual exposure is
-retained even if the associated optimistic move is rejected; see the
-[exposure lifecycle](history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246).
+- **Own-area hold/hover inspection** shows the real face art/text despite covering,
+  including the previously supported printed faces. It is local and creates **no
+  game event**, including no exposure log or Undo/Redo/grouping change.
+- **Opponent-area hold inspection** enlarges only permitted visible content; it
+  never automatically exposes a covered card or hidden printed side. Showing a
+  back does not replace it with a name/text leak through accessibility or menus.
+- There are distinct context actions: **Inspect other side** shows the hidden
+  side in the inspector with a logged viewing event; **Flip** changes shared
+  face presentation through the existing explicit face/cover controls. Inspection
+  does not flip/uncover, move, rotate or alter selection. Flip is not inspection;
+  preserve the separate printed-face choice versus face-up/down fields above.
+  Exact labels/layout remain UI work; both actions have accessible equivalents.
+- “Own area” means the configured participant region containing the card in the
+  viewed state, not original deck ownership or inferred control. Projection card
+  inspection follows its source's applicable viewed region; a shared-area card
+  without an own-region context receives no automatic hidden-face exception.
+  Explicit inspection remains available. Frozen sources use their recorded context,
+  not a fabricated live card or a replacement source.
+- Own-area hold may read downloaded faces offline because it creates no event.
+  Explicit logged Inspect other side/View/Reveal still needs a connection under
+  D-246. Neither cached hidden data nor another participant's recorded View grants
+  automatic opponent-area disclosure. Missing downloaded content shows a limitation.
+
+This remains the ordinary large-art/text inspector, not a hover-hardware
+requirement. Online logged exposure survives rejection/restart and account exits;
+see the [exposure lifecycle](history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246).
 
 ## 10.4 Dragging and snapping
 
@@ -534,8 +541,8 @@ Confirmed View/Reveal distinction (D-44/D-45):
   that sequence. Full-library contents still hide the overall order under D-42.
 - Ordinary opponent-facing View summaries must not inadvertently show card names
   instead of the specified backs. This does not revoke cooperative full access:
-  explicit inspection remains available under D-07/D-38. D-89 covers inspection
-  of otherwise-covered faces; deduplication with View records remains Q-31.
+   explicit Inspect other side remains available under D-252 and logs hidden
+   viewing rather than exposing it automatically through an opponent-area hold.
 - Exact history-node/activity placement, historical-branch behavior, dismissal controls,
   and the temporary display's live/snapshot schema remain Q-28. Do not infer
   that the action is unlogged merely because it does not move a card.
@@ -549,8 +556,9 @@ Confirmed reference displays and Draw N (D-46, formerly P-18):
 - Hold/context actions operate on the referenced real cards. An explicit Move
   to bottom/top or another destination changes the underlying card once, and
   its views update consistently. D-47 specifies fixed membership and location
-  updates after moves. Deletion/removal, branch changes, and precise undo/schema
-  behavior still need specification.
+   updates after moves. The [reference matrix](domain-model.md#28-reference-lifetime-and-reachability)
+   distinguishes reachable moves, historical absence and invariant-excluded token
+   tray removal; physical encoding remains technical work.
 - Draw N is an explicitly chosen convenience for moving the top N
   cards of the selected configured library into its associated Hand container.
   The preset supplies those endpoints; the generic engine need not recognize a
@@ -726,9 +734,9 @@ Confirmed optional communication direction (D-94/D-95):
 D-94 excludes submitted game-wide chat from Undo. D-240 also excludes Edit/Delete
 for sent chat: corrections use another message, with no planned expansions.
 Unsent-delivery handling remains separate. D-95 makes event comments ordinary nodes on the current
-tree path, retained through the comment when undone. That path is already a
-branch; no separate comment-only fork or activation control is needed. Apply
-normal tree/base rules. D-160 keeps the whole abandoned continuation visible
+tree path. Eligible Undo removes a comment into Redo without preserving an
+original-path alternative (D-232); no comment-only fork or activation control is
+needed. Apply normal eligibility/dependency rules. D-160 keeps a genuine alternative visible
 if it contains a comment, without a cutoff; D-223 confirms this even for a
 single-player/no-exposure continuation. Exact comment/group association remains
 contract work; D-241 excludes dedicated comment-revision controls. Card
@@ -787,9 +795,10 @@ These are proposed essentials, not additional mandatory actions per card move:
 1. **Card text/counters:** D-52 confirms bottom-right card text and separate
    colored text-bearing counters on cards/players; see the contract below.
    Exact controls and remaining tracker layouts still need review.
-2. **Generic pieces/piles:** create/duplicate/remove labeled objects, move them,
-   reorder piles, and inspect recorded changes. D-112–D-114 separately require
-   projections and contextual Stack actions, not inferred card-rule execution.
+2. **Confirmed cards/tokens/piles:** catalog/Blank token creation, Clone, token-only
+   Remove, ordinary movement/layout and recorded review. General labeled-piece
+   authoring is excluded by D-241. Projections and contextual Stack actions remain
+   separately supported, without inferred card-rule execution.
 3. **Visual links:** binary persistent relationships with one standard connector,
    no labels/style choices initially (D-71); no target/combat/attachment meaning.
 4. **Turn/phase/step:** D-96/D-105 require first-class engine tracking, distinct
@@ -1090,8 +1099,10 @@ their approved destination resets. Token status is explicit instance metadata,
 not inferred from printed type, card text, a user label, or being in a stack.
 Removal is queued/synchronized and recoverable in history/undo, not deletion of
 the historical instance. Do not require intermediate destination occupancy or
-discard the token's recoverable fields. Exact move/removal records and handling
-of links/trays/selections referring to removed objects remain open.
+discard the token's recoverable fields. The
+[reference matrix](domain-model.md#28-reference-lifetime-and-reachability) fixes
+incident-link cleanup, absent selection/editor handling and historical contexts.
+Tokens cannot be Library tray members; exact record encoding remains technical.
 
 Confirmed removal controls (D-85, restricted by D-174):
 
@@ -1156,7 +1167,7 @@ hiding behind Show hidden branches; mixed-player/exposure continuations stay
 visible. D-223 also keeps event-comment continuations visible in full, even with
 one author and no exposure; those paths do not qualify for hiding.
 Exposure coverage includes
-library View/Reveal, covered-hand/card-face viewing including covered-face holds,
+library View/Reveal, explicit logged hidden-side inspection (not D-252 own-area holds),
 and die/coin results, but not every visible-card hold or search keystroke. Ordinary
 summaries do not automatically disclose viewed card identities. See the
 [primary undo-branch contract](history-and-undo.md#information-gaining-actions-and-undo-branches).
@@ -1327,8 +1338,8 @@ while preserving surviving slot membership/order, replacing literal fixed
 positions; never automatically transfer survivors to other pairs. D-127 requires explicit closure, with an advance out of
 combat + close shortcut; ordinary phase/step changes and End turn leave the area
 open. D-128 offers the quick action only at End of combat → Postcombat main,
-not earlier combat steps. Separate advance/close and full non-quick access remain
-available (D-121). Undo removes one eligible latest-own mutation (D-231/D-232);
+not earlier combat steps. Separate advance/close retain full paths; the combination
+can be quick-only (D-253). Undo removes one eligible latest-own mutation (D-231/D-232);
 composites may require multiple presses. D-176 makes each node one individual
 mutation, including bulk/combined commands, superseding combined-node mappings
 such as D-132. D-177 makes groups concurrent-animation playback steps with exact
@@ -1422,9 +1433,9 @@ mixed drags is approved or required as a separate owner decision.
   gesture, one move, automatic sync; the engine does not label it playing a land.
 - **Tap a card:** single tap the visible card. One orientation/tapped-presentation
   change; no activation, attack, or mana is inferred.
-- **Read card:** hold it. Art/text opens without tapping or branching. Covered/
-  other-face exposure requires a connected logged event; offline reading is limited
-  to downloaded recorded visible content. Either player's cards work identically.
+- **Read card:** hold it. Your area shows real faces without logging, including
+  downloaded content offline; opponent-area holds do not expose hidden sides.
+  Context Inspect other side is logged/online and does not Flip the shared card.
 - **Inspect actions:** double tap. The action sheet opens; neither tap toggles
   the tapped state. The full manual action catalog remains reachable.
 - **Compact lands:** drag a land onto a highlighted battlefield pile. Its zone

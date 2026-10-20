@@ -17,7 +17,8 @@ do not authorize offline play, shared Undo or a later-synchronized gameplay queu
 impossible; broad previous-value locks are withdrawn. Card moves and creation of
 Stack projections are the exceptional guarded cases. Every real-card entry/new
 Stack projection sends the client's current Stack state with the request. The
-server compares against current Stack state and rejects on mismatch, with atomic
+server compares against Stack state in the operation's selected execution context
+(shared current state or explicit historical boundary) and rejects on mismatch, with atomic
 compare-and-apply in arrival order. This prevents accidentally covering a concurrent
 entry without separate seen/opponent detection, priority, casting legality or a
 whole-board lock. Later queued entries use their locally predicted pre-action
@@ -339,10 +340,12 @@ Its closure uses D-122: remove combat projections/incident projection links,
 preserve real cards' current positions/orientation/other state, and do not remove
 Stack effects. This is an explicit combined action, not a phase-change listener
 or automatic damage/resolution. Closing alone and advancing alone remain
-available; the combined action also has a full non-quick path under D-121.
+available. D-253 corrects D-121: constituents need full paths; the combination
+can be quick-only and is offered at End of combat only.
 
-Handling outside combat/with no area remains a behavior question. D-128 fixes
-destination/quick visibility. D-176 supersedes D-130/D-132's combined-node/Undo
+Outside that quick window use the separate actions, not an invented combined
+rewind. With no area, closure is a no-op and advancement still occurs. A captured
+area ID never closes a replacement area. D-176 supersedes D-130/D-132's combined-node/Undo
 mapping: distinct mutations retain individual nodes. UI wording/geometry follows stage 3.
 
 ## 13.8 Confirmed advance-and-close destination and quick visibility (D-128)
@@ -352,11 +355,11 @@ not earlier in combat. It advances to **Postcombat main** and closes the combat
 area under D-122/D-127, without changing turn player/number or real cards.
 Do not offer it as an early prominent skip of remaining combat steps.
 
-This phase/step condition governs quick visibility, not full action access
-(D-121). Keep the non-quick combined path and separate phase advancement/closure
-available. Ordinary Next step at End of combat advances to Postcombat main but
-does not close the area. Exact missing-area behavior and full-path behavior
-outside combat remain open; do not infer a later-phase rewind policy.
+Under D-253 this combination can be quick-only; separate phase advancement and
+closure retain full access. Ordinary Next step at End of combat advances to
+Postcombat main but does not close the area. No area means a no-op closure, not
+a failed advance. The [composite contract](operation-composition.md#composite-commands-and-quick-action-scope)
+binds side/area scope and handles interleaving without a stale tracking overwrite.
 
 ## 13.9 Confirmed combined-action decision policy and undo scope (D-129/D-130)
 

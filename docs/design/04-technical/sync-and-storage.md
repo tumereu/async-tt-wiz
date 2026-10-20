@@ -43,8 +43,9 @@ claim current shared agreement for stale or unacknowledged state.
 reinsertion; they do not publish revised branches beside unchanged original paths.
 The earlier immutable-payload/ancestry proposal must support this behavioral tree
 edit, not forbid it or expose an unwanted original alternative. Exact record
-mutability, revision/log encoding, IDs, affected side branches, cached states,
-review cursors and historical references remain open. Physical deletion or
+mutability, revision/log encoding, IDs, cached states and reference/cursor encoding
+remain technical work. D-238 parent fallback, D-235 shared player stacks and the
+reference lifetime matrix constrain those mechanics. Physical deletion or
 permanent retention after Redo-queue clearing is not selected. Clients materialize
 the accepted tree revision, not an immutable-parent assumption or timestamps alone.
 
@@ -153,6 +154,22 @@ technical. Invitation actions similarly retain their original attempt/outcome:
 a retry of an old Accept/Decline must not become a response to a later reinvitation.
 This does not select a new duplicate-invitation policy.
 
+Fence lobby intent to its originating **preparation round** too. Ready/withdrawal,
+deck/mainboard/sideboard/starter edits and cancellation from a previous round must
+not first apply after start → accepted ending → return to the same lobby. Recover
+committed old outcomes without reapplication; reject uncommitted expired-round
+intent without affecting the fresh preparation. Same persistent lobby/deck IDs
+and object-free Ready do not bypass this fence. Generation/ID representation is
+technical; unchanged-whole-lobby revisions are not required for compatible edits.
+
+Before all reads/guards, resolve the [shared operation context](../03-contracts/operation-composition.md).
+Use one execution state: authoritative current head for ordinary actions, chosen
+retained boundary/revision for explicit historical continuation. Stack comparison,
+movement source/destination and live Reset/Clone/Shuffle reads all use that state.
+Keep captured identities/explicit choices, provisional outputs and accepted
+outcomes separate. Do not transmit an obsolete whole-Library permutation as an
+authoritative live Shuffle command. Retries use the accepted concrete result.
+
 Proposed outcomes:
 
 | Situation | Outcome |
@@ -160,7 +177,7 @@ Proposed outcomes:
 | Ordinary edit remains possible at current state | Apply in arrival order and append the actual mutation, preserving unrelated fields. Do not compare old orientation/text/Set values or reject for an unrelated revision change (D-187). |
 | One of several concurrently sent ordinary actions fails | Reject only that action; another action whose own checks pass may still apply. Do not cancel/roll back the whole send queue or require a sequence-level retry (D-183). |
 | Requested operation genuinely impossible, or exceptional movement/Stack guard fails | Reject only that request without shared mutation or branch. Animate the actual correction under D-180/D-185 while preserving accepted work and valid predictions. Changed old values alone are not a rejection condition for ordinary edits (D-187). |
-| Stack-entry request's supplied current Stack state differs from authoritative Stack state | Reject the addition (real-card move or new projection); compare-and-apply atomically in arrival order. No separate opponent/seen detection, priority inference or whole-game-head check (D-187). |
+| Stack-entry request's supplied Stack state differs from Stack in its selected execution state | Reject the addition (real-card move or new projection); compare-and-apply atomically in arrival order. An explicit historical request compares at that boundary, not the displaced live head. No separate opponent/seen detection, priority inference or whole-game-head check (D-187). |
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
 | Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |
@@ -178,7 +195,7 @@ normally succeed unless genuinely impossible. Validate/apply each operation in
 one server transaction and preserve unrelated current fields. Previous-value
 comparisons are not default validation. Card moves retain source/destination
 guards; Stack-entry requests carry the client's current Stack state, compared
-against authoritative Stack state at processing. A mismatch rejects; a match
+against authoritative Stack state in the selected execution context at processing. A mismatch rejects; a match
 allows a structurally valid addition. Compare-and-apply is atomic, so concurrent
 requests based on the same Stack state do not both add entries. No separate
 opponent/seen detector or whole-game-head check. Later queued additions carry
@@ -269,6 +286,22 @@ D-183 rules out a blanket wait-for-acknowledgement interaction gate; D-182 still
 excludes extended offline gameplay/replay. Do not interpret ordinary network latency as permission
 to freeze otherwise available local controls.
 
+Protected recovery includes **actual logged exposure durably initiated online
+before display**, including capture-before-send. Ordinary private downloads clear
+on Logout, but outstanding exposure/outcome obligations retain original account,
+incarnation, viewed/recording context and deduplication identity. Another account
+cannot read or submit them. Same-account recovery publishes/retrieves them once
+without reopening an ended incarnation. A send flag alone cannot classify safe
+cleanup. This is not general unsent gameplay replay or permission for offline events.
+
+Exposure-only records have the control/visibility participation defined in
+[history](../03-contracts/history-and-undo.md#exposure-participation-in-controls-and-visibility),
+even if encoded outside board mutation nodes. Include their effective ordering,
+latest-own revealing barrier, player-specific Redo clearing and reference checks;
+do not let storage layout silently exempt them. Own-area hold is unlogged (D-252).
+Effective record encoding/coalescing and per-boundary revision cursors remain
+technical choices constrained by those outcomes.
+
 D-105 requires no priority state or Pass record to queue, publish, or interrupt
 actions. Do not add priority-based publication ordering or legality rejection.
 Participants judge timing; preserve actual structural/applicability validation,
@@ -328,7 +361,9 @@ capture durably before displaying new hidden content, keep viewed versus recordi
 contexts and request identity, and recover already-initiated online records across
 restarts/reconnects. D-246 permits no offline event creation/deferred inspection
 queue. Downloaded recorded visible content remains readable; new event-producing
-inspection needs a connection. Deduplicate retries, not distinct exposures. No
+inspection needs a connection. D-252 permits unlogged own-area holds to read
+downloaded real faces; opponent-area holds conceal hidden information. Deduplicate
+retries, not distinct logged exposures. No
 automatic gameplay branch, board marker or covered-identity summary is required.
 
 Transport authentication, invite authorization, secure credential storage,

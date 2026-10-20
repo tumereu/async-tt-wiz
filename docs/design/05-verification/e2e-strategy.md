@@ -137,12 +137,16 @@ T-IDs link to [existing acceptance outcomes](acceptance.md), not new gameplay.
 | Interruption and personal review | Users and saved decks only. | Start → publish an ordinary continuation → opponent reviews and deliberately continues from an earlier boundary → returning player watches/pauses/scrubs playback → inspect/activate retained nodes → test fork boundaries and deleted-cursor parent fallback. No API-created history. | T-337–T-348, T-493–T-500, T-524–T-528, T-535–T-537. |
 | Connection loss and process restart | Users and saved decks only. | Start → perform a UI action with an externally delayed/lost response → disconnect → verify gameplay blocking/read-only downloaded review → restart/reconnect → observe automatic recovery once and stable recorded random outcomes. Preserve app data during this test. | T-475–T-482, T-532. |
 | Same-account multi-device | Users and saved decks only. | Log the same player in on two normal instances, opponent on a third → start through UI → action on phone, Undo on tablet, Redo on phone → distinct concurrent Undo presses → normal independent edits. Check synchronized player-specific stack and no exclusive-device barrier. | T-483–T-485, T-529–T-533. |
-| Logout privacy | Users and saved decks only. | Download/play as A with an already-sent unknown-outcome action → Logout → login as B → confirm no A content → login as A and recover once. Do not erase app data or reset backend between these steps. | T-543. |
+| Logout privacy | Users and saved decks only. | As A initiate an unknown-outcome action or durably captured logged exposure not yet transmitted → Logout/process death → login as B → confirm no access/publication of A data → login as A and recover once. Do not clear app data/reset between checkpoints. | T-543, T-600–T-601. |
 | Dynamic catalog and artwork | Users only; import decks through UI. | Start using catalog A → inspect art/faces/defaults → publish catalog B externally → resolve/import new definitions normally → reopen/review the existing game → simulate missing images and inspect text fallback. Repeat with the alternate dataset without rebuilding the app/backend. | T-023, T-122–T-124, T-549–T-550. |
 | Bulk conflicts and normalized targeting | Users and saved decks only. | Through UI select/drop multiple cards; externally arrange both server arrival orders against opponent UI moves. Select a source and its effects, apply card edits/Clone versus occurrence removal. Open selected/unselected Actions and change selection during Set. Check exact mutated identities and partial authoritative placement, not only highlights. | T-554–T-557, T-566–T-571. |
 | Retained future and Redo target fidelity | Users and saved decks only. | Build dependent/independent paths through UI, vary personal review, explicitly activate internal nodes, then Undo. Build P/Q/R counter/note sequence through both players and remove R/P before Redo R. Inspect unchanged retained nodes and blocked stack. | T-558, T-562–T-563. |
 | Exposure and incarnation recovery | Users and saved decks only. | Start → recorded inspection → offline replay versus blocked new covered inspection. In separate variants reject an online revealing prediction with external traffic control, restart/recover its exposure, then end/start fresh play while an old UI-originated request remains delayed. No forged request/history setup. | T-559–T-561, T-576–T-577. |
-| Context/grouping and credential boundaries | None for credential variants; users/decks only for gameplay variants. | Register/reset/login with valid whitespace/Unicode passwords; play mixed anchor/tap sequences and add historical pings/comments from both players, viewing before/after effective boundaries. Observe final groups and preserved exact cursor under incremental sync. | T-564–T-565, T-572–T-575. |
+| Context/grouping and credential boundaries | None for credential variants; users/decks only for gameplay variants. | Register/reset/login with valid whitespace/Unicode passwords; exercise every category-transition cell and longer prefix trace in the grouping matrix, including old/new X pings around a new tap group. Assert menu labels, toggle records, numbering, mode and exact cursor—not only final groups. | T-564–T-565, T-572–T-575, T-583–T-584; GM-01–GM-22. |
+| Historical execution and reused preparation | Users and saved decks only. | Build live E, explicitly continue at earlier empty Stack with F, inspect both branches and retry; separately delay old UI Ready/preparation/cancellation through start/end/returned lobby, including multi-device and committed-loss variants. | T-579–T-582. |
+| Inspection controls and event participation | Users and saved decks only. | Hold covered/multi-face cards on each side online/offline; use Inspect other side versus Flip. Build Undo/Redo before logged inspection and own hold, then inspect an inactive context and recover after restart. Check controls and filtering, not merely log presence. | T-072–T-073, T-559–T-561, T-585–T-587. |
+| Live reads, ordered lowering and references | Users and saved decks only. | Through both UIs interleave face changes with Reset, source edits with Clone, arrivals/departures with Shuffle; perform ordered top/bottom/subset transfers, remove linked/selected tokens and review every valid boundary. No API-created tray token or four-member pile. | T-588–T-596. |
+| Composite scope and partial outcomes | Users and saved decks only. | Use individual full paths outside quick windows, advance-and-close with absent/replaced area, moved-side Untap with tracking interleaving and captured-count mulligans. Assert bound side, relative processing, individual nodes and actual partial results. | T-597–T-599. |
 
 This is an initial journey inventory, not complete executable coverage of every
 T-ID or a claim that any test has run. Keep scoped variants focused and map each
@@ -150,6 +154,14 @@ assertion to the current contract; older superseded scenarios do not override
 newer rules. Additional account-reset/email and notification journeys must also
 cross the normal app/backend paths; select their service harnesses when the
 underlying technical delivery is designed.
+
+The [grouping matrix](grouping-matrix.md) is the full planned category/prefix
+expansion requested for playtesting. Each independent variant resets; continuing
+prefix checkpoints within one variant do not. The real UI must create every
+measured event. Observing intermediate nodes via personal review adds no gameplay
+event; return to the same live context before extending a prefix. Fault controls
+can delay UI-originated requests to establish the declared interleaving, never
+forge a request, exposure or history branch.
 
 ## Fault controls, synchronization and evidence
 

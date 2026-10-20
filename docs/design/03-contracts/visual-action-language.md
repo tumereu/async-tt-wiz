@@ -92,7 +92,9 @@ unit is a presentation grouping, not one inferred atomic game-mechanic event.
 Automatic grouping may use explicit action association, author/session context,
 and contiguous operations. It must not infer casting/activation/payment from
 card metadata, area names, nearby taps, ping destinations, or elapsed time.
-Exact rules for which subsequent moves join a group are still open.
+The [category contract](history-grouping.md) and
+[scenario matrix](../05-verification/grouping-matrix.md) define current move/tap
+pairings and prefix behavior; later playtest revisions update those together.
 
 If later pings/comments are added to an older action, link them without moving
 unrelated operations into a non-contiguous group or changing its old state.
@@ -155,10 +157,11 @@ grouped event. Use one event-wide sequence, not separate counts per target,
 source, attacker, or semantic purpose. Players may use the sequence to communicate
 damage-assignment order; the engine does not interpret or apply damage from it.
 The ordinal is automatic presentation, not a user-entered label/style choice.
-Existing event scope, toggles, and historical review remain. Exact order capture,
-numbering after Unping/re-add, mass-Ping ordering, group split/join/coalescing,
-and projection-target routing still require behavior decisions. Do not infer
-their answers from this display requirement.
+Existing event scope, toggles, and historical review remain. Numbering follows
+the [stable-context contract](history-grouping.md#categories-keys-and-stable-ping-meaning):
+recorded additions retain ordinals, removal does not renumber, re-add is a new
+addition, and retries create no number. Target routing uses the operation's
+identity domain; encoding/compact rendering remains technical/UI work.
 
 A ping to a card is just a ping to that card. It cannot change another object's
 “targets,” create a rules link, pay a cost, move/rotate a card, or resolve an
@@ -226,10 +229,12 @@ Exact event mappings and historical placement still need detailed review.
   mutation's exact relevant-state `(from, to)` tuple under a hard suffix-work cap
   N; information-revealing targets are not selectively undoable. D-231 restricts
   Undo to the latest own action. **D-232 edits the existing tree**, not creates
-  replacement branches or preserves an untouched original path. Reference/grouping,
-  review-cursor and side-branch handling remain open. Do not present this as appended
+  replacement branches or preserves an untouched original path. References/grouping
+  follow the stable-context rules; cache/ID encoding remains technical. D-238
+  settles cursor fallback and D-233
+  blocks edits across retained forks. Do not present this as appended
   compensation, require an explorer branch for removed mutations, or silently
-  reattach/delete pings/comments as though their historical meaning were settled.
+  reattach/delete pings/comments to force eligibility.
 - A graphical explorer can explicitly activate retained branch/nodes. Only
   single-player alternatives with neither exposure nor comments qualify for hiding;
   mixed-player/exposure/comment alternatives remain visible in full. Undo itself

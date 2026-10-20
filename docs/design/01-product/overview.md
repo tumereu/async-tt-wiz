@@ -36,7 +36,8 @@ The app remembers and presents what happened; the players interpret the rules.
    Ordinary concurrent edits
    normally apply at the current head unless impossible. Optimistic conflict
    guards are limited to moves and Stack additions: an addition sends the current
-   Stack state and is rejected if it differs on the server. Rejection never
+   Stack state and is rejected if it differs in the selected execution context
+   (current play, or the explicit historical boundary). Rejection never
    creates a branch. The latest selective Undo/Redo design allows removing or
    reinserting a mutation only if every later mutation keeps its exact relevant
    before/after states, within a bounded suffix-work limit (D-224). This is stricter
@@ -78,15 +79,18 @@ The app remembers and presents what happened; the players interpret the rules.
   **Initial delivery requires a connection for game actions (D-182).** Downloaded
    games remain readable offline; offline action creation and later queue replay
    are not included. Optimistic local updates still hide latency while online.
-   Offline inspection cannot create an event either: new covered-face inspection
-   requiring exposure logging needs a connection; downloaded recorded visible
-   content remains readable.
+    Offline inspection cannot create an event either: explicit logged hidden-side
+    inspection needs a connection. Own-area hold inspection shows downloaded real
+    faces without an event; opponent-area holds do not expose hidden information.
 - Game/card data and artwork load dynamically rather than shipping a licensed
   catalog inside the app/backend. Automated tests use synthetic data and art;
   production data rights still require review.
 - Turn/phase/step tracking, explicit combat/Stack projections, and common-action
-  shortcuts are included conveniences. There is no priority tracker or rules
-  referee.
+   shortcuts are included conveniences. There is no priority tracker or rules
+   referee.
+- Individual actions remain accessible outside quick-action windows; combined
+  shortcuts can be quick-only. A tap starts a new group unless the current group
+  contains only taps/pings; its next substantive action joins that tap run.
 - Existing exceptions include ordinary piles capped at three cards, counter/text
   resets on entry to configured Library/Graveyard/Exile, token disappearance in
   those destinations, and retained information-exposure history after Undo.

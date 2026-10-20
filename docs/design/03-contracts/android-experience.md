@@ -91,7 +91,7 @@ timing and transfer of personal device state remain open; see the
 | Game lobby/invite | Invite/accept into lobby (D-195), prepare mainboard in Library and sideboard in separate Sideboard, other card areas initially empty (D-202). Select either player or Random as starter (D-201), both press Ready (D-189/D-190). Start shuffles Libraries and initializes life 20 without a required starting-life setting or automatic draw (D-200); begin turn 1 at Untap (D-108). Sideboard is unavailable during play, including browser/move paths (D-202). Remaining setup/lifecycle details are open. |
 | Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename decks, choose a cover from their cards, and re-import with Replace/Save as new (D-199). Delete saved decks from the collection; both editing/deleting leave selected lobby/game copies unchanged (D-221). D-241 excludes fuller deck editing/export and deleted-deck trash/restore. Approved-import/metadata, confirmation presentation, server retention and concurrent-race contracts need completion. |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |
-| Card/object inspector | Automatically show readable face art/text despite face-down table presentation, and both printed faces for multi-faced cards; modified state, available actions, attachments/history. Inspection does not change shared presentation. |
+| Card/object inspector | D-252: own-area hold shows real faces without an event; opponent-area hold respects hidden presentation. Context Inspect other side logs viewing without flipping; Flip is a separate shared edit. Accessible controls follow the same disclosure rules. |
 | Zone browser / pile actions | Pile tap opens contents and pile context actions together. Contents use card-type category columns with name search/filtering and hold inspection (D-50). Explicit View/Reveal is shared/logged: View shows faces to its actor and backs to the other participant; Reveal shows faces to both. Full-library contents hide overall order; explicit top/bottom-N displays preserve source order rather than type-grouping. Grouping/filtering never reorder stored contents; exact columns and covered opponent layout remain open. |
 | Action/group review | Before/after changes, action stepping, interrupt at this boundary. |
 | History tree | Forks, active path, archived lines, review/explicit activation, return and restore. No branch comparison/renaming (D-241). |
@@ -162,16 +162,17 @@ undoable. D-230/D-231 allow Undo only for your most recent still-applied action,
 even after opponent activity; never skip a blocked own target or undo the opponent's.
 Redo is last-undone-first, blocked entries disable it without skipping, and only
 your own new gameplay edit clears your queue (D-227–D-230). Per-mutation relevant
-state, N/counting, pointer/view-follow behavior, queue device scope/insertion
-anchors and final control mapping remain open. The
+state refinements, N/counting, pointer mechanics, insertion anchors and final
+control layout remain technical/UI work. D-235 settles shared per-account stacks. The
 earlier parent-step/remembered-head controls below are rewind context, not the
 complete current definition of Undo/Redo; live action acceptance is unchanged.
 
 **D-232:** Undo/Redo edit the existing tree by removal/reinsertion, without creating
 branches or keeping the pre-Undo path as an alternative. Removed mutations are
 available in the Redo stack, not a required explorer branch. Effects on review
-cursors, comments/pings, cached states and existing side branches remain open;
-do not silently switch historical context or assume an immutable old path remains.
+cursors follow D-238 parent fallback; comments/pings retain their relevant
+contexts and can block dependent removals. Cache/ID mechanics remain technical;
+do not assume an immutable old path remains.
 
 A **graphical tree explorer** allows review and explicit activation of any retained
 branch/node, including internal nodes/root; reviewing alone does not activate.
@@ -411,6 +412,8 @@ Keep personal review/navigation separate from shared controls.
 No offline operation may create a game event (D-246). Downloaded visible content
 and recorded outcomes remain readable, but a new covered/other-face inspection
 requiring exposure logging needs a connection, even if its data is cached.
+Own-area holds instead read downloaded real faces without an event (D-252);
+opponent-area holds never automatically disclose hidden information.
 
 **Confirmed D-215:** while disconnected, show a **Reconnecting...** dialog that
 **blocks gameplay actions**, including shared Undo/branch controls. Do not create

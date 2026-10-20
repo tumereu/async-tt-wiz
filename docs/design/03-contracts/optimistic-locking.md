@@ -6,6 +6,11 @@ approval of the superseded batch's individual feature/edge-case policies.
 
 ## Current acceptance policy — D-187
 
+First select the operation's [execution state](operation-composition.md#select-execution-state-before-validating-an-operation):
+ordinary requests use shared current state; deliberate historical continuation
+uses its chosen retained boundary. Every applicability/guard/read below uses that
+same state. “Current” never means mixing the live head with a historical board.
+
 **Separate selective-Undo validation (D-224):** removing/reinserting a historical
 mutation requires every later mutation's relevant-state `(from, to)` tuple to
 remain identical across the original and candidate timelines, within a hard
@@ -35,7 +40,8 @@ per-mutation relevant state and N remain open; see
   are not approved merely by preserving this exception.
 - **Exceptional guard: Stack additions/projection creation.** Send the client's
   current Stack state with a move into Stack or a new Stack projection. The
-  server compares it with current authoritative Stack state; if different, reject.
+  server compares it with authoritative Stack state in the selected execution
+  context; if different, reject.
   If equal and the action is structurally possible, apply it. Compare-and-apply
   is atomic and follows arrival order. This prevents accidentally covering a
   concurrent opponent entry without a separate opponent/seen/read-receipt model;
@@ -77,6 +83,11 @@ counter deltas remain; this does not turn the old batch's absent-counter,
 cleanup, Clone, shuffle, projection, tracking or lifecycle rules into approved
 requirements. Exact no-change/edge-case semantics and payloads still follow the
 existing operation contracts or require specification, not speculative locks.
+
+The [live-input table](operation-composition.md#bind-identities-and-choices-not-predicted-output-snapshots)
+completes Reset/Clone/Shuffle under that baseline: read the current face/default,
+current live source fields and current whole-Library membership respectively.
+Do not reinstate the historical batch's stale-face/source/membership comparisons.
 
 ## Superseded review proposal — not current requirements
 

@@ -14,7 +14,50 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest review repairs — D-245–D-250
+## Latest October 20 review repairs — D-251–D-253
+
+The owner discussed S-01–S-10 in the
+[October 20 review](adversarial-review-2026-10-20.md#documentation-follow-up-after-owner-discussion).
+Read that disposition and the current primary contracts; older handoff sections
+below retain historical context and are not a current question queue.
+
+- D-251 **replaces D-250**: first tap after substantive play starts a new group.
+  Further taps/pings stay in a taps/pings-only group; its following anchor joins.
+  Another tap after that anchor starts a new group, even between matching moves.
+  Use the [category contract](../design/03-contracts/history-grouping.md) and
+  [full planned matrix](../design/05-verification/grouping-matrix.md): 156 transition
+  cells plus key/content variants, 22 longer traces and every-prefix ping/mode
+  assertions. Later owner-approved playtest tuning updates these centrally, not
+  an in-app manual group editor or an implementation-stage transition.
+- D-252 revises blanket covered-hold logging: own-area hold shows real faces with
+  no event; opponent holds do not disclose hidden information. Context **Inspect
+  other side** logs viewing without flipping; **Flip** changes shared presentation.
+  Own-area downloaded holds are read-only offline, while new logged inspection
+  still requires a connection. Existing printed-face/cover distinctions remain.
+- D-253 corrects full-path parity: **individual constituents** need full paths.
+  Combined shortcuts can be quick-only, including advance-and-close. Do not
+  recreate the assistant's out-of-context combined Next-step recommendation or
+  require a Cleanup meaning; confirmed Library-context mulligans remain.
+
+Derived completion is centralized in
+[operation composition](../design/03-contracts/operation-composition.md): one
+execution state before guards, preparation-round fencing, current-state Reset/
+Clone/whole-Library Shuffle reads, ordered individual lowering and bound-side
+composite scope/interleaving. The
+[reference matrix](../design/03-contracts/domain-model.md#28-reference-lifetime-and-reachability)
+separates live cleanup, historical absence and unreachable token-Library-tray cases.
+Exposure-only events explicitly participate in latest-own barriers/Redo clearing,
+recording-context filtering and replay work, without an automatic gameplay branch.
+Protect actual logged exposure captured online before transmission across Logout,
+not merely requests with a sent flag. Ordinary private downloads still clear.
+
+T-579–T-601, corrected stable older T-IDs and full-stack journey variants specify
+the adversarial outcomes. No executable app/tests have been created or run.
+Representation, budgets, UI geometry, provider/privacy/service work remain in
+their lanes; ask only about a demonstrated new product gap. Validate and save
+each completed documentation batch under D-178. No implementation is authorized.
+
+## Earlier review repairs — D-245–D-250
 
 Owner discussed the October 19 adversarial review and corrected the proposed
 residual-choice batch. Read the

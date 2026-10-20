@@ -54,11 +54,15 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | A player explicitly logs out or switches accounts. | Logout removes private downloaded content but preserves protected already-sent recovery records. Never expose one account's private content/recovery records to another. Server retention/account erasure remains privacy/service design. | [Logout](../03-contracts/accounts-decks-and-lobby.md#logout-and-account-private-downloads--d-241), D-241; T-543. |
 | Personal review or explicit internal-node activation leaves a retained future. | Personal viewing never changes the Undo target/checks. A fork anywhere at/after the target blocks removal; validate the whole retained linear successor chain, including beyond the shared pointer, under N and unchanged tuples. | D-245; T-558. |
 | Redo has a surviving anchor but different relevant input and no later suffix. | Block reinsertion unless its own recorded relevant transition can be restored exactly; no fresh arithmetic/default/source snapshot. Retain the stack without skipping. | Recorded replay/D-224/D-230; T-562/T-563. |
-| Cached hidden faces are available offline. | No new event-producing inspection or hidden disclosure offline; reading downloaded recorded visible content remains. Already-initiated online exposure recovery is separate. | D-246; T-559–T-561. |
+| Cached hidden faces are available offline. | No new event-producing inspection. D-252 own-area hold reads real downloaded faces without an event; opponent holds conceal hidden sides and explicit logged inspection needs a connection. Already-initiated online recovery remains separate. | D-246/D-252; T-559–T-561. |
 | Stack source fields/location/frozen status change without changing current entries. | Do not reject an addition on that basis; compare ordered real-card/effect-entry identities, not rendered source state, links or coordinates. | D-247; T-568/T-569. |
 | Actions is opened on unselected C while A/B are selected. | Bind C only, preserving selection. Selected trigger binds the selection; capture target IDs at menu/editor opening and never redirect to a later selection. | D-248; T-570/T-571. |
 | A password contains boundary whitespace or Unicode. | Card-text trimming is not credential normalization. Preserve password input consistently for registration/login/reset; account-field validation remains separate. | D-249; T-572/T-573. |
-| Taps occur between otherwise matching grouping anchors. | Taps cannot cause an additional split. Preserve explicit anchor/author boundaries and ordinary forward attachment where anchors differ. | D-250; T-574/T-575. |
+| Taps occur between otherwise matching grouping anchors. | D-251 replaces D-250: first tap starts a new group unless the current group is taps/pings-only. Its next anchor joins; never merge backward across that tap boundary. | D-251; T-304/T-574, grouping matrix. |
+| A Stack/move operation explicitly continues at history while live state differs. | Select the historical execution state before all guards/reads; do not compare the displaced head's Stack or source. | D-179; T-579/T-580. |
+| A delayed old lobby request first arrives after ending/return to the same lobby. | Bind the original preparation round; no old Ready/edit/cancel acquires fresh-round intent. Recover committed old outcomes without reapplication. | D-205/D-213/idempotency; T-581/T-582. |
+| Logged exposure is captured online but not sent before Logout. | Protect the outstanding account-scoped recovery obligation, clear ordinary downloads and prevent another account reading/publishing it. | D-246/D-241; T-600/T-601. |
+| Cleanup exposes separate Close/Next step actions but not advance-and-close. | This is allowed: individual actions need full paths; the combination can be quick-only. | D-253; T-233/T-235/T-597. |
 
 ## Genuine gaps
 
@@ -74,9 +78,11 @@ Server retention/account-erasure obligations remain explicit privacy/service wor
 not silently resolved by the no-trash/Logout choices. Other reference mappings
 must be completed against existing rules, escalating only a demonstrated new gap.
 
-The October 19 adversarial review has now been reconciled with owner clarifications
-D-245–D-250 and derived repairs. Its disposition is tracked in the
-[review follow-up](../../agent/adversarial-review-2026-10-19.md#documentation-follow-up--2026-10-20).
+The October 19 review was reconciled with D-245–D-250. The October 20 review is
+now reconciled with **D-251–D-253**, which replace the earlier tap/hold/full-combined
+wording where stated, plus derived command/lifecycle/reference/durability repairs.
+See the [latest disposition](../../agent/adversarial-review-2026-10-20.md#documentation-follow-up-after-owner-discussion)
+and [grouping E2E matrix](../05-verification/grouping-matrix.md).
 Technical completion and additional consistency audits remain; this is not an
 exhaustiveness claim or approval of implementation/UI/stage transition.
 
@@ -88,7 +94,7 @@ outcome or conflicting requirements, not merely a new example of an existing rul
 
 | Work lane | What remains | How to handle it |
 | --- | --- | --- |
-| **Contract/test completion (stage 1).** | Per-mutation relevant fields/preconditions, sensible bulk ordering, exact guards, reference/cleanup mappings, no-op/failure outcomes and traceable scenarios. Audit grouping precedence/first-context sequences and offline inspection against existing rules. | Write spec-derived outcomes in reviewable batches and test them. Escalate only an actual ambiguity/contradiction. Do not ask for each move/tap/annotation dependency, empty draw, absent source or selected-target variant. |
+| **Contract/test completion (stage 1).** | Operation context/input-binding, ordered lowering, reference lifetime and exposure participation now have shared contracts. Complete further operation-specific mappings/traceability against those rules; execute nothing until implementation is authorized. Grouping has a planned category/prefix matrix for later E2E/playtest tuning. | Write spec-derived outcomes in reviewable batches. Escalate only an actual ambiguity/contradiction. Do not reopen tap runs, side-sensitive holds, quick-only combinations or each dependency/empty-source variant. |
 | **Technical design.** | Replay N/counting, insertion-anchor encoding, node IDs/versioning, cached-state rewrites, request identities/ordering/recovery, Stack snapshot equality representation, randomness source, numeric/resource limits, import normalization/provider compatibility and schema/API details. | Specify and validate against approved observable outcomes in the relevant technical work. A missing representation/parameter is not a missing usability model. Online-created unsent/recovery cases still need explicit contract coverage; first check existing connected-only, pending-work and no-duplicate requirements. |
 | **Later UI decisions (stage 3).** | Exact screen/menu names, control placement, gesture arbitration/drop geometry, accessible alternatives, feedback, browser rendering, animation timing and notification permission/channel presentation. | Preserve approved gestures, placement rules, immediate sync and read-only access. Do not present every layout/default as an unfinished stage-1 behavior decision. A real missing state transition still belongs in the product lane. |
 | **Platform/service/release constraints.** | Supported Android/device/language/distribution targets; hosting/catalog rights, security/privacy, retention/erasure, cache policy, notification delivery and operational/performance objectives. | Keep them visible for their proper decision/design stage. Product promises and scope need owner approval; technical choices remain technical work. Neither is an excuse to invent a new gameplay rule. |

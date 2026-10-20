@@ -20,6 +20,20 @@
   assumptions. Distinguish documentation defects from genuinely undecided behavior;
   make derived outcomes explicit so the eventual long implementation loop need not
   guess. D-237 limits unnecessary policy questions, not useful consistency repairs.
+- **Prepare comprehensively now; execute autonomously later (D-256).** During the
+  specification phase, systematically seek inconsistencies and missing outcomes
+  across all tiers, feature interactions, state/lifecycle transitions, concurrency,
+  failure/recovery and verification. Do not stop at the existing finding list or
+  leave ambiguity for coding; correct false findings too. Aim for exhaustive
+  coverage without claiming that a review proves every possible defect absent.
+  Once the owner explicitly authorizes the implementation loop after the design
+  gates, continue through the entire agreed scope and completion criteria without
+  routine per-slice approval or "continue?" checkpoints: design within approved
+  constraints, implement, test, review, fix, validate, save and select the next
+  slice. Resolve spec-derived/technical details autonomously; escalate only genuine
+  blockers or owner decisions, continuing independent approved work where safe.
+  Do not invent product behavior, bypass failed checks or expand scope. This future
+  autonomy does not authorize implementation or a stage transition now.
 - **After every completed edit batch, validate, commit and push before replying.**
   Do not wait for a separate request or a later checkpoint. No commit/push is
   needed for discussion that changes no files.

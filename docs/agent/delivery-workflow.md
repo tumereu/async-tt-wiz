@@ -23,6 +23,17 @@ This workflow automation does not authorize application implementation.
 D-115 supersedes the previous blanket gate requiring every UI and technical
 artifact before leaving the initial design round. Readiness is staged:
 
+**Specification review objective — D-255/D-256:** actively seek all possible
+inconsistencies and missing outcomes before implementation. Audit agreement across
+tiers and across request/event/group semantics, state and lifecycle transitions,
+identity/reference lifetime, compound operations, concurrent interleavings,
+failure/recovery and verification oracles. Record concrete counterexamples; apply
+existing rules, correct ambiguous wording and retire mistaken findings. Distinguish
+derived completion from a genuine owner choice under D-237. Do not stop with the
+current finding list, defer observable semantics to coding or mistake a clean
+documentation check for exhaustive behavior verification. The objective is
+comprehensive clarity, not a claim that all conceivable defects can be ruled out.
+
 ### Stage 1 → stage 2: behavior specification complete
 
 - [ ] Agreed release scope and all supported behavior cases are covered.
@@ -74,6 +85,14 @@ currently authorized. Earlier alternate design-round order is superseded.
 
 During stage 4+, after the preceding stages and implementation authorization:
 
+**Autonomous through completion — D-256:** once this loop is authorized and begins,
+continue through the entire agreed scope without asking for routine slice approval
+or a new "continue" after each milestone. Establish the agreed scope and observable
+completion criteria before starting; a finished slice is not the end of the loop.
+Select the next slice, carry out the cycle below and repeat until all those criteria
+are satisfied. Progress updates are not approval gates. This does not authorize
+starting implementation during the current specification phase.
+
 1. Select an approved vertical slice and its requirement/test IDs.
 2. Complete necessary technical design for that slice (schema/API/storage/etc.)
    and write executable acceptance/model tests matching the specified contract.
@@ -83,9 +102,18 @@ During stage 4+, after the preceding stages and implementation authorization:
    UI-only user actions (D-243/D-244).
 3. Implement the slice without broadening scope.
 4. Check behavior, failure recovery, accessibility, and compatibility.
-5. If a gap is discovered, stop that behavior's implementation, propose a spec
-   amendment, obtain the necessary decision, then update tests and code together.
-6. Record requirement-to-code/test traceability and proceed to the next slice.
+5. If a documentation gap or technical detail is resolved by approved rules and
+   constraints, make the derivation explicit and update contracts/tests/code
+   together autonomously. If an actual product choice or blocker remains, preserve
+   the evidence, pause only the affected work and obtain the necessary decision or
+   report the blocker. Continue independent approved work where safe. Never invent
+   behavior, broaden scope, bypass failed checks or hide validation/save failures.
+6. Record requirement-to-code/test traceability, validate and save completed batches
+   under the saving rules, then proceed to the next approved slice automatically.
+7. Finish only when the agreed scope and completion criteria are met, with required
+   verification passing and no concealed blockers or unfinished in-scope work.
+   Report actual completion or the genuine blocker preventing it, not merely that
+   one slice or one coding pass is complete.
 
 Proposed order: deterministic state/history core; local Android table and online
 publication/request recovery; automatic shared sync; review/branch/undo; full generic

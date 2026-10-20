@@ -14,7 +14,29 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest review direction — clarity for later implementation, D-255
+## Latest phase/autonomy direction — D-256
+
+The owner wants the specification phase to seek **all possible inconsistencies**
+so the eventual implementation loop can proceed autonomously to the agreed end.
+Review systematically across tiers, operations, feature composition, lifecycle,
+concurrency, failure/recovery and test oracles; do not stop at this review's list
+or leave concrete ambiguities to coding. Aim for exhaustive coverage, not a claim
+that every possible defect has been disproved. Retract/correct mistaken findings.
+
+After the design gates and explicit implementation authorization, the loop should
+run through the whole approved scope without routine per-slice approval or
+continuation prompts. Implement/test/review/fix/validate/save, then proceed to the
+next approved slice until the agreed completion criteria hold. Resolve derived
+specification and constrained technical details autonomously; escalate real owner
+choices/blockers rather than guess, continuing independent approved work safely.
+See [the delivery loop](delivery-workflow.md#85-later-specification-driven-implementation-loop)
+and AGENTS.md. **No implementation/stage transition is authorized now.**
+
+The owner next requests a walkthrough of the remaining findings. F-01 is withdrawn;
+F-02–F-06 are not approved by this process instruction. Present concrete outcomes,
+sources and derived resolutions separately from any genuine remaining choices.
+
+## Earlier review direction — clarity for later implementation, D-255
 
 The owner explicitly welcomes finding and correcting ambiguities: the eventual
 implementation will use a long loop, so clear specifications matter. Do not read

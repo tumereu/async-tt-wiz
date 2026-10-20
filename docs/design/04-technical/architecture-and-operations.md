@@ -64,8 +64,8 @@ are not needed simply to separate these responsibilities.
 | Android UI/rendering | Compose Canvas game area with styled Compose surrounding UI selected (D-263) | Scene/animation/input design, accessibility/automation mapping, minimum Android API and versions. |
 | Local persistence | Transactional SQLite through SQLDelight selected (D-265) | Schema, migrations, drivers, encryption and baseline/cache/recovery boundaries; Room is not selected. |
 | Background work | WorkManager for appropriate Android background recovery (D-263); best-effort notification polling fallback permitted (D-269) | Polling scheduler/cadence, retry/lifecycle and battery policy; recommend WorkManager, not exact-alarm permission. Foreground sync never waits for scheduled work. |
-| Shared service | Kotlin/JVM Spring Boot modular monolith selected (D-263) | Supported versions, hosting/operator model and detailed module boundaries. |
-| Shared database | PostgreSQL selected (D-263) | Schema, backup/restore, version and capacity. |
+| Shared service | Kotlin/JVM Spring Boot modular monolith (D-263), deployable through Docker Compose (D-272) | Supported versions/runtime resources and module boundaries; production deployment belongs in a separate repository, not a required VPS/cloud platform. |
+| Shared database | PostgreSQL selected (D-263) | Schema/version/capacity and application recovery contract; production backup/restore automation and policy belong in the separate operations repository (D-272). |
 | Storage layout | Relational structure with versioned JSONB payloads and separate topology/mutations/current state/revisions/outcomes/outbox accepted (D-265) | Exact tables/indexes and independent revision/history/idempotency retention; a full sync is not a whole-tree transfer. |
 | Server data access | jOOQ selected (D-261) | Version/edition, schema code generation and explicit transactional query design; generated records stay server-only. |
 | Database migrations | Flyway with versioned SQL selected (D-263) | Compatible versions/editions and deployment/upgrade procedure. |
@@ -88,13 +88,16 @@ D-269's optional-provider boundary versus proposed polling/scheduling mechanisms
 2. Define server schema/transactions and client durability/reconciliation, including
    tree revisions, snapshots, random inputs and migrations.
 3. Complete scene/input/accessibility boundaries and normal-app gesture testability.
-4. Define security/session mechanisms, external adapters and deployment/recovery.
+4. Define security/session mechanisms, external adapters and application container/
+   recovery interfaces; production deployment/backups are external under D-272.
 5. Pin compatible versions and CI/device/performance budgets.
 
 This is technical specification work, not a new implementation plan or gate pass.
-Support targets, hosting/operator budget, production catalog/art rights,
-distribution and retention/privacy expectations still need owner constraints;
-unspecified details are not automatically fresh product questions.
+Support targets, production catalog/art rights, distribution and retention/privacy
+expectations still need completion; unspecified details are not automatically fresh
+product questions. D-272 settles Docker Compose deployability and assigns production
+hosting/deployment/backups to a separate repository; do not keep VPS/provider/budget
+selection or backup automation in this repository's implementation backlog.
 
 ## 7.3 Card catalog and decks
 
@@ -258,7 +261,9 @@ convenience through a non-expiring revocable token without saved passwords, not
 idle/absolute session expiry. See [authentication/session design](authentication-and-sessions.md)
 for selected requirements versus still-proposed reset/security mechanisms; no new
 account-management screens or arbitrary provider defaults are approved. End-to-end
-encryption and self-hosting are also open choices, not implied by “private game.”
+encryption remains unselected. D-272 permits owner-operated Compose deployment,
+possibly initially on a Raspberry Pi, but does not add an in-app server browser,
+multi-server account federation or packaged end-user hosting UI.
 
 D-249 excludes credentials from card-text trimming: preserve password whitespace
 and Unicode consistently across registration/login/reset. Specify account email/
@@ -279,6 +284,44 @@ Proposed correctness targets:
 - A partially failed notification does not roll back game state.
 - Failed migrations preserve original durable data and offer a recovery route.
 
+### Container delivery and external operations — D-272
+
+**Confirmed:** the important deployment requirement is **Docker Compose
+deployability**. The owner may initially try a Raspberry Pi; a VPS, cloud provider,
+managed database or Kubernetes is not required. **Production deployment and backups
+are handled in a separate repository.** Do not create that repository, production
+Compose manifests, host provisioning, certificate/proxy setup, backup jobs or
+restore automation as application-project deliverables here.
+
+This repository retains the application side of the boundary:
+
+- Container packaging/build contract, explicit image versions, supported runtime/
+  architecture information and documented configuration/secrets inputs. Do not
+  embed hostnames, production credentials or operator-specific volume paths.
+- Service interfaces needed by Compose: database connection configuration, ports,
+  health/readiness, persistent-state inventory, graceful stop/restart behavior and
+  the supported migration/startup contract. Exact names/mechanisms remain design.
+- Application-owned Flyway migrations, supported schema/client/image compatibility
+  and recovery correctness, not the operator's deployment/migration orchestration.
+- The D-262/D-263 Docker Compose **E2E** environment and Testcontainers integration
+  tests remain application-repository work; they are not production deployment.
+
+For a Raspberry Pi trial, recommend a 64-bit OS and compatible ARM64 JVM/PostgreSQL
+images. Check the eventual image/dependency architecture support and measure
+memory/storage/performance on the actual hardware; no Pi model, 32-bit ARM support,
+capacity guarantee or completed multi-architecture build matrix is selected here.
+
+The external repository owns host/network/TLS/proxy/secrets provisioning, production
+Compose wiring, deployment/rollback execution, monitoring/alert infrastructure and
+backup/restore scheduling/storage/retention/rehearsals. Application requirements
+still constrain that integration: do not lose essential definitions/history/request
+outcomes by treating checkpoints as the only durable data. State and required
+secrets must be inventoried; externally agreed recovery point/time limits and
+restore evidence cannot be inferred from local commit durability. Moving backup
+work out of this repository is not a zero-data-loss/availability promise or a waiver
+of privacy/erasure requirements. Earlier Caddy/VPS/WAL-backup suggestions are not
+selected operational tools/policies by this focused scope decision.
+
 Still required before implementation:
 
 - Reference devices, game/history sizes, cold-load and action latency budgets.
@@ -290,13 +333,14 @@ Still required before implementation:
 - Local feedback and action-sync-start budgets that enforce immediate sync
   without waiting for group closure or deliberate batching.
 - API latency/availability targets, expected load, rate/storage limits.
-- Backup frequency, recovery point/time objectives, and tested restore steps.
-- Deployment, rollback, database migration, client compatibility, and incident
-  procedures.
+- Application persistent-state/secret inventory and migration/compatibility/recovery
+  interface for the external operations repository. Production backup frequency,
+  recovery point/time limits, restore/deploy/rollback/incident procedures belong
+  there (D-272), not new application-repository automation tasks.
 - Metrics for sync lag, failed/conflicted operations, replay integrity, database
   pressure, notification failures, and errors without leaking game content.
-- Operator ownership, cost assumptions, distribution/signing, release channels,
-  and crash-reporting consent.
+- Application distribution/signing, release channels and crash-reporting consent;
+  production host/operator cost and provisioning are external under D-272.
 
 ## 7.7 No implementation shortcuts across specification gaps
 

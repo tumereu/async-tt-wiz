@@ -98,6 +98,13 @@ repairs and expand/contract changes compatible with supported app/server version
 backups and restore procedures remain necessary. Large backfills, lock budgets,
 nontransactional PostgreSQL DDL and migration-runner/deployment ownership need
 explicit procedures rather than assuming every migration is atomically reversible.
+D-272 assigns production deployment/backups to a separate repository. This
+repository supplies application migrations and their compatibility/run contract;
+the external repository owns production orchestration, backup jobs and restore/
+rollback execution. The server must be deployable through Docker Compose, without
+a required VPS/cloud platform; a Raspberry Pi is a possible initial host, not a
+guaranteed hardware/performance baseline. See the
+[container/operations boundary](architecture-and-operations.md#container-delivery-and-external-operations--d-272).
 
 Generate jOOQ schema bindings from the migrated schema in a disposable build/test
 database, not a developer's mutable production connection. Keep generated schema
@@ -108,7 +115,9 @@ Exact code-generation integration and versions remain technical design.
 
 Ordered WebSocket admission and locking, relational schema and payload representation,
 idempotency retention, API/realtime protocol, authentication/session mechanisms,
-backup/restore, deployment topology, supported versions and operational budgets.
+container/runtime interfaces, supported versions and application resource budgets.
+Production topology/deployment/backups live in the external repository (D-272);
+do not duplicate them here or drop the application recovery/compatibility contract.
 See [cross-cutting architecture work](architecture-and-operations.md).
 
 References: [Spring Kotlin support](https://docs.spring.io/spring-boot/reference/features/kotlin.html),

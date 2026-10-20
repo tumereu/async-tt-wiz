@@ -14,7 +14,30 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest arbitrary client definitions, lazy art and stale catalogs — D-271
+## Latest Compose deployment and external operations scope — D-272
+
+The owner may first deploy on a Raspberry Pi; the important requirement is Docker
+Compose deployability. Production deployment and backups belong in a **separate
+repository**. Do not keep VPS/cloud choice, host provisioning, production Compose
+manifests, certificate/proxy setup or backup/restore automation in this project's
+implementation backlog, and do not create or work in the other repository now.
+
+Keep application image/container/configuration/secret-input/health/runtime and
+persistent-state/migration/compatibility/recovery interfaces here. Existing D-262/
+D-263 Compose E2E and Testcontainers integration remain here too, with isolated
+synthetic environments, not production manifests/data/secrets. The external repo
+owns production orchestration, monitoring/alert infrastructure, deployment/rollback
+and backup/restore policy/execution; privacy/recovery obligations still constrain
+that integration. Do not infer zero data loss or a recovery deadline.
+
+Recommend a 64-bit OS and compatible ARM64 JVM/PostgreSQL images for the Pi trial;
+exact model/resources/architecture matrix and measured capacity remain unselected.
+No ARM32/all-Pi guarantee, mandatory VPS, Kubernetes, Caddy or WAL-backup tooling
+is approved. See [operations boundary](../design/04-technical/architecture-and-operations.md#container-delivery-and-external-operations--d-272)
+and T-630. No application/container/Compose scaffolding, infrastructure automation,
+executable tests or delivery-stage transition is authorized.
+
+## Earlier arbitrary client definitions, lazy art and stale catalogs — D-271
 
 The owner confirms lazy image resolution/download with local caching, asks how
 stale clients handle an opponent's unknown card, and then explicitly accepts that

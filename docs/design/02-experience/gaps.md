@@ -119,6 +119,13 @@ outcome or conflicting requirements, not merely a new example of an existing rul
 | **Later UI decisions (stage 3).** | Exact screen/menu names, control placement, gesture arbitration/drop geometry, accessible alternatives, feedback, browser rendering, animation timing and notification permission/channel presentation. | Preserve approved gestures, placement rules, immediate sync and read-only access. Do not present every layout/default as an unfinished stage-1 behavior decision. A real missing state transition still belongs in the product lane. |
 | **Platform/service/release constraints.** | Supported Android/device/language/distribution targets; hosting/catalog rights, security/privacy, retention/erasure, cache policy, notification delivery and operational/performance objectives. | Keep them visible for their proper decision/design stage. Product promises and scope need owner approval; technical choices remain technical work. Neither is an excuse to invent a new gameplay rule. |
 
+D-272 settles the deployment scope: Docker Compose deployability is required;
+production deployment/hosting/backups are owned by a separate repository, with a
+Raspberry Pi as a possible first trial. Application container/configuration,
+migration/compatibility and persistent-state/recovery interfaces remain technical
+work here, as does the existing Compose E2E environment. Do not turn cloud-provider,
+host provisioning or backup automation into new owner questions/application tasks.
+
 The [classified Q-register](../../agent/decisions.md#93-release-blocking-questions)
 keeps stable tracking IDs while replacing the original mixed question queue.
 Older "open" wording elsewhere is not an automatic owner-question queue. Known

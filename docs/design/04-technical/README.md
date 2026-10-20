@@ -28,7 +28,9 @@
   selected revision recovery/checkpoint state verification, optional older
   checksum-chain proposal, recovery, access and retention.
 - [Architecture and operations](architecture-and-operations.md): proposed system
-  boundaries, technology/provider choices, APIs, security, deployment and reliability.
+  boundaries, technology/provider choices, APIs, security and reliability. D-272
+  requires Docker Compose deployability; production deployment/backups belong in a
+  separate repository, with application container/migration interfaces defined here.
 
 These are proposals unless specifically confirmed. Native Android, Kotlin
 Multiplatform with a core reusable by possible future iOS/desktop clients (D-260),
@@ -48,7 +50,10 @@ remains conditional on canvas integration. D-266 confirms rolling sync-revision
 retention with fresh baseline recovery, retained gameplay history and rebuildable
 checkpoint caches; exact limits/protocols remain design work, not a history expiry
 policy. Exact protocols, schemas, versions,
-hosting/providers, support targets and operational policies remain design work. This agreement authorizes
+providers, support targets and application operational interfaces remain design work.
+D-272 assigns production hosting/deployment/backups to a separate repository;
+Raspberry Pi hosting is a possible first trial, not a selected capacity guarantee.
+This agreement authorizes
 documentation planning, not implementation or a delivery-stage transition. The
 [E2E strategy](../05-verification/e2e-strategy.md) defines the confirmed normal-app,
 real-backend test boundary and synthetic data/art requirement (D-244).

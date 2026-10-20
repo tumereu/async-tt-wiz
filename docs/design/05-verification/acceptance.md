@@ -758,7 +758,13 @@ make a corrupt board cache pass as correct. Deterministic replay remains require
 | T-628 | At lower protocol layers submit structurally valid arbitrary definitions absent from official sources, including differing payloads claiming the same external ID/name in separate decks; separately submit malformed/oversized references/data. Through normal synthetic-source UI imports test unknown names, missing art and absent optional corner metadata. | Valid arbitrary data needs no official-source lookup/authenticity or format-legality proof; accepted snapshots are retained and delivered consistently, with distinct identities for differing content and no overwrite of the other deck/game/global catalog. Structural/security/resource checks still apply; text is not executable rules and image URLs do not receive session credentials or authorize unsafe fetching. Normal import cannot save unresolved names or silently substitute/drop entries; absent art is allowed and D-65 blank corner fallback remains valid. No new authoring UI or arbitrary script feature is inferred. |
 | T-629 | **Conditional on adopting the tentative startup-check design:** use a synthetic metadata endpoint with unchanged, content-date/version-changed, offline and invalid-update variants; rapidly relaunch while an existing game remains usable. | Check small source metadata rather than downloading all records/images on every launch. Detect content changes even without a schema-version change; bound/cache/throttle checks and keep usable games responsive. Successful updates are staged/validated; failed/offline updates preserve prior catalog/game data. Existing accepted definitions remain unchanged and missing new-import records remain unresolved until obtained. Exact MTGJSON/provider selection, cadence and update presentation are not approved by this conditional test; automated tests never depend on the live public provider. |
 
-Current oracles use D-224–D-271, not D-159/D-161 captured-parent or remembered-head
+### Compose deployability and repository boundary — D-272
+
+| ID | Scenario | Expected result |
+| --- | --- | --- |
+| T-630 | Verify the declared application container/configuration contract in isolated Docker Compose with real PostgreSQL and a normal Android app. Exercise startup, migration/readiness, graceful stop/restart and reconnect using synthetic data; inspect production-versus-test ownership. | Backend needs no mandatory VPS/cloud service or hard-coded production host/secret/path. Preserve acknowledged state/request recovery across normal persistent-volume restarts without duplicate execution. Application packaging/configuration/schema compatibility and Compose E2E verification belong here; production Compose/provisioning/deployment/backups/restore automation belong in the separate repository. The possible Pi trial requires checking actual architecture/resources; an x86-only run is not proof of Pi support. No specific Pi capacity, ARM32 support, Caddy/cloud provider, backup technology, recovery target or infrastructure implementation is inferred. |
+
+Current oracles use D-224–D-272, not D-159/D-161 captured-parent or remembered-head
 controls. New cases supplement the corrected stable older IDs. Technical parameter/
 encoding/performance completion is still required; these are specified tests,
 not an assertion that an application or executable harness exists.
@@ -794,8 +800,12 @@ features.
   projections, branching/Undo/Redo, multi-device synchronization, offline read-only
   access, online connection-loss/restart recovery and Logout privacy. See the
   [initial full journeys](e2e-strategy.md#initial-full-e2e-journeys).
-- **Operational tests:** backup/restore rehearsal, deployment rollback, service
-  restart mid-publication, outbox redelivery, and credential revocation.
+- **Operational/application boundary tests:** container/configuration compatibility,
+  service restart mid-publication, outbox redelivery and credential revocation
+  remain here. Production backup/restore rehearsal and deployment rollback are
+  owned by the separate operations repository under D-272, against this project's
+  persistent-state/migration/recovery contract; they are not implemented here or
+  silently assumed unnecessary.
 
 Delivery gates and implementation instructions are kept separately in
 [the agent delivery workflow](../../agent/delivery-workflow.md).

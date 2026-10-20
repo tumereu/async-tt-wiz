@@ -77,7 +77,14 @@ whole two-player acceptance suite passed or substitute an API-controlled opponen
 
 Docker Compose is selected for this reusable full-stack environment; keep
 Testcontainers as the selected lifecycle tool for smaller server/database tests.
-Do not let both mechanisms independently own/reset the same E2E environment.
+D-272 additionally requires production Compose deployability but assigns production
+deployment/backups to a separate repository. This E2E Compose environment stays in
+the application project; it must not depend on that repository's production data,
+host paths, credentials or backup jobs. Share the application image/runtime contract,
+not a production stateful environment. Container/configuration/migration/restart
+verification remains here; operational backup/restore/deploy rehearsal belongs
+there against the documented application interface.
+Do not let Compose and Testcontainers independently own/reset the same E2E environment.
 Before each independent scenario, provision/reset isolated state, apply normal
 migrations, verify actual backend/catalog/database readiness, initialize only the
 permitted users/decks and start fresh app data. Preserve all state across an

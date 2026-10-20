@@ -8,6 +8,7 @@ support continuity and traceability; they are not another competing specificatio
 - [Touch-action review](touch-action-review.md): capability inventory and review worklist.
 - [Specification audit](specification-audit.md): known wording/status drift and interpretation risks.
 - [Adversarial review — 2026-10-19](adversarial-review-2026-10-19.md): source-linked findings, counterexamples and a documentation-fix session plan; not new requirements.
+- [Adversarial review — 2026-10-20](adversarial-review-2026-10-20.md): follow-up review of cross-feature contradictions, generic operation gaps, UX consistency and residual drift; detailed handoff for a new fix session, not approved changes.
 - [Delivery workflow](delivery-workflow.md): readiness gates and the later implementation loop.
 
 Use decision history to establish approval/provenance, then reflect that result

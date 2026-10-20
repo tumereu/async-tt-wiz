@@ -4,7 +4,10 @@ Status: proposed protocol mechanics supporting confirmed behavior. D-179 replace
 automatic conflict branching with explicit interruption intent. D-187 normally
 accepts ordinary actions against current state, with optimistic guards limited to
 movement and Stack additions, not general previous-value comparisons. Exact API
-and schema are not yet specified.
+and schema are not yet specified. D-263 selects ordered gameplay WebSocket
+transport and HTTPS/JSON for accounts/catalog/reads, using Ktor Client and
+kotlinx.serialization on clients; OpenAPI describes HTTP and explicit schemas
+describe socket messages. These choices do not complete the recovery protocol.
 
 **D-182 release scope:** game actions and shared controls require a connection in
 initial delivery. Downloaded state/history remains readable offline. There is no
@@ -21,9 +24,11 @@ extended disconnected gameplay.
 **D-184 ordering:** clients send actions in their local action order; the server
 validates/applies them in arrival order. Multiple actions may be in flight without
 acknowledgement waits. Preserve ordering in delivery, not a per-action dependency
-graph or server-side reconstruction of client order. The exact ordered transport
-is not yet selected; independent requests that can overtake each other would not
-satisfy the ordered-send requirement.
+graph or server-side reconstruction of client order. D-263 selects WebSocket for
+ordered gameplay delivery; exact ordered admission, session replacement/resume
+and in-flight recovery still need design. Independent requests that can overtake
+each other would not satisfy the ordered-send requirement, and socket ordering
+alone does not establish per-game ordering across devices or durable acceptance.
 
 <a id="61-authority-and-local-first-behavior"></a>
 
@@ -31,7 +36,8 @@ satisfy the ordered-send requirement.
 
 Confirmed authority boundary (D-259): native Android clients plus a persistent
 shared service that decides shared game results and serializes control operations.
-Exact storage/transport design remains proposed. Each client stores downloaded
+Storage/protocol mechanics remain design work within D-263's selected transport
+and SQLite choices. Each client stores downloaded
 game history, a materialized board cache, personal review state, unfinished input,
 a small local online send queue and records needed to recover in-flight requests.
 This is not an offline gameplay queue (D-182/D-183).
@@ -189,7 +195,7 @@ uninterrupted block against the other player's actions.
 
 Authoritative parent mapping must support accepted current-head actions without
 changing the requested operation, limited guards or interruption intent. Exact
-ordered transport, new-object/reference handling, queue size/saturation and animation scheduling
+WebSocket admission/resume, new-object/reference handling, queue size/saturation and animation scheduling
 remain open; they must support the confirmed concurrent online pipeline, not
 restore stop-and-wait as a blanket policy. Preserve each operation's identity when
 resolving delivery uncertainty; do not resubmit as a different action/random draw.
@@ -370,10 +376,13 @@ update can change accepted shared state while the selected gameplay node ID stay
 the same. The D-258 switch and both-stack reset become visible as one coherent
 authoritative update; recovery must not reapply an old reset to newer stacks.
 
-Push/realtime messages are hints to fetch changes. They may be duplicated,
-delayed, reordered, or absent. Reconnecting and ordinary refresh must converge
-without them. Pagination must provide a coherent continuation token across
-concurrent publications.
+Push notifications remain hints to fetch changes. D-263's selected WebSocket can
+carry committed revision updates, but transient delivery is not the durable record:
+application-level resume/retry can duplicate updates, and hints may be delayed,
+reordered or absent. Reconnecting and ordinary refresh must recover committed
+records/outcomes without depending on a notification or original socket session.
+Exact update framing and catch-up/pagination must preserve a coherent revision
+continuation across concurrent publications.
 
 An app opening a historical branch fetches required ancestry before rendering.
 If it is unavailable offline, show that limitation instead of fabricating state.

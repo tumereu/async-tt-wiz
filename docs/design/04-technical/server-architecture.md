@@ -2,35 +2,38 @@
 
 ## Status
 
-**Recommendation under discussion:** Kotlin/JVM Spring Boot, PostgreSQL and Flyway
-with versioned SQL migrations. The owner nominates these technologies and asks
-whether better choices exist; do not yet treat them as final selections. Kotlin
-Multiplatform for the client/shared core is selected (D-260). This document is an
-initial architecture proposal, not a complete API/schema or implementation approval.
+**Selected — D-263:** Kotlin/JVM Spring Boot modular monolith, PostgreSQL and Flyway
+with versioned SQL migrations. Use Spring Security with revocable sessions;
+HTTPS/JSON for accounts/catalog/reads and ordered WebSocket gameplay with durable
+revision-based recovery. Kotlin Multiplatform/shared processing and jOOQ were
+selected in D-260/D-261. Detailed boundaries/mechanisms below remain design work,
+not a complete API/schema or implementation approval.
 
 **Selected — D-261:** jOOQ for server database access. Client and server must use
 the same Kotlin game-state objects and processing code; die/coin inputs may be
-sampled on the client and accepted without an independent server reroll. Spring
-Boot/PostgreSQL/Flyway remain the recommended candidates from the preceding
-discussion; choosing jOOQ does not silently finalize those other choices.
+sampled on the client and accepted without an independent server reroll. D-263
+subsequently accepts the recommended service/database/migration stack.
 
 ## Technology assessment
 
-| Area | Recommendation | Alternatives and tradeoff |
+| Area | Selected direction or remaining proposal | Alternatives and tradeoff |
 | --- | --- | --- |
-| Backend | Kotlin/JVM Spring Boot modular monolith. Established integration for HTTP, security, transactions, observability and testing; must use the shared domain's JVM target under D-261. | Ktor is a credible lighter Kotlin-oriented alternative, but requires more explicit selection/integration of equivalent application infrastructure. No demonstrated requirement makes switching preferable here. |
-| Database | PostgreSQL for transactional shared state, operation outcomes, constraints and notification outbox. | A document database adds no clear benefit for the cross-record atomicity required here. SQLite is suitable locally, not the proposed shared multi-user service database. |
-| Migrations | Flyway versioned SQL, reviewed in Git and applied in version order. | Liquibase supports richer changeset metadata, preconditions and explicit rollback definitions, including SQL changelogs. Prefer it only if those capabilities justify the additional migration conventions; rollback definitions do not recover lost data automatically. |
+| Backend | Kotlin/JVM Spring Boot modular monolith selected (D-263). Established HTTP/security/transaction/observability/testing integration; must use the shared domain's JVM target under D-261. | Ktor was the lighter alternative considered, not the selected server framework; Ktor Client is selected separately on clients. |
+| Database | PostgreSQL selected (D-263) for transactional shared state, operation outcomes, constraints and notification outbox. | SQLite is selected for local client storage, not the shared multi-user service database. |
+| Migrations | Flyway versioned SQL selected (D-263), reviewed in Git and applied in version order. | Liquibase was considered, not selected; neither tool automatically recovers lost data from destructive changes. |
 | Data access | jOOQ selected (D-261), with explicit queries and transaction boundaries. | Spring JDBC/JPA/Hibernate are not the selected persistence abstraction. Do not introduce an ORM-owned game-state graph. |
 | Request execution | Start with conventional Spring MVC and JDBC transactions. | WebFlux/R2DBC is not needed simply for realtime notifications; evaluate only against a concrete concurrency/resource requirement. |
+| Authentication | Spring Security with revocable sessions selected (D-263). | Token formats, refresh/revocation and password/reset mechanisms remain design work; this does not select a managed identity/email provider. |
+| API contracts | OpenAPI for HTTPS/JSON, explicit gameplay WebSocket schemas and kotlinx.serialization protocol handling selected (D-263). | Configure compatible HTTP/socket codecs explicitly; do not assume Spring defaults match the shared wire schema or finalize schema evolution. |
 
 Exact supported versions, compatibility, licenses/editions and runtime requirements
 must be checked before pinning dependencies. No package installation is authorized.
 
 ## Proposed service boundaries
 
-One deployable service, with internal modules for accounts/sessions, contacts and
-decks, lobby/lifecycle, authoritative game commands/history, synchronization/result
+One deployable service is selected (D-263), with proposed internal modules for
+accounts/sessions, contacts and decks, lobby/lifecycle, authoritative game
+commands/history, synchronization/result
 lookup, catalog access and notification delivery. Do not introduce Kafka, Redis,
 microservices or a separate event-store product without a demonstrated need.
 
@@ -85,7 +88,7 @@ Exact code-generation integration and versions remain technical design.
 
 ## Still to design
 
-Ordering/admission and locking, relational schema and payload representation,
+Ordered WebSocket admission and locking, relational schema and payload representation,
 idempotency retention, API/realtime protocol, authentication/session mechanisms,
 backup/restore, deployment topology, supported versions and operational budgets.
 See [cross-cutting architecture work](architecture-and-operations.md).

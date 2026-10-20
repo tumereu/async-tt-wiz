@@ -2,15 +2,17 @@
 
 ## Status and contract boundary
 
-Initial technical proposal; test frameworks and the backend runtime/database/
-migration stack are not yet selected. Kotlin Multiplatform is selected for the
-client/shared core (D-260).
+Technology directions are selected; exact harness mechanisms/versions remain
+technical design. Kotlin Multiplatform is selected for the client/shared core
+(D-260); D-263 selects Spring Boot/PostgreSQL/Flyway and the test stack below.
 jOOQ and the same client/server state types/processing code are selected (D-261),
 with locally generated die/coin inputs permitted and server acceptance authoritative.
 **Selected environment — D-262:** E2E/scenario tests run the real backend and
 database in Docker, with at least one normal Android app connected to them.
-Docker Compose and host-side Kotlin/JUnit + Appium/UiAutomator2 are recommendations,
-not yet owner-selected tools. One-device smoke tests do not replace D-244's
+**Selected tools — D-263:** Docker Compose and host-side Kotlin/JUnit with the
+Appium Java client/UiAutomator2 for E2E; Testcontainers for smaller server/database
+integration tests and native Compose/instrumentation tests for focused components.
+One-device smoke tests do not replace D-244's
 two-player real-UI journeys or the additional device for multi-device cases.
 No executable test suite or application is authorized by this document.
 
@@ -21,14 +23,14 @@ restricted to users/saved decks. These architectural choices must preserve it.
 
 ## Proposed layers and tools
 
-| Layer | Candidate tools | Purpose |
+| Layer | Tools / remaining candidates | Purpose |
 | --- | --- | --- |
 | Shared deterministic core | `kotlin.test`, JVM JUnit Jupiter and property/model-based testing tools to select. | The same command processor/state objects on client and server; transitions, relevant-state tuples, history edits, grouping, identity/reference invariants and supplied/recorded-randomness handling. |
 | Shared client coordination | Coroutine test scheduler, fake transport/storage at this lower layer only. | Prediction/reconciliation, ordered delivery, ambiguous outcomes, durable recovery, account/incarnation fencing and process-restart sequences. |
-| Server integration | jOOQ (selected); Spring Boot test support, JUnit Jupiter, Testcontainers PostgreSQL if the recommended backend is selected. | Real queries/constraints/transactions, schema-to-shared-object mapping, concurrent requests, idempotency, outbox and API behavior. |
-| Migrations | Same Flyway migrations against real PostgreSQL, if selected. | Empty install, upgrades from retained supported versions, data preservation and incompatible/failed migration handling. |
+| Server integration | jOOQ, Spring Boot test support, JUnit Jupiter and Testcontainers PostgreSQL (D-261/D-263). | Real queries/constraints/transactions, schema-to-shared-object mapping, concurrent requests, idempotency, outbox and API behavior. |
+| Migrations | Same selected Flyway migrations against real PostgreSQL (D-263). | Empty install, upgrades from retained supported versions, data preservation and incompatible/failed migration handling. |
 | Android components | Compose UI testing plus real canvas pointer gestures/accessible semantics. | Menus, text input, gesture arbitration, scene targeting, accessible alternatives and drawing integration. |
-| Full-stack acceptance | Proposed host-side Kotlin/JUnit Jupiter scenarios using the Appium Java client and UiAutomator2 driver; Docker Compose for the selected Docker backend/database environment. | Normal APK on one or more real/emulated Android devices; coordinated full UI journeys, reconnect, restart, multi-device and concurrent activity. |
+| Full-stack acceptance | Selected host-side Kotlin/JUnit Jupiter scenarios using the Appium Java client and UiAutomator2 driver; Docker Compose for the Docker backend/database environment (D-263). | Normal APK on one or more real/emulated Android devices; coordinated full UI journeys, reconnect, restart, multi-device and concurrent activity. |
 | Performance | Android Macrobenchmark/frame metrics and targeted core/server benchmarks. | Frame pacing, input response, image load, history catch-up and bounded Undo/Redo work on declared reference workloads. |
 
 Do not substitute an in-memory database such as H2 for PostgreSQL integration or
@@ -38,6 +40,10 @@ when that platform is introduced; a JVM-only pass is not cross-platform proof.
 
 ## Recommended full-stack scenario system — D-262 environment
 
+The recommendation in this section is **accepted under D-263**. Device/port
+allocation, reset/failure-control mechanisms and exact compatible versions remain
+to specify; acceptance of the tools is not a passing canvas integration test.
+
 Use a **host-side Kotlin/JUnit runner**, separate from the application and from
 Android instrumentation test execution. Its Appium Java-client sessions drive the
 normal Android app via the **Appium UiAutomator2 driver**. The same scenario can
@@ -45,14 +51,14 @@ address player A and B explicitly, control external failure conditions, and coll
 evidence from each device. Scenarios use readable UI-step helpers, not a second
 application/game engine or a required Gherkin/BDD layer.
 
-Proposed topology:
+Selected topology; detailed wiring remains to specify:
 
 ```text
 Host: Kotlin/JUnit scenario runner
   -> Appium/UiAutomator2 -> Android app A [and B / additional device]
                               -> exposed backend endpoint
 Docker Compose environment:
-  real backend -> real database (PostgreSQL recommended)
+  Spring Boot backend -> PostgreSQL
   synthetic catalog/art source; isolated test deliveries as needed
 ```
 
@@ -69,8 +75,8 @@ multi-device scenarios. Pin each session to its device ID and allocate distinct
 driver ports. A one-device run must report its limited coverage, not label the
 whole two-player acceptance suite passed or substitute an API-controlled opponent.
 
-Docker Compose is recommended for this reusable full-stack environment; keep
-Testcontainers as the proposed lifecycle tool for smaller server/database tests.
+Docker Compose is selected for this reusable full-stack environment; keep
+Testcontainers as the selected lifecycle tool for smaller server/database tests.
 Do not let both mechanisms independently own/reset the same E2E environment.
 Before each independent scenario, provision/reset isolated state, apply normal
 migrations, verify actual backend/catalog/database readiness, initialize only the
@@ -90,10 +96,10 @@ for observable UI conditions rather than sleeps or requiring perpetual animation
 to become globally idle. Keep animations enabled for animation-behavior scenarios.
 
 Native Compose/instrumentation tests remain useful at the component/gesture layer.
-Maestro is an alternative for simpler declarative UI journeys; prefer Appium here
+Maestro was considered for simpler declarative UI journeys; Appium is selected here
 for explicit multi-device orchestration, custom pointer sequences and process/
-failure coordination. These recommendations still need agreement and later real
-canvas integration validation; no framework automatically solves canvas targeting.
+failure coordination. Real canvas integration still needs validation; no framework
+automatically solves canvas targeting.
 
 ## Shared-engine and random-input verification — D-261
 
@@ -141,7 +147,7 @@ dispatchers, alternate screens or direct domain calls to make E2E easier.
 Coordinate two normal Android instances, adding a third for same-account/device
 cases. Isolate the whole backend environment per independent test, including
 workers, queues, sessions and external-service test deliveries. Testcontainers is
-proposed for smaller integration tests; Docker Compose is recommended for E2E.
+selected for smaller integration tests; Docker Compose is selected for E2E.
 Neither is a substitute for the E2E reset contract.
 
 Use external traffic/process controls for lost responses, disconnects, service
@@ -152,11 +158,11 @@ fails setup rather than permitting a test against uncertain state.
 
 ## Remaining technical work
 
-Agree the proposed Appium/Kotlin/JUnit/Docker Compose combination and exact
-versions, multi-device orchestration, real canvas gesture/observation APIs,
+Specify compatible Appium/Kotlin/JUnit/Docker Compose versions, build integration,
+multi-device orchestration, real canvas gesture/observation APIs,
 service/reset provisioning, deterministic race controls,
 CI/device matrix, synthetic fixtures and performance budgets. Map tests to stable
-acceptance IDs and the grouping matrix; do not equate this tool proposal with
+acceptance IDs and the grouping matrix; do not equate selected tools/proposed mechanisms with
 completed coverage or resolution of the outstanding specification review findings.
 
 References: [Appium architecture](https://appium.io/docs/en/latest/intro/),

@@ -12,10 +12,13 @@ and command-processing implementation. Client prediction is execution of that
 shared engine, not a separately written approximation. Die/coin randomness may
 be generated locally; server acceptance still establishes the shared result.
 
-**Proposed rendering direction:** the owner expects the game area probably needs
-to be entirely canvas-rendered for animation and card dragging. Use styled Compose
-components for surrounding menus and ordinary application screens where useful.
-This is not yet selection of a particular renderer/library or final screen layout.
+**Selected — D-263:** Compose Canvas for the game area and styled Compose controls
+around it; SQLite for client durability; Ktor Client/kotlinx.serialization for
+network/protocol handling; Gradle Kotlin DSL for builds. WorkManager handles
+appropriate Android background recovery, not ordinary foreground action delivery.
+Use Keystore-backed credential protection. Room Multiplatform versus SQLDelight
+remains unresolved; Coil is conditional on canvas integration. Exact versions,
+scene/input design, storage schemas and final screen layouts remain incomplete.
 
 ## Proposed module boundaries
 
@@ -113,8 +116,11 @@ define in the performance plan; canvas alone is not a performance guarantee.
 
 ## Remaining technical work
 
-- Exact Compose/canvas APIs and reusable presentation scope.
-- Local SQLite access/migrations, transport and image-cache libraries.
+- Exact Compose/canvas APIs, reusable presentation scope and conditional Coil
+  integration, without treating library selection as proof of frame performance.
+- Room Multiplatform versus SQLDelight, SQLite schema/migrations and encryption.
+- Ktor platform engines, kotlinx.serialization wire schemas and ordered WebSocket
+  delivery/resume alongside HTTPS/JSON accounts/catalog/reads.
 - Durable recovery versus UI-state restoration and account isolation.
 - Version compatibility across Kotlin, Android tooling, Compose and future targets.
 - Accessible canvas semantics, UI automation and performance verification details.

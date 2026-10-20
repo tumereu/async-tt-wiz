@@ -14,7 +14,36 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest E2E environment requirement and tool recommendation — D-262
+## Latest stack and architecture-direction acceptance — D-263
+
+The owner says the recommendations are good, accepting the preceding architecture/
+technology batch. Record selections, not another approval queue: Kotlin/JVM Spring
+Boot modular monolith, PostgreSQL/Flyway with jOOQ, Compose Canvas plus styled
+Compose shell, local SQLite, WorkManager for appropriate Android background
+recovery, HTTPS/JSON accounts/catalog/reads and ordered gameplay WebSocket with
+durable revision recovery, Ktor Client/kotlinx.serialization, Gradle Kotlin DSL,
+OpenAPI HTTP plus explicit socket schemas, Spring Security/revocable sessions and
+Keystore-backed Android credentials. Select Kotlin/JUnit/Appium Java client/
+UiAutomator2/Docker Compose E2E, native Compose component tests and Testcontainers
+for smaller integration tests. Shared types/processing and server authority remain.
+
+Preserve actual qualifications: Room Multiplatform versus SQLDelight is still an
+alternative pair, not a selected library; Coil is conditional on canvas integration.
+Exact protocol/schema/version details, scene/input/harness mechanisms, random
+algorithms, session policies and operational budgets remain design work. The
+shared Shuffle seed/canonical-permutation mechanism is still a proposal requiring
+completion/verification, not proved by accepting explicit random inputs. Catalog/
+image/email/push providers, support targets, hosting/operator budget, distribution
+and retention/privacy expectations are not selected by this acceptance.
+
+The technical index and focused docs now reflect the selections directly. Follow
+the agreed completion order: sync/ordering → server/client durability → scene/input/
+testability → security/adapters/deployment → versions/CI/performance. Do not leave
+old "not selected" prose in current design, or treat accepting tools as completion
+of protocols/design gates. This remains documentation-only; no application code,
+executable harness, UI drafts or delivery-stage transition is authorized.
+
+## Earlier E2E environment requirement and tool recommendation — D-262
 
 The owner requires E2E/scenario tests with backend + database in Docker and at
 least one normal Android app connected. This is not a retreat from D-244: one

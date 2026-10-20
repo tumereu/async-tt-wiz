@@ -17,10 +17,11 @@
 
 These are confirmed requirements, not an implementation authorization. The
 fixture examples, journey decomposition and harness mechanisms below are a design
-to implement later. No Android automation framework, backend stack or provider
-has been selected. The [test architecture](../04-technical/test-architecture.md#recommended-full-stack-scenario-system--d-262-environment)
-recommends Docker Compose and host-side Kotlin/JUnit scenarios driving normal
-Android apps through Appium/UiAutomator2; those tools remain proposals.
+to implement later. D-263 selects Spring Boot/PostgreSQL/Flyway and the
+[test architecture's](../04-technical/test-architecture.md#recommended-full-stack-scenario-system--d-262-environment)
+Docker Compose environment with host-side Kotlin/JUnit scenarios driving normal
+Android apps through Appium/UiAutomator2. Exact harness mechanisms/versions remain
+technical design; external catalog/image/email/push providers are not selected.
 See [dynamic data](../04-technical/architecture-and-operations.md#dynamic-game-data--d-243)
 and the [product contract](../03-contracts/product.md).
 

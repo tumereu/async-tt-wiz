@@ -4,10 +4,11 @@ Status: technical-design proposals unless explicitly confirmed. Native Android,
 Kotlin Multiplatform (D-260) and D-243's dynamic game-data boundary are confirmed.
 Shared client/server game-state objects and processing, permitted local die/coin
 generation and server-side jOOQ access are selected by D-261.
-The owner now requests technology agreement and client/server/test architecture
-documents alongside the specification work. Spring Boot, PostgreSQL and Flyway
-are nominated candidates for comparison, not final selections; no catalog
-provider is selected. This planning does not authorize application code or a
+D-263 accepts the recommended stack and architecture directions, including Spring
+Boot/PostgreSQL/Flyway, Compose Canvas, ordered gameplay WebSocket plus HTTPS/JSON,
+Ktor Client/kotlinx.serialization and the E2E tool combination. The table below
+separates these selections from remaining design work; no catalog provider is
+selected. This planning does not authorize application code or a
 delivery-stage transition. D-115's behavior/review/UI/implementation gates remain;
 not every schema/library choice is a prerequisite for finishing behavior work.
 
@@ -22,8 +23,8 @@ This document retains cross-cutting API, data-source, security and operational w
 - Kotlin Multiplatform core (selected, D-260), with Android-first delivery and
   no required iOS/desktop implementation. Keep shared logic independent of layouts
   and input schemes so a future desktop client can have a different interface.
-- Proposed full-canvas game area with styled Compose menus/surrounding controls;
-  exact renderer and component libraries remain to agree.
+- Compose Canvas game area with styled Compose menus/surrounding controls (D-263);
+  scene/input architecture and exact component APIs remain design work.
 - Pure domain/replay module for state transitions and structural validation,
   shared on the JVM with the server as the same game-state objects and command
   processing implementation, not separately implemented prediction logic (D-261).
@@ -52,7 +53,7 @@ server acceptance/recording remains authoritative, not a second independent roll
 - Retention, administration and observability; no user-facing deck/game export
   deliverable is implied (D-241/D-214).
 
-A modular monolith is the proposed starting point; independent microservices
+A modular monolith is the selected starting point (D-263); independent microservices
 are not needed simply to separate these responsibilities.
 
 ## 7.2 Technology agreement and remaining choices
@@ -60,18 +61,37 @@ are not needed simply to separate these responsibilities.
 | Area | Selected direction or proposed candidate | Decision still needed |
 | --- | --- | --- |
 | Shared client language/core | Kotlin Multiplatform selected (D-260) | Module/API details; future platform integrations, not delivery commitments. |
-| Android UI/rendering | Proposed canvas game area with styled Compose surrounding UI | Exact renderer/component choices, accessibility/automation mapping, minimum Android API and versions. |
-| Local persistence | Transactional SQLite via Room or equivalent | Schema, migrations, encryption requirements. |
-| Background work | Android-managed persistent work scheduling | Retry policy, foreground behavior, battery restrictions. |
-| Shared service | Proposed Kotlin/JVM Spring Boot modular monolith; owner-nominated candidate | Final runtime agreement, hosting and operator model; jOOQ data access is selected separately. |
-| Shared database | Proposed PostgreSQL; owner-nominated candidate | Final agreement, schema, backup/restore and capacity. |
+| Android UI/rendering | Compose Canvas game area with styled Compose surrounding UI selected (D-263) | Scene/animation/input design, accessibility/automation mapping, minimum Android API and versions. |
+| Local persistence | Transactional SQLite selected (D-263); Room Multiplatform or SQLDelight | Choose between those access libraries; schema, migrations, encryption and cache/recovery boundaries. |
+| Background work | WorkManager for appropriate Android background recovery selected (D-263) | Retry/lifecycle policy and battery restrictions; foreground gameplay sync must not wait for scheduled work. |
+| Shared service | Kotlin/JVM Spring Boot modular monolith selected (D-263) | Supported versions, hosting/operator model and detailed module boundaries. |
+| Shared database | PostgreSQL selected (D-263) | Schema, backup/restore, version and capacity. |
 | Server data access | jOOQ selected (D-261) | Version/edition, schema code generation and explicit transactional query design; generated records stay server-only. |
-| Database migrations | Proposed Flyway with versioned SQL; owner-nominated candidate | Final agreement, compatible versions/editions and deployment/upgrade procedure. |
-| Transport | Versioned HTTPS API; optional realtime hints | Exact resource/command model and streaming choice. |
+| Database migrations | Flyway with versioned SQL selected (D-263) | Compatible versions/editions and deployment/upgrade procedure. |
+| Transport | HTTPS/JSON for accounts/catalog/reads; ordered WebSocket for gameplay with durable revision recovery selected (D-263) | Commands/envelopes, admission order, reconnect/resume, pagination, idempotency and compatibility; a socket alone is not durable delivery. |
+| Client networking/serialization | Ktor Client and kotlinx.serialization selected (D-263) | Platform engines, wire schemas/codecs, timeout/recovery and schema evolution. |
+| Build/API contracts | Gradle Kotlin DSL and OpenAPI for HTTP selected (D-263); explicit WebSocket schemas | Module/build/version matrix, jOOQ generation and HTTP/socket schema consistency. |
+| Security/session integration | Spring Security, revocable sessions and Keystore-backed Android credential protection selected (D-263) | Session/token storage/refresh/revocation, password/reset mechanisms, email delivery and rate limits; no new account-management UI scope. |
+| Image loading | Coil conditionally accepted, subject to canvas integration (D-263) | Canvas image lifecycle/decoding/cache integration and compatibility validation. |
+| Verification | Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose E2E; Testcontainers for smaller integration tests selected (D-263) | Exact versions, runners/devices, reset/failure controls, CI and measured performance budgets. |
 | Push | Platform-compatible notification delivery | Provider, device registration, privacy and failure policy. |
 | Card source | Generic/custom definitions; MTG catalog adapter for the initial use case | Provider permission/terms, descriptive fields, update policy. |
 
-These candidates are not permission to start a scaffold or install packages.
+These selections are not permission to start a scaffold or install packages.
+
+### Architecture completion order — D-263
+
+1. Specify command/sync envelopes, ordering, request/result identities and recovery.
+2. Define server schema/transactions and client durability/reconciliation, including
+   tree revisions, snapshots, random inputs and migrations.
+3. Complete scene/input/accessibility boundaries and normal-app gesture testability.
+4. Define security/session mechanisms, external adapters and deployment/recovery.
+5. Pin compatible versions and CI/device/performance budgets.
+
+This is technical specification work, not a new implementation plan or gate pass.
+Support targets, hosting/operator budget, production catalog/art rights,
+distribution and retention/privacy expectations still need owner constraints;
+unspecified details are not automatically fresh product questions.
 
 ## 7.3 Card catalog and decks
 
@@ -197,8 +217,10 @@ Login before the main menu and available registration are required (D-188), not
 guest entry. D-197 selects username/email/password registration, email/password
 login and password reset by email. Other users see usernames, not account emails;
 do not expose email in contact/invitation/game payloads to other users. Provider,
-credential/session storage and exact reset mechanics remain technical design or
-explicit behavior gaps, not an unselected login method. End-to-end
+exact session/token storage and reset mechanics remain technical design or
+explicit behavior gaps. D-263 selects Spring Security, revocable sessions and
+Keystore-backed Android credential protection, not new account-management screens
+or arbitrary provider defaults. End-to-end
 encryption and self-hosting are also open choices, not implied by “private game.”
 
 D-249 excludes credentials from card-text trimming: preserve password whitespace

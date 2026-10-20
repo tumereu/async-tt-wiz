@@ -1,19 +1,29 @@
 # 7. Architecture and operations
 
-Status: future technical-design proposals unless explicitly confirmed. Native
-Android and D-243's dynamic game-data boundary are confirmed; no particular stack
-or catalog provider is selected. D-115 places current work in stage 1 behavior
-specification;
-adversarial behavior review is stage 2, UI drafts/decisions stage 3, and iterative
-implementation stage 4+. Do not treat these technical proposals as current-stage
-decisions or require every schema/library choice before behavior work can finish.
+Status: technical-design proposals unless explicitly confirmed. Native Android,
+Kotlin Multiplatform (D-260) and D-243's dynamic game-data boundary are confirmed.
+The owner now requests technology agreement and client/server/test architecture
+documents alongside the specification work. Spring Boot, PostgreSQL and Flyway
+are nominated candidates for comparison, not final selections; no catalog
+provider is selected. This planning does not authorize application code or a
+delivery-stage transition. D-115's behavior/review/UI/implementation gates remain;
+not every schema/library choice is a prerequisite for finishing behavior work.
+
+Focused proposals: [client](client-architecture.md),
+[server](server-architecture.md), and [test architecture](test-architecture.md).
+This document retains cross-cutting API, data-source, security and operational work.
 
 ## 7.1 Proposed boundaries
 
-### Android application
+### Android application and reusable core
 
-- Native UI and platform integration.
-- Pure domain/replay module for state transitions and structural validation.
+- Kotlin Multiplatform core (selected, D-260), with Android-first delivery and
+  no required iOS/desktop implementation. Keep shared logic independent of layouts
+  and input schemes so a future desktop client can have a different interface.
+- Proposed full-canvas game area with styled Compose menus/surrounding controls;
+  exact renderer and component libraries remain to agree.
+- Pure domain/replay module for state transitions and structural validation,
+  reusable on the JVM by a possible Kotlin/Spring Boot service.
 - Board/object/container primitives plus explicitly specified manual-play
   conveniences, including D-112–D-114 projections/assignments/Stack quick actions.
   No automatic card-text rules, legality validators, or inferred game effects.
@@ -39,15 +49,17 @@ service's validation semantics through shared code or cross-platform fixtures.
 A modular monolith is the proposed starting point; independent microservices
 are not needed simply to separate these responsibilities.
 
-## 7.2 Technology decisions still to approve
+## 7.2 Technology agreement and remaining choices
 
-| Area | Proposed candidate | Decision still needed |
+| Area | Selected direction or proposed candidate | Decision still needed |
 | --- | --- | --- |
-| Android UI/language | Kotlin and Jetpack Compose | Minimum Android API; exact libraries/versions. |
+| Shared client language/core | Kotlin Multiplatform selected (D-260) | Module/API details; future platform integrations, not delivery commitments. |
+| Android UI/rendering | Proposed canvas game area with styled Compose surrounding UI | Exact renderer/component choices, accessibility/automation mapping, minimum Android API and versions. |
 | Local persistence | Transactional SQLite via Room or equivalent | Schema, migrations, encryption requirements. |
 | Background work | Android-managed persistent work scheduling | Retry policy, foreground behavior, battery restrictions. |
-| Shared service | Single deployable application | Runtime/language, hosting and operator model. |
-| Shared database | Transactional relational database | Engine, schema, backup/restore and capacity. |
+| Shared service | Proposed Kotlin/JVM Spring Boot modular monolith; owner-nominated candidate | Final stack agreement, data-access library, hosting and operator model. |
+| Shared database | Proposed PostgreSQL; owner-nominated candidate | Final agreement, schema, backup/restore and capacity. |
+| Database migrations | Proposed Flyway with versioned SQL; owner-nominated candidate | Final agreement, compatible versions/editions and deployment/upgrade procedure. |
 | Transport | Versioned HTTPS API; optional realtime hints | Exact resource/command model and streaming choice. |
 | Push | Platform-compatible notification delivery | Provider, device registration, privacy and failure policy. |
 | Card source | Generic/custom definitions; MTG catalog adapter for the initial use case | Provider permission/terms, descriptive fields, update policy. |

@@ -14,7 +14,29 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest confirmations — shared switches and server/UI authority, D-258/D-259
+## Latest architecture discussion — D-260
+
+The owner requests technology agreement and focused client/server/test architecture
+documents now. Kotlin Multiplatform is selected for Android-first delivery with a
+shared core reusable by possible iOS/desktop clients; desktop may have different
+UI/controls. Extra platforms are options, not initial-delivery commitments.
+
+The owner expects the game area probably needs to be entirely canvas-rendered for
+card dragging/animation, with styled Compose surrounding menus as an option. Exact
+renderer/component libraries remain proposals. Spring Boot, PostgreSQL and Flyway
+are nominated with a request to compare alternatives, not yet final selections.
+The [technical index](../design/04-technical/README.md) now links initial
+client/server/test architecture proposals. Recommend Kotlin/JVM Spring Boot,
+PostgreSQL and Flyway SQL migrations; keep data access, protocol, test frameworks,
+versions and operational details unselected. Canvas requires explicit normal-app
+accessibility/UI-test semantics and real gesture verification; it does not waive
+D-244's real-app/real-service/synthetic-data acceptance boundary.
+
+This is documentation planning only, not completed design gates or authorization
+for implementation, UI drafts, executable tests or a delivery-stage transition.
+Outstanding behavior-review findings below remain separate work.
+
+## Earlier confirmations — shared switches and server/UI authority, D-258/D-259
 
 **Subsequent review request:** the owner asks for an adversarial review of the
 current specs and a walkthrough. The [current report](adversarial-review-2026-10-20-current.md)

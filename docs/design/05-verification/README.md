@@ -16,5 +16,9 @@ These are specified outcomes, not passing executable application tests. They
 inherit each underlying contract's confirmed/proposed status; a scenario does not
 approve its own feature.
 
+The remaining-point completion adds T-647–T-663, revises superseded crash-durable
+client/exposure oracles, and supplies [literal random/UUID v1 vectors](random-v1-vectors.md).
+Runtime/device/performance budgets are specified targets, not measurements.
+
 Agent delivery gates and implementation-loop instructions live separately in
 [the delivery workflow](../../agent/delivery-workflow.md).

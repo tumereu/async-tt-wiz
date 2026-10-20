@@ -54,8 +54,10 @@ Do not silently promote a proposal to an approved requirement during coding.
 
 ## Current status
 
-**Documentation only; behavior specification is incomplete. No application
-implementation or later-stage transition is authorized.**
+**Documentation only. The identified remaining-point batch (D-278–D-284) is
+specified for the owner's separate review; this is not a certification that all
+possible defects are absent. No application implementation or stage transition is
+authorized.** See [current completion disposition](design/02-experience/gaps.md#remaining-point-batch-disposition--d-278d-284).
 
 The confirmed delivery order remains: behavior specification → adversarial review
 and refinement → UI decisions → explicitly authorized iterative implementation.

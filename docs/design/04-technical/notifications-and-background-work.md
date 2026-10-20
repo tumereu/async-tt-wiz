@@ -16,7 +16,14 @@ notifications does not block login/gameplay or authorize another delivery path t
 bypass the user's choice. The [Android contract](../03-contracts/android-experience.md#59-notifications)
 owns user-visible scope; additional alert categories remain excluded under D-241.
 
-## Proposed delivery and scheduling design
+## Selected routing and technical delivery — D-282/D-284
+
+D-282 confirms two Android channels, **Invitations** and **Game activity**, activity
+coalesced per game, delivery to every logged-in registered installation, and local
+suppression of that game's activity notification while its game screen is actively
+displayed. Review/playback still counts as displaying the game; backgrounded screens
+do not. Suppression is delivery bookkeeping, not proof the player watched a group.
+Invitation notifications are not suppressed merely because another game is open.
 
 - Keep foreground gameplay on D-263's WebSocket/revision-recovery path; do not wait
   for a scheduled worker to send ordinary actions. Do not maintain an always-on
@@ -29,7 +36,11 @@ owns user-visible scope; additional alert categories remain excluded under D-241
   on non-FCM installations. It does not require Google Play services. Android's
   periodic-work minimum is 15 minutes, **not** a guaranteed 15-minute detection
   deadline; Doze, standby, battery restrictions and network loss can delay work.
-  The actual configured cadence remains to design against battery/server cost.
+  Select 15-minute periodic work with network-required constraint, flex allowed by
+  Android, no exact-alarm permission or persistent foreground service. This is a
+  requested cadence, never a delivery guarantee. Use exponential retry 30 seconds
+  to 6 hours for transient failures; respect server Retry-After. FCM-unregistered/
+  unavailable installations use this path; foreground always refreshes directly.
 - AlarmManager remains an alternative for a demonstrated scheduling need, not a
   way to escape Android's background/network limits. Repeating alarms are inexact;
   exact alarms require special access on modern Android and are not justified by
@@ -56,11 +67,43 @@ owns user-visible scope; additional alert categories remain excluded under D-241
   absent or Android prevented background execution. Push/poll failure never rolls
   back a committed action, fabricates rejection or loses request/exposure recovery.
 
-The preceding two-channel proposal, foreground suppression, all-device routing,
-FCM retry/TTL/payload details and exact aggregation windows are still proposals;
-optional FCM approval does not finalize them. Optionality does not require a new
-R1 mute/provider configuration UI. Exact SDK packaging/init/privacy choices remain
-technical work, including how an installation avoids FCM registration entirely.
+Use account-scoped monotonically ordered activity IDs. `/activity?after=cursor`
+returns invitation attempts and changed game summaries, latest activity/group IDs,
+next cursor and actual retention floor, up to 100 entries/page. Retain hints 30 days;
+below-floor clients receive explicit summary-reset with current outstanding invites/
+latest game activity and initialize dedup state without replaying every old alert.
+This is not a history/read-receipt API. Never poll a whole game tree to find alerts.
+
+For each opponent-author/group, coalesce using 2-second quiet window, maximum
+10 seconds from first pending activity. Group extension updates the same per-game
+notification ID (silent update if already alerted for that group); next group may
+alert again, still under one per-game notification. Game sync never waits for this
+window. Invitation ID is the attempt identity. Stable `(account,game,group/activity)`
+deduplication prevents push/poll overlap from repeatedly alerting unchanged work.
+Write delivery watermark/notification replacement identity before posting; a crash
+can lose an alert rather than repeatedly post it. No exactly-once OS guarantee.
+
+FCM uses **data-only** hints with opaque account/session registration generation,
+game/attempt/activity IDs, no names/card/chat content or auth token. The app validates
+current account/session, fetches authorized summary and applies suppression/channel
+checks before posting. Never allow Android auto-displayed payloads to bypass Logout
+or foreground suppression. FCM TTL 24 h, per-game collapse where available; service
+transient retries 1/5/15/60 min bounded by TTL, permanent invalid registration disables
+that registration. Polling/foreground covers missing hints. No push-delivery SLA.
+
+Runtime notification permission on Android versions requiring it is requested in
+context when enabling invitation/activity alerts, not a login gate. Default channel
+importance is normal/default, no custom sound/override of user choice. No R1 in-app
+global/per-game mute. Provide a normal non-FCM build/configuration path with no
+Firebase initialization/registration, plus an optional configured FCM adapter; no
+required startup Google-service request or new provider-selection UI.
+
+Registrations are session+installation bound. Logout revokes/removes registration,
+cancels posted account notifications/jobs and increments local account generation;
+fence late worker/socket callbacks before writing/posting. Reset-time revocation
+invalidates all old registrations; foreground/session check prevents stale displays.
+Muted/foreground-suppressed activity advances local dedup progress, not review
+progress. Other installations apply their own local suppression independently.
 No app, scheduler or executable tests are implemented or authorized here.
 
 References checked 2026-10-20:

@@ -14,7 +14,78 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest prediction cascade, late acceptance and live/playback — D-277
+## Latest remaining-point completion — D-278–D-284
+
+The owner asked to finish remaining specifications and will open an independent
+review session themselves. Do not spawn reviewers, automatically start UI work or
+implement/scaffold anything. The current batch is ready for that review, not a
+proof every defect is absent or a review/UI gate pass. Older "next" directions and
+technical-open labels below are historical where this section supersedes them.
+
+Owner choices collected together:
+
+- **D-278:** lost local requests are acceptable. The app can crash even before
+  persistence; on startup sync the server and resume there. Follow-up explicitly
+  selected server-first restart and **allow lost exposure records**. No required
+  crash-durable outgoing/prediction/exposure journal or disk-before-display gate.
+  Same-process reconnect keeps original IDs/guards/random inputs and withdrawal
+  flags; process death drops the overlay/queue, never recreates it. Logout also
+  clears volatile account work/private downloads and fences callbacks. Server inbox/
+  outcomes stay durable, so admitted late effects still arrive normally. The owner
+  accepts that lost unreported hidden inspection weakens prior exposure safeguards;
+  server-retained records govern Undo/Redo, not inferred knowledge. No offline play.
+- **D-279:** password reset revokes all sessions **after reset succeeds**, not when
+  email is requested/sent/opened. Failure/expired/reused links do not revoke.
+- **D-280:** MTGJSON records + Scryfall lazy printing/face artwork, bounded startup
+  metadata update check. Provider/upstream rights remain a release check.
+- **D-281:** no Select/Ping double-tap recognizer, two immediate independent mode
+  taps. Normal single-tap Actions / double-tap orientation remains D-267.
+- **D-282:** Invitations/Game activity channels, per-game coalescing, all logged-in
+  registered installations, local game-activity suppression while displaying that
+  game. FCM optional, polling best effort, no R1 in-app mute/read receipt.
+- **D-283:** no automatic age expiry of required current-game data/outcomes;
+  production erasure requests/timelines/backups are explicit external operator
+  responsibilities, not an R1 deletion UI/legal clearance/shared cascade permission.
+
+**D-284 records the instruction to finish technical details**, not individual owner
+endorsement of each encoding/engineering parameter. The following initial technical
+contracts implement the selected behavior and are reviewable/revisable technical
+choices, not new product proposals or executed code:
+
+- [Protocol v1](../design/04-technical/protocol-v1.md): JSON/UUID/canonical bytes,
+  stream fencing/sequence/readiness, request/receipt/outcome/revision correlation,
+  deterministic predicted output IDs, exact-reference controls, baseline crossing
+  pending effects, HTTP surface/version compatibility and complete gzip chunk export.
+- [Storage mechanics](../design/04-technical/storage-mechanics.md): logical tables/
+  indexes, single-service serialized per-game ingress, DB writer ownership,
+  account→game→stream locking, atomic inbox execution, replay/reference repair,
+  N=1000 effective successors plus CPU/effect/memory budgets, leases/pins/cache-window
+  defaults, crash matrix and retention/erasure boundary. Server durability is not
+  weakened by D-278 client simplification.
+- [Runtime/verification profile](../design/04-technical/runtime-and-verification-profile.md):
+  domain-separated SHA-256 counter generator, unbiased sampling/Fisher–Yates and
+  canonical member order, numeric text grammar, JVM21/PostgreSQL17/API29 + SDK36
+  baseline, module/container/configuration/health/migration/release contracts,
+  explicit input/backpressure/cache defaults and device/workload/performance targets.
+  Exact dependency patch lockfiles are later clean-build qualification, not a
+  guessed version matrix or more framework selection.
+- Auth/catalog/notification documents complete opaque Keystore-protected tokens,
+  Argon2id/reset/SMTP/race ordering, staged MTGJSON/Scryfall safe downloads and
+  permission/routing/suppression/dedup/poll/FCM defaults. No analytics upload SDK.
+- [Literal random/UUID vectors](../design/05-verification/random-v1-vectors.md) were
+  independently calculated with Python stdlib, not executed Kotlin/app tests.
+  T-647–T-663 supplement corrected old crash/exposure/gesture/provider/upgrade oracles.
+
+The primary history/account/domain/Android contracts, product summaries and gap
+disposition now state the supersession. Remaining generated OpenAPI/JSON Schema,
+DDL/build catalogs, executable fixtures and measured qualification are artifacts
+of the later authorized implementation loop; their semantics are specified here,
+not license to adopt conflicting library defaults. Exact controls/layout/easing/
+accessibility presentation remain the UI gate. Production operations/erasure/rights
+checks are not declared fulfilled. Save this documentation batch using normal
+checks and `scripts/save.sh`, with no unrelated work.
+
+## Earlier prediction cascade, late acceptance and live/playback — D-277
 
 The owner confirms the three-layer prediction model and stresses that after local
 moves M1 A→B, M2 B→C, M3 C→D, incorporating expected M1 must leave the displayed D

@@ -21,7 +21,8 @@ to implement later. D-263 selects Spring Boot/PostgreSQL/Flyway and the
 [test architecture's](../04-technical/test-architecture.md#recommended-full-stack-scenario-system--d-262-environment)
 Docker Compose environment with host-side Kotlin/JUnit scenarios driving normal
 Android apps through Appium/UiAutomator2. Exact harness mechanisms/versions remain
-technical design; external catalog/image/email/push providers are not selected.
+build qualification. D-280 selects MTGJSON/Scryfall; SMTP and optional FCM use
+replaceable synthetic adapters in tests, never live provider dependencies.
 See [dynamic data](../04-technical/architecture-and-operations.md#dynamic-game-data--d-243)
 and the [product contract](../03-contracts/product.md).
 
@@ -46,7 +47,7 @@ D-267 corrects helper gestures: a normal `tapCard` orientation action uses a rea
 double tap; opening card Actions uses a single tap with no orientation request.
 Do not silently keep the old inverse mapping or count the double tap as two game
 mutations. Select/Ping single taps retain their mode meaning; no-double-tap mode
-recognition is tentative and its conditional cases cannot count as approved tests.
+recognition is confirmed absent by D-281; rapid pairs are two independent mode taps.
 
 Required outcomes are asserted through visible app behavior on the relevant
 instances, including inspection and history screens. Backend logs and read-only
@@ -127,7 +128,7 @@ game/definition state via setup APIs. Introduce a new catalog token after start
 through UI too. Block external imagery independently of game-service access and
 verify lazy loading/text fallback. Arbitrary-definition/colliding-external-ID and
 malformed-payload protocol tests supplement, not replace, those UI journeys
-(T-627/T-628). Conditional startup-update T-629 uses synthetic source metadata,
+(T-627/T-628). Confirmed startup-update T-629 uses synthetic source metadata,
 never a live MTGJSON dependency or a built-in test-only card path.
 
 Suggested fixture coverage:
@@ -159,7 +160,7 @@ T-IDs link to [existing acceptance outcomes](acceptance.md), not new gameplay.
 | Entry, import and first game | None; the two users register through UI. | Register/login → import a named deck with sideboard → correct an unknown/ambiguous import → choose cover → add opponent → invite/accept → prepare decks/starter → both Ready. Check own-Ready clearing, 20 life, turn 1 Untap, no automatic hand draw and no Sideboard access in play. | T-396–T-405, T-417–T-454. |
 | Invitation lifecycle | Users and saved decks only. | Inviter prepares/readies before acceptance → recipient declines → inviter re-invites to same lobby → accepts → leave/reopen without cancellation → cancel an unstarted lobby. Check retained preparation and current-game listing. | T-414–T-416, T-448–T-463, T-542. |
 | Manual play and result round trip | Users and saved decks only. | Invite/start → use mulligan actions → draw/move/tap → edit life/corner/counter/note → View/Reveal and inspect from both sides → suggest result → opponent catches up through final board changes and the singleton suggestion before its acceptance dialog → accepts → restored lobby with both unready → Ready/start a fresh game. Repeat arrival while earlier groups are paused and removed/inactive suggestion variants. Assert exact visible changes, immediate sync and no inferred game effects. | T-007, T-078–T-090, T-102–T-123, T-406–T-413, T-464–T-472, T-603–T-604. |
-| Corrected card input and scene targeting | Users and saved decks only. | Start → normal single-tap selected/unselected Actions → double-tap orientation → hold/drag → camera transforms and an animated-card target. Verify scope, no menu/orientation double dispatch, visible geometry, single semantic operations and accessible alternatives. Select/Ping rapid-pair variant remains conditional on its tentative proposal. | T-037–T-038, T-057, T-064–T-068, T-071, T-619; conditional T-620. |
+| Corrected card input and scene targeting | Users and saved decks only. | Start → normal single-tap Actions → double-tap orientation → hold/drag → camera/animated target. Verify binding/no double dispatch/visible geometry/accessibility. D-281 Select/Ping rapid pairs are two independent immediate mode taps. | T-037–T-038, T-057, T-064–T-068, T-071, T-619–T-620. |
 | Saved-deck copy isolation | Users and saved decks only. | Select decks in a lobby → edit/re-import, rename and delete saved sources through Manage decks → return to lobby/start → confirm selected preparation is unchanged. Exercise Replace and Save as new in separate variants. | T-428–T-432, T-491–T-492, T-542. |
 | Combat and live Stack sources | Users and saved decks only. | Start and place cards through normal moves → create combat/Stack projections → edit through projections → move real source to Graveyard/Exile → create another ability there → remove effects. Check live write-through, normal resets, combat cleanup and independent effects. | T-220–T-245, T-545–T-546. |
 | Token disappearance | Users and saved decks only. | Start → create a catalog token/Blank → customize/Clone → create Stack effects → change source again → Remove or move token to a disappearance destination → inspect surviving effects → remove one. Check last-live read-only information and no replacement source. | T-157–T-167, T-547–T-548. |
@@ -168,7 +169,7 @@ T-IDs link to [existing acceptance outcomes](acceptance.md), not new gameplay.
 | Connection loss and process restart | Users and saved decks only. | Start → perform a UI action with an externally delayed/lost response → disconnect → verify gameplay blocking/read-only downloaded review → restart/reconnect → observe automatic recovery once and stable recorded random outcomes. Preserve app data during this test. | T-475–T-482, T-532. |
 | Locally sampled random results | Users and saved decks only. | Start → Roll die/Flip coin through normal UI with externally delayed responses → observe provisional results → compare both players' accepted history → lose a committed response/restart/reconnect. Verify the same sample/result once throughout, no independent server reroll, offline invocation or automatic replacement roll; do not inject a chosen outcome through helper calls. | T-169–T-171, T-181, T-612. |
 | Same-account multi-device | Users and saved decks only. | Log the same player in on two normal instances, opponent on a third → start through UI → action on phone, Undo on tablet, Redo on phone → distinct concurrent Undo presses → normal independent edits. Check synchronized player-specific stack and no exclusive-device barrier. | T-483–T-485, T-529–T-533. |
-| Logout privacy | Users and saved decks only. | As A initiate an unknown-outcome action or durably captured logged exposure not yet transmitted → Logout/process death → login as B → confirm no access/publication of A data → login as A and recover once. Do not clear app data/reset between checkpoints. | T-543, T-600–T-601. |
+| Logout privacy and crash loss | Users and saved decks only. | As A initiate uncertain action/exposure → Logout/process death before and separately after server admission → login B → verify isolation → login A and sync server. Unadmitted work can be lost under D-278; no durable outgoing replay. Do not reset app/backend between checkpoints. | T-543, T-600–T-601, T-647. |
 | Dynamic catalog and artwork | Users only; import decks through UI. | Start using catalog A → inspect art/faces/defaults → publish catalog B externally → resolve/import new definitions normally → reopen/review the existing game → simulate missing images and inspect text fallback. Repeat with the alternate dataset without rebuilding the app/backend. | T-023, T-122–T-124, T-549–T-550. |
 | Bulk conflicts and normalized targeting | Users and saved decks only. | Through UI select/drop multiple cards; externally arrange both server arrival orders against opponent UI moves. Select a source and its effects, apply card edits/Clone versus occurrence removal. Open selected/unselected Actions and change selection during Set. Check exact mutated identities and partial authoritative placement, not only highlights. | T-554–T-557, T-566–T-571. |
 | Retained future and Redo target fidelity | Users and saved decks only. | Build dependent/independent paths through UI, vary personal review, explicitly activate internal nodes, then Undo. In separate no-switch fixtures build P/Q/R counter/note sequence and remove R/P before Redo R. Inspect unchanged retained nodes and blocked stacks; do not carry a pre-switch Redo queue through activation under D-258. | T-558, T-562–T-563, T-609. |

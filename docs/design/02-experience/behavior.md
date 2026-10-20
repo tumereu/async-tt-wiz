@@ -51,14 +51,12 @@ The general rules are:
 - Stay logged in across restarts and long inactivity, with no routine time-based
   session expiry (D-268). Use a persistent revocable token rather than saving the
   password. If access is explicitly invalidated or the saved token is lost, log in
-  again, then return to the same game and recover pending already-sent actions
-  without manual resending/duplicate execution (D-217). Exact token mechanics and
-  reauthentication-required offline navigation still need contracts. Explicit
-  Logout removes private downloaded content, preserving protected recovery records
-  for already-sent requests and logged exposure durably initiated online before
-  transmission; another account must never access/publish that data (D-241).
-  Session invalidation alone is not deliberate Logout. Server retention/account-erasure
-  obligations remain privacy/service design.
+  again, then return to the same game and recover surviving same-process requests
+  without duplicates. D-278 restart instead synchronizes from server state and may
+  lose local outgoing work/exposure reports; no durable outgoing journal. Explicit
+  Logout clears token/private downloads and volatile work, fencing late callbacks
+  from another account. Session invalidation alone is not deliberate Logout.
+  D-279 revokes all sessions on successful password reset, not on sending email.
 - Use the same account on multiple devices, with saved decks, contacts and games
   synchronized between them (D-218). Existing lobby/game deck copies stay isolated
   from saved-deck changes. Exact simultaneous-edit conflict handling and transfer
@@ -156,7 +154,7 @@ The general rules are:
 - Select mode lets single card taps add/remove individual cards instead of opening
   Actions or rotating them. Switching it off preserves selection; inspection and
   accessible Actions remain available. D-267 proposes no double-tap recognizer in
-  Select/Ping modes (each tap acts independently); that mode change remains tentative.
+  Select/Ping modes (each tap acts independently); D-281 confirms that mode change.
   Ping mode and Select mode are mutually exclusive, preserving selection.
 - Normally, double tapping an unselected card to tap/untap, or dragging it, clears
   the previous selection and affects only that card. A single tap opening Actions
@@ -524,9 +522,9 @@ The general rules are:
   other-face inspection requiring new exposure logging. Own-area hold is unlogged
   and may read downloaded real faces; opponent holds conceal hidden information.
   Downloaded recorded visible content and personal traversal remain readable.
-  Online exposure is captured
-  before display and survives rejected predictions/restart without an automatic
-  gameplay branch; recovering already-initiated records is not offline play.
+  Online exposure is captured/reported in memory independently of board acceptance,
+  without an automatic branch. D-278 permits loss before server admission on process
+  death/Logout; retained server exposure governs controls, not inferred knowledge.
 - Historical pings/comments record at current shared context while referring to
   the selected historical context separately. Do not insert them into old history,
   activate it, merge non-contiguous groups or render future overlays at old boundaries.
@@ -607,6 +605,11 @@ The general rules are:
   (D-182). Show connection and online-pending/accepted/rejected states honestly.
   Preserve recoverable unfinished input and records of already-started online
   requests; this does not authorize offline action submission.
+- D-278: an app crash can lose local actions, predictions and exposure reports not
+  admitted by the server. Restart synchronizes accepted state without recreating
+  them. Already-admitted work still completes and arrives normally; retained server
+  exposure records govern controls even if an unreported inspection was lost.
+  Backgrounding without process death keeps normal in-memory reconnect recovery.
 - When disconnected, show a **Reconnecting... dialog that blocks gameplay
   actions**, including shared Undo/branch controls. This does not turn ordinary
   online acknowledgements into a blocking dialog or declare in-flight requests
@@ -656,8 +659,9 @@ The general rules are:
   data must not silently change existing game/history meanings or retained face
   defaults. D-270 selects client downloads of card records and art from public
   sources with local storage/reuse, not a catalog/art bundle or mandatory backend
-  image proxy. The provider, update cadence and download/cache budgets remain to
-  design. D-271 confirms loading/caching images on demand. The game supplies its
+  image proxy. D-280 selects MTGJSON records/startup metadata checks and Scryfall
+  lazy artwork; updates stage safely and never block usable existing games.
+  D-271 confirms loading/caching images on demand. The game supplies its
   retained card definitions even when an opponent's card is absent from your local
   catalog; missing artwork uses text and does not block play. New deck imports
   must resolve records, not download all images or require the newest full catalog.
@@ -682,8 +686,10 @@ The general rules are:
   per-game mute settings are **post-R1**, not required app settings (D-220).
   Respect Android settings for both push and polling-generated notifications;
   invitation/activity notifications remain in R1 without mandatory FCM.
-- Exact cadence, permissions/defaults, channel categories, foreground suppression,
-  multiple-device routing and additional alert categories remain open. See the
+- D-282 confirms Invitations/Game activity channels, per-game coalescing, routing
+  to every logged-in registered installation and local activity suppression while
+  that game is actively displayed. Polling/windows/permission/dedup defaults are
+  technical profile rules; extra alert categories remain excluded. See the
   [notification contract](../03-contracts/android-experience.md#59-notifications).
 
 ## Scope and unresolved behavior

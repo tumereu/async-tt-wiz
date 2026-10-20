@@ -54,9 +54,10 @@ Keep four distinct logical categories; this does not require four database files
    Partial staging still distinguishes unfetched from nonexistent records and
    carries coherent revision-qualified chunks/pages; only complete coverage may
    be labelled a completed full download.
-2. **Durable recovery:** original requests/random inputs and protected exposure
-   obligations. Baseline replacement, cache eviction and Logout never silently
-   discard these; preserve account isolation and original lifecycle fences.
+2. **Volatile recovery (D-278):** original requests/random inputs, active/withdrawn
+   flags and best-effort exposure reports live in process memory. Baseline repair
+   preserves surviving memory, but process death/Logout drops it. No crash-durable
+   outgoing table or exposure journal. Server-admitted work remains durable.
 3. **Disposable caches:** derived snapshots, refetchable catalog data and images.
    Retained essential per-game definitions/defaults are not disposable server data.
 4. **Personal state:** drafts, review positions and appropriate UI restoration data,
@@ -64,7 +65,8 @@ Keep four distinct logical categories; this does not require four database files
 
 D-277 keeps active-versus-withdrawn prediction disposition separate from immutable
 request intent and final server outcome. A withdrawn already-sent prediction must
-not be re-added on restart or lose its recovery record; late accepted deltas are
+not be re-added during same-process recovery; restart drops the overlay/journal.
+Late accepted deltas are
 ordinary authoritative changes, not a request to replay the old overlay. Personal
 live/playback mode and last presented boundary are distinct from accepted sync
 revision, since background delivery can advance data before it was watched.
@@ -105,7 +107,15 @@ D-276 makes initial/full recovery include every retained current-game continuati
 normal play/reconnect remains incremental. Compression/chunking does not change that
 complete-download target or require storing a full board snapshot for every node.
 Finished-game archives remain outside R1; permanent retention/account erasure and
-removed-record disposal remain separate service/privacy policy.
+removed-record disposal use D-283's no-age-expiry required-current-game boundary
+and external operator erasure responsibility, not a new finished-game feature.
+
+The [storage mechanics](storage-mechanics.md) now supplies concrete logical tables,
+indexes/locks, replay/N budgets, cache/lease/retention defaults and crash matrix.
+[Protocol v1](protocol-v1.md) supplies encoding/transfer/result correlation;
+[runtime profile](runtime-and-verification-profile.md) supplies migrations/build
+qualification and resource/verification parameters. Older "exact ... design work"
+labels here are completed by those contracts, not additional product decisions.
 
 References: [SQLDelight multiplatform SQLite](https://sqldelight.github.io/sqldelight/latest/multiplatform_sqlite/),
 [Room Multiplatform](https://developer.android.com/kotlin/multiplatform/room).

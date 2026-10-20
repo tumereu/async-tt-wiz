@@ -1,9 +1,24 @@
-# Tier 4 — Technical design proposals
+# Tier 4 — Technical specifications and recorded proposals
+
+D-278–D-284 finish the current remaining-point batch, without passing the review/UI
+gates. The three completion documents below supply the concrete initial mechanism/
+parameter profile where older architecture summaries still say "exact ... open".
+They distinguish technical choices from owner-approved policy and measured evidence.
+
+- [Protocol v1](protocol-v1.md): types/envelopes, stream resume/fencing, result/delta
+  correlation, provisional output IDs, lifecycle/control races, HTTP reads, complete
+  tree chunks and compatible versions.
+- [Storage mechanics](storage-mechanics.md): relational schema/index boundaries,
+  ingress/worker transactions, Undo/Redo/reference replay, N/budgets, server-first
+  restart, retention and baseline leases.
+- [Runtime and verification profile](runtime-and-verification-profile.md): exact
+  random algorithm, runtime/container/build/release contract, security/resource/
+  backpressure defaults, device/workload/performance targets and test evidence.
 
 - [Client architecture](client-architecture.md): selected Kotlin Multiplatform
   and Compose Canvas direction, shared core, accepted scene/gesture-coordinator
   boundaries and platform-specific interfaces. D-267 corrects normal card input
-  to single-tap Actions and double-tap tap/untap; mode double taps remain tentative.
+  to single-tap Actions and double-tap tap/untap; D-281 confirms independent Select/Ping taps.
 - [Prediction and playback](prediction-and-playback.md): three-layer client state,
   cascade withdrawal without cancelling server requests, late accepted updates,
   live/grouped background catch-up and endpoint animation (D-277).
@@ -20,14 +35,14 @@
   revision retention from gameplay history and request recovery.
 - [Authentication and sessions](authentication-and-sessions.md): non-expiring
   revocable login tokens without saved passwords (D-268), account-safe recovery,
-  and security/reset mechanisms still proposed.
+  Argon2id/reset/token mechanics and D-279 reset-time revocation of all sessions.
 - [Notifications and background work](notifications-and-background-work.md):
   optional FCM and best-effort polling fallback (D-269), recommended WorkManager
   scheduling, Android limits and account-safe delivery independent of game sync.
 - [Card data and artwork](card-data-and-art.md): client public-source downloads
   and local reuse (D-270), lazy images and arbitrary client-supplied game definitions
-  shared despite stale catalogs (D-271), Cockatrice source research, tentative
-  MTGJSON startup checks and the alternative Scryfall recommendation, not licensing
+  shared despite stale catalogs (D-271), Cockatrice research and selected MTGJSON
+  records/startup checks plus Scryfall lazy art (D-280), not licensing
   approval.
 - [Test architecture](test-architecture.md): selected Docker backend/database
   boundary; selected Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose scenarios,
@@ -37,7 +52,7 @@
   selected revision recovery/checkpoint state verification, optional older
   checksum-chain proposal, recovery, access and retention. D-274 selects shared
   seeded Fisher–Yates Shuffle and server-resolved Random starter at game start;
-  exact generator/encoding/version details remain to specify. D-276 initial/full
+  generator/encoding/version v1 is in the runtime profile. D-276 initial/full
   recovery downloads the complete retained current-game tree; normal sync remains
   incremental and compression/chunking does not mean default lazy branches.
 - [Architecture and operations](architecture-and-operations.md): proposed system

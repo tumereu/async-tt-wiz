@@ -15,8 +15,8 @@ authorization. D-185's difference-only correction remains the governing invarian
 
 1. **Accepted replica:** durable server-confirmed tree/current state/control and
    revision, with D-276 complete current-game history after full download.
-2. **Request journal:** original request identities/intent/guards/random inputs,
-   delivery/admission/final-result bookkeeping and protected exposure recovery.
+2. **Volatile request journal (D-278):** original request identities/intent/guards/
+   random inputs, delivery/admission/final-result bookkeeping and best-effort exposure reporting.
    Active versus withdrawn prediction is separate from final request outcome.
 3. **Displayed target:** live accepted state plus still-applicable active pending
    predictions, or the chosen revision-qualified historical boundary in playback.
@@ -25,7 +25,7 @@ authorization. D-185's difference-only correction remains the governing invarian
 Use the same Kotlin processor for prediction and authoritative semantics. Keep
 accepted-base storage separate from pending intent; derive/rebuild prediction from
 the current materialized base rather than replaying the entire downloaded tree on
-every update. Persist original requests/exposures before showing their effects;
+every update. Capture original requests/exposures in memory before showing effects;
 ordinary transmission and local interaction never wait for earlier acknowledgements.
 
 ## Accepted updates and pending overlay
@@ -51,7 +51,7 @@ ordinary transmission and local interaction never wait for earlier acknowledgeme
 - Track withdrawn predictions separately from the immutable request journal.
   Once withdrawn they do not re-enter the speculative overlay merely because a
   later accepted state would make their original guards applicable. Preserve that
-  disposition through restart/recovery; only actual accepted effects can bring
+   disposition through same-process recovery; only actual accepted effects can bring
   those moves back, not replay of the cancelled prediction sequence.
 - If the server subsequently accepts a withdrawn move, treat the committed delta
   like any incoming opponent/other-device change: apply it once in revision order,
@@ -66,12 +66,16 @@ ordinary transmission and local interaction never wait for earlier acknowledgeme
   coherent base/pending/display transition, not transient intermediate rewinds.
   A known final rejection/no-op retires its outstanding visual effect as applicable;
   it does not wait for an invented gameplay delta that will never exist.
-  Exact result/delta correlation/SQL transaction representation remains design.
+  [Protocol v1](protocol-v1.md) defines result/delta/baseline correlation; accepted
+  replica transactions are defined in [storage mechanics](storage-mechanics.md).
 
 Recomputation is semantic and prompt; animation does not gate it. Persist accepted
 data/cursor atomically and retain independent request/exposure recovery. New state
 must not silently alter the account/play-incarnation/preparation context, create
-offline work or authorize generic replay/cancellation of never-transmitted buffers.
+offline work. D-278 process restart drops this journal/overlay and synchronizes
+accepted server state; no durable outgoing/exposure recovery is required. An
+unreported exposure may be lost, not inferred from cached content. Server-admitted
+late acceptance remains an ordinary incoming change. Logout discards volatile work.
 
 ## Live and playback coordination
 
@@ -115,4 +119,5 @@ interpolation never becomes a stored board state or affects conflict/randomness.
 Pause/scrub selects real nodes, not interpolated poses. Exposure/random/reference
 records are not inferred away merely because endpoints coincide. Timing, easing,
 reduced motion, exact mode controls/autoplay defaults and first-open presentation
-without a saved boundary remain UI/technical completion.
+remain UI completion. First open without saved presentation starts at accepted
+current state; racing catch-up/live handoff is specified in protocol v1.

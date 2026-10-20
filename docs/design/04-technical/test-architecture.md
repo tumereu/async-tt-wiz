@@ -171,8 +171,9 @@ must be coherent, preserve original requests/exposures/UI and complete all retai
 history/branch pages under D-276. Partial staging cannot be marked complete or
 silently left as default lazy branches. Original committed request outcomes remain recoverable independently from
 delta availability. T-617/T-618 cover these obligations; exact window budget and
-lease mechanisms are not selected. SQLDelight migration tests must preserve durable
-recovery data as well as materialized state. Server queries/migrations exercise
+lease mechanisms now use storage mechanics. SQLDelight migrations preserve accepted
+records; D-278 permits outgoing-memory loss, not provisional state restoration.
+Server queries/migrations exercise
 the accepted relational/versioned-payload layout, not a recursive whole-tree blob.
 
 D-266 checkpoint-eviction variants delete only derived checkpoint caches, then
@@ -200,9 +201,9 @@ not permission for a history cap. T-640/T-641 supplement corrected T-616–T-618
 D-267 accepts the shared scene geometry/gesture-coordinator architecture and
 corrects normal gestures: single tap opens Actions, double tap taps/untaps once.
 T-619 verifies normal dispatch, selection binding, animated visible hit bounds,
-camera/accessibility agreement and no per-frame requests. Keep the tentative
-Select/Ping no-double-recognizer/two-independent-taps variant T-620 conditional,
-not a passing confirmed requirement. Count physical touches accurately in budgets.
+camera/accessibility agreement and no per-frame requests. D-281 confirms the
+Select/Ping two-independent-taps T-620 variant, no longer conditional. Count physical
+touches accurately in budgets.
 
 Full-canvas rendering removes the automatic per-card widget tree. Provide normal
 application accessibility semantics for objects/actions and enough stable UI
@@ -249,7 +250,7 @@ At lower layers test arbitrary client-supplied definitions without official-sour
 verification, differing content under colliding external IDs, structural/resource
 rejection, safe text/URL handling and incomplete-definition transfer recovery.
 T-628 does not authorize an in-app authoring editor or test-only card creation API.
-The tentative startup MTGJSON metadata check remains conditional (T-629); synthetic
+D-280 confirms the startup MTGJSON metadata check (T-629); synthetic
 source fixtures test changed content date/version, bounded checks and atomic update
 failure without relying on the real public service. No executable coverage is
 claimed by these specifications.
@@ -311,8 +312,9 @@ Use shared applicability/guard processing, not a different conflict predictor.
 Verify an expected M1 result after M1/M2/M3 predictions leaves the M3 target intact;
 remote work is incorporated before re-evaluating the active overlay. Dependent
 guard failures withdraw later predictions, while independent/originally applicable
-later requests remain. Persist withdrawal independently of original request/outcome
-so restart cannot resurrect cancelled predictions or drop server-result recovery.
+later requests remain. Retain withdrawal separately in memory from request/outcome;
+D-278 restart drops the entire overlay/journal and syncs server, never resurrects
+cancelled predictions or recreates forgotten commands/exposure.
 
 Test a locally withdrawn move accepted later: same committed-update path as remote/
 other-device work, original author/ID, no speculative reactivation from intervening
@@ -337,6 +339,13 @@ exact navigation, including net-zero visual changes. T-642–T-646 supplement th
 corrected existing D-177/D-180/D-185 scenarios; no executable coverage is claimed.
 
 ## Harness and failure evidence
+
+T-647–T-663 and the completed protocol/storage/runtime/auth/catalog/notification
+profiles supply exact crash-loss, parameter, format, device/performance and failure
+oracles for this batch. [Random v1 literal vectors](../05-verification/random-v1-vectors.md)
+are independent fixtures. Earlier unspecified encoding/cadence/budget labels above
+are completed by those profiles, not permission to adopt library defaults. No
+executable suite or measured result exists yet.
 
 Coordinate two normal Android instances, adding a third for same-account/device
 cases. Isolate the whole backend environment per independent test, including

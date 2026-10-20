@@ -7,8 +7,14 @@ generation and server-side jOOQ access are selected by D-261.
 D-263 accepts the recommended stack and architecture directions, including Spring
 Boot/PostgreSQL/Flyway, Compose Canvas, ordered gameplay WebSocket plus HTTPS/JSON,
 Ktor Client/kotlinx.serialization and the E2E tool combination. The table below
-separates these selections from remaining design work; no catalog provider is
-selected. This planning does not authorize application code or a
+separates these selections from design work. D-280 now selects MTGJSON records and
+Scryfall artwork. D-284's [protocol](protocol-v1.md), [storage/replay mechanics](storage-mechanics.md)
+and [runtime/verification profile](runtime-and-verification-profile.md) complete
+the technical mechanisms/parameters previously labelled open in this overview.
+Authentication/catalog/notification focused documents complete their selected
+defaults. Component APIs, generated schemas/build locks and measured qualification
+remain implementation artifacts, not new owner-policy decisions. D-278 supersedes
+client crash-durable outgoing/exposure guarantees. This planning does not authorize application code or a
 delivery-stage transition. D-115's behavior/review/UI/implementation gates remain;
 not every schema/library choice is a prerequisite for finishing behavior work.
 
@@ -58,28 +64,28 @@ are not needed simply to separate these responsibilities.
 
 ## 7.2 Technology agreement and remaining choices
 
-| Area | Selected direction or proposed candidate | Decision still needed |
+| Area | Selected direction or proposed candidate | Detail / completion reference |
 | --- | --- | --- |
 | Shared client language/core | Kotlin Multiplatform selected (D-260) | Module/API details; future platform integrations, not delivery commitments. |
 | Android UI/rendering | Compose Canvas game area/styled Compose shell (D-263); Android 10+ / API 29 (D-273) | Scene/animation/input detail, accessibility/automation, exact target/compile SDK and dependency/device matrix; do not silently raise the accepted minimum. |
-| Prediction/presentation | Accepted replica + request journal + derived display; active/withdrawn predictions, live/grouped background catch-up and endpoint animation (D-277) | Exact storage/result-delta correlation, mode handoff/cursor revision and scheduling/UI/timing; local withdrawal does not cancel sent requests or suppress late accepted changes. |
+| Prediction/presentation | Accepted replica + volatile request journal + derived display (D-277/D-278) | Protocol v1 specifies result/delta/baseline correlation and handoff; UI controls/timing remain the UI gate. |
 | Android distribution/compatibility | Signed APK downloads/manual updates, stable package/signing identity; compatible upgrades preserve data and mixed app versions can share games (D-273) | Artifact/signing workflow, release host, protocol negotiation/compatibility windows and supported migrations; no required Play Store or custom in-app updater. |
-| Local persistence | Transactional SQLite through SQLDelight selected (D-265) | Schema, migrations, drivers, encryption and baseline/cache/recovery boundaries; Room is not selected. |
-| Background work | WorkManager for appropriate Android background recovery (D-263); best-effort notification polling fallback permitted (D-269) | Polling scheduler/cadence, retry/lifecycle and battery policy; recommend WorkManager, not exact-alarm permission. Foreground sync never waits for scheduled work. |
+| Local persistence | Transactional SQLite through SQLDelight selected (D-265) | Storage mechanics specifies accepted records versus volatile outgoing work, migrations/backup isolation; actual DDL/generated queries are implementation artifacts. |
+| Background work | WorkManager/non-FCM best-effort polling (D-263/D-269) | Notification profile fixes 15-minute requested cadence/retries/account fences, not a deadline or exact-alarm permission. Foreground sync is independent. |
 | Shared service | Kotlin/JVM Spring Boot modular monolith (D-263), deployable through Docker Compose (D-272) | Supported versions/runtime resources and module boundaries; production deployment belongs in a separate repository, not a required VPS/cloud platform. |
 | Shared database | PostgreSQL selected (D-263) | Schema/version/capacity and application recovery contract; production backup/restore automation and policy belong in the separate operations repository (D-272). |
-| Storage layout | Relational/versioned-payload layout (D-265); complete retained current-game tree/current state/definitions on initial/full recovery, then incremental changes (D-276) | Exact tables/indexes, independent retention and compression/chunk/staging protocol; no default lazy branch loading, routine full-tree round-trips or recursive tree blob requirement. |
+| Storage layout | Relational/versioned-payload layout (D-265); complete retained current-game tree then incremental changes (D-276) | Storage mechanics supplies tables/indexes/locks/retention; protocol v1 supplies gzip chunk/manifest/staging/pin contract. No default lazy offshoots or routine full-tree updates. |
 | Server data access | jOOQ selected (D-261) | Version/edition, schema code generation and explicit transactional query design; generated records stay server-only. |
 | Database migrations | Flyway with versioned SQL selected (D-263) | Compatible versions/editions and deployment/upgrade procedure. |
-| Transport | HTTPS/JSON and ordered gameplay WebSocket (D-263); stable request identities, PostgreSQL durable per-game inbox/order, atomic outcomes and obsolete-connection fencing/recovery (D-275) | Exact envelopes, ingress/worker/cutover mechanics, resume states, pagination, retention/backpressure and compatibility; receipt is not final acceptance and a socket alone is not durable delivery. |
+| Transport | HTTPS/JSON and ordered gameplay WebSocket (D-263); durable server inbox/order/outcomes (D-275), volatile client recovery (D-278) | Protocol v1/storage mechanics specify envelopes, result/status/revision/sequence/fence, single-writer ingress and transaction boundaries; runtime profile supplies backpressure. Receipt is not acceptance. |
 | Client networking/serialization | Ktor Client and kotlinx.serialization selected (D-263) | Platform engines, wire schemas/codecs, timeout/recovery and schema evolution. |
-| Randomness | Request-bound fresh client seeds for in-game Shuffle; shared versioned Fisher–Yates/unbiased sampling over canonical member IDs; server initial inputs and Random starter at start (D-274) | Exact secure entropy/generator, seed/ID encoding, bounded sampling/version registry and verification; recorded concrete outcomes, not library-default replay or competitive fairness proof. |
+| Randomness | Fresh request-bound client Shuffle seed; server initial shuffles/Random starter (D-274) | Runtime v1 fixes secure entropy/SHA-256 counter stream/unbiased Fisher–Yates/UUID byte order and seed encoding; literal vectors supplement recorded-outcome replay, not competitive fairness proof. |
 | Build/API contracts | Gradle Kotlin DSL and OpenAPI for HTTP selected (D-263); explicit WebSocket schemas | Module/build/version matrix, jOOQ generation and HTTP/socket schema consistency. |
-| Security/session integration | Spring Security/Keystore protection (D-263); non-expiring revocable session tokens without saved passwords (D-268) | Token storage/revocation, password/reset mechanisms, email delivery and rate limits; no idle/absolute expiry default or new account-management UI scope. |
+| Security/session integration | Spring Security/Keystore, non-expiring revocable sessions (D-263/D-268), successful-reset all-session revocation (D-279) | Auth profile fixes opaque token/verifier, Argon2id/normalization/rates, SMTP token/reset/race mechanics; no new account-management UI. |
 | Image loading | Coil conditionally accepted, subject to canvas integration (D-263) | Canvas image lifecycle/decoding/cache integration and compatibility validation. |
-| Verification | Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose E2E; Testcontainers for smaller integration tests selected (D-263) | Exact versions, runners/devices, reset/failure controls, CI and measured performance budgets. |
-| Push | FCM optional; app/game sync must work without Google Play services/Play Store distribution, with periodic polling an acceptable notification fallback (D-269) | Registration/packaging/privacy, polling protocol/cadence, coalescing and routing; background delivery is best effort, not a correctness dependency. |
-| Card source | Dynamic data (D-243); client public-source downloads/local reuse (D-270); lazy images and arbitrary client-supplied definitions retained/shared by server (D-271) | Provider permission/terms, structural/security validation and definition transfer, update/cache policy; startup MTGJSON Meta checks suggested, not a finalized provider/update policy. |
+| Verification | Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose E2E; Testcontainers (D-263) | Runtime profile supplies device/workload/performance targets and T-647–T-663 failure oracles. Actual compatible build locks/executable suites/measurements await authorization. |
+| Push | Optional FCM + best-effort non-GMS polling (D-269), routing/suppression defaults (D-282) | Notification profile fixes registration, data-only hints, coalescing/dedup/routing/cadence; delivery never establishes game correctness/read progress. |
+| Card source | MTGJSON records/startup check + Scryfall lazy art (D-280), arbitrary client definitions retained/shared by server (D-271) | Downloader profile completes update/mapping/cache/safe URL handling. Provider/upstream permission/attribution remains release clearance, not an undecided provider. |
 
 These selections are not permission to start a scaffold or install packages.
 See [notifications/background work](notifications-and-background-work.md) for
@@ -142,7 +148,7 @@ but no official-provider authenticity requirement. This does not permit executin
 supplied scripts or reinterpreting games from each device's newest catalog. Exact
 validation/version-resolution protocol remains technical work. Public availability
 is not a blanket content license. See [card data and artwork](card-data-and-art.md) for Cockatrice's current
-sources and an explicitly unselected provider recommendation.
+sources and the selected MTGJSON/Scryfall downloader profile.
 
 D-271 confirms lazy image downloads/cache, separate from required card records,
 and client-supplied deck definitions retained by the service before game start.
@@ -150,8 +156,8 @@ The [definition contract](../03-contracts/domain-model.md#game-definitions-and-l
 makes the service's retained game definitions available even when a recipient's
 general catalog lacks an opponent's card. Deck imports already require resolved
 entries under D-198, not all images or latest-catalog parity. A bounded startup
-MTGJSON `Meta.json` check is the owner's tentative update suggestion; the
-[catalog design](card-data-and-art.md#startup-catalog-check--tentative-owner-suggestion-recommended-design)
+MTGJSON `Meta.json` check and Scryfall lazy art are selected by D-280; the
+[catalog design](card-data-and-art.md#selected-providers-and-startup-update--d-280)
 distinguishes that optimization from game-definition correctness.
 
 The specification must select a card-data source and define:
@@ -198,8 +204,11 @@ choice, exact source-version mapping, and explicit refresh policy remain open.
 
 ## 7.4 API specification deliverables
 
-Before implementation, produce a complete machine-readable API contract plus
-human examples covering:
+Protocol v1 now provides the concrete human-readable wire/operation contract.
+As the first contract artifact of an explicitly authorized implementation slice,
+encode it in OpenAPI/JSON Schema and check round-trip examples **before** building
+dependent endpoints/clients. This mechanical encoding is not permission to choose
+different product semantics. It must cover:
 
 - Authentication/session lifecycle, device registration, invitations, membership.
 - Game creation/setup/list/read, incremental history sync, node retrieval.
@@ -262,7 +271,7 @@ explicit behavior gaps. D-263 selects Spring Security, revocable sessions and
 Keystore-backed Android credential protection. D-268 requires permanent-login
 convenience through a non-expiring revocable token without saved passwords, not
 idle/absolute session expiry. See [authentication/session design](authentication-and-sessions.md)
-for selected requirements versus still-proposed reset/security mechanisms; no new
+for selected token/reset/security mechanisms, including D-279 reset-time revocation; no new
 account-management screens or arbitrary provider defaults are approved. End-to-end
 encryption remains unselected. D-272 permits owner-operated Compose deployment,
 possibly initially on a Raspberry Pi, but does not add an in-app server browser,
@@ -280,9 +289,9 @@ Proposed correctness targets:
 
 - No acknowledged shared operation is lost under the declared service recovery
   model. The backup/recovery model must quantify its actual limits.
-- Process death after a successful local-save indication does not lose the draft
-  under ordinary app/device operation. Device loss requires a separately defined
-  backup/export policy.
+- D-278 permits loss of outgoing work/unreported exposure/last unsaved input on
+  process death. Accepted server records and atomic accepted replica/cursor saves
+  remain durable. Restart synchronizes the server; no outgoing journal replay.
 - A retry never duplicates a committed action.
 - A partially failed notification does not roll back game state.
 - Failed migrations preserve original durable data and offer a recovery route.

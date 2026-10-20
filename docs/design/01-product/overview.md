@@ -125,6 +125,12 @@ The app remembers and presents what happened; the players interpret the rules.
 
 ## How this design should stay simple
 
+Crash recovery stays deliberately simple (D-278): restart from synchronized server
+state, not a durable outgoing replay queue. Local uncommitted actions/predictions
+and unreported inspections can be lost; server-admitted work still finishes and
+arrives normally. A living process retains normal ordered retry/prediction behavior.
+Server-retained exposure records govern controls even if an unreported view was lost.
+
 The lower tiers explain these rules; they must not quietly invent a different
 interaction model for each feature. Prefer one shared behavior over many special
 cases. Record actual unresolved outcomes as gaps, not a question for every minor

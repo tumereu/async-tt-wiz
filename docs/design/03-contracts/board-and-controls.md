@@ -15,7 +15,7 @@ detailed hit testing and communication mechanisms below are proposals for review
 D-267 corrects the normal card mapping: **single tap opens Actions; double tap
 taps/untaps**. This supersedes the opposite D-15 mapping, not the existing
 selection scope, inspection, dragging, pile-control or Ping semantics. Removing
-dedicated double-tap recognition in Select/Ping modes is a tentative proposal.
+dedicated double-tap recognition in Select/Ping modes is confirmed by D-281.
 The owner additionally
 requires mostly text-free understandable play, optional text/messages, and
 action-scoped pings. The engine is confirmed generic/rules-agnostic; the literal
@@ -135,7 +135,7 @@ drag/drop, or cancellation.
 | Gesture | Proposed detailed behavior |
 | --- | --- |
 | Single tap | Normal mode: open Actions with D-248 binding, no orientation edit. Select mode: edit membership. Ping mode: perform its explicit ping action instead of normal Actions (D-267). |
-| Double tap | Normal mode: one selection-aware tap/untap operation, without opening Actions. Select/Ping double-tap recognition is under review in the proposal below (D-267). |
+| Double tap | Normal mode: one selection-aware tap/untap operation without Actions. Select/Ping have no double-tap recognizer: two independent mode taps (D-281). |
 | Hold | Open a large-art/text inspector without tapping the card, moving it, or changing shared reveal state. |
 | Drag | Begin after movement exceeds touch slop; show a lifted preview and destination highlight. Commit only on a valid drop. |
 | Cancel/interrupted touch | Restore the pre-gesture state; no shared move or tap. |
@@ -168,15 +168,15 @@ not Actions or two orientation toggles. This
 gesture-recognition interval is not a batching delay after a completed action.
 Exact timing/slop and accessibility behavior remain to be approved.
 
-**Tentative mode proposal — D-267:** Select/Ping modes have no dedicated double-tap
+**Confirmed mode behavior — D-281:** Select/Ping modes have no dedicated double-tap
 recognizer; each single tap performs its mode action immediately. Two quick taps
 on the same target would therefore perform two independent membership/ping toggles,
-not open Actions, rotate a card or coalesce into one toggle. The owner phrases
-this as "perhaps"; this replacement of the old D-34 double-tap Actions shortcut
-inside selection mode is not yet confirmed. Hold inspection, dragging and explicit
+not open Actions, rotate a card or coalesce into one toggle. This confirms the
+former D-267 proposal, replacing D-34's double-tap Actions shortcut in selection
+mode. Hold inspection, dragging and explicit
 accessible Actions remain available under their existing rules; exact UI placement
 is not selected. Do not silently apply normal-mode double-tap orientation in a
-mode that consumes those taps. T-620 is conditional on adopting this proposal.
+mode that consumes those taps. T-620 is now an unconditional acceptance scenario.
 
 Movement past drag slop before hold recognition cancels tap/hold recognition.
 Once the hold inspector opens, the same touch cannot accidentally become a card
@@ -236,8 +236,8 @@ Confirmed consistency defaults (D-34; items 1–4 of the grouped review):
 
 1. Pinch zoom complements two-finger pan in either interaction mode.
 2. Hold retains Inspect without selection/orientation changes. D-34's old
-   double-tap Actions shortcut in selection mode is under review: D-267 proposes
-   replacing it with independent single-tap mode actions as detailed above.
+   double-tap Actions shortcut in selection mode is replaced by D-281's
+   independent immediate single-tap mode actions as detailed above.
    Explicit accessible Actions still uses the same captured-target binding.
 3. A successful selected-set move leaves selection-edit mode in its current
    on/off state, in addition to preserving the selected set under D-29.
@@ -322,7 +322,8 @@ D-252 revises D-38/D-89's blanket covered-face hold behavior:
   automatic opponent-area disclosure. Missing downloaded content shows a limitation.
 
 This remains the ordinary large-art/text inspector, not a hover-hardware
-requirement. Online logged exposure survives rejection/restart and account exits;
+requirement. Report online exposure independently of board rejection; D-278 allows
+unadmitted reports to be lost on restart/Logout, while server records remain durable;
 see the [exposure lifecycle](history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246).
 
 ## 10.4 Dragging and snapping
@@ -1154,14 +1155,16 @@ Confirmed G-10 basic randomness controls (D-87):
 
 1. Table Roll die creates one result, defaulting to a six-sided die; an optional
    sides control supports other dice. No dice-count or game-specific roll mode
-   initially. Exact sides picker, bounds, and remembered defaults remain open.
+   initially. Runtime v1 defines positive sides up to 2147483647; picker layout/
+   remembered presentation preferences remain UI work, not new roll modes.
 2. Table Flip coin creates one heads/tails result with no configuration step.
 3. Show actor, requested die/coin, and actual result in shared history; completed
    rolls/flips automatically queue/sync. Review/redo reuse the recorded result,
    not a fresh random draw. New invocations require a connection (D-182).
    D-261 permits client-side sampling for connected invocations, with the same
    sample supplied to shared client/server processing and recorded on acceptance,
-   not independently rerolled by the server. Capture it durably before display.
+   not independently rerolled by the server. Capture it in memory before display;
+   D-278 permits loss before server admission on process death, no durable journal.
    Exact generator/encoding, display and action boundaries remain technical/UI
    work; results change no cards or values.
 

@@ -93,12 +93,12 @@ owns these derived definition-availability outcomes; the
 owns unresolved-entry behavior. Definition download is not a player inspection or
 review/read-receipt event. Private game snapshots obey account/Logout isolation.
 
-## Startup catalog check — tentative owner suggestion, recommended design
+## Selected providers and startup update — D-280
 
-The owner suggests the app should probably check MTGJSON for updates at startup.
-Keep that suggestion tentative: it nominates MTGJSON, not a blanket selection of
-all Cockatrice providers/formats or a finalized update policy. The earlier
-Scryfall single-provider recommendation below remains an alternative.
+The owner selects **MTGJSON records plus Scryfall lazy artwork**, including the
+lightweight startup update check. The earlier Scryfall-for-both recommendation is
+not selected. This does not adopt Cockatrice's formats/token source wholesale or
+grant content rights.
 
 For MTGJSON, use a small version/date check against
 [`Meta.json`](https://mtgjson.com/api/v5/Meta.json), compare with the installed
@@ -109,9 +109,56 @@ make every startup download the full dataset or wait for it before opening usabl
 existing games. Staged validation/atomic replacement retains the last good catalog
 when offline or when an update fails. Required missing data for a new import is
 still unresolved until actually obtained, not silently substituted. Exact check
-cadence, initial acquisition, metered-network consent and update presentation remain
-technical/UI work. A startup check reduces missing new cards; game-definition
+update presentation remains UI work. Technical defaults below fix acquisition,
+cadence and metered-network handling. A startup check reduces missing new cards; game-definition
 delivery above is the correctness mechanism when catalogs still differ.
+
+### Technical downloader profile — D-284
+
+- Fetch MTGJSON v5 `AllPrintings.json.gz` with its published checksum metadata;
+  stream-decompress/import to a staging catalog generation, not an in-memory JSON
+  tree. Retain source date/version/checksum, set/printing UUID, language, face identity,
+  Scryfall identifiers and exact display/default strings. Combine related faces by
+  MTGJSON's explicit relationships, never names alone. Include supported token
+  records in that source; missing token mappings remain unresolved, not a silent
+  dependency on a second GitHub XML source. Blank tokens remain available.
+- Check `Meta.json` on first foreground startup when the last successful check is
+  at least 24 hours old; 10-second timeout, failed-check backoff 15 min→1 h→6 h,
+  never block existing games. Record checks independently of schema version.
+  Initial/missing-catalog download and metered bulk refresh need explicit user
+  consent showing size/network cost; otherwise use unmetered background work.
+  Lazy needed art can use the current connection, never prefetch all imagery.
+- Validate supported source schema, checksums, relationships, field bounds and
+  import completeness before an atomic catalog-generation switch. Stage on disk
+  with free-space check; failure retains last good catalog. Full payload decoded
+  budget initially 4 GiB on disk, nesting 32, per-record bounds from runtime profile;
+  explicit failure if exceeded, never partial catalog installation. Reassess this
+  engineering budget when provider datasets grow, not silently truncate printings.
+- Cache image resolution by exact Scryfall printing UUID + face + image size/version.
+  Use Scryfall card-object image URLs (face-level where appropriate); fetch small
+  metadata once when the MTGJSON identifier alone does not supply a safe image URL.
+  No guessed name/first-face substitution. Missing mapping/art gives text fallback.
+  Public Scryfall requests at most 5/sec/installation, User-Agent identifying app
+  version/contact and normal Accept headers, 429/Retry-After honored; avoid API
+  traffic per animation frame/card instance. Cache 404 for 24 h; transient errors
+  retry 1 min/5 min/1 h. Use HTTPS, ETag/Last-Modified where supported.
+- Normal art hosts are Scryfall API/CDN. Custom definition URLs remain untrusted:
+  allow only HTTPS public Internet hosts, no credentials, local/private/link-local
+  or metadata IPs, unsafe ports or redirect downgrade. Revalidate DNS/each redirect,
+  max 3 redirects, never forward service auth/cookies, no server-side art fetch.
+  Tests configure their explicit synthetic-source origin separately, without
+  weakening production origin checks. Unsupported custom URLs retain text fallback,
+  not rejected arbitrary card semantics. Enforce byte/pixel bounds before decoding.
+- Text is plain display data, not HTML/WebView/card scripts. Store per-game accepted
+  content-addressed snapshots separately from the public catalog. New definitions
+  accompany a revision before dependent objects become usable; initial/full transfer
+  fetches every required definition. No public-provider lookup authenticates a deck.
+
+Provider terms/attribution and upstream artwork permission remain a **release rights
+check**, not an undecided provider or permission inferred from dynamic downloads.
+Synthetic adapters use the same importer/validator/image path in tests. Exact
+provider dataset values/checksums are acquired at runtime; never bundle licensed
+card records or depend on live public services for automated acceptance.
 
 ## Where Cockatrice obtains its data — research, 2026-10-20
 

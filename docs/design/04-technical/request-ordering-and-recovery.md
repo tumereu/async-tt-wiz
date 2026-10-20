@@ -8,7 +8,9 @@ obsolete-connection fencing. This implements D-183/D-184/D-216 rather than addin
 offline play, a gameplay Send step or a blanket wait-for-acknowledgement policy.
 No separate message broker is required initially. The
 [history/publication contract](../03-contracts/history-and-undo.md#request-identity-durable-admission-and-recovery--d-275)
-owns observable outcomes; exact schema/locking/wire mechanisms remain to specify.
+owns observable outcomes. [Protocol v1](protocol-v1.md) and
+[storage mechanics](storage-mechanics.md) complete wire/locking/schema parameters.
+D-278 supersedes client outgoing durability, not this server inbox mechanism.
 
 ## Identity and immutable intent
 
@@ -18,8 +20,9 @@ the requested action, captured references/limited guards, any random input and
 explicit historical-continuation intent when applicable. Exact field names,
 identifier generation and deduplication namespace remain technical design.
 
-Save the original request durably before transmission/prediction under existing
-recovery/exposure rules. Retrying keeps its identity and semantic payload, including
+Capture the original request in process memory before transmission/prediction;
+D-278 requires no crash-durable write, including for exposure. Retrying while that
+memory survives keeps its identity and semantic payload, including
 random seed/algorithm version; it is not another Undo press, roll or interruption.
 Same identity plus different intent/scope is misuse and cannot overwrite the
 original pending/final record. Compare versioned semantic payload identity, not
@@ -95,13 +98,13 @@ See [prediction/playback](prediction-and-playback.md).
 - Every request/result remains fenced to original game/incarnation/preparation/
   invitation context. Old requests never mutate fresh play or a new preparation
   round; original committed outcomes remain recoverable without reapplication.
-  Preserve protected account-scoped exposure obligations and Logout isolation.
+   Preserve account/Logout isolation; D-278 restart instead drops client queues and
+   synchronizes server state, without recreating lost commands/exposure reports.
 
-Remaining work includes exact wire schemas, admission/worker/fence implementation,
-limits/backpressure, failure result categories, deduplication retention, provisional
-reference mapping, reconnect readiness/buffered-unsent handling and supported-version
-recovery. Recovery of already-sent/uncertain online commands and existing protected
-exposure obligations is not blanket replay authorization for arbitrary never-sent
-gameplay buffers. Choosing the mechanism does not
-approve every older pending-work/interruption proposal or a new whole-head guard.
-No application, inbox schema, executable tests or stage transition is authorized.
+Protocol v1 defines final/admission/result-status messages, process/stream fencing,
+deterministic output IDs, readiness, ordering and compatibility. Storage mechanics
+defines ingress/worker locks and independent retained outcomes; runtime profile
+defines backpressure/retry/performance defaults. Same-process recovery can submit
+retained original online work, even if never admitted; process restart never replays
+it. No offline action creation, new whole-head guard, application code, executable
+schema/tests or stage transition is authorized.

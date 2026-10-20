@@ -22,8 +22,10 @@ between a reauthentication-required state and offline access remains open.
   to other users and used for the existing contact search.
 - **Log in with email and password.** This selects the user-facing credential
   flow, not an authentication provider, implementation or storage scheme.
-- **Reset forgotten passwords by email.** Exact reset link/code, expiry, delivery
-  failure and session-revocation behavior remain to be designed.
+- **Reset forgotten passwords by email.** D-279 revokes all existing sessions only
+  when a valid reset actually changes the password, not when email is requested or
+  sent. Failed/expired/reused links do not revoke sessions. Technical token/delivery
+  details are in [authentication](../04-technical/authentication-and-sessions.md).
 - **Other users see your username, not your email.** Contact search/lists,
   invitations and shared game presentation must not disclose account email.
   Cooperative access to game information does not grant access to account email.
@@ -54,8 +56,9 @@ strength, provider, reset mechanics and storage remain technical/security work.
   session, ask the user to log in again.** Non-expiring does not mean unrevocable,
   valid after account access is removed or recoverable after local app data/keys
   are lost. After successful
-  login to the same account, **return to the same game and recover pending
-  actions**, rather than losing the game context or requiring manual resending.
+  login to the same account, **return to the same game** and recover retained
+  same-process requests. D-278 restart instead synchronizes from the server without
+  restoring forgotten predictions or a durable outgoing journal.
 - Pending already-sent online actions retain their original request identities
   and conditions. Use D-216 automatic recovery and D-185 reconciliation: no
   duplicate execution, repeated random sampling or presumed rejection merely
@@ -65,8 +68,8 @@ Token encoding/protection/revocation mechanics, failed or cancelled reauthentica
 and reauthentication-required navigation remain specification work; idle/absolute
 expiry is not a remaining default to select after D-268. D-218 confirms multiple
 devices; D-241 below settles explicit Logout cleanup and cross-account isolation.
-Session invalidation alone is not an explicit Logout or permission to lose pending
-work. Password-reset session invalidation policy remains separately unselected.
+Session invalidation alone is not Logout. D-278 limits pending-work recovery to
+surviving process memory; D-279 selects reset-time revocation of all sessions.
 
 ### Logout and account-private downloads — D-241
 
@@ -74,14 +77,12 @@ work. Password-reset session invalidation policy remains separately unselected.
   does not delete server-side decks/games or invalidate selected deck copies.
   Downloaded read-only access remains available in the account's ordinary use;
   it is not a promise to retain that content after deliberate Logout.
-- **Preserve protected recovery obligations, not merely sent requests.** Logout is
-  not proof of rejection. Retain the original account/game/request context needed
-  for same-account automatic outcome recovery, without executing anything twice
-  or exposing those records through another account. This includes actual logged
-  exposure initiated online and captured before display even if not transmitted
-  yet. Protect its content/context across Logout/process death; recover only as
-  the original account. Ordinary cache clearing must not erase that obligation.
-  This does not authorize offline inspection or general unsent gameplay replay.
+- **D-278 replaces protected client recovery obligations:** Logout discards volatile
+  pending work/exposure reports; no crash-durable outgoing journal is required.
+  This is not proof of rejection or recall of server-admitted work. Future login
+  synchronizes server state and later commits normally, without recreating commands.
+  Fence old callbacks before storage/display/submission; another account cannot
+  read or publish the previous account's data. No offline inspection/queue is added.
 - **Never expose one account's private data to another account.** Apply account
   isolation when switching accounts as well as after Logout. Recovery of the
   previous account's requests does not become the new account's gameplay.
@@ -549,7 +550,8 @@ Each fresh start creates a distinct play incarnation/root with fresh player
 Undo/Redo stacks. Gameplay/control/exposure requests and result references retain
 their original incarnation through recovery. A late session-1 End turn cannot
 advance session 2, and an old committed result cannot overwrite its board. Preserve
-protected recovery records rather than clearing them to avoid late deliveries.
+server outcomes and surviving-memory context; D-278 permits client loss on restart,
+not retargeting old work or discarding already-admitted server records.
 Reinvitation also preserves each request's original attempt/outcome: retrying a
 past Accept/Decline is not a response to the new invitation. This derives from
 fresh-start and no-retarget/idempotency requirements, not a new duplicate-invite

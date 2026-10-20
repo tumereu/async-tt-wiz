@@ -9,7 +9,11 @@ transport and HTTPS/JSON for accounts/catalog/reads, using Ktor Client and
 kotlinx.serialization on clients; OpenAPI describes HTTP and explicit schemas
 describe socket messages. D-275 selects stable request identities, PostgreSQL
 durable per-game admission, atomic individual execution and fenced reconnect
-recovery; exact schemas/locking/limits remain technical design, not implementation.
+recovery. D-278 replaces client crash-durable request/exposure obligations with
+server-first restart. [Protocol v1](protocol-v1.md), [storage mechanics](storage-mechanics.md)
+and [runtime profile](runtime-and-verification-profile.md) complete the initial
+schemas/locking/limits/encoding defaults; older open mechanism labels below refer
+to those specifications, not fresh product decisions or implementation permission.
 
 **D-182 release scope:** game actions and shared controls require a connection in
 initial delivery. Downloaded state/history remains readable offline. There is no
@@ -99,8 +103,8 @@ owns the shared-code/adaptor boundary. Current authoritative inputs can differ
 from predicted state; D-187 acceptance and D-185 reconciliation still apply.
 
 Die/coin samples may be generated locally for a connected new invocation. Bind
-the sample to the original request and durably capture it before display under
-the exposure/recovery rules. After checking access/lifecycle/applicability and
+the sample to the original request in memory before display; D-278 removes the
+crash-durable capture requirement. After checking access/lifecycle/applicability and
 sample validity, the server uses the same sample, records the concrete outcome
 and publishes the accepted event. It does not independently reroll to demonstrate
 authority. Retransmission and local recomputation preserve the input; result lookup,
@@ -110,7 +114,7 @@ an instruction to create another invocation or discard an actual exposure record
 ### Selected Shuffle and setup randomness — D-274
 
 **Confirmed:** for each new connected in-game Shuffle, the client generates a fresh
-seed and saves it with the original request before prediction/transmission. Client
+seed and retains it in memory with the original request before prediction/transmission. Client
 prediction and server execution use the same explicitly versioned **Fisher–Yates
 shuffle with unbiased sampling**, starting from a stable canonical ordering of the
 execution state's card-instance identities. Do not rely on ambient/default Kotlin
@@ -253,7 +257,7 @@ its originating play incarnation, distinct from persistent lobby reuse. Recovery
 may return an ended incarnation's original committed result but never apply it
 or its snapshot to fresh play. Reject an uncommitted old command without mutating
 the new incarnation, including object-free End turn. Preserve protected old
-recovery records across restart/reauthentication; exact fencing/ID generation is
+   server outcomes across restart and surviving in-memory recovery on reauthentication; exact fencing/ID generation is
 technical. Invitation actions similarly retain their original attempt/outcome:
 a retry of an old Accept/Decline must not become a response to a later reinvitation.
 This does not select a new duplicate-invitation policy.
@@ -284,13 +288,13 @@ Proposed outcomes:
 | Stack-entry request's supplied Stack state differs from Stack in its selected execution state | Reject the addition (real-card move or new projection); compare-and-apply atomically in arrival order. An explicit historical request compares at that boundary, not the displaced live head. No separate opponent/seen detection, priority inference or whole-game-head check (D-187). |
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
 | Successful deliberate activation/interruption/return changes selected shared history | Clear both players' Redo queues atomically with the switch (D-258). Ordinary events and Undo/Redo retain normal semantics. Same-current-target no-op, failed switch or metadata-only archival does not trigger this reset. Retry recovers the original result without reactivation or clearing newer entries. |
-| Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
+| Further online-pending work after a separate explicit interruption | Ordinary requests use current state with original operands/limited guards; explicit historical requests validate their exact retained boundary. Missing predicted prerequisite rejects that reference, not independent later work. No implicit conflict fork, dependency waiting or substituted intent (protocol v1). |
 | Same request identity and semantic payload retried | Pending admission gets no second position; completed command returns its original outcome, including rejection/no-op. Never apply twice (D-275). |
 | Same identity with different intent/scope | Reject misuse without overwriting the original pending/final record. Transport credentials/connection replacement are not changed action intent (D-275). |
 | D-232 Undo/Redo tree edit is eligible at the authoritative revision | Apply removal/reinsertion once without creating a branch, subject to D-224 replay/N and D-227–D-231 target/stack rules. Exact atomic revision guard and reference reconciliation remain open. |
-| Undo/Redo tree changes while validation/request is in progress | Exact recheck/rejection/reconciliation policy remains open; do not silently reuse D-161's superseded captured-parent rule, change targets or apply an unchecked suffix. D-182 excludes offline Undo creation. |
+| Undo/Redo tree changes while validation/request is in progress | Serialize target selection, complete suffix validation and commit under one game transaction; each press uses then-current server target. No unchecked suffix, captured-parent CAS or partially validated edit (storage mechanics). |
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
-| Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
+| Stale non-Undo branch control command | Resolve the exact retained target at execution; missing target rejects without substitution, otherwise perform the explicit control meaning. Same-current selection/no metadata change is no-op. Apply D-258 only on an actual shared switch; no blanket stale-head rejection or silent nearest-parent activation. |
 | Invalid object/reference or structural constraint | Reject the affected publication with actionable structural error; explicit interruption cannot repair malformed actions. |
 | Explicit historical boundary or new-object reference not yet authoritative | Check the original reference against state at arrival-order processing; do not substitute another base or wait on a sequencing dependency graph (D-184). A failed prerequisite does not cancel later actions whose own checks pass. Exact provisional-reference mapping remains protocol design, not an acknowledgement-before-send policy. |
 | Connection drops during an already-started online request | Preserve identity/context and automatically look up/retransmit the original as needed under D-275, without duplicate execution, new randomness or lifecycle retargeting. Receipt/timeout is not an accepted/rejected outcome. Exact wire/result categories remain technical design; no offline action creation (D-182). |
@@ -376,9 +380,9 @@ state machine. D-183 separately requires a small online send queue with concurre
 transmission and per-action outcomes. Do not conflate the two or remove the online
 queue to avoid supporting offline play.
 
-Keep recoverable unfinished input separate from accepted game history. Persist
-enough context for an online request whose outcome may be unknown after network
-loss or restart; do not report server acceptance before acknowledgement or a
+Keep recoverable unfinished input separate from accepted game history. Retain
+context for an online request in memory through network loss; D-278 restart drops
+that context and syncs the server. Do not report server acceptance before a
 verified final recorded result. A durable admission receipt is not gameplay
 acceptance (D-275). Preserve idempotency, the requested operation and any limited guards,
 explicit interruption intent and stored random outcomes when resolving that
@@ -406,13 +410,12 @@ D-183 rules out a blanket wait-for-acknowledgement interaction gate; D-182 still
 excludes extended offline gameplay/replay. Do not interpret ordinary network latency as permission
 to freeze otherwise available local controls.
 
-Protected recovery includes **actual logged exposure durably initiated online
-before display**, including capture-before-send. Ordinary private downloads clear
-on Logout, but outstanding exposure/outcome obligations retain original account,
-incarnation, viewed/recording context and deduplication identity. Another account
-cannot read or submit them. Same-account recovery publishes/retrieves them once
-without reopening an ended incarnation. A send flag alone cannot classify safe
-cleanup. This is not general unsent gameplay replay or permission for offline events.
+D-278 replaces protected crash/Logout-durable exposure capture with best-effort
+in-memory reporting. Capture actual shown content/context online and submit promptly,
+retry while memory survives, never publish it as another account. Process death/
+Logout may lose unreported exposure; server-retained records decide Undo barriers.
+Server-admitted exposures/results remain durable and cannot reopen ended play.
+No offline event creation or inferred post-crash exposure record is authorized.
 
 Exposure-only records have the control/visibility participation defined in
 [history](../03-contracts/history-and-undo.md#exposure-participation-in-controls-and-visibility),
@@ -498,7 +501,8 @@ in memory. A completed baseline has complete tree coverage at its declared revis
 partial staging is not a completed full sync. Resume or restart interrupted transfers
 coherently while preserving the previously accepted replica and independent recovery
 records. Exact format, compression, chunk limits, staging, transfer identity and
-lease/pinning mechanics remain technical design, not selected wire schemas.
+lease/pinning mechanics are completed by protocol v1/storage mechanics; this is
+not an implemented wire schema.
 
 The expected long main line/short branches motivate this default, not a guaranteed
 `<2x` bound or permission to cap/drop a larger branch. Benchmark long paths, sparse
@@ -571,7 +575,7 @@ is not the selected baseline.
 - A correct saved revision can coexist with a corrupt cache or incorrect reducer
   output; a state digest can expose that mismatch. A log-prefix hash alone cannot.
   Invalidate affected derived data and rebuild/refetch from trusted records while
-  preserving original requests, protected exposures and applicable personal state.
+  preserving surviving in-memory requests/exposure reports and applicable personal state.
   Do not clear all app storage, invent a rejection or resample random inputs.
 - "Synced" means caught up to the last verified server head for the covered scope,
   not permanently current: another player can publish immediately afterward.
@@ -671,12 +675,13 @@ two admitted participants can read or mutate the game unless an explicit sharing
 feature is later approved. Both have equal tabletop rights, including hidden
 zone inspection.
 
-D-89/D-91 require retaining actual exposure, including rejected online predictions;
+D-89/D-91 require reporting actual exposure, including rejected online predictions;
 D-224 excludes revealing selective-Undo targets. Follow the
 [exposure lifecycle](../03-contracts/history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246):
-capture durably before displaying new hidden content, keep viewed versus recording
-contexts and request identity, and recover already-initiated online records across
-restarts/reconnects. D-246 permits no offline event creation/deferred inspection
+capture in memory when displaying new hidden content, keep viewed versus recording
+contexts and request identity, and retry surviving records on same-process reconnect.
+D-278 allows loss before server admission across process death/Logout, superseding
+the earlier pre-display durable-capture rule. D-246 permits no offline event creation/deferred inspection
 queue. Downloaded recorded visible content remains readable; new event-producing
 inspection needs a connection. D-252 permits unlogged own-area holds to read
 downloaded real faces; opponent-area holds conceal hidden information. Deduplicate
@@ -700,7 +705,8 @@ Proposed default: retain complete history and archived branches for a retained
 game. Cache eviction removes only refetchable local data, never unsynchronized
 drafts. In-game branch deletion is archival, not garbage collection.
 
-Actual game deletion, account erasure, backup expiry, storage quotas, image
-cache limits, and export/import retention must be separately specified. Any hard
-deletion is outside ordinary reversible gameplay and needs a clear confirmation
-and recovery policy. There must be no surprise expiry of undo history.
+D-283 retains required current-game records and dedup outcomes without automatic
+age expiry; production erasure/backup obligations are explicit operator work in
+the separate operations repository, not an R1 account-deletion UI. Storage mechanics
+defines safe dependency boundaries and rolling-cache retention; runtime profile
+defines cache/resource limits. There must be no surprise expiry of Undo history.

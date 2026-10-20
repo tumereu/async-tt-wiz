@@ -30,8 +30,8 @@ separate from that direction and retained authoritative game definitions.
 D-271 confirms lazy image loading/cache; clients submit arbitrary deck definitions
 for structural/security validation and server retention, not official-catalog
 verification. Recipients receive the accepted definitions from the service even
-if absent from their local catalog. Startup MTGJSON update checks are
-tentative, not a blocking full-catalog refresh or new deck-art prerequisite.
+if absent from their local catalog. D-280 selects MTGJSON startup update checks and
+Scryfall art, not a blocking full-catalog refresh or new deck-art prerequisite.
 Coil is conditional on canvas integration. Exact versions,
 scene/input design, storage schemas and final screen layouts remain incomplete.
 
@@ -77,9 +77,10 @@ Separate random-input acquisition from deterministic processing:
 
 1. For a connected new die/coin invocation, generate a fresh local sample once
    and bind it to that request. Normal UI invokes randomness, not a result picker.
-2. Preserve that sample and original intent in durable request/recovery data
-   before displaying the result. The same engine applies it provisionally and,
-   if accepted, on the server. Exact wire encoding remains technical design.
+2. Preserve that sample and original intent in process memory before displaying
+   the result (D-278 removes crash-durable client capture). The same engine applies
+   it provisionally and, if accepted, on the server. Encoding is in
+   [the runtime profile](runtime-and-verification-profile.md).
 3. The server checks access, lifecycle, operation applicability and valid input
    shape/range. It records the accepted result; it does not independently reroll
    a valid supplied sample merely because it is the authoritative service.
@@ -111,8 +112,8 @@ completion, not selection of a library default or anti-cheat protocol. See
 ## Canvas scene and Compose shell
 
 D-267 accepts the scene/input architecture below. It does not select exact
-geometry/timings, final screen layouts or the tentative Select/Ping double-tap
-proposal; the [board contract](../03-contracts/board-and-controls.md#103-gesture-arbitration)
+geometry/timings or final screen layouts. D-281 confirms independent Select/Ping
+taps; the [board contract](../03-contracts/board-and-controls.md#103-gesture-arbitration)
 owns the corrected gesture meanings.
 
 ```text
@@ -160,7 +161,7 @@ double tap must not first open/retract an Actions menu or emit a speculative
 single-tap game edit. Immediate pressed/drag feedback is independent of completed
 gesture dispatch. Captured identities, existing cancellation/selection rules and
 server guards remain; do not silently redirect a drag after an incoming change.
-The proposed mode-specific no-double-tap recognizer remains tentative in D-267.
+D-281 confirms no double-tap recognizer in Select/Ping: each tap acts immediately.
 
 Keep image decoding, database access and replay off the UI thread; cache suitable
 artwork/text measurements, cull off-screen objects and avoid full-scene rebuilds
@@ -181,7 +182,7 @@ as an ordinary incoming committed delta, with original ID/author and no suffix
 resurrection. See [prediction/playback design](prediction-and-playback.md) for the
 three-move example, outcome/delta ordering and background catch-up/live handoff.
 
-The accepted replica, durable request/exposure recovery, disposable caches and
+The accepted replica, volatile request/exposure recovery (D-278), disposable caches and
 personal state are separate logical [storage categories](storage-architecture.md#client-storage-responsibilities)
 under D-265. Fresh baseline/full sync replaces accepted replica data coherently,
 not the original recovery records or all local application storage. Reconcile
@@ -200,8 +201,17 @@ queries/retransmits original uncertain requests without new IDs/random inputs,
 preserving original not-yet-admitted send order and lifecycle/account context.
 Obsolete-connection fencing applies to the replaced logical stream, not all other
 devices; already-admitted commands retain their records. Exact cutover/resume and
-outcome wire states remain technical design within the
+outcome wire states are completed in [protocol v1](protocol-v1.md) and the
 [selected request mechanism](request-ordering-and-recovery.md).
+
+On app process restart discard all predictions/withdrawal flags/outgoing memory,
+sync accepted server data and resume there. No request/exposure replay from disk,
+including compatible APK process replacement. Backgrounding with a live process
+retains normal reconnect/mode behavior. [Storage mechanics](storage-mechanics.md)
+and [runtime/verification profile](runtime-and-verification-profile.md) complete
+schema/transactions, random encoding, resource and measurement defaults. Remaining
+Compose component APIs/controls/easing are implementation/UI-gate work, not missing
+authority, crash, ordering or replay policy.
 
 The [ownership matrix](../03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259)
 owns the accepted-replica/prediction/UI/recovery distinction. The

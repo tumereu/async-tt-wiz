@@ -9,7 +9,7 @@ Confirmed card gestures and proposed drag/pile/intent details are defined in
 [Game board and controls](board-and-controls.md), the primary tabletop-input
 contract. In normal mode, single tap opens Actions, double tap taps/untaps, hold
 inspects, and drag moves with snapping (D-267). Select/Ping retain single-tap mode actions; removing their
-double-tap recognizers is tentative. This corrects the old opposite card mapping.
+double-tap recognizers is confirmed by D-281. This corrects the old opposite card mapping.
 The [visual action language](visual-action-language.md) defines the proposed
 Stack area, action-linked ping controls, literal grouped log presentation,
 and optional notes/chat. Ordinary flow should not require typing what just
@@ -441,9 +441,9 @@ No separate empty-interruption/response-request feature is an R1 deliverable
 - Completed actions are already queued when leaving a game. Navigation must not
   add a keep/send/discard prompt; synchronization continues subject to Android
   limits and resumes automatically when possible.
-- Incomplete form input and pending/failed work survive process death. A form
-  that would lose meaningful unfinished input offers local recovery, not a
-  generic publication gate.
+- D-278: process death may lose pending/failed actions and the last unsaved input;
+  save unfinished form drafts/personal progress best effort, but restart from synced
+  server state without outgoing replay. No generic publication or disk-write gate.
 
 ## 5.6 Undo and destructive-looking actions
 
@@ -482,7 +482,7 @@ requests were rejected. Downloaded read-only access remains in scope; exact
 dialog navigation/dismissal and reconnect readiness remain open. D-216 separately
 confirms automatic recovery of already-sent requests below.
 
-**Confirmed D-216:** after reconnecting, automatically recover already-sent online
+**Confirmed D-216, limited by D-278:** after same-process reconnect, automatically recover already-sent online
 actions without manual resending or duplicate execution. Recover actual outcomes
 using original request identities/conditions; an already-committed action/random
 result must not execute/sample again. Use normal difference-only reconciliation
@@ -490,7 +490,8 @@ for accepted/rejected outcomes, without retrying a rejection as a fresh action
 or cancelling other valid work. This does not enable offline actions.
 D-275 selects stable identity, durable per-game admission/order and fenced outcome
 recovery. Exact wire/readiness, queue limits and buffered-but-unsent handling remain
-technical/specification completion, not blanket unsent/offline replay authorization.
+completed in [protocol v1](../04-technical/protocol-v1.md); restart discards client
+outgoing memory and syncs server state. No offline replay authorization.
 
 **Confirmed D-183:** use a small local send queue, send online actions concurrently
 and reconcile each action's success/failure individually. Apply interactions
@@ -573,8 +574,10 @@ Required proposals for approval:
 - Reduced-motion option and readable non-animated change summaries.
 - Portrait-first phone layout; landscape, tablets, foldables, split-screen, and
   large text must preserve access to every operation.
-- State survives rotation, backgrounding, process termination, and sign-in
-  refresh without losing drafts.
+- Rotation/backgrounding with a living process preserves state; sign-in refresh
+  retains same-account in-memory work. D-278 process termination may lose outgoing
+  work and unreported exposure; saved accepted data/UI drafts remain separately
+  best-effort recoverable, not a guarantee on every keystroke.
 - System Back exits transient selection/sheets first, then screen navigation;
   it does not undo game actions.
 
@@ -606,10 +609,12 @@ D-269's optional push/polling delivery; no separate channel per game is required
 Polling-generated notifications obey the same permission/channel settings and
 covered-card privacy rules, not a workaround for disabled notifications.
 
-Exact grouping window/cadence, notification permissions/defaults, Android channel
-categories, foreground suppression and multiple-device routing remain open.
-This approval does not separately confirm additional notification categories for
-explicit branch switches or response requests, or define an unread/read model.
+D-282 confirms Invitations/Game activity channels, per-game coalescing, routing
+to all logged-in registered installations and local game-activity suppression while
+that game is actively displayed, including review/playback. Background is not active
+display. D-284's [notification profile](../04-technical/notifications-and-background-work.md)
+defines bounded windows, polling, data-only push, retries/dedup and permission defaults.
+This does not add branch-switch/response alerts or a shared unread/read model.
 
 **Excluded from R1 (D-241):** additional branch-switch/response-request alerts and
 their preference controls; these are not a required design backlog or roadmap.
@@ -656,4 +661,4 @@ The main card gestures are confirmed in the board contract. Exact gesture timing
 special-pile hit targets, additional shortcuts, and journey budgets remain design
 work. A normal double tap must emit one tap/untap operation without also opening
 the single-tap Actions menu; hold must not tap or drag the card accidentally.
-Select/Ping mode double-tap recognition remains the scoped tentative D-267 proposal.
+D-281 confirms no Select/Ping double-tap recognizer: two independent immediate taps.

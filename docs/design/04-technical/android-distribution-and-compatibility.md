@@ -14,6 +14,14 @@
 - Clearly report an incompatible-client update requirement and refuse unsupported
   requests safely, without discarding pending data or inventing prior outcomes.
 
+D-278 narrows "recovery" above: accepted downloads/login remain durable, but an APK
+update replacing the process need not preserve outgoing requests/predictions or
+unreported exposures. Startup syncs server state. Do not persist/migrate a speculative
+overlay solely to preserve the superseded outgoing-journal guarantee. Server-admitted
+commands still finish; accepted definitions/history keep their exact semantics.
+Protocol v1's negotiation/format rules and the runtime profile's SDK/build/migration
+qualification complete the initial support contract, not a forever-version promise.
+
 The [Android contract](../03-contracts/android-experience.md#android-support-distribution-and-upgrades--d-273)
 owns observable behavior. This selects release/support policy, not application,
 build/signing pipeline implementation or a delivery-stage transition.
@@ -42,12 +50,12 @@ of artifacts/logs. Exact key custody/distribution automation remains to arrange,
 not permission to provision the external operations repository.
 
 Define SQLDelight migration paths across retained supported installed versions,
-including interrupted/failed migrations, original request/exposure obligations,
+including interrupted/failed migrations, accepted server records,
 accepted definition snapshots, downloaded coverage and local personal state.
-Keep pending request IDs, original payload semantics/random inputs and outcome
-lookup context intact across upgrades. An incompatible request-format version
-must not be silently transformed into a fresh invocation under the same identity.
-The exact safe request compatibility/recovery mechanism remains protocol design.
+D-278 drops outgoing process memory on upgrade rather than migrating it into fresh
+commands. Never silently transform old intent into a new invocation. Preserve
+accepted original results and record formats; use [protocol v1](protocol-v1.md)
+and [runtime profile](runtime-and-verification-profile.md) for compatibility.
 
 An update-required response is distinct from invalid authentication, unknown
 resources and a gameplay rejection. Negotiate/refuse incompatible operations

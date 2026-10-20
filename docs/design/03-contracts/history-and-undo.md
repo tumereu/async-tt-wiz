@@ -450,7 +450,7 @@ participant may interrupt any of it later.
 ### Live and playback presentation — D-277
 
 **Confirmed:** use two personal presentation modes over the same continuously
-synchronized accepted tree/state and durable pending requests:
+synchronized accepted tree/state and in-memory pending requests (D-278):
 
 | Mode | Display and progression |
 | --- | --- |
@@ -593,15 +593,16 @@ reauthentication and recovery. A delayed uncommitted request for ended play
 cannot mutate the lobby or a later incarnation, even if an object-free command
 such as End turn would otherwise apply. Return an already committed old outcome
 without executing it again or replacing the new game's state with its snapshot.
-Fresh play has a fresh root/stacks; protected old recovery records are not cleared
-merely to avoid late delivery. Exact IDs/fencing/storage remain technical design.
+Fresh play has a fresh root/stacks. Keep server outcomes and surviving process
+memory scoped to original play, not fresh intent. D-278 may lose client work on
+restart; protocol v1 defines IDs/fencing without a crash-durable outgoing journal.
 
 **Session continuity (D-217):** app restarts preserve login while the session is
-valid. If it expires, ask for login again; after successful same-account login,
-return to the same game and recover pending already-sent actions under D-216.
-Authentication expiry is not proof that an action failed and must not erase its
-recovery context. Exact session mechanics and logout/account-switch handling
-remain open; see [session continuity](accounts-decks-and-lobby.md#session-continuity-and-reauthentication--d-217).
+valid. D-268 forbids age/inactivity expiry; explicit revocation/token loss may
+require login. Same-account login returns to the game, recovering surviving-memory
+requests; restart uses D-278 server-first synchronization. Invalid authentication
+does not prove command rejection. See [session continuity](accounts-decks-and-lobby.md#session-continuity-and-reauthentication--d-217)
+and the completed authentication profile.
 
 **Confirmed presentation (D-180):** update local game state immediately to hide
 network latency; do not wait for server acceptance before showing the action. If
@@ -703,6 +704,44 @@ individual outcomes and D-185 difference-only corrections rather than introduce
 a blanket wait-for-response interaction gate. Final timing, reduced-motion/
 accessibility presentation and layout remain later design work.
 
+### Client crash loss and server-first restart — D-278
+
+The owner explicitly accepts losing local requests, predictions and unreported
+exposures on app process death. On startup, synchronize with the server and resume
+from its accepted state; **do not replay an outgoing journal or recreate lost
+actions**. No crash-durable client request/exposure journal or capture-before-display
+disk write is required. This supersedes the stronger client durability obligations
+in D-216/D-241/D-246/D-261/D-273–D-277, not server authority or server durability.
+
+While the process lives, retain original request IDs, payloads, random inputs and
+active/withdrawn prediction disposition in memory through normal reconnect and
+same-account reauthentication. Retry uncertain requests only with those original
+identities. Backgrounding/rotation alone is not process death. Logout clears the
+account's volatile work along with its private downloads and token; callbacks and
+already-admitted server work cannot become another account's data/actions.
+
+Server-admitted commands still complete durably in order, subject to actual access,
+lifecycle and applicability. Their committed effects synchronize normally, even
+after the originating process forgot them. Missing local work is not a claim of
+server rejection. Startup catches up revisions/full baseline and subscribes for
+later commits; it need not enumerate lost IDs or wait for the old inbox to drain.
+Never restore cached provisional board state as accepted state.
+
+Exposure reporting is **best effort across process death/Logout**. Connected
+event-producing inspection still immediately creates/submits an in-memory record,
+including actual hidden content shown by a rejected prediction. A surviving record
+is retried with its original ID; an admitted/committed exposure retains the normal
+history, latest-own revealing barrier, Redo and reference rules. An unreported lost
+record is not reconstructed from downloaded faces or guessed knowledge. Server-
+retained records govern controls even if the player saw something never reported;
+the owner explicitly accepts this weaker safeguard. This does not permit creating
+logged inspections or gameplay offline, suppressing reports in a live process,
+discarding server exposure records or claiming competitive anti-cheat.
+
+Saved account data and accepted replica/cursor transactions remain durable. Local
+unfinished form drafts and personal presentation progress are best-effort saved UI
+state, not a guarantee that every last keystroke or outgoing action survives a crash.
+
 ### Request identity, durable admission and recovery — D-275
 
 **Confirmed:** each command has a stable unique request identity and original
@@ -722,8 +761,9 @@ not successful acceptance, a committed mutation or proof of replica convergence.
 Selected lifecycle, with exact schema/locking implementation still to specify:
 
 1. The user completes a direct operation or the necessary inputs for an action.
-2. Persist its predicted state transition and outbound request atomically, and
-   display that provisional result without waiting for a network round trip.
+2. Capture its immutable request and prediction in process memory, and display
+   that provisional result without waiting for a network round trip or disk write
+   (D-278 replaces the earlier atomic client-persistence prerequisite).
    This is not an accepted server transition or a separate local game (D-259).
 3. If connected, begin publication immediately in client action order. Do not
    wait for a group to end, a timer, screen exit, or another user action.
@@ -739,14 +779,15 @@ Selected lifecycle, with exact schema/locking implementation still to specify:
    rejection. A pending duplicate keeps its original inbox slot; a completed one
    returns its original accepted/rejected/no-op result rather than executing again.
 
-Reconnect automatically looks up/retransmits uncertain original requests as needed
+Same-process reconnect automatically looks up/retransmits retained uncertain original requests as needed
 and restores accepted state through revisions or a coherent baseline. Fence obsolete
 connections from new admission after replacement, scoped to that installation/
 logical stream: other devices stay usable and already-admitted records are not
 discarded. Preserve local original order for not-yet-admitted recovery work without
 routine per-command acknowledgement waits. Old-play/preparation/invitation requests
 cannot affect fresh lifecycle context; original committed results remain recoverable
-without reapplication. Preserve account-private exposure/Logout obligations.
+without reapplication. Process restart instead uses D-278 server-first sync;
+Logout/account fences apply even when callbacks outlive the volatile queue.
 See [request ordering/recovery](../04-technical/request-ordering-and-recovery.md)
 for the selected mechanism and remaining exact wire/retention/fencing work.
 
@@ -1080,8 +1121,8 @@ at its recorded boundary under target fidelity and suffix checks. Explicit tree
 activation instead selects an existing node; review alone never changes shared play.
 
 Rapid Undo must work before, during, and after acknowledgement. Pending/in-flight
-requests and recovery context must survive restart/retry without disappearing or
-being applied twice.
+requests retain original identity through same-process retry without double
+application. D-278 permits loss on restart; server-admitted work remains durable.
 
 **Current server request semantics (D-236):** distinct requests are successive
 presses against current latest-own candidates; retries recover one original
@@ -1161,24 +1202,25 @@ follows the lifecycle below.
   source/object and printed-face references, actual content/result shown, and its
   effective recording context. A multi-face inspector includes any otherwise-
   hidden face actually displayed. No guessing whether the player already knows it.
-- Capture exposure durably before presenting new hidden content. A completed
+- D-278: capture exposure in memory and immediately start reporting when presenting
+  new hidden content; no durable-before-display write or acknowledgement wait. A completed
   online inspection is an event, but need not move a card, activate a continuation
   or create an automatic gameplay branch. Record its viewed context separately
   from its recording context, as for historical annotations.
 - If an online optimistic action displays hidden content then is rejected, retain
   that exposure and its prediction/request context. Reconciliation removes the
-  failed board effect, not the record of what was shown. Preserve capture through
-  process death and recover already-initiated online records after reconnect;
-  this is not permission to start inspection/events offline.
+  failed board effect, not the surviving record of what was shown. Same-process
+  reconnect retries it; process death may lose unreported records under D-278.
+  This is not permission to start inspection/events offline.
 - Deduplicate delivery retries of one recorded exposure, not distinct inspections
   or different exposed face/reference sets. Ordinary summaries report viewing
   without automatically disclosing covered names. Retained original context is
   inspectable online; offline reading must not itself create a new event.
 
-Persistence/outcome linkage and event-stream encoding are technical work. Capture
-must not depend solely on a gameplay mutation succeeding, nor require delaying
-all ordinary online actions for server acknowledgement. If capture is unavailable,
-do not show new hidden content without its required record.
+Reporting must not depend solely on a gameplay mutation succeeding or delay ordinary
+actions for acknowledgement. D-278 permits loss before server admission, including
+failure before local persistence; it replaces the former disk-capture display gate.
+An unavailable connection still disables a new event-producing inspection.
 
 ### Exposure participation in controls and visibility
 
@@ -1214,12 +1256,10 @@ comment/author records still decide filtering. Keep the original-context route
 discoverable even if the alternative qualifies for Show hidden branches. A shared
 prefix exposure alone still does not qualify an otherwise ordinary suffix.
 
-Durability protects the obligation, not a send boolean: logged exposure captured
-online before display survives a loss before transmission, process death, Logout
-and account switching. Clear ordinary private downloads on Logout but retain this
-account-protected recovery record. Another account may neither inspect nor publish
-it. Original-account recovery records the actual exposure once, including for an
-ended incarnation, without reopening play or overwriting a fresh game's board.
+D-278 supersedes the former crash/Logout-durable exposure obligation. Keep a live
+process's record until outcome resolution or Logout; admitted server records remain
+durable, unadmitted forgotten records may be lost. Neither case permits another
+account to inspect/publish it, reopening ended play or overwriting a fresh board.
 
 Retain actor, operation/source context, exposed references or concrete result,
 and a route to the original step in the retained history. Distinguish undone/
@@ -1232,7 +1272,7 @@ covered card names/faces to the other participant. Original context remains
 inspectable under cooperative full access; rolls retain actual recorded results.
 "Permanent" here means retained across normal undo/branch operations, not an
 exemption from eventual game/account erasure. Exact triggers/coalescing,
-historical/offline views, durable capture/publication, schemas, and retention
+historical/offline views, best-effort reporting/durable server publication, schemas, and retention
 remain Q-31. No competitive anti-cheat guarantee is implied.
 
 D-95 makes an event comment an ordinary current-path node; D-232 removal does not

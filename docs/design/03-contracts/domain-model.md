@@ -37,7 +37,8 @@ position is not a new game-history action.
 
 “Draft” describes recoverable pending/failed work or incomplete form input, not
 an editing mode that must be entered and sent. Completed game actions
-automatically enter the durable synchronization queue.
+automatically enter the online in-memory send queue (D-278); server admission,
+not client persistence, establishes durable pending work.
 
 ### State ownership and request boundary — D-259
 
@@ -70,8 +71,9 @@ Separate these device-held representations from personal UI ownership:
 3. **Protocol/recovery data:** outbound requests, outcome lookup/deduplication,
    synchronization cursors/checkpoints and already-initiated exposure obligations.
    These may be device-resident and durable without being user-local game rules.
-   In particular, pre-display exposure capture still survives rejection/restart/
-   Logout under its existing account-protected recovery contract.
+   D-278 makes outgoing requests/exposure reports volatile: preserve while the
+   process lives, but restart/Logout may lose them. Accepted replica/cursor and
+   server-admitted records remain durable; no protected outgoing journal is required.
 4. **Disposable caches:** downloaded images/catalog data and derived snapshots.
    Retained per-game essential definitions/defaults remain shared game data.
    Cache location or eviction never grants independent authority or permits losing
@@ -82,7 +84,7 @@ requesting device's search text, scroll position or open panel into shared game
 state. This does not exempt an explicit View/inspection that requires a logged
 game action. Classify the semantic operation, not whether any network I/O occurs.
 
-A completed shared operation is persisted for recovery and begins transmission in
+A completed shared operation is captured in process memory and begins transmission in
 client action order, with provisional local application and no routine
 acknowledgement wait. The server validates/applies it in arrival order, records
 the actual accepted transition/control outcome and creates authoritative events;
@@ -98,6 +100,11 @@ acceptance applies through ordinary committed-state updates with original actor/
 Live/playback mode and last presented boundary are personal state; accepted replica,
 request journal and derived display remain separate, with no second authoritative
 local tree or cross-device review receipt.
+
+D-278 limits that journal to process memory: on restart synchronize from server
+state, not cached predictions or recreated commands. Server-admitted late changes
+still arrive normally. Lost unreported exposures may weaken the revealing-action
+barrier; server-retained records, not guessed player knowledge, govern controls.
 
 Checking whether a client is current compares its **accepted replica revision**
 with server history, not zoom/menu state or the provisional prediction overlay.

@@ -51,7 +51,7 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | A submitted chat message needs correction. | Send another message; submitted chat has no Undo, Edit or Delete. Simple chat has no planned expansions, not a deferred editing/deletion roadmap. This does not change event-comment Undo or decide account erasure/retention. | [Optional text](../03-contracts/visual-action-language.md#116-optional-text), D-94/D-240; T-540. |
 | An event comment needs correction. | No dedicated Edit/Delete. Use ordinary eligible Undo or add another comment; dependency and other Undo checks still apply. | [Optional text](../03-contracts/visual-action-language.md#116-optional-text), D-241; T-541. |
 | A saved deck is deleted or an unstarted lobby cancelled. | No trash/restore feature. Preserve already selected lobby/game deck copies; do not confuse these exclusions with current-game branch restoration or permanent server erasure. | [Account/deck/lobby contract](../03-contracts/accounts-decks-and-lobby.md), D-241; T-542. |
-| A player explicitly logs out or switches accounts. | Logout removes private downloaded content but preserves protected already-sent recovery records. Never expose one account's private content/recovery records to another. Server retention/account erasure remains privacy/service design. | [Logout](../03-contracts/accounts-decks-and-lobby.md#logout-and-account-private-downloads--d-241), D-241; T-543. |
+| A player explicitly logs out or switches accounts. | D-278 clears volatile outgoing/exposure work plus private downloads/token; server-admitted work may still finish. Fence late callbacks from another account; later login syncs server without replaying a journal. | [Logout](../03-contracts/accounts-decks-and-lobby.md#logout-and-account-private-downloads--d-241), D-278; T-543/T-600/T-647. |
 | Personal review or explicit internal-node activation leaves a retained future. | Personal viewing never changes the Undo target/checks. A fork anywhere at/after the target blocks removal; validate the whole retained linear successor chain, including beyond the shared pointer, under N and unchanged tuples. | D-245; T-558. |
 | Redo has a surviving anchor but different relevant input and no later suffix. | Block reinsertion unless its own recorded relevant transition can be restored exactly; no fresh arithmetic/default/source snapshot. Retain the stack without skipping. | Recorded replay/D-224/D-230; T-562/T-563. |
 | Cached hidden faces are available offline. | No new event-producing inspection. D-252 own-area hold reads real downloaded faces without an event; opponent holds conceal hidden sides and explicit logged inspection needs a connection. Already-initiated online recovery remains separate. | D-246/D-252; T-559–T-561. |
@@ -109,6 +109,32 @@ revision/checkpoint design must coexist with editable trees and latency hiding.
 This is not a certification that behavior specification is complete. Further
 edge cases may be found, but an owner question needs a concrete unresolved
 outcome or conflicting requirements, not merely a new example of an existing rule.
+
+## Remaining-point batch disposition — D-278–D-284
+
+The owner has resolved the identified policy batch: **server-first process restart
+with permitted loss of outgoing/unreported exposure work**; all-session revocation
+only on successful password reset; MTGJSON records/startup check + Scryfall lazy art;
+independent immediate Select/Ping taps; two-channel/all-device/per-game notifications
+with local foreground suppression; no automatic age expiry of required current-game
+records/outcomes, with operator erasure/backups external. No pending approval of
+those former suggestions remains. D-278 intentionally weakens pre-display durable
+exposure protection, not merely its storage representation.
+
+[Protocol v1](../04-technical/protocol-v1.md),
+[storage mechanics](../04-technical/storage-mechanics.md),
+[runtime/verification profile](../04-technical/runtime-and-verification-profile.md)
+and focused auth/catalog/notification specifications complete the identified
+mechanisms/parameters. Earlier technical-work labels in this register are superseded
+by those contracts, not a list of new owner questions. T-647–T-663 and corrected
+older oracles cover the changes; literal random vectors are supplied separately.
+
+What remains at the proper gates: the owner's separate independent review, real
+UI/accessibility/control-layout decisions, then explicitly authorized implementation
+with generated API schemas/build locks and measured device/failure/performance
+qualification. Provider/upstream rights and external production erasure/backup
+obligations remain release/operator checks, not silently declared fulfilled. This
+batch does not certify exhaustive correctness, pass review/UI gates or authorize code.
 
 ## Specification work — not fresh product questions
 

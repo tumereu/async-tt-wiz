@@ -61,7 +61,7 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | Taps occur between otherwise matching grouping anchors. | D-251 replaces D-250: first tap starts a new group unless the current group is taps/pings-only. Its next anchor joins; never merge backward across that tap boundary. | D-251; T-304/T-574, grouping matrix. |
 | A Stack/move operation explicitly continues at history while live state differs. | Select the historical execution state before all guards/reads; do not compare the displaced head's Stack or source. | D-179; T-579/T-580. |
 | A delayed old lobby request first arrives after ending/return to the same lobby. | Bind the original preparation round; no old Ready/edit/cancel acquires fresh-round intent. Recover committed old outcomes without reapplication. | D-205/D-213/idempotency; T-581/T-582. |
-| Logged exposure is captured online but not sent before Logout. | Protect the outstanding account-scoped recovery obligation, clear ordinary downloads and prevent another account reading/publishing it. | D-246/D-241; T-600/T-601. |
+| An explicit inspection request is captured online but not sent before Logout. | Clear volatile work/private downloads and fence callbacks. D-278 permits unadmitted loss; D-286 requires no separate record for speculative disclosure. Accepted server inspections remain durable and account-private. | D-241/D-278/D-286; T-600/T-601. |
 | Cleanup exposes separate Close/Next step actions but not advance-and-close. | This is allowed: individual actions need full paths; the combination can be quick-only. | D-253; T-233/T-235/T-597. |
 | A Ping menu/request spans another device's intervening event. | The menu captures targets, not a group. The server processes requests and creates events, grouped deterministically. Use its current derived recording context; explicit Unping of an absent marker is a no-op, not an old-group amendment, Ping conversion or group-mismatch rejection. | D-254; T-602. |
 | An ending suggestion follows a tap/closure/random run or precedes pings/comments/tracking. | Always a strict singleton S group, with boundaries before and after. Group catch-up shows the final board before the acceptance dialog; receipt does not obscure earlier unreviewed groups or delay sync. | D-257; T-603/T-604, GM-23–GM-25. |
@@ -94,8 +94,9 @@ The subsequent follow-up review's **F-01 is withdrawn under D-254**: its UI-boun
 ping-group premise was wrong. UI requests do not define groups; server-created
 events are grouped deterministically. Corrected contracts and T-602 record this,
 not another owner choice. **F-05 is resolved by D-257's strict singleton ending
-groups**, rather than the proposed E-family mapping. F-03/F-04/F-06 have derived
-repair work; see the
+groups**, rather than the proposed E-family mapping. D-286 supersedes F-03's special
+speculative-exposure recovery requirement; D-288 completes F-04's token-anchor
+example. Remaining unrelated F-06 editorial work stays separate; see the
 [review disposition](../../agent/adversarial-review-2026-10-20-follow-up.md#outcome).
 
 **F-02 is resolved by D-258:** successful deliberate shared-history switches clear
@@ -137,6 +138,27 @@ obligations remain release/operator checks, not silently declared fulfilled. Thi
 batch does not certify exhaustive correctness, pass review/UI gates or authorize code.
 
 ## Specification work — not fresh product questions
+
+### Architecture-review disposition — D-285–D-288
+
+The owner discussed the technical review and requested these documentation changes:
+
+- Simple local FIFO/ordered TCP sending, stable-ID retries and durable server order;
+  no contiguous client admission numbers or server reconstruction of lost messages.
+- Ordinary inspection/View/Reveal prediction and server reconciliation. Extra
+  speculative information is acceptable; no independent disclosure report/barrier
+  or reconstruction of removed viewed context. Accepted revealing records remain.
+- Distinct create+first-invite versus reinvite-to-existing requests. Cancellation
+  leaves no current game/invite in either order, with no revival/replacement.
+- Standard login/reset race checks and admitted-session metadata; atomic HTTP
+  business outcomes and account-private uploads before game creation; compact Stack
+  checksum guards and practical resource/recovery defaults; explicit disappearing-
+  token anchor examples and corrected crash/upgrade/exposure test instructions.
+
+T-664–T-670 specify the traces. The chosen stack stays, and prior F-03/G-03's special
+provenance remedy is no longer required. F-04/G-04 is clarified from existing token
+rules, not a fresh behavior choice. This is an identified review-batch disposition,
+not a proof of exhaustive correctness, review/UI gate pass or permission to implement.
 
 | Work lane | What remains | How to handle it |
 | --- | --- | --- |

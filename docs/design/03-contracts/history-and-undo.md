@@ -161,9 +161,10 @@ for ordinary play is player-specific. D-258's deliberate-switch reset below is a
 separate game-wide control effect. D-235 below confirms stack synchronization.
 Rejected/no-op requests are not successful new gameplay
 mutations and do not clear the stack; exact optimistic/server bookkeeping remains
-technical work. An actual logged exposure is a successful effective action even
-without a board edit, including exposure retained from a rejected prediction;
-apply the participation table below. D-252 own-area holds are not such actions.
+technical work. An accepted logged inspection is a successful effective action even
+without a board edit; apply the participation table below. D-286 does not create
+additional actions from rejected/different predictions. D-252 own-area holds are
+not such actions.
 Do not generalize clearing to personal review/navigation or treat
 Redo reinsertion itself as new play that necessarily clears remaining entries.
 
@@ -727,16 +728,15 @@ server rejection. Startup catches up revisions/full baseline and subscribes for
 later commits; it need not enumerate lost IDs or wait for the old inbox to drain.
 Never restore cached provisional board state as accepted state.
 
-Exposure reporting is **best effort across process death/Logout**. Connected
-event-producing inspection still immediately creates/submits an in-memory record,
-including actual hidden content shown by a rejected prediction. A surviving record
-is retried with its original ID; an admitted/committed exposure retains the normal
-history, latest-own revealing barrier, Redo and reference rules. An unreported lost
-record is not reconstructed from downloaded faces or guessed knowledge. Server-
-retained records govern controls even if the player saw something never reported;
-the owner explicitly accepts this weaker safeguard. This does not permit creating
-logged inspections or gameplay offline, suppressing reports in a live process,
-discarding server exposure records or claiming competitive anti-cheat.
+Explicit connected inspections submit ordinary requests, retained in memory like
+other online work. D-286 supersedes separate reports for speculative disclosure:
+extra information shown only by a rejected/different prediction is acceptable and
+needs no additional event or provenance reconstruction, even while the process
+lives. Accepted inspection/reveal records keep their history, latest-own revealing
+barrier, Redo and reference rules. Recover the original request normally; process
+death/Logout may lose unadmitted work. Server-retained records govern controls,
+not inferred player knowledge. No offline inspections or competitive anti-cheat
+promise is added, and no accepted server records are discarded.
 
 Saved account data and accepted replica/cursor transactions remain durable. Local
 unfinished form drafts and personal presentation progress are best-effort saved UI
@@ -757,6 +757,12 @@ server-assigned arrival order. Preserve ordered client sending and cross-player/
 device interleaving without dependency-graph reconstruction or client-clock sorting.
 Unrelated games may run independently. A **durable receipt means received/pending**,
 not successful acceptance, a committed mutation or proof of replica convergence.
+
+D-285 uses the local FIFO and ordered WebSocket/TCP connection, not a contiguous
+client admission sequence. A rejected or never-admitted message leaves no missing
+number blocking the next valid message. Server admission ordinals still order
+durable work, and retained uncertain requests still use original-ID recovery.
+Do not reconstruct missing messages on the server or infer rejection from timeout.
 
 Selected lifecycle, with exact schema/locking implementation still to specify:
 
@@ -1178,16 +1184,14 @@ Exposure coverage, revised by D-252: explicit Inspect other side, library
 View/Reveal, and die/coin results. Own-area hold inspection shows real faces
 without an event; opponent-area hold does not show hidden faces. Ordinary
 visible inspection and every search keystroke are not exposure records.
-This records what the interface showed/generated, not what a player remembers.
-D-91 generalizes this to any action exposing otherwise-hidden information,
-including draws, moves, and face changes that display covered information to
-either participant. Except for D-252's own-area hold, classification depends on
-actual interface exposure, not the command name, printed rules or guessed knowledge.
-An ordinary visible-face gesture/keystroke is not itself an exposure record;
-if its result actually exposes hidden information, that exposure still qualifies.
-Covered-face inspection logs an exposure without requiring a board-state edit
-or automatic activation of a new gameplay continuation; exact record placement
-follows the lifecycle below.
+This classifies the accepted server action/presentation, not what a player remembers
+or every temporary predicted glimpse. D-91 covers accepted draws, moves and face
+changes that display hidden information to either participant, not only explicit
+inspection. D-252 own-area holds remain exempt. D-286 supersedes the requirement to
+separately report information shown only by rejected/different predictions. An
+ordinary visible-face gesture/keystroke is not itself an exposure record. Accepted
+covered-face inspection logs viewing without requiring a board-state edit or
+automatic gameplay continuation; record placement follows the lifecycle below.
 
 ### Exposure lifecycle and offline inspection — D-246
 
@@ -1198,29 +1202,34 @@ follows the lifecycle below.
   An explicit Inspect other side/View/Reveal requiring a new event cannot bypass
   that requirement through cached content. Explain the connection requirement
   rather than silently dropping logging or queuing offline events.
-- Online exposure records the actor, play incarnation, viewed boundary/revision,
-  source/object and printed-face references, actual content/result shown, and its
-  effective recording context. A multi-face inspector includes any otherwise-
-  hidden face actually displayed. No guessing whether the player already knows it.
-- D-278: capture exposure in memory and immediately start reporting when presenting
-  new hidden content; no durable-before-display write or acknowledgement wait. A completed
-  online inspection is an event, but need not move a card, activate a continuation
-  or create an automatic gameplay branch. Record its viewed context separately
-  from its recording context, as for historical annotations.
-- If an online optimistic action displays hidden content then is rejected, retain
-  that exposure and its prediction/request context. Reconciliation removes the
-  failed board effect, not the surviving record of what was shown. Same-process
-  reconnect retries it; process death may lose unreported records under D-278.
-  This is not permission to start inspection/events offline.
-- Deduplicate delivery retries of one recorded exposure, not distinct inspections
-  or different exposed face/reference sets. Ordinary summaries report viewing
-  without automatically disclosing covered names. Retained original context is
-  inspectable online; offline reading must not itself create a new event.
+- Submit explicit inspection/View/Reveal as an ordinary connected request, with
+  immediate prediction and no disk-before-display or acknowledgement wait. An
+  accepted inspection records actor, play, accepted source/face/content references
+  and separate viewed/recording context where applicable. No guessed prior knowledge.
+- **Server execution resolves contents (D-286).** Top/bottom/all View/Reveal captures
+  source and requested count/scope. Resolve the actual members/order and available-
+  card clamp at execution. For Library `[A,B,C,D]`, a client predicts Reveal top 3
+  as A/B/C; if Draw A executes first, accepted Reveal is B/C/D. Reconcile to B/C/D.
+  The extra glimpse of A is acceptable: no second event, barrier, Redo clearing,
+  compensating action or frozen historical reconstruction. Accepted tray membership
+  then stays fixed under D-47; subsequent moves update locations, not refill it.
+- A specific-card/face inspection retains its exact target/context. If that context
+  was removed or became inapplicable before processing, reject and reconcile normally.
+  Do not substitute another target, restore the removed step or keep a separate
+  provenance record solely for the predicted view. An already-accepted inspection
+  keeps its normal recorded references and dependency protections.
+- A rejected/different board prediction creates **no separate exposure report**.
+  Record accepted revealing actions/results, not all locally shown content. This
+  intentionally replaces D-89/D-91/D-246's stronger speculative-disclosure accounting,
+  beyond D-278's permitted crash loss. Draw/move requests still bind their original
+  card identities and retain movement guards; they do not gain replacement draws.
+- Deduplicate retries of the same inspection request, not distinct accepted
+  inspections. Same-process recovery keeps its original intent; restart/Logout may
+  lose unadmitted requests under D-278. Summaries do not reveal covered names.
+  Recorded visible content remains readable offline without a new event.
 
-Reporting must not depend solely on a gameplay mutation succeeding or delay ordinary
-actions for acknowledgement. D-278 permits loss before server admission, including
-failure before local persistence; it replaces the former disk-capture display gate.
-An unavailable connection still disables a new event-producing inspection.
+An unavailable connection still disables new event-producing inspection. No
+separate exposure queue or reconstruction of lost/temporary disclosure is required.
 
 ### Exposure participation in controls and visibility
 
@@ -1234,7 +1243,7 @@ action; storage outside the mutation-node payload does not exempt it.
 | Own-area hold or permitted visible-face navigation | Local only; no record or board transition. | Does not change latest-own candidate or clear Redo. | No group/filter/replay/N participation. |
 | Accepted revealing move/Flip or View/Reveal | Exposure is associated with its accepted mutation and actual effective boundary. | That revealing latest-own action blocks Undo; a successful new own action clears own Redo. | Count once as its event plus its reference/payload work; retain concrete shown content. |
 | Explicit Inspect other side with no board edit | Effective exposure event at current recording context; viewed context retained separately. No inserted historical mutation or new gameplay branch. | It is the actor's latest own action and cannot be selectively removed. Do not skip it to Undo a prior tap. It clears that actor's Redo across devices. | V grouping anchor; recording-context membership and exact viewed references participate in suffix dependencies/N. |
-| Actual logged exposure from a rejected prediction | Retain the actual disclosure as its own effective event, with failed request/prediction context; no invented successful draw/move. | The board rejection is not new play, but the actual completed disclosure is an exposure action with the same barrier/clearing behavior as standalone inspection. Capture failure before display creates neither. | No automatic gameplay branch; retain/deduplicate disclosure even across recovery. |
+| Hidden content shown only by a rejected/different prediction | No additional server event or preserved old-context snapshot; ordinary reconciliation (D-286). | No additional Undo barrier or Redo clearing from that glimpse. The actual accepted action retains its normal effects. | No extra grouping/N/filtering/reference participation or automatic branch. |
 
 An exposure-only event has a stable causal position and effective revision at its
 recording boundary, ordered with other accepted actions. It need not add a second
@@ -1256,10 +1265,11 @@ comment/author records still decide filtering. Keep the original-context route
 discoverable even if the alternative qualifies for Show hidden branches. A shared
 prefix exposure alone still does not qualify an otherwise ordinary suffix.
 
-D-278 supersedes the former crash/Logout-durable exposure obligation. Keep a live
-process's record until outcome resolution or Logout; admitted server records remain
-durable, unadmitted forgotten records may be lost. Neither case permits another
-account to inspect/publish it, reopening ended play or overwriting a fresh board.
+D-278 supersedes crash/Logout-durable outgoing recovery; D-286 additionally removes
+separate speculative-disclosure reports. Keep original inspection requests while
+memory survives, until outcome resolution or Logout. Admitted server requests and
+accepted records remain durable; unadmitted forgotten requests may be lost. Neither
+case permits cross-account publication, reopening ended play or fresh-board overwrite.
 
 Retain actor, operation/source context, exposed references or concrete result,
 and a route to the original step in the retained history. Distinguish undone/
@@ -1272,7 +1282,7 @@ covered card names/faces to the other participant. Original context remains
 inspectable under cooperative full access; rolls retain actual recorded results.
 "Permanent" here means retained across normal undo/branch operations, not an
 exemption from eventual game/account erasure. Exact triggers/coalescing,
-historical/offline views, best-effort reporting/durable server publication, schemas, and retention
+historical/offline views, ordinary inspection-request recovery, durable publication, schemas and retention
 remain Q-31. No competitive anti-cheat guarantee is implied.
 
 D-95 makes an event comment an ordinary current-path node; D-232 removal does not

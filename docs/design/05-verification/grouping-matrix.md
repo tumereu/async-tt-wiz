@@ -22,7 +22,7 @@ single-tap Actions emits no grouping input. Category counts/rules do not change.
 | C | Catalog/Blank token creation and Clone | Creation family; interleaved E customization can join without replacing C. |
 | K | Combat-area creation, declaration, occurrence layout/removal | Combat family; closure is F, source taps are T. |
 | L | Stack layout/order adjustments | Layout family, not I. |
-| V | Explicit Inspect other side, View/Reveal opening, standalone exposure record | Each opening/disclosure is a distinct anchor, not an ordinary hold. |
+| V | Accepted explicit Inspect other side / View/Reveal opening | Each accepted opening is a distinct anchor, not an ordinary hold or speculative-disclosure report (D-286). |
 | H | Shuffle all | Same named Library identity. |
 | F | View/Reveal dismissal, combat closure | Pending forward segment, not backward into its displayed state. |
 | R | Roll die, Flip coin | Pending forward random-tool run, separate from completed prior play. |

@@ -108,6 +108,31 @@ committed effects stay committed; revoked pending work receives the actual
 authorization failure, not a fabricated rollback. A new same-account session can
 read original outcomes, not transfer another account's requests.
 
+Login/reset race: read the password-verifier version and account auth epoch, perform
+Argon2 verification outside game locks, then take the shared account authorization
+lock and recheck that exact verifier version/epoch before inserting a session. If
+either changed, do not issue a session from stale verification; reverify current
+credentials or fail generically. Reset holds the exclusive lock. Thus a session
+issued before reset is revoked by it; a login finishing afterward cannot authorize
+the old password merely by attaching the new epoch. Parameter rehash uses the same
+version check and must not overwrite a concurrently reset password.
+
+Inbox admission stores originating session ID and auth epoch outside the immutable
+gameplay payload. Execution checks that admitted authorization under the account
+lock; a duplicate under new credentials may read its outcome but cannot relabel an
+old admitted command's authorization. A retained original never admitted before
+reauthentication may be newly admitted under the valid same-account session.
+Single-session Logout/revocation uses the exclusive account authorization lock too;
+other sessions remain valid, and account locking only orders the race.
+
+Credential endpoints are not generic business-outcome replay stores: registration
+uniqueness prevents duplicate accounts, reset-token consumption makes one password
+change possible, and Logout is idempotent revocation. A lost login response may
+require fresh password verification and a newly issued session; never persist a
+plaintext/recoverable session token merely to replay that HTTP response. Business
+mutations such as saved-deck/new-game creation instead use the durable non-secret
+request/outcome contract in protocol v1.
+
 Auth invalidation while process lives locks network writes and requests login;
 same-account login can resume retained immutable requests; changing accounts or
 Logout drops them. Process restart has no such queue (D-278). Downloaded read-only

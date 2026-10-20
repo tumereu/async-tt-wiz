@@ -17,10 +17,11 @@ physical naming is mechanical migration work, not different behavior.
 | --- | --- |
 | `account`, `session`, `password_reset` | Canonical email/username unique keys, versioned password verifier, account auth epoch, hashed token lookup, revocation/consumption metadata. No plaintext passwords/reset/session tokens. |
 | `contact`, `saved_deck`, `deck_entry` | Account ownership, approved metadata/imported quantities, exact accepted definition digest, deck revision; owner/list indexes. Selected lobby copies are independent, not cascade-linked to saved deck deletion. |
+| `request_identity`, `account_request` | Shared unique business-request ID/account/kind/scope/canonical intent binding across HTTP and game ingress; account-side final non-secret response/status and created IDs. Same transaction as account-data effects or initial game+invitation creation. No passwords/session/reset tokens. Independent of sync-window pruning; retain required dedup outcomes, with no initial automatic expiry. |
 | `service_writer`, `game` | Singleton writer epoch for transaction fencing; persistent lobby ID, two participants, current preparation/play IDs, lifecycle, next ingress ordinal, next executable ordinal, accepted revision and stream-control version. Membership index per account. |
 | `invitation`, `preparation`, `play` | Distinct attempt/round/incarnation IDs, retained submitted copies, Ready/starter choices and recorded initialization/root. Unique current lifecycle identity per game. |
-| `stream` | Game/account/installation/process-stream ID, fence generation, contiguous admitted sequence; locked during replace/admit. Other devices have separate rows. |
-| `inbox` | Globally unique request ID bound to account/game/lifecycle, canonical semantic bytes/digest, ingress ordinal, stream/sequence, pending/final state and result. Unique `(game, ordinal)` and `(stream, sequence)`; pending-ordinal index. |
+| `stream` | Game/account/installation/process-stream ID and fence generation; locked during replace/admit. Other devices have separate rows. No contiguous client-sequence state (D-285). |
+| `inbox` | Unique request identity bound to account/game/lifecycle, canonical semantic bytes/digest, ingress ordinal, stream/generation and admission session ID/auth epoch, pending/final state and result. Unique `(game, ordinal)`; pending-ordinal index. Admission auth metadata is not immutable gameplay intent and cannot be rewritten by a duplicate/relogin. |
 | `node`, `transition` | Game/play/node IDs, current parent, node version, actor/request, effective order, recorded relevant before/after and invariant-closed forward/inverse effects. Index `(play,parent)` and author/effective order. Root has no parent. Removed-for-Redo nodes are detached, not browsable alternative branches. |
 | `effective_record`, `reference` | Exposure/annotation context with board boundary and effective ordinal; immutable viewed identities/revision/content; indexed incoming references and recording-path membership. Exposure-only rows need no fabricated board mutation. |
 | `branch`, `control`, `redo_entry` | Genuine branch identity/archive state; current active node and control revision; per-player/per-play ordered Redo entries with recorded insertion anchors. Snapshot activation never reloads an old Redo stack. |
@@ -29,6 +30,7 @@ physical naming is mechanical migration work, not different behavior.
 | `revision`, `checkpoint` | Revision base/result and typed changed records, scope/request identity; optional rebuildable snapshot keyed by boundary/tree-control revision/engine version and semantic digest. |
 | `outbox`, `activity`, `notification_registration` | Atomic committed publication/notification intents, account-scoped monotonically ordered activity hints, per-session installation registrations; unique delivery identities and due/retry indexes. Not gameplay presence/review receipts. |
 | `baseline_transfer`, `baseline_chunk` | Frozen export metadata/chunks at R, owner/membership/auth epoch, expiry and pinned suffix range; full coverage manifest. Disk staging, not a long-held transaction or whole-tree heap blob. |
+| `definition_upload`, `definition_upload_chunk` | Account-private manifest/digest/count/length/expiry and verified chunks; optional intended game is not a prerequisite. Completion validates staging; saved-deck HTTP or ordered game attachment atomically retains required definitions. Staging expiry never removes attached accepted data. |
 
 Constraints: acyclic single-parent retained topology, one current pointer per play,
 same-play references, unique real containment, valid projected source/fallback and
@@ -46,14 +48,31 @@ admission and overtaking older frames. This deliberately selects a single writer
 service topology, not an HA or multiple-replica capacity claim.
 
 Each admission transaction takes the shared account authorization lock, then locks
-game and relevant stream rows (same order everywhere), validates fence/sequence/
-identity and binds immutable intent. Allocate
-the next ingress ordinal by updating that locked game row; insert inbox and advance
-stream watermark atomically. Commit before receipt or admitting the next frame.
+game and relevant stream rows (same order everywhere), validates fence/
+identity and binds immutable intent. Allocate the next ingress ordinal by updating
+that locked game row; commit the request-identity binding and inbox row atomically.
+Commit before receipt or admitting the next frame.
 Malformed/unauthorized/unavailable admission has no receipt/slot. Duplicate identity
 returns the bound outcome/slot without consuming a second ordinal. Stream replacement
 is another dispatcher task with the same locks; old pending frames after its fence
 fail, while earlier committed inbox rows remain executable.
+
+D-285 does not number client admissions: a terminally rejected/unadmitted frame
+leaves no sequence hole, and the dispatcher continues with later frames. TCP handles
+ordinary in-connection loss/order. Same-process reconnect looks up retained IDs and
+retries uncertain originals in local order after fencing, without reconstructing
+missing messages or weakening the durability of already-admitted work.
+
+Account HTTP mutations lock their request-identity record and affected account-data
+rows in deterministic order, atomically committing effects and original non-secret
+outcome. A competing duplicate waits for that transaction, then returns its outcome.
+New-game creation and first invitation commit together; initialize that game's
+dispatcher domain before serving subsequent commands. Reinvitation names an existing
+game and uses its dispatcher/locks, never the creation path. Cancellation makes it
+inapplicable or removes its already-created invitation; either way no current game
+or pending invitation survives. Retained outcome/control rows are not a browsable
+cancelled game or permission to revive it. Definition uploads are account-private
+staging and can precede any game; attachment, not upload completion, changes a deck.
 
 A worker first reads a candidate game's lowest pending ordinal/actor without a
 write lock, takes that actor's shared account authorization lock, then claims the
@@ -143,7 +162,7 @@ App start never treats an old provisional cache as a committed board.
 | Before/during final server transaction | Rollback and worker resumes original pending command; no half result. |
 | After final commit, before update/result delivery | Durable result/revision/outbox survive; revision/head recovery converges. |
 | During accepted client revision save | Atomic old or new accepted cursor/state; resume from that base. |
-| After displaying hidden content, before exposure admission | Live memory retries best effort; process death/Logout may lose the report. No retroactive inferred exposure. |
+| After a revealing prediction, before its request is accepted | Ordinary request recovery/reconciliation only. D-286 allows extra speculative glimpses; no separate report or frozen provenance. Accepted inspection/reveal records are durable, unadmitted work may be lost on death/Logout. |
 | During baseline or catalog staging | Keep prior complete generation, resume same verified transfer or discard staging and restart; never claim partial coverage. |
 | Logout/auth reset during callback | Logout discards local queue/private data; account/session-generation fences reject late store/display. Reset requires same-account auth before retained-memory retries, subject to server authorization. |
 

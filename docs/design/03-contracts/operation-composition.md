@@ -48,7 +48,7 @@ not instructions to overwrite current state with an obsolete snapshot.
 | Shuffle all | Named Library, new invocation identity and original fresh client seed (D-274). | Shared versioned Fisher–Yates/unbiased sampling over canonical IDs of **all current accepted members**, including arrivals/excluding departures; supplied seed, not an independent server reroll. Preserve unrelated fields; no old-membership lock. Record the concrete accepted permutation. |
 | Specific-card move / top/bottom-N move | Captured card identities/order, source and chosen destination/edge/gap. | Apply the movement guards on the execution state. Never substitute another card to repair a stale selection. A Draw still needs its recorded chosen card at the top. |
 | Ping / Unping | Captured destination identities, requested operation and any explicit historical reference; no bound recording group. | Process in server order and derive recording context from authoritative events under deterministic grouping (D-254). Preserve explicit Ping/Unping semantics; an already-satisfied operation creates no invented event. A stale group prediction is not an extra guard or authority to change old-group markers. |
-| Explicit inspection / View / Reveal | Target references, viewed boundary/revision and chosen scope. | Show and record actual permitted content; no substituted face/source or retroactive recording. Own-area hold inspection is the unlogged exception in D-252. |
+| Explicit inspection / View / Reveal | Specific inspection binds target/face/context. Contents View/Reveal binds source, top/bottom/all and requested count, not predicted members. | Resolve contents members/order/count clamp in the selected execution state; freeze accepted display references afterward under D-47. Specific missing/inapplicable targets reject normally. Reconcile different/rejected predictions without separate disclosure reports or old-context reconstruction (D-286). Own-area hold is the unlogged D-252 exception. |
 | Next step / End turn | Relative tracking operation. | Compute from current tracking when this constituent is processed, not a stale replacement tuple. |
 
 Retry, review and historical Redo reuse accepted concrete results/inputs; they do
@@ -97,7 +97,14 @@ operations, never an atomic multi-card node or server reservation.
    anchor or source was invalidated, reject that member rather than redirect it.
    Later members are still checked under their own original conditions. Accepted
    siblings and interleaved opponent work remain; no compensating rollback.
-   Mandatory empty-pair/link/source cleanup belongs to the triggering transition.
+    Mandatory empty-pair/link/source cleanup belongs to the triggering transition.
+
+For destination-prefix construction, distinguish **placement**, **already-placed
+no-op**, and **token disappearance**. A token sent to a configured disappearance
+destination performs its normal individual move/removal but never occupies that
+destination and never becomes the next member's insertion anchor. Keep the last
+actual placed/no-op member, or the original edge/gap if none. This does not skip a
+token's operation or excuse a formerly live anchor invalidated by the opponent.
 
 Examples using Library/combat slots (not four-member ordinary piles), top/left first:
 
@@ -108,7 +115,12 @@ Examples using Library/combat slots (not four-member ordinary piles), top/left f
   placed (no node); D produces `[A,B,D,C]`. Move them to start instead: B produces
   `[B,A,C,D]`, D produces `[B,D,A,C]`. No duplicate or capacity bypass.
 - If an opponent removes A after the first top insertion, B's after-A insertion
-  fails rather than becoming a fresh top drop. Do not undo A's accepted move.
+   fails rather than becoming a fresh top drop. Do not undo A's accepted move.
+- Move `[token T, ordinary C]` to Library top `[X]`: T disappears, then C yields
+  `[C,X]`, not an after-T failure. Move `[C,T,D]`: intermediate Library states are
+  `[C,X]`, `[C,X]` (T's disappearance), `[C,D,X]`. The same rule applies to bottom
+  insertion and mulligan returns. C's later concurrent removal still invalidates
+  D's bound after-C insertion; it does not authorize a new edge.
 
 Record actual anchors, before/after order and mandatory effects for exact inverse
 traversal and D-224 replay dependencies. Wire encoding of invocation membership

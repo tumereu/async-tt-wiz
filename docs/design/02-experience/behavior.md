@@ -522,9 +522,13 @@ The general rules are:
   other-face inspection requiring new exposure logging. Own-area hold is unlogged
   and may read downloaded real faces; opponent holds conceal hidden information.
   Downloaded recorded visible content and personal traversal remain readable.
-  Online exposure is captured/reported in memory independently of board acceptance,
-  without an automatic branch. D-278 permits loss before server admission on process
-  death/Logout; retained server exposure governs controls, not inferred knowledge.
+  D-286 uses ordinary server acceptance/reconciliation for revealing actions too.
+  View/Reveal resolves its source/count at execution: if the opponent draws first,
+  correct the predicted shown cards to the server result, then keep those accepted
+  tray references fixed. A temporary extra glimpse needs no separate exposure report,
+  Undo barrier or reconstructed old context. A specific missing inspection target
+  rejects normally. Accepted revealing actions retain their normal records/controls;
+  D-278 permits unadmitted request loss on death/Logout. No automatic branch.
 - Historical pings/comments record at current shared context while referring to
   the selected historical context separately. Do not insert them into old history,
   activate it, merge non-contiguous groups or render future overlays at old boundaries.
@@ -605,7 +609,7 @@ The general rules are:
   (D-182). Show connection and online-pending/accepted/rejected states honestly.
   Preserve recoverable unfinished input and records of already-started online
   requests; this does not authorize offline action submission.
-- D-278: an app crash can lose local actions, predictions and exposure reports not
+- D-278: an app crash can lose local actions, predictions and inspection requests not
   admitted by the server. Restart synchronizes accepted state without recreating
   them. Already-admitted work still completes and arrives normally; retained server
   exposure records govern controls even if an unreported inspection was lost.

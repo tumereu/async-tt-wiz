@@ -323,9 +323,11 @@ spoil a covered card. Explicit inspection can expose it.
 Explicit View/Reveal is shared/logged (D-44). D-252 replaces blanket covered-hold
 logging: own-area hold shows real faces without an event; opponent-area hold
 does not expose hidden information. Explicit Inspect other side is a logged
-inspection, distinct from Flip's shared-state edit. Other actual exposure from
-draw/move/face changes remains recorded. Revealing targets cannot be selectively
-undone; genuine retained alternatives, not Undo-created copies, are filtered by
+inspection, distinct from Flip's shared-state edit. Accepted revealing
+draw/move/face changes remain recorded. D-286 reconciles revealing predictions to
+the server outcome without separate reports for temporary extra glimpses; missing
+inspection context rejects normally, without reconstructing it. Revealing accepted
+targets cannot be selectively undone; genuine retained alternatives, not Undo-created copies, are filtered by
 exposure/comment/author participation. D-160 keeps the whole alternative visible when it
 contains exposure or an event comment, without a last-exposure cutoff. D-222 also
 keeps mixed-player continuations visible and limits hiding to single-player/

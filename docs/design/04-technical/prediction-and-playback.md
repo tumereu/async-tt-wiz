@@ -16,7 +16,7 @@ authorization. D-185's difference-only correction remains the governing invarian
 1. **Accepted replica:** durable server-confirmed tree/current state/control and
    revision, with D-276 complete current-game history after full download.
 2. **Volatile request journal (D-278):** original request identities/intent/guards/
-   random inputs, delivery/admission/final-result bookkeeping and best-effort exposure reporting.
+   random inputs and delivery/admission/final-result bookkeeping, including explicit inspection requests.
    Active versus withdrawn prediction is separate from final request outcome.
 3. **Displayed target:** live accepted state plus still-applicable active pending
    predictions, or the chosen revision-qualified historical boundary in playback.
@@ -25,7 +25,7 @@ authorization. D-185's difference-only correction remains the governing invarian
 Use the same Kotlin processor for prediction and authoritative semantics. Keep
 accepted-base storage separate from pending intent; derive/rebuild prediction from
 the current materialized base rather than replaying the entire downloaded tree on
-every update. Capture original requests/exposures in memory before showing effects;
+every update. Capture original requests in memory before showing effects;
 ordinary transmission and local interaction never wait for earlier acknowledgements.
 
 ## Accepted updates and pending overlay
@@ -46,8 +46,9 @@ ordinary transmission and local interaction never wait for earlier acknowledgeme
 - A removed local prediction is **not a recalled/rejected server command**. Retain
   every already-sent/admitted original request and recover its actual outcome under
   D-275. Do not substitute references, rewrite guards, issue Undo, regenerate random
-  input or discard actual exposure. Final server results can differ from this
-  earlier local forecast and are reconciled normally.
+   input or discard accepted inspection records. Final server results can differ from this
+   earlier local forecast and are reconciled normally. D-286 accepts temporary extra
+   hidden information without a separate report or preserved old-context snapshot.
 - Track withdrawn predictions separately from the immutable request journal.
   Once withdrawn they do not re-enter the speculative overlay merely because a
   later accepted state would make their original guards applicable. Preserve that
@@ -70,11 +71,11 @@ ordinary transmission and local interaction never wait for earlier acknowledgeme
   replica transactions are defined in [storage mechanics](storage-mechanics.md).
 
 Recomputation is semantic and prompt; animation does not gate it. Persist accepted
-data/cursor atomically and retain independent request/exposure recovery. New state
+data/cursor atomically and retain original-request recovery. New state
 must not silently alter the account/play-incarnation/preparation context, create
 offline work. D-278 process restart drops this journal/overlay and synchronizes
-accepted server state; no durable outgoing/exposure recovery is required. An
-unreported exposure may be lost, not inferred from cached content. Server-admitted
+accepted server state; no durable outgoing recovery is required. D-286 requires no
+separate speculative-exposure accounting, before or after restart. Server-admitted
 late acceptance remains an ordinary incoming change. Logout discards volatile work.
 
 ## Live and playback coordination

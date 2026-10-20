@@ -20,5 +20,9 @@ The remaining-point completion adds T-647–T-663, revises superseded crash-dura
 client/exposure oracles, and supplies [literal random/UUID v1 vectors](random-v1-vectors.md).
 Runtime/device/performance budgets are specified targets, not measurements.
 
+The architecture-review discussion (D-285–D-288) corrects speculative-disclosure,
+client-sequence and restart/upgrade oracles directly, and adds T-664–T-670 for the
+agreed FIFO/reconciliation, auth/HTTP, guard/resource, invitation and token cases.
+
 Agent delivery gates and implementation-loop instructions live separately in
 [the delivery workflow](../../agent/delivery-workflow.md).

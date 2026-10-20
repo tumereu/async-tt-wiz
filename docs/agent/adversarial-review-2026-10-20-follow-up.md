@@ -13,7 +13,10 @@ singleton groups, never E-family edits or companion-accepting anchors. **F-02 is
 resolved by D-258:** a successful deliberate shared-history switch clears both
 Redo queues, so the old entry is unavailable. Its advance-to-A recommendation was
 not accepted. D-259 adds an explicit server/UI ownership matrix and a separate
-technical revision-checksum proposal. F-03/F-04/F-06 remain repair work.
+technical revision-checksum proposal. Later D-286 supersedes F-03's special
+speculative-exposure provenance remedy, and D-288 completes F-04's token-anchor
+example (T-665/T-670). F-06's unrelated editorial work remains separate. Original
+reasoning below is historical, not permission to build superseded exposure recovery.
 
 This is a static review of the five design tiers, current decisions and the
 previous reviews' dispositions. Counterexamples are reasoning fixtures, not
@@ -28,8 +31,8 @@ requirement, D-245's retained-future checks and D-247's Stack comparator.
 | --- | --- | --- | --- |
 | F-01 | Withdrawn | The review assumed a Ping menu binds an authoritative group. | Incorrect premise; D-254 confirms server-created events and deterministic grouping. |
 | F-02 | Resolved | Redo after an explicit head switch needs a defined eligibility/clearing boundary. | D-258 clears both queues on successful deliberate shared-history switches, not ordinary events, Undo/Redo or UI review; T-605–T-607. |
-| F-03 | Medium | Protected late exposure can refer to a history revision already removed or changed by an eligible Undo. | Derived durability/reference completion; causal participation needs an explicit trace. |
-| F-04 | Medium | Ordered lowering needs an explicit non-placement outcome for disappearing tokens in mixed moves. | Derived algorithm/verification completion, not a new token policy. |
+| F-03 | Superseded | Protected late exposure can refer to a history revision already removed or changed by an eligible Undo. | D-286 ordinary reconciliation replaces separate speculative-disclosure reports/provenance; T-665. |
+| F-04 | Completed | Ordered lowering needs an explicit non-placement outcome for disappearing tokens in mixed moves. | D-288 supplies the derived token-anchor example and T-670, not new token policy. |
 | F-05 | Resolved | Ending suggestions need an explicit grouping category. | D-257 selects strict singleton S groups and final-board-before-dialog presentation; T-603/T-604. |
 | F-06 | Medium | Active contracts still require combined full paths and retain superseded grouping language. | Confirmed-rule editorial repair; no owner decision needed. |
 

@@ -74,8 +74,23 @@ effects are on Stack. A source move/reset or token disappearance that leaves its
 effect entries present does not alone reject an addition. The new addition still
 needs its own valid source, movement guards and structural applicability.
 
-Canonical encoding, equivalent provisional/authoritative IDs and atomic comparison
-are technical design constrained by this logical projection, not extra field locks.
+Protocol v1 encodes this logical projection as a domain-separated SHA-256 checksum
+of the ordered entry kinds/IDs/source IDs (including empty Stack and play scope).
+Client and server compute it with the same canonical codec; compare atomically in
+the selected execution state. This compact guard is not a checksum of the whole
+game/card or an extra field lock. Predicted output IDs equal accepted IDs.
+
+### Revealing predictions — D-286
+
+Apply ordinary acceptance/reconciliation to inspection and View/Reveal too. A
+top/bottom/all View/Reveal captures source and requested scope/count; resolve actual
+members/order in its selected execution state. The accepted tray then keeps those
+references under D-47, without later refilling. A specific-card inspection keeps
+its target/face/context; missing or no-longer-valid context rejects normally.
+Temporary extra information shown by prediction is acceptable and needs no separate
+exposure report/barrier or reconstructed historical context. Accepted revealing
+actions retain their ordinary records/Undo restrictions. This does not weaken
+bound-card movement guards or authorize offline inspection.
 
 D-187 explicitly supersedes D-181's previous orientation/note comparisons and
 D-186's previous-value Set check. Relevant-field preservation and current-value
@@ -254,14 +269,13 @@ that capability.
     freeze their selected targets rather than silently expanding Untap all to
     cards that joined later. Do not add priority or game-rule legality checks.
 
-19. **View/Reveal, inspection and dismissal — proposed.** Opening fixes exact
-    referenced IDs; top/bottom selection uses item 9. Specific-card inspection
-    requires an inspectable referenced card, not unchanged position or notes.
-    Do not change displayed IDs to follow source contents. Dismiss targets the
-    exact display ID and is a no-op if it is already dismissed; source changes do
-    not prevent dismissal or cause a replacement display to close. Actual exposure
-    is never undone by rejection; preserve truthful exposure history. Exact exposure
-    capture/coalescing and offline inspection policy remain separate open work.
+19. **View/Reveal, inspection and dismissal — superseded where D-286 applies.**
+    Contents selection uses server execution-time source/count, not item 9's old
+    pre-bound subset proposal. Accepted display IDs then stay fixed under D-47.
+    Specific inspection requires its valid target/context, not unchanged notes.
+    Dismiss names the exact display and cannot close a replacement. Reconcile
+    speculative content normally; no separate disclosure report or reconstructed
+    old context. Connected-only inspection and accepted-history rules remain.
 
 20. **Die/coin and other supported independent random results — proposed.** Check
     valid explicit inputs and operation identity, not unrelated board state. Each

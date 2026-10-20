@@ -73,11 +73,12 @@ data; keep signing keys out of Git and the distributed APK's embedded secrets.
   against that floor; do not silently raise it to match a library/test tool.
   Exact compile/target SDK, device matrix and dependency versions remain technical
   work; this does not promise every device meets measured performance targets.
-- Compatible app upgrades retain valid login, downloaded data and pending request/
-  exposure recovery. Preserve original identities/recorded results through local
-  migrations rather than requiring uninstall, app-data clearing or a new login
-  merely because the app was upgraded. D-268 explicit revocation/token loss still
-  applies; exact failed-migration recovery remains technical design.
+- Compatible upgrades retain valid login, accepted downloads/definitions/results
+  and saved personal data through verified migrations, without uninstall/data clear
+  or routine login. D-278 permits outgoing-memory loss on process replacement;
+  admitted server work still arrives once and unadmitted work is not recreated.
+  D-286 requires no separate speculative-disclosure recovery. D-268 explicit
+  revocation/key loss remains distinct from upgrading.
 - Version the network protocol separately from APK releases. Different app
   versions may participate together when their protocol/semantic behavior is
   compatible; matching APK version numbers are not a game-join requirement.

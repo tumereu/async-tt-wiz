@@ -129,7 +129,13 @@ Crash recovery stays deliberately simple (D-278): restart from synchronized serv
 state, not a durable outgoing replay queue. Local uncommitted actions/predictions
 and unreported inspections can be lost; server-admitted work still finishes and
 arrives normally. A living process retains normal ordered retry/prediction behavior.
-Server-retained exposure records govern controls even if an unreported view was lost.
+Revealing predictions follow ordinary server reconciliation too (D-286). If the
+server processes an opponent's draw before your Reveal, correct the displayed cards
+to its result; an extra temporary glimpse is acceptable. No separate report or
+historical reconstruction is required for speculative disclosure. Accepted
+inspection/reveal records, not inferred knowledge, govern controls. D-285 keeps the
+send path a simple ordered queue; a rejected message creates no sequence hole that
+blocks later valid work.
 
 The lower tiers explain these rules; they must not quietly invent a different
 interaction model for each feature. Prefer one shared behavior over many special

@@ -33,6 +33,11 @@ recovery into payload mismatch. Authorize outcome reads; knowing an ID is not ac
 
 ## Durable admission and order
 
+- D-285 keeps a simple client FIFO over ordered WebSocket/TCP delivery. Do not add
+  contiguous client admission numbers or a server missing-message reconstruction
+  protocol. Rejected/never-admitted messages leave no sequence hole blocking later
+  valid work. Retained uncertain originals still recover under the same IDs and
+  original send order after reconnect fencing; timeout alone is not rejection.
 - Serialize per-game ingress so server admission assigns the processing order;
   persist that order with the inbox record. Preserve each client's ordered sending
   and allow interleaving across players/devices. Do not reorder by client clocks,
@@ -94,7 +99,8 @@ See [prediction/playback](prediction-and-playback.md).
 - Preserve local original send order during resume: a not-yet-admitted older
   recoverable command cannot be overtaken by its newer local suffix. Recovery may
   pipeline requests without awaiting each final result; do not have the server
-  reconstruct a dependency order. Exact resume handshake/watermark remains design.
+   reconstruct a dependency order. Protocol v1 defines the fenced ID/status handshake,
+   not a contiguous client sequence watermark.
 - Every request/result remains fenced to original game/incarnation/preparation/
   invitation context. Old requests never mutate fresh play or a new preparation
   round; original committed outcomes remain recoverable without reapplication.

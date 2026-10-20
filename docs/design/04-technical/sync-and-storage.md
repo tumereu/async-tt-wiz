@@ -410,12 +410,14 @@ D-183 rules out a blanket wait-for-acknowledgement interaction gate; D-182 still
 excludes extended offline gameplay/replay. Do not interpret ordinary network latency as permission
 to freeze otherwise available local controls.
 
-D-278 replaces protected crash/Logout-durable exposure capture with best-effort
-in-memory reporting. Capture actual shown content/context online and submit promptly,
-retry while memory survives, never publish it as another account. Process death/
-Logout may lose unreported exposure; server-retained records decide Undo barriers.
-Server-admitted exposures/results remain durable and cannot reopen ended play.
-No offline event creation or inferred post-crash exposure record is authorized.
+D-286 replaces separate speculative-exposure reports with ordinary request
+acceptance/reconciliation. Explicit inspection/View/Reveal submits a normal online
+request; record its accepted server outcome, not extra content shown only by a
+rejected/different prediction. Resolve View/Reveal source/count at execution and
+retain the accepted references afterward; missing specific inspection context
+rejects normally without frozen-provenance reconstruction. D-278 still permits loss
+of unadmitted requests on death/Logout. Accepted inspection/results remain durable,
+account/play-fenced; no offline event or inferred post-crash report is authorized.
 
 Exposure-only records have the control/visibility participation defined in
 [history](../03-contracts/history-and-undo.md#exposure-participation-in-controls-and-visibility),
@@ -525,14 +527,18 @@ Protocol completion within D-265/D-266/D-276 (exact fields/leases remain propose
    dependencies needed for review/replay and retained control/reference obligations.
    D-276 full recovery targets a complete local current-game tree. Revision-pinned
    paging/chunking is transport, not a default lazy-history product boundary.
-4. Stage and verify the baseline, then atomically install its accepted state/cursor.
+4. Stage and verify the baseline, catch staged R up to a coherent revision at least
+   as new as the currently published accepted replica, then atomically install its
+   accepted state/cursor. Serialize installation with ordinary incoming updates so
+   older R cannot visibly roll back already-accepted work.
    Preserve original request/random/exposure records and account fences. Resolve
    their actual outcomes independently, re-evaluate remaining predictions and use
    D-185 difference-only corrections, not a whole-app wipe or blind queue replay.
    Preserve applicable UI and D-238 cursor fallback. Complete tree data enables
    required path playback; loading a current-state checkpoint does not skip it or
-   replace the history transfer. New updates beyond R are caught up separately.
-5. Catch up from R to the newer head. A paged baseline/catch-up token must either
+   replace the history transfer. Accepted sync and personal playback remain separate.
+5. Continue normal catch-up beyond the installed revision and independently confirm
+   head. A paged baseline/catch-up token must either
    protect a coherent transfer for a bounded lifetime or explicitly expire/restart
    from a newer baseline if pruning invalidates it. Never combine incompatible
    pages or report synced after losing the needed suffix mid-transfer. Pinning,
@@ -675,17 +681,19 @@ two admitted participants can read or mutate the game unless an explicit sharing
 feature is later approved. Both have equal tabletop rights, including hidden
 zone inspection.
 
-D-89/D-91 require reporting actual exposure, including rejected online predictions;
-D-224 excludes revealing selective-Undo targets. Follow the
+D-286 supersedes D-89/D-91's requirement to report rejected/different predicted
+disclosures separately; D-224 still excludes revealing accepted selective-Undo
+targets. Follow the
 [exposure lifecycle](../03-contracts/history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246):
-capture in memory when displaying new hidden content, keep viewed versus recording
-contexts and request identity, and retry surviving records on same-process reconnect.
-D-278 allows loss before server admission across process death/Logout, superseding
-the earlier pre-display durable-capture rule. D-246 permits no offline event creation/deferred inspection
+submit ordinary explicit-inspection requests, keep accepted viewed versus recording
+contexts and request identity, and retry retained uncertain requests on same-process
+reconnect. Reconcile extra speculative glimpses without additional records. D-278
+allows unadmitted request loss across process death/Logout, superseding the earlier
+pre-display durable-capture rule. D-246 permits no offline event creation/deferred inspection
 queue. Downloaded recorded visible content remains readable; new event-producing
 inspection needs a connection. D-252 permits unlogged own-area holds to read
 downloaded real faces; opponent-area holds conceal hidden information. Deduplicate
-retries, not distinct logged exposures. No
+retries, not distinct accepted inspections. No
 automatic gameplay branch, board marker or covered-identity summary is required.
 
 Transport authentication, invite authorization, secure credential storage,

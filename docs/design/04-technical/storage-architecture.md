@@ -55,9 +55,10 @@ Keep four distinct logical categories; this does not require four database files
    carries coherent revision-qualified chunks/pages; only complete coverage may
    be labelled a completed full download.
 2. **Volatile recovery (D-278):** original requests/random inputs, active/withdrawn
-   flags and best-effort exposure reports live in process memory. Baseline repair
+   flags and explicit inspection requests live in process memory. Baseline repair
    preserves surviving memory, but process death/Logout drops it. No crash-durable
-   outgoing table or exposure journal. Server-admitted work remains durable.
+   outgoing table or exposure journal. D-286 removes separate speculative-disclosure
+   reports; server-admitted work and accepted inspection records remain durable.
 3. **Disposable caches:** derived snapshots, refetchable catalog data and images.
    Retained essential per-game definitions/defaults are not disposable server data.
 4. **Personal state:** drafts, review positions and appropriate UI restoration data,

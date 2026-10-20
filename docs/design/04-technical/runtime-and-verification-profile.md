@@ -150,6 +150,23 @@ chunk it or raise the engineering bound after measurement; never silently omit
 objects/branches or truncate an approved action. Input rejection is explicit and
 must not be reported as an accepted partial deck update.
 
+Use the compact canonical Stack checksum guard from protocol v1 rather than
+shipping a whole entry list on every addition. Libraries/Stacks/tables are expected
+to be modest in normal play; qualify realistic workloads before adding machinery
+for hypothetical extreme sizes. Keep the existing chunked complete-history transfer
+separate. No new generic command-fragment/dependency protocol or gameplay count cap
+is selected by this review.
+
+Bound each subscriber's queued delivery to 256 messages or 4 MiB initially; a slow
+consumer is disconnected and recovers durable revisions/outcomes normally, without
+blocking other games or losing a commit. This is a queued-byte budget, not a new
+4-MiB gameplay transition limit. Do not eagerly materialize an unbounded outbox or
+history in memory. A single large revision/result uses streamed ordinary HTTP
+revision/result recovery rather than endless socket enqueue/disconnect retries;
+stage accepted changes and apply them atomically. Unsupported oversized input gets
+an explicit failure before mutation; if normal approved workloads hit engineering limits, fix representation/
+capacity and requalify instead of silently truncating or adding a Stack/Library cap.
+
 ## Verification matrix and initial budgets
 
 Performance is measured with animations enabled and no test-only dispatch APIs.

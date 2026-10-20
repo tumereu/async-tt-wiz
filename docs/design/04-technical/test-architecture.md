@@ -118,12 +118,15 @@ automatically solves canvas targeting.
   differ from prediction; verify reconciliation without double application.
 - In lower-layer tests, control the random-input adapter and count acquisitions.
   One new connected die/coin request samples once; prediction, server processing,
-  retry, restart recovery and replay retain that input/result. The server validates
+  same-process retry and replay retain that input/result. D-278 restart may lose an
+  unadmitted invocation; admitted/accepted outcomes survive on the server without
+  a replacement roll. The server validates
   its range/shape and never independently rerolls it. Invalid/rejected input cannot
   commit a result or trigger an automatic replacement invocation.
 - In normal-app E2E, observe the locally displayed roll/flip while delaying its
   response, then compare accepted history and the other player's UI. Reconnect
-  and restart must preserve the same outcome with no duplicate event. Do not add
+  alive must preserve the same input/outcome; restart before admission may lose it,
+  while restart after admission recovers the server outcome once. Do not add
   a test-only result picker or set game outcomes via a helper API.
 - Prove uncontended N-card/minus-one mulligans complete their intended draws;
   independently test changed-membership partial outcomes. D-274 selects shared
@@ -132,8 +135,9 @@ automatically solves canvas targeting.
   ordering/algorithm version, then verify cross-target equality, input validation,
   empty/single/many-card permutations and bounded sampling without modulo bias.
   No unspecified Kotlin/library-default shuffle may replace that contract.
-- Verify a retry/prediction restart/app upgrade retains seed/algorithm identity;
-  recorded history/Redo uses the accepted concrete permutation without fresh
+- Verify same-process retry/prediction recomputation retains seed/algorithm identity.
+  Process restart/APK replacement drops outgoing memory; server-admitted work and
+  recorded history/Redo use the original accepted concrete permutation without fresh
   entropy or later-member substitution. Distinct new invocations acquire fresh
   inputs, including after Undo; equal outcomes by chance remain valid.
 - At game start, verify server-acquired independent Library inputs and Random
@@ -264,16 +268,18 @@ requirements cannot silently drop API 29 from app coverage. Use native/platform
 checks where needed rather than claiming an untested minimum.
 
 Preserve synthetic app/backend state across upgrade checkpoints: existing valid
-session, downloads, accepted definitions, UI/personal state and original pending
-request/exposure recovery. Upgrade with compatible signing/package identity,
-verify SQLDelight migrations, then recover an actual lost-response command once.
+session, downloads, accepted definitions and saved UI/personal state. Upgrade with
+compatible signing/package identity and verify SQLDelight migrations. D-278 permits
+outgoing-memory loss, not a durable queue migration: after admission recover the
+server outcome once; before admission allow loss without recreating the invocation.
 Never uninstall/clear data to make this test pass. Failed/interrupted migration
 paths retain recoverability and must not silently wipe the database.
 
 Run compatible different APK versions against the same backend/game. Separately
 exercise an unsupported protocol/semantic version and verify safe update-required
-handling before mutation, preserving original pending records for post-upgrade
-recovery. Lower-layer decoder/version/migration tests supplement normal-app E2E;
+handling before mutation, preserving accepted records/server outcomes while outgoing
+memory follows D-278 on process replacement. Lower-layer decoder/version/migration
+tests supplement normal-app E2E;
 no forced re-login, fresh random sample or duplicate invocation is inferred from
 the upgrade. T-631–T-633 specify coverage, not executed tests or build automation.
 
@@ -339,6 +345,24 @@ exact navigation, including net-zero visual changes. T-642–T-646 supplement th
 corrected existing D-177/D-180/D-185 scenarios; no executable coverage is claimed.
 
 ## Harness and failure evidence
+
+The architecture-review repairs use D-285–D-288 and T-664–T-670. Test FIFO sending
+with a terminal admission failure followed by independent valid work, without a
+missing-number gate; fenced reconnect still resolves original request IDs. Race
+password verification/session creation/rehash against reset and check admitted
+session/epoch metadata cannot be relabelled by reauthentication. Lose HTTP creation/
+update/deletion replies and retry concurrently; assert one original business effect
+and private pre-game definition staging. Test Stack checksum equality on canonical
+entry projections, realistic workloads and slow-subscriber recovery.
+
+For D-286, race Reveal top N with an opponent Draw in both server orders, correct
+predicted trays to accepted members, then move cards and verify no post-acceptance
+refill. Reject an inspection after its viewed step is removed: no reconstruction,
+extra exposure event/barrier/Redo clearing or restored branch. Accepted inspections
+retain their normal records. No per-disclosure side channel/journal is required.
+Mixed-token top/bottom moves and mulligans distinguish disappearance from placement
+and from a concurrently invalidated live anchor. Use normal UIs for E2E actions;
+lower protocol/storage layers own malformed input and deterministic lock traces.
 
 T-647–T-663 and the completed protocol/storage/runtime/auth/catalog/notification
 profiles supply exact crash-loss, parameter, format, device/performance and failure

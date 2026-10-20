@@ -69,11 +69,12 @@ Separate these device-held representations from personal UI ownership:
    state. Keep each request's identity/conditions; do not send a stale whole-board
    replacement or treat the client's last-seen head as authoritative.
 3. **Protocol/recovery data:** outbound requests, outcome lookup/deduplication,
-   synchronization cursors/checkpoints and already-initiated exposure obligations.
+   synchronization cursors/checkpoints and explicit inspection requests.
    These may be device-resident and durable without being user-local game rules.
-   D-278 makes outgoing requests/exposure reports volatile: preserve while the
+   D-278 makes outgoing requests volatile: preserve while the
    process lives, but restart/Logout may lose them. Accepted replica/cursor and
    server-admitted records remain durable; no protected outgoing journal is required.
+   D-286 requires no separate report of information shown only by prediction.
 4. **Disposable caches:** downloaded images/catalog data and derived snapshots.
    Retained per-game essential definitions/defaults remain shared game data.
    Cache location or eviction never grants independent authority or permits losing
@@ -103,8 +104,9 @@ local tree or cross-device review receipt.
 
 D-278 limits that journal to process memory: on restart synchronize from server
 state, not cached predictions or recreated commands. Server-admitted late changes
-still arrive normally. Lost unreported exposures may weaken the revealing-action
-barrier; server-retained records, not guessed player knowledge, govern controls.
+still arrive normally. D-286 accepts temporary extra predicted information without
+additional disclosure accounting; accepted server records, not guessed player
+knowledge, govern controls.
 
 Checking whether a client is current compares its **accepted replica revision**
 with server history, not zoom/menu state or the provisional prediction overlay.
@@ -224,8 +226,9 @@ coincidentally match. D-93 applies the same fresh-new/fixed-recorded distinction
 to Shuffle's concrete order. D-261 permits local sampling for connected die/coin
 invocations, bound to the original request and reused by server processing without
 an independent reroll. Server acceptance and recording remain authoritative;
-local generation is not offline play. Persist the sample before displaying it
-under the exposure/recovery rules. Exact generator/entropy source, encoding and
+local generation is not offline play. Retain the sample in memory before displaying
+it (D-278), not a crash-durable journal. D-286 adds no separate speculative-exposure
+report. Exact generator/entropy source, encoding and
 validation remain technical work. D-274 separately selects a fresh request-bound
 client seed and shared versioned Fisher–Yates/unbiased sampling for in-game
 Shuffle over canonical current member IDs; accepted replay uses concrete orders.
@@ -265,8 +268,9 @@ pre-fork/nested presentation and protocol/schema remain technical/UI work.
 
 D-252 revises inspection: own-area holds show real faces without an event;
 opponent-area holds conceal hidden information; explicit Inspect other side logs
-viewing, separately from Flip. Library View/Reveal, die/coin and other actual
-revealing edits retain exposure obligations. The
+viewing, separately from Flip. Accepted Library View/Reveal, die/coin and other
+revealing edits retain their exposure records; rejected/different predictions add
+no separate disclosure event under D-286. The
 [participation mapping](history-and-undo.md#exposure-participation-in-controls-and-visibility)
 defines placement, latest-own barriers, Redo clearing, replay and branch filtering.
 Physical encoding/coalescing remains technical; no permanent-marker entity is required.
@@ -908,7 +912,7 @@ D-248 rules. It does not apply Stack's last-live snapshot policy universally.
 | Combat occurrence | Source leaving Battlefield removes occurrence and incident links; clean fully empty pairs atomically. | Same cleanup on token Remove/disappearance. | Exact inverse restores original source/occurrence/slot/link identities. No source-follow snapshot. |
 | Stack source reference | Stay live-linked across ordinary source locations and resets. | Token disappearance alone freezes last-live inspectable state, read-only, with provenance. The effect remains independently removable. | Reverse source disappearance re-links the same surviving occurrences to the restored token; replay reuses the recorded snapshot/inverse, not a replacement source. |
 | Selection / bound menu or editor | Keep selected/captured IDs; recheck current applicability. Movement never substitutes a new target. | Remove absent items from live selection; close/disable unusable bound controls. Remaining targets follow D-67, not silent omission of malformed IDs. | Personal selection is not restored by shared Undo and does not jump to another path's replacements. A restored card can be selected anew; an existing captured editor still cannot redirect its IDs. |
-| Ping / comment / exposure historical reference | Retain original object/location and viewed boundary/revision, separate from recording context. | Legitimate historical absence: offer original recorded context, never a malformed-ID error, dangling live action or replacement object. No new universal last-live snapshot. | A dependent reference blocks changing/removing its relevant context under D-224. Unrelated eligible edits preserve the reference and logical source node; branch switching never migrates endorsement/overlays. |
+| Accepted ping / comment / inspection historical reference | Retain original object/location and viewed boundary/revision, separate from recording context. | Legitimate absence in accepted history: offer original recorded context, not a replacement object. A new inspection arriving after its required context was removed rejects normally (D-286); no special snapshot of its speculative view. | An already-accepted dependent reference blocks changing/removing its relevant context under D-224. Unrelated eligible edits preserve the reference and logical source node; branch switching never migrates endorsement/overlays. |
 | Personal review cursor | Remain on the selected surviving node, displaying its revised state. | If that node is removed, fall to its parent repeatedly to the nearest surviving ancestor/root (D-238). | No detached snapshot, live-head jump, shared activation or new cursor mutation. |
 
 Classify references before applying D-67: unknown/foreign IDs are errors; known

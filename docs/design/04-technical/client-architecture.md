@@ -87,7 +87,8 @@ Separate random-input acquisition from deterministic processing:
 4. Retry, prediction recomputation, review and replay reuse the request input or
    accepted concrete result as appropriate. They do not consume another sample.
    Rejection is not permission to submit a fresh roll automatically. Preserve
-   already-displayed exposure under the existing recovery rules.
+   accepted inspection/results under the existing recovery rules. D-286 permits
+   temporary extra predicted information without separate disclosure reports.
 
 This selects code sharing and permits local die/coin generation, not offline
 action creation, client-defined authoritative events or a competitive randomness
@@ -170,7 +171,7 @@ catch-up animation on reference devices; exact workloads/budgets remain to defin
 
 ## State and lifecycle constraints
 
-D-277 selects three layers: accepted durable replica, immutable request journal
+D-277 selects three layers: accepted durable replica, immutable in-memory request journal
 with separate active/withdrawn prediction disposition, and derived displayed target.
 Live target is accepted current state plus valid active predictions; playback uses
 a chosen historical boundary while accepted sync continues. Incorporate remote

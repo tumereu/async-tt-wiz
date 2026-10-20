@@ -14,7 +14,41 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest remaining-point completion — D-278–D-284
+## Latest architecture-review discussion and repairs — D-285–D-288
+
+The owner requested an adversarial technical review, discussed all eight findings,
+corrected the overcomplicated sequencing/exposure/race framing, and asked to apply
+the agreed outcomes. The selected stack stays; no implementation/stage transition.
+
+- **D-285:** simple local FIFO over ordered WebSocket/TCP, no contiguous client
+  admission numbers or missing-message gate. Keep stable IDs, durable server inbox/
+  arrival ordinals and stream fences; terminal failure does not block independent
+  later work. Retained uncertain requests recover normally, restart stays D-278.
+- **D-286:** ordinary reconciliation for inspection/View/Reveal. Server Draw-first
+  may turn predicted Reveal A/B/C into accepted B/C/D. Extra speculative knowledge
+  is acceptable; **remove separate disclosure reports/provenance reconstruction even
+  while memory survives**, not only after crash. Missing specific inspection context
+  rejects normally. Accepted records/reference protections stay; accepted trays do
+  not refill, and bound Draw/move targets are not substituted. Earlier F-03/G-03's
+  special recovery remedy is superseded, not an unresolved owner question.
+- **D-287:** create+first-invite differs from reinvite-to-exact-existing-game. Cancel
+  first discards reinvite; cancel afterward removes it too. No revival/replacement,
+  transport redesign or new cancellation policy; retained dedup records are not an
+  available cancelled lobby. Creation retries return original IDs/outcome.
+- **D-288:** standard login/reset verifier-version/epoch check before session issuance/
+  rehash and retained admitted-session metadata; atomic HTTP business outcomes and
+  account-private definition uploads before any game; compact canonical Stack digest
+  guard and practical workload/backpressure/streamed-read defaults. Token/card moves
+  already differ normally: disappearing tokens do not become destination-prefix
+  anchors. Existing F-04/G-04 gets the missing explicit example, not new token policy.
+
+Primary contracts, technical profiles, summaries and old contradictory test oracles
+are updated directly. T-664–T-670 add the concrete traces. Generated schemas/build
+locks, executable tests and measurements still await authorization. Do not build
+the superseded exposure side channel or sequence-gap recovery to satisfy older
+handoff/history prose. Normal documentation checks and `scripts/save.sh` apply.
+
+## Earlier remaining-point completion — D-278–D-284
 
 The owner asked to finish remaining specifications and will open an independent
 review session themselves. Do not spawn reviewers, automatically start UI work or

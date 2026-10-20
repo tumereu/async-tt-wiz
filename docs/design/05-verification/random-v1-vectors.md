@@ -40,3 +40,25 @@ UUIDv5 uses the RFC namespace-byte/name algorithm; do not hash the namespace's
 display string or apply native-endian UUID memory layout. Accepted outcome IDs
 and concrete shuffled orders remain recorded server output; vectors are lower-
 layer fixtures, never a hidden E2E API for choosing game results.
+
+## Stack checksum v1 reference vectors — T-668
+
+For protocol v1's Stack guard, use play ID
+`00000000-0000-4000-8000-000000000001`. R is a `realCard` with `id` and `sourceId`
+both `00000000-0000-0000-0000-000000000001`; E is an `effect` with `id`
+`00000000-0000-0000-0000-000000000002` and the same source ID as R. Hash only the
+specified descriptor, never rendered source fields. Independently calculated with
+Python stdlib SHA-256 and sorted compact JSON (all keys/values here are ASCII, so
+this has RFC 8785's canonical bytes); these are fixtures, not executed Kotlin tests.
+
+| Ordered entries | Expected checksum |
+| --- | --- |
+| `[]` | `sha256:a7c8c625bee1013522c0943d76f51eabdc731857ab80a8f7ed3da39140664f9d` |
+| `[R,E]` | `sha256:05138a821c801b6a01e30e1fbe7dfb832b6b5109cb6113847123d099f7795516` |
+| `[E,R]` | `sha256:f65c95a8e499649d9be008c3d4c182830692ed7541d39b4e4ae90296ee6e9860` |
+
+Literal empty-Stack canonical bytes, UTF-8 with no newline:
+
+```json
+{"entries":[],"kind":"stack-guard","playId":"00000000-0000-4000-8000-000000000001","version":1}
+```

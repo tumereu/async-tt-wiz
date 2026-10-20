@@ -163,6 +163,15 @@ confirms a path via added users, not a decision that every other invitation meth
 is forbidden. Neither adding a user nor sending an invite bypasses acceptance.
 No replacement-opponent or open matchmaking feature is implied by reinviting.
 
+**Create versus reinvite — D-287:** creating a game with its first invitation and
+inviting to an existing game are distinct requests/parameters. Reinvite names that
+exact existing lobby and never falls through to creation. If cancellation processes
+first, discard reinvitation because the game is no longer available; if reinvitation
+processes first, subsequent cancellation removes that game and its pending invitation
+from current listings. Both orders leave no current game/invitation, with no revival
+or replacement. This does not require physical erasure of recovery/control records.
+Retrying creation recovers its original IDs/outcome, not a new game after cancellation.
+
 ## Confirmed deck-management scope — D-189
 
 - Saved deck **card-list editing is import-only**. Naming/renaming and selecting

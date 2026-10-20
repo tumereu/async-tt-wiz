@@ -5,6 +5,14 @@ gates. The three completion documents below supply the concrete initial mechanis
 parameter profile where older architecture summaries still say "exact ... open".
 They distinguish technical choices from owner-approved policy and measured evidence.
 
+D-285–D-288 apply the subsequent review discussion: simple FIFO/TCP sending without
+contiguous client admission numbers; ordinary revealing-action reconciliation with
+no speculative-disclosure reports; distinct new-game versus existing-game invite
+requests; login/reset race repair, HTTP business outcomes/pre-game uploads, compact
+Stack checksum guards, practical backpressure and mixed-token anchor examples.
+The selected stack remains unchanged. Primary contracts and T-664–T-670 carry the
+outcomes; this is not an implementation authorization or a passed design gate.
+
 - [Protocol v1](protocol-v1.md): types/envelopes, stream resume/fencing, result/delta
   correlation, provisional output IDs, lifecycle/control races, HTTP reads, complete
   tree chunks and compatible versions.
@@ -24,7 +32,8 @@ They distinguish technical choices from owner-approved policy and measured evide
   live/grouped background catch-up and endpoint animation (D-277).
 - [Android distribution and compatibility](android-distribution-and-compatibility.md):
   signed APKs/manual installation, Android 10+ and safe compatible upgrades/mixed
-  app versions (D-273), with exact protocol/build/version details still to design.
+  app versions (D-273), with initial protocol/runtime profiles specified and actual
+  dependency/build qualification deferred until authorized implementation.
 - [Server architecture](server-architecture.md): Spring Boot/PostgreSQL/Flyway
   selections, jOOQ, authority and transaction boundaries.
 - [Request ordering and recovery](request-ordering-and-recovery.md): stable intent/
@@ -76,9 +85,10 @@ selected for appropriate Android background recovery, not the foreground sync pa
 D-265 selects SQLDelight for client SQLite and accepts the storage layout; Coil
 remains conditional on canvas integration. D-266 confirms rolling sync-revision
 retention with fresh baseline recovery, retained gameplay history and rebuildable
-checkpoint caches; exact limits/protocols remain design work, not a history expiry
-policy. Exact protocols, schemas, versions,
-providers, support targets and application operational interfaces remain design work.
+checkpoint caches; initial limits/protocols are in the completion profiles, not a
+history-expiry policy. Generated schemas/build locks and measured qualification
+remain later artifacts; provider/support/runtime choices are specified in their
+focused documents rather than an outstanding owner-question queue.
 D-272 assigns production hosting/deployment/backups to a separate repository;
 Raspberry Pi hosting is a possible first trial, not a selected capacity guarantee.
 This agreement authorizes

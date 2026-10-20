@@ -4,6 +4,13 @@ Reviewed baseline: `f249d3f4c6fea1397c13e16bd27e7d4cffa9fb7a`.
 
 ## Outcome and discussion boundary
 
+**Later disposition (D-285–D-288):** G-03's proposed special provenance recovery is
+superseded by ordinary revealing-action reconciliation; extra speculative glimpses
+need no separate record. G-04's disappearing-token anchor clarification is now in
+operation composition and T-670. The original evidence below remains historical,
+not a direction to build those superseded exposure mechanisms. Other findings keep
+their separately recorded dispositions; this does not pass a delivery gate.
+
 The owner requests another adversarial review and a walkthrough of findings.
 This report records seven actionable specification risks. It changes no product
 contract or acceptance oracle and selects no implementation mechanism. No
@@ -26,8 +33,8 @@ executed application testing or proof that every possible defect is absent.
 | --- | --- | --- | --- |
 | G-01 | High | A historical bulk command lacks an explicit once-only continuation handoff. | Derived composition completion; new concrete trace. |
 | G-02 | High | Automatic request recovery lacks an explicit ordered first-application trace. | Technical protocol/verification completion under D-184/D-216. |
-| G-03 | Medium | Late exposure can outlive the exact viewed tree revision. | Existing F-03, still unrepaired; durability/reference completion. |
-| G-04 | Medium | A disappearing token must not become an ordered-destination anchor. | Existing F-04, still unrepaired; lowering/test completion. |
+| G-03 | Superseded | Late exposure can outlive the exact viewed tree revision. | D-286 drops separate speculative-disclosure reports/reconstruction; ordinary request reconciliation, T-665. |
+| G-04 | Completed | A disappearing token must not become an ordered-destination anchor. | D-288 clarifies existing token behavior in ordered lowering; T-670. |
 | G-05 | High | Independent optimistic/authoritative random orders can break ordinary mulligans. | Technical proof obligation already noted in the previous review; still not a selected mechanism. |
 | G-06 | Medium | Leading pings expose an overbroad grouping-prose versus matrix ambiguity. | Documentation/classifier completion; new concrete trace. |
 | G-07 | High | Active text still directs an implementer toward superseded behavior. | Existing F-06, expanded with root README and status/verification drift. |

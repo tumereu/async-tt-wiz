@@ -10,10 +10,11 @@ encoding examples. [Request ordering](request-ordering-and-recovery.md) owns int
 
 - UTF-8 JSON, `application/json`; socket messages carry a `type` discriminator.
   No polymorphic class names, executable data, NaN/Infinity or duplicate object keys.
-- IDs are lowercase hyphenated UUIDs. New request/installation/process IDs use
-  cryptographically random UUIDv4. Server identities use UUIDv4 too. Compare IDs by
+- IDs are lowercase hyphenated UUIDs. New request/installation/process IDs and
+  independently assigned server identities use cryptographically random UUIDv4;
+  command-derived output identities use the deterministic UUIDv5 rule below. Compare IDs by
   their unsigned 16-byte representation, never locale/string-library ordering.
-- Revisions, ingress ordinals and stream sequence numbers are nonnegative signed
+- Revisions and ingress ordinals are nonnegative signed
   64-bit values encoded as decimal **strings**, starting at `"0"`. No floating-point
   clocks/counters for causality. Timestamps are UTC RFC 3339 explanatory metadata.
 - `scope` is `{gameId, playId?, preparationId?, invitationId?}`. Required lifecycle
@@ -45,8 +46,8 @@ header over TLS; no credentials in URLs. JSON codec is shared with HTTP.
 | Message | Required fields / response |
 | --- | --- |
 | `hello` | `protocolMajor=1`, supported minor range, engine/read-format versions, random process ID, installation ID; server returns `welcome` with chosen versions, limits, heartbeat and supported formats, or `upgradeRequired`. No gameplay admitted before agreement. |
-| `openStream` | `gameId`, process-local stream ID; server returns `streamReady` with monotonically increased fence generation for that installation/game and next accepted sequence. Creating/replacing it is serialized with admission. |
-| `resumeStream` | Same installation/game/stream identity while process lives; server fences the old connection, returns generation and largest contiguous admitted sequence plus outcomes for retained pending request IDs. |
+| `openStream` | `gameId`, process-local stream ID; server returns `streamReady` with monotonically increased fence generation for that installation/game. Creating/replacing it is serialized with admission. |
+| `resumeStream` | Same installation/game/stream identity while process lives and retained uncertain request IDs; server fences the old connection, returns generation and authorized pending/final/not-admitted statuses for those IDs. No client sequence watermark. |
 | `subscribe` | Game ID, accepted revision, requested read formats; server returns `head`, revision suffix, or `baselineRequired`. Subscription is distinct from write readiness. |
 | `head` | Game ID, current revision, minimum resumable base revision, current lifecycle IDs, engine/read versions; sent on subscribe and every 30 seconds while connected, even without gameplay. |
 | `ping` / `pong` | Correlation ID only. 30-second heartbeat; close/reconnect after 90 seconds without server traffic. Heartbeat does not expire login or acknowledge gameplay. |
@@ -54,9 +55,12 @@ header over TLS; no credentials in URLs. JSON codec is shared with HTTP.
 On reconnect, stop new gameplay creation until authentication, stream fencing and
 accepted-state catch-up succeed; downloaded review stays usable. Retained earlier
 unadmitted commands are sent in original sequence before new work, without waiting
-for their final execution. Local `streamSequence` is contiguous; duplicates with
-the same request are allowed, a gap returns `sequenceGap(expected)` and is not
-admitted. No server dependency graph/reordering. Different devices/processes have
+for their final execution. D-285 uses a simple client FIFO and ordered WebSocket/TCP
+delivery, not contiguous client admission numbers. A rejected or never-admitted
+message does not reserve a missing sequence that blocks later valid messages.
+Retry retained uncertain originals in local order with the same request IDs; TCP
+handles ordinary loss within a connection. No server gap reconstruction, dependency
+graph or reordering. Different devices/processes have
 different streams; process restart discards the old local queue (D-278), opens a new
 stream and synchronizes, not resumes forgotten commands. Old admitted work remains.
 
@@ -70,7 +74,7 @@ no endless hot retry on invalid auth/update-required/storage failure.
 
 `command` fields: `requestId`, `scope`, `commandVersion=1`, `action`, optional
 `invocationId`, and `continuation` (`null` or `{boundary, explicit:true}`). Transport
-fields are `streamId`, `generation`, `streamSequence`. Actor is derived from auth,
+fields are `streamId` and `generation`. Actor is derived from auth,
 never trusted from a supplied author label. Request identity is globally unique;
 the server binds it permanently to that account and canonical semantic payload.
 Another account's collision returns inaccessible/conflict, never that outcome.
@@ -90,12 +94,13 @@ Canonical action fields are the concrete operands in the primary action contract
 | --- | --- |
 | Orientation/text/counter/face/cover | Target/occurrence and field/color IDs, requested absolute value or relative delta and selected face; no old-value/card-revision guard. Preserve field-specific trimming/numeric grammar. |
 | Move/Draw/placement | Real instance ID, original source container/placement, destination kind/container/gap/anchor and explicit choices. Ordered Draw includes original top identity; grouped moves include captured moved-member IDs for approved gap exclusion, not a sequencing dependency. Movement guard equality is semantic membership/placement/order actually required, not unrelated card text. |
-| Stack entry | Source/real-move operands plus ordered pre-action entry IDs (empty array is empty Stack). D-247 equality ignores source fields, camera, layout and frozen status. No whole-game revision guard. |
+| Stack entry | Source/real-move operands plus `expectedStackDigest`: SHA-256 of the domain-tagged canonical ordered pre-action entry projection (real-card ID or effect-occurrence ID plus source ID and entry kind), including the empty sequence. D-247 equality ignores source fields, camera, layout and frozen status. Compute/compare against the selected execution state atomically; not a whole-game revision guard. |
 | Clone/token/area/projection/link | Source/definition/face/slot/endpoint and placement choices; output IDs follow the deterministic rule below. Reset/Clone read actual chosen execution state, not client-predicted copied fields. |
 | Shuffle/die/coin | Target plus versioned seed or explicit sample, bounds/count and original random input; no old Library-membership guard. Concrete accepted outcome is server output. |
 | Undo/Redo | Action kind and scope only; server selects then-current latest-own/next entry. No captured target/head CAS, dependency chain or skip permission. |
 | Activate/archive/restore | Exact retained target ID and explicit control kind; only an actual shared switch clears both Redo queues. Missing/removed target rejects, not nearest-parent activation. Metadata-only archive/restore does not silently activate. |
-| Comment/ping/exposure | Actual content/coordinates and immutable viewed-reference context, separately from server-selected current recording context. Exposure includes actual shown face/result and originating request ID if any. No client-assigned group. |
+| Comment/ping | Actual content/coordinates and immutable referenced context, separately from server-selected current recording context. No client-assigned group. |
+| Inspect / View / Reveal | Exact target/face/context for specific inspection; named source, top/bottom/all and requested count for a contents operation. Server resolves the latter's members/order/count clamp at execution, not from predicted member IDs. Accepted references then stay fixed under D-47. Historical inspection validates its exact retained context without activating it; no fallback if removed. No separate speculative-disclosure report (D-286). |
 | Tracking/ending/lobby/invitation | Explicit requested step/player/suggestion outcome or exact pending-suggestion/attempt ID and original lifecycle scope, as required by the contract. No blanket old-head guard. |
 
 No family adds implicit legality/priority checks. Arbitrary unrecognized action kinds
@@ -103,17 +108,27 @@ reject before admission. Schema generation must enumerate the approved operands
 and discriminators from these primary contracts; it cannot add default substitution
 or optional guards not authorized here.
 
-An exposure report carries its own immutable request ID plus nullable
-`originatingRequestId`, viewed boundary, exposed face/content identities and actual
-shown result. Enqueue it immediately after the originating online command, without
-waiting for success. At execution, correlate with that earlier final outcome: if
-the accepted revealing event already records the **same disclosure/context**, attach
-the report to that event rather than create a second effective action/barrier or
-second Redo clearing. If the board command rejected or disclosed different content,
-retain actual predicted disclosure as its own effective exposure record. Standalone
-inspection is an effective record directly. Retry deduplicates the report identity,
-not distinct inspections; board rejection cannot cancel it. D-278 permits loss of
-an unadmitted report on process death/Logout, not manufactured post-crash reports.
+Stack checksum v1 hashes canonical JSON
+`{"kind":"stack-guard","version":1,"playId":"<UUID>","entries":[]}` with each
+entry encoded as `{"kind":"realCard|effect","id":"<UUID>","sourceId":"<UUID>"}`.
+The entry-kind string is exactly `realCard` or `effect`, not the example's union;
+`id` is respectively the real-card or effect-occurrence ID, and `sourceId` is the
+real-card/source ID (equal to `id` for a real card). No optional fields. Array order
+is Stack order; encode SHA-256 as `sha256:<64 lowercase hex>`. Empty Stack uses the
+same descriptor with `entries:[]`. A checksum mismatch has the existing
+`stackConflict` meaning, not a new guard family.
+
+D-286 applies ordinary prediction/reconciliation to revealing actions. For Library
+`[A,B,C,D]`, a predicted Reveal top 3 shows A/B/C; if the opponent's Draw A executes
+first, the accepted Reveal records B/C/D and the client corrects its display. The
+extra glimpse of A is acceptable, not a second event, Undo barrier, Redo reset or
+historical-provenance obligation. Rejected predictions likewise create no exposure
+event merely because content was shown locally. Explicit accepted inspections and
+revealing actions retain their ordinary server records; retry their original
+request IDs, not an additional report. A removed/inapplicable inspection target
+rejects normally without reconstructing its old context. Draw/move requests retain
+their original bound-card movement guards; this current-source resolution is for
+View/Reveal, not permission to substitute drawn cards.
 
 One command produces at most one board mutation node; mandatory cleanup belongs
 to that invariant-closed transition. Board node ID is UUIDv5 with request ID as
@@ -130,15 +145,15 @@ recorded server initialization identity with the same deterministic role scheme.
 
 | Server message | Fields and meaning |
 | --- | --- |
-| `receipt` | Request ID, scope, ingress ordinal, stream sequence; only after inbox commit. Pending, not accepted. |
+| `receipt` | Request ID, scope, ingress ordinal; only after inbox commit. Pending, not accepted. |
 | `result` | Request ID, scope, outcome (`accepted`, `rejected`, `noOp`), stable reason code, ingress ordinal, nullable commit revision, created IDs and concrete recorded result. No old success-state snapshot to install over newer state. |
 | `resultStatus` | Per authorized requested ID: `pending`, `final` plus result, or `notAdmitted`. Transport/database unavailable is a separate retryable error, not `notAdmitted`. |
 | `notAdmitted` | Checked after stream fence under the admission lock; the old connection can no longer admit it. Resubmit only retained original intent under the new fence, ahead of its local suffix. It is not a final gameplay rejection. |
-| `admissionError` | Request ID when parseable, code and retryability. Size/rate/sequence/fence failures reserve no queue position. Never send a durable receipt for them. |
+| `admissionError` | Request ID when parseable, code and retryability. Size/rate/fence failures reserve no queue position. Retry transient failures with original intent while memory survives; retire a definitively unadmitted terminal failure's prediction and continue later messages. Never send a durable receipt for them or infer non-admission from timeout alone. |
 
 Reasons: `invalidInput`, `inapplicable`, `movementConflict`, `stackConflict`,
 `missingReference`, `lifecycleEnded`, `accessDenied`, `replayBlocked`,
-`validationBudget`, `requestIdentityMismatch`, `streamFenced`, `sequenceGap`,
+`validationBudget`, `requestIdentityMismatch`, `streamFenced`,
 `busy`, `storageUnavailable`, `upgradeRequired`. Auth failure is connection/HTTP
 `unauthorized`, not a manufactured outcome for an unknown prior request. Human
 messages are localized client-side; diagnostic payloads never leak another game.
@@ -182,33 +197,61 @@ one accepted-base/active-prediction/display target update to observers:
   target. Any next arrival is a normal live update; no lost racing tail. Exact
   control layout/autoplay preference and animation timing stay in the UI gate.
 
+For slow consumers, bound queued socket delivery as in the runtime profile; closing
+one subscriber never rolls back committed state. A single revision/result too large
+for queued delivery is advertised by `revisionAvailable` (`gameId`, `throughRevision`)
+or `resultAvailable` (`scope`, `requestId`), then read through ordinary HTTP revision/
+result routes. Stream JSON collections to disk staging without a whole-response
+heap blob; commit/publish one complete revision at a time. These hints do not count
+as incorporation/results or fragment one semantic command into multiple mutations.
+
 ## Reads, full transfer and versioning
 
-All routes have `/v1` prefix. Account/contacts/decks/invitations/lobby reads and
-writes use HTTPS JSON with stable request IDs for mutating operations. Game writes
-use the ordered socket, including game lifecycle/control; do not create competing
-unordered HTTP write ingress. HTTP reset/login/logout remain account operations.
+All routes have `/v1` prefix. Account/contact/deck reads and business-data mutations
+use HTTPS JSON; business-data mutations carry stable request IDs. Game writes use
+the ordered socket, including existing-game invitations/lifecycle/control; do not
+create competing unordered HTTP write ingress. HTTP registration/reset/login/logout
+follow the authentication contract, not generic replay of secret-bearing responses.
 
 Core routes: `POST /accounts`, `POST /sessions`, `DELETE /session`,
 `POST /password-reset-requests`, `POST /password-resets`, `GET /me`,
 `GET /contacts`, `POST /contacts`, `GET/POST /decks`, `GET/PUT/DELETE /decks/{id}`,
-`GET /invitations`, `POST /invitations` (new or explicit reinvitation attempt),
+`GET /decks/{id}/definitions/{digest}` (owned-deck accepted definitions),
+`GET /invitations`, `POST /invitations` (create a new game and its first invitation),
 `GET /games`, `GET /games/{id}/head`, `GET /games/{id}/revisions?after=...`,
-`POST /games/{id}/results:lookup`, `POST /games/{id}/baselines`,
+`POST /games/{id}/results:lookup`, `GET /games/{id}/results/{requestId}`,
+`POST /games/{id}/baselines`,
 `GET /baselines/{id}/manifest`, `GET /baselines/{id}/chunks/{index}`,
 `GET /games/{id}/definitions/{digest}`, `GET /activity?after=...`,
-`PUT/DELETE /notification-registration`. Accept/Decline/cancel/Ready/preparation
-and start/end transitions use the persistent game's serialized command domain.
+`PUT/DELETE /notification-registration`. A separate `reinvite` socket command names
+the exact existing game and originating preparation/invitation context; it never
+creates a game. Accept/Decline/cancel/Ready/preparation and start/end transitions
+use that persistent game's serialized command domain. If cancellation wins first,
+discard reinvitation as missing/cancelled; if it wins afterward, the game and its
+invitation leave current listings together. No revival/replacement (D-287).
 Deck updates are absolute approved import/metadata operations, not an editor API.
 
-Large content staging uses `POST /games/{id}/definition-uploads`,
+HTTP business-data mutations bind request/account/kind/scope/canonical intent and
+atomically store the final non-secret outcome with their effects. Concurrent/repeated
+IDs recover one creation/update/deletion outcome, including a new game's original
+game/invitation IDs, without recreating it after cancellation. Changed intent under
+one ID is a conflict; recovery is account-authorized. Saved-deck updates/deletion
+serialize on that deck; delete never becomes upsert. Initial game+invitation creation
+is one transaction; subsequent existing-game work enters the game dispatcher.
+Notification registration is an absolute session+installation-bound upsert/delete.
+
+Large content staging uses account-scoped `POST /definition-uploads`,
 `PUT /definition-uploads/{id}/chunks/{index}` and
 `POST /definition-uploads/{id}/complete` with expected digest/count/lengths. Chunk
 bounds match baseline transfer. Upload writes account-private untrusted staging,
-not prepared deck/game state; completion validates all schemas/digests/references.
-The ordered prepared-deck/game command then atomically attaches the complete
-definition manifest and applies existing copy/Ready rules. Incomplete upload cannot
-replace the old selected deck or make Ready succeed; no extra user Send step.
+not saved-deck/prepared-game state; completion validates all schemas/digests/references.
+No game must exist to import/save a deck. A saved-deck HTTP mutation atomically
+attaches the complete manifest to its accepted entries, or the ordered prepared-deck/
+game command attaches it under existing copy/Ready rules. Upload completion alone
+does neither. Another account cannot attach/read private staging. Incomplete upload
+cannot replace a saved/selected deck or make Ready succeed; no extra user Send step.
+Chunks are immutable by upload/index: identical retries deduplicate and changed
+bytes conflict. Ownership checks cover completion, definition reads and attachment.
 Unused staging expires after 24 hours; attached required definitions do not. The
 service does not fetch arbitrary definition/image URLs on the uploader's behalf.
 
@@ -226,9 +269,13 @@ Use independent gzip chunks (1 MiB target, 4 MiB hard decoded chunk size); recor
 larger than the target use bounded fragments reassembled before validation. HTTP
 compressed content length is bounded separately (4 MiB per chunk); decompression
 stops at declared/hard length. Stage to disk, verify all counts/hashes/references
-and coverage, then atomically switch the local accepted-generation pointer. Keep
-previous accepted generation on failure; never combine transfer IDs/revisions.
-Catch up R→head and confirm head independently. Manifest SHA-256 covers ordered
+and coverage. Catch up staged R to a coherent head at least as new as the currently
+published accepted replica, then atomically switch the local accepted-generation
+pointer and reconcile pending IDs before publishing its display. Serialize this
+handoff with incoming updates; do not install older R over already-presented later
+accepted work and visibly roll it back. Keep the previous accepted generation on
+failure; never combine transfer IDs/revisions. Confirm head independently and apply
+subsequent arrivals normally. Manifest SHA-256 covers ordered
 chunk descriptors and scope/R/format. This checks transferred bytes; checkpoint
 state digest separately verifies materialized semantics (D-264).
 

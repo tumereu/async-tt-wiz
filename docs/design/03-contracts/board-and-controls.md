@@ -322,8 +322,10 @@ D-252 revises D-38/D-89's blanket covered-face hold behavior:
   automatic opponent-area disclosure. Missing downloaded content shows a limitation.
 
 This remains the ordinary large-art/text inspector, not a hover-hardware
-requirement. Report online exposure independently of board rejection; D-278 allows
-unadmitted reports to be lost on restart/Logout, while server records remain durable;
+requirement. D-286 uses ordinary request acceptance/reconciliation: temporary extra
+information from a rejected/different prediction needs no separate exposure report
+or reconstructed old context. D-278 permits unadmitted inspection-request loss on
+restart/Logout; accepted server records remain durable;
 see the [exposure lifecycle](history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246).
 
 ## 10.4 Dragging and snapping
@@ -563,6 +565,10 @@ Confirmed View/Reveal distinction (D-44/D-45):
 - View top N and Reveal top N show those cards in actual source order, starting
   with the library's top card. Opponent-facing backs in a View display retain
   that sequence. Full-library contents still hide the overall order under D-42.
+- D-286 resolves the requested source/count at server execution. If an opponent's
+  Draw happens first, the accepted View/Reveal may show different cards than the
+  local prediction; reconcile to it, accepting any extra glimpse without a separate
+  report. This does not refill a previously accepted tray or substitute Draw targets.
 - Ordinary opponent-facing View summaries must not inadvertently show card names
   instead of the specified backs. This does not revoke cooperative full access:
    explicit Inspect other side remains available under D-252 and logs hidden
@@ -596,8 +602,8 @@ Confirmed reference displays and Draw N (D-46, formerly P-18):
 
 Confirmed display behavior (D-47):
 
-1. A tray remains associated with the original shown card IDs and their recorded
-   source order. It does not continuously track/refill from the library's current
+1. A tray remains associated with the original **server-accepted** card IDs and their
+   recorded source order. It does not continuously track/refill from the library's current
    top N or reveal newly arriving top cards automatically.
 2. After an explicit move, keep that card's tray entry with an updated location
    indicator rather than removing it. The entry still references the original

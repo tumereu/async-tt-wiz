@@ -54,10 +54,11 @@ Do not silently promote a proposal to an approved requirement during coding.
 
 ## Current status
 
-**Documentation only. The identified remaining-point batch (D-278–D-284) is
-specified for the owner's separate review; this is not a certification that all
-possible defects are absent. No application implementation or stage transition is
-authorized.** See [current completion disposition](design/02-experience/gaps.md#remaining-point-batch-disposition--d-278d-284).
+**Documentation only. The architecture review has been discussed and its agreed
+simplifications/repairs applied (D-285–D-288), following the D-278–D-284 technical
+batch. This does not certify every defect absent or pass the review/UI gates.
+No application implementation or stage transition is authorized.** See
+[review disposition](design/02-experience/gaps.md#architecture-review-disposition--d-285d-288).
 
 The confirmed delivery order remains: behavior specification → adversarial review
 and refinement → UI decisions → explicitly authorized iterative implementation.

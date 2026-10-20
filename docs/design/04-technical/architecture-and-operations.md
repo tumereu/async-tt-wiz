@@ -76,7 +76,7 @@ are not needed simply to separate these responsibilities.
 | Image loading | Coil conditionally accepted, subject to canvas integration (D-263) | Canvas image lifecycle/decoding/cache integration and compatibility validation. |
 | Verification | Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose E2E; Testcontainers for smaller integration tests selected (D-263) | Exact versions, runners/devices, reset/failure controls, CI and measured performance budgets. |
 | Push | FCM optional; app/game sync must work without Google Play services/Play Store distribution, with periodic polling an acceptable notification fallback (D-269) | Registration/packaging/privacy, polling protocol/cadence, coalescing and routing; background delivery is best effort, not a correctness dependency. |
-| Card source | Generic/custom definitions; MTG catalog adapter for the initial use case | Provider permission/terms, descriptive fields, update policy. |
+| Card source | Dynamic game-data boundary (D-243); client downloads card records/art from public sources and stores/reuses them locally (D-270) | Provider permission/terms, descriptive fields, update/cache policy and essential-definition resolution; Cockatrice source research is not provider selection. |
 
 These selections are not permission to start a scaffold or install packages.
 See [notifications/background work](notifications-and-background-work.md) for
@@ -119,6 +119,23 @@ re-fetching every card on every action, eliminate downloaded read-only access,
 approve arbitrary scripts or a custom-data editor, or select a provider. Exact
 source/package/schema/version/cache/update mechanics remain technical design;
 production distribution, attribution, image and storage rights still need review.
+
+### Client downloads and local catalog/art storage — D-270
+
+**Confirmed:** obtain card records and artwork from public sources through client
+downloads and store/reuse them locally. Do not require bundled licensed assets or
+route ordinary catalog/art downloads through our backend. This does not require
+downloading all images at installation or retaining every downloaded asset forever;
+provider, initial download scope, update cadence and cache budgets remain design.
+
+The backend still owns shared game state and retains essential per-game definitions,
+face identities/defaults and recorded history under D-65/D-243/D-259/D-266. A public
+catalog cache is not an authoritative private game, and direct client downloads do
+not authorize trusting arbitrary client definitions or reinterpreting accepted
+games from each device's newest catalog. Exact validation/version-resolution
+protocol remains technical work. Public availability is not a blanket content
+license. See [card data and artwork](card-data-and-art.md) for Cockatrice's current
+sources and an explicitly unselected provider recommendation.
 
 The specification must select a card-data source and define:
 

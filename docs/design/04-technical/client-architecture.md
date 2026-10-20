@@ -24,6 +24,9 @@ Play services; foreground sync/recovery remains independent of either path. See
 [background-work design](notifications-and-background-work.md) for recommended
 WorkManager scheduling, Android delays and account/session fencing.
 D-265 selects SQLDelight for SQLite access;
+D-270 selects client public-source downloads/local storage for card records and
+artwork; [provider research/design](card-data-and-art.md) keeps provider choice
+separate from that direction and retained authoritative game definitions.
 Coil is conditional on canvas integration. Exact versions,
 scene/input design, storage schemas and final screen layouts remain incomplete.
 

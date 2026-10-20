@@ -14,7 +14,28 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest optional FCM and polling fallback — D-269
+## Latest client card-data/art downloads and Cockatrice research — D-270
+
+The owner wants card records/art downloaded from public sources and stored locally
+by the client, and asks where Cockatrice's installer/updater obtains its records.
+D-270 selects direct client downloads/local reuse, not a provider/format, mandatory
+backend catalog/image proxy, whole-image-library install or separate updater UI.
+Preserve server-authoritative essential game definitions/defaults/history and
+existing downloaded read-only access; a client cache/update is not game authority.
+
+[Card data/art research](../design/04-technical/card-data-and-art.md) records upstream
+Cockatrice commit `829152f`: Oracle imports MTGJSON v5 AllPrintings (compressed where
+supported), checks Meta.json, and downloads token XML separately from GitHub. Image
+URL defaults start with Scryfall CDN/API and then Gatherer; configured historical
+fallbacks are not proof of current endpoint availability. Recommend considering
+Scryfall bulk records plus supplied image URLs for a simpler single-provider path,
+but neither that provider nor MTGJSON is selected yet. Public availability/client
+downloads do not settle licenses, attribution or underlying artwork rights. Exact
+update/cache/printing-face resolution and source validation remain technical work.
+T-625/T-626 specify synthetic normal-path download/local reuse and safe updates;
+no executable tests, application or stage transition is authorized.
+
+## Earlier optional FCM and polling fallback — D-269
 
 The owner accepts FCM only as optional and suggests AlarmManager polling as a
 fallback in a pinch. App use/login/game sync must work without Google Play services,

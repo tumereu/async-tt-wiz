@@ -114,6 +114,12 @@ faces and original generated/drawn art. Keep fixture art provenance/license clea
 do not copy real card layouts, logos or art into fixtures. Shared schema and the
 normal delivery/import/image paths are the contract, not a test-only catalog
 parser or built-in set of special-case card IDs.
+D-270 requires exercising client downloads and local record/art reuse from a
+separately hosted synthetic source through that normal path, not silently routing
+all images through the game backend. Include source outage after a successful
+download and interrupted/changed catalog updates (T-625/T-626). Keep game-service
+connectivity separate from catalog-source availability; offline gameplay remains
+excluded and production provider research does not authorize real-card fixtures.
 
 Suggested fixture coverage:
 

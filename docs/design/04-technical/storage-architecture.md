@@ -53,6 +53,12 @@ Keep four distinct logical categories; this does not require four database files
 4. **Personal state:** drafts, review positions and appropriate UI restoration data,
    separate from authority and subject to account-private Logout rules.
 
+D-270 requires local storage/reuse of client-downloaded public card records and
+artwork, not a mandatory backend catalog/image proxy. The refetchable public
+catalog/art cache remains distinct from essential accepted per-game definitions
+and account-private recovery/downloads. Exact cache retention/update policy remains
+design work; see [card data and artwork](card-data-and-art.md).
+
 ## Migration boundaries
 
 - Server: Flyway SQL against PostgreSQL; jOOQ generation checked against the migrated

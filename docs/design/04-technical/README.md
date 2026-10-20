@@ -15,6 +15,9 @@
 - [Notifications and background work](notifications-and-background-work.md):
   optional FCM and best-effort polling fallback (D-269), recommended WorkManager
   scheduling, Android limits and account-safe delivery independent of game sync.
+- [Card data and artwork](card-data-and-art.md): client public-source downloads
+  and local reuse (D-270), Cockatrice/Oracle source research, and an unselected
+  Scryfall recommendation distinct from licensing approval.
 - [Test architecture](test-architecture.md): selected Docker backend/database
   boundary; selected Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose scenarios,
   canvas UI automation and real-PostgreSQL migration/concurrency testing.

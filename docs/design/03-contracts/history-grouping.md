@@ -6,6 +6,11 @@ Other confirmed family rules remain, except D-257 makes every ending suggestion 
 strict singleton group with no companions. This is not an action schema, an in-app
 group editor or an implementation authorization.
 
+D-267 changes the normal physical card gesture to double-tap tap/untap and
+single-tap Actions. Here "tap" is the resulting orientation mutation, not a raw
+pointer tap: one double-tap operation is not two grouping inputs, and merely
+opening Actions contributes none. Existing grouping rules are unchanged.
+
 [History section 3.4](history-and-undo.md#34-sensible-grouping) owns the invariants:
 immediate publication, effective node boundaries, latest-own tree-editing Undo and no inferred
 game mechanics. [The action catalog](game-actions.md#42-coverage-matrix) lists

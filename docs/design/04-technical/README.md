@@ -1,7 +1,9 @@
 # Tier 4 — Technical design proposals
 
 - [Client architecture](client-architecture.md): selected Kotlin Multiplatform
-  and Compose Canvas direction, shared core and platform-specific interfaces.
+  and Compose Canvas direction, shared core, accepted scene/gesture-coordinator
+  boundaries and platform-specific interfaces. D-267 corrects normal card input
+  to single-tap Actions and double-tap tap/untap; mode double taps remain tentative.
 - [Server architecture](server-architecture.md): Spring Boot/PostgreSQL/Flyway
   selections, jOOQ, authority and transaction boundaries.
 - [Storage architecture](storage-architecture.md): selected relational/versioned

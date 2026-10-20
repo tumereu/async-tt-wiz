@@ -9,6 +9,10 @@ acceptance outcomes together, rather than accumulating per-button exceptions.
 
 ## Category mapping
 
+"Tap"/T denotes semantic orientation mutations, not pointer taps. Under D-267,
+normal double-tap tap/untap emits the existing individual orientation mutations;
+single-tap Actions emits no grouping input. Category counts/rules do not change.
+
 | Key | Literal operations | Matching key / context |
 | --- | --- | --- |
 | T | Tap, untap; each member of Untap all or selected orientation edits | Pending tap run; only taps/pings permit a further tap to stay. |

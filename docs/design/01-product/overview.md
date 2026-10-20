@@ -8,8 +8,9 @@ The app remembers and presents what happened; the players interpret the rules.
 
 ## The rules a player should be able to learn once
 
-1. **Manipulate the table directly.** Drag to place, tap to tap, double tap for
-   actions, hold to inspect. Selection applies the same tools to several cards.
+1. **Manipulate the table directly.** Drag to place, single tap for actions,
+   double tap to tap/untap, hold to inspect (D-267). Selection applies the same
+   tools to several cards. Select/Ping modes keep their own single-tap meaning.
 2. **Placement follows your action.** Drags go where dropped. Quick actions use
    predictable defaults: new quick-declared attackers go to the right.
 3. **Change only what was requested.** Moving normally preserves card state.

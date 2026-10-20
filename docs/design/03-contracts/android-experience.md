@@ -6,8 +6,9 @@ wireframes, exact layouts, visual design, and Android support versions remain op
 
 Confirmed card gestures and proposed drag/pile/intent details are defined in
 [Game board and controls](board-and-controls.md), the primary tabletop-input
-contract. Single tap taps, double tap opens actions, hold inspects, and drag moves
-with snapping. These replace the earlier undecided tap-versus-inspect mapping.
+contract. In normal mode, single tap opens Actions, double tap taps/untaps, hold
+inspects, and drag moves with snapping (D-267). Select/Ping retain single-tap mode actions; removing their
+double-tap recognizers is tentative. This corrects the old opposite card mapping.
 The [visual action language](visual-action-language.md) defines the proposed
 Stack area, action-linked ping controls, literal grouped log presentation,
 and optional notes/chat. Ordinary flow should not require typing what just
@@ -385,7 +386,7 @@ No separate empty-interruption/response-request feature is an R1 deliverable
 - Drag/drop is the primary card-movement interaction, with grid/slot snapping.
   Confirmed: drag one card unless multiple are selected; Library drops go on top;
   Graveyard/Exile drops add unordered membership; dropping onto an ordinary card
-  forms/joins its visual stack. The double-tap sheet includes Move to Library
+   forms/joins its visual stack. The single-tap Actions sheet includes Move to Library
   top/bottom, Graveyard, and Exile. Graveyard/Exile have no order-related actions,
   including visual-placement variants (D-226). Detailed controls are in the primary
   board contract; selection gestures remain open. Explicit Move and, for ordered
@@ -559,6 +560,8 @@ Proposed rules:
   step for game edits.
 - One activation for a directly exposed quick action such as tap/untap, a life
   increment/decrement, next/previous review action, or latest safe undo.
+  D-267's direct normal-card tap/untap gesture uses two physical taps; interaction
+  budgets must count those touches rather than relabel it as one physical tap.
 - Multi-select/bulk operations and remembered display preferences reduce
   repetition. Defaults are visible and editable; card text, area names, and
   pings never cause inferred game-rule choices or edits.
@@ -577,5 +580,6 @@ Proposed rules:
 
 The main card gestures are confirmed in the board contract. Exact gesture timing,
 special-pile hit targets, additional shortcuts, and journey budgets remain design
-work. Double tap must not also emit a single-tap game edit; hold must not tap or
-drag the card accidentally.
+work. A normal double tap must emit one tap/untap operation without also opening
+the single-tap Actions menu; hold must not tap or drag the card accidentally.
+Select/Ping mode double-tap recognition remains the scoped tentative D-267 proposal.

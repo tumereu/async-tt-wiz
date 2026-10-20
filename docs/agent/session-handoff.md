@@ -14,7 +14,38 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest checkpoint clarification and retention confirmation — D-266
+## Latest scene/input acceptance and gesture correction — D-267
+
+The owner accepts the canvas scene/input proposal: shared engine → displayed
+live prediction OR personal historical boundary → scene/layout → animation/camera
+transforms → Canvas. Scene objects are view data with stable semantic identities,
+not another game model. Drawing/hit testing/selection/accessibility/test targeting
+share visible geometry, including during animation. Use one gesture coordinator;
+previews/animation never emit per-frame requests, determine event order or delay
+sending. Preserve captured identities/cancellation and difference-only correction.
+Compose menus/editors surround Canvas; desktop adapters can differ. Exact timings,
+geometry, performance budgets and final layouts remain design/UI work.
+
+**Confirmed correction:** normal single tap opens card Actions; double tap performs
+one selection-aware tap/untap, not the opposite. Preserve D-35/D-36 orientation
+scope and D-248 menu scope: single-tapping an unselected card opens only its Actions
+without clearing the prior selection; double-tapping it to rotate clears that
+selection as before. A double tap must not first flash the single-tap menu or emit
+two orientation toggles. Hold/drag, special pile controls and semantic grouping
+remain unchanged. Count two physical taps in interaction budgets. Current design
+tiers, stable older tests and E2E helpers are updated directly, not just covered
+by a precedence note; T-619 adds scene/gesture verification.
+
+**Tentative:** owner says Select/Ping modes perhaps have no double-tap action.
+Recommend no double-tap recognizer: each tap immediately performs its mode action,
+so two rapid taps toggle twice rather than coalescing, opening Actions or rotating.
+Do not mark this as confirmed yet. The old D-34 double-tap Actions shortcut in
+selection mode is explicitly under review; T-068 no longer mandates it and T-620
+is conditional. Existing hold/drag and explicit accessible Actions remain available;
+exact control placement is not selected. No new implementation/UI drafts or
+delivery-stage transition is authorized.
+
+## Earlier checkpoint clarification and retention confirmation — D-266
 
 The owner asks whether checkpoints are caches/optimizations and confirms the
 preceding design on that basis. Yes: checkpoints are rebuildable materialized

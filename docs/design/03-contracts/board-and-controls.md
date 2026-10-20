@@ -12,6 +12,10 @@ Status: gesture choices, snapping, diagonal piles, selection-aware dragging,
 top-insertion drops on Library, unordered Graveyard/Exile moves, visual stacking
 drops, and top/bottom context moves for Library are confirmed (D-226). Layout,
 detailed hit testing and communication mechanisms below are proposals for review.
+D-267 corrects the normal card mapping: **single tap opens Actions; double tap
+taps/untaps**. This supersedes the opposite D-15 mapping, not the existing
+selection scope, inspection, dragging, pile-control or Ping semantics. Removing
+dedicated double-tap recognition in Select/Ping modes is a tentative proposal.
 The owner additionally
 requires mostly text-free understandable play, optional text/messages, and
 action-scoped pings. The engine is confirmed generic/rules-agnostic; the literal
@@ -33,15 +37,15 @@ the [Android experience](android-experience.md) and
 | B-001 | Drag a card | Move it on the table or into another area/zone. |
 | B-002 | Drop | Snap to a grid location or designated slot. |
 | B-003 | Pile cards | Allow overlapping cards, with underlying cards peeking out diagonally. |
-| B-004 | Single tap a card | Outside selection-edit mode, tap/untap the selected set if the touched card is selected; otherwise clear selection and tap/untap only that card. Tapped presentation is 90 degrees clockwise, or back to untapped. No mechanical effect. |
-| B-005 | Double tap a card | Show all available actions for that card. |
+| B-004 | Double tap a card normally | Outside selection-edit/Ping modes, tap/untap the selected set if the touched card is selected; otherwise clear selection and tap/untap only that card. Tapped presentation is 90 degrees clockwise, or back to untapped. No Actions menu or inferred game effect (D-267). |
+| B-005 | Single tap a card normally | Open Actions. A selected card binds the selected set; an unselected card binds only itself while preserving selection. Opening the menu creates no orientation/game edit (D-248/D-267). |
 | B-006 | Hold a card | Show large artwork and readable card text. |
 | B-007 | Special piles | Library, graveyard, and exile have dedicated pile representations. |
 | B-008 | Drag scope | Drag one card unless multiple cards have been selected; an ordinary pile is not implicitly selected. |
 | B-009 | Drop on a special pile | Insert at the top of Library; add to unordered Graveyard/Exile without an insertion-position choice (D-226). |
 | B-010 | Drop on another ordinary card | Put the moved card onto that card's visual combined stack; no attachment or mechanical merge. |
-| B-011 | Context Move | The double-tap action sheet offers Library top/bottom, Move to Graveyard, and Move to Exile. No order-related actions for Graveyard/Exile (D-226). |
-| B-012 | Tap selected / Untap selected | In selection-edit mode, explicit commands set the selected set uniformly while ordinary card taps edit membership. Outside that mode, use the selection-aware card-tap gesture. |
+| B-011 | Context Move | The single-tap Actions sheet offers Library top/bottom, Move to Graveyard, and Move to Exile. No order-related actions for Graveyard/Exile (D-226/D-267). |
+| B-012 | Tap selected / Untap selected | In selection-edit mode, explicit commands set the selected set uniformly while single card taps edit membership. In normal mode, use the selection-aware double-tap orientation gesture (D-267). |
 
 Gestures operate on either participant's cards. Ownership does not restrict
 editing. Every completed state-changing interaction queues immediate sync and
@@ -130,37 +134,49 @@ drag/drop, or cancellation.
 
 | Gesture | Proposed detailed behavior |
 | --- | --- |
-| Single tap | In selection-edit mode, edit membership. Outside it, tap/untap the selected set when the addressed card is selected; otherwise clear selection and tap/untap that card only. No inferred game effect. |
-| Double tap | Open the action sheet without performing either single-tap action. |
+| Single tap | Normal mode: open Actions with D-248 binding, no orientation edit. Select mode: edit membership. Ping mode: perform its explicit ping action instead of normal Actions (D-267). |
+| Double tap | Normal mode: one selection-aware tap/untap operation, without opening Actions. Select/Ping double-tap recognition is under review in the proposal below (D-267). |
 | Hold | Open a large-art/text inspector without tapping the card, moving it, or changing shared reveal state. |
 | Drag | Begin after movement exceeds touch slop; show a lifted preview and destination highlight. Commit only on a valid drop. |
 | Cancel/interrupted touch | Restore the pre-gesture state; no shared move or tap. |
 
-Confirmed orientation scope (D-35, correcting D-32): outside selection-edit mode,
-tapping a selected card retains the selection and taps/untaps every selected
-card. Tapping an unselected card clears the selection and taps/untaps only that
+Confirmed orientation scope (D-35/D-36, gesture corrected by D-267): in normal mode,
+double tapping a selected card retains the selection and taps/untaps every selected
+card. Double tapping an unselected card clears the selection and taps/untaps only that
 card, without adding it to the former set. With no selection, affect only the
 addressed card. Pile membership alone does not expand the affected set.
 Tapped presentation is a 90-degree clockwise rotation from untapped, and
 untapping returns to the untapped presentation rather than rotating another
 quarter-turn. Confirmed mixed-orientation behavior (D-36): follow the touched
-card's pre-tap presentation. If it is untapped, set all selected cards tapped;
+card's pre-operation presentation. If it is untapped, set all selected cards tapped;
 if it is tapped, set all selected cards untapped. Do not invert each member
 independently. Preserve the selected set and unrelated fields.
 
 In selection-edit mode, card taps still add/remove selection membership instead
 of rotating cards. The previously approved explicit Tap selected / Untap selected
 commands remain for that mode and set the selected set uniformly. The proposed
-availability of those commands outside the mode was rejected: there, card taps
+availability of those commands outside the mode was rejected: there, card double taps
 provide selection-aware tapping. Exact command placement remains open; D-176
 records individual card-orientation mutations. No tap/untap infers activation, mana, combat, or any
 other game meaning.
 
 Double-tap recognition requires a bounded single-tap decision window. Show
-immediate pressed feedback, but do not synchronize a speculative tap that later
-needs to be undone merely because the gesture becomes a double tap. This
+immediate pressed feedback, but do not open the single-tap Actions menu while a
+normal-mode double tap is still possible, then retract it or emit a game edit for
+that first tap. A recognized double tap emits the orientation operation once,
+not Actions or two orientation toggles. This
 gesture-recognition interval is not a batching delay after a completed action.
 Exact timing/slop and accessibility behavior remain to be approved.
+
+**Tentative mode proposal — D-267:** Select/Ping modes have no dedicated double-tap
+recognizer; each single tap performs its mode action immediately. Two quick taps
+on the same target would therefore perform two independent membership/ping toggles,
+not open Actions, rotate a card or coalesce into one toggle. The owner phrases
+this as "perhaps"; this replacement of the old D-34 double-tap Actions shortcut
+inside selection mode is not yet confirmed. Hold inspection, dragging and explicit
+accessible Actions remain available under their existing rules; exact UI placement
+is not selected. Do not silently apply normal-mode double-tap orientation in a
+mode that consumes those taps. T-620 is conditional on adopting this proposal.
 
 Movement past drag slop before hold recognition cancels tap/hold recognition.
 Once the hold inspector opens, the same touch cannot accidentally become a card
@@ -175,13 +191,13 @@ rectangle selection from editing an arbitrary selection:
 - A separate multi-select/selection-edit mode lets taps add or remove individual
   cards from the current selection instead of rotating them. This allows
   disconnected sets and excluding individual cards inside the original
-  rectangle. Outside this mode, the confirmed single-tap card gesture remains
-  tap/untap; selection existence alone does not silently change its meaning.
+  rectangle. Outside this and Ping mode, a single tap opens Actions and a double
+  tap taps/untaps; selection changes scope, not this gesture distinction (D-267).
 - Dragging a selected card moves the selected set. Show selected cards, their
   count, and whether selection-edit mode is active clearly.
 - Confirmed mode control (D-31): a visible Select toggle enters/exits
   selection-edit mode. Turning it off preserves the selected set and restores
-  normal card taps to tap/untap. Tapping empty table space clears selection
+  normal single-tap Actions/double-tap tap/untap. Tapping empty table space clears selection
   separately (D-30). Neither toggling the mode nor clearing selection is a
   publication/Send step or a shared board action. A separate Clear button is
   not implied by this decision.
@@ -219,9 +235,10 @@ Accessible explicit selection and navigation alternatives still need specificati
 Confirmed consistency defaults (D-34; items 1–4 of the grouped review):
 
 1. Pinch zoom complements two-finger pan in either interaction mode.
-2. Hold and double tap retain Inspect and Actions in selection-edit mode, without
-   toggling membership, rotating cards, or changing the selection. Recognize each
-   as one gesture rather than also performing its constituent single taps.
+2. Hold retains Inspect without selection/orientation changes. D-34's old
+   double-tap Actions shortcut in selection mode is under review: D-267 proposes
+   replacing it with independent single-tap mode actions as detailed above.
+   Explicit accessible Actions still uses the same captured-target binding.
 3. A successful selected-set move leaves selection-edit mode in its current
    on/off state, in addition to preserving the selected set under D-29.
 4. Cancelling a drag or dropping at an invalid destination restores both card
@@ -247,7 +264,8 @@ rather than substitute a target; exact feedback is later UI work. Context Ping/
 Unping still chooses its uniform action from the captured trigger card (D-80).
 
 Item 5 (explicit selected-set tap commands available with the mode off) was
-rejected and replaced by D-35's selection-aware single-tap gesture above.
+rejected and replaced by D-35's selection-aware orientation gesture above, now a
+normal-mode double tap under D-267.
 
 For a covered individual card, use the side-sensitive inspection rules below.
 A pile's back/header is a control, not an individual card to rotate; holding it
@@ -268,7 +286,7 @@ Confirmed context controls (D-37):
   a double-faced card has playable art/text on both physical sides. The engine
   does not infer when a face should change or what that change means.
 - Turning face up/down and switching printed face are separate from tapping
-  sideways, which retains the selection-aware single-tap controls. Switching
+   sideways, which uses selection-aware normal-mode double taps (D-267). Switching
   printed face does not implicitly turn a face-down card face up.
 - Face/cover edits preserve orientation, counters, notes, identity, placement,
   selection, and links; only explicitly requested face/cover fields change.
@@ -342,7 +360,7 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   destination card is not moved to another container, and neither card becomes
   a rules attachment, copy, or mechanically merged object. Special container
   slots retain their configured ordered or unordered movement behavior.
-- The double-tap action sheet includes Move to Library top/bottom, Graveyard,
+- The single-tap Actions sheet includes Move to Library top/bottom, Graveyard,
   and Exile. Either participant's corresponding containers are accessible; the
   exact destination-picker layout remains open. Graveyard/Exile have no top/bottom
   variants or other order-related actions (D-226). These are literal moves,
@@ -408,9 +426,9 @@ Confirmed drag scope: move only the addressed card unless multiple cards have
 been explicitly selected. Dropping on an ordinary card forms/joins the visual
 stack as specified in section 10.4.
 
-Confirmed tap scope (D-35): pile membership alone does not make a single tap
-affect other pile members. Outside selection-edit mode, tapping a selected card
-affects the selected set and retains selection; tapping an unselected card
+Confirmed orientation scope (D-35/D-267): pile membership alone does not make a
+double tap affect other pile members. In normal mode, double tapping a selected
+card affects the selected set and retains selection; double tapping an unselected card
 clears selection and affects only that card. See section 10.3 for mode-specific
 commands and touched-card-directed orientation changes.
 
@@ -499,8 +517,9 @@ from the names. A pile with any other label can use exactly the same settings.
 
 A special pile's slot/header is never rotated by a tap. Individual cards shown
 in its expanded browser retain Tap/Untap, Actions, and Inspect where structurally
-representable; the browser does not replace the single-tap card contract with
-an unrelated action. An explicit selection control serves multi-select.
+representable; in normal mode its cards follow single-tap Actions/double-tap
+tap/untap rather than an unrelated gesture mapping. An explicit selection control
+serves multi-select, whose single taps edit membership.
 
 Dragging the top card from a pile labeled Library to an area labeled Hand
 records that literal move, not “draw.” Moving it anywhere else uses the same
@@ -835,8 +854,8 @@ batch:
    card characteristics, affect other fields, or cause automatic cleanup.
 
 This does not approve the previous always-visible tracker +/- controls,
-double-tap -> Counters submenu, or tap-number-to-edit proposal. Double tap still
-opens card actions under the existing gesture contract; D-61 confirms inline
+double-tap -> Counters submenu, or tap-number-to-edit proposal. D-267's single tap
+opens card Actions; D-61 confirms inline
 counter controls and player-panel entry. Exact hit regions, numeric
 limits/recognition, styling, placement, bulk changes, and history/grouping remain
 open.
@@ -1440,13 +1459,14 @@ mixed drags is approved or required as a separate owner decision.
 
 - **Move a card:** drag from the Hand-labeled row to a free grid cell. One
   gesture, one move, automatic sync; the engine does not label it playing a land.
-- **Tap a card:** single tap the visible card. One orientation/tapped-presentation
+- **Tap a card:** double tap the visible card in normal mode. One orientation/tapped-presentation
   change; no activation, attack, or mana is inferred.
 - **Read card:** hold it. Your area shows real faces without logging, including
   downloaded content offline; opponent-area holds do not expose hidden sides.
   Context Inspect other side is logged/online and does not Flip the shared card.
-- **Inspect actions:** double tap. The action sheet opens; neither tap toggles
-  the tapped state. The full manual action catalog remains reachable.
+- **Inspect actions:** single tap in normal mode. The Actions sheet opens without
+  changing orientation; a recognized double tap instead rotates without opening it.
+  The full manual action catalog remains reachable through the approved paths.
 - **Compact lands:** drag a land onto a highlighted battlefield pile. Its zone
   and other values do not change; diagonal peeks show the pile's members. The
   engine only knows that cards were arranged together.

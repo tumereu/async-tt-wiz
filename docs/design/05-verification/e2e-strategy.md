@@ -42,6 +42,12 @@ use the Android UI, not an API bot. Reusable UI steps are welcome: helpers such
 as “log in,” “invite,” “ready,” “draw” and “drag” still perform the real gestures,
 text entry and controls, with no hidden state injection.
 
+D-267 corrects helper gestures: a normal `tapCard` orientation action uses a real
+double tap; opening card Actions uses a single tap with no orientation request.
+Do not silently keep the old inverse mapping or count the double tap as two game
+mutations. Select/Ping single taps retain their mode meaning; no-double-tap mode
+recognition is tentative and its conditional cases cannot count as approved tests.
+
 Required outcomes are asserted through visible app behavior on the relevant
 instances, including inspection and history screens. Backend logs and read-only
 diagnostics can explain failures; they cannot replace the UI acceptance result.
@@ -138,6 +144,7 @@ T-IDs link to [existing acceptance outcomes](acceptance.md), not new gameplay.
 | Entry, import and first game | None; the two users register through UI. | Register/login → import a named deck with sideboard → correct an unknown/ambiguous import → choose cover → add opponent → invite/accept → prepare decks/starter → both Ready. Check own-Ready clearing, 20 life, turn 1 Untap, no automatic hand draw and no Sideboard access in play. | T-396–T-405, T-417–T-454. |
 | Invitation lifecycle | Users and saved decks only. | Inviter prepares/readies before acceptance → recipient declines → inviter re-invites to same lobby → accepts → leave/reopen without cancellation → cancel an unstarted lobby. Check retained preparation and current-game listing. | T-414–T-416, T-448–T-463, T-542. |
 | Manual play and result round trip | Users and saved decks only. | Invite/start → use mulligan actions → draw/move/tap → edit life/corner/counter/note → View/Reveal and inspect from both sides → suggest result → opponent catches up through final board changes and the singleton suggestion before its acceptance dialog → accepts → restored lobby with both unready → Ready/start a fresh game. Repeat arrival while earlier groups are paused and removed/inactive suggestion variants. Assert exact visible changes, immediate sync and no inferred game effects. | T-007, T-078–T-090, T-102–T-123, T-406–T-413, T-464–T-472, T-603–T-604. |
+| Corrected card input and scene targeting | Users and saved decks only. | Start → normal single-tap selected/unselected Actions → double-tap orientation → hold/drag → camera transforms and an animated-card target. Verify scope, no menu/orientation double dispatch, visible geometry, single semantic operations and accessible alternatives. Select/Ping rapid-pair variant remains conditional on its tentative proposal. | T-037–T-038, T-057, T-064–T-068, T-071, T-619; conditional T-620. |
 | Saved-deck copy isolation | Users and saved decks only. | Select decks in a lobby → edit/re-import, rename and delete saved sources through Manage decks → return to lobby/start → confirm selected preparation is unchanged. Exercise Replace and Save as new in separate variants. | T-428–T-432, T-491–T-492, T-542. |
 | Combat and live Stack sources | Users and saved decks only. | Start and place cards through normal moves → create combat/Stack projections → edit through projections → move real source to Graveyard/Exile → create another ability there → remove effects. Check live write-through, normal resets, combat cleanup and independent effects. | T-220–T-245, T-545–T-546. |
 | Token disappearance | Users and saved decks only. | Start → create a catalog token/Blank → customize/Clone → create Stack effects → change source again → Remove or move token to a disappearance destination → inspect surviving effects → remove one. Check last-live read-only information and no replacement source. | T-157–T-167, T-547–T-548. |

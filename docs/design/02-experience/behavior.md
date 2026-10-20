@@ -15,7 +15,7 @@ work. The players know the game rules; the app does not adjudicate them.
 
 The general rules are:
 
-1. **Act directly.** Drag to place, tap to tap, use an action menu for the rest.
+1. **Act directly.** Drag to place, double tap to tap/untap, single tap for actions.
 2. **Selection expands the scope, not the toolset.** The same card actions work
    on one card or several.
 3. **Change only what the action says.** Moving normally preserves card state;
@@ -129,8 +129,8 @@ The general rules are:
 | Interaction | Result |
 | --- | --- |
 | Drag a card | Move that card; if selected, move the selected set. |
-| Tap a card normally | Tap/untap it; if selected, apply to the selected set. |
-| Double tap | Open available actions, without also tapping the card. |
+| Single tap a card normally | Open Actions; selected card binds the selected set, unselected card binds only itself while preserving selection (D-248/D-267). |
+| Double tap a card normally | Tap/untap it; if selected, apply to the selected set. Do not also open Actions (D-267). |
 | Hold | Inspect large art/text, without moving or tapping the card. |
 | Drag from empty space | Draw a replacement selection rectangle. |
 | Tap empty space | Clear selection, without changing selection-edit mode. |
@@ -138,11 +138,14 @@ The general rules are:
 
 - Rectangle selection includes any intersecting **visible** card portion, not
   hidden pile members. It replaces the old selection.
-- Select mode lets card taps add/remove individual cards instead of tapping them.
-  Switching it off preserves selection; inspection/actions still work inside it.
+- Select mode lets single card taps add/remove individual cards instead of opening
+  Actions or rotating them. Switching it off preserves selection; inspection and
+  accessible Actions remain available. D-267 proposes no double-tap recognizer in
+  Select/Ping modes (each tap acts independently); that mode change remains tentative.
   Ping mode and Select mode are mutually exclusive, preserving selection.
-- Normally, touching an unselected card to tap/drag clears the previous selection
-  and affects only that card. Tapping a selected card sets the whole selection
+- Normally, double tapping an unselected card to tap/untap, or dragging it, clears
+  the previous selection and affects only that card. A single tap opening Actions
+  preserves selection under D-248. Double tapping a selected card sets the whole selection
   tapped if the touched card was untapped, or untapped if it was tapped. It does
   not independently invert mixed states. Tapped means 90° clockwise; untapping
   returns it.

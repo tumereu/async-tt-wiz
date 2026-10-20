@@ -161,6 +161,13 @@ for correctness after the rolling delta window has been pruned.
 
 ## Canvas-specific verification
 
+D-267 accepts the shared scene geometry/gesture-coordinator architecture and
+corrects normal gestures: single tap opens Actions, double tap taps/untaps once.
+T-619 verifies normal dispatch, selection binding, animated visible hit bounds,
+camera/accessibility agreement and no per-frame requests. Keep the tentative
+Select/Ping no-double-recognizer/two-independent-taps variant T-620 conditional,
+not a passing confirmed requirement. Count physical touches accurately in budgets.
+
 Full-canvas rendering removes the automatic per-card widget tree. Provide normal
 application accessibility semantics for objects/actions and enough stable UI
 identity/geometry to locate visible targets. Drive actual pointer gestures for

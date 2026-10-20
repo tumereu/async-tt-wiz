@@ -41,7 +41,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-017 | Historical branching requires deliberate UI continuation intent and an explicit message flag (D-179); D-232 Undo/Redo instead edit the existing tree without branching. Otherwise apply ordinary actions to current state unless impossible, with optimistic guards limited to movement and Stack additions (D-187). Stack-entry requests include current client Stack state and reject if server Stack state differs. No previous orientation/text/Set checks; concurrency/rejection never creates a branch. |
 | P-018 | Drag cards to move them; drops snap to grid locations or slots. |
 | P-019 | Cards can form piles with underlying cards peeking out diagonally. |
-| P-020 | Single tap taps a card; double tap opens all available actions; hold shows large art/text. |
+| P-020 | Normal card mode: single tap opens Actions; double tap taps/untaps without also opening Actions; hold inspects (D-267). Select/Ping retain their own single-tap behavior; the proposed removal of mode-specific double-tap recognition is tentative. |
 | P-021 | The board has distinct areas, including special Library, Graveyard, and Exile piles. Library is ordered; Graveyard/Exile are unordered with no order-related actions, even as visual placement (D-225/D-226). |
 | P-022 | Game flow is understandable mostly without writing explanations; optional text input and messages remain supported. |
 | P-023 | Pings retain specific recorded timeline context rather than floating independently of play. D-168/D-170 clarify that same-author pings add no group-start marker and need no separate owner-action picker; author changes start a new group and effective boundaries remain preserved. |

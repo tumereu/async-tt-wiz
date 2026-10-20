@@ -84,21 +84,57 @@ this mechanism is selected. See [synchronization](sync-and-storage.md#shared-pro
 
 ## Canvas scene and Compose shell
 
+D-267 accepts the scene/input architecture below. It does not select exact
+geometry/timings, final screen layouts or the tentative Select/Ping double-tap
+proposal; the [board contract](../03-contracts/board-and-controls.md#103-gesture-arbitration)
+owns the corrected gesture meanings.
+
+```text
+Shared engine
+  -> displayed state: live prediction OR chosen historical boundary
+  -> scene/layout -> animation and camera transforms -> Canvas
+```
+
+The scene is a view, not a second game model. Visible objects carry stable semantic
+identity, draw order/geometry, image/text references and current/target visual
+transforms. Logical placement remains shared; pixel geometry, camera, previews
+and animation progress remain personal. Desktop may use different layout/input
+adapters while reusing the engine and useful scene primitives.
+
 - Render tabletop objects, projections, links, pings and table animations in the
   canvas game area. Menus, text editors, inspectors and other overlays can remain
   Compose components rather than being hand-painted controls.
 - Maintain stable object identities and a scene/hit-test representation separate
   from domain state. Use the same geometry for drawing and pointer targeting,
   including camera transforms, overlap, clipping and visible-card selection rules.
+  An animated card is targeted where it is currently drawn, not at an invisible
+  final destination. Accessibility bounds and real test gestures use that geometry.
 - A drag's intermediate pointer positions are local presentation; completing an
   applicable action produces the specified request(s), not one request per frame.
   Predictions remain provisional. Preserve captured target scope and cancellation.
 - Derive visual transitions from state differences and recorded history. Animation
   time must not determine event order, random results, grouping or synchronization.
+  Semantic predictions may advance while visual transitions continue; sending
+  never waits for animation, acknowledgements do not repeat it, and new results
+  update visual targets without replaying unaffected work. Personal history
+  playback remains distinct from current shared/predicted state.
 - Supply meaningful accessible object/action semantics alongside the canvas.
   A painted object is not automatically accessible or discoverable by UI tests.
   This support is part of the normal app, not test-only controls or direct domain
   action injection; see [test architecture](test-architecture.md).
+
+Use one gesture coordinator to arbitrate normal single-tap Actions versus
+double-tap orientation, hold, drag, selection and camera gestures. Recognizing a
+double tap must not first open/retract an Actions menu or emit a speculative
+single-tap game edit. Immediate pressed/drag feedback is independent of completed
+gesture dispatch. Captured identities, existing cancellation/selection rules and
+server guards remain; do not silently redirect a drag after an incoming change.
+The proposed mode-specific no-double-tap recognizer remains tentative in D-267.
+
+Keep image decoding, database access and replay off the UI thread; cache suitable
+artwork/text measurements, cull off-screen objects and avoid full-scene rebuilds
+or large per-pointer allocations. Benchmark drag/zoom/crowded tables and concurrent
+catch-up animation on reference devices; exact workloads/budgets remain to define.
 
 ## State and lifecycle constraints
 

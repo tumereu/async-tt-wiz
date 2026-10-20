@@ -64,6 +64,13 @@ constituent stays independently processed; rejection of one does not cancel late
 independently applicable commands or make the gesture an atomic group. Admission
 ordering is distinct from committed sync revisions and gameplay-tree ancestry.
 
+D-277 local prediction withdrawal is not inbox cancellation or a rejection result.
+The server can still accept the original admitted command under its actual checks;
+its committed change uses the normal update path with original author/request ID,
+like incoming opponent/other-own-device work for presentation. Do not add a recall
+endpoint, suppress a valid final result or reactivate a cancelled predicted suffix.
+See [prediction/playback](prediction-and-playback.md).
+
 ## Reconnect, transport replacement and lifecycle fences
 
 - Automatically look up uncertain outcomes and retransmit recoverable original

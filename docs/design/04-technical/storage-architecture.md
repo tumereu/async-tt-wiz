@@ -62,6 +62,13 @@ Keep four distinct logical categories; this does not require four database files
 4. **Personal state:** drafts, review positions and appropriate UI restoration data,
    separate from authority and subject to account-private Logout rules.
 
+D-277 keeps active-versus-withdrawn prediction disposition separate from immutable
+request intent and final server outcome. A withdrawn already-sent prediction must
+not be re-added on restart or lose its recovery record; late accepted deltas are
+ordinary authoritative changes, not a request to replay the old overlay. Personal
+live/playback mode and last presented boundary are distinct from accepted sync
+revision, since background delivery can advance data before it was watched.
+
 D-270 requires local storage/reuse of client-downloaded public card records and
 artwork, not a mandatory backend catalog/image proxy. The refetchable public
 catalog/art cache remains distinct from essential accepted per-game definitions

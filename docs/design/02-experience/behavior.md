@@ -363,8 +363,9 @@ The general rules are:
     groups those events (D-254). Opening Actions captures its targets, not a group;
     local predictions cannot dictate authoritative group membership.
     Grouping only controls navigation/playback and representation. Each group is
-   one playback step whose changes animate concurrently, while each individual
-   mutation remains a separate node. The client's state pointer identifies a
+   one playback step animated as its net start-to-end board difference (D-277),
+   not queued same-card waypoints, while each mutation remains a separate node.
+   The client's state pointer identifies a
    mutation, never a group. Reviewing is not accepting legality or waiving a response.
 - When returning after the opponent interrupted your continuation, start at your
    last local state and animate rollback fairly quickly to the interruption.
@@ -570,7 +571,8 @@ The general rules are:
 ### 11. Offline and failure behavior
 
 - Local actions update the board immediately to hide network latency. If an
-  action is rejected, animate its change backward as if undone; that animation
+  action is rejected, animate the net difference to the reconciled target; an
+  isolated rejection resembles undo, not queued reverse/replay of newer work. That animation
   explains the correction. It is not a shared Undo or branch. Incoming mutations
   from the other player are also applied with animations, preserving personal
   historical review positions (D-180). Animation never delays synchronization.
@@ -581,6 +583,24 @@ The general rules are:
   pending predictions and correct genuinely invalid later ones. Acknowledgements
   alone add no animation. This does not change deliberate history traversal or
   D-177 interruption-resume playback.
+- D-277: after three immediate local moves, the expected first acknowledgement
+  leaves the third-move position displayed. Add remote changes to the accepted
+  base before rechecking active predictions in order; a failing middle move can
+  invalidate the last too, while independently valid later predictions remain.
+  Withdrawn predictions stay out of the overlay, but retain already-sent request
+  recovery. If the server later accepts one, its actual change is presented like
+  any other remote/other-own-device update, with original author/ID—not resubmission,
+  suppression of accepted state or resurrection of the cancelled predicted suffix.
+- Live mode presents incoming changes immediately. Returning from background with
+  unpresented updates enters grouped playback from the local displayed boundary;
+  background downloads alone do not mark changes watched. Catching up or deliberately
+  continuing gameplay at a chosen boundary returns to live; pausing/scrubbing stays
+  playback and never stops synchronization or supplies historical branch intent.
+- Animations bridge the previous displayed board to the next selected target.
+  Several same-card moves received together in live mode give one original-to-final
+  transition; playback gives that net transition **per group**, keeping separate
+  groups staged even if downloaded together. Every mutation remains recorded and
+  navigable; animation never gates synchronization or creates intermediate game states.
 - Initial delivery requires a connection to make game actions, including Undo
   and shared branch controls. Downloaded games remain readable/reviewable offline,
   but do not create offline mutations or a gameplay queue to replay on reconnect

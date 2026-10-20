@@ -70,6 +70,11 @@ mutation, including within a group. A client's displayed state points to that
 node, never a group. On return after an interruption, animate rollback from the
 last local state to the fork, then playback of the new continuation. See
 [history section 3.12](history-and-undo.md#312-resume-playback-and-exact-timeline-navigation-d-177).
+D-277 uses previous displayed board → next group-end board animation, not queued
+intermediate moves of one card. Live remote updates instead apply immediately with
+prediction rebasing; return from background with unseen updates uses grouped
+playback until caught up or deliberate gameplay continuation. Animation batching
+does not erase constituent records, pings/references or exact mutation navigation.
 
 Proposed presentation:
 

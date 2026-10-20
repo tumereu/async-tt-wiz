@@ -72,9 +72,12 @@ The app remembers and presents what happened; the players interpret the rules.
     UI actions send requests; the server creates events, grouped by deterministic
     logic (D-254). Groups are playback steps whose changes animate concurrently,
     not tree nodes or a menu-bound part of a request.
-   On return after an interruption, animate from the last local state back to
-   the fork, then forward along the new continuation. Pause automatic playback
-   and scrub the horizontal bottom timeline to choose an exact mutation boundary.
+    Live mode applies incoming changes immediately while preserving valid local
+    predictions; old acknowledgements do not rewind newer local moves (D-277).
+    Return from background with unseen updates uses grouped playback, rolling back
+    to the fork first if needed. Catching up or deliberately continuing play returns
+    to live. Animate previous board → next board, not every same-card waypoint;
+    pause/scrub still selects exact mutation boundaries inside groups.
 7. **Cooperation, not enforced secrecy or legality.** Either participant can edit
    either side and inspect hidden information. Covering is a presentation
    convention. The app does not infer costs, targets, damage, or resolution.

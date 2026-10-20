@@ -250,14 +250,23 @@ available when viewing history or an inactive branch; it must not discard drafts
 
 ## 5.3 Catch-up flow
 
+**Confirmed D-277:** live mode applies remote updates immediately, then re-evaluates
+pending local predictions; playback mode keeps receiving accepted data but displays
+history by event groups. Return from background with unpresented updates enters
+playback from the saved local boundary, even if background sync already downloaded
+them. Catching up or deliberately continuing gameplay from a chosen boundary returns
+to live prediction. Pause/scrub alone does not. Mode/progress is personal; do not
+teleport a paused review cursor, create read receipts or block synchronization.
+
 **Confirmed D-177:**
 
 1. Start at the player's last local state. If the opponent interrupted that
    continuation, animate rollback fairly quickly along its mutations to the fork.
 2. Play forward along the new continuation automatically or step by step. A
-   group is one playback step whose changes animate concurrently; the underlying
-   state still advances through individual mutation nodes.
-3. Let the player interrupt automatic playback. When paused, show the horizontal
+   group is one playback step animated as previous-board → group-end board under
+   D-277; multiple same-card moves in the group use one endpoint transition. The
+   underlying ordered mutation states remain available for exact navigation.
+3. Let the player pause automatic playback. When paused, show the horizontal
    event timeline at the bottom; dragging left/right selects an exact mutation
    boundary, including one inside a group.
 4. Continue playback or explicitly choose to continue play at that historical
@@ -265,8 +274,8 @@ available when viewing history or an inactive branch; it must not discard drafts
    alone does not supply it. D-232 Undo/Redo edit the tree without supplying it. Ordinary edits
    otherwise use D-187 current-state acceptance with limited move/Stack guards,
    not automatic historical forks.
-5. At the latest mutation, identify the current state without implying priority
-   passing, legality approval or consent.
+5. At the currently known latest mutation, return to live without implying priority
+   passing, legality approval or consent, and without losing racing arrivals.
 
 This supersedes the old proposal that normal Next must advance one mutation
 instead of one group. Exact animation timing, automatic/manual default and final
@@ -478,7 +487,7 @@ actions without manual resending or duplicate execution. Recover actual outcomes
 using original request identities/conditions; an already-committed action/random
 result must not execute/sample again. Use normal difference-only reconciliation
 for accepted/rejected outcomes, without retrying a rejection as a fresh action
-or cancelling other valid work. This does not enable offline actions. Exact
+or cancelling other valid work. This does not enable offline actions.
 D-275 selects stable identity, durable per-game admission/order and fenced outcome
 recovery. Exact wire/readiness, queue limits and buffered-but-unsent handling remain
 technical/specification completion, not blanket unsent/offline replay authorization.
@@ -507,6 +516,17 @@ snapshot restoration. Acknowledgement alone adds no animation. Exact scheduling
 and reduced-motion presentation remain later design; D-177 deliberate history
 traversal/interruption playback remains unchanged.
 
+D-277 makes this explicit for three locally predicted moves: an expected first-move
+acknowledgement leaves the displayed third-move position intact. Incorporate a new
+remote change before replaying original pending predictions; omit a failing middle
+move, then any later move whose original guards now fail, while keeping independent
+valid predictions. "Cancelled" here removes predicted visual effects, not an already-
+sent request or its recovery obligation. Compute the target promptly and animate
+only the net old-display → new-target difference, not a sequence of rollback poses.
+Live batches coalesce same-card moves to their endpoint; playback preserves group
+staging. An in-progress animation retargets from current visible geometry. See the
+[primary reconciliation example](history-and-undo.md#prediction-rebasing-and-cascading-invalidation--d-277).
+
 Use explicit states: downloaded/current, offline/read-only, incomplete input,
 online-pending/sending, synchronized, rejected, explicitly branched, and uncertain
 delivery/failed. Exact connection readiness and mid-request-loss recovery mechanics
@@ -526,12 +546,13 @@ the server's Stack state differs. No seen/opponent detector, priority model or
 whole-game-head lock. D-179 still prohibits accidental branches from stale views
 or concurrency.
 D-180 requires immediate local state updates to hide latency;
-on rejection, animate the predicted change backward as if undone. The animation
+on rejection, animate the net displayed-board → reconciled-target difference under
+D-185/D-277, not a queue of reverse operations over newer valid work. The animation
 explains the correction without a required text explanation or acknowledgement.
 This does not publish a shared Undo, create a branch or undo the opponent's work.
 Animate incoming opponent mutations too; preserve personal historical cursors.
 Preserve recoverable rejected work; exact request recovery, prediction bookkeeping
-and animation scheduling remain open within D-185's confirmed behavior.
+and animation scheduling remain technical work within D-185/D-277's behavior.
 D-236 server-ordered Undo remains separate from ordinary actions and their
 reconciliation; D-161 captured-parent Undo is retired.
 

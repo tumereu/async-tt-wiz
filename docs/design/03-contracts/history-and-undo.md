@@ -435,15 +435,56 @@ The UI labels which state it displays. “Current board” means shared head, no
 head by many actions. Advancing it does not write another game-state action.
 
 Instant synchronization updates downloaded history and the shared-head indicator;
-it does not automatically advance a historical review cursor. An additional
-live-follow feature is excluded from R1 (D-241). Local edits advance the author's local
-view immediately, with pending status until acknowledged.
+it does not automatically advance a historical review cursor. D-277 explicitly
+includes live presentation and grouped playback as described below; the earlier
+generic live-follow exclusion under D-241 must not prohibit those modes. Review
+progress remains personal, not synchronized presence/read receipts. Local edits
+advance the live predicted view immediately, with pending status until final result.
 If the viewed node is deleted, D-238's parent fallback applies; preserving a
 personal review position does not require retaining a deleted node or snapshot.
 
 The published future is a proposed continuation in the players' shared play,
 even though it is the selected shared branch in the storage sense. The other
 participant may interrupt any of it later.
+
+### Live and playback presentation — D-277
+
+**Confirmed:** use two personal presentation modes over the same continuously
+synchronized accepted tree/state and durable pending requests:
+
+| Mode | Display and progression |
+| --- | --- |
+| Live | Display accepted live state plus valid local predictions. Apply incoming remote changes immediately on arrival at a coherent accepted revision, then re-evaluate the remaining original predictions. Do not delay visible remote changes for group closure, a playback step or an earlier acknowledgement. |
+| Playback | Display the chosen concrete historical boundary and advance automatically or stepwise by recorded event groups. Accepted updates still synchronize/persist immediately, but extend the catch-up data without silently moving a paused/scrubbed cursor. A group, not the incoming network batch, is the normal presentation step. |
+
+- Returning from background with unpresented game updates enters playback from
+  the last locally displayed/reviewed boundary. Determine this from presentation
+  progress, not only the latest downloaded revision: background sync may already
+  have received the updates. Same-path updates need no rollback; a displaced path
+  uses D-177's common-ancestor rollback before new-path group playback.
+- Catching up through the currently known active continuation returns to live;
+  later arriving changes then apply live. Arrival during catch-up extends what
+  remains to watch, without losing updates in the handoff. This is not proof that
+  the server can never advance again or a group-closure requirement.
+- Deliberate gameplay interruption/continuation at a chosen boundary returns to
+  live prediction as that new intent is provisionally applied. D-179 still requires
+  explicit continuation intent; no new shared branch exists until server acceptance.
+  Merely pausing/scrubbing automatic playback is **not** that interruption and
+  remains playback. Normal rejection/recovery preserves original requests rather
+  than silently converting a failed continuation into ordinary play.
+- Acknowledgements/admission bookkeeping alone, with no newly presented game-state
+  difference, do not manufacture a catch-up replay or a visible rewind of the
+  player's own predicted actions. Existing deliberate personal history review
+  remains stable; foregrounding does not require teleporting a retained cursor.
+- Mode, presentation progress and animation are personal UI state. They do not
+  select the server's head, alter grouping/command order, stop synchronization,
+  add cross-device review receipts or permit offline actions. Reconnecting gates,
+  logged inspection and deleted-cursor parent fallback remain unchanged.
+
+Exact mode-control layout, autoplay preference/timing and first-open presentation
+where no prior local boundary exists remain later UI/technical completion, not a
+new playback-from-root requirement. See
+[prediction/playback design](../04-technical/prediction-and-playback.md).
 
 ## 3.2 Atomic actions and interruption boundaries
 
@@ -564,7 +605,9 @@ remain open; see [session continuity](accounts-decks-and-lobby.md#session-contin
 
 **Confirmed presentation (D-180):** update local game state immediately to hide
 network latency; do not wait for server acceptance before showing the action. If
-the server rejects it, animate the local mutation backward as if it were undone.
+the server rejects it, animate from the displayed board toward the reconciled
+target; an isolated rejection looks like an undo reversal, but D-185/D-277 do not
+queue per-request reverse animations or roll back unaffected accepted/pending work.
 The reversal is the explanation, not a required textual error/confirmation flow.
 This is local reconciliation, not a shared Undo request, new mutation, historical
 continuation intent or branch activation. Incoming mutations from the other
@@ -598,10 +641,56 @@ predictions that genuinely become invalid too, rather than cancelling the entire
 pending sequence. Acknowledgement alone causes no extra animation or duplicate
 application; newly learned authoritative differences still need reconciliation.
 
+### Prediction rebasing and cascading invalidation — D-277
+
+The local live board changes immediately for successive actions; its accepted base
+and outstanding predictions remain distinct. An older expected acknowledgement
+advances that base and retires only the incorporated prediction. It does not set
+the displayed board back to that older accepted boundary.
+
+For card moves `M1: A→B`, `M2: B→C`, `M3: C→D` (with applicable original guards):
+
+| Information/action | Accepted base | Remaining displayed predictions | Visible position |
+| --- | --- | --- | --- |
+| All three local actions made; results delayed | A | M1, M2, M3 | D, immediately |
+| M1's expected committed effect incorporated | B | M2, M3 | D; no acknowledgement-only animation |
+| Opponent's independent note edit incorporated after M1 | B plus note | M2, M3 still applicable | D with the note; no positional rewind |
+| Alternatively opponent moves the card from B to X before M2/M3 | X | M2 fails at original source B; omit it, then M3 fails at original source C and is omitted too | Correct once from displayed D toward X |
+
+Insert accepted remote changes into the accepted base **before** rebuilding the
+remaining prediction overlay in original local order with the same shared processor
+and conflict/applicability rules. If a prediction fails, omit its provisional effect
+and continue checking later active predictions against that resulting state. This
+can cascade through dependent moves, but is not whole-suffix/dependency-graph cancellation:
+later independent actions whose original checks pass stay predicted. Even a later
+same-card move can remain valid if accepted remote work supplies its original source.
+Never repair a failure by substituting source/target IDs, changing guards or sampling
+new randomness. Compute the reconciled target promptly without waiting for an
+animation, acknowledgement or group completion, then animate only its net difference.
+
+Here **cancelled means the local prediction is removed**, not that an already-sent/
+admitted request is recalled or known to be rejected. Preserve its original identity,
+intent, random input and exposure/result recovery until the server establishes the
+actual outcome. Later actual acceptance/rejection is reconciled normally; a local
+forecast cannot manufacture a server result, shared Undo or branch. A withdrawn
+prediction stays out of the overlay while awaiting its result; later applicability
+alone does not speculatively restore the cancelled sequence.
+
+**Late acceptance clarification:** if the server accepts a move whose prediction
+was withdrawn, process its committed change like any remote/opponent/other-own-device
+update. Add it once to the accepted base in revision order, re-evaluate still-active
+predictions, and present the resulting change under the current live/playback mode.
+Do not suppress it because the client cancelled its forecast, or reinstate the old
+predicted suffix. Retain the original request ID/author in history and deduplication;
+"like a remote change" does not forge authorship, resubmit or duplicate the action.
+A final rejection of an already-withdrawn effect needs no invented second rollback.
+This does not settle unrelated never-transmitted buffer replay policy.
+
 This is presentation reconciliation, not permission to manufacture server results,
 retarget pending requests or change their identity/conditions. Preserve unresolved
 request context until its actual result is established. D-177's deliberate history
-traversal and interruption-resume rollback/playback remain distinct and unchanged;
+traversal and interruption-resume playback remain distinct, with D-277's mode and
+endpoint-animation clarification;
 D-185 removes unnecessary visible rewind/replay from ordinary online reconciliation.
 
 Acknowledgement of a predicted mutation must not apply it twice. Animation does
@@ -739,7 +828,8 @@ remain open.
 
 Groups control navigation/playback steps and representation, never mutation
 creation, publication, parent links or interruptibility (D-176/D-177). Changes in
-one group animate concurrently during a playback step; they remain an ordered
+one group animate concurrently as the group-start to group-end board difference
+(D-277), not queued intermediate moves of the same object; they remain an ordered
 sequence of individual nodes. The client pointer is a node, not a group.
 Ending suggestions are strict singleton groups under D-257: neither preparatory
 events nor later companions can join them. Present the final board before the
@@ -1239,7 +1329,13 @@ onto a new branch. No runtime priority/legality enforcement is added.
 
 ## 3.12 Resume, playback and exact timeline navigation (D-177)
 
-**Confirmed:** when returning after the opponent interrupted the player's chain:
+**Confirmed D-277:** return from background with unpresented updates enters
+grouped playback; catching up or deliberately continuing gameplay at a chosen
+boundary returns to live as defined in
+[presentation modes](#live-and-playback-presentation--d-277). Synchronization
+continues in either mode. A pause is not a shared gameplay interruption.
+
+**Confirmed D-177:** when returning after the opponent interrupted the player's chain:
 
 1. Begin at the player's last local game state, not by replacing the board with
    an unexplained latest-state snapshot.
@@ -1247,8 +1343,9 @@ onto a new branch. No runtime priority/legality enforcement is added.
    interruption/common-ancestor node, deterministically rolling back mutations.
 3. Traverse the new active continuation forward with animated automatic playback
    or player-controlled steps. Each group is one playback step; its constituent
-   changes animate concurrently while remaining ordered mutation nodes.
-4. The player can interrupt automatic playback. While paused, show a horizontal
+   changes animate as the net previous-boundary to group-end board difference
+   while remaining ordered mutation nodes (D-277).
+4. The player can pause automatic playback. While paused, show a horizontal
    event timeline at the bottom of the screen. Dragging it left/right selects
    an exact mutation boundary, including a boundary inside a displayed group.
 5. Continue playback from that node, or explicitly choose to continue play there
@@ -1267,3 +1364,30 @@ The owner has specified the playback/timeline behavior, not its final geometry,
 animation speed, automatic-versus-manual preference default or accessibility
 layout. These details remain for the appropriate later design work. Every
 mutation publishes immediately regardless of playback or grouping.
+
+### Endpoint-based board animation — D-277
+
+Animations always bridge the previously displayed board/scene to the next selected
+board target; they do not replay a list of individual mutation effects. Apply the
+underlying ordered mutations with the shared engine to compute that target first.
+
+- In live mode, three moves of one card received together produce one transition
+  from its previous position to the final position, not three queued waypoints.
+  Do not deliberately delay synchronization to gather a larger animation batch.
+- In playback, advance the displayed state by event group and animate the net
+  board difference for **each group**. Multiple moves inside one group collapse to
+  their endpoint; moves in separate groups remain separate staged transitions even
+  if all groups arrived in one network batch. Open groups may extend under existing
+  rules, without a closure tap or forced rewind of an already presented prefix.
+- Independent objects/fields may animate concurrently. A card returning to its
+  original final position needs no invented movement; all intermediate mutations,
+  references, random outcomes and exposure records still exist for exact navigation.
+- A new target during animation retargets from currently drawn geometry without
+  snapping back to an obsolete source/target first. Interpolated pixels are not an
+  authoritative board or extra history node; drawing/hit testing share the visible
+  geometry under D-267. Pausing/scrubbing selects a real mutation boundary.
+
+This clarifies D-177/D-180/D-185 animation, not history coalescing, an atomic group,
+loss of intermediate state, automatic gesture/command generation or cancellation
+of protected exposure recovery. Exact timing/interpolation/reduced-motion design
+remains UI/technical work.

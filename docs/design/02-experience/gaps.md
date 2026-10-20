@@ -139,6 +139,11 @@ recovery, then incremental synchronization with lazy artwork. Main-path-only or
 default lazy-offshoot loading is superseded; compression/chunk/lease/storage and
 resource details remain technical work. Expected short offshoots do not create a
 history-size cap, fixed `<2x` bound or new finished-session archive requirement.
+D-277 explicitly includes live/grouped-playback presentation and endpoint animation,
+refining D-177/D-185 and superseding the earlier generic live-follow exclusion.
+Prediction withdrawal is local; already-sent requests retain actual-outcome recovery
+and late accepted changes apply normally. Exact mode UI/timing/storage representation
+remains completion work, not new permission for request cancellation/offline play.
 
 The [classified Q-register](../../agent/decisions.md#93-release-blocking-questions)
 keeps stable tracking IDs while replacing the original mixed question queue.
@@ -154,11 +159,13 @@ D-241, not a queue of individual feature questions. In particular:
   general authoring/layout or correction tools beyond the approved tabletop tools.
 - Full manual deck authoring/export, additional import formats/sections, configurable
   starting arrangements or extra in-game areas beyond approved scope.
-- Optional manual group editing, branch comparison/renaming, live-follow or
+- Optional manual group editing, branch comparison/renaming,
   cross-device personal review progress, response requests/read receipts, additional
   alert categories, presence and recovery-center features.
 
 Generic primitives and capability inventories do not approve these features.
+D-277's live mode and grouped background catch-up are included, not covered by
+D-241's former broad live-follow exclusion. Other exclusions remain unchanged.
 No expansion roadmap is implied. Preserve all confirmed capabilities and the
 previously explicit D-214/D-220 deferrals; do not remove existing automatic
 grouping, token/Clone controls, direct placement or current-game branch recovery.

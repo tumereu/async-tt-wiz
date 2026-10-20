@@ -14,7 +14,57 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest complete current-game tree download acceptance — D-276
+## Latest prediction cascade, late acceptance and live/playback — D-277
+
+The owner confirms the three-layer prediction model and stresses that after local
+moves M1 A→B, M2 B→C, M3 C→D, incorporating expected M1 must leave the displayed D
+unchanged. Insert newly accepted remote work before re-evaluating remaining active
+predictions in local order. An independent note leaves D; remote B→X invalidates
+M2, then M3, so withdraw those predicted effects and animate the net displayed D→X.
+Only actual guard failures cascade: independent valid work (or a later same-card
+move whose original source is supplied by remote work) stays. No blanket suffix or
+sequencing-dependency cancellation, substituted intent or new randomness.
+
+The owner explicitly clarifies that if the server later accepts a locally cancelled
+move, the update simply arrives like opponent/other-own-device work. "Cancel" is
+**prediction withdrawal**, not recall/final rejection of already-sent/admitted
+requests. Keep immutable request identity/random/exposure/outcome recovery and
+active/withdrawn disposition separate. Withdrawn predictions do not speculatively
+reappear just because later state becomes applicable; actual acceptance takes the
+ordinary committed-update path with correct original author/ID, not resubmission,
+suppression or resurrected predicted suffix. A final rejection of an already-
+withdrawn effect needs no second rollback. This does not settle arbitrary unsent-
+buffer policy or permit offline actions.
+
+Personal **live** mode applies coherent remote updates immediately, then rebases
+active predictions. Returning from background with unpresented updates enters
+**playback**, from last presented/reviewed context even if background sync already
+downloaded the data. Playback advances by groups while accepted sync continues;
+paused cursor remains stable with normal deleted-node fallback. Catch-up or
+deliberate gameplay continuation returns to live prediction; pause/scrub alone does
+not create historical continuation intent. Same-path catch-up needs no rollback;
+displaced-path catch-up keeps D-177's fork traversal. Own expected confirmations/
+receipt bookkeeping alone do not create a catch-up replay. End/lobby/incarnation
+rules still govern; no ended-session archive, cross-device progress or presence.
+
+Animation is always previous displayed board → next selected target. Three same-
+card moves in one live batch or one playback group are one original-to-final
+transition, not queued waypoints; separate playback groups remain staged even if
+downloaded together. Retarget active animation from current drawn geometry, with
+matching hit/accessibility bounds. Every semantic node/group/reference/random/
+exposure record remains, including net-zero endpoints; synchronization never waits
+for animation/group completion. Exact UI/timing/autoplay preference/storage/result-
+delta correlation and no-saved-boundary first-open presentation remain completion.
+
+[Prediction/playback design](../design/04-technical/prediction-and-playback.md)
+and the primary history mode/rebase/endpoint sections make this explicit; T-642–T-646
+supplement corrected existing D-177/D-180/D-185 cases. Remove the old generic live-
+follow exclusion where it would contradict these now-included modes; other D-241
+scope exclusions remain. No app/scaffold/executable tests or stage transition is
+authorized. D-267 Select/Ping double taps and D-271 startup MTGJSON checks remain
+tentative. Do not automatically advance to a new topic until the owner asks.
+
+## Earlier complete current-game tree download acceptance — D-276
 
 The owner corrects the proposed active-path/lazy-offshoot approach: games likely
 have one long path and short offshoots, so the **whole branched tree** should be

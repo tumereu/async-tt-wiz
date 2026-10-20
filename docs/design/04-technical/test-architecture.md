@@ -302,6 +302,40 @@ Keep app/backend data throughout recovery checkpoints; no test-only queue/receip
 screen or injected action to make observations easy. T-636–T-639 supplement existing
 ordering, lifecycle and outcome scenarios; exact controls/limits remain to design.
 
+## Prediction, modes and endpoint animation verification — D-277
+
+At lower coordination layers enumerate result-before-delta, delta-before-result,
+duplicate result/update and independent-interleaving traces against accepted base,
+immutable request journal, active/withdrawn prediction flags and displayed target.
+Use shared applicability/guard processing, not a different conflict predictor.
+Verify an expected M1 result after M1/M2/M3 predictions leaves the M3 target intact;
+remote work is incorporated before re-evaluating the active overlay. Dependent
+guard failures withdraw later predictions, while independent/originally applicable
+later requests remain. Persist withdrawal independently of original request/outcome
+so restart cannot resurrect cancelled predictions or drop server-result recovery.
+
+Test a locally withdrawn move accepted later: same committed-update path as remote/
+other-device work, original author/ID, no speculative reactivation from intervening
+applicability, result suppression, duplicate command or restored old suffix. Include
+live and playback arrivals; a rejection of an already-withdrawn effect has no second
+reverse animation. Protected random/exposure records remain unchanged.
+
+Normal-app E2E originates all moves/notes/interruptions through actual UI and uses
+external traffic controls to arrange the stated traces. Use rendered-frame/geometry
+evidence to verify no acknowledgement-only excursion toward older positions, not
+just eventual final-state assertions or diagnostic logs. Keep real animations on;
+exact easing/duration is not yet an oracle. Native animation/scene tests supplement
+frame evidence and verify retargeted drawing/hit/accessibility geometry.
+
+Background/foreground with already-downloaded but unpresented changes must enter
+grouped playback from saved presentation progress, not the sync cursor. Test paused
+cursor preservation, open-group extension, concurrent catch-up/live handoff and
+deliberate continuation versus mere pause/scrub. In live, remote batches apply
+immediately; in playback, compute per-group endpoints even if many groups arrived
+together. Keep every underlying node/reference/exposure boundary available for
+exact navigation, including net-zero visual changes. T-642–T-646 supplement the
+corrected existing D-177/D-180/D-185 scenarios; no executable coverage is claimed.
+
 ## Harness and failure evidence
 
 Coordinate two normal Android instances, adding a third for same-account/device

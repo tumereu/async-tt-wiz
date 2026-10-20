@@ -27,6 +27,13 @@ Groups only control navigation/animation/representation: one group is one
 playback step with concurrent animation of its changes. Pause playback and scrub
 the horizontal bottom timeline to select an exact mutation, including within a
 group. Group membership never decides whether to publish or combine mutations.
+D-277 clarifies animation: compute a playback group's endpoint board and animate
+the net difference from the preceding displayed boundary. Multiple moves of the
+same card within that group are one original-to-final transition, not sequential
+waypoints; separate groups remain separate staged transitions even when downloaded
+together. In live mode apply remote batches immediately without group-closure
+waiting. Every mutation/reference/random/exposure boundary remains recorded;
+animation coalescing never changes the grouping algorithm or publication timing.
 The remaining grouping questions below concern presentation only; they are not
 questions about atomic gameplay units or which changes enter the tree.
 

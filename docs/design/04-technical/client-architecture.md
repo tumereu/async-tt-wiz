@@ -144,6 +144,11 @@ adapters while reusing the engine and useful scene primitives.
   never waits for animation, acknowledgements do not repeat it, and new results
   update visual targets without replaying unaffected work. Personal history
   playback remains distinct from current shared/predicted state.
+- D-277 computes each next displayed target first and animates the endpoint scene
+  difference: same-card moves in one live batch or one playback group are not queued
+  waypoints. Separate playback groups remain staged, even from one network batch;
+  retarget unfinished animation from current visible geometry. Semantic/history
+  boundaries, exposure records and synchronization remain independent of frames.
 - Supply meaningful accessible object/action semantics alongside the canvas.
   A painted object is not automatically accessible or discoverable by UI tests.
   This support is part of the normal app, not test-only controls or direct domain
@@ -163,6 +168,18 @@ or large per-pointer allocations. Benchmark drag/zoom/crowded tables and concurr
 catch-up animation on reference devices; exact workloads/budgets remain to define.
 
 ## State and lifecycle constraints
+
+D-277 selects three layers: accepted durable replica, immutable request journal
+with separate active/withdrawn prediction disposition, and derived displayed target.
+Live target is accepted current state plus valid active predictions; playback uses
+a chosen historical boundary while accepted sync continues. Incorporate remote
+accepted work before rechecking original active predictions in order; omit failures
+and check later guards on the resulting state. Acknowledging an expected earlier
+move must not rewind a newer valid predicted move. Preserve withdrawn sent requests
+for actual outcomes, without speculative reactivation; late acceptance is handled
+as an ordinary incoming committed delta, with original ID/author and no suffix
+resurrection. See [prediction/playback design](prediction-and-playback.md) for the
+three-move example, outcome/delta ordering and background catch-up/live handoff.
 
 The accepted replica, durable request/exposure recovery, disposable caches and
 personal state are separate logical [storage categories](storage-architecture.md#client-storage-responsibilities)

@@ -92,6 +92,12 @@ convergence or a second execution of prediction. Reconcile against accepted stat
 remaining valid predictions under D-185, preserving unrelated UI state and the
 explicit review-cursor rules. Rejected/no-op requests invent no gameplay mutation.
 Offline use permits downloaded read-only traversal, not new shared action creation.
+D-277 additionally distinguishes a withdrawn local prediction from its unresolved
+server request: cancellation of the forecast is not server rejection/recall. Late
+acceptance applies through ordinary committed-state updates with original actor/ID.
+Live/playback mode and last presented boundary are personal state; accepted replica,
+request journal and derived display remain separate, with no second authoritative
+local tree or cross-device review receipt.
 
 Checking whether a client is current compares its **accepted replica revision**
 with server history, not zoom/menu state or the provisional prediction overlay.
@@ -127,7 +133,7 @@ other non-card field normalization requires its own contract.
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
 | Area/container | Stable ID, label, generic layout/ordering/display settings, optional participant association. |
 | Action/mutation node | ID, one parent ID in the accepted tree revision, actor, one individual mutation, deterministic forward/rollback data, schema version. D-232 edits tree ancestry; exact ID/version/reference semantics remain open. Never a multi-card invocation or playback group (D-176). |
-| Group | Ordered contiguous mutation IDs on one path, presented as one navigation/playback step with concurrent animation (D-177). Group-start markers and other metadata never replace node references. Exact schema remains proposed. |
+| Group | Ordered contiguous mutation IDs on one path, presented as one step with net previous-boundary → group-end-board animation, concurrent across affected objects/fields (D-177/D-277). Group metadata never replaces node references or individual transitions. Exact schema remains proposed. |
 | Branch | Stable ID, fork boundary, head, origin branch, explicit historical-continuation origin (D-179), author, title, archive status. Ordinary concurrent edits and D-232 Undo/Redo do not create branches. |
 | Control operation | Stable ID, actor, ordered server revision, operation kind, prior/new references, undo linkage. |
 | Random outcome | Stable ID, requested operation, concrete result, source/version metadata; retained with its action. |

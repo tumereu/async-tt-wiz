@@ -4,6 +4,9 @@
   and Compose Canvas direction, shared core, accepted scene/gesture-coordinator
   boundaries and platform-specific interfaces. D-267 corrects normal card input
   to single-tap Actions and double-tap tap/untap; mode double taps remain tentative.
+- [Prediction and playback](prediction-and-playback.md): three-layer client state,
+  cascade withdrawal without cancelling server requests, late accepted updates,
+  live/grouped background catch-up and endpoint animation (D-277).
 - [Android distribution and compatibility](android-distribution-and-compatibility.md):
   signed APKs/manual installation, Android 10+ and safe compatible upgrades/mixed
   app versions (D-273), with exact protocol/build/version details still to design.

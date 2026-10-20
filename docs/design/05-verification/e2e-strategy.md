@@ -215,6 +215,18 @@ shared activation (T-640/T-641). Keep artwork availability separate and test
 interrupted full recovery without resetting app/backend state mid-checkpoint. Very
 large/pathological trees and chunk-resource measurements remain lower-layer tests,
 not permission to seed E2E history through setup helpers.
+D-277 journeys create three immediate local moves through normal UI, delay old
+acknowledgements and interleave independent/invalidating/restoring remote moves or
+notes, keeping original traffic/request identities (T-642–T-644). Do not forge
+rejections/acceptances to arrange a prediction withdrawal or its late acceptance.
+Observe actual rendered trajectories as well as final history/positions: no old-
+acknowledgement rewind, no resurrection of withdrawn predictions, and ordinary
+presentation of late committed changes with correct author. Repeat background/
+foreground with already-downloaded unpresented updates and paused review, including
+catch-up/live handoff and explicit continuation versus pause (T-645). Exercise live
+batches versus single/multiple playback groups and mid-animation retargeting with
+real canvas gestures/visible geometry (T-646); lower-layer tests supplement frame
+evidence without bypassing the normal app with hidden action/animation APIs.
 D-269 notification variants include normal UI-created invitations/opponent activity
 on non-Google Android with no FCM server configuration, polling-driven OS display,
 permission/channel denial, and foreground catch-up after blocked background work

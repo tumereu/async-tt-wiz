@@ -161,8 +161,10 @@ There is no Send step or waiting for group closure. Only a final committed outco
 establishes the request's result. D-275's durable receipt means admitted/pending,
 not accepted gameplay or a caught-up replica; neither animation nor push is proof.
 
-D-180 confirms immediate optimistic local state updates for latency hiding. A
-rejected mutation is visually reversed with an Undo-like animation; this local
+D-180 confirms immediate optimistic local state updates for latency hiding.
+D-185/D-277 animate the net difference to the reconciled target after rejection;
+an isolated rejected mutation looks like an Undo-like reversal, not queued reverse
+operations over newer valid work. This local
 correction does not emit an Undo/control operation, acquire historical-continuation
 intent or create a branch. Incoming opponent mutations are also applied through
 animations. Keep authoritative state, pending predictions and presentation
@@ -181,9 +183,20 @@ acknowledgement alone neither repeats the mutation nor adds an animation.
 Internal recomputation is not visible history traversal or a new shared mutation.
 Do not turn a locally invalid prediction into a fabricated server rejection or
 rewrite/cancel the original in-flight request; preserve identity and resolve its
-actual outcome. D-177 interruption-resume/history playback remains unchanged.
-Exact reducer/prediction bookkeeping and animation scheduling remain technical
-design, constrained by these presentation invariants.
+actual outcome. D-277 explicitly separates withdrawn prediction from request
+outcome: keep withdrawn effects out of the speculative overlay; later accepted
+changes arrive through the same committed-update path as remote/other-device work,
+with original author/identity, not revived prediction sequences. Insert accepted
+remote state before replaying remaining active predictions, preserving independent
+valid work and cascading only actual guard failures.
+
+D-277 live mode immediately presents coherent incoming updates, rebased under
+pending predictions. Foreground with unpresented updates enters D-177 grouped
+playback; both modes keep receiving accepted state. Catch-up or deliberate gameplay
+continuation returns to live, while pause/scrub remains personal playback. Animations
+use previous-display → next-target net differences per live presentation update or
+per playback group, not per-mutation waypoints. Exact storage/correlation/scheduling
+remain technical design within [prediction/playback rules](prediction-and-playback.md).
 
 D-176 requires one node per individual mutation and immediate publication of
 each node, including ordered operations from bulk/combined controls. Transport

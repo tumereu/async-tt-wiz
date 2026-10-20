@@ -12,6 +12,9 @@
 - [Authentication and sessions](authentication-and-sessions.md): non-expiring
   revocable login tokens without saved passwords (D-268), account-safe recovery,
   and security/reset mechanisms still proposed.
+- [Notifications and background work](notifications-and-background-work.md):
+  optional FCM and best-effort polling fallback (D-269), recommended WorkManager
+  scheduling, Android limits and account-safe delivery independent of game sync.
 - [Test architecture](test-architecture.md): selected Docker backend/database
   boundary; selected Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose scenarios,
   canvas UI automation and real-PostgreSQL migration/concurrency testing.

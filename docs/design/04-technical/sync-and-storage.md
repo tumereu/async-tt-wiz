@@ -384,6 +384,11 @@ records/outcomes without depending on a notification or original socket session.
 Exact update framing and catch-up/pagination must preserve a coherent revision
 continuation across concurrent publications.
 
+D-269 makes FCM optional; background notification polling is an acceptable fallback,
+not another source of game authority. Neither path's availability/timing gates
+foreground synchronization or recovery. Poll lightweight authorized activity data,
+not the whole game tree; see [background-work design](notifications-and-background-work.md).
+
 An app opening a historical branch fetches required ancestry before rendering.
 If it is unavailable offline, show that limitation instead of fabricating state.
 The exact minimum offline-download set and cache budget need approval.

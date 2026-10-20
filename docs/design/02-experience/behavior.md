@@ -614,9 +614,15 @@ The general rules are:
   without revealing covered card names (D-219). Group related activity rather than
   sending one push per primitive mutation; grouping must not delay game sync or
   require a group-completion tap.
+- FCM is **optional** (D-269): using the app does not require Google Play services
+  or Play Store installation. Periodic polling can provide background notifications
+  without FCM, subject to Android's scheduling/battery/network limits, not a promise
+  of instant delivery. Reopening recovers current server records even if neither
+  push nor polling ran; routine polling must not transfer the whole game tree.
 - For R1, use **Android notification channel settings**. Both in-app global and
   per-game mute settings are **post-R1**, not required app settings (D-220).
-  Respect Android settings; push notifications remain in R1.
+  Respect Android settings for both push and polling-generated notifications;
+  invitation/activity notifications remain in R1 without mandatory FCM.
 - Exact cadence, permissions/defaults, channel categories, foreground suppression,
   multiple-device routing and additional alert categories remain open. See the
   [notification contract](../03-contracts/android-experience.md#59-notifications).

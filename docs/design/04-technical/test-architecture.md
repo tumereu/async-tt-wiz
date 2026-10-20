@@ -181,6 +181,25 @@ prove the card was drawn correctly. Read-only diagnostics can explain failures,
 not replace the user-visible acceptance oracle. Do not add hidden test-only action
 dispatchers, alternate screens or direct domain calls to make E2E easier.
 
+## Optional push and polling verification — D-269
+
+Exercise the normal app/backend without Google Play services or FCM configuration;
+core login/game sync must not depend on either. Include a non-Google Android
+device/emulator in the notification/platform matrix, not only Google-enabled FCM
+tests. In normal-app journeys, create invitations/opponent activity through UI and
+observe actual OS notifications from the real polling path; server logs alone do
+not prove notification display. Real FCM tests, where configured, need a compatible
+Google-enabled device and cannot replace polling coverage. Use synthetic data.
+
+At lower layers test scheduler constraints/retries, bounded summary/cursor reads,
+deduplication across push/poll overlap/restarts and account-session fences on
+already-running callbacks. Platform tests cover notification permission/channels,
+idle/restricted execution and foreground catch-up with all background delivery
+absent. A controlled lower-layer scheduler can prove logic, not guaranteed Android
+wall-clock delivery. No production exact-alarm permission or shorter hidden polling
+loop may be added simply to make tests timely. T-486–T-490 and T-622–T-624 record
+the expected outcomes; this is verification design, not executed coverage.
+
 ## Harness and failure evidence
 
 Coordinate two normal Android instances, adding a third for same-account/device

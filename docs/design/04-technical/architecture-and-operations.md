@@ -63,7 +63,7 @@ are not needed simply to separate these responsibilities.
 | Shared client language/core | Kotlin Multiplatform selected (D-260) | Module/API details; future platform integrations, not delivery commitments. |
 | Android UI/rendering | Compose Canvas game area with styled Compose surrounding UI selected (D-263) | Scene/animation/input design, accessibility/automation mapping, minimum Android API and versions. |
 | Local persistence | Transactional SQLite through SQLDelight selected (D-265) | Schema, migrations, drivers, encryption and baseline/cache/recovery boundaries; Room is not selected. |
-| Background work | WorkManager for appropriate Android background recovery selected (D-263) | Retry/lifecycle policy and battery restrictions; foreground gameplay sync must not wait for scheduled work. |
+| Background work | WorkManager for appropriate Android background recovery (D-263); best-effort notification polling fallback permitted (D-269) | Polling scheduler/cadence, retry/lifecycle and battery policy; recommend WorkManager, not exact-alarm permission. Foreground sync never waits for scheduled work. |
 | Shared service | Kotlin/JVM Spring Boot modular monolith selected (D-263) | Supported versions, hosting/operator model and detailed module boundaries. |
 | Shared database | PostgreSQL selected (D-263) | Schema, backup/restore, version and capacity. |
 | Storage layout | Relational structure with versioned JSONB payloads and separate topology/mutations/current state/revisions/outcomes/outbox accepted (D-265) | Exact tables/indexes and independent revision/history/idempotency retention; a full sync is not a whole-tree transfer. |
@@ -75,10 +75,12 @@ are not needed simply to separate these responsibilities.
 | Security/session integration | Spring Security/Keystore protection (D-263); non-expiring revocable session tokens without saved passwords (D-268) | Token storage/revocation, password/reset mechanisms, email delivery and rate limits; no idle/absolute expiry default or new account-management UI scope. |
 | Image loading | Coil conditionally accepted, subject to canvas integration (D-263) | Canvas image lifecycle/decoding/cache integration and compatibility validation. |
 | Verification | Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose E2E; Testcontainers for smaller integration tests selected (D-263) | Exact versions, runners/devices, reset/failure controls, CI and measured performance budgets. |
-| Push | Platform-compatible notification delivery | Provider, device registration, privacy and failure policy. |
+| Push | FCM optional; app/game sync must work without Google Play services/Play Store distribution, with periodic polling an acceptable notification fallback (D-269) | Registration/packaging/privacy, polling protocol/cadence, coalescing and routing; background delivery is best effort, not a correctness dependency. |
 | Card source | Generic/custom definitions; MTG catalog adapter for the initial use case | Provider permission/terms, descriptive fields, update policy. |
 
 These selections are not permission to start a scaffold or install packages.
+See [notifications/background work](notifications-and-background-work.md) for
+D-269's optional-provider boundary versus proposed polling/scheduling mechanisms.
 
 ### Architecture completion order — D-263
 

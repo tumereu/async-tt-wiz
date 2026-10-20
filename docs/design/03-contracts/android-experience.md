@@ -528,12 +528,25 @@ opponent activity rather than sending one push per primitive change. Existing
 immediate-publication rules remain: coalescing must not delay synchronization or
 wait for a group-completion tap; each committed action is available immediately.
 
+**Confirmed D-269: FCM is optional.** Google Play services, Firebase registration
+and Play Store distribution must not be prerequisites for using the app or
+synchronizing games. FCM may provide background push on compatible installations;
+without it, periodic server polling is an acceptable fallback for detecting the
+same invitations/grouped opponent activity and posting local notifications.
+The owner suggests AlarmManager polling as a possible mechanism, not a selected
+exact-alarm policy or delivery deadline. Background checks are best effort under
+Android scheduling/network/battery restrictions; reopening the app recovers current
+server records even if no push or poll ran. Exact scheduler/cadence remains
+technical design. Polling must not download the whole gameplay tree each time.
+
 **Confirmed R1 settings boundary (D-220):** use **Android's notification channel
 settings** for notification control in R1. Both proposed **in-app global mute**
 and **in-app per-game mute** settings are **post-R1**, not release requirements.
 Respect the user's Android notification settings; do not require an app-specific
-mute/settings screen for R1. This does not defer D-219's push notifications or
-require a separate Android channel for every game.
+mute/settings screen for R1. D-219's notification categories remain in scope with
+D-269's optional push/polling delivery; no separate channel per game is required.
+Polling-generated notifications obey the same permission/channel settings and
+covered-card privacy rules, not a workaround for disabled notifications.
 
 Exact grouping window/cadence, notification permissions/defaults, Android channel
 categories, foreground suppression and multiple-device routing remain open.
@@ -546,7 +559,10 @@ Notification previews should avoid covered identities
 beyond the confirmed no-covered-card-names rule. Deep links open the referenced
 game/boundary but check current branch status and access.
 Stale notifications are harmless pointers to history, not instructions to replay
-an operation. Push failure cannot affect game-state correctness.
+an operation. Push/poll failure cannot affect game-state correctness. Notification
+delivery and background results remain bound to the originating account/session;
+delayed work or deliveries after Logout/account switching cannot expose that
+account's private content to another account (D-241).
 
 ## 5.10 Low-interaction design contract
 

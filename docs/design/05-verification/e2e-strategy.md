@@ -171,6 +171,13 @@ assertion to the current contract; older superseded scenarios do not override
 newer rules. Additional account-reset/email and notification journeys must also
 cross the normal app/backend paths; select their service harnesses when the
 underlying technical delivery is designed.
+D-269 notification variants include normal UI-created invitations/opponent activity
+on non-Google Android with no FCM server configuration, polling-driven OS display,
+permission/channel denial, and foreground catch-up after blocked background work
+(T-622–T-624). Real optional FCM delivery uses a compatible Google-enabled device;
+neither a fake push nor server logs alone prove Android notification display. Do
+not inject activity/history to arrange these journeys or treat best-effort polling
+as a guaranteed wall-clock deadline.
 
 The [grouping matrix](grouping-matrix.md) is the full planned category/prefix
 expansion requested for playtesting. Each independent variant resets; continuing

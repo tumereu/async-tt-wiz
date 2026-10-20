@@ -14,7 +14,30 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest permanent-login convenience requirement — D-268
+## Latest optional FCM and polling fallback — D-269
+
+The owner accepts FCM only as optional and suggests AlarmManager polling as a
+fallback in a pinch. App use/login/game sync must work without Google Play services,
+Play Store distribution or FCM setup on the non-FCM path. D-219 invitation/grouped
+opponent activity stays in scope; optional push/polling changes delivery, not game
+authority or covered-card privacy. Local polling notifications obey D-220 Android
+permissions/channels, not a bypass of disabled notifications. Android background
+execution is best effort; foreground refresh/recovery cannot depend on it.
+
+[Notifications/background work](../design/04-technical/notifications-and-background-work.md)
+records recommended WorkManager polling (already selected for appropriate background
+work under D-263), bounded authorized summaries/cursors, deduplication and account/
+session-fenced callbacks. Periodic WorkManager has a 15-minute minimum, not a delivery
+deadline; AlarmManager repeats are inexact and do not bypass Doze/network limits.
+No exact-alarm permission/cadence, always-on service, new provider/mute screen or
+SDK/build-flavor matrix is approved. Prior two-channel/foreground-suppression/all-
+device-routing proposals remain unapproved. Verification T-622–T-624 and updated
+T-486–T-489 include non-Google/no-FCM operation, delayed background work, actual OS
+display, settings/privacy and cross-account races. No executable tests, app code
+or delivery-stage transition is authorized. D-267 mode gestures and unapproved
+D-268 security/reset mechanics remain tentative as described below.
+
+## Earlier permanent-login convenience requirement — D-268
 
 The owner wants an auth token that lasts forever, or saved credentials plus
 automatic reauthentication unless explicitly logged out. Use the non-expiring

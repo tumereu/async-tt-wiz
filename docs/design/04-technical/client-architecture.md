@@ -19,6 +19,10 @@ appropriate Android background recovery, not ordinary foreground action delivery
 Use Keystore-backed credential protection. D-268 persists a non-expiring revocable
 session token, not the password; reconnects/restarts/inactivity must not require
 routine login. See [authentication/session design](authentication-and-sessions.md).
+D-269 makes FCM optional and permits periodic notification polling without Google
+Play services; foreground sync/recovery remains independent of either path. See
+[background-work design](notifications-and-background-work.md) for recommended
+WorkManager scheduling, Android delays and account/session fencing.
 D-265 selects SQLDelight for SQLite access;
 Coil is conditional on canvas integration. Exact versions,
 scene/input design, storage schemas and final screen layouts remain incomplete.

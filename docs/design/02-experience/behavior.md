@@ -343,7 +343,10 @@ The general rules are:
    left/right to select the exact mutation where you want to continue. Merely
    navigating does not publish another game edit or change the shared active line.
 - Core grouping rules: a tap begins a new group unless the current group contains
-  only taps/pings; the following substantive action joins that run (D-251).
+   only taps/pings; the following substantive action joins that run (D-251), except
+   for an ending suggestion. **Every ending suggestion is a strict singleton group
+   with no preparatory or following companions** (D-257), overriding the matching/
+   companion rules below.
   Pings join the existing group; actual-card moves group by the same ordered origin/destination
   tuple, including Battlefield → Battlefield rearrangements, but never merge back
   across the new tap boundary. Real-card Stack moves and each Stack projection creation
@@ -500,7 +503,12 @@ The general rules are:
 - **Suggest your win, your loss, or a draw.** The suggestion is shared,
   **undoable board state**, not an immediate end to the game.
 - **The other player must accept.** Only then do **both players return to the
-  lobby**. Your own confirmation cannot replace their acceptance.
+   lobby**. Your own confirmation cannot replace their acceptance.
+- **Show the final board before acceptance.** The suggestion is a group by itself;
+  group playback reaches the preceding final board before its acceptance dialog.
+  An incoming suggestion must not obscure earlier unreviewed groups with that
+  dialog. Sync remains immediate; this is not an extra confirmation/review vote
+  or permission to accept a removed/historical suggestion (D-257).
 - **Acceptance is not undoable.** Undo can remove a pending suggestion, but cannot
   reverse acceptance/return to lobby or reopen that ended play session.
 - Concurrent incompatible result actions follow normal server processing order:

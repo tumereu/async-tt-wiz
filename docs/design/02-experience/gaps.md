@@ -64,6 +64,7 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | Logged exposure is captured online but not sent before Logout. | Protect the outstanding account-scoped recovery obligation, clear ordinary downloads and prevent another account reading/publishing it. | D-246/D-241; T-600/T-601. |
 | Cleanup exposes separate Close/Next step actions but not advance-and-close. | This is allowed: individual actions need full paths; the combination can be quick-only. | D-253; T-233/T-235/T-597. |
 | A Ping menu/request spans another device's intervening event. | The menu captures targets, not a group. The server processes requests and creates events, grouped deterministically. Use its current derived recording context; explicit Unping of an absent marker is a no-op, not an old-group amendment, Ping conversion or group-mismatch rejection. | D-254; T-602. |
+| An ending suggestion follows a tap/closure/random run or precedes pings/comments/tracking. | Always a strict singleton S group, with boundaries before and after. Group catch-up shows the final board before the acceptance dialog; receipt does not obscure earlier unreviewed groups or delay sync. | D-257; T-603/T-604, GM-23–GM-25. |
 
 ## Genuine gaps
 
@@ -90,8 +91,19 @@ exhaustiveness claim or approval of implementation/UI/stage transition.
 The subsequent follow-up review's **F-01 is withdrawn under D-254**: its UI-bound
 ping-group premise was wrong. UI requests do not define groups; server-created
 events are grouped deterministically. Corrected contracts and T-602 record this,
-not another owner choice. The other follow-up findings remain unselected; see the
+not another owner choice. **F-05 is resolved by D-257's strict singleton ending
+groups**, rather than the proposed E-family mapping. F-03/F-04/F-06 have derived
+repair work; see the
 [review disposition](../../agent/adversarial-review-2026-10-20-follow-up.md#outcome).
+
+**Specific pending clarification, F-02/D-257:** the owner proposes possibly clearing
+Redo stacks on a game-head change, favoring conservative convenience controls over
+surprising edge-case recovery. Define whether this means deliberate shared history
+switches (activation/interruption/return), which players' per-game stacks clear,
+and the exceptions for ordinary head advancement and Undo/Redo. Applying a literal
+blanket clear would conflict with D-227/D-228 and ordinary Redo use, so it is not
+silently adopted. This does not reopen the earlier resolved batch or approve the
+assistant's advance-to-A proposal.
 
 This is not a certification that behavior specification is complete. Further
 edge cases may be found, but an owner question needs a concrete unresolved

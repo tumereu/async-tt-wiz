@@ -8,7 +8,10 @@ Reviewed baseline: `57f6a753bcdfc339a59244ec050bf66a86cadcb6`.
 treated UI/menu state as defining an authoritative group. UI actions send requests;
 the server creates events, and deterministic logic groups those events. The
 conflicting menu-bound-group wording has been corrected, not promoted into another
-owner decision. F-02–F-06 remain review findings, not accepted resolutions.
+owner decision. **F-05 is now resolved by D-257:** ending suggestions are strict
+singleton groups, never E-family edits or companion-accepting anchors. F-02 has a
+tentative conservative head-change-clearing direction awaiting scope clarification;
+its advance-to-A recommendation was not accepted. F-03/F-04/F-06 remain repair work.
 
 This is a static review of the five design tiers, current decisions and the
 previous reviews' dispositions. Counterexamples are reasoning fixtures, not
@@ -22,10 +25,10 @@ requirement, D-245's retained-future checks and D-247's Stack comparator.
 | ID | Priority | Finding | Classification |
 | --- | --- | --- | --- |
 | F-01 | Withdrawn | The review assumed a Ping menu binds an authoritative group. | Incorrect premise; D-254 confirms server-created events and deterministic grouping. |
-| F-02 | High | Successful Redo has no explicit shared-pointer result when its insertion boundary is an activated internal state. | Observable control-contract completion, not merely anchor encoding. |
+| F-02 | High | Redo after an explicit head switch needs a defined eligibility/clearing boundary. | D-257 favors conservative unavailability; proposed head-change reset still needs scope clarification. |
 | F-03 | Medium | Protected late exposure can refer to a history revision already removed or changed by an eligible Undo. | Derived durability/reference completion; causal participation needs an explicit trace. |
 | F-04 | Medium | Ordered lowering needs an explicit non-placement outcome for disappearing tokens in mixed moves. | Derived algorithm/verification completion, not a new token policy. |
-| F-05 | Medium | The complete category-transition matrix is not yet a total mapping of confirmed gameplay actions. | Concrete missing mapping: pending result suggestion. |
+| F-05 | Resolved | Ending suggestions need an explicit grouping category. | D-257 selects strict singleton S groups and final-board-before-dialog presentation; T-603/T-604. |
 | F-06 | Medium | Active contracts still require combined full paths and retain superseded grouping language. | Confirmed-rule editorial repair; no owner decision needed. |
 
 Priority denotes specification risk, not an observed software defect.
@@ -93,6 +96,16 @@ add a ping-ownership picker.
 </details>
 
 ## F-02 — Redo's tree result does not fully specify its active state
+
+**Owner discussion — D-257:** Undo/Redo are convenience tools; complex cases may
+be disallowed instead of introducing surprising behavior. The owner tentatively
+suggested clearing Redo stacks when the head changes, rather than approving the
+assistant's advance-to-A recommendation. Clarify which deliberate history switches
+clear which stacks, excluding or otherwise reconciling ordinary event advancement
+and Undo/Redo themselves. Until then D-227/D-228 remain current; do not implement
+the proposal as a blanket clear-on-every-head-change rule. If the relevant switch
+clears the queue, this trace's Redo becomes unavailable and its proposed pointer
+choice no longer arises.
 
 **Evidence.** [History](../design/03-contracts/history-and-undo.md), lines
 109–121 and 196–203, defines recorded-transition reinsertion and stack order.
@@ -201,6 +214,17 @@ token does not become an invariant-excluded Library tray member.
 
 ## F-05 — A transition matrix needs a total action classifier
 
+**Resolved — D-257.** Each ending suggestion forms a strict singleton S group,
+never grouping with preceding taps, closure/random runs, edits or subsequent
+pings/comments/tracking. The E-family proposal below was not selected. Group
+catch-up shows the final board before the suggestion's acceptance dialog; receipt
+does not interrupt earlier unreviewed groups with that dialog. Sync stays immediate.
+The primary grouping/lifecycle contracts, 182-cell matrix, GM-23–GM-25,
+T-603/T-604 and full-stack journey plans record the outcome.
+
+<details>
+<summary>Original F-05 evidence and unselected proposal</summary>
+
 **Evidence.** The [grouping matrix](../design/05-verification/grouping-matrix.md),
 lines 10–33 and 64–69, maps literal families and requires operation coverage.
 [Pending result suggestions](../design/03-contracts/accounts-decks-and-lobby.md),
@@ -223,6 +247,8 @@ than inventing a whole end-game grouping policy. Test leading, preceding-edit,
 tap-run, following-ping and author-change contexts. Do not call 156 transition
 cells exhaustive operation coverage while a confirmed input is unmapped.
 
+</details>
+
 ## F-06 — Residual active contradictions need direct edits
 
 These are not unresolved owner choices:
@@ -244,10 +270,11 @@ applying their current rules, not closed by a broad completion claim.
 
 ## Recommended next batch
 
-1. F-01 is withdrawn; do not reopen it. Review F-02's exact pointer transition. Attempt
-   derivation first; batch only any genuinely remaining observable choices.
+1. F-01 is withdrawn; do not reopen it. Clarify F-02's proposed head-switch Redo
+   invalidation scope, rather than assuming its advance-to-A recommendation.
 2. Complete F-03/F-04 against existing durability, identity and token rules.
-3. Finish F-05's classifier and synchronize F-06's active text with current rules.
+3. F-05 is resolved by D-257's singleton rule; synchronize F-06's active text with
+   current rules separately.
 4. Add stable acceptance cases and full-stack journey variants for those traces.
    These remain specifications until implementation is authorized.
 

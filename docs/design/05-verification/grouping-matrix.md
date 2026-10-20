@@ -24,6 +24,7 @@ acceptance outcomes together, rather than accumulating per-button exceptions.
 | R | Roll die, Flip coin | Pending forward random-tool run, separate from completed prior play. |
 | P | Ping/Unping via mode/context, each selected destination | Backward companion, scoped to its recording group. |
 | B | Event comment, Next step/direct tracking/End turn | Backward companion; not a substantive anchor or a ping. |
+| S | Pending win/loss/draw suggestion | Strict singleton: no preceding or following event joins it, including companions (D-257). |
 | O | Leading/root annotation-only group | Group context, not an additional operation. |
 
 Own-area hold/visible inspection, selection/mode changes, pan/zoom, navigation and
@@ -46,31 +47,38 @@ predicted group without adding another grouping policy or stale-group guard.
 - `t`: append only if the whole current group contains taps/pings and nothing
   else; otherwise `|`. This includes a leading pings-only group.
 - Filling a pending T/F/R segment with an anchor sets that anchor's category/key.
-  F/R without an anchor remain pending; P/B never replace the context key.
+  F/R without an anchor remain pending; P/B never replace the context key. S is
+  never absorbed by a pending segment; any event after S starts a new segment.
 - **Author change overrides every cell with `|`.** A first operation makes a
   leading group; there is no fake preceding event.
 
-| Current context ↓ / incoming → | T | M | I | E | C | K | L | V | H | F | R | P | B |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| T — pending tap run | t | + | + | + | + | + | + | + | + | + | + | + | + |
-| M — non-Stack move | \| | k | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + |
-| I — isolated Stack action | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + |
-| E — ordinary edits | \| | \| | \| | + | \| | \| | \| | \| | \| | \| | \| | + | + |
-| C — creation/customization | \| | \| | \| | + | + | \| | \| | \| | \| | \| | \| | + | + |
-| K — combat edits | \| | \| | \| | \| | \| | + | \| | \| | \| | \| | \| | + | + |
-| L — Stack layout | \| | \| | \| | \| | \| | \| | + | \| | \| | \| | \| | + | + |
-| V — logged opening/exposure | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + |
-| H — Shuffle | \| | \| | \| | \| | \| | \| | \| | \| | k | \| | \| | + | + |
-| F — pending closure | \| | + | + | + | + | + | + | + | + | + | + | + | + |
-| R — pending random run | \| | + | + | + | + | + | + | + | + | + | + | + | + |
-| O — leading annotation(s) | t | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + |
+| Current context ↓ / incoming → | T | M | I | E | C | K | L | V | H | F | R | P | B | S |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T — pending tap run | t | + | + | + | + | + | + | + | + | + | + | + | + | \| |
+| M — non-Stack move | \| | k | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| I — isolated Stack action | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| E — ordinary edits | \| | \| | \| | + | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| C — creation/customization | \| | \| | \| | + | + | \| | \| | \| | \| | \| | \| | + | + | \| |
+| K — combat edits | \| | \| | \| | \| | \| | + | \| | \| | \| | \| | \| | + | + | \| |
+| L — Stack layout | \| | \| | \| | \| | \| | \| | + | \| | \| | \| | \| | + | + | \| |
+| V — logged opening/exposure | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| H — Shuffle | \| | \| | \| | \| | \| | \| | \| | \| | k | \| | \| | + | + | \| |
+| F — pending closure | \| | + | + | + | + | + | + | + | + | + | + | + | + | \| |
+| R — pending random run | \| | + | + | + | + | + | + | + | + | + | + | + | + | \| |
+| O — leading annotation(s) | t | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| S — ending suggestion | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| |
 
-This gives 156 context/operation cells, not 156 claimed executed tests. Expand `k`
+This gives 182 context/operation cells, not 182 claimed executed tests. Expand `k`
 into same/different keys and `t` into pure taps/pings versus a backward-comment/
 tracking-contaminated run. For every cell cover representative real controls;
 family-mapping coverage must include all operations in the table, not just a
 single convenient button. Explicit invariant-excluded combinations are model
 fixtures only, never fabricated UI setup. Excluded features are not test inputs.
+In particular, the single-pending-suggestion rule prevents an accepted S→S pair
+in ordinary current play: test rejection of the second request, not a fabricated
+two-suggestion UI state. The S row/column express unconditional singleton isolation
+where events are otherwise applicable. P/B after S start their own segment, not
+companions inside S. Acceptance/return is outside this gameplay-event matrix.
 
 ## Multi-step traces (same author unless stated)
 
@@ -101,6 +109,9 @@ separators. `move a`/`move a` means matching tuples, not necessarily the same ca
 | GM-20 | `ping X; ping Y; Unping X; ping X` in one context | Visible Y retains ordinal 2; new X gets 3. Retrying either addition creates no ordinal. |
 | GM-21 | Historical ping/comment recorded after current G, referring to inactive E | Recording sequence controls grouping; route to E does not move records into E or activate it. |
 | GM-22 | Eligible Undo/Redo before/between groups containing pings | Preserve recorded toggle scopes, presence, ordinals and effective contexts. Block a tree edit whose relevant semantic context would change; never silently reinterpret Unping. |
+| GM-23 | `edit \| suggest draw \| ping; tracking` | The suggestion admits no backward companions. Following P/B are in a new context, with no inherited ping overlay; a rejected duplicate suggestion creates no event/group. |
+| GM-24 | `tap \| suggest win \| edit`; `roll \| suggest loss`; `View \| dismiss \| suggest draw` | Singleton S overrides pending T/R/F forward absorption. Retain every real boundary; do not merge the prior board into the suggestion. |
+| GM-25 | Opponent catches up through final board changes, then the singleton suggestion | Show the final board before the acceptance dialog. A newly received pending suggestion cannot cover earlier unreviewed groups with the dialog. Sync is not delayed; removed/inactive historical suggestions are not actionable prompts. |
 
 ## Full E2E expansion and playtest evidence
 

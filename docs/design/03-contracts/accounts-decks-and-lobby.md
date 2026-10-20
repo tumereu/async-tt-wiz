@@ -329,6 +329,20 @@ Start action or require online presence from both participants.
   mutation/history model; Undo uses the current selective eligibility rules
   (D-224 onward).
   Undoing an unaccepted suggestion does not return the players to the lobby.
+- **The suggestion never groups with another event (D-257).** It is a strict
+  singleton playback group, with boundaries before and after. Preparatory taps,
+  closures and random runs do not join it; neither do subsequent pings, comments,
+  tracking or ordinary edits. This is stronger isolation than a Stack anchor,
+  which can still have companions. The server creates the suggestion event and
+  deterministic grouping applies this rule; the UI does not define the group.
+- **Show the final board before the acceptance dialog (D-257).** While catching
+  up by groups, present the preceding board-state group before advancing to the
+  singleton suggestion and its acceptance dialog. Receipt of a pending suggestion
+  must not put that dialog over earlier unreviewed playback and hide the final
+  board. Synchronization continues immediately and is not held for playback.
+  A historical/removed suggestion is not a new actionable acceptance prompt;
+  ordinary current-suggestion/incarnation validation still applies. This is the
+  existing acceptance interaction, not an additional confirmation or review vote.
 - **The other player must accept the suggestion.** The proposer cannot substitute
   their own confirmation for the other player's acceptance. Without acceptance,
   the suggestion alone does not end play or return either player to the lobby.

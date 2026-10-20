@@ -9,7 +9,7 @@ support continuity and traceability; they are not another competing specificatio
 - [Specification audit](specification-audit.md): known wording/status drift and interpretation risks.
 - [Adversarial review — 2026-10-19](adversarial-review-2026-10-19.md): source-linked findings, counterexamples and a documentation-fix session plan; not new requirements.
 - [Adversarial review — 2026-10-20](adversarial-review-2026-10-20.md): follow-up review of cross-feature contradictions, generic operation gaps, UX consistency and residual drift; detailed handoff for a new fix session, not approved changes.
-- [October 20 follow-up review](adversarial-review-2026-10-20-follow-up.md): F-01's UI-bound ping-group premise is withdrawn under D-254; remaining Redo-pointer, late-exposure, mixed-token, classifier and drift findings are not selected behavior.
+- [October 20 follow-up review](adversarial-review-2026-10-20-follow-up.md): F-01 withdrawn under D-254; D-257 resolves F-05 with singleton ending groups and favors conservative Undo/Redo, with head-switch clearing scope still pending. Other derived repairs remain.
 - [Delivery workflow](delivery-workflow.md): readiness gates and the later implementation loop.
 
 Use decision history to establish approval/provenance, then reflect that result

@@ -3,7 +3,18 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
-## Latest owner correction — request/event/group authority, D-254
+## Latest review discussion — D-257
+
+Undo/Redo are conveniences; prefer conservative unavailability to surprising
+complex-case recovery. The owner's possible head-change Redo clearing still needs
+its command/stack scope clarified and does not yet replace D-227/D-228. F-02's
+advance-to-A proposal was not accepted. F-05 is settled differently from the
+assistant's E-family proposal: an ending suggestion is always a strict singleton S
+group, with the final board shown before its acceptance dialog during catch-up.
+The planned matrix now has 182 cells and 25 traces; T-603/T-604 and full-stack
+journey variants specify this outcome without claiming executable test results.
+
+## Earlier owner correction — request/event/group authority, D-254
 
 The owner rejected the subsequent follow-up review's F-01 ping finding. UI actions
 send requests; the server creates events; deterministic logic groups those events.
@@ -26,8 +37,8 @@ to individual constituents, not necessarily quick combinations.
 Shared command-context/input-binding/ordered-lowering and reference-lifetime
 contracts replace case-by-case backlog items. Exposure participation/durability
 covers Undo/Redo/filtering and capture-before-send Logout. Stable active oracles
-and inventories were corrected directly. The grouping matrix plans 156 transition
-cells and 22 prefix-sensitive traces for later real-app E2E/playtest revision;
+and inventories were corrected directly. The original D-251 grouping matrix planned
+156 transition cells and 22 prefix-sensitive traces, extended by D-257 above;
 these are not executed tests or implementation authorization.
 
 ## Earlier October 19 review reconciliation

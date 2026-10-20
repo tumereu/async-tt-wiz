@@ -14,7 +14,25 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest phase/autonomy direction — D-256
+## Latest review discussion — conservative Undo/Redo and ending groups, D-257
+
+The owner treats Undo/Redo as convenient tools, not the only way to obtain a
+desired board/event chain. Prefer disallowing surprising complex cases over
+special recovery behavior. Their tentative idea that head changes clear Redo
+still needs scope clarification: deliberate activation/interruption/return versus
+ordinary event advancement and Undo/Redo themselves, and which players' stacks.
+Do not silently replace D-227/D-228 or implement F-02's advance-to-A recommendation.
+
+**F-05 is resolved:** ending suggestions never group with anything, including
+preceding taps/closures/random runs or following pings/comments/tracking. Strict
+singleton S groups let group catch-up show the final board before the acceptance
+dialog; receipt must not cover earlier unreviewed play with it. Sync stays immediate.
+Acceptance/return is still separate and non-undoable, with no extra confirmation.
+The category matrix is now 182 cells and GM-01–GM-25; T-603/T-604 and the real-app
+E2E plans cover singleton boundaries and dialog ordering. No executable tests/app
+exist. F-03/F-04/F-06 still have derived repair work; no implementation is authorized.
+
+## Earlier phase/autonomy direction — D-256
 
 The owner wants the specification phase to seek **all possible inconsistencies**
 so the eventual implementation loop can proceed autonomously to the agreed end.
@@ -82,8 +100,8 @@ below retain historical context and are not a current question queue.
   Further taps/pings stay in a taps/pings-only group; its following anchor joins.
   Another tap after that anchor starts a new group, even between matching moves.
   Use the [category contract](../design/03-contracts/history-grouping.md) and
-  [full planned matrix](../design/05-verification/grouping-matrix.md): 156 transition
-  cells plus key/content variants, 22 longer traces and every-prefix ping/mode
+  [full planned matrix](../design/05-verification/grouping-matrix.md): now 182 transition
+  cells plus key/content variants, 25 longer traces after D-257, and every-prefix ping/mode
   assertions. Later owner-approved playtest tuning updates these centrally, not
   an in-app manual group editor or an implementation-stage transition.
 - D-252 revises blanket covered-hold logging: own-area hold shows real faces with

@@ -29,6 +29,16 @@ Personal review and explicit historical activation remain distinct. A personal
 view head never selects the Undo target or limits its eligibility checks (D-245).
 Do not infer acceptance of the assistant's shared remembered-Redo-head proposal.
 
+**Conservative convenience boundary — D-257:** Undo/Redo are conveniences for
+reaching a desired board/event chain, not the only available tools. Prefer making
+a complex edge case unavailable to adding surprising recovery/navigation behavior.
+This does not discard the existing latest-own/replay/fork/stack rules. The owner
+has tentatively suggested clearing Redo stacks when the game head changes; its
+scope still needs clarification because ordinary events and Undo/Redo can advance
+or change that head too. **That reset is a proposal, not yet a replacement for
+D-227/D-228**, and F-02's advance-to-A proposal is not selected. Resolve deliberate
+history switches, affected player stacks and exceptions before changing controls.
+
 ### Selective mutation Undo/Redo — D-224
 
 **Confirmed safety rule:** allow deletion/insertion of a mutation in a timeline
@@ -623,6 +633,9 @@ Groups control navigation/playback steps and representation, never mutation
 creation, publication, parent links or interruptibility (D-176/D-177). Changes in
 one group animate concurrently during a playback step; they remain an ordered
 sequence of individual nodes. The client pointer is a node, not a group.
+Ending suggestions are strict singleton groups under D-257: neither preparatory
+events nor later companions can join them. Present the final board before the
+suggestion's acceptance dialog; grouping does not delay event synchronization.
 
 D-162–D-175 specify sequence-based presentation groups and timeline group-start
 markers. Same non-Stack move tuples group, including interleaved taps; real-card

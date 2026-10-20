@@ -100,7 +100,11 @@ timing and transfer of personal device state remain open; see the
 | Settings/storage | Notifications, accessibility, cached data, account and data management. |
 
 **Ending play (D-211)** uses a proposed win/loss/draw as shared, undoable board
-state. The other player must accept; acceptance returns both players to the lobby.
+state. D-257 makes each suggestion a strict singleton group: group catch-up shows
+the final board before the suggestion's acceptance dialog, rather than putting
+the dialog over earlier unreviewed play. No other event joins that group, even a
+tap/ping/comment/tracking companion. Sync does not wait for playback. The other
+player must accept; acceptance returns both players to the lobby.
 No win-history/scorekeeping feature is required. This supersedes D-210's unilateral
 confirmation-dialog/non-undoable End game. D-212 separately makes acceptance/return
 to lobby non-undoable, not the pending suggestion. Concurrent incompatible result

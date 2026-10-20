@@ -9,9 +9,11 @@ treated UI/menu state as defining an authoritative group. UI actions send reques
 the server creates events, and deterministic logic groups those events. The
 conflicting menu-bound-group wording has been corrected, not promoted into another
 owner decision. **F-05 is now resolved by D-257:** ending suggestions are strict
-singleton groups, never E-family edits or companion-accepting anchors. F-02 has a
-tentative conservative head-change-clearing direction awaiting scope clarification;
-its advance-to-A recommendation was not accepted. F-03/F-04/F-06 remain repair work.
+singleton groups, never E-family edits or companion-accepting anchors. **F-02 is
+resolved by D-258:** a successful deliberate shared-history switch clears both
+Redo queues, so the old entry is unavailable. Its advance-to-A recommendation was
+not accepted. D-259 adds an explicit server/UI ownership matrix and a separate
+technical revision-checksum proposal. F-03/F-04/F-06 remain repair work.
 
 This is a static review of the five design tiers, current decisions and the
 previous reviews' dispositions. Counterexamples are reasoning fixtures, not
@@ -25,7 +27,7 @@ requirement, D-245's retained-future checks and D-247's Stack comparator.
 | ID | Priority | Finding | Classification |
 | --- | --- | --- | --- |
 | F-01 | Withdrawn | The review assumed a Ping menu binds an authoritative group. | Incorrect premise; D-254 confirms server-created events and deterministic grouping. |
-| F-02 | High | Redo after an explicit head switch needs a defined eligibility/clearing boundary. | D-257 favors conservative unavailability; proposed head-change reset still needs scope clarification. |
+| F-02 | Resolved | Redo after an explicit head switch needs a defined eligibility/clearing boundary. | D-258 clears both queues on successful deliberate shared-history switches, not ordinary events, Undo/Redo or UI review; T-605–T-607. |
 | F-03 | Medium | Protected late exposure can refer to a history revision already removed or changed by an eligible Undo. | Derived durability/reference completion; causal participation needs an explicit trace. |
 | F-04 | Medium | Ordered lowering needs an explicit non-placement outcome for disappearing tokens in mixed moves. | Derived algorithm/verification completion, not a new token policy. |
 | F-05 | Resolved | Ending suggestions need an explicit grouping category. | D-257 selects strict singleton S groups and final-board-before-dialog presentation; T-603/T-604. |
@@ -97,15 +99,18 @@ add a ping-ownership picker.
 
 ## F-02 — Redo's tree result does not fully specify its active state
 
-**Owner discussion — D-257:** Undo/Redo are convenience tools; complex cases may
-be disallowed instead of introducing surprising behavior. The owner tentatively
-suggested clearing Redo stacks when the head changes, rather than approving the
-assistant's advance-to-A recommendation. Clarify which deliberate history switches
-clear which stacks, excluding or otherwise reconciling ordinary event advancement
-and Undo/Redo themselves. Until then D-227/D-228 remain current; do not implement
-the proposal as a blanket clear-on-every-head-change rule. If the relevant switch
-clears the queue, this trace's Redo becomes unavailable and its proposed pointer
-choice no longer arises.
+**Resolved — D-258.** The owner confirms that a successful deliberate activation
+of another node/branch, interruption from the past or return to another continuation
+clears both players' Redo queues atomically. Ordinary play, normal Undo/Redo, UI
+review, no-op/rejected switches and metadata-only archival retain their distinct
+rules. Retrying a switch cannot re-clear newer entries. Thus this trace's activation
+clears A's entry and its proposed pointer choice does not arise. The assistant's
+advance-to-A exception was not selected. T-605–T-607, corrected T-527/T-528 and the
+primary history contract specify this outcome. D-259 makes the queues ordinary
+server-owned control state, not a per-device synchronization special case.
+
+<details>
+<summary>Original F-02 evidence and unselected pointer recommendation</summary>
 
 **Evidence.** [History](../design/03-contracts/history-and-undo.md), lines
 109–121 and 196–203, defines recorded-transition reinsertion and stack order.
@@ -146,6 +151,8 @@ independent retained future. Assert tree, shared pointer, both personal cursors,
 stack consumption and the parent used by the next ordinary edit.
 
 This is narrower than reopening Undo/Redo policy or every stale activation race.
+
+</details>
 
 ## F-03 — Late exposure recovery after its viewed revision was edited away
 
@@ -270,8 +277,8 @@ applying their current rules, not closed by a broad completion claim.
 
 ## Recommended next batch
 
-1. F-01 is withdrawn; do not reopen it. Clarify F-02's proposed head-switch Redo
-   invalidation scope, rather than assuming its advance-to-A recommendation.
+1. F-01 is withdrawn. F-02 is resolved by D-258's scoped shared-switch reset;
+   neither its original ambiguity nor advance-to-A proposal is a current question.
 2. Complete F-03/F-04 against existing durability, identity and token rules.
 3. F-05 is resolved by D-257's singleton rule; synchronize F-06's active text with
    current rules separately.

@@ -32,12 +32,11 @@ Do not infer acceptance of the assistant's shared remembered-Redo-head proposal.
 **Conservative convenience boundary — D-257:** Undo/Redo are conveniences for
 reaching a desired board/event chain, not the only available tools. Prefer making
 a complex edge case unavailable to adding surprising recovery/navigation behavior.
-This does not discard the existing latest-own/replay/fork/stack rules. The owner
-has tentatively suggested clearing Redo stacks when the game head changes; its
-scope still needs clarification because ordinary events and Undo/Redo can advance
-or change that head too. **That reset is a proposal, not yet a replacement for
-D-227/D-228**, and F-02's advance-to-A proposal is not selected. Resolve deliberate
-history switches, affected player stacks and exceptions before changing controls.
+This does not discard the existing latest-own/replay/fork/stack rules. **D-258 now
+confirms the scoped simplification below:** qualifying deliberate shared-history
+switches clear both players' Redo queues. Ordinary head advancement, Undo/Redo and
+personal review retain their distinct rules. F-02's advance-to-A proposal was not
+selected; its historical-activation case instead has no surviving Redo entry.
 
 ### Selective mutation Undo/Redo — D-224
 
@@ -148,23 +147,63 @@ mandatory structural effects; exclude unrelated board/card fields. At minimum:
 Specific action mappings refine these domains; they may not broaden them into a
 whole-board lock or omit a structural/read dependency to make replay pass.
 
-**Redo invalidation after new play — D-227/D-228:** after Undo, only your own new
-gameplay edit clears your Redo queue. Previously removed mutations do not remain
-available through Redo merely because reinsertion would still pass D-224's tuple
+**Redo invalidation after ordinary new play — D-227/D-228:** after Undo, your own
+successful new gameplay edit clears your Redo queue. Previously removed mutations
+do not remain available through Redo merely because reinsertion would still pass D-224's tuple
 test. D-232 does not require an explorer copy of the removed path; retention or
 recovery of removed records after queue clearing remains open.
-The confirmed clearing case is a successful new gameplay mutation by the player
-who used Undo. Opponent actions do **not** clear that player's queue; retain its
-entries and recheck reinsertion against current state under D-224, including N.
+For ordinary continued play, clearing is triggered by a successful new gameplay
+mutation by the player who used Undo. Ordinary opponent actions do **not** clear
+that player's queue; retain its entries and recheck reinsertion against current
+state under D-224, including N.
 An opponent edit may make Redo unavailable without clearing the queue. Clearing
-is player-specific, not a shared game-wide reset. D-235 below confirms cross-device
-stack synchronization. Rejected/no-op requests are not successful new gameplay
+for ordinary play is player-specific. D-258's deliberate-switch reset below is a
+separate game-wide control effect. D-235 below confirms stack synchronization.
+Rejected/no-op requests are not successful new gameplay
 mutations and do not clear the stack; exact optimistic/server bookkeeping remains
 technical work. An actual logged exposure is a successful effective action even
 without a board edit, including exposure retained from a rejected prediction;
 apply the participation table below. D-252 own-area holds are not such actions.
 Do not generalize clearing to personal review/navigation or treat
 Redo reinsertion itself as new play that necessarily clears remaining entries.
+
+### Redo invalidation on deliberate shared-history switches — D-258
+
+As part of the **same successful server control/continuation operation**, clear
+both players' Redo queues for this play incarnation when deliberately changing
+the selected shared history through:
+
+- activation of a different retained node or branch, including root/internal states;
+- explicit interruption/continuation from the past that creates and activates a
+  new continuation;
+- return to another continuation, including Delete/archive branch and return when
+  it actually changes the shared selection.
+
+This is shared game state under D-259. It is not a device-local reset, an extra
+gameplay mutation, deletion of the retained tree or a reset of other games. It
+does not clear still-applied actions from latest-own Undo consideration; current
+timeline/replay/fork/exposure rules still decide Undo. No original-path copy or
+special recovery tool is required for cleared Redo entries.
+Activating/restoring a historical board does not reload Redo queues from an old
+node snapshot; queues are current server control state, not historical board fields.
+
+| Operation | Redo effect |
+| --- | --- |
+| Qualifying deliberate shared-history switch | Clear both players' queues atomically with the switch, regardless of actor or whether board values happen to be equal. |
+| Ordinary successful new play | Clear only its author's queue under D-227/D-228; ordinary opponent work preserves yours subject to eligibility. |
+| Undo / Redo | Normal stack push/pop and validation; no blanket reset merely because the head changes. |
+| Personal review, scrub/playback, zoom/pan, selection or open menus | None; these are UI-only, not shared history switches. |
+| Same-current-target activation no-op, rejected switch, or archive/restore metadata without a shared switch | No switch-triggered clearing. |
+| Delivery retry / recovered result of a switch | Return the original outcome, without another reset or reactivation. Never clear entries created after the original operation. |
+
+On `root → A → B`, removing A may leave it queued on `root → B`. Explicitly
+activating root then clears both queues. Redo A is unavailable; do not restore it
+and improvise a shared-pointer result. A delayed Redo processed after this reset
+has no entry to restore. If Redo commits first, process the later switch normally;
+retries recover their original outcomes rather than reversing server order.
+
+This supersedes the D-228/D-234 rule that a deliberate opponent interruption keeps
+an existing Redo queue. It does **not** change ordinary opponent-edit retention.
 
 **Shared game state across devices — D-235:** each player's Undo/Redo stack
 belongs to that account in that game and synchronizes across their devices; it
@@ -174,9 +213,10 @@ actions from any device. Successful Undo/Redo and stack clearing are reflected
 across devices, including last-undone-first order and blocked entries.
 
 Shared game state does not mean one author-independent stack for both players:
-preserve D-231 own-action targeting and D-228 player-specific clearing. A successful
-new gameplay edit from either of your devices clears your stack for that game;
-an opponent's action still does not. D-236 below settles concurrent Undo requests.
+preserve D-231 own-action targeting and D-228 player-specific clearing for ordinary
+play. A successful ordinary new gameplay edit clears its author's queue; ordinary
+opponent play does not. D-258 deliberate shared-history switches clear both queues.
+D-236 below settles concurrent Undo requests.
 Exact sync timing, protocol and other control races remain open. This decision does not approve
 transfer of pending-request queues, unfinished input or personal review cursors.
 
@@ -210,7 +250,8 @@ original timeline positions. Each reinsertion still requires D-224's relevant-st
 tuple test within N; insertion anchors are not settled by this ordering rule.
 **D-230 blocked-entry rule:** if that next mutation cannot be reinserted, disable
 Redo and keep the stack intact. Do not skip to an older eligible entry or discard
-the blocked entry. Opponent activity still does not clear the stack (D-228).
+the blocked entry. Ordinary opponent activity does not clear the stack (D-228);
+a qualifying deliberate shared-history switch clears it under D-258.
 
 **Undo target order — D-230/D-231:** Undo may target only **your most recent
 still-applied action on the current timeline**, including effective logged exposure
@@ -257,20 +298,14 @@ edits Y and all checks pass, removal yields `root → A → C`, the shared activ
 pointer falls to B's parent A, and a personal viewer on C remains on C. Simply
 viewing B while C remains shared-current changes none of the ordinary checks.
 
-**Redo fork boundary — D-234:** if a fork created after Undo would require
-reinserting the queued mutation before that fork, disable Redo and retain the
-stack. Do not skip/discard the blocked entry, reinsert it at the current head,
-rewrite all branches or create a recovery branch. This is a structural block
-even when relevant-state replay would pass. Opponent branching does not clear
-your stack (D-228); your own new gameplay edit still clears it (D-227).
-
-The owner explicitly acknowledged that the historical mutation may then have
-no way to be applied again with the current controls. Keeping the stack is not
-a promise of eventual replay or a requirement for a new recovery control.
-Performing a similar operation as a fresh gameplay action is not restoring that
-historical mutation and remains subject to ordinary acceptance and queue clearing.
-Exact insertion anchors, archive/restore effects and integration with explicit
-historical activation remain open; do not assume they provide an escape hatch.
+**Redo fork boundary — D-234, revised by D-258:** never reinsert a queued mutation
+before a newly created fork. In normal current play, explicitly creating/activating
+that interruption is a qualifying shared-history switch and now clears both Redo
+queues. The former stranded-but-retained queue example is superseded: Redo is
+unavailable because the entry is gone, not a promised blocked restoration route.
+Do not keep the queue through the switch, reinsert at the current head, rewrite
+all branches or create a recovery branch. The structural no-cross-fork check still
+constrains any candidate; it is not a reason to bypass the confirmed reset.
 
 **Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
 subject to replay/validation, so a target followed by e.g. a thousand opponent
@@ -291,7 +326,7 @@ large targets/cleanup with zero or short suffixes as well as long histories.
 reinsertion-precondition mappings from the agreed rules; document anchors,
 pending-request/recovery bookkeeping, IDs/versioning, grouping and cache updates.
 Numeric N/counting and wire/storage representation are technical specification
-work, not new Undo policy. D-233/D-234 already settle fork boundaries, D-235 stack
+work, not new Undo policy. D-233/D-234/D-258 settle fork/switch boundaries, D-235 stack
 device scope and D-236 server Undo requests. Dependent references fail D-224's
 test rather than being silently retargeted. Rejected/no-op requests create no
 successful new gameplay mutation and therefore do not trigger D-227 clearing;
@@ -327,7 +362,8 @@ Ordinary post-Undo play extends the edited tree, not a preserved pre-Undo copy.
 Explicit historical continuation creates a branch under D-179. A **graphical tree
 explorer** lets either player review and **explicitly activate any retained
 branch/node**, including an internal node or the root. Activation changes shared
-current state; viewing/scrubbing alone remains personal. A new edit after such
+current state and, when selecting a different shared context, clears both Redo
+queues atomically (D-258); viewing/scrubbing alone remains personal. A new edit after such
 historical activation continues from that selected state under D-179.
 
 **D-222/D-223 visibility:** hide inactive continuations that consist of **only one
@@ -356,9 +392,14 @@ the later tracking advance can be removed when otherwise eligible.
   be an internal node with retained descendants after explicit activation, not the furthest
   published node on a stored continuation.
 - **Review cursor:** boundary currently displayed to one participant.
-- **Local head:** provisional active state including that participant's completed
-  actions/control changes awaiting synchronization. Incomplete form input is not
-  a game-state boundary.
+- **Client predicted head (local head):** the received accepted server replica plus
+  that client's provisional requested actions/control changes. It is latency hiding,
+  not independently authoritative game state. Incomplete form input is UI-only,
+  not a game-state boundary (D-259).
+
+Track the accepted replica's server revision separately from these displayed
+positions. A surviving shared node can have a revised materialized state after
+Undo/Redo; its node ID, a personal cursor or a prediction is not a sync cursor.
 
 The UI labels which state it displays. “Current board” means shared head, not
 “the actions both people have reviewed.” A review cursor may lag the shared
@@ -546,8 +587,9 @@ accessibility presentation and layout remain later design work.
 Proposed action lifecycle:
 
 1. The user completes a direct operation or the necessary inputs for an action.
-2. Persist its state transition and outbound operation atomically, and display
-   the result locally without waiting for a network round trip.
+2. Persist its predicted state transition and outbound request atomically, and
+   display that provisional result without waiting for a network round trip.
+   This is not an accepted server transition or a separate local game (D-259).
 3. If connected, begin publication immediately in client action order. Do not
    wait for a group to end, a timer, screen exit, or another user action.
 4. In arrival order, the service validates structural preconditions and commits
@@ -756,7 +798,8 @@ For a path `root → A → B → C → D`, explicitly continuing after B with X 
 successful publication, the branch ending at X is active.
 
 An explicit interruption makes its new branch current; no second-player vote is
-needed. This is deliberate, not an accidental consequence of concurrent online
+needed. Its successful shared-history switch clears both Redo queues atomically
+(D-258). This is deliberate, not an accidental consequence of concurrent online
 play. D-179 supersedes D-13's automatic conflict forks and P-11's proposed
 activation protocol. Ordinary edits instead pass or fail their action-specific
 checks at the current head (section 3.3). The displaced line is retained and
@@ -818,7 +861,7 @@ Requirement U-001: **In-scope game edits have discoverable Undo or recovery unde
 the eligibility and lifecycle limits in section 3.0.** This is not a promise
 that every historical mutation can always be restored: revealing targets are
 not selectively undoable, blocked entries are not skipped, own new play clears
-Redo, and a fork can strand an entry (D-224/D-227/D-230/D-234). Submitted
+Redo, and deliberate history switches clear both queues (D-224/D-227/D-230/D-258). Submitted
 game-wide chat (D-94) and acceptance of an ending suggestion / return to lobby
 (D-212) have no gameplay Undo. Excluded authoring/manual-group/recovery-center
 features are not recovery obligations. Ordinary unfinished input retains local
@@ -866,7 +909,7 @@ not redefine normal Undo as a stack of heterogeneous commands.
 | Published latest own action | Remove it only if all section 3.0 checks pass, preserve later transitions and put it on the shared per-player Redo stack. |
 | Latest own action followed by opponent play | It remains the candidate; validate the entire retained suffix, including its relevant dependencies and N. Never undo the opponent or skip a blocked own candidate. |
 | Interruption | Its eligible latest-own mutations can be removed without activating the displaced future. Explicit return/activation or Delete branch and return is separate. |
-| Activate another branch/node | Activation does not itself create a gameplay mutation or select the personal review cursor as an Undo target. Apply latest-own targeting to the selected shared timeline and D-245 checks to all retained future events. |
+| Activate another branch/node | A successful switch to a different shared context clears both Redo queues atomically (D-258), without creating a gameplay mutation or selecting the personal cursor as an Undo target. Apply latest-own targeting to the selected shared timeline and D-245 checks to retained future events. A same-current-target no-op does not clear queues. |
 | Delete/archive branch | Provide branch restoration and metadata recovery separately from game-node Undo; restore selection if explicitly requested. |
 | Group metadata edit | No manual group editing in R1 (D-241); automatic regrouping preserves nodes and personal cursors. |
 | Submitted game-wide chat | No game Undo (D-94), Edit or Delete (D-240). Corrections use another message; no expansions are planned. Unsent-delivery handling remains distinct; do not promise generic message Undo. |
@@ -897,7 +940,8 @@ retain their separate referenced targets and applicability checks.
 “Delete this branch and return” is a single atomic control operation:
 
 1. Show the branch to be archived and the exact return continuation and board.
-2. Archive the selected branch and select the chosen return branch together.
+2. Archive the selected branch and select the chosen return branch together,
+   clearing both Redo queues if this changes the shared selection (D-258).
 3. Leave all action nodes and descendants recoverable.
 4. Offer recovery of both archive state and branch selection. This is distinct
    from selective game-mutation Undo; exact recovery-control wording is open.

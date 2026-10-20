@@ -115,6 +115,14 @@ The general rules are:
   conveniences, not a rules engine.
 - Selection, pan/zoom, and ordinary navigation are personal, not board edits.
   Looking at history does not change the active game.
+- **Server state versus UI state (D-259):** cards/placement, values, history and
+  shared controls, Undo/Redo queues, pings/messages/logged views and lifecycle
+  state are server-authoritative. Completed actions send requests and apply
+  provisionally on the client to hide latency. Downloaded replicas and pending
+  predictions are not independent local games. Zoom/pan, selection/input modes,
+  personal review, open menus and unfinished editors are UI-only. The
+  [state ownership matrix](../03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259)
+  also distinguishes read-only content fetching, caches and recovery obligations.
 
 ### 2. Touch and selection
 
@@ -417,18 +425,28 @@ The general rules are:
   also deleted, up to the nearest surviving ancestor/root. Do not keep a
   detached old snapshot, jump to live play or create a branch. Storage retention after
   Redo-queue clearing remains open. Explicit interruptions can still branch.
-- **Redo after new play (D-227/D-228):** after Undo, only your own new gameplay
+- **Redo after ordinary new play (D-227/D-228):** after Undo, your own new gameplay
   edit clears your Redo queue, even if the removed mutations could still be
-  safely reinserted. Opponent actions retain your queue, but can make reinsertion
+  safely reinserted. Ordinary opponent actions retain your queue, but can make reinsertion
   fail the replay checks or exceed N. No original explorer path is required by
   queue clearing (D-232). Rejected/no-op requests do not create a successful new
   gameplay mutation and therefore do not clear it; exact clearing bookkeeping
   remains technical work.
+- **Redo after deliberate history switches (D-258):** successful activation of a
+  different node/branch, explicit interruption from the past or return to another
+  continuation clears both players' Redo queues for this game, atomically with
+  the server operation. This includes archive-and-return when it switches shared
+  history, not metadata-only archival. Same-current-target no-ops, failed switches
+  and delivery retries do not add a reset; retries never clear newer entries.
+  Ordinary Undo/Redo keeps its stack semantics and personal review clears nothing.
+  The retained tree is not deleted and Undo targeting still follows the chosen
+  timeline. Redo-after-activation is unavailable, not a special pointer-recovery case.
 - **Across devices (D-235):** your per-game Undo/Redo stack is shared game state,
   synchronized across your devices. Undo on your phone and Redo on your tablet
   under the same eligibility checks. Your latest own action can come from either
   device; new gameplay from either clears your stack. The opponent retains a
-  separate stack, and their actions do not clear yours. Personal review cursors
+  separate stack; ordinary opponent play does not clear yours, but a qualifying
+  deliberate history switch clears both. Personal review cursors
   are separate.
 - **Concurrent devices (D-236):** Undo sends a request to the server. Two separate
   Undo requests, even from devices showing the same action, count as two presses:
@@ -456,13 +474,10 @@ The general rules are:
   D-245 clarifies that personal viewing never changes eligibility. Check the
   complete retained successor chain even beyond an explicitly activated internal
   shared node; dependent future events still block Undo and all count toward N.
-- **Redo fork boundary (D-234):** if a new fork would require reinserting an
-  undone action before it, disable Redo and retain the stack. Do not skip the
-  entry, move it to the current head or create a recovery branch. The historical
-  mutation can become unusable with the current controls; retaining it does not
-  guarantee a recovery path. Opponent branching does not clear the stack; your
-  own new gameplay edit still does. Exact anchors and archive/activation
-  integration remain open, not promised ways around the boundary.
+- **Redo fork boundary (D-234/D-258):** never reinsert before a newly created
+  fork. Creating/activating an explicit interruption now clears both queues, so
+  the earlier stranded-but-retained Redo example is superseded. Do not retain its
+  queue through that switch, retarget to the head or create a recovery branch.
 - **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
   unordered. Undo cannot change which card a later top-of-Library draw takes.
   Independent moves

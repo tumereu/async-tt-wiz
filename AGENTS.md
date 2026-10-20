@@ -34,6 +34,13 @@
   blockers or owner decisions, continuing independent approved work where safe.
   Do not invent product behavior, bypass failed checks or expand scope. This future
   autonomy does not authorize implementation or a stage transition now.
+- **Server authority is the default for game state (D-259).** Shared board,
+  history/control, Undo/Redo, communication and lifecycle state change through
+  requests to the server, with provisional client application for latency hiding.
+  Only non-request UI state is personal/local. A device-held replica, prediction,
+  cache or recovery queue is not an independently authoritative local game. Use
+  the [state ownership matrix](docs/design/03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259)
+  rather than inventing per-device variants of shared behavior.
 - **After every completed edit batch, validate, commit and push before replying.**
   Do not wait for a separate request or a later checkpoint. No commit/push is
   needed for discussion that changes no files.

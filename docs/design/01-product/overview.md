@@ -26,7 +26,12 @@ The app remembers and presents what happened; the players interpret the rules.
    issue an ordered sequence of individual operations, not one atomic bulk node.
    A small local send queue transmits actions concurrently; each succeeds or fails
    individually. Normal interaction does not wait for network acknowledgements.
-   Clients send actions in order; the server processes them in arrival order.
+    Clients send actions in order; the server processes them in arrival order.
+    Semantic game state, including history, Undo/Redo and lifecycle controls, is
+    server-authoritative. Immediate local application is a prediction, not a
+    separate private game. Only non-request UI choices—camera, selection, personal
+    review and open menus—are local; see the
+    [ownership matrix](../03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259).
    Corrections animate only what must change, preserving accepted work and valid
    local predictions rather than visibly rewinding and replaying unaffected edits.
 6. **History is inspectable and recoverable.** Step through actions, interrupt at
@@ -48,8 +53,11 @@ The app remembers and presents what happened; the players interpret the rules.
    Undo requests act on the server's current state; two requests count as two
    presses, including from different devices (D-236).
    Neither skips a blocked target. Undo cannot remove a branching point or reach
-   back past one (D-233); Redo cannot reinsert before a newly created fork (D-234).
-   Such a Redo entry stays blocked and may have no recovery path.
+    back past one (D-233). A successful deliberate history switch—activation,
+    interruption from the past or return—clears both Redo queues (D-258), rather
+    than retaining entries across the switch. Ordinary own new play clears only
+    your queue; ordinary opponent play, Undo/Redo and personal review retain their
+    distinct rules. Redo never crosses a newly created fork (D-234).
    Personal viewing never changes eligibility: check all later retained events,
    even beyond an explicitly activated internal state. Redo must restore its own
    recorded relevant transition as well as preserving later ones.

@@ -20,7 +20,8 @@ not an API/schema choice or implementation authorization.
    then construct the actual transition atomically. Never borrow the live head's
    Stack, source location or fields to validate a historical operation.
 4. Ordinary success extends current play. Historical success creates/activates the
-   explicitly requested continuation and retains the displaced future. Rejection
+   explicitly requested continuation, retains the displaced future and clears both
+   players' Redo queues atomically under D-258. Rejection
    creates neither a board mutation nor an automatic branch. A retry recovers the
    original outcome without reactivating its branch or overwriting newer state.
 

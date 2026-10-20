@@ -131,8 +131,10 @@ human examples covering:
   movement/Stack optimistic guards (D-187),
   explicit interruption intent and activation, switch branch,
   archive/restore and selective undo/redo, with automatic grouping metadata.
-- Context messages, personal review state, result acceptance/fresh play and
-  deck/catalog access; no cross-device review-progress/read-receipt service.
+- Context messages, result acceptance/fresh play and deck/catalog access. Personal
+  review/menu/camera state is UI-only, not an API-owned game record (D-259);
+  requests may carry explicit viewed-context references without synchronizing a
+  review cursor. No cross-device review-progress/read-receipt service.
 - Group/event-scoped generic pings with source-action context, one standard
   marker/no label-style picker (D-77), and separate optional messages; approved
   placement/area transitions, not a configuration editor or presence channel.
@@ -143,6 +145,12 @@ human examples covering:
 - Exact request/response/error fields, limits, pagination, ordering, timestamps,
   revision domains, continuation identities, accepted/rejected action and explicit
   interruption results, idempotency retention, and cancellation semantics.
+- D-258 atomic shared-history switch/both-Redo reset and idempotent recovery; D-259
+  state ownership, accepted-replica versus prediction bookkeeping and synchronization
+  revision/checkpoint integrity. Evaluate the
+  [checksum-chain proposal](sync-and-storage.md#proposed-revision-checksums-and-correction-points--d-259)
+  against mutable gameplay trees, same-head revisions and difference-only repair;
+  it is not a blockchain/consensus requirement or a new whole-head action lock.
 - Persistent lobby versus play-incarnation fencing on every gameplay/control/
   exposure request, result reference and per-player Undo/Redo stack. Old requests
   never mutate fresh play; original committed outcomes never overwrite it.

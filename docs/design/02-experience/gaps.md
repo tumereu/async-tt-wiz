@@ -28,13 +28,13 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | Two distinct Undo requests arrive from your devices. | Process like two presses against successive current own candidates; both can succeed. A blocked/absent next candidate permits no further removal. | D-236. |
 | One Undo request is retransmitted after a lost response. | Recover its original result once; a retry is not another press. | D-216/D-236. |
 | You Undo on one device and continue on another. | Use the same per-player, per-game stack and current checks, not a device-local stack or one stack for both players. | D-235. |
-| Own new gameplay follows Undo; separately, opponent gameplay follows Undo. | Own successful new gameplay clears your stack across devices even if Redo would be safe. Opponent actions retain it, but may block Redo. | D-227/D-228/D-235. |
+| Ordinary own new gameplay follows Undo; separately, ordinary opponent gameplay follows Undo. | Own successful new play clears own Redo even if reinsertion would be safe. Ordinary opponent play retains it but may block Redo. Deliberate shared-history switches instead clear both queues under D-258. | D-227/D-228/D-235/D-258. |
 | A rejected/no-change request follows Undo. | No successful new gameplay mutation occurred, so it does not trigger own-new-play stack clearing. Prediction/acknowledgement bookkeeping must converge to that outcome. | D-176/D-227. |
 | The next Redo entry is blocked but an older one is safe. | Disable Redo and retain the stack; never skip/discard the next entry. Successful Redo order is last-undone-first. | D-229/D-230. |
 | An eligible action is removed from a linear path. | Edit the existing tree; do not preserve an original explorer alternative, duplicate the suffix or append compensation. The removed action is held for Redo. | D-232. |
 | The history node you are viewing is deleted. | Fall back to its parent, remaining in personal review. Repeat along the parent chain if necessary to reach a surviving ancestor/root; do not retain a detached snapshot, jump to live play or create a branch. Cursors on surviving nodes stay there. | [Review cursor fallback](../03-contracts/history-and-undo.md#selective-mutation-undoredo--d-224), D-238; T-535–T-537. |
 | Undo would remove a fork or reach back before one, including a hidden alternative. | Block Undo. Explorer filtering is not branch removal. Actions strictly after the latest fork remain subject to ordinary eligibility. | D-233. |
-| A new fork would put a queued Redo insertion before it. | Block Redo and retain the stack, even if replay would be safe. No recovery route is promised for the stranded mutation. | D-234. |
+| An explicit interruption creates/activates a new fork after Undo. | The deliberate shared-history switch clears both Redo queues atomically. The old stranded-but-retained example is superseded; no old entry is reinserted before the fork, at the head or through a recovery branch. | D-258 revises D-228/D-234; T-527/T-528. |
 | A real source leaves Battlefield, including a disappearing token. | Remove its combat occurrences/incident links; retain independent Stack effects. Existing sources stay live-linked across locations. Only token disappearance freezes the last live source state as read-only information, not an editable replacement card. | [Projection lifetime](../03-contracts/combat-stack-and-projections.md#135-confirmed-area-specific-lifetime-d-124d-125), D-120/D-124/D-125/D-242. |
 | A Stack effect is created from Graveyard/Exile, or its source moves there. | Creation leaves the source in place; source/effect card fields remain linked while the source exists, with normal Stack-addition guards and destination resets. Never freeze merely on Battlefield departure or at effect creation. | [Stack source contract](../03-contracts/combat-stack-and-projections.md#live-stack-sources-and-token-disappearance-snapshot--d-242), D-242; T-545–T-548. |
 | A projection is edited, repositioned or removed. | Card edits affect the real source; occurrence layout/removal does not delete or independently edit that source. Non-token cards have no Remove action. | D-123/D-174. |
@@ -65,6 +65,8 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | Cleanup exposes separate Close/Next step actions but not advance-and-close. | This is allowed: individual actions need full paths; the combination can be quick-only. | D-253; T-233/T-235/T-597. |
 | A Ping menu/request spans another device's intervening event. | The menu captures targets, not a group. The server processes requests and creates events, grouped deterministically. Use its current derived recording context; explicit Unping of an absent marker is a no-op, not an old-group amendment, Ping conversion or group-mismatch rejection. | D-254; T-602. |
 | An ending suggestion follows a tap/closure/random run or precedes pings/comments/tracking. | Always a strict singleton S group, with boundaries before and after. Group catch-up shows the final board before the acceptance dialog; receipt does not obscure earlier unreviewed groups or delay sync. | D-257; T-603/T-604, GM-23–GM-25. |
+| A deliberate activation/interruption/return succeeds; separately it is retried, rejected or a no-op. | Successful shared-history switches clear both per-incarnation Redo queues as one server operation. Retry recovers the original result without clearing newer entries; no-op/rejection/UI review does not trigger a reset. | D-258; T-605–T-607. |
+| A client has a locally displayed board, open menu, cache and pending action. | Server owns semantic game state; accepted replica, prediction/recovery and UI-only state are distinct. Completed shared actions use requests with local latency hiding; menu/camera/selection/review choices are personal. | [Ownership matrix](../03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259), D-259; T-608/T-609. |
 
 ## Genuine gaps
 
@@ -96,14 +98,13 @@ groups**, rather than the proposed E-family mapping. F-03/F-04/F-06 have derived
 repair work; see the
 [review disposition](../../agent/adversarial-review-2026-10-20-follow-up.md#outcome).
 
-**Specific pending clarification, F-02/D-257:** the owner proposes possibly clearing
-Redo stacks on a game-head change, favoring conservative convenience controls over
-surprising edge-case recovery. Define whether this means deliberate shared history
-switches (activation/interruption/return), which players' per-game stacks clear,
-and the exceptions for ordinary head advancement and Undo/Redo. Applying a literal
-blanket clear would conflict with D-227/D-228 and ordinary Redo use, so it is not
-silently adopted. This does not reopen the earlier resolved batch or approve the
-assistant's advance-to-A proposal.
+**F-02 is resolved by D-258:** successful deliberate shared-history switches clear
+both queues, while ordinary events, Undo/Redo and UI-only review retain their
+distinct rules. No advance-to-A exception or blanket clear-on-every-event rule is
+approved. D-259 makes server ownership the default, with a primary classification
+matrix rather than a separate cross-device decision for each semantic state.
+Checksum chaining is a technical option, not a new gameplay choice; its proposed
+revision/checkpoint design must coexist with editable trees and latency hiding.
 
 This is not a certification that behavior specification is complete. Further
 edge cases may be found, but an owner question needs a concrete unresolved

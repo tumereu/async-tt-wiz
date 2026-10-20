@@ -1,7 +1,8 @@
 # Tier 4 — Technical design proposals
 
 - [Synchronization and storage](sync-and-storage.md): local durability, queues,
-  publication, branching, replay, offline recovery, access and retention.
+  server authority/replicas versus UI state, publication, branching, replay,
+  proposed revision-checksum chaining/correction points, recovery, access and retention.
 - [Architecture and operations](architecture-and-operations.md): proposed system
   boundaries, technology/provider choices, APIs, security, deployment and reliability.
 

@@ -25,13 +25,25 @@ graph or server-side reconstruction of client order. The exact ordered transport
 is not yet selected; independent requests that can overtake each other would not
 satisfy the ordered-send requirement.
 
-## 6.1 Authority and local-first behavior
+<a id="61-authority-and-local-first-behavior"></a>
 
-Proposed topology: native Android clients plus a persistent shared service. The
-service serializes shared game control operations. Each client stores downloaded
+## 6.1 Server authority, client replicas and optimistic application
+
+Confirmed authority boundary (D-259): native Android clients plus a persistent
+shared service that decides shared game results and serializes control operations.
+Exact storage/transport design remains proposed. Each client stores downloaded
 game history, a materialized board cache, personal review state, unfinished input,
 a small local online send queue and records needed to recover in-flight requests.
 This is not an offline gameplay queue (D-182/D-183).
+
+D-259 confirms [the state ownership matrix](../03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259):
+semantic game state, history/control and lifecycle are server-authoritative.
+"Local" must distinguish personal UI state from an accepted server replica,
+provisional requested changes, protocol/recovery records and disposable caches.
+Device storage does not create a second authority. Zoom/pan, review position,
+selection, modes and open menus are UI-only; board edits, shared activation,
+Undo/Redo, communication and logged inspection use server requests, with immediate
+local prediction where applicable. Fetching data is not itself shared UI presence.
 
 There is one authoritative active game-state pointer/path per game on the service.
 Historical activation may select an internal node with retained descendants. Online
@@ -183,6 +195,7 @@ Proposed outcomes:
 | Requested operation genuinely impossible, or exceptional movement/Stack guard fails | Reject only that request without shared mutation or branch. Animate the actual correction under D-180/D-185 while preserving accepted work and valid predictions. Changed old values alone are not a rejection condition for ordinary edits (D-187). |
 | Stack-entry request's supplied Stack state differs from Stack in its selected execution state | Reject the addition (real-card move or new projection); compare-and-apply atomically in arrival order. An explicit historical request compares at that boundary, not the displaced live head. No separate opponent/seen detection, priority inference or whole-game-head check (D-187). |
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
+| Successful deliberate activation/interruption/return changes selected shared history | Clear both players' Redo queues atomically with the switch (D-258). Ordinary events and Undo/Redo retain normal semantics. Same-current-target no-op, failed switch or metadata-only archival does not trigger this reset. Retry recovers the original result without reactivation or clearing newer entries. |
 | Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
 | Same idempotency key and identical payload retried | Return the original result; never apply twice. |
 | Same key with a different payload | Reject as idempotency-key misuse. |
@@ -317,6 +330,11 @@ priority passes.
 Clients request control changes since a known service revision plus missing
 action nodes and referenced definitions. Apply an update batch and its cursor
 transactionally so interruption cannot leave a partially applied local tree.
+The cursor describes the accepted replica revision, not the camera/review cursor,
+active gameplay node alone or speculative local head (D-259). A control/tree/stack
+update can change accepted shared state while the selected gameplay node ID stays
+the same. The D-258 switch and both-stack reset become visible as one coherent
+authoritative update; recovery must not reapply an old reset to newer stacks.
 
 Push/realtime messages are hints to fetch changes. They may be duplicated,
 delayed, reordered, or absent. Reconnecting and ordinary refresh must converge
@@ -335,10 +353,62 @@ source order. This is presentation under the existing full-access trust model,
 not a new participant data-security boundary. Exact records, offline historical
 context, branch association, and temporary-display lifecycle remain Q-28.
 
+### Proposed revision checksums and correction points — D-259
+
+The owner suggests blockchain-style checksums in events as a synchronization
+mechanism. **The following is a technical proposal**, not a selected hash algorithm,
+wire/schema format, consensus protocol or permission to freeze gameplay ancestry.
+
+- Keep an ordered authoritative revision/publication stream separate from the
+  editable gameplay mutation tree. A record may describe a gameplay event, tree
+  edit, shared activation/archival, stack change, exposure or communication update;
+  every shared domain claimed current must be covered by its revision/checksum
+  scheme. Scope identities distinguish game incarnations, lobby rounds and account
+  data; one game's checksum is not a service-global state or a UI fingerprint.
+- A proposed stream record carries its authoritative revision, previous accepted
+  checksum and a checksum derived from the previous checksum plus a canonical
+  representation of this accepted record, including its scope and concrete result.
+  Canonical encoding, hash choice, schema versioning and domain partitioning remain
+  technical design. Retries recover the existing record/result, not another link.
+- Compare the server update's base against the client's **accepted replica**.
+  Personal zoom/pan/menu/selection state and pending predictions are not part of
+  that checksum. A matching verified latest revision/checksum establishes the
+  agreed prefix for the covered domain; a mismatch or missing predecessor means
+  the client cannot apply that delta as though its base were already correct.
+  Prefix identity alone does not prove that a client reducer or materialized board
+  is correct: separately verify snapshot/state integrity and deterministic replay.
+  A corrupt board cache cannot be trusted merely because its stored event hash
+  matches the server's history hash.
+- A latest hash alone cannot locate the divergence distance. Retain/index agreed
+  revision/checksum checkpoints and retrieve intervening records, or a verified
+  snapshot plus suffix, to find the most recent matching base and repair from it.
+  Verify the recovered prefix/result and convergence under gaps, duplicate delivery,
+  out-of-order hints, corrupted caches and server restart. Exact lookup/pagination/
+  checkpoint and snapshot protocol remains technical work, not a new UI workflow.
+- Undo/Redo can reparent/remove/reinsert logical gameplay nodes. Represent that as
+  a new authoritative revision with deterministic effects; do not mutate an already
+  published hash-chain link in place or treat the chain's previous record as a
+  gameplay parent. An append-only synchronization log must not expose an unwanted
+  original gameplay branch or prohibit D-232 tree editing. Selecting the same
+  gameplay node ID does not imply its materialized state/tree/control revision is
+  unchanged; checksums must detect those changes too.
+- After repairing the accepted replica, re-evaluate outstanding predictions and
+  animate only the actual correction under D-185. Preserve request identities,
+  unfinished input and UI review/camera context subject to their existing rules.
+  A checksum mismatch is not proof that an unknown-outcome request was rejected,
+  nor authorization to resubmit it as fresh play or duplicate its random result.
+- A checksum/base revision used for synchronization is **not a new whole-game
+  optimistic guard**. Ordinary requests still follow D-187; a changed head/checksum
+  alone does not reject them. No routine acknowledgement barrier is introduced.
+  This is server-authoritative consistency checking, not mining, distributed
+  consensus, a cryptocurrency feature or a competitive anti-cheat guarantee.
+
 ## 6.6 Snapshots and replay
 
 Snapshots accelerate loading but are disposable caches. Their key identifies an
-action boundary, reducer/schema version, and integrity digest. Replay from root
+action boundary **and its accepted tree/control revision**, reducer/schema version,
+and integrity digest. Reusing a surviving node ID after a tree edit must not reuse
+an obsolete snapshot. Replay from root
 or a verified snapshot must produce the same logical board.
 
 Versioned accepted mutation-tree records and stored outcomes are the durable

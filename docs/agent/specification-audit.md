@@ -3,7 +3,26 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
-## Latest review discussion — D-257
+## Latest confirmations — D-258/D-259
+
+F-02 is resolved: successful deliberate shared-history switches clear both Redo
+queues atomically, unlike ordinary play, normal Undo/Redo or local review. Retry
+does not re-clear newer entries. Current contracts/summaries and T-527/T-528 no
+longer promise retention of a queue across a newly activated interruption.
+
+The former state split named board/history/presentation classes but overloaded
+“local” with UI, downloaded replicas, speculative shared changes and draft/recovery
+storage. D-259 now provides an explicit primary ownership matrix: shared semantic
+state is server-authoritative by default; clients send requests and predict locally
+for responsiveness, while only personal non-request UI choices are local semantics.
+Protocol/cache data may reside on a device without being an independent game.
+The proposed checksum stream is separate from the editable gameplay tree, compares
+accepted replicas rather than UI/predictions, and needs checkpoint/base discovery;
+a latest hash or unchanged node ID alone cannot establish the correction distance.
+No blockchain consensus, immutable gameplay ancestry or extra stale-head guard is
+approved. T-605–T-610 distinguish confirmed outcomes from proposal verification.
+
+## Earlier review discussion — D-257
 
 Undo/Redo are conveniences; prefer conservative unavailability to surprising
 complex-case recovery. The owner's possible head-change Redo clearing still needs

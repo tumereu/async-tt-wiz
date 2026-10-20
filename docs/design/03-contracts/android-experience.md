@@ -159,13 +159,23 @@ The table must always make these distinguishable:
 - Connection/synchronization state and number of pending actions.
 - Undo/redo availability and any operation awaiting confirmation.
 
+D-259 makes the boundary explicit: open menus/editors, camera, selection/modes and
+personal review are device-local UI. Semantic board/history/control/communication/
+lifecycle state is server-authoritative and synchronized through requests, with
+provisional client application for latency hiding. Accepted replicas, prediction
+overlays and durable request recovery are not UI-owned games; see
+[the ownership matrix](domain-model.md#state-ownership-and-request-boundary--d-259).
+
 **Latest revision D-224:** selective removal/reinsertion requires every subsequent
 mutation's relevant-state `(from, to)` tuple to stay identical across timelines,
 within a hard suffix-work cap N. Information-revealing targets are not selectively
 undoable. D-230/D-231 allow Undo only for your most recent still-applied action,
 even after opponent activity; never skip a blocked own target or undo the opponent's.
-Redo is last-undone-first, blocked entries disable it without skipping, and only
-your own new gameplay edit clears your queue (D-227–D-230). Per-mutation relevant
+Redo is last-undone-first and blocked entries disable it without skipping. Ordinary
+own new gameplay clears own Redo; ordinary opponent play does not (D-227–D-230).
+D-258 deliberate shared-history switches clear both players' queues atomically;
+UI review, same-current-target no-ops and normal Undo/Redo do not trigger a blanket
+reset. Per-mutation relevant
 state refinements, N/counting, pointer mechanics, insertion anchors and final
 control layout remain technical/UI work. D-235 settles shared per-account stacks. The
 earlier parent-step/remembered-head controls below are rewind context, not the

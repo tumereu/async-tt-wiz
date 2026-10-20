@@ -14,7 +14,42 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest review discussion — conservative Undo/Redo and ending groups, D-257
+## Latest confirmations — shared switches and server/UI authority, D-258/D-259
+
+The owner confirms the scoped Redo rule: successful deliberate activation of a
+different node/branch, interruption from the past or return to another continuation
+clears **both players' Redo queues for this game**, atomically with the server
+operation. Archive-and-return qualifies if it switches shared history; metadata-only
+archival, personal review, failed/same-current-target no-ops and ordinary Undo/Redo
+do not. Ordinary own new play clears own Redo; ordinary opponent play does not.
+Retries recover the original outcome without clearing newer entries or reactivating
+old state. F-02 is resolved by unavailable Redo, not the advance-to-A proposal.
+The old D-234 stranded-but-retained fork example and T-527/T-528 are updated directly.
+
+The owner also clarifies that synchronization is the default for almost all semantic
+game state, not a per-feature device add-on. The primary
+[state ownership matrix](../design/03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259)
+separates server board/history/control/communication/lifecycle, UI-only camera/
+selection/modes/review/open menus, accepted replicas, optimistic shared-action
+predictions and device-held cache/recovery data. All shared changes use requests
+with provisional local application for latency hiding. Logged inspection stays
+shared even when its inspector is a local panel; read fetching is not shared UI.
+AGENTS.md carries the default so future agents do not invent per-device variants.
+
+The owner raises blockchain-style event checksums as a technical option. The
+[revision-chain proposal](../design/04-technical/sync-and-storage.md#proposed-revision-checksums-and-correction-points--d-259)
+chains accepted publication/control revisions, **not immutable gameplay parents**.
+It distinguishes accepted replica from UI/predictions, same-head tree changes,
+missing/divergent bases, matching checkpoints and verified snapshot/suffix repair.
+A latest hash alone does not locate divergence; checksum mismatch is not a new
+whole-head action lock or proof of rejection. Hash/encoding/protocol remain design.
+
+T-605–T-609, corrected older T-IDs and full-stack journeys specify the confirmed
+outcomes; T-610 is conditional technical-proposal verification. No executable
+tests/app exist or implementation/stage transition is authorized. F-03/F-04/F-06
+still have derived repair work, not automatically new owner decisions.
+
+## Earlier review discussion — conservative Undo/Redo and ending groups, D-257
 
 The owner treats Undo/Redo as convenient tools, not the only way to obtain a
 desired board/event chain. Prefer disallowing surprising complex cases over

@@ -94,8 +94,11 @@ Session expiry alone is not an explicit Logout or permission to lose pending wor
   recovery remain; this does not add offline gameplay or finished-game archives.
 - **D-235:** each player's per-game Undo/Redo stack is shared game state across
   their devices, not a local pending-request queue. Undo on one device can be
-  Redone on another, with unchanged own-action targeting, player-specific clearing
+  Redone on another, with unchanged own-action targeting, ordinary player-specific clearing
   and eligibility checks. See the [history contract](history-and-undo.md#selective-mutation-undoredo--d-224).
+  D-258 additionally clears both queues on a successful deliberate shared-history
+  switch. This is ordinary server-owned game control state under D-259, not a
+  separate device-transfer feature; personal UI state remains local.
 
 **D-236:** concurrent gameplay from the account's devices is supported through
 normal server ordering and action acceptance, without requiring one active device

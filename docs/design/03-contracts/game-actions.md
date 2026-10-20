@@ -30,6 +30,13 @@ Every game action specifies:
 - Random outcome references where applicable.
 - A human-readable summary, detailed before/after inspection, and schema version.
 
+This envelope describes the **accepted server record**, not authority for a client
+to choose the accepted parent, before/after state or playback group. D-259 separates
+the request, predicted result, accepted replica and UI-only state in the
+[ownership matrix](domain-model.md#state-ownership-and-request-boundary--d-259).
+Personal camera/menu/selection state is not shared action payload, except that
+explicitly captured target identities or historical references carry semantic intent.
+
 The same action system supports normal play and state corrections. Convenience
 commands are compositions of documented primitives, not a second hidden rules
 engine. Players can edit either side of the table.
@@ -73,7 +80,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-028 | Communication | D-94 game-wide Chat is not undoable; D-240 keeps chat simple with no sent-message Edit/Delete or planned expansions. Corrections use another message. D-241 excludes dedicated event-comment Edit/Delete: use eligible ordinary Undo or another comment. D-95 event comments follow ordinary tree/Undo rules without a special comment-only branch mechanism; D-232 does not require preserving an original path. D-172 groups comments with preceding same-author play, subject to D-170. Historical association and unsent-chat handling need contract completion; card notes/pings stay distinct. |
 | A-029 | Correction | R1 uses existing supported field/move/token/Undo controls. No separate general correction/authoring tool or mandatory preview (D-241). Non-token deletion is forbidden (D-174). |
 | A-030 | Suggest ending / accept | Suggest your win/loss or a draw as shared, undoable board state. The other player must accept, then both return to lobby (D-211 superseding D-210). Acceptance is not undoable (D-212), unlike pending suggestions. Restore last lobby-prepared decks/mainboard/sideboard, clear both Ready and require both to ready again for a fresh game (D-213). No win-history/scorekeeping feature is required. Finished-session action-history review is optional future work, not R1 (D-214); current-game history is unchanged. Concurrent incompatible result actions use ordinary server ordering/applicability: the first applicable action takes effect and the later incompatible request is discarded (D-239), not replacement or multiple pending suggestions. Cross-game starter-selection retention/random resolution remains open. |
-| A-031 | History controls | Latest-own eligible removal and last-undone-first recorded-transition reinsertion edit the existing tree, not an original-path copy. No skipping revealing/blocked targets; only own successful new play clears the per-incarnation stack shared across your devices. D-245 validates all retained successors, including beyond activated internal nodes, and forbids a fork at/after the target; personal viewing never affects eligibility. Hard N/resource/anchor/version mechanics remain technical. Graphical activation/filtering applies to genuine alternatives. |
+| A-031 | History controls | Latest-own eligible removal and last-undone-first recorded-transition reinsertion edit the existing tree, not an original-path copy. No skipping revealing/blocked targets. Ordinary own successful play clears own Redo; ordinary opponent play does not. D-258 deliberate shared-history switches clear both players' queues atomically; normal Undo/Redo and personal UI review do not trigger a blanket reset. D-259 makes controls/stacks server-owned request-driven game state, not per-device history. D-245 validates all retained successors, including beyond activated internal nodes, and forbids a fork at/after the target; personal viewing never affects eligibility. Hard N/resource/anchor/version mechanics remain technical. Graphical activation/filtering applies to genuine alternatives. |
 | A-032 | Export | Not an R1 deliverable: deck export is excluded (D-241); finished-game history archives/review are deferred optional work (D-214). No export roadmap is implied. |
 | A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |
 | A-034 | Combat projections/grouping | D-116 separates area creation/declaration/tap; D-117 adds multiselect combinations/auto-area. D-137/D-139 refine earlier assignment wording to visual paired-slot groups with no individual attacker↔blocker edges. Creation preserves source placement; D-123 routes later card edits/moves to the real card. D-122 removes combat projections/links without changing originals. Exact reference/combined-event handling remains open. |
@@ -435,6 +442,9 @@ Before implementation, every **R1** capability above must be expanded into:
 9. Tap/action budget from the normal starting context, including selection,
    navigation, text entry, and confirmation. Justify each required interaction;
    prefer direct controls and undo over repeated prompts.
+10. State ownership: shared request/accepted event or control result versus UI-only
+    interaction, predicted application, accepted-replica revision and recovery data.
+    Use D-259's matrix; do not invent local-only variants of semantic game state.
 
 The generic correction tool must not excuse poor direct workflows for moving,
 rotating, managing piles/counters, or adding pings. Manual MTG scenarios remain

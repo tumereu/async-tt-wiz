@@ -10,7 +10,8 @@ replay. Online optimistic predictions and uncertain-request recovery remain.
 
 ## 2.1 Separation of state
 
-Maintain three distinct state classes:
+Maintain three distinct semantic state classes. **D-259 confirms that the first
+two are server-authoritative, not separate client-owned games:**
 
 1. **Board state:** cards/objects, labeled areas/containers, participants, named
    values, orientation, generic visual relationships, and first-class turn/
@@ -20,7 +21,8 @@ Maintain three distinct state classes:
     game-state node pointer, archive status, publication/control records,
    and retained descendants (including hidden alternatives).
 3. **Personal presentation state:** review cursor, selected objects, camera,
-   locally exposed card faces, accessibility settings, and draft workspace.
+   open menus/inspectors, permitted unlogged inspection, accessibility settings
+   and unfinished input. These non-request UI choices are local to the device.
 
 Reviewing an earlier boundary does not mutate the active board. A branch switch
 does not destroy a player's review context or private draft. A different camera
@@ -29,6 +31,64 @@ position is not a new game-history action.
 “Draft” describes recoverable pending/failed work or incomplete form input, not
 an editing mode that must be entered and sent. Completed game actions
 automatically enter the durable synchronization queue.
+
+### State ownership and request boundary — D-259
+
+**Authority is about who decides the shared result, not where bytes are stored.**
+The server is authoritative for semantic game state. Clients send action/control
+requests and apply provisional results locally to hide latency. The same accepted
+game state is replicated to every authorized client; synchronization is the default,
+not a separate opt-in feature for each control or device.
+
+| State / interaction | Owner and request boundary |
+| --- | --- |
+| Real cards/tokens, logical board/grid/pile order, printed face/cover/orientation, corners/counters/notes/life, links, combat/Stack occurrences and retained source information | Shared server state. Completed edits issue requests; local application is prediction. Logical placement is shared even though camera position and rendered pixels are not. |
+| Mutation tree, retained alternatives/archive status, active shared node/branch, per-player Undo/Redo stacks and eligibility/control results | Shared server history/control state. Undo, Redo, activate, interrupt, return and archive/restore are requests, not local navigation. D-258 clears both Redo queues on qualifying switches. Stacks are per-player, not per-device or one combined opponent stack. |
+| Pings and their effective presence/ordinals, event comments, submitted game-wide chat, View/Reveal displays/dismissal, logged exposure and recorded random results | Shared server records with their existing individual history/Undo rules. A no-board-change action is not automatically local. A dialog/menu opening alone is not submission. |
+| Playback groups | Deterministic derivation from authoritative server events (D-254/D-257), reproducible on clients. Not a user/menu-selected authority or manually editable local game structure. |
+| Invitation/lobby preparation, selected deck copies, starter choice, Ready, play incarnation and pending/accepted ending | Shared server lifecycle state, changed by the corresponding requests. Server-authorized start/cleanup effects belong to those transitions; leaving a screen alone does not alter Ready or end play. |
+| Saved decks and contacts | Server-owned account data in their own scope, not private per-device collections. Preserve saved-deck versus selected-copy isolation; this does not put account edits on the gameplay mutation tree. |
+| Zoom/pan/camera, personal view/review cursor and playback position, selection/Select/Ping input modes, browser search/filter/sort/scroll, open context menu/inspector and unfinished editor input | Personal UI state. No semantic game-change request or shared event merely for these choices; no R1 transfer of review progress/drafts/presence. Selecting a historical node for review is local; explicitly activating it is shared. |
+| Inspection/content access | Own-area hold and permitted visible-face reading are local/unlogged under D-252. Explicit Inspect other side, contents View or View/Reveal that requires logging is a shared request/event, even if the inspector/browser is visually a local panel. Subsequent permitted search/scroll or closing a purely local panel is UI-only; explicit shared-display dismissal is a request. |
+
+Separate these device-held representations from personal UI ownership:
+
+1. **Accepted replica:** downloaded server records, concrete outcomes and a
+   materialized state at a known authoritative revision. This is a local copy of
+   shared state, readable offline, not an independently editable game.
+2. **Optimistic prediction:** accepted replica plus still-valid pending requested
+   operations. It is provisional shared intent, not committed history or UI-only
+   state. Keep each request's identity/conditions; do not send a stale whole-board
+   replacement or treat the client's last-seen head as authoritative.
+3. **Protocol/recovery data:** outbound requests, outcome lookup/deduplication,
+   synchronization cursors/checkpoints and already-initiated exposure obligations.
+   These may be device-resident and durable without being user-local game rules.
+   In particular, pre-display exposure capture still survives rejection/restart/
+   Logout under its existing account-protected recovery contract.
+4. **Disposable caches:** downloaded images/catalog data and derived snapshots.
+   Retained per-game essential definitions/defaults remain shared game data.
+   Cache location or eviction never grants independent authority or permits losing
+   outstanding recovery obligations.
+
+Fetching history/catalog content can use read requests without turning the
+requesting device's search text, scroll position or open panel into shared game
+state. This does not exempt an explicit View/inspection that requires a logged
+game action. Classify the semantic operation, not whether any network I/O occurs.
+
+A completed shared operation is persisted for recovery and begins transmission in
+client action order, with provisional local application and no routine
+acknowledgement wait. The server validates/applies it in arrival order, records
+the actual accepted transition/control outcome and creates authoritative events;
+deterministic grouping follows. Acknowledgement/update confirms that outcome, not
+a second execution of the local prediction. Reconcile against accepted state plus
+remaining valid predictions under D-185, preserving unrelated UI state and the
+explicit review-cursor rules. Rejected/no-op requests invent no gameplay mutation.
+Offline use permits downloaded read-only traversal, not new shared action creation.
+
+Checking whether a client is current compares its **accepted replica revision**
+with server history, not zoom/menu state or the provisional prediction overlay.
+The [checksum-chain proposal](../04-technical/sync-and-storage.md#proposed-revision-checksums-and-correction-points--d-259)
+supports that check without changing state ownership or gameplay-tree semantics.
 
 Confirmed card-text normalization (D-59/D-249): trim leading and trailing whitespace
 when a card-text/counter edit is completed, including corner text, card labels
@@ -61,8 +121,8 @@ other non-card field normalization requires its own contract.
 | Branch | Stable ID, fork boundary, head, origin branch, explicit historical-continuation origin (D-179), author, title, archive status. Ordinary concurrent edits and D-232 Undo/Redo do not create branches. |
 | Control operation | Stable ID, actor, ordered server revision, operation kind, prior/new references, undo linkage. |
 | Random outcome | Stable ID, requested operation, concrete result, source/version metadata; retained with its action. |
-| Review position | Participant, viewed branch/path, boundary, known active revision; not a promise of rules acceptance. |
-| Draft | Local ID, base boundary/revision, pending/failed actions or incomplete input, grouping, queue dependencies, sync status. |
+| Review position | Device-local UI cursor: viewed branch/path, boundary and known active revision. Not a synchronized participant cursor, shared activation or promise of rules acceptance (D-259). |
+| Draft / pending workspace | Device-held unfinished input or request-recovery/prediction data. Separate UI-only editor content from pending shared intent and the accepted server replica under D-259; no independently authoritative private game or client-defined grouping. |
 | Message | Stable ID, author, content, context boundary, edit/delete revisions. |
 | Board placement | Object ID, logical area/grid position, optional visual pile ID and order; independent of camera/device pixels. |
 | Visual pile | Stable ID, one zone/area, ordered member IDs, logical anchor; not a rules attachment, merged object, or action group. |

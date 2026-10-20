@@ -9,7 +9,7 @@ neither unfinished behavior nor implementation.
 | --- | --- |
 | [Product](product.md) | Requirements, scope proposals, trust model, success criteria. |
 | [Accounts, decks, and lobby](accounts-decks-and-lobby.md) | Accounts, invitations, import-only decks, lobby preparation/Ready, cancellation and undoable ending suggestions accepted by the other player before both return to lobby. |
-| [Domain model](domain-model.md) | Card/object identity, state, containers, references, invariants. |
+| [Domain model](domain-model.md) | Explicit server/UI ownership matrix, accepted replicas versus latency-hiding predictions/recovery, card/object identity, containers, references and invariants. |
 | [Board and controls](board-and-controls.md) | Touch, selection, movement, piles, menus, table controls. |
 | [Game actions](game-actions.md) | Capability coverage, bulk actions, preservation and explicit exceptions. |
 | [Operation composition](operation-composition.md) | Shared execution context, live input binding, ordered lowering and composite-command scope. |

@@ -16,6 +16,15 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Latest October 20 review repairs — D-251–D-253
 
+**Subsequent review, not new decisions:** the owner requested another adversarial
+consistency/unspecified-area review. The
+[post-repair report](adversarial-review-2026-10-20-follow-up.md) records F-01–F-06
+against `57f6a75`: captured ping scope versus current recording event, Redo's shared
+pointer at an activated insertion boundary, delayed exposure after tree revision,
+mixed-token ordered lowering, pending-result grouping and residual active drift.
+Its proposed resolutions are not selected behavior; attempt derivation under
+D-237 before asking about any remaining choice. No contracts/oracles were changed.
+
 The owner discussed S-01–S-10 in the
 [October 20 review](adversarial-review-2026-10-20.md#documentation-follow-up-after-owner-discussion).
 Read that disposition and the current primary contracts; older handoff sections

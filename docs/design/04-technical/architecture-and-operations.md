@@ -33,7 +33,8 @@ service's validation semantics through shared code or cross-platform fixtures.
 - Incremental sync and operation-result lookup.
 - Durable notification outbox and delivery workers.
 - Card data distribution/cache integration where needed.
-- Export, retention, administration, and observability.
+- Retention, administration and observability; no user-facing deck/game export
+  deliverable is implied (D-241/D-214).
 
 A modular monolith is the proposed starting point; independent microservices
 are not needed simply to separate these responsibilities.
@@ -129,17 +130,22 @@ human examples covering:
 - Automatic publication, permissive current-state acceptance with limited
   movement/Stack optimistic guards (D-187),
   explicit interruption intent and activation, switch branch,
-  rollback, archive/restore, undo/redo, and incremental grouping edits.
-- Context messages, review progress, completion/rematch, deck/catalog access.
+  archive/restore and selective undo/redo, with automatic grouping metadata.
+- Context messages, personal review state, result acceptance/fresh play and
+  deck/catalog access; no cross-device review-progress/read-receipt service.
 - Group/event-scoped generic pings with source-action context, one standard
-  marker/no label-style picker (D-77), and separate optional messages; generic
-  area/container/placement configuration; ephemeral presence with explicit
-  privacy/expiry semantics. No cast/target-declaration API or rules-completion
-  state is implied by a labeled area.
-- Operation-result lookup, exports, data deletion, and supported app versions.
+  marker/no label-style picker (D-77), and separate optional messages; approved
+  placement/area transitions, not a configuration editor or presence channel.
+  No cast/target-declaration API or rules-completion state.
+- Operation-result lookup, privacy/service data-deletion obligations and supported
+  app versions. Manual group edits, branch comparison/renaming, fuller deck
+  editing/export, custom authoring and response requests are not R1 API deliverables.
 - Exact request/response/error fields, limits, pagination, ordering, timestamps,
   revision domains, continuation identities, accepted/rejected action and explicit
   interruption results, idempotency retention, and cancellation semantics.
+- Persistent lobby versus play-incarnation fencing on every gameplay/control/
+  exposure request, result reference and per-player Undo/Redo stack. Old requests
+  never mutate fresh play; original committed outcomes never overwrite it.
 - Unauthorized versus nonexistent resources, validation errors, stale revision,
   rate limits, unavailable dependencies, and incompatible schema versions.
 
@@ -168,6 +174,12 @@ credential/session storage and exact reset mechanics remain technical design or
 explicit behavior gaps, not an unselected login method. End-to-end
 encryption and self-hosting are also open choices, not implied by “private game.”
 
+D-249 excludes credentials from card-text trimming: preserve password whitespace
+and Unicode consistently across registration/login/reset. Specify account email/
+username normalization and password strength separately, with Unicode and paste
+fixtures and no secret logging. No provider/helper default may silently normalize
+passwords differently at different entry points.
+
 ## 7.6 Reliability and operational contracts
 
 Proposed correctness targets:
@@ -184,6 +196,11 @@ Proposed correctness targets:
 Still required before implementation:
 
 - Reference devices, game/history sizes, cold-load and action latency budgets.
+- Undo/Redo cost accounting beyond suffix count N: target validation, input/output
+  payload, snapshot/reference loading, cleanup fan-out, replay and cache rebuild.
+  Set measured CPU/memory/latency budgets with indexing/incremental summaries;
+  exceeding validation budget leaves the operation unavailable and state unchanged,
+  never partially validated. Do not add a Stack count cap/history expiry (R-13).
 - Local feedback and action-sync-start budgets that enforce immediate sync
   without waiting for group closure or deliberate batching.
 - API latency/availability targets, expected load, rate/storage limits.

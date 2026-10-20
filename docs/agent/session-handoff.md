@@ -1,6 +1,6 @@
 # 14. Session handoff — resume behavior specification
 
-Updated 2026-10-19. This is continuation context, not a new source of requirements.
+Updated 2026-10-20. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
 
@@ -13,6 +13,50 @@ Run applicable checks, inspect staged changes and exclude unrelated work. With
 no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
+
+## Latest review repairs — D-245–D-250
+
+Owner discussed the October 19 adversarial review and corrected the proposed
+residual-choice batch. Read the
+[review disposition](adversarial-review-2026-10-19.md#documentation-follow-up--2026-10-20)
+and current primary contracts rather than treating original review proposals as
+selected behavior. All R-01–R-15 now have documented outcomes/technical boundaries.
+
+- D-245: personal view position never affects Undo eligibility. Latest-own target
+  remains on the shared current timeline; validate all retained successors even
+  beyond an explicitly activated internal shared node. Any fork at/after the
+  target blocks removal; unchanged relevant tuples and hard N still apply.
+- D-246: offline use creates no game events, including new covered/other-face
+  inspection requiring exposure logging. Recorded downloaded visible content
+  remains readable. No deferred offline exposure queue. Actual online exposure
+  survives a rejected prediction/restart; capture it before display and recover
+  already-initiated records without creating automatic gameplay branches.
+- D-247: Stack comparison concerns ordered current real-card/effect-entry
+  identities, including independent occurrences/source identities. Not rendered
+  source fields, zone, live/frozen status, links, layout coordinates or personal
+  presentation. The assistant's extra frozen-status/link guards were not selected.
+- D-248: selected context card binds captured selection; unselected card binds
+  only itself while preserving selection. Capture scope when menu/editor opens;
+  no redirection after selection change or disappearance. Same accessible rule.
+- D-249: trimming was for card text/text-value controls, not universal credentials/
+  account/deck/import/message normalization. Preserve passwords' whitespace and
+  Unicode consistently through registration/login/reset; other security policy
+  remains separate.
+- D-250: intervening taps never create an additional group split. Apply existing
+  anchor and forward/backward rules; no new companion policy/manual editor.
+
+Derived repairs include target-transition fidelity before Redo suffix checks,
+invariant-closed mandatory cleanup/capture-first token disappearance, preflight
+versus individual bulk conflicts, source/occurrence normalization, separate
+recording/reference annotation contexts, fresh-play incarnation recovery fencing,
+and cost accounting beyond suffix count. Old normative Undo/scope/test drift was
+corrected directly, not merely covered with a precedence note. T-554–T-578 and
+E2E journey variants record adversarial outcomes; no executable tests/app exist.
+
+Continue remaining contract/technical/UI completion in its proper lane; ask only
+about a demonstrated new gap. **Documentation only: no implementation, UI drafts
+or delivery-stage transition is authorized.** Validate and save any subsequent
+edit batch under D-178 as usual.
 
 ## Latest test/data direction — D-243/D-244
 

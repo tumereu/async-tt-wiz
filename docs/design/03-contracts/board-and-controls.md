@@ -45,7 +45,8 @@ the [Android experience](android-experience.md) and
 
 Gestures operate on either participant's cards. Ownership does not restrict
 editing. Every completed state-changing interaction queues immediate sync and
-has undo. Menus, zoom, selection previews, and cancelled gestures do not create
+has the specified eligible Undo/recovery path, not unconditional reversibility.
+Menus, zoom, selection previews, and cancelled gestures do not create
 game-state actions.
 
 D-121: no targeted action is quick-action-exclusive. Every combined targeted
@@ -73,23 +74,23 @@ copy or recreate the token; occurrence layout/removal remains available.
 
 Portrait-first conceptual layout, not an approved pixel wireframe:
 
-This is an MTG-oriented naming/layout preset on generic areas and named values.
-The engine does not interpret those labels.
+This is an MTG-oriented sketch using the confirmed areas and life/counter tools,
+not an R1 area/named-value authoring editor. The engine does not interpret labels.
 
 ```text
 +----------------------------------------------------+
 | Branch / sync / review context                      |
-| Opponent: life, mana, counters, turn/phase           |
+| Opponent: life, counters, turn/phase                 |
 | Opponent hand (covered by default)                  |
-| [Library] [Graveyard] [Exile] [Command / extra]       |
+| [Library] [Graveyard] [Exile]                        |
 | Opponent battlefield area                           |
 |                                                    |
 | Shared Stack / action-linked pings                   |
 |                                                    |
 | Your battlefield area                               |
-| [Library] [Graveyard] [Exile] [Command / extra]       |
+| [Library] [Graveyard] [Exile]                        |
 | Your hand                                           |
-| You: life, mana, counters                           |
+| You: life, counters                                 |
 | Undo | Previous / Next action | Activity / History   |
 +----------------------------------------------------+
 ```
@@ -108,8 +109,8 @@ The engine does not interpret those labels.
   while later card edits/moves through them affect the originals (D-123).
   Its layout and lifecycle are not settled by this older conceptual sketch.
 - Hands use an expandable fan/row rather than consuming the whole battlefield.
-- Extra labeled areas, such as Command or Outside game, remain a proposed
-  expandable-dock capability. **Sideboard is lobby-only (D-202)**, not an in-game
+- Extra labeled areas such as Command or Outside game are excluded from R1
+  (D-241), not a proposed required dock. **Sideboard is lobby-only (D-202)**, not an in-game
   extra area: no dock, contents browser, or view/edit/move path exposes it during
   play. Initial lobby placement is mainboard in Library, sideboard in its separate
   Sideboard area, and all other card areas empty; see the
@@ -229,6 +230,20 @@ Confirmed consistency defaults (D-34; items 1–4 of the grouped review):
    placement and the pre-drag selection, including a selection cleared when an
    unselected card was picked up. No shared board edit is committed.
 
+**Context binding — D-248:** opening Actions on a selected card binds the menu
+to that selection; opening it on an unselected card binds only that card without
+clearing/adding to the selection. Capture the context card and target IDs when
+opening the menu, including an inline Set editor; later selection changes cannot
+redirect it. Show that captured scope/count. Accessible Actions uses the same
+binding. Projection/source normalization follows the operation's identity domain
+in [bulk targeting](game-actions.md#target-identity-normalization).
+
+Recheck current applicability/existence when each operation is processed. Skip
+individually disabled targets only under D-67; a vanished bound target does not
+become whichever card is now selected. Close/disable an unusable editor/menu
+rather than substitute a target; exact feedback is later UI work. Context Ping/
+Unping still chooses its uniform action from the captured trigger card (D-80).
+
 Item 5 (explicit selected-set tap commands available with the mode off) was
 rejected and replaced by D-35's selection-aware single-tap gesture above.
 
@@ -273,7 +288,13 @@ Confirmed inspector behavior (D-38):
 - Inspection is local presentation: do not turn up, rotate, move, switch the
   shared printed face, or change selection merely to display inspector content.
   D-89 later confirms exposure logging for covered-face inspection, not ordinary
-  already-visible-face holds; exact event placement/coalescing remains Q-31.
+   already-visible-face holds; exact event placement/coalescing remains Q-31.
+
+D-246 limits offline inspection to reading already-recorded visible content.
+Any hold/browser/other-face inspection requiring a new exposure event needs a
+connection, even when the face data is downloaded. Online actual exposure is
+retained even if the associated optimistic move is rejected; see the
+[exposure lifecycle](history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246).
 
 ## 10.4 Dragging and snapping
 
@@ -392,7 +413,12 @@ Confirmed capacity and overflow (D-39):
 - A drop that would exceed three shows an invalid destination preview. Releasing
   restores the full pre-drag placement and selection under D-34. Do not silently
   split the stack, replace a member, or move only part of a selected set. The
-  invalid drop creates no shared board action.
+   invalid drop creates no shared board action.
+
+This whole-selection rule is prevalidation, not an atomic reservation against
+later concurrent requests. Once a valid drop emits individual moves, each has its
+own server result; retain accepted moves and correct only failures. See
+[bulk conflicts](game-actions.md#45-bulk-actions-and-selections), including Y/W/Z.
 
 Confirmed compact controls (D-40):
 
@@ -635,15 +661,14 @@ A brief animation alone is insufficient for asynchronous review. Proposed layers
 
 | Layer | Examples | Persistence and effects |
 | --- | --- | --- |
-| Live presence | Dragging a card, browsing a pile, positioning a ping. | Ephemeral, online-only, best effort; no board edit, branch, or game-rule meaning. |
+| Live presence | Sharing drag/browser/cursor activity. | Excluded from R1 (D-241); no transport/UI/expiry deliverable. Local gesture previews are not shared presence. |
 | Explicit View/Reveal | View library contents or View/Reveal top N. | Shared logged/synchronized operation, not merely presence; faces versus backs follow D-44, and top-N source order follows D-45. Exact record/display schema remains open. |
 | Group/event-scoped ping | Point to an object, participant marker, area, or location; one standard marker, no label/style picker (D-77). | Durable, actor-attributed record linked to one group/event; visible only in that context, including event-tree review (D-75). No mechanical side effects. |
-| Literal board edit | Move/rotate a card, create a labeled piece, change a named value, add a generic line. | Explicit generic state transition with ordinary history, branching, and undo. |
+| Literal board edit | Move/tap a card, create a catalog/Blank token, edit card text or supported life/counters, add a link. | Explicit in-scope transition with history and eligible selective Undo; no general piece/named-value editor (D-241). |
 
-Presence never reveals inspected hidden-card identities, search terms, or private
-choices by default. It expires after disconnect/crash and cannot block play.
-Exact expiry/throttling are still required protocol decisions. Offline work does
-not replay a backlog of obsolete live cursor/searching signals on reconnect.
+Do not add a presence channel to meet this older inventory. Inspection exposure
+records are durable events, not transient browsing/search signals; ordinary local
+gesture previews and search input do not authorize hidden-identity disclosure.
 
 Durable pings have readable visual/accessibility descriptions, not only animation
 or color; D-77 requires no typing or dedicated label/style picker. D-75 scopes
@@ -666,10 +691,9 @@ If the card no longer exists at the viewed boundary, show the original context
 link rather than pointing to an unrelated object.
 
 On another branch, show only markers whose context belongs to that path, plus
-an explicit route to inactive-line messages. Never migrate a response request
-to a new continuation as if its author endorsed it. “Seen” or “acknowledged” is
-not a rules approval. A persistent response request is a social signal, not a
-permission lock on a cooperative table.
+an explicit route to inactive-line messages. Never migrate an annotation to a
+different continuation as if its author endorsed it. No response-request/read-
+receipt feature in R1 (D-241); viewing is never a rules approval or permission lock.
 
 Confirmed ping interaction direction (D-74): pinging is a persistent interaction
 mode, analogous to tap/selection-edit interaction, not a one-shot command beside
@@ -693,8 +717,9 @@ Confirmed optional communication direction (D-94/D-95):
    waits for a message or a gameplay Send step.
 2. A group/event context Note/Reply action opens a multiline editor linked to
    that event. Keep these optional text records distinct from card notes and
-   pings; text is not required to explain an action. Trim completed input under
-   D-59 without publishing unfinished text. D-241 excludes dedicated comment
+   pings; text is not required to explain an action. Do not publish unfinished
+   input; D-249's card-text trimming is not a message-normalization policy.
+   D-241 excludes dedicated comment
    Edit/Delete; use eligible ordinary Undo or another comment. Submission controls
    and historical/branch association still need contract/UI completion.
 
@@ -862,7 +887,7 @@ Confirmed counter appearance/lifecycle (D-58):
    Whether to offer a separate Remove shortcut remains open.
    Graveyard/Exile/Library entry still removes card counters as agreed.
 
-Confirmed text trimming (D-59): all user-entered text is edge-trimmed on
+Confirmed text trimming (D-59/D-249): completed card text and counter input is edge-trimmed on
 completion, not only counter text. Preserve internal spaces/newlines. Pattern
 matching and empty-value handling use the trimmed text: ` 2/3 ` becomes `2/3`,
 ` 0 ` remains visible as `0`, and whitespace-only counter input removes it.
@@ -953,9 +978,9 @@ Confirmed multi-selection control parity (D-66):
   missing-counter arithmetic. Exact eligibility/error tables and affected/skipped
   rendering remain Q-30. Do not confuse applicability with invalid IDs or a
   structurally invalid drop that retains its established all-or-nothing behavior.
-- Single-card versus selection targeting when opening an unselected card's
-  context menu, exact mixed-value rendering, and bulk interruption/grouping
-  boundaries remain open. Existing card tap/untap selection rules are unchanged.
+- D-248 fixes selected/unselected context-card targeting and captured scope above.
+  Mixed-value rendering remains later UI work. Existing card tap/untap selection
+  rules are unchanged; bulk operations retain individual mutation boundaries.
 
 Confirmed absent-counter outcomes (D-68):
 
@@ -1124,10 +1149,9 @@ block each other. Selective Undo excludes revealing targets. Per-mutation state,
 N and pointer/control/Redo-queue integration remain open. The following earlier
 rewind/exposure summary does not override that selective rule.
 
-Earlier D-159/D-222 rewind model: Undo moves the shared active pointer one parent back and
-remembers the last active head for Redo toward it. Retain all nodes; changed play
-creates a new active branch, while a graphical explorer can activate any retained
-branch/node. Only single-player/no-exposure inactive continuations qualify for
+Undo/Redo remove/reinsert eligible own mutations in the tree, without original
+alternatives or automatic post-Undo branching (D-232). The graphical explorer
+can activate any genuinely retained branch/node. Only single-player/no-exposure inactive continuations qualify for
 hiding behind Show hidden branches; mixed-player/exposure continuations stay
 visible. D-223 also keeps event-comment continuations visible in full, even with
 one author and no exposure; those paths do not qualify for hiding.
@@ -1141,9 +1165,10 @@ D-160 supersedes D-91's visible-path cutoff: keep trailing ordinary nodes visibl
 too when the abandoned continuation contains exposure/comment. D-91's actual-
 exposure classification remains, including draws/moves/face changes, not only
 View/hold. Exact event placement/coalescing, forward/pre-fork presentation, non-Undo
-branch controls and read-only offline exposure handling remain Q-31. Stale Undo itself
-silently discards its specific transition under D-161. This is not a persistent ping or
-access restriction.
+branch controls remain specification work. D-246 permits no offline event-producing
+inspection; recorded visible content remains readable. D-236 processes distinct
+Undo requests as server-ordered presses, not D-161 captured transitions. Exposure
+is not a persistent board marker or secrecy boundary.
 D-96/D-105 reject omitting turn/phase/step tracking or substituting blank tokens,
 notes, and counters. Provide first-class engine state integrated with history,
 undo, branches, online-only actions, and automatic synchronization. Exact controls,
@@ -1303,7 +1328,7 @@ positions; never automatically transfer survivors to other pairs. D-127 requires
 combat + close shortcut; ordinary phase/step changes and End turn leave the area
 open. D-128 offers the quick action only at End of combat → Postcombat main,
 not earlier combat steps. Separate advance/close and full non-quick access remain
-available (D-121). D-159/D-160 make Undo one parent-node move regardless of author;
+available (D-121). Undo removes one eligible latest-own mutation (D-231/D-232);
 composites may require multiple presses. D-176 makes each node one individual
 mutation, including bulk/combined commands, superseding combined-node mappings
 such as D-132. D-177 makes groups concurrent-animation playback steps with exact
@@ -1397,8 +1422,9 @@ mixed drags is approved or required as a separate owner decision.
   gesture, one move, automatic sync; the engine does not label it playing a land.
 - **Tap a card:** single tap the visible card. One orientation/tapped-presentation
   change; no activation, attack, or mana is inferred.
-- **Read card:** hold it. Large art/text opens; no tap is sent and no branch is
-  created. Inspecting another player's card works identically.
+- **Read card:** hold it. Art/text opens without tapping or branching. Covered/
+  other-face exposure requires a connected logged event; offline reading is limited
+  to downloaded recorded visible content. Either player's cards work identically.
 - **Inspect actions:** double tap. The action sheet opens; neither tap toggles
   the tapped state. The full manual action catalog remains reachable.
 - **Compact lands:** drag a land onto a highlighted battlefield pile. Its zone
@@ -1409,16 +1435,16 @@ mixed drags is approved or required as a separate owner decision.
 - **Move and ping:** move a card to Stack, then ping a participant/card associated
   with that move. Both sync and appear together without a generated “cast at”
   sentence, typed rules target, completion step, or Send.
-- **Represent an unusual action:** create a generic labeled note/piece if needed,
-  position it, and add action-associated pings. The players decide what it means.
-- **Async question:** add “Response wanted” to the selected review action. The
-  opponent sees its context hours later; the ping does not itself resolve or
-  counter anything.
+- **Represent an unusual action:** create a catalog/Blank token, edit its ordinary
+  note/corner text, position it and add contextual pings. No generic piece editor.
+- **Async question:** submit an event comment referring to the reviewed action.
+  Record its current effective context separately; no dedicated response-request
+  feature, inferred consent or automatic resolution (D-241).
 
 ## 10.10 Outstanding detailed design
 
 Before implementation, resolve gesture timings, layout measurements, snap/drop
 rules, pile hit targets/order, card-versus-pile controls, library inspection
-gestures, generic ping context controls/association, live presence privacy/expiry,
+gestures, generic ping context controls/association,
 ping schemas/lifecycle, full wireframes, and interaction budgets. The conceptual
 layout and examples above do not close those readiness gaps by themselves.

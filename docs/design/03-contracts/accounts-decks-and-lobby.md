@@ -32,6 +32,14 @@ Field validation/normalization, email verification, username changes and
 account-change/recovery edge cases remain open. Do not infer a
 required email-verification gate or a second login method from this decision.
 
+**Credential normalization — D-249:** card-text trimming is not an account rule.
+Preserve password whitespace and Unicode consistently through registration,
+login and password reset; do not silently trim, case-fold or Unicode-normalize
+secrets, including pasted boundary whitespace. Apply the same credential handling
+at every entry point. Username/email validation and equivalence are separate
+account/security design, never inherited from a card-text helper. Password
+strength, provider, reset mechanics and storage remain technical/security work.
+
 ## Session continuity and reauthentication — D-217
 
 - **Stay logged in across app restarts.** Restarting alone does not require the
@@ -468,7 +476,19 @@ Exact initialization/history sequencing also remains to be designed.
 
 The ordinary Draw/Draw N, move and Shuffle actions remain available. Any agreed
 compound shortcut must preserve individual mutation nodes, immediate sync and
-parent-step Undo under D-176; its exact mutation sequence still needs design.
+eligible latest-own Undo under D-224/D-231; its exact sequence still needs design.
+
+### Persistent lobby and fresh play identities
+
+Each fresh start creates a distinct play incarnation/root with fresh player
+Undo/Redo stacks. Gameplay/control/exposure requests and result references retain
+their original incarnation through recovery. A late session-1 End turn cannot
+advance session 2, and an old committed result cannot overwrite its board. Preserve
+protected recovery records rather than clearing them to avoid late deliveries.
+Reinvitation also preserves each request's original attempt/outcome: retrying a
+past Accept/Decline is not a response to the new invitation. This derives from
+fresh-start and no-retarget/idempotency requirements, not a new duplicate-invite
+policy; exact identity/fencing representation is technical work (R-12).
 
 ## Remaining behavior decisions
 

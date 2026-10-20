@@ -61,7 +61,8 @@ D-176 distinguishes invocations, individual mutation nodes and playback groups.
 Each node is one deterministically reversible change, such as moving or tapping
 one card. Bulk/combined controls issue ordered individual mutations, immediately
 published; D-176 supersedes older combined-node mappings such as D-132.
-D-159/D-160 Undo follows one parent, not a whole invocation or playback step.
+Undo removes one eligible latest-own mutation, never a whole playback group
+(D-224/D-231/D-232).
 
 D-177 makes a group one navigation/playback step with concurrent animation.
 Pause playback and drag the horizontal bottom timeline to select an exact
@@ -84,7 +85,7 @@ associated pings, in recorded order. Optional user-written labels are attributed
 as user text rather than presented as engine conclusions.
 
 Each completed operation synchronizes immediately. The unit can grow without
-Send or Done; existing immutable move payloads are not rewritten. Preserve
+Send or Done; annotation additions do not rewrite earlier move payloads. Preserve
 individual effective boundaries, undo, and interruption/review behavior. The
 unit is a presentation grouping, not one inferred atomic game-mechanic event.
 
@@ -97,6 +98,44 @@ If later pings/comments are added to an older action, link them without moving
 unrelated operations into a non-contiguous group or changing its old state.
 Historical review indicates when the addition became effective; future markers
 do not appear retroactively at an earlier boundary.
+
+### Recording context versus referenced context (R-08)
+
+Every annotation distinguishes **where/when it was recorded** (play incarnation,
+current accepted path/boundary and its effective revision) from **what it refers
+to** (the selected historical event/group, object/occurrence or location and its
+original context). These contexts may differ; never replace one with the other.
+
+On shared `E → F → G`, submitting a comment or ping about E while reviewing E
+records the addition at the current shared head, not inserted into E and not a
+fork at E. A comment is its own new current-path mutation. Ping changes retain
+their durable effective records. Ordinary grouping uses the recording sequence
+and author; the reference to E does not merge non-contiguous groups or place
+the addition before F/G. Explicit historical continuation remains a separate
+deliberate action under D-179.
+
+The current recording event shows the annotation with a route to E's original
+context. Reviewing E's original boundary never overlays a future ping as though
+it already existed there. Later-added references may be listed separately as
+“added later,” with a route to their effective recording event; historical
+snapshots and playback before that effective revision omit them. Viewing the
+annotation's own recorded event can inspect its referenced E board/location.
+The same applies when E belongs to an inactive alternative; no activation or
+automatic branch is required, and no replacement object/context is substituted.
+
+For pings, the owning event/numbering sequence is the recording group; retain the
+selected referenced context separately. Ping/Unping addresses that owning event,
+referenced context and destination identity, not a similarly placed object in
+another event. Re-add is a new effective change, not retroactive restoration at E.
+First/root additions use a leading recording group under author separation,
+without an owner picker. Number pings in recorded action order within that group;
+delivery retries do not add numbers. Exact compact rendering remains later UI work.
+
+Comments use latest-own tree-editing Undo; durable ping changes retain their own
+actor/effective before/after context and ordinary eligibility. Later dependent
+annotations protect referenced mutations under D-224, including retained-future
+validation; an unrelated personal cursor does not. Do not delete/rebind references
+to permit removal. No dedicated comment Edit/Delete or manual group editing is added.
 
 ## 11.4 Pings point; they do not declare mechanics
 
@@ -191,19 +230,16 @@ Exact event mappings and historical placement still need detailed review.
   review-cursor and side-branch handling remain open. Do not present this as appended
   compensation, require an explorer branch for removed mutations, or silently
   reattach/delete pings/comments as though their historical meaning were settled.
-- Earlier pointer-rewind Undo moves the shared active pointer one parent back (D-159). Retain every
-  descendant. D-222 Redo follows the remembered last active head; a graphical
-  explorer can explicitly activate any retained branch/node. Hide only single-player/
-  no-exposure inactive continuations behind a toggle; mixed-player/exposure paths
-  stay visible in full. D-223 also keeps an event-comment path visible in full,
-  even with one author and no exposure. Exact pre-fork/nested presentation and
-  concurrent control behavior remain open.
+- A graphical explorer can explicitly activate retained branch/nodes. Only
+  single-player alternatives with neither exposure nor comments qualify for hiding;
+  mixed-player/exposure/comment alternatives remain visible in full. Undo itself
+  does not create a retained pre-edit copy (D-232).
   Undo/remove/edit pings
   through recoverable records; a ping is
   not automatically classified as information-gaining merely because durable.
-- Adding a communicative ping while inspecting history does not by itself select
-  a new active game-state continuation. Exact ping revision/history placement
-  remains a protocol decision; it cannot mutate the associated move payload.
+- Adding a communicative ping while inspecting history does not activate a
+  continuation. Recording/reference contexts above determine placement and
+  effective rendering; encoding is technical, not permission to change those outcomes.
 - “Seen,” group closure, ping disappearance, and response markers never imply
   rules approval, priority passing, or permission to move another piece.
 
@@ -221,10 +257,10 @@ do not add a chat expansion roadmap. It does not decide account erasure or data
 retention, nor change ordinary unfinished text editing.
 
 D-95 makes an event comment
-another node on the current tree path, already a branch; undo moves back while
-retaining that existing path through the comment. No separate comment-only fork
-or activation workflow. Normal tree/base rules apply, and comments are retention
-visibility qualifiers for the whole abandoned continuation under D-160/D-223,
+another node on the current tree path; eligible Undo removes it for Redo under
+D-232, without retaining an original-path copy. No special comment-only fork
+or activation workflow. Normal tree/base rules apply, and comments are
+visibility qualifiers for a genuinely retained alternative under D-160/D-223,
 even with one author and no exposure. Card
 notes/pings stay distinct. D-172 makes event comments join the preceding group
 without a new group-start marker; D-170's author-change boundary still wins.
@@ -236,8 +272,8 @@ still need contract completion, not another correction-scope decision.
 
 Common physical operations and pings need no explanatory text or mandatory
 labels. A participant may create a generic note/token with a label such as
-“ability” or “trigger”; the engine treats it as a labeled piece, not a special
-rules object. Generic labeled values capture any other state the players need.
+“ability” or “trigger” using approved Blank/token text tools; it is not a special
+rules object. Arbitrary piece/named-value editors are excluded from R1 (D-241).
 
 ## 11.7 Worked example without game inference
 

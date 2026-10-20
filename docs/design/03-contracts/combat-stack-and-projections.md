@@ -303,8 +303,10 @@ other rules consequences.
 
 Record enough source/effect context for deterministic history, eligible Undo/
 Redo, retries and downloaded review. Do not replace a recorded frozen state with
-unrelated current data during replay. Exact schema, cleanup mutation mappings and
-concurrent reference bookkeeping remain contract/technical specification work.
+unrelated current data during replay. Source disappearance captures last-live
+state before resets/deletion; mandatory cleanup belongs to the triggering
+[invariant-closed transition](history-and-undo.md#invariant-closed-transitions-r-04).
+Exact schema and concurrent reference bookkeeping remain technical work.
 
 ## 13.6 Confirmed attacker-removal cleanup and slot stability (D-126/D-138)
 
@@ -361,8 +363,9 @@ outside combat remain open; do not infer a later-phase rewind policy.
 D-176 supersedes the older combined-node policies in D-129–D-132 and
 D-148–D-150: a node is one individual mutation, not a combined shortcut or bulk
 operation. Every mutation immediately extends or branches the chosen path and
-publishes. D-159/D-160 Undo follows **one parent node regardless of author**;
-restoring an entire invocation may require multiple presses.
+publishes. Each Undo removes **one eligible latest-own mutation** (D-231/D-232);
+restoring an entire invocation may require multiple presses and is not guaranteed
+when exposure/dependency/fork/work limits block a target.
 
 D-177 makes groups navigation/playback steps with concurrent animation, not
 atomic tree events. A paused player can scrub to any constituent mutation and
@@ -372,10 +375,10 @@ boundaries. See [history mutation sequences, section 3.11](history-and-undo.md).
 ## 13.10 Confirmed advance-and-close tree representation (D-132)
 
 **D-176 supersedes D-132's one-node mapping.** Advance-and-close issues distinct
-tracking and area/occurrence mutations. Preserve each mutation's deterministic
-forward/rollback state and immediate publication. Exact cleanup decomposition
-and sequencing remain to be specified consistently; a combined multi-change
-node is not the fallback. Playback grouping does not remove intermediate nodes
+tracking and area mutations: advance first, then invariant-closed combat closure
+with contained occurrences/links/pairs removed together. Preserve deterministic
+forward/rollback data and immediate publication of each valid boundary. Playback
+grouping does not remove intermediate nodes
 or turn the invocation into one Undo step. This is not runtime MTG timing adjudication.
 
 ## 13.11 Confirmed repeated attacker declaration (D-133)
@@ -407,9 +410,11 @@ D-123. Source departure/removal does not remove any of its Stack effects (D-125)
 Under D-242, a surviving real source stays linked across locations; only token
 disappearance freezes read-only last-live source information for its effects.
 
-Normal history/undo/branch/offline recovery applies. Placement/order, duplicate-
-source multiselection, snapshot-record mappings and exact concurrent
-operation handling remain separate behavior questions. No ability picker,
+Normal history/eligible Undo/branch/read-only-offline contracts apply. Normalize
+card actions once per live real source, but effect removals/layout once per
+occurrence; Clone requires a live source. Frozen effects are read-only source
+information, not cloneable cards. See [target domains](game-actions.md#target-identity-normalization).
+Snapshot encoding and concurrency mechanics remain technical work. No ability picker,
 automatic activation, cost payment, resolution, or legality checking is added.
 
 ## 13.13 Confirmed one combat projection per source per area (D-135)
@@ -545,7 +550,7 @@ The drop side determines all resulting occurrence roles. Leave all real sources'
 battlefield positions, containing locations, orientation, and unrelated card state
 unchanged; no implicit tap/untap. Preserve other cards' grouping/membership/order
 and remove fully emptied origin pairs normally (D-138/D-139). This is one selected
-drag, not separate user invocations; D-159 supplies parent-node Undo. Exact
+drag, not separate user invocations; latest-own selective Undo applies. Exact
 event/concurrency handling still needs review.
 
 This initially settled selected real battlefield cards; D-142 extends common-
@@ -582,7 +587,7 @@ Mixed-view ordering and spacing remain open. Geometry
 is stage 3. Non-battlefield/other-view applicability,
 duplicate-source view selection handling beyond occurrence uniqueness, between-
 pair side targeting, absent-area entry, no-change records, and event/concurrency
-composition remain open. Normal parent-node Undo and history/branch/offline
+composition remain open. Eligible selective Undo and history/branch/read-only-offline
 recovery still apply; no new selection mode or gameplay Send is introduced.
 
 ## 13.20 Confirmed within-slot insertion and append (D-143)
@@ -595,7 +600,7 @@ whole dragged collection joins that slot side-by-side with its destination role.
 
 This is insertion within one slot, distinct from a between-pair drop creating a
 new pair under D-138. Creating/reusing occurrences, source-state preservation,
-empty-origin cleanup, and normal parent-node Undo/history recovery remain
+empty-origin cleanup, and eligible selective Undo/history recovery remain
 unchanged. Retain the prior slot/order context for recovery. Ordering the moved
 collection itself across different sources/views, exact drop hit regions,
 same-target no-change records, and event/concurrency composition remain open.
@@ -613,7 +618,7 @@ paired-slot membership/order; a final attacker leaving retains the blocker-only
 pair. Remove a pair immediately only if both sides become empty, with permitted
 visual reflow; the combat area remains open even with no pairs (D-138/D-139).
 
-Retain the parent state for Undo (D-159), restoring the removed
+Retain the exact transition for eligible Undo/Redo, restoring removed
 occurrences and prior slots/roles/order/incident links, including any pairs removed
 by this cleanup. Normal dependency, branch, offline, and sync contracts still
 apply; exact event/concurrency composition remains open. This occurrence-only
@@ -650,8 +655,8 @@ multiselect declaration shortcuts. Plain declaration leaves source orientation/
 position/location unchanged; auto-creation does not add implicit tap/untap.
 
 Separate manual area creation remains supported (D-116), and an existing area is
-reused rather than replaced, cleared, or duplicated. Normal parent-node
-Undo/history/branch/offline recovery applies; exact event/concurrency composition
+reused rather than replaced, cleared, or duplicated. Eligible selective
+Undo/history/branch/read-only-offline recovery applies; exact event/concurrency composition
 remains open. This does not settle absent-area drag targeting, authorize new
 single-card quick offerings. D-147 separately fixes declaration quick visibility.
 
@@ -694,7 +699,7 @@ input taps, not mutation boundaries. No runtime legality/priority inference is a
 **D-176 supersedes D-149's combined-node mapping.** Create an absent combat area
 as needed and issue individual occurrence mutations, preserving real source
 orientation, reuse/default pairs and unrelated state. Each mutation has its own
-node, immediate publication and parent-step Undo. Separate manual creation and
+node, immediate publication and eligible latest-own Undo. Separate manual creation and
 declaration remain available; a shortcut adds no extra invocation taps. Exact
 concurrency and remaining selection/no-change presentation cases remain open.
 
@@ -715,7 +720,7 @@ pairs under D-133/D-145.
 Remaining origin cards stay grouped in their slots; remove an origin pair only
 if both sides become empty, allowing visual reflow (D-138/D-139). Moving an
 occurrence without removing it does not remove its incident generic projection
-links. Each variant issues individual mutations under D-176; parent-step Undo
+links. Each variant issues individual mutations under D-176; eligible Undo
 and traversal preserve prior roles/slots/grouping/order, cleanup context and source
 orientation as applicable. D-153 appends the new attacker pairs after surviving
 existing pairs. Order among multiple new pairs, empty/inapplicable-source feedback,
@@ -739,7 +744,7 @@ move existing occurrences rather than copying them. Other cards retain their
 relative order; all moved cards still take the destination slot's role (D-142).
 
 Source-card state, occurrence identities/links, remaining grouping, and normal
-parent-node Undo/history recovery apply. D-156 settles collections
+selective Undo/history recovery apply. D-156 settles collections
 drawn from several combat slots; D-157 settles real battlefield collections.
 Mixed-view ordering, ordering multiple new
 declaration pairs among themselves, no-change presentation, and exact concurrent
@@ -771,7 +776,7 @@ append on an unused-space drop (D-143). Every moved card takes the destination
 slot's role (D-142), regardless of its original row. This orders the collection;
 it does not preserve or split its former roles. Reuse occurrence identities,
 preserve source-card state/links and other cards' relative order/grouping, and
-remove only fully empty origin pairs. Normal parent-node Undo restores the
+remove only fully empty origin pairs. Eligible Undo/replay restores the
 prior roles/slots/order and cleaned-up pairs.
 
 Mixed real/projection-view ordering, ordering
@@ -791,7 +796,7 @@ sequence together in the chosen slot (D-140–D-143). Existing combat positions 
 not override the selected real views' visual order. All occurrences take the
 destination role; real source position/location/orientation stays unchanged.
 Preserve identities/links, other cards' relative order/grouping, normal fully-empty
-origin cleanup, and parent-node Undo.
+origin cleanup, and eligible latest-own Undo.
 
 Mixed real/projection selections, duplicate-source views, order among new
 declaration pairs, exact ordering for irregular/overlapping battlefield layouts,

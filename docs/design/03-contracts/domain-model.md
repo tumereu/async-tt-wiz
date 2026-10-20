@@ -30,15 +30,18 @@ position is not a new game-history action.
 an editing mode that must be entered and sent. Completed game actions
 automatically enter the durable synchronization queue.
 
-Confirmed user-text normalization (D-59): trim leading and trailing whitespace
-from all user-entered text when an edit is completed, including corner/counter
-text, labels, names, notes, and messages. Preserve internal whitespace and line
+Confirmed card-text normalization (D-59/D-249): trim leading and trailing whitespace
+when a card-text/counter edit is completed, including corner text, card labels
+and notes and equivalent player-counter input. Preserve internal whitespace and line
 breaks; this is edge trimming, not collapsing or rewriting the content. Apply
 trimming before empty-value validation and text-pattern matching, and record
 the resulting text. Unfinished input is not a completed edit. Empty counter
 text removes the counter; emptiness behavior for other fields is field-specific,
 not automatic deletion everywhere. This rule does not silently rewrite existing
 history or authorize normalization of external catalog/import data.
+Do not apply this as a universal rule to credentials, account/deck names or
+messages. Passwords preserve whitespace/Unicode under the account contract;
+other non-card field normalization requires its own contract.
 
 ## 2.2 Logical entities
 
@@ -87,8 +90,8 @@ last-seen parent is not a blanket server head lock or implicit fork request.
 Persist the accepted parent and deterministic transition so replay includes
 intervening compatible edits. Exact pending-to-accepted node mapping remains open.
 
-Live cursor/activity presence is ephemeral transport data, not a persistent
-game-state entity. Proposed placement, pile, and marker behavior is defined in
+Live cursor/activity presence is excluded from R1 (D-241), not a required
+transport channel or persistent entity. Placement, pile, and marker behavior is defined in
 [the board contract](board-and-controls.md). Exact schemas remain open.
 
 D-92 makes every new die/coin invocation a fresh draw, even after undo, replacing
@@ -113,19 +116,19 @@ retention after queue clearing and physical schema are not decided. The earlier
 pointer/retention model below is superseded rewind context, not an immutable-tree
 constraint on Undo/Redo.
 
-Earlier D-159/D-222 retain every undone node in the mutation tree with its initial-state
-root. Undo remembers the last active head; Redo follows the path toward that head
-using recorded states/results. Changed play creates a new active continuation.
+The initial-state root and genuine explicit alternative continuations are retained.
+Undo removes eligible latest-own mutations; Redo reinserts from the per-player,
+per-incarnation shared stack (D-232/D-235). Personal review cannot select a target
+or truncate the retained-future replay/fork checks (D-245).
 The graphical tree explorer permits activation of any retained branch/node, not
 just tips; personal review alone never activates. The active pointer is independent
 from retained tips and personal review. A filter hides only single-player/
 no-exposure inactive continuations without event comments behind Show hidden
 branches; mixed-player/exposure/event-comment paths stay visible in full (D-223).
-D-161 binds Undo to a specific node-to-parent transition;
-if no longer valid, silently discard it and reconcile local state. Offline Undo
-creation is excluded by D-182. Exact remembered-head user/device scope, updates
-after explicit activation, concurrent/stale controls, pre-fork/nested presentation
-and protocol/schema details remain Q-16/Q-31.
+D-236 processes distinct Undo requests as successive server-side presses, with
+idempotent recovery for delivery retries; D-161 captured-parent Undo is retired.
+Offline event creation is excluded by D-246. Exact concurrent activation,
+pre-fork/nested presentation and protocol/schema remain technical/UI work.
 
 D-89/D-91 exposure coverage remains: library View/Reveal, covered hand/card-face
 views including covered-face holds, die/coin results, and any actual hidden-info
@@ -406,8 +409,9 @@ D-123/D-242 settle that existing sources and projections share live card state:
 no independent projection corner text, counters, notes, faces/cover or orientation.
 Card actions through either view operate on the real source. A projection dragged to a real
 destination moves that source with ordinary validation/reset/token-removal
-behavior. Duplicate-source selection, token-Remove versus occurrence-Remove entry,
-and link/ping endpoint routing remain separate behavior questions.
+behavior. Card operations normalize aliases to real source IDs once; occurrence
+operations retain distinct IDs and ping/link endpoints retain explicit identities.
+See [target normalization](game-actions.md#target-identity-normalization).
 
 D-122 removes the combat area and its projections/projection links without
 changing source cards' current state. It neither untaps attackers nor rolls back
@@ -749,8 +753,8 @@ illegal in their game are not rejected merely on game-rule grounds.
 
 ## 2.7 Generic extension data
 
-Support free-form text, named counters, custom cards/tokens, annotations, and
-explicit state edits so unsupported or newly printed mechanics do not block
-play. Such edits still have typed, reversible changes and a readable history
-summary. “Edit anything” is not permission to submit arbitrary executable code
-or overwrite an unvalidated database blob.
+Generic storage may represent extension data, but R1 exposes only confirmed card
+text/notes, colored card/player counters/life, catalog/Blank tokens/Clone, pings,
+links and ordinary edits. Arbitrary custom-piece/definition/named-tracker/layout
+editors are excluded (D-241). In-scope edits still have typed reversible changes
+and readable summaries; no arbitrary scripts or unvalidated database blobs.

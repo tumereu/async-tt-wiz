@@ -50,8 +50,8 @@ D-127 adds a combined advance out of combat + close area quick action. Ordinary
 phase/step changes and End turn leave the area open until explicit closure.
 Standalone advance/close and non-quick access to the combination remain available.
 D-128 shows the quick action only at End of combat, advancing to Postcombat main;
-the full path remains available. D-159/D-160 set Undo to one parent node,
-regardless of author, replacing whole-invocation/group scope. D-176 makes each
+the full path remains available. Undo removes one eligible latest-own mutation,
+not a whole invocation/group (D-231/D-232). D-176 makes each
 node one individual mutation, superseding combined-node mappings such as D-132.
 Groups control playback/navigation and concurrent animation, not publication or
 the node pointed to by the client. Missing-area/out-of-combat handling remains
@@ -94,9 +94,9 @@ timing and transfer of personal device state remain open; see the
 | Card/object inspector | Automatically show readable face art/text despite face-down table presentation, and both printed faces for multi-faced cards; modified state, available actions, attachments/history. Inspection does not change shared presentation. |
 | Zone browser / pile actions | Pile tap opens contents and pile context actions together. Contents use card-type category columns with name search/filtering and hold inspection (D-50). Explicit View/Reveal is shared/logged: View shows faces to its actor and backs to the other participant; Reveal shows faces to both. Full-library contents hide overall order; explicit top/bottom-N displays preserve source order rather than type-grouping. Grouping/filtering never reorder stored contents; exact columns and covered opponent layout remain open. |
 | Action/group review | Before/after changes, action stepping, interrupt at this boundary. |
-| History tree | Forks, active path, archived lines, compare, switch, return, restore. |
-| Sync/recovery center | Pending/rejected/failed work, explicit interruptions, retry/export/recover. |
-| Game communication | Context-linked messages, response requests, game activity. |
+| History tree | Forks, active path, archived lines, review/explicit activation, return and restore. No branch comparison/renaming (D-241). |
+| Synchronization status | Pending/rejected status and automatic already-sent recovery within ordinary flows. No dedicated recovery-center/export screen (D-241). |
+| Game communication | Simple chat, event comments and contextual pings/game activity. No response requests/read receipts/presence (D-241). |
 | Settings/storage | Notifications, accessibility, cached data, account and data management. |
 
 **Ending play (D-211)** uses a proposed win/loss/draw as shared, undoable board
@@ -173,25 +173,21 @@ available in the Redo stack, not a required explorer branch. Effects on review
 cursors, comments/pings, cached states and existing side branches remain open;
 do not silently switch historical context or assume an immutable old path remains.
 
-Earlier D-159/D-222 rewind model: Undo moves the shared active pointer one parent back and remembers
-the last active head; Redo follows the path toward that head with original
-states/results. Retain all descendants. Changed play branches and becomes active.
 A **graphical tree explorer** allows review and explicit activation of any retained
 branch/node, including internal nodes/root; reviewing alone does not activate.
 Hide only single-player inactive continuations without exposure or event comments
 behind a separate Show hidden branches toggle. Mixed-player/exposure/event-comment
 continuations stay visible in full (D-223), even for a one-author/no-reveal comment
 path. Covered summaries do not automatically disclose identities.
-Exact pre-fork/nested presentation, remembered-head user/device scope, concurrent/
-stale Redo/activation and exposure coalescing remain open; these are not pings or
+Exact pre-fork/nested presentation, concurrent activation and exposure coalescing
+remain technical/UI work; these are not pings or
 permanent board markers.
 
 D-94/D-95 distinguish game-wide Chat (not undoable once submitted) from event-
-context comments (nodes on the ordinary current tree path, retained after undo).
-The path is already a branch; do not add a special comment-only fork workflow.
-Undo moves one parent back while retaining the whole comment-bearing abandoned
-continuation visibly under D-160, explicitly reaffirmed by D-223 even without
-exposure/other-player actions. D-240 keeps chat simple: submitted messages have no
+context comments (ordinary current-path nodes, eligible for removal/reinsertion).
+Do not add a special comment-only fork or a pre-Undo explorer copy. Genuine
+comment-bearing alternative continuations stay visible under D-223. D-240 keeps
+chat simple: submitted messages have no
 Edit/Delete, corrections use another message, and no expansions are planned.
 D-241 excludes dedicated event-comment Edit/Delete; correct with eligible
 ordinary Undo or another comment. Exact event/group association, pending chat
@@ -250,9 +246,9 @@ inspection alone does not create a branch. Explicit View/Reveal is logged;
 its exact history/branch association remains Q-28. Optional naming and
 explanations never block play.
 
-An interruption with no reaction actions may still be useful as a rollback or
-response request. Exact naming and whether an empty branch is allowed must be
-decided before implementation.
+Explicit activation can select a retained earlier state without reaction play.
+No separate empty-interruption/response-request feature is an R1 deliverable
+(D-241); it is not an outstanding required screen/control decision.
 
 ## 5.5 Editing and grouping flow
 
@@ -283,8 +279,8 @@ decided before implementation.
 - D-58 selects red/blue/green/yellow/purple/gray counters, one per color on each
   card/player. Show numeric `0`; completed empty text removes the counter.
   Temporary unfinished editor input does not itself publish deletion. Exact
-  styling remains open. D-59 trims all user-entered
-  text on completion, so whitespace-only counter input removes it. Preserve
+  styling remains open. D-59/D-249 trim completed card-text/counter
+  input, not credentials or arbitrary other text; whitespace-only counter input removes it. Preserve
   internal spacing/newlines and apply text-pattern matching after trimming.
 - D-67 replaces D-60's initialization/color-choice flow with per-color +1/-1/Set,
   no Add/Initialize. No recolor action is needed. D-61 confirms inline card-menu
@@ -359,7 +355,8 @@ decided before implementation.
   edits use each card's own value and corner Reset each card's own default.
   D-67 skips targets where the individual action is unusable and disables a mass
   control only when none are applicable. D-68 resolves missing-counter arithmetic;
-  mixed rendering and context targeting still require Q-30 outcomes; no reduced menu.
+  mixed rendering remains later UI work; D-248 captures selected/unselected
+  context-card scope when opening Actions, without a reduced bulk menu.
 - D-70 adds card context Link -> pick a card/player endpoint. Endpoint picking
   consumes the tap without ordinary tap/untap or player-menu effects. Persistent
   connectors follow endpoint positions without moving linked cards. D-71 uses
@@ -380,8 +377,7 @@ decided before implementation.
   containers only, reorder controls also support accessibility and precision.
 - A compact activity strip shows the automatic current group, pending status,
   and undo. No gameplay Send/Done button is required to share actions.
-- Group labels and boundaries are optionally editable after automatic
-  publication; labels never alter game state.
+- Groups are automatic; no manual label/boundary editor in R1 (D-241).
 - Completed actions are already queued when leaving a game. Navigation must not
   add a keep/send/discard prompt; synchronization continues subject to Android
   limits and resumes automatically when possible.
@@ -391,22 +387,20 @@ decided before implementation.
 
 ## 5.6 Undo and destructive-looking actions
 
-**D-224 scope:** the parent-step/remembered-head entries below describe the
-earlier rewind controls. Selective removal/reinsertion uses its stricter suffix
-tuple test; do not assume the same control mapping or stale-request behavior.
+Use the [current selective contract](history-and-undo.md#selective-mutation-undoredo--d-224),
+not retired parent-pointer/remembered-head controls.
 
 - A persistent undo entry point complements any transient snackbar.
 - Show the exact object/action/branch affected, not merely “Undo.”
-- Normal Undo moves one parent node back, regardless of author; composite actions
-  may require multiple presses. It is not selective historical rollback.
+- Undo removes your latest eligible still-applied mutation. Composite actions may
+  require multiple presses; revealing/blocked targets cannot be removed/skipped.
+  Personal viewing never changes the target or truncates retained-future checks.
 - Branch “Delete” wording must disclose “recoverable from archived branches.”
-- Undo captures a specific node-to-parent transition (D-161). If it becomes invalid,
-  silently discard it and reconcile local state: no toast, warning, notification,
-  confirmation or retry chore. Never retarget it to unseen work. The same rule
-  applies after reconnect; non-Undo branch-control policies remain open.
-- D-222 Redo follows the remembered last active head, not an arbitrary child or
-  mandatory fork picker. Deliberately selecting another branch/node is a separate
-  graphical-tree activation; exact control labels/layout remain later UI work.
+- Distinct Undo requests are successive server-ordered presses (D-236), not
+  captured-parent transitions. Retrying one request recovers its original outcome.
+- Redo is last-undone-first reinsertion, not remembered-head traversal. A blocked
+  next entry disables Redo without discarding/skipping it. Explicit graphical-tree
+  activation remains separate; exact control labels/layout remain later UI work.
 
 ## 5.7 Offline, pending, and conflict states
 
@@ -414,6 +408,9 @@ tuple test; do not assume the same control mapping or stale-request behavior.
 shared controls, including Undo and branch activation. Offline use is read-only
 for downloaded games/history; there is no offline gameplay queue to replay later.
 Keep personal review/navigation separate from shared controls.
+No offline operation may create a game event (D-246). Downloaded visible content
+and recorded outcomes remain readable, but a new covered/other-face inspection
+requiring exposure logging needs a connection, even if its data is cached.
 
 **Confirmed D-215:** while disconnected, show a **Reconnecting...** dialog that
 **blocks gameplay actions**, including shared Undo/branch controls. Do not create
@@ -480,12 +477,12 @@ This does not publish a shared Undo, create a branch or undo the opponent's work
 Animate incoming opponent mutations too; preserve personal historical cursors.
 Preserve recoverable rejected work; exact request recovery, prediction bookkeeping
 and animation scheduling remain open within D-185's confirmed behavior.
-D-161's silent stale-Undo discard remains specific to Undo, not a blanket policy
-for rejected ordinary actions.
+D-236 server-ordered Undo remains separate from ordinary actions and their
+reconciliation; D-161 captured-parent Undo is retired.
 
 An explicitly requested historical continuation makes its branch current and
-preserves the displaced line for inspection/return. Normal Undo moves one parent
-back, not automatically to the displaced future. Retry does not duplicate actions
+preserves the displaced line for inspection/return. Normal Undo removes the latest
+eligible own mutation, not automatically activating the displaced future. Retry does not duplicate actions
 or branch activation. Preserve personal review positions and local work when the
 active line changes; detailed queued-continuation handling remains open.
 
@@ -525,9 +522,9 @@ categories, foreground suppression and multiple-device routing remain open.
 This approval does not separately confirm additional notification categories for
 explicit branch switches or response requests, or define an unread/read model.
 
-**Remaining proposals:** additional branch-switch/response-request alerts and
-their preference behavior remain unapproved; do not turn these into R1 in-app
-settings contrary to D-220. Notification previews should avoid covered identities
+**Excluded from R1 (D-241):** additional branch-switch/response-request alerts and
+their preference controls; these are not a required design backlog or roadmap.
+Notification previews should avoid covered identities
 beyond the confirmed no-covered-card-names rule. Deep links open the referenced
 game/boundary but check current branch status and access.
 Stale notifications are harmless pointers to history, not instructions to replay

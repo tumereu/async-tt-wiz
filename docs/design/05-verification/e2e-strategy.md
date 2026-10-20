@@ -139,6 +139,10 @@ T-IDs link to [existing acceptance outcomes](acceptance.md), not new gameplay.
 | Same-account multi-device | Users and saved decks only. | Log the same player in on two normal instances, opponent on a third → start through UI → action on phone, Undo on tablet, Redo on phone → distinct concurrent Undo presses → normal independent edits. Check synchronized player-specific stack and no exclusive-device barrier. | T-483–T-485, T-529–T-533. |
 | Logout privacy | Users and saved decks only. | Download/play as A with an already-sent unknown-outcome action → Logout → login as B → confirm no A content → login as A and recover once. Do not erase app data or reset backend between these steps. | T-543. |
 | Dynamic catalog and artwork | Users only; import decks through UI. | Start using catalog A → inspect art/faces/defaults → publish catalog B externally → resolve/import new definitions normally → reopen/review the existing game → simulate missing images and inspect text fallback. Repeat with the alternate dataset without rebuilding the app/backend. | T-023, T-122–T-124, T-549–T-550. |
+| Bulk conflicts and normalized targeting | Users and saved decks only. | Through UI select/drop multiple cards; externally arrange both server arrival orders against opponent UI moves. Select a source and its effects, apply card edits/Clone versus occurrence removal. Open selected/unselected Actions and change selection during Set. Check exact mutated identities and partial authoritative placement, not only highlights. | T-554–T-557, T-566–T-571. |
+| Retained future and Redo target fidelity | Users and saved decks only. | Build dependent/independent paths through UI, vary personal review, explicitly activate internal nodes, then Undo. Build P/Q/R counter/note sequence through both players and remove R/P before Redo R. Inspect unchanged retained nodes and blocked stack. | T-558, T-562–T-563. |
+| Exposure and incarnation recovery | Users and saved decks only. | Start → recorded inspection → offline replay versus blocked new covered inspection. In separate variants reject an online revealing prediction with external traffic control, restart/recover its exposure, then end/start fresh play while an old UI-originated request remains delayed. No forged request/history setup. | T-559–T-561, T-576–T-577. |
+| Context/grouping and credential boundaries | None for credential variants; users/decks only for gameplay variants. | Register/reset/login with valid whitespace/Unicode passwords; play mixed anchor/tap sequences and add historical pings/comments from both players, viewing before/after effective boundaries. Observe final groups and preserved exact cursor under incremental sync. | T-564–T-565, T-572–T-575. |
 
 This is an initial journey inventory, not complete executable coverage of every
 T-ID or a claim that any test has run. Keep scoped variants focused and map each
@@ -166,5 +170,9 @@ or personal data. Never turn a failure into a pass by silently rerunning it.
 
 Model/property/protocol/fault/compatibility/operational tests remain valuable
 alongside E2E, but do not replace these real-backend/normal-app acceptance paths.
+Every-node invariants/exact inverse and batch-versus-incremental grouping also
+need lower-level property tests. T-578's CPU/memory/payload/fan-out measurements
+are technical performance tests, not an invented product Stack-count limit or a
+claim that UI timing alone proves bounded replay cost.
 Future implementation slices must include traceable full-stack UI scenarios;
 tooling, device matrix, timeout budgets and CI scheduling are later technical work.

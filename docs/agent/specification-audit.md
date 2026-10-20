@@ -3,6 +3,24 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
+## October 20 adversarial-review reconciliation
+
+The [October 19 review follow-up](adversarial-review-2026-10-19.md#documentation-follow-up--2026-10-20)
+tracks repairs for R-01–R-15 and owner clarifications D-245–D-250. Old active
+pointer-Undo/captured-transition/immutable-parent or excluded-scope assertions
+were corrected in the primary contracts and stable acceptance rows. The original
+review and historical notes below remain provenance, not proof those exact defects
+are still open or a reason to ask settled questions again.
+
+Undo checks all retained successors independently of personal viewing; offline
+inspection creates no event; Stack equality compares current ordered entries;
+Actions captures context targets; trimming is not credential normalization; taps
+are transparent to matching groups. Target fidelity, invariant closure, annotation
+contexts, identity normalization, incarnation fencing and replay cost obligations
+now have general contracts plus T-554–T-578/E2E journey coverage. Representation,
+numeric budgets, credential strength/provider and service retention remain proper
+technical/security work. No implementation or stage transition was authorized.
+
 ## Gap pruning and batch review — D-237
 
 The owner corrected repeated "gap" questions whose answers followed from agreed

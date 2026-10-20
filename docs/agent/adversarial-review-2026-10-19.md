@@ -5,6 +5,9 @@
 Reviewed repository baseline: `e468c8c8ac90ca4d66df0fc9c7108c6620ef04be`.
 This is a review report, **not an amendment, owner decision, stage transition or
 implementation authorization**. The specifications were not changed by this review.
+The original findings below remain a baseline record; see the
+[October 20 follow-up](#documentation-follow-up--2026-10-20) for the subsequent
+owner discussion and documentation repairs.
 The next session should fix documentation and verification contracts, not build an
 application. Read `AGENTS.md`, the design index and current session handoff first.
 
@@ -607,4 +610,48 @@ approval requests.
   observable behavior; no blanket “implementation detail” escape hatch.
 - Markdown links/anchors, stable-ID consistency and whitespace checked; only
   task-owned paths saved with `./scripts/save.sh`, committed and pushed under the
-  project instructions. Report blockers without bypassing checks.
+   project instructions. Report blockers without bypassing checks.
+
+## Documentation follow-up — 2026-10-20
+
+Owner reviewed the residual-choice batch and corrected its framing. D-245–D-250
+record the answers; they are not blanket acceptance of the assistant's proposals:
+Undo never depends on personal viewing, offline use creates no game events,
+Stack state is its current cards/effect entries, Actions captures selected versus
+unselected target scope, trimming concerns card text rather than credentials,
+and intervening taps never cause a group split. In particular, the proposed
+offline exposure queue and frozen-status/link Stack locks were **not selected**.
+
+The following are documentation/test-contract repairs, not executable test results
+or permission to implement/advance stages. Primary contracts own the rules; this
+table is a work disposition, not a parallel specification.
+
+| Finding | Documentation disposition | Verification |
+| --- | --- | --- |
+| R-01 | Replaced active parent-pointer/captured-Undo/remembered-head definitions in product, history, grouping, controls, projection and storage contracts. Corrected old stable test IDs directly; exposing targets are blocked and removed paths are not copied. Physical immutable logs are optional representations of editable logical trees. | Corrected T-006/T-172–T-186/T-193/T-237–T-240/T-275/T-281/T-287–T-296 and related wording; current T-501–T-539 remain the baseline. |
+| R-02 | R1 capability rows, included scope, screens, examples and API deliverables explicitly exclude D-241 extras; confirmed Blank/token/Clone, automatic groups and branch recovery remain. | Corrected T-021/T-046/T-049/T-051/T-240/T-310; T-544 scope audit. |
+| R-03 | Whole-drop invalidity is prevalidation, not a server reservation. Valid bulk moves retain individual arrival-order results and difference-only correction/selection. | T-077, T-554/T-555. |
+| R-04 | Individual operations include invariant-closing mandatory effects; capture last-live token state first. Independent operations stay separate. Advance-and-close records tracking then invariant-closed area closure. | T-238, T-556/T-557; every-node inverse/property coverage. |
+| R-05 | D-245: no personal-view influence; all retained successors count, even beyond activated shared internal nodes. Any later retained fork blocks removal; linear successors must preserve tuples. | T-558. |
+| R-06 | Target recorded-transition fidelity precedes suffix validation. Different relevant input blocks Redo even with a surviving anchor and empty suffix; never rerun a fresh live action. | T-562/T-563. |
+| R-07 | D-246 excludes all offline event creation, including new event-producing inspection. Online actual exposure is durably captured independently of board acceptance and retained after rejection/restart, with original context and covered summaries. No offline exposure queue or automatic branch. | T-368, T-559–T-561. |
+| R-08 | Recording and referenced contexts are distinct. Append historical annotations in current causal order; render no future overlay at an old boundary, preserve referenced context/dependencies, and number/toggle within the recording event. | T-564/T-565. |
+| R-09 | Generic source-versus-occurrence target normalization, including Clone, frozen sources and explicit link/ping identities. | T-566/T-567. |
+| R-10 | D-247: ordered actual-card/effect-entry identities, not live rendered fields, source location/frozen status, links or coordinates. Existing entry/removal/reorder guard remains. | T-389–T-395, T-568/T-569. |
+| R-11 | D-250 tap transparency; deterministic sequence resolution with leading/pending companion presentation, no publication delay or manual group editor. Worked closure/tracking/random sequences apply existing forward/backward attachment. | T-304, T-574/T-575; prefix-extension and incremental/batch equivalence. |
+| R-12 | Explicit persistent-lobby versus play-incarnation scope for requests/results/stacks/recovery. Old committed outcomes never overwrite fresh play; old uncommitted commands cannot mutate it. Invitation retries preserve original attempt/outcome. | T-576/T-577, including object-free End turn. |
+| R-13 | Technical cost model includes target/payload/snapshot/reference/fan-out/rebuild cost in addition to hard N. Budget exhaustion means unavailable/no partial edit, not a product count cap or expiry. Exact measured budgets/indexing remain technical work. | T-578 plus long-suffix T-506. |
+| R-14 | D-248 captures context-card/selection targets at opening; selection changes or missing targets cannot redirect an editor. Same rule for accessible Actions and normalized source/occurrence commands. | T-127, T-570/T-571. |
+| R-15 | D-249 scopes trimming to card/text-value tools; credentials preserve password whitespace/Unicode consistently. Account names/email/strength/provider rules remain separate security design, not inherited tabletop normalization. | T-112, T-572/T-573. |
+
+The E2E strategy adds UI-originated full-stack journey variants for these cases,
+using synthetic data, real backend/normal Android instances and setup-only user/
+deck helpers. Model/property/protocol/performance tests supplement them. Numeric
+budgets, wire encoding, credential strength/provider, retention/rights and later UI
+geometry are not silently selected. Further genuinely new gaps may still emerge;
+the repaired review is not exhaustive behavior certification.
+
+Documentation validation: local Markdown paths/anchors, complete unique T-001–
+T-578 and D-01–D-250 registers, preserved existing P/A/B/D/T IDs, reference
+consistency and Git whitespace checks. These checks validate documentation only,
+not gameplay execution or a selected technical implementation.

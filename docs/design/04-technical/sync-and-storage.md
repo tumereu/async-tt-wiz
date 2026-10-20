@@ -58,22 +58,15 @@ The earlier pointer control model below is superseded for Undo/Redo. In particul
 its original-node-retention and automatic post-Undo-fork assumptions do not apply
 to D-232. Existing genuine branches and D-223 filtering remain distinct.
 
-Earlier D-159/D-160 required an explicit active node pointer independent from retained
-continuation tips. Undo moves it one parent back, regardless of actor; retained
-nodes are never physically deleted by Undo or replacement play. The pointer move
-is a control operation, not another board-action child. D-222 adds a remembered
-last active head for Redo and a graphical explorer for explicit any-node activation.
-Only single-player/no-exposure inactive continuations qualify for hiding behind
-Show hidden branches, except event-comment paths also stay visible (D-223).
-Mixed-player/exposure/event-comment paths stay visible in full. Sync must converge
-on the shared tree/control state without confusing presentation filtering with
-deletion. D-161 binds Undo to a specific node-to-parent transition and silently
-discards it if no longer valid, reconciling client state without notifications.
-This applies to concurrent online requests too. Offline Undo creation is excluded
-by D-182. Exact remembered-head user/device scope, memory changes on activation,
-concurrent/stale Redo/activation, schema and pre-fork/nested presentation remain
-open. Retained existing
-alternatives remain recoverable; D-179 prohibits new implicit conflict branches.
+The shared active pointer is independent from retained continuation tips and
+personal review. D-236 Undo requests target the latest own mutation at processing;
+each distinct request is another press, while retries recover one original result.
+Redo reinserts last-undone-first from the per-player/per-incarnation stack shared
+across that account's devices (D-235), not a remembered active head. D-245 checks
+all retained successors, including beyond an activated internal node; personal
+view heads never truncate validation. A fork anywhere at/after the target blocks
+removal; no partial suffix check. Retained genuine alternatives remain recoverable
+and D-222/D-223 filtering deletes nothing. D-179 prohibits implicit conflict forks.
 
 ## 6.2 Publication and concurrency
 
@@ -123,7 +116,7 @@ and chosen boundary for the latter. D-187 applies ordinary operations to current
 state unless impossible, retaining limited movement/Stack guards rather than
 previous-field-value or whole-game-head checks. D-232 Undo/Redo do not supply
 historical-continuation intent. Proposed additional fields include an
-idempotency key, game ID, action data and group references. D-184 uses ordered
+idempotency key, persistent lobby ID, play-incarnation ID, action data and group references. D-184 uses ordered
 delivery rather than dependency metadata for sequencing. Object IDs and explicit
 historical-boundary references remain necessary semantic data, not a sequencing
 graph. Exact field names, revision scopes and schema remain technical design.
@@ -149,6 +142,16 @@ ordered transport, new-object/reference handling, queue size/saturation and anim
 remain open; they must support the confirmed concurrent online pipeline, not
 restore stop-and-wait as a blanket policy. Preserve each operation's identity when
 resolving delivery uncertainty; do not resubmit as a different action/random draw.
+
+Fence every gameplay/control/annotation/exposure request and result reference to
+its originating play incarnation, distinct from persistent lobby reuse. Recovery
+may return an ended incarnation's original committed result but never apply it
+or its snapshot to fresh play. Reject an uncommitted old command without mutating
+the new incarnation, including object-free End turn. Preserve protected old
+recovery records across restart/reauthentication; exact fencing/ID generation is
+technical. Invitation actions similarly retain their original attempt/outcome:
+a retry of an old Accept/Decline must not become a response to a later reinvitation.
+This does not select a new duplicate-invitation policy.
 
 Proposed outcomes:
 
@@ -239,12 +242,10 @@ affected references/removal behavior remains open. Exact comment/
 group association, revisions, edit/delete, unsent chat delivery, and idempotent
 publication remain open. Do not apply a blanket message-undo policy to both.
 
-Pings are generic, action-linked communication records, not game-rule target
-declarations. They synchronize durably with source-action/group and effective
-context references; they cannot mutate card state as a side effect. Their exact
-history/revision placement is still a protocol decision. Live activity/cursor
-presence is a separate best-effort channel: it expires, does not enter the
-durable game history, and never replays stale offline presence as current activity.
+Pings are generic communication records, not rule-target declarations. Recording
+and referenced contexts remain separate under the annotation contract, including
+effective revision, path and play incarnation; encoding cannot reassociate them.
+Live activity/cursor presence is excluded from R1 (D-241), not a required channel.
 
 ## 6.4 Online request durability
 
@@ -303,8 +304,10 @@ Snapshots accelerate loading but are disposable caches. Their key identifies an
 action boundary, reducer/schema version, and integrity digest. Replay from root
 or a verified snapshot must produce the same logical board.
 
-Immutable action nodes and stored random outcomes are the durable gameplay
-record. Schema migrations must preserve old histories and redo results. An
+Versioned accepted mutation-tree records and stored outcomes are the durable
+gameplay record. An immutable physical audit/event log may encode tree revisions,
+but logical ancestry is edited by Undo/Redo; immutable parents are not a contract.
+Schema migrations must preserve accepted histories and recorded redo results. An
 upgrade cannot reinterpret an old literal action using newly inferred semantics.
 
 If local corruption is detected, retain/export drafts, invalidate derived data,
@@ -318,15 +321,15 @@ two admitted participants can read or mutate the game unless an explicit sharing
 feature is later approved. Both have equal tabletop rights, including hidden
 zone inspection.
 
-D-89/D-90 retain information-gaining actions as shared history branches after
-undo, including covered-face inspection and die/coin results. They are distinct
-from cancelable ordinary board effects/ephemeral presence, not a new opponent
-access-control layer. Specify durable local capture, reconnect publication/
-deduplication, branch/offline availability, and covered-summary disclosure in
-Q-31. Already-visible-face holds and every search keystroke are not in the
-confirmed scope merely as gestures; D-91 covers any actual resulting exposure of
-otherwise-hidden information, including draw/move/face changes. Exact unfinished-
-input/exposure boundaries remain open.
+D-89/D-91 require retaining actual exposure, including rejected online predictions;
+D-224 excludes revealing selective-Undo targets. Follow the
+[exposure lifecycle](../03-contracts/history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246):
+capture durably before displaying new hidden content, keep viewed versus recording
+contexts and request identity, and recover already-initiated online records across
+restarts/reconnects. D-246 permits no offline event creation/deferred inspection
+queue. Downloaded recorded visible content remains readable; new event-producing
+inspection needs a connection. Deduplicate retries, not distinct exposures. No
+automatic gameplay branch, board marker or covered-identity summary is required.
 
 Transport authentication, invite authorization, secure credential storage,
 request limits, and validation remain necessary. Clients are untrusted inputs;

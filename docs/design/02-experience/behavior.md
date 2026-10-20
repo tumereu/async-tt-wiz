@@ -210,7 +210,9 @@ The general rules are:
 - Notes use a multiline editor; short text appears on the card, longer text may
   be ellipsized but remains fully readable. Empty text removes the note. Notes
   survive ordinary moves, including the reset destinations.
-- Completed user text is trimmed at its ends; internal spaces/newlines remain.
+- Completed card text/counter input is edge-trimmed; interior spaces/newlines
+  remain. This is not universal credential/account/deck/import/message normalization
+  (D-249); passwords preserve whitespace/Unicode consistently.
   Counter and corner +/- and Set keep/return to the action menu for repetition;
   successful Move to Graveyard dismisses it.
 - Link → pick a card/player creates a persistent visual connector; selection
@@ -359,8 +361,8 @@ The general rules are:
   does not authorize branching. D-232 Undo/Redo edit the tree without branching.
   Keep the old future; never automatically replay it onto the response. An interruption
   can be left by explicitly returning to its retained original continuation;
-  branch deletion is recoverable archival. In the earlier rewind model, Undo follows the active node's
-  parent, not automatically the old future's tip.
+  branch deletion is recoverable archival. Undo does not automatically activate
+  the displaced future.
 - Ordinary edits apply at the server's current head unless genuinely impossible
   (D-187). Do not reject taps, notes, Set or other ordinary edits because their
   previous field values changed. Absolute edits write the requested value;
@@ -371,6 +373,9 @@ The general rules are:
   state in the addition request and reject if it differs from the server's current
   Stack state. This applies to real-card entry and projection creation, without
   separate seen/opponent detection, priority enforcement or a whole-game-head lock.
+  D-247 compares the ordered current real-card/effect entries, including distinct
+  occurrence/source identities—not card text/counters, source movement/freezing,
+  links, layout coordinates or personal presentation.
   Rejection/staleness never creates a branch. Historical
   continuation still requires an explicit flag/boundary and makes its new branch
    current. D-232 Undo/Redo edit the existing tree rather than supply interruption
@@ -382,9 +387,9 @@ The general rules are:
   but a move followed by a tap of the same card can be independent. Set a hard
   limit N on the suffix work; the value/counting unit and per-mutation relevant
   states still need definition. Selective Undo excludes information-revealing
-  targets. No compensating edit is appended. Pointer/button behavior, Redo queue
-  anchor details and remaining reference/view integration need contracts; the older
-  parent-pointer description below is superseded for Undo/Redo.
+   targets. No compensating edit is appended. Redo also requires the target's exact
+   recorded relevant input/result at its insertion boundary, not fresh arithmetic
+   or defaults. Encoding and resource budgets remain technical work.
 - **Tree editing (D-232):** Undo removes and Redo reinserts a mutation in the
   existing tree. Neither creates a new branch or preserves the old path as an
   alternative. Later actions replay in the edited tree, under D-224. Removed
@@ -429,9 +434,12 @@ The general rules are:
   historical activation remain distinct controls.
 - **Fork boundary (D-233):** Undo cannot remove a branching point or reach back
   past one, even if replay would be safe. Disable Undo when the latest own target
-  is a fork or lies before a fork on the path to the active head; do not skip it
+   is a fork or has any later retained fork; do not skip it
   or reattach alternatives. Actions after the latest fork remain eligible under
-  the usual checks. Hiding a branch in the explorer does not bypass this rule.
+   the usual checks. Hiding a branch in the explorer does not bypass this rule.
+  D-245 clarifies that personal viewing never changes eligibility. Check the
+  complete retained successor chain even beyond an explicitly activated internal
+  shared node; dependent future events still block Undo and all count toward N.
 - **Redo fork boundary (D-234):** if a new fork would require reinserting an
   undone action before it, disable Redo and retain the stack. Do not skip the
   entry, move it to the current head or create a recovery branch. The historical
@@ -444,17 +452,10 @@ The general rules are:
   Independent moves
   into Graveyard/Exile need not block each other merely because unrelated contents
   or display positions differ. No Graveyard/Exile order-related controls remain.
-- In the earlier rewind model, Undo moves the shared active state to its parent node, regardless of who made
-  that node. Retain descendants; explicitly returning to one through the tree can
-   select its state, while merely reviewing it does not make it current. Bulk and
-   combined shortcuts create individual mutation nodes, not one whole-invocation
-   node. Undo follows one parent per press even when several mutations animate
-   together. An empty draw contributes no invented card-move node.
-- In that earlier rewind model, Undo remembers the last active head; **Redo follows the path toward that head**,
-  not a silent choice among children or a mandatory fork picker (D-222). Further
-  Undo presses keep that destination. Changing/intervening after Undo creates a
-  new active continuation and retains the old one, rather than replaying its
-  actions onto the new branch. Redo reuses recorded states and random results.
+- Bulk/combined controls create individual invariant-closed mutation nodes. A
+  source move includes mandatory resets/disappearance/combat-link-pair cleanup;
+  no published intermediate orphan is allowed. Token disappearance captures its
+  last-live state first. Independent card edits/taps/tracking remain separate.
 - A **graphical tree explorer** supports personal review and explicit shared
   activation of **any retained branch/node**, including the root/internal states.
 - Hide inactive continuations only when they contain **one player's actions and
@@ -465,12 +466,15 @@ The general rules are:
    not require preserving a path removed by D-232 Undo. Covered inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
   Already-visible inspection does not. Undo cannot erase a person's knowledge.
-- Earlier pointer-rewind Undo targets the specific node-to-parent step you invoked. If that step becomes
-  invalid because shared state changed, silently discard it and reconcile the
-  local state—no warning, notification or automatic retry against another node.
-  Undo requires a connection in initial delivery (D-182); it cannot be queued
-  while offline. Recovery of an online request whose response is lost remains
-  distinct from making offline actions.
+- No offline operation may create a game event (D-246), including covered-face/
+  other-face inspection requiring new exposure logging. Downloaded recorded visible
+  content and personal traversal remain readable. Online exposure is captured
+  before display and survives rejected predictions/restart without an automatic
+  gameplay branch; recovering already-initiated records is not offline play.
+- Historical pings/comments record at current shared context while referring to
+  the selected historical context separately. Do not insert them into old history,
+  activate it, merge non-contiguous groups or render future overlays at old boundaries.
+  Later-added references are separately identified with their recording event.
 
 ### 10. Ending play
 

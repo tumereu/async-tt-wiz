@@ -42,16 +42,34 @@ per-mutation relevant state and N remain open; see
   the predicate is state equality, not who changed it. It is not priority/legality
   enforcement or a whole-game-head check. Each later queued addition uses its
   locally predicted pre-action Stack state, including earlier queued additions,
-  without acknowledgement waits. Snapshot encoding/equality representation and
-  provisional-ID mapping remain technical design; the comparator itself is settled.
+  without acknowledgement waits. D-247 defines the semantic comparison below;
+  encoding and provisional-ID mapping remain technical design.
 - **Keep the existing online pipeline.** Small local queue, ordered sends with
   multiple actions in flight, arrival-order application and individual outcomes
   remain D-183/D-184. Most ordinary actions succeed. Rejections still use D-185
   difference-only animated reconciliation; acknowledgement alone does not animate.
 - **Keep deliberate history semantics.** D-179 explicit historical continuation
-  and D-161's captured Undo transition are unchanged. The general acceptance
-  simplification does not authorize implicit forks, generic retargeting of Undo
-  or adoption of the old batch's proposed non-Undo branch-control policies.
+  and D-236 server-ordered latest-own Undo requests remain distinct. The general
+  acceptance policy does not authorize implicit forks or the old batch's proposed
+  non-Undo branch-control policies. D-161 captured-parent Undo is retired.
+
+### Semantic Stack comparison — D-247
+
+“Current Stack state” is the ordered sequence of current Stack entries: stable
+real-card IDs and distinct effect-occurrence IDs with their source identities.
+Several effects from one source remain several entries; equal card definitions
+or the same top card do not make different sequences equal. Entry, removal and
+order changes therefore fail a stale addition's comparison.
+
+Do not compare rendered/live source fields (text, counters, orientation, face or
+cover), source location, live-versus-frozen inspection status, persistent links,
+layout coordinates or personal camera/sort settings. None changes which cards/
+effects are on Stack. A source move/reset or token disappearance that leaves its
+effect entries present does not alone reject an addition. The new addition still
+needs its own valid source, movement guards and structural applicability.
+
+Canonical encoding, equivalent provisional/authoritative IDs and atomic comparison
+are technical design constrained by this logical projection, not extra field locks.
 
 D-187 explicitly supersedes D-181's previous orientation/note comparisons and
 D-186's previous-value Set check. Relevant-field preservation and current-value

@@ -29,7 +29,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-005 | History is a tree, with exactly one active branch in each game. |
 | P-006 | An interruption makes its new branch active; no approval vote is required. |
 | P-007 | Players can delete the interruption and return to the earlier continuation. |
-| P-008 | Game edits have undo/recovery support; submitted game-wide chat (D-94) and acceptance of an ending suggestion / return to lobby (D-212) are non-undoable. Pending result suggestions remain undoable (D-211). D-224 preserves every later mutation's relevant-state (from, to) tuple within hard N on removal/reinsertion; revealing targets are excluded. Undo targets only the latest still-applied own action; Redo is last-undone-first; neither skips a blocked target; only own new play clears your queue (D-227–D-231). D-232 Undo/Redo edit the existing tree, not create branches or preserve the pre-Undo path as an alternative. Exact per-mutation state, N, pointers, device scope/anchors, affected references/side branches and retention after queue clearing remain open. D-222 activation and D-223 filtering apply to actual existing branches, not required copies of Undo-edited paths. |
+| P-008 | Eligible Undo removes your latest still-applied mutation; Redo reinserts last-undone-first with its recorded relevant transition. Preserve every later retained event's relevant (from, to) tuple within N; no branching at/after the target and no personal-view-head dependence (D-245). Revealing/blocked targets cannot be removed/skipped. Only successful own new play clears your per-incarnation stack, synchronized across your devices (D-227–D-236). Edit the existing tree without an original explorer copy. Submitted chat and accepted ending/return to lobby have no gameplay Undo. Exact anchor/version/storage/cost mechanics and removed-record retention remain technical/privacy work. |
 | P-009 | Either participant can manipulate any participant's tabletop state. |
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |
@@ -61,7 +61,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-037 | A source leaving the battlefield loses its combat projections (D-124), but its Stack effects remain until explicitly removed/resolved (D-125/D-174). D-242 keeps existing sources linked across locations; only token disappearance freezes read-only last-live source state. Lifetime is area-specific, not determined by which view invoked the move. |
 | P-038 | When an attacker leaves, surviving cards stay grouped in their existing slots, with real cards unchanged; the final attacker's departure leaves a blocker-only pair (D-126 refined by D-139). D-138 permits visual reflow with stable membership/order, removes fully empty pairs, and inserts a pair on between-pair drops without regrouping survivors. |
 | P-039 | Combat area persists until explicitly closed, not automatically on ordinary phase/step changes or End turn. Provide combined advance out of combat + close, while retaining separate operations and full non-quick access (D-127). Offer the quick action only at End of combat, advancing to Postcombat main (D-128). |
-| P-040 | Each tree node is one individual, deterministically reversible mutation, such as moving/tapping one card. Bulk and combined controls issue ordered individual mutations; groups never determine node granularity or publication. D-176 supersedes older combined-node and MTG-reaction-window mappings. Undo follows one parent node (D-159/D-160). |
+| P-040 | Each tree node is one individual, deterministically reversible mutation including mandatory invariant-preserving effects. Bulk and combined controls issue ordered individual mutations; groups never determine node granularity or publication. D-176 supersedes combined-node mappings. Each successful Undo removes one eligible latest-own mutation (D-231/D-232). |
 | P-041 | Non-token cards do not disappear during the game: they move between locations and have no Remove/delete action, including through bulk, correction or projection paths. Approved token disappearance/removal, projection removal and retained-history Undo remain distinct (D-174). |
 | P-042 | Returning after an interruption starts at the last local state, animates rollback to the fork, then plays the new continuation automatically or step by step. Playback can be paused; a horizontal bottom timeline permits left/right scrubbing to an exact mutation where play can continue (D-177). |
 | P-043 | Login is required before the main menu; registration is available. Main menu offers Logout, Manage decks and Play (D-188). Users can search by username and save contacts without mutual friend-request approval; Friends label/placement remains tentative (D-196). Support the same account on multiple devices, with saved decks, contacts and games synchronized between them (D-218). |
@@ -115,15 +115,16 @@ Included:
   last lobby-prepared decks/mainboard/sideboard, clears both Ready and requires
   both to ready again for a fresh game. Cross-game starter-selection retention/
   random resolution remains open; D-214 defers finished-session history review.
-- Configurable areas and ordered piles, card movement/orientation/faces, custom
-  objects, named counters/values, generic links/markers, and free-form correction.
-- Individual action playback, suggested editable groups, branching, undo/redo,
+- Confirmed areas/piles, card movement/orientation/faces, catalog/Blank tokens and
+  Clone, ordinary card text and card/player counter/life tools, links and pings.
+  No custom-piece, named-value, layout or general correction editor (D-241).
+- Individual action playback, automatic groups, branching, eligible undo/redo,
   shared history, and contextual communication.
 - Persistent games, local offline storage, reconnection, invitations, and
   notifications.
-- Layout/data presets for manual MTG play, including areas named Library, Hand,
-  Graveyard, Exile, Stack, and optional Command/extra areas. Labels/configuration
-  do not install a rules engine or mechanical meaning.
+- The approved manual MTG areas: Library, Hand, Battlefield, Graveyard, Exile,
+  Stack, temporary View/Reveal/combat and lobby-only Sideboard. No extra-area
+  editor or optional Command area in R1; labels do not install a rules engine.
 - D-55/D-56 add a requested move/reset convenience on entry to configured
   Graveyard/Exile/Library: remove card counters and restore database-default
   corner text (printed P/T for creatures). This is a declared composition of
@@ -213,8 +214,8 @@ represent their own play, not that the engine recognizes those mechanics.
 9. **Act, sync, undo.** A completed action applies locally and synchronizes
    automatically. Prefer direct manipulation and easy undo over routine dialogs,
    explicit batching, or repeated confirmation. Irreversible deletion still needs
-   an explicit choice. D-161 silently discards an Undo transition if no longer
-   valid and reconciles client state; non-Undo branch-control policies remain open.
+    an explicit choice. D-236 processes distinct Undo requests as successive
+    server-side presses; delivery retries recover one original outcome.
 10. **Show facts, not inferred intent.** Present moves, pings, rotations, and value
     changes clearly enough that players usually need no narration. Do not turn
     those facts into an inferred spell/target/effect summary. Text remains optional.
@@ -241,7 +242,9 @@ represent their own play, not that the engine recognizes those mechanics.
 | Publish | Automatically synchronize a completed local action to shared history. A protocol operation, not a required button. |
 | Optimistic lock | Exceptional stale-intent guard for movement or Stack additions, not a default previous-value check on ordinary edits (D-187). Failure rejects that action without a conflict branch. |
 | Archive/delete | Reversibly hide a branch, without erasing its contents. |
-| Undo | Move the shared active game-state pointer to its parent node, regardless of author, retaining descendants for forward return. |
+| Undo | Remove your latest still-applied mutation from the existing tree when no branching follows and every later retained event preserves its relevant (from, to) tuple within N. Personal viewing does not change eligibility. Revealing/blocked targets cannot be skipped. |
+| Redo | Reinsert the most recently undone mutation at its recorded boundary, preserving its own recorded transition and every later relevant tuple under the same structural/work limits. |
+| Play incarnation | One fresh play session/root within a persistent lobby. Requests, result references and per-player Undo/Redo stacks belong to that incarnation, never a later fresh game. |
 
 ## 1.6 Success criteria
 

@@ -49,6 +49,9 @@ The app remembers and presents what happened; the players interpret the rules.
    Neither skips a blocked target. Undo cannot remove a branching point or reach
    back past one (D-233); Redo cannot reinsert before a newly created fork (D-234).
    Such a Redo entry stays blocked and may have no recovery path.
+   Personal viewing never changes eligibility: check all later retained events,
+   even beyond an explicitly activated internal state. Redo must restore its own
+   recorded relevant transition as well as preserving later ones.
    Undo removes and Redo reinserts mutations in
    the existing tree, not a new branch or a preserved original alternative.
    Personal review remains distinct from changing shared play. Explicit historical
@@ -73,8 +76,11 @@ The app remembers and presents what happened; the players interpret the rules.
   available during play.
 - Two players, native Android, manual play and asynchronous review are confirmed.
   **Initial delivery requires a connection for game actions (D-182).** Downloaded
-  games remain readable offline; offline action creation and later queue replay
-  are not included. Optimistic local updates still hide latency while online.
+   games remain readable offline; offline action creation and later queue replay
+   are not included. Optimistic local updates still hide latency while online.
+   Offline inspection cannot create an event either: new covered-face inspection
+   requiring exposure logging needs a connection; downloaded recorded visible
+   content remains readable.
 - Game/card data and artwork load dynamically rather than shipping a licensed
   catalog inside the app/backend. Automated tests use synthetic data and art;
   production data rights still require review.

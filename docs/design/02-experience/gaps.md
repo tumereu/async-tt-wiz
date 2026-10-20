@@ -52,6 +52,13 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | An event comment needs correction. | No dedicated Edit/Delete. Use ordinary eligible Undo or add another comment; dependency and other Undo checks still apply. | [Optional text](../03-contracts/visual-action-language.md#116-optional-text), D-241; T-541. |
 | A saved deck is deleted or an unstarted lobby cancelled. | No trash/restore feature. Preserve already selected lobby/game deck copies; do not confuse these exclusions with current-game branch restoration or permanent server erasure. | [Account/deck/lobby contract](../03-contracts/accounts-decks-and-lobby.md), D-241; T-542. |
 | A player explicitly logs out or switches accounts. | Logout removes private downloaded content but preserves protected already-sent recovery records. Never expose one account's private content/recovery records to another. Server retention/account erasure remains privacy/service design. | [Logout](../03-contracts/accounts-decks-and-lobby.md#logout-and-account-private-downloads--d-241), D-241; T-543. |
+| Personal review or explicit internal-node activation leaves a retained future. | Personal viewing never changes the Undo target/checks. A fork anywhere at/after the target blocks removal; validate the whole retained linear successor chain, including beyond the shared pointer, under N and unchanged tuples. | D-245; T-558. |
+| Redo has a surviving anchor but different relevant input and no later suffix. | Block reinsertion unless its own recorded relevant transition can be restored exactly; no fresh arithmetic/default/source snapshot. Retain the stack without skipping. | Recorded replay/D-224/D-230; T-562/T-563. |
+| Cached hidden faces are available offline. | No new event-producing inspection or hidden disclosure offline; reading downloaded recorded visible content remains. Already-initiated online exposure recovery is separate. | D-246; T-559–T-561. |
+| Stack source fields/location/frozen status change without changing current entries. | Do not reject an addition on that basis; compare ordered real-card/effect-entry identities, not rendered source state, links or coordinates. | D-247; T-568/T-569. |
+| Actions is opened on unselected C while A/B are selected. | Bind C only, preserving selection. Selected trigger binds the selection; capture target IDs at menu/editor opening and never redirect to a later selection. | D-248; T-570/T-571. |
+| A password contains boundary whitespace or Unicode. | Card-text trimming is not credential normalization. Preserve password input consistently for registration/login/reset; account-field validation remains separate. | D-249; T-572/T-573. |
+| Taps occur between otherwise matching grouping anchors. | Taps cannot cause an additional split. Preserve explicit anchor/author boundaries and ordinary forward attachment where anchors differ. | D-250; T-574/T-575. |
 
 ## Genuine gaps
 
@@ -66,6 +73,12 @@ This is a batch status, not a certification that all behavior has been verified.
 Server retention/account-erasure obligations remain explicit privacy/service work,
 not silently resolved by the no-trash/Logout choices. Other reference mappings
 must be completed against existing rules, escalating only a demonstrated new gap.
+
+The October 19 adversarial review has now been reconciled with owner clarifications
+D-245–D-250 and derived repairs. Its disposition is tracked in the
+[review follow-up](../../agent/adversarial-review-2026-10-19.md#documentation-follow-up--2026-10-20).
+Technical completion and additional consistency audits remain; this is not an
+exhaustiveness claim or approval of implementation/UI/stage transition.
 
 This is not a certification that behavior specification is complete. Further
 edge cases may be found, but an owner question needs a concrete unresolved

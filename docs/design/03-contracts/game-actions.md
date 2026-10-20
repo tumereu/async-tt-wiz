@@ -22,6 +22,8 @@ are excluded; Logout cleanup/account isolation follows the account contract.
 Every game action specifies:
 
 - Stable action ID and parent boundary; actor and originating client operation.
+- Persistent lobby identity and the specific play incarnation. Requests/recovery,
+  Undo/Redo stacks and result references never cross a fresh-start boundary.
 - One literal mutation kind and optional user label/note (D-176).
 - Typed reversible change, stable referenced object IDs, structural preconditions.
 - All changed values or sufficient deterministic data to derive them.
@@ -46,33 +48,33 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-003 | Instantiate objects and lobby preparation | Initial lobby placement: mainboard → Library, sideboard → separate Sideboard; all other card areas empty (D-202). Freely transfer cards between mainboard/sideboard without legality/size/one-for-one restrictions (D-203); own Ready clears and saved decks stay unchanged (D-191). Start uses the prepared mainboard; Sideboard is unavailable during play. Further custom instantiation/setup remains proposed where not separately confirmed. |
 | A-004 | Setup edits and mulligan shortcuts | Lobby starter selection offers either player or Random (D-201); changing it clears only the changing player's Ready, preserving the other's (D-204). Start shuffles Libraries and initializes life 20 without a required starting-life editor (D-200). Further initial setup remains proposed where not confirmed. No automatic draw (D-192). D-193/D-194 add return-whole-hand → shuffle → draw N (default 7) or pre-return hand size minus one, via Library context and turn-1 Untap quick actions. Sequencing/count edges remain open; ordinary in-game life/move/draw/shuffle controls remain. |
 | A-005 | Move cards | Move one/many objects between containers/areas; choose insertion order only for ordered destinations, not Graveyard/Exile (D-226). No rule-dependent side effects. |
-| A-006 | Ordered-pile operations | Select top/bottom/N, move to an explicit destination, inspect/reveal, search, reorder, shuffle the whole pile, and choose randomly. D-48 excludes library top/bottom shuffle shortcuts. D-226 excludes all order-related actions for unordered Graveyard/Exile; ordinary browsing and specific-card moves remain. |
+| A-006 | Ordered-pile operations | R1: approved Library top/bottom/N moves, Draw, View/Reveal, contents browsing/search and Shuffle all. No generic random-choice tool or new reorder editor is authorized by this row. D-48 excludes top/bottom shuffle shortcuts; D-226 excludes all Graveyard/Exile order controls. |
 | A-007 | Row/fan operations | View, arrange, cover/uncover, select, and move cards; labels such as Hand do not alter semantics. |
 | A-008 | Orientation/faces | Tap/untap presentation, rotate, choose face, cover/uncover, and edit labels. D-100/D-110 make Untap all literal for the turn player's battlefield, with no skip flag/inferred exclusions; manually re-tap exceptions. Both standalone/+advance variants preserve unrelated fields. |
-| A-009 | Participant association | Manually assign/edit labeled participant associations; moving a card does not infer ownership/control changes. |
+| A-009 | Participant association | Excluded from R1: manual association authoring (D-241). Retained/internal participant references do not authorize an editor; movement never infers control changes. |
 | A-010 | Counters | Colored text-bearing counters on cards/participants; per-color +1/-1/Set, no Add/Initialize. D-58–D-68 fix palette/uniqueness, zero/empty/trim, inline retained menus, applicability skipping, and absent +/- creation as `1`/`-1`. No recolor; exact hit regions/formatting remain open. |
-| A-011 | Numerical values | Adjust/set arbitrary named values. Life, Mana, Energy, and similar names are uninterpreted labels. |
+| A-011 | Numerical values | R1: confirmed life and colored player-counter tools. Arbitrary named-value authoring is excluded (D-241); no inferred mana/energy mechanics. |
 | A-012 | Labeled-area movement | Move cards to/from areas such as Stack (renamed from Cast, D-113); record actual origin/destination, not inferred casting/payment/resolution. D-112–D-114 separately add explicitly chosen projections and contextual Stack actions. |
-| A-013 | Labeled pieces | Create/duplicate a generic note, marker, or piece with optional text/icon; players can use these for abilities/triggers without engine recognition. |
-| A-014 | Pile order/edit | Reorder, duplicate or move selected objects in any pile. Remove is token-only under D-174; non-token cards remain in the game. No built-in stack-resolution command. |
+| A-013 | Labeled pieces | Excluded from R1: arbitrary non-card piece/marker editor (D-241). Confirmed catalog/Blank tokens and Clone remain A-016, not a generic authoring tool. |
+| A-014 | Pile order/edit | R1: approved ordinary-pile drags and ordered-location moves/reorders only. Clone uses A-016; Remove is token-only. No unrestricted any-pile reorder/duplicate tool, Graveyard/Exile order control or inferred resolution. |
 | A-015 | Group/event-scoped pings | D-74–D-80 confirm event-scoped mode/toggles, retained review, selection-preserving switching, consumed ordinary taps, and one standard marker. Context Ping/Unping uses the menu-trigger card's state and applies uniformly to its selected-set scope without mode changes. Location matching, routing/menu lifetime, and revisions remain open. |
-| A-016 | Custom objects/copies | D-81–D-86 confirm single automatically placed catalog tokens (including one Blank entry), token-producing Clone with copied fields but no links/pings, and removal. No quantity/preview/Repeat shortcut or dedicated custom-token form. Exact placement/initialization, association fields, broader authoring, and boundaries remain open. |
+| A-016 | Tokens/copies | D-81–D-86 confirm single automatically placed catalog/Blank tokens, Clone copying confirmed source fields without links/pings, and token removal. No quantity/preview/Repeat shortcut or dedicated custom-token form. Broader authoring is excluded (D-241); placement/initialization/record encoding remain contract/technical work. |
 | A-017 | Generic visual links | D-70–D-73 confirm binary undirected unique pairs, context picking, fan-out/removal, and independent movement. Repeated Link preserves pairs; no labels/styles or separate initial Attach/follow tool. Joint movement uses explicit multi-selection. |
-| A-018 | Descriptive attributes | Override instance labels, text, faces, and named attributes without interpreting game meaning. D-52/D-53 add plain corner text with pattern shortcuts; D-69 adds multiline card notes with short on-card text, optional long-text ellipsis, full inspection, and empty-text removal. |
+| A-018 | Descriptive attributes | R1 confirmed card corner text/pattern shortcuts, printed face/cover and multiline notes with short on-card text/full inspection/empty removal. Generic named-attribute authoring is excluded (D-241); never interpret text as mechanics. |
 | A-019 | Board markers/connectors | D-119 adds event-wide ping order numbers. D-120 supports links between projections that disappear with endpoints. D-112/D-118 separately require explicit assigned/unassigned blocker projections and adaptive combat spacing; no inferred legality/damage from pings/links. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
 | A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. D-174 restricts context Remove to tokens: non-token cards never disappear during play and have no Remove/delete action. Token Remove has no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact mixed-selection routing/references/boundaries remain open. |
 | A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106–D-108 add one-tap End turn/no number editor and starter/turn-1 setup. D-105 removes priority; D-109 leaves extra turns manual/approximately counted. D-111 advances combined shortcuts despite no untap changes or empty Library, with no inferred loss. Exact controls/schema/boundaries remain open. History/undo/branches/online-only sync apply (D-182); arbitrary markers remain separate. |
-| A-023 | Named tracking sets | Add arbitrary per-object/per-participant named values/labels; sufficient for manual commander-style tracking without that mechanic in the engine. |
-| A-024 | Custom status | Generic notes/icons/named trackers represent unusual or future mechanics; the engine does not recognize their labels. |
-| A-025 | Faces and visual composites | Show/select faces, overlap/group pieces, preserve component identities; no automatic meld/merge/phase/transform rules. |
-| A-026 | Additional containers | Extra-container configuration/access remains proposed where not separately confirmed. D-202 excludes in-game Sideboard browsing, editing or moves; generic extra-container paths must not expose the lobby sideboard. |
+| A-023 | Named tracking sets | Excluded from R1: arbitrary named tracker/set authoring (D-241). Ordinary confirmed card/player text/counters remain. |
+| A-024 | Custom status | R1 card notes/corner text/counters only. Custom icon/piece/named-tracker authoring is excluded (D-241); no inferred mechanics. |
+| A-025 | Faces and visual composites | R1: printed face/cover controls and ordinary card placement. General composite/layout authoring is excluded (D-241); no inferred meld/merge/transform. |
+| A-026 | Additional containers | Excluded from R1: extra-container authoring/access beyond confirmed areas (D-241). Sideboard is lobby-only, never reachable during play (D-202). |
 | A-027 | Randomness | D-87/D-92/D-93 confirm one-die Roll, Flip coin, fresh draws for new die/coin/Shuffle invocations (including after undo), and auto-synced stored results/orders reused for review/redo/retries. No opponent-action seed reset. D-182 requires a connection for new random actions, not downloaded replay. Other random controls and exact generator/source/input/online protocols remain open. |
 | A-028 | Communication | D-94 game-wide Chat is not undoable; D-240 keeps chat simple with no sent-message Edit/Delete or planned expansions. Corrections use another message. D-241 excludes dedicated event-comment Edit/Delete: use eligible ordinary Undo or another comment. D-95 event comments follow ordinary tree/Undo rules without a special comment-only branch mechanism; D-232 does not require preserving an original path. D-172 groups comments with preceding same-author play, subject to D-170. Historical association and unsent-chat handling need contract completion; card notes/pings stay distinct. |
-| A-029 | Correction | Edit supported tabletop fields and bulk-correct state with a preview. D-174 forbids non-token card deletion even as a correction; token removal and existing move/Undo controls remain available. Broader authoring/correction scope remains proposed. |
+| A-029 | Correction | R1 uses existing supported field/move/token/Undo controls. No separate general correction/authoring tool or mandatory preview (D-241). Non-token deletion is forbidden (D-174). |
 | A-030 | Suggest ending / accept | Suggest your win/loss or a draw as shared, undoable board state. The other player must accept, then both return to lobby (D-211 superseding D-210). Acceptance is not undoable (D-212), unlike pending suggestions. Restore last lobby-prepared decks/mainboard/sideboard, clear both Ready and require both to ready again for a fresh game (D-213). No win-history/scorekeeping feature is required. Finished-session action-history review is optional future work, not R1 (D-214); current-game history is unchanged. Concurrent incompatible result actions use ordinary server ordering/applicability: the first applicable action takes effect and the later incompatible request is discarded (D-239), not replacement or multiple pending suggestions. Cross-game starter-selection retention/random resolution remains open. |
-| A-031 | History controls | D-224 preserves every later relevant-state (from, to) tuple within hard N on removal/reinsertion; revealing targets are excluded. Undo targets only the latest still-applied own action, even after opponent activity; Redo is last-undone-first; neither skips a blocked target; only own new play clears your queue (D-227–D-231). D-232 Undo/Redo edit the existing tree without branches or an untouched original alternative. Per-mutation state, N, pointers, device scope/anchors, affected references/side branches, retention after queue clearing and concurrency remain open. Live D-187 acceptance is unchanged. D-222 graphical activation/personal review and D-223 filtering apply to actual existing branches. |
-| A-032 | Export | Export decks and a complete game/history archive with declared information exposure. Exact formats remain open. |
+| A-031 | History controls | Latest-own eligible removal and last-undone-first recorded-transition reinsertion edit the existing tree, not an original-path copy. No skipping revealing/blocked targets; only own successful new play clears the per-incarnation stack shared across your devices. D-245 validates all retained successors, including beyond activated internal nodes, and forbids a fork at/after the target; personal viewing never affects eligibility. Hard N/resource/anchor/version mechanics remain technical. Graphical activation/filtering applies to genuine alternatives. |
+| A-032 | Export | Not an R1 deliverable: deck export is excluded (D-241); finished-game history archives/review are deferred optional work (D-214). No export roadmap is implied. |
 | A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |
 | A-034 | Combat projections/grouping | D-116 separates area creation/declaration/tap; D-117 adds multiselect combinations/auto-area. D-137/D-139 refine earlier assignment wording to visual paired-slot groups with no individual attacker↔blocker edges. Creation preserves source placement; D-123 routes later card edits/moves to the real card. D-122 removes combat projections/links without changing originals. Exact reference/combined-event handling remains open. |
 | A-035 | Stack projections | D-113/D-242 support ability projections from Battlefield, Graveyard and Exile without moving originals. D-134 allows unlimited independent occurrences, including several from one source, each removed/resolved separately. Existing source fields stay live-linked across locations with write-through edits (D-123/D-242); only token disappearance freezes read-only last-live source information, not a replacement card/Clone. Source-card actions cannot edit the frozen copy or nonexistent token. Preserve normal Stack-addition guards; exact entry/order/record mappings need completion. |
@@ -139,7 +141,7 @@ D-144 adds Remove from combat as a context action for one or several selected
 combat projections, leaving real cards/Stack effects unchanged. Remove incident
 links and fully empty pairs normally, preserving remaining grouping/order and the
 open area. D-176 issues individual occurrence-removal mutations; each has its
-own parent-step Undo and retained slot/link/cleanup context;
+own selective-Undo eligibility and retained slot/link/cleanup context;
 token-source Remove and real-source/mixed-selection access remain separate cases;
 no non-token source deletion is available (D-174).
 D-152 handles declarations of existing blockers: move each existing occurrence
@@ -175,7 +177,7 @@ offerings remain open; do not infer legality or editing locks from quick visibil
 D-176 supersedes D-148/D-149/D-150's combined-node mappings: area creation,
 individual occurrence changes, individual source taps/untaps and tracking edits
 are distinct mutations, even from one shortcut. Each mutation immediately extends
-or branches the selected path, publishes, and supplies one parent-step Undo.
+or branches the selected path and publishes; Undo checks one latest-own mutation.
 Draw + advance retains separate actual move and tracking mutations; an empty
 Library contributes no draw mutation. No extra invocation tap/Send is needed.
 Empty/no-change sources still advance under D-111 without fabricated card changes.
@@ -184,9 +186,9 @@ D-134 separately allows unlimited independent Stack
 projections, including repeated effects from one source; removing one leaves the
 others and the source unchanged.
 
-D-129 distinguishes invocations, tree events and presentation groups. D-159/
-D-160 replace whole-invocation Undo with one parent-node move regardless of author;
-composites may take several presses. D-176 fixes individual mutation nodes rather
+D-129 distinguishes invocations, tree events and presentation groups. Current
+D-224/D-231/D-232 Undo removes one eligible latest-own mutation; composites may
+take several presses. D-176 fixes individual mutation nodes rather
 than D-131's MTG-reaction-window criterion; no runtime timing/legality enforcement
 or extra invocation taps are introduced.
 Presentation grouping cannot change Undo stepping. D-176 supersedes D-132's
@@ -206,10 +208,11 @@ as a separate action restoring the database default without changing counters
 or other state. Corner +/- and completed Set retain/return to the context menu.
 Exact Reset menu lifetime remains open.
 
-D-59 applies edge trimming to all completed user-text edits before validation,
+D-59/D-249 apply edge trimming to completed card-text/counter edits before validation,
 empty-value handling, and pattern matching. Preserve internal spaces/newlines.
 For counters, whitespace-only text therefore removes the counter while ` 0 `
 becomes visible `0`; do not extend deletion-on-empty to unrelated fields.
+This is not an account, credential, deck-import or message normalization rule.
 
 Pings, actual object edits, and ephemeral presence remain distinct; see
 [the board contract](board-and-controls.md) and
@@ -323,6 +326,33 @@ Inspection itself cannot be made epistemically reversible.
 
 ## 4.5 Bulk actions and selections
 
+### Target identity normalization
+
+Bind menu scope under D-248 before resolving targets. Each operation declares its
+identity domain; normalize once before emitting individual mutations (R-09):
+
+- Card operations (text/counter/orientation/face edits, moves to real destinations,
+  token-source Remove and Clone) resolve live views to their real source IDs and
+  deduplicate aliases. Selecting X and two of its effects applies +1 once, moves
+  X once, or creates one Clone, not three. Different real card/token IDs remain
+  distinct even when their definitions/fields are equal. Clone copies the captured
+  live source under its existing field rules; it cannot clone a frozen snapshot.
+- Occurrence operations (effect removal/layout, Remove from combat) address distinct
+  occurrence IDs. Two effects from X are two removals, not one source deletion.
+  Combat create/reuse resolves by source+area, preserving its one-occurrence rule.
+- Ping/link endpoints refer to the explicitly targeted card/occurrence identity,
+  not silently its source. Historical references retain their own event/object
+  identity and context. Do not transfer an occurrence link to the source.
+- A frozen effect has no editable live source: source-card edits/moves/Clone are
+  inapplicable through it; occurrence layout/removal and recorded inspection remain
+  available. D-67 may skip such individually unusable targets in a mixed scope;
+  malformed/unknown IDs are errors, not silently omitted aliases.
+
+Preserve the first occurrence in the already-approved source/spatial sequence
+when deduplicating; do not introduce a new selection-order picker. Applicability
+is evaluated on normalized targets, then each emitted operation receives its own
+server-time checks. Explicit repeated invocations still create independent effects.
+
 D-66 confirms control parity: a mass selection gets the same card-action
 controls as an individual card, applying the chosen action across the selected
 set rather than a separate reduced bulk menu. Operate on each card's own state
@@ -353,6 +383,20 @@ Existing applicability skipping, destination order, and whole-drop structural
 validation remain: an overflowing drop can be rejected before creating any
 mutations without making a valid bulk move one atomic history operation.
 
+**Whole-drop prevalidation versus later conflicts (R-03):** an initially invalid
+selected placement is rejected in full before emitting moves; never take only
+the members that fit. A valid invocation is not an atomic server reservation:
+opponent actions may interleave, and each move rechecks source/destination/capacity.
+Accepted moves remain accepted if a later move fails. Do not compensate, split
+the pile, erase interleaved work or cancel the whole queue. Difference-only
+reconciliation corrects failed placements while retaining successful ones and
+the selected IDs/mode (D-29/D-34); invalid preflight restores pre-drag selection.
+
+Example: pile X receives selected Y/Z. Y commits, opponent W commits, then Z
+fails the three-card cap. X/Y/W stay; Z returns to its authoritative source.
+If Y/Z both commit first, W fails instead. If Z was moved from its stated source
+by the opponent, reject Z's move while retaining Y and the opponent's move.
+
 Quantity-based N-card commands clamp to the available source count (D-49).
 Quantity clamping itself does not permit substituting or dropping selected
 objects; D-67 separately permits skipping targets on which the chosen action is
@@ -369,7 +413,7 @@ only movement and Stack additions have optimistic conflict guards. Changed old
 orientation/text/counter values are not rejection reasons for ordinary edits,
 including Set. The former batch's detailed category rules were not approved.
 
-Before implementation, every row above must be expanded into:
+Before implementation, every **R1** capability above must be expanded into:
 
 1. Entry points and affected screens.
 2. Inputs, defaults, validation, and confirmation/cancellation behavior.

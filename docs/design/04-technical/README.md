@@ -16,6 +16,8 @@ These are proposals unless specifically confirmed. Native Android, Kotlin
 Multiplatform with a core reusable by possible future iOS/desktop clients (D-260),
 and dynamic game/card data and artwork (D-243) are selected. Android alone is
 required for initial delivery; a future desktop interface may differ from mobile.
+Client/server game-state types and processing must be shared, local die/coin
+generation is permitted, and jOOQ is selected for server data access (D-261).
 The owner requests architecture/technology planning now, not implementation or a
 delivery-stage transition. Spring Boot, PostgreSQL and Flyway are owner-nominated
 candidates under discussion, not yet recorded as final selections. Other library,

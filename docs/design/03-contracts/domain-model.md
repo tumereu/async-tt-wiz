@@ -10,6 +10,13 @@ replay. Online optimistic predictions and uncertain-request recovery remain.
 
 ## 2.1 Separation of state
 
+**Shared implementation — D-261:** server execution and client latency-hiding
+application use the same Kotlin game-state objects and processing code. This
+does not merge their separate accepted/predicted state instances or transfer
+authority: the server applies requests to its actual execution state. UI, wire
+adapters and database records are distinct from this shared semantic model; see
+[client architecture](../04-technical/client-architecture.md#shared-processing-and-locally-generated-random-inputs--d-261).
+
 Maintain three distinct semantic state classes. **D-259 confirms that the first
 two are server-authoritative, not separate client-owned games:**
 
@@ -159,9 +166,13 @@ D-88's opponent-action seed reset and the pending gameplay draw-position model.
 The same recorded operation is not resampled during review/redo or transport
 retries. Retain concrete outcomes independently from board undo; fresh draws can
 coincidentally match. D-93 applies the same fresh-new/fixed-recorded distinction
-to Shuffle's concrete order. Exact generator/source, input validation, and online
-publication remain open; offline generation is excluded by D-182. No gameplay
-seed-epoch schema is required by D-92/D-93.
+to Shuffle's concrete order. D-261 permits local sampling for connected die/coin
+invocations, bound to the original request and reused by server processing without
+an independent reroll. Server acceptance and recording remain authoritative;
+local generation is not offline play. Persist the sample before displaying it
+under the exposure/recovery rules. Exact generator/entropy source, encoding and
+validation remain technical work; Shuffle/starter acquisition is not finalized
+by this permission. No gameplay seed-epoch schema is required by D-92/D-93.
 
 **D-224 revision:** selective deletion/insertion of a mutation requires identical
 relevant-state `(from, to)` tuples for every later mutation in both timelines,

@@ -53,8 +53,12 @@ not instructions to overwrite current state with an obsolete snapshot.
 
 Retry, review and historical Redo reuse accepted concrete results/inputs; they do
 not rerun live Reset, Clone, arithmetic or randomness. Redo fidelity remains
-stricter than this live acceptance rule. Randomness authority/entropy and prediction
-reconciliation are technical design; they must not omit/resurrect Shuffle members.
+stricter than this live acceptance rule. D-261 permits local die/coin samples reused
+by the same client/server processing code; acceptance remains server-authoritative.
+Shuffle input/algorithm agreement remains technical design; it must make ordinary
+uncontended shuffle-and-draw predictions agree without a routine acknowledgement
+barrier, while not omitting/resurrecting changed members. See the
+[random-input proposal](../04-technical/sync-and-storage.md#shared-processing-and-random-input-agreement--d-261).
 
 ## Ordered multi-object lowering
 

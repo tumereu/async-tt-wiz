@@ -14,7 +14,31 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest architecture discussion — D-260
+## Latest shared-code and database-access agreement — D-261
+
+The owner requires the **same** Kotlin game-state objects and processing code for
+actual server execution and client prediction, not duplicated/equivalent engines
+or optional server reuse. They permit die/coin sampling locally and select jOOQ.
+Shared command processing is deterministic given state/intent/random inputs;
+server access, execution-state selection/order, acceptance and transactions remain
+authoritative. jOOQ/schema types stay outside the shared semantic model.
+
+Local die/coin samples bind to the original connected request, are durably captured
+before display, and are validated/reused rather than independently rerolled by the
+server. Retries/recomputation/replay keep original inputs/accepted outcomes; preserve
+existing exposure recovery, no offline actions or automatic replacement roll.
+Generator/encoding remain technical work. A shared per-request Shuffle random
+input/versioned canonical permutation is **proposed**, not selected; G-05's
+uncontended-success/current-membership/no-ack-barrier obligation still needs exact
+protocol and verification. Random-starter acquisition is not finalized here.
+
+The focused client/server/test and sync documents, primary domain/randomness and
+composition contracts, T-599/T-611–T-613 and E2E journey record the boundary. Tests
+and implementation remain plans only. Spring Boot/PostgreSQL/Flyway remain the
+preceding recommended candidates; this message does not separately finalize them.
+No application code, executable harness or delivery-stage transition is authorized.
+
+## Earlier architecture discussion — D-260
 
 The owner requests technology agreement and focused client/server/test architecture
 documents now. Kotlin Multiplatform is selected for Android-first delivery with a

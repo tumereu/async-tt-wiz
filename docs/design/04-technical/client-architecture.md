@@ -7,6 +7,11 @@ future iOS and desktop clients using the same shared core. Desktop may have a
 different UI and control scheme; neither extra platform is an initial-delivery
 commitment. No application code or delivery-stage transition is authorized.
 
+**Selected — D-261:** client and server use the same Kotlin game-state objects
+and command-processing implementation. Client prediction is execution of that
+shared engine, not a separately written approximation. Die/coin randomness may
+be generated locally; server acceptance still establishes the shared result.
+
 **Proposed rendering direction:** the owner expects the game area probably needs
 to be entirely canvas-rendered for animation and card dragging. Use styled Compose
 components for surrounding menus and ordinary application screens where useful.
@@ -16,16 +21,63 @@ This is not yet selection of a particular renderer/library or final screen layou
 
 | Boundary | Responsibilities | Must not depend on |
 | --- | --- | --- |
-| Shared domain | State, deterministic recorded-event application/replay, structural invariants, relevant-state comparison and grouping semantics. | Android, Compose, Spring, database rows, networking or frame clocks. |
+| Shared domain | The same game-state objects and command processing for client prediction and server execution, plus deterministic recorded-event application/replay, structural invariants, relevant-state comparison and grouping semantics. | Android, Compose, Spring, database rows, networking or frame clocks. |
 | Shared client coordination | Accepted replica, provisional predictions, reconciliation, ordered request delivery/recovery and repository coordination. | Touch-only gestures, screen geometry or Android services. |
 | Shared data/protocol models | Versioned wire/data models, deck parsing and catalog interpretation. Keep wire compatibility distinct from internal model evolution. | ORM entities, platform widgets or a hard-coded licensed catalog. |
 | Presentation | Board scene, animation/playback, camera, hit testing, selection, gesture arbitration and screen state. Share useful pieces without requiring identical mobile/desktop layouts or controls. | Ownership of authoritative game state. |
 | Platform adapters | Durable local storage, transport execution, credentials, notifications, lifecycle and image loading. | Changing domain semantics to match platform/library defaults. |
 
 These are logical boundaries, not a scaffold or a fixed number of build modules.
-If Kotlin is selected for the server, it can consume the shared domain's JVM
-target, not client coordination or the UI. Server authentication, execution order,
-authoritative randomness and transactions remain server responsibilities.
+The server consumes the shared domain's JVM target, not client coordination or
+the UI. Server authentication, execution order, acceptance and transactions remain
+server responsibilities. jOOQ database records are mapped to/from the shared
+objects; they are not the game-state model or a second processing implementation.
+
+## Shared processing and locally generated random inputs — D-261
+
+Use one engine for command applicability, current-state reads, transitions,
+mandatory cleanup, history/control effects and deterministic grouping. Both sides
+use the same semantic input types and game-state objects. Adapters may translate
+versioned wire or database records, but must not reimplement the game semantics.
+Client prediction runs against accepted state plus valid pending predictions;
+the server runs against its actual execution state in arrival order. Different
+inputs caused by interleaving can produce different outcomes without either side
+using different processing rules. Clients cannot certify their own acceptance.
+
+Make nondeterministic execution inputs explicit: do not consult ambient clocks,
+global PRNG state or platform-dependent collection iteration inside transitions.
+Define identity/version mapping and server-only recording metadata separately so
+client prediction can reuse the engine without fabricating authoritative events.
+
+Separate random-input acquisition from deterministic processing:
+
+1. For a connected new die/coin invocation, generate a fresh local sample once
+   and bind it to that request. Normal UI invokes randomness, not a result picker.
+2. Preserve that sample and original intent in durable request/recovery data
+   before displaying the result. The same engine applies it provisionally and,
+   if accepted, on the server. Exact wire encoding remains technical design.
+3. The server checks access, lifecycle, operation applicability and valid input
+   shape/range. It records the accepted result; it does not independently reroll
+   a valid supplied sample merely because it is the authoritative service.
+4. Retry, prediction recomputation, review and replay reuse the request input or
+   accepted concrete result as appropriate. They do not consume another sample.
+   Rejection is not permission to submit a fresh roll automatically. Preserve
+   already-displayed exposure under the existing recovery rules.
+
+This selects code sharing and permits local die/coin generation, not offline
+action creation, client-defined authoritative events or a competitive randomness
+proof system. Generator/entropy source, input encoding/versioning and supported
+die bounds remain technical work. Server-originated lifecycle transitions use
+the same engine with inputs supplied by the server; they do not require a client
+to be present or grant the client authority over game start.
+
+**Shuffle mechanism still proposed:** carry a fresh per-request random seed/input
+and use a versioned shared permutation algorithm over canonical identities of the
+execution state's current Library members. Do not submit the client's old member
+list as the authoritative shuffled board. This can give identical uncontended
+prediction/server order while handling arrivals/departures without a stale-member
+lock. The canonicalization/algorithm/protocol must be specified and verified before
+this mechanism is selected. See [synchronization](sync-and-storage.md#shared-processing-and-random-input-agreement--d-261).
 
 ## Canvas scene and Compose shell
 

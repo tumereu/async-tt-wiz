@@ -2,6 +2,8 @@
 
 Status: technical-design proposals unless explicitly confirmed. Native Android,
 Kotlin Multiplatform (D-260) and D-243's dynamic game-data boundary are confirmed.
+Shared client/server game-state objects and processing, permitted local die/coin
+generation and server-side jOOQ access are selected by D-261.
 The owner now requests technology agreement and client/server/test architecture
 documents alongside the specification work. Spring Boot, PostgreSQL and Flyway
 are nominated candidates for comparison, not final selections; no catalog
@@ -23,7 +25,8 @@ This document retains cross-cutting API, data-source, security and operational w
 - Proposed full-canvas game area with styled Compose menus/surrounding controls;
   exact renderer and component libraries remain to agree.
 - Pure domain/replay module for state transitions and structural validation,
-  reusable on the JVM by a possible Kotlin/Spring Boot service.
+  shared on the JVM with the server as the same game-state objects and command
+  processing implementation, not separately implemented prediction logic (D-261).
 - Board/object/container primitives plus explicitly specified manual-play
   conveniences, including D-112–D-114 projections/assignments/Stack quick actions.
   No automatic card-text rules, legality validators, or inferred game effects.
@@ -34,7 +37,10 @@ This document retains cross-cutting API, data-source, security and operational w
 
 The domain layer must not require Android widgets, network availability, or a
 running service to replay a downloaded game. Reducer semantics must match the
-service's validation semantics through shared code or cross-platform fixtures.
+service's semantics through the same shared game-state types and processing code
+(D-261); parity fixtures supplement, not replace, that code-sharing requirement.
+Die/coin samples may be acquired locally once and supplied to shared processing;
+server acceptance/recording remains authoritative, not a second independent roll.
 
 ### Shared service
 
@@ -57,8 +63,9 @@ are not needed simply to separate these responsibilities.
 | Android UI/rendering | Proposed canvas game area with styled Compose surrounding UI | Exact renderer/component choices, accessibility/automation mapping, minimum Android API and versions. |
 | Local persistence | Transactional SQLite via Room or equivalent | Schema, migrations, encryption requirements. |
 | Background work | Android-managed persistent work scheduling | Retry policy, foreground behavior, battery restrictions. |
-| Shared service | Proposed Kotlin/JVM Spring Boot modular monolith; owner-nominated candidate | Final stack agreement, data-access library, hosting and operator model. |
+| Shared service | Proposed Kotlin/JVM Spring Boot modular monolith; owner-nominated candidate | Final runtime agreement, hosting and operator model; jOOQ data access is selected separately. |
 | Shared database | Proposed PostgreSQL; owner-nominated candidate | Final agreement, schema, backup/restore and capacity. |
+| Server data access | jOOQ selected (D-261) | Version/edition, schema code generation and explicit transactional query design; generated records stay server-only. |
 | Database migrations | Proposed Flyway with versioned SQL; owner-nominated candidate | Final agreement, compatible versions/editions and deployment/upgrade procedure. |
 | Transport | Versioned HTTPS API; optional realtime hints | Exact resource/command model and streaming choice. |
 | Push | Platform-compatible notification delivery | Provider, device registration, privacy and failure policy. |

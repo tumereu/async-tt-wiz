@@ -81,6 +81,40 @@ view heads never truncate validation. A fork anywhere at/after the target blocks
 removal; no partial suffix check. Retained genuine alternatives remain recoverable
 and D-222/D-223 filtering deletes nothing. D-179 prohibits implicit conflict forks.
 
+### Shared processing and random-input agreement — D-261
+
+Client prediction and actual server execution use the same Kotlin game-state
+objects and command-processing implementation, not just common DTOs/replay or
+cross-language parity tests. The [client architecture](client-architecture.md#shared-processing-and-locally-generated-random-inputs--d-261)
+owns the shared-code/adaptor boundary. Current authoritative inputs can differ
+from predicted state; D-187 acceptance and D-185 reconciliation still apply.
+
+Die/coin samples may be generated locally for a connected new invocation. Bind
+the sample to the original request and durably capture it before display under
+the exposure/recovery rules. After checking access/lifecycle/applicability and
+sample validity, the server uses the same sample, records the concrete outcome
+and publishes the accepted event. It does not independently reroll to demonstrate
+authority. Retransmission and local recomputation preserve the input; result lookup,
+replay and review preserve the accepted result. Unknown outcome/rejection is not
+an instruction to create another invocation or discard an actual exposure record.
+
+**Proposed Shuffle protocol, not yet selected:** bind fresh random input/seed to
+the invocation; run one versioned shared permutation algorithm over a canonical
+ordering of all execution-time Library member identities. Retain the accepted
+concrete order for replay. With equal inputs/state, client and server must produce
+the same order, so an ordinary uncontended mulligan completes its intended draws
+without an acknowledgement barrier. Independent server sampling that routinely
+invalidates predicted Draw targets is not acceptable.
+
+If membership changed, use the actual current members, never the client's old
+snapshot or a stale-whole-Library rejection guard. Different accepted order may
+invalidate already-bound Draw requests; preserve those original identities and
+normal individual partial outcomes without substitution or automatic extra draws.
+Specify canonicalization, unbiased sampling, algorithm/input versions, validation
+and restart/retry handling before adopting the proposed mechanism. D-261 permits
+local die/coin acquisition; it does not by itself finalize Shuffle or random-starter
+input acquisition. Server-triggered setup must not require both clients online.
+
 ## 6.2 Publication and concurrency
 
 Game actions may be made only with a connection in initial delivery. They begin

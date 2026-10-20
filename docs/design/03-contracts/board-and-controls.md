@@ -1140,15 +1140,20 @@ Confirmed G-10 basic randomness controls (D-87):
 3. Show actor, requested die/coin, and actual result in shared history; completed
    rolls/flips automatically queue/sync. Review/redo reuse the recorded result,
    not a fresh random draw. New invocations require a connection (D-182).
-   Source/algorithm, exact display and action boundaries remain later review;
-   results change no cards or values.
+   D-261 permits client-side sampling for connected invocations, with the same
+   sample supplied to shared client/server processing and recorded on acceptance,
+   not independently rerolled by the server. Capture it durably before display.
+   Exact generator/encoding, display and action boundaries remain technical/UI
+   work; results change no cards or values.
 
 D-92 simplifies new die/coin invocations to fresh random draws, including after
 undo, superseding D-88 and the pending seed/reset/draw-position proposal. No
 opponent action is needed for a fresh draw. Results may repeat by chance. History,
 review, redo, and retries of the same operation still reuse its stored result.
-Exact generator/source and online concurrency remain later review; D-182 excludes
-new offline random actions.
+Local sampling does not confer authority or bypass input/applicability checks;
+rejection does not automatically create a replacement roll. Exact generator/entropy
+source and online protocol remain technical work; D-182 excludes new offline
+random actions.
 
 D-93 confirms every explicit new Shuffle samples a fresh order, including after
 undo; review/replay/redo and retransmission reuse the recorded order. A fresh

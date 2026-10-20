@@ -159,6 +159,15 @@ tray fixture.
 
 ## G-05 — An uncontended shuffle-and-draw needs a prediction agreement mechanism
 
+**Subsequent architecture direction — D-261:** client/server state types and
+processing code must be shared; local die/coin sampling is permitted with no
+independent server reroll. The [sync design](../design/04-technical/sync-and-storage.md#shared-processing-and-random-input-agreement--d-261)
+now proposes a per-request Shuffle random input and shared versioned permutation
+over canonical current members; T-599 explicitly requires uncontended success.
+This is progress on the proof obligation, not selection/verification of the exact
+Shuffle protocol or a claim that G-05 is fully resolved. Changed-member, immutable
+Draw-target and no-acknowledgement-barrier requirements below remain.
+
 **Sources:** [live Shuffle and composites](../design/03-contracts/operation-composition.md#bind-identities-and-choices-not-predicted-output-snapshots),
 [mulligans](../design/03-contracts/accounts-decks-and-lobby.md#opening-hands-and-mulligan-shortcuts--d-192)
 and the previous review's

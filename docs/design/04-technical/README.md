@@ -4,7 +4,8 @@
   direction, proposed canvas tabletop, shared core and platform-specific interfaces.
 - [Server architecture](server-architecture.md): Spring Boot/PostgreSQL/Flyway
   recommendation, alternatives, authority and transaction boundaries.
-- [Test architecture](test-architecture.md): proposed tools and layers, including
+- [Test architecture](test-architecture.md): selected Docker backend/database
+  boundary; proposed Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose scenarios,
   canvas UI automation and real-PostgreSQL migration/concurrency testing.
 - [Synchronization and storage](sync-and-storage.md): local durability, queues,
   server authority/replicas versus UI state, publication, branching, replay,

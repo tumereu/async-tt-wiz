@@ -8,6 +8,9 @@
   card names, text, images or a live third-party catalog.
 - Acceptance is exercised through full end-to-end scenarios: a running real
   backend and the normal native Android application, including both players.
+- Run the backend and database in Docker, with at least one normal Android app
+  connected to that environment (D-262). Single-device smoke coverage does not
+  replace the two-player journeys or same-account multi-device scenarios.
 - Reset backend state between every independent test, including user data.
 - Convenience calls may initialize users and saved decks before the scenario.
   Otherwise perform user actions only through the UI.
@@ -15,7 +18,10 @@
 These are confirmed requirements, not an implementation authorization. The
 fixture examples, journey decomposition and harness mechanisms below are a design
 to implement later. No Android automation framework, backend stack or provider
-has been selected. See [dynamic data](../04-technical/architecture-and-operations.md#dynamic-game-data--d-243)
+has been selected. The [test architecture](../04-technical/test-architecture.md#recommended-full-stack-scenario-system--d-262-environment)
+recommends Docker Compose and host-side Kotlin/JUnit scenarios driving normal
+Android apps through Appium/UiAutomator2; those tools remain proposals.
+See [dynamic data](../04-technical/architecture-and-operations.md#dynamic-game-data--d-243)
 and the [product contract](../03-contracts/product.md).
 
 ## Real system boundary
@@ -28,7 +34,8 @@ sync/replay, alternate test screens, an authentication bypass, or direct calls t
 application/domain methods. The same app behavior and backend validation must
 run as for users; test instrumentation may drive and observe UI but not replace it.
 
-Two players use separate Android app instances/devices/emulators. Same-account
+Independent entry/deck smoke scenarios may use one Android instance. Two-player
+journeys use separate Android app instances/devices/emulators. Same-account
 multi-device scenarios add a further instance. An opponent's actions must also
 use the Android UI, not an API bot. Reusable UI steps are welcome: helpers such
 as “log in,” “invite,” “ready,” “draw” and “drag” still perform the real gestures,

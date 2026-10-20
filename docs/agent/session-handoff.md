@@ -14,7 +14,27 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest shared-code and database-access agreement — D-261
+## Latest E2E environment requirement and tool recommendation — D-262
+
+The owner requires E2E/scenario tests with backend + database in Docker and at
+least one normal Android app connected. This is not a retreat from D-244: one
+instance can cover independent entry/deck smoke scenarios, but full gameplay
+journeys still drive both players through separate Android UIs; same-account
+multi-device cases add a third instance. No API-bot opponent is authorized.
+
+The [test architecture](../design/04-technical/test-architecture.md#recommended-full-stack-scenario-system--d-262-environment)
+now recommends Docker Compose for E2E services, with a host-side Kotlin/JUnit
+runner using the Appium Java client and UiAutomator2 driver. These tools are
+**proposed, not selected** by the environment request. Appium controls normal-app
+UI/gestures, with explicit canvas accessibility/targeting support; no hidden action
+API. The emulator can run on an accelerated host/CI worker rather than in Docker.
+Use Testcontainers for smaller integration tests if adopted, not a competing owner
+of the same E2E environment. Preserve full per-test reset/readiness, synthetic
+data/art, setup-only users/decks and in-scenario recovery continuity. Exact tool
+versions, device/port allocation, networking/TLS and deterministic race control
+remain technical work. No executable harness or implementation is authorized.
+
+## Earlier shared-code and database-access agreement — D-261
 
 The owner requires the **same** Kotlin game-state objects and processing code for
 actual server execution and client prediction, not duplicated/equivalent engines

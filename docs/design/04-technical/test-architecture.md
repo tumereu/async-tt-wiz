@@ -7,6 +7,11 @@ migration stack are not yet selected. Kotlin Multiplatform is selected for the
 client/shared core (D-260).
 jOOQ and the same client/server state types/processing code are selected (D-261),
 with locally generated die/coin inputs permitted and server acceptance authoritative.
+**Selected environment — D-262:** E2E/scenario tests run the real backend and
+database in Docker, with at least one normal Android app connected to them.
+Docker Compose and host-side Kotlin/JUnit + Appium/UiAutomator2 are recommendations,
+not yet owner-selected tools. One-device smoke tests do not replace D-244's
+two-player real-UI journeys or the additional device for multi-device cases.
 No executable test suite or application is authorized by this document.
 
 The [E2E strategy](../05-verification/e2e-strategy.md) owns the confirmed D-243/D-244
@@ -23,13 +28,72 @@ restricted to users/saved decks. These architectural choices must preserve it.
 | Server integration | jOOQ (selected); Spring Boot test support, JUnit Jupiter, Testcontainers PostgreSQL if the recommended backend is selected. | Real queries/constraints/transactions, schema-to-shared-object mapping, concurrent requests, idempotency, outbox and API behavior. |
 | Migrations | Same Flyway migrations against real PostgreSQL, if selected. | Empty install, upgrades from retained supported versions, data preservation and incompatible/failed migration handling. |
 | Android components | Compose UI testing plus real canvas pointer gestures/accessible semantics. | Menus, text input, gesture arbitration, scene targeting, accessible alternatives and drawing integration. |
-| Full-stack acceptance | Coordinated instrumentation on multiple Android instances; Compose testing and UI Automator as candidates. | Full UI journeys through a running service/database, including reconnect, restart, multi-device and concurrent activity. |
+| Full-stack acceptance | Proposed host-side Kotlin/JUnit Jupiter scenarios using the Appium Java client and UiAutomator2 driver; Docker Compose for the selected Docker backend/database environment. | Normal APK on one or more real/emulated Android devices; coordinated full UI journeys, reconnect, restart, multi-device and concurrent activity. |
 | Performance | Android Macrobenchmark/frame metrics and targeted core/server benchmarks. | Frame pacing, input response, image load, history catch-up and bounded Undo/Redo work on declared reference workloads. |
 
 Do not substitute an in-memory database such as H2 for PostgreSQL integration or
 migration coverage. Lower-layer fakes are useful, but cannot count as D-244 E2E.
 Run shared-core fixtures on Android/JVM and on each additional supported target
 when that platform is introduced; a JVM-only pass is not cross-platform proof.
+
+## Recommended full-stack scenario system — D-262 environment
+
+Use a **host-side Kotlin/JUnit runner**, separate from the application and from
+Android instrumentation test execution. Its Appium Java-client sessions drive the
+normal Android app via the **Appium UiAutomator2 driver**. The same scenario can
+address player A and B explicitly, control external failure conditions, and collect
+evidence from each device. Scenarios use readable UI-step helpers, not a second
+application/game engine or a required Gherkin/BDD layer.
+
+Proposed topology:
+
+```text
+Host: Kotlin/JUnit scenario runner
+  -> Appium/UiAutomator2 -> Android app A [and B / additional device]
+                              -> exposed backend endpoint
+Docker Compose environment:
+  real backend -> real database (PostgreSQL recommended)
+  synthetic catalog/art source; isolated test deliveries as needed
+```
+
+The runner and emulator need not be containers. Prefer running the Android emulator
+on a host/CI worker with hardware acceleration; Docker is required for backend/DB,
+not for nested Android virtualization. A physical Android device can use the same
+Appium scenario interface. Versions must be compatible across Appium, its driver,
+Java client, Android API and build tooling; do not silently raise the application's
+minimum supported API to match an automation driver's minimum.
+
+Use one instance for independent entry/deck smoke scenarios that need no opponent.
+Use two for game setup, gameplay and synchronization, and a third for same-account
+multi-device scenarios. Pin each session to its device ID and allocate distinct
+driver ports. A one-device run must report its limited coverage, not label the
+whole two-player acceptance suite passed or substitute an API-controlled opponent.
+
+Docker Compose is recommended for this reusable full-stack environment; keep
+Testcontainers as the proposed lifecycle tool for smaller server/database tests.
+Do not let both mechanisms independently own/reset the same E2E environment.
+Before each independent scenario, provision/reset isolated state, apply normal
+migrations, verify actual backend/catalog/database readiness, initialize only the
+permitted users/decks and start fresh app data. Preserve all state across an
+in-scenario restart/reconnect checkpoint. Capture failure evidence before cleanup.
+
+Expose only required service endpoints to devices; Docker service names resolve
+inside its network, not automatically from Android. Use a configured host endpoint
+or per-device ADB reverse mapping, including catalog/art URLs. Define test TLS/trust
+configuration without disabling production security or bypassing authentication.
+
+Appium does not understand painted canvas objects automatically. The normal app's
+accessible object identities/bounds support discovery; actual W3C pointer gestures
+exercise tap/hold/drag/selection/pinch paths. Assert through visible table rendering
+and normal inspectors/history, not test-only scene/action APIs. Use bounded waits
+for observable UI conditions rather than sleeps or requiring perpetual animation
+to become globally idle. Keep animations enabled for animation-behavior scenarios.
+
+Native Compose/instrumentation tests remain useful at the component/gesture layer.
+Maestro is an alternative for simpler declarative UI journeys; prefer Appium here
+for explicit multi-device orchestration, custom pointer sequences and process/
+failure coordination. These recommendations still need agreement and later real
+canvas integration validation; no framework automatically solves canvas targeting.
 
 ## Shared-engine and random-input verification — D-261
 
@@ -77,7 +141,8 @@ dispatchers, alternate screens or direct domain calls to make E2E easier.
 Coordinate two normal Android instances, adding a third for same-account/device
 cases. Isolate the whole backend environment per independent test, including
 workers, queues, sessions and external-service test deliveries. Testcontainers is
-a proposed provisioning tool, not a substitute for the E2E reset contract.
+proposed for smaller integration tests; Docker Compose is recommended for E2E.
+Neither is a substitute for the E2E reset contract.
 
 Use external traffic/process controls for lost responses, disconnects, service
 crashes and competing arrival orders, without manufacturing gameplay state through
@@ -87,8 +152,13 @@ fails setup rather than permitting a test against uncertain state.
 
 ## Remaining technical work
 
-Select exact libraries/versions, multi-device runner/orchestration, real canvas
-gesture/observation APIs, service/reset provisioning, deterministic race controls,
+Agree the proposed Appium/Kotlin/JUnit/Docker Compose combination and exact
+versions, multi-device orchestration, real canvas gesture/observation APIs,
+service/reset provisioning, deterministic race controls,
 CI/device matrix, synthetic fixtures and performance budgets. Map tests to stable
 acceptance IDs and the grouping matrix; do not equate this tool proposal with
 completed coverage or resolution of the outstanding specification review findings.
+
+References: [Appium architecture](https://appium.io/docs/en/latest/intro/),
+[UiAutomator2 driver](https://appium.github.io/appium-uiautomator2-driver/),
+[Android emulator networking](https://developer.android.com/studio/run/emulator-networking).

@@ -17,7 +17,7 @@ and retention policies remain design work. No implementation is authorized.
 | Recorded mutations | Versioned actual transitions and recorded random outcomes. Removing a logical tree node does not automatically delete data needed by Redo, references or exposure/recovery rules. |
 | Current materialized state | Object/container/control records updated incrementally, not a full history document rewritten on each action. |
 | Synchronization | Ordered committed revision/change records, separate from retained gameplay history. |
-| Request recovery | Original request identity/payload identity and pending/final outcome, independent from the sync replay window. Exact admission/inbox mechanisms remain proposals. |
+| Request admission/recovery | D-275: PostgreSQL-backed durable per-game inbox with server-assigned order, immutable request/semantic payload identity and pending/final outcomes, independent from the sync replay window. Exact tables/locking/fencing/retention remain design work, not the overall mechanism. |
 | Notifications | Transactional outbox records delivered after commit. |
 | Checkpoints | Materialized state at an explicit boundary/revision with D-264 integrity metadata. Derived checkpoints do not replace retained essential initial/game definitions or history. |
 
@@ -25,6 +25,12 @@ Use relational columns for identities, relationships, ordering and queried field
 versioned JSONB payloads for structured object/mutation data where suitable. Do not
 let foreign-key cascades or generic JSON updates define tree edits, cleanup or
 game semantics. Transaction boundaries retain the [server obligations](server-architecture.md#authority-and-transaction-obligations).
+D-275 distinguishes inbox-admission commit/receipt from final atomic command
+execution: accepted state/history/control, result, applicable sync changes and
+outbox work commit together. Pending duplicates have one queue position; final
+duplicates recover original outcomes without another mutation. Receipt alone
+cannot advance a client accepted-state cursor or mark a command successful. See
+[request ordering/recovery](request-ordering-and-recovery.md).
 
 **Checkpoint meaning — D-266:** checkpoints are rebuildable materialized-state
 caches/optimizations for loading, replay and baseline transfer. Evicting one may

@@ -9,6 +9,9 @@
   app versions (D-273), with exact protocol/build/version details still to design.
 - [Server architecture](server-architecture.md): Spring Boot/PostgreSQL/Flyway
   selections, jOOQ, authority and transaction boundaries.
+- [Request ordering and recovery](request-ordering-and-recovery.md): stable intent/
+  request identities, PostgreSQL durable per-game inbox/order, receipt versus final
+  atomic result, and fenced reconnect without losing admitted work (D-275).
 - [Storage architecture](storage-architecture.md): selected relational/versioned
   server storage, SQLDelight client categories/migrations, and separation of sync
   revision retention from gameplay history and request recovery.

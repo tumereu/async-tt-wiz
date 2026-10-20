@@ -602,6 +602,11 @@ The general rules are:
   Ordered delivery replaces sequencing dependency metadata, not individual
   validation. Later actions still get checked when an earlier action fails;
   sending and local interaction do not wait for acknowledgements.
+- D-275 records commands durably before processing, but **received is not accepted**.
+  A receipt leaves the action pending until its final committed outcome. Reconnect
+  recovers original identities/results without repeating actions; timeouts never
+  imply rejection. Replacing one device's connection does not disconnect other
+  devices or discard already-received commands. Exact UI labels remain later work.
 - Existing-counter +/- applies to the current number, so two concurrent +1s both
   count. Set writes the requested value without a previous-value comparison
   (D-187 revising D-186). Arithmetic still requires usable numeric data. The

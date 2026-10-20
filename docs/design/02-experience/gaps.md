@@ -130,6 +130,10 @@ downloads and manual installer updates, with compatible upgrade/mixed-version
 behavior. Reference-device budgets, exact build/signing/release mechanics and
 protocol compatibility windows remain technical work, not a fresh question about
 whether Play Store publication or a custom in-app updater is required.
+D-275 settles the durable PostgreSQL inbox/request-identity/atomic-outcome/fenced
+reconnect mechanism. Exact admission locking/wire states, retention/backpressure,
+readiness/provisional references and buffered-unsent specification remain technical
+completion; do not reopen the selected mechanism or treat a receipt as acceptance.
 
 The [classified Q-register](../../agent/decisions.md#93-release-blocking-questions)
 keeps stable tracking IDs while replacing the original mixed question queue.

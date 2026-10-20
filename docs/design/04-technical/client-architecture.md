@@ -170,6 +170,15 @@ under D-265. Fresh baseline/full sync replaces accepted replica data coherently,
 not the original recovery records or all local application storage. Reconcile
 pending predictions against the new baseline without inventing outcomes.
 
+D-275 binds immutable semantic request identity/payload to durable recovery and
+distinguishes admission receipt from final result and replica catch-up. Resume
+queries/retransmits original uncertain requests without new IDs/random inputs,
+preserving original not-yet-admitted send order and lifecycle/account context.
+Obsolete-connection fencing applies to the replaced logical stream, not all other
+devices; already-admitted commands retain their records. Exact cutover/resume and
+outcome wire states remain technical design within the
+[selected request mechanism](request-ordering-and-recovery.md).
+
 The [ownership matrix](../03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259)
 owns the accepted-replica/prediction/UI/recovery distinction. The
 [sync design](sync-and-storage.md) owns durability and reconciliation mechanisms.

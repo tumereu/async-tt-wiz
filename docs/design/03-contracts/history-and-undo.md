@@ -576,15 +576,32 @@ traversal and interruption-resume rollback/playback remain distinct and unchange
 D-185 removes unnecessary visible rewind/replay from ordinary online reconciliation.
 
 Acknowledgement of a predicted mutation must not apply it twice. Animation does
-not gate persistence, publication or server acceptance. Exact animation scheduling,
-ordered-transport selection, reference handling, queue sizing/saturation and
-connection-loss recovery mechanics remain open; these must preserve D-216's
+not gate persistence, publication or server acceptance. D-263 selects ordered
+gameplay WebSocket; D-275 selects the durable inbox/recovery mechanism below.
+Exact animation scheduling, wire/reference handling, queue sizing/saturation and
+connection-cutover details remain technical work; these must preserve D-216's
 automatic/no-duplicate/no-manual-resend behavior, concurrent sending,
 individual outcomes and D-185 difference-only corrections rather than introduce
 a blanket wait-for-response interaction gate. Final timing, reduced-motion/
 accessibility presentation and layout remain later design work.
 
-Proposed action lifecycle:
+### Request identity, durable admission and recovery — D-275
+
+**Confirmed:** each command has a stable unique request identity and original
+semantic payload with account/actor, game/lifecycle context, action data/references/
+limited guards, random input and explicit historical intent when applicable.
+Retransmission preserves that intent/identity; same identity with different contents
+is misuse, not another action or permission to overwrite a recorded result.
+Credentials/connection replacement on same-account recovery are transport context,
+not a change to immutable gameplay intent. Exact wire fields remain technical work.
+
+Use PostgreSQL-backed durable per-game admission and serial processing in the
+server-assigned arrival order. Preserve ordered client sending and cross-player/
+device interleaving without dependency-graph reconstruction or client-clock sorting.
+Unrelated games may run independently. A **durable receipt means received/pending**,
+not successful acceptance, a committed mutation or proof of replica convergence.
+
+Selected lifecycle, with exact schema/locking implementation still to specify:
 
 1. The user completes a direct operation or the necessary inputs for an action.
 2. Persist its predicted state transition and outbound request atomically, and
@@ -592,10 +609,28 @@ Proposed action lifecycle:
    This is not an accepted server transition or a separate local game (D-259).
 3. If connected, begin publication immediately in client action order. Do not
    wait for a group to end, a timer, screen exit, or another user action.
-4. In arrival order, the service validates structural preconditions and commits
-   history, branch changes, and notification outbox records atomically.
-5. Mark the local result synchronized on acknowledgement; otherwise retain it
-   visibly as pending, retryable, or failed work.
+4. Admit the authenticated original command/order durably. Only after this commit
+   may the service report a durable receipt; the gameplay result is still pending.
+5. In that per-game order, check actual access/lifecycle/applicability/guards and
+   atomically commit state/history/control changes, final result, relevant sync
+   changes and outbox work for each individual command. Admission does not promise
+   success; one rejection does not cancel later independently applicable commands.
+6. Resolve local request status from its final committed outcome and reconcile
+   accepted changes once, independently from whether replica catch-up is complete.
+   A timeout/lost response leaves an unknown outcome to recover, not fabricated
+   rejection. A pending duplicate keeps its original inbox slot; a completed one
+   returns its original accepted/rejected/no-op result rather than executing again.
+
+Reconnect automatically looks up/retransmits uncertain original requests as needed
+and restores accepted state through revisions or a coherent baseline. Fence obsolete
+connections from new admission after replacement, scoped to that installation/
+logical stream: other devices stay usable and already-admitted records are not
+discarded. Preserve local original order for not-yet-admitted recovery work without
+routine per-command acknowledgement waits. Old-play/preparation/invitation requests
+cannot affect fresh lifecycle context; original committed results remain recoverable
+without reapplication. Preserve account-private exposure/Logout obligations.
+See [request ordering/recovery](../04-technical/request-ordering-and-recovery.md)
+for the selected mechanism and remaining exact wire/retention/fencing work.
 
 Publishing submits the requested operation and any limited movement/Stack guards,
 explicit interruption intent and its chosen boundary when applicable, action data,
@@ -656,9 +691,11 @@ deliberately waiting to gather a group; every action boundary remains intact.
   Undo/Redo edit the existing tree instead of supplying continuation intent.
 - Initial delivery does not permit offline actions or reconnect replay of an
   offline gameplay queue (D-182). While online, local acceptance and branch
-  activation remain provisional until acknowledged. D-180 specifies animated
+  activation remain provisional until a final committed outcome, not merely an
+  admission receipt. D-180 specifies animated
   rejection feedback, composed under D-185. Retain recoverable online work;
-  exact in-flight recovery and animation scheduling remain open.
+  exact recovery wire states and animation scheduling remain technical work within
+  D-275's selected identity/inbox/reconnect mechanism.
 - Incomplete selections/forms may be cancelled without shared effects. Once an
   action is completed, use Undo rather than assuming it is still private.
 - Do not require a pre-send review, editing mode, group completion, branch name,

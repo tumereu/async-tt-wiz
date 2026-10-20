@@ -86,8 +86,9 @@ A completed shared operation is persisted for recovery and begins transmission i
 client action order, with provisional local application and no routine
 acknowledgement wait. The server validates/applies it in arrival order, records
 the actual accepted transition/control outcome and creates authoritative events;
-deterministic grouping follows. Acknowledgement/update confirms that outcome, not
-a second execution of the local prediction. Reconcile against accepted state plus
+deterministic grouping follows. Only the final committed result/update confirms
+that outcome; D-275's durable inbox receipt means pending, not acceptance, replica
+convergence or a second execution of prediction. Reconcile against accepted state plus
 remaining valid predictions under D-185, preserving unrelated UI state and the
 explicit review-cursor rules. Rejected/no-op requests invent no gameplay mutation.
 Offline use permits downloaded read-only traversal, not new shared action creation.

@@ -200,6 +200,13 @@ requiring a predetermined permutation or resampling until one appears. Golden
 seed/algorithm vectors and unbiased-sampling checks belong to lower shared-engine
 tests, not a test-only seed/result picker in the normal app. Selecting Random
 alone does not roll; start requires only existing Ready/lifecycle rules.
+D-275 request-recovery variants externally delay execution after admission, lose
+receipts/results, restart the service and replace a logical connection while a
+second same-account device stays active (T-636–T-639). All measured commands must
+originate through normal UI; traffic/process/worker controls arrange failure, not
+insert inbox rows or forge game outcomes. Lower protocol tests own changed-payload
+misuse and exact ingress/fencing races. Preserve app/database state within each
+journey and observe final UI/history, not receipt/server logs alone as success.
 D-269 notification variants include normal UI-created invitations/opponent activity
 on non-Google Android with no FCM server configuration, polling-driven OS display,
 permission/channel denial, and foreground catch-up after blocked background work

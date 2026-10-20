@@ -479,7 +479,9 @@ using original request identities/conditions; an already-committed action/random
 result must not execute/sample again. Use normal difference-only reconciliation
 for accepted/rejected outcomes, without retrying a rejection as a fresh action
 or cancelling other valid work. This does not enable offline actions. Exact
-recovery protocol/ordering/readiness and buffered-but-unsent handling remain open.
+D-275 selects stable identity, durable per-game admission/order and fenced outcome
+recovery. Exact wire/readiness, queue limits and buffered-but-unsent handling remain
+technical/specification completion, not blanket unsent/offline replay authorization.
 
 **Confirmed D-183:** use a small local send queue, send online actions concurrently
 and reconcile each action's success/failure individually. Apply interactions

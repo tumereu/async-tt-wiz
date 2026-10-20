@@ -57,12 +57,15 @@ commit–reveal or a proof that untrusted clients sampled honestly.
 ## Authority and transaction obligations
 
 - Serialize applicable game/control/lifecycle processing per game, while allowing
-  unrelated games to proceed independently. Define the arrival/order admission
-  mechanism explicitly: row locks alone do not guarantee network arrival order.
+  unrelated games to proceed independently. D-275 selects a PostgreSQL-backed
+  durable command inbox and server-assigned admission order; exact serialized
+  ingress/locking/worker recovery still needs specification. Row locks or database
+  sequences alone do not establish the full ordered-ingress protocol.
 - In one database transaction, persist each command's authoritative state/history
   changes, operation outcome, relevant control-stack changes, sync revision and
-  required outbox work. No acknowledgement before durable commit under the defined
-  service recovery model.
+  required outbox work. No final acceptance acknowledgement before that commit;
+  D-275 permits a separate durable receipt only after inbox admission commit,
+  meaning pending rather than accepted gameplay or a caught-up replica.
 - Each individual bulk constituent remains its own operation/outcome. A database
   transaction must not turn an entire gesture's sequence into an atomic bulk node.
 - Delivery retries return the original outcome, including recorded random results;
@@ -72,6 +75,16 @@ commit–reveal or a proof that untrusted clients sampled honestly.
 - Publish realtime updates only from committed data. Reconnect recovers durable
   revisions/outcomes; a socket message is not the only record of an accepted action.
   Notification failures do not roll back gameplay.
+
+D-275 keeps immutable request identity/payload and original lifecycle fences in
+the inbox/result store. Pending duplicates retain one slot; completed duplicates
+return the recorded result, including rejection/no-op. A different payload/scope
+under the same identity is misuse, not overwrite/revalidation authority. Replacement
+connections fence obsolete streams from new admissions without discarding admitted
+records or taking over other devices. Exact protocol/SQL/connection generation,
+retry/backpressure and retention mechanics remain to define; see
+[request ordering/recovery](request-ordering-and-recovery.md). No separate broker
+is required by this design.
 
 D-271 accepts client-supplied deck/card definitions as arbitrary game data. Validate
 supported schema, references, content/resource safety and account/lifecycle access,
@@ -127,7 +140,8 @@ Exact negotiation/window/recovery contracts remain to design; see
 
 ## Still to design
 
-Ordered WebSocket admission and locking, relational schema and payload representation,
+Exact selected-inbox ingress/worker locking and connection-fence/resume implementation,
+relational schema and payload representation,
 idempotency retention, API/realtime protocol, authentication/session mechanisms,
 container/runtime interfaces, supported versions and application resource budgets.
 Production topology/deployment/backups live in the external repository (D-272);

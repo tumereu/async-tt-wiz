@@ -14,7 +14,43 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest Shuffle and Random-starter acceptance — D-274
+## Latest durable request ordering/recovery acceptance — D-275
+
+The owner accepts the preceding proposal and requests "apply+next". Select stable
+unique request/semantic payload identity, PostgreSQL-backed durable per-game inbox
+admission/order, atomic individual execution/results/relevant revisions/outbox and
+obsolete-connection fencing on reconnect. Each request retains authenticated actor,
+game/lifecycle context, action/references/guards/random input and explicit historical
+intent where applicable. Changed intent/scope under the same identity is misuse;
+same-account credential/connection renewal is not changed gameplay payload.
+
+Receipt requires inbox commit and means pending, not successful mutation or replica
+catch-up. Pending duplicates keep one queue position; final duplicates recover the
+original accepted/rejected/no-op result, not revalidation against later state.
+Server admission order governs per-game serial processing, preserving client send
+order/interleaving without timestamp/dependency reconstruction or routine ack waits;
+unrelated games run independently. One constituent rejection does not cancel later
+valid commands or make bulk gestures atomic. No separate message broker is required.
+
+Reconnect queries/retransmits original uncertain requests and separately catches
+up accepted state. Timeout is unknown, never a fresh ID/roll or invented rejection.
+Race-safe stream-scoped replacement fences new admissions from obsolete transports,
+preserving already-admitted records and other devices. Preserve original unadmitted
+recovery order and account/incarnation/preparation/invitation fences; old results
+cannot reapply state/Redo resets over newer play. Existing exposure/Logout duties
+remain. This does not blanket-authorize never-transmitted buffers/offline gameplay.
+
+[Request ordering/recovery](../design/04-technical/request-ordering-and-recovery.md)
+separates selected mechanics from exact SQL/locking/worker/fence/resume/result
+schemas, semantic identity comparison, retention/backpressure and provisional-
+reference/readiness completion. T-636–T-639 supplement stable prior tests; old
+inbox/receipt/open-ordering prose is corrected. No app/schema/executable tests or
+stage transition is authorized. Next: propose bounded typed deltas, paged history
+and coherent leased baseline transfer mechanics without treating all earlier
+wire/schema/lease proposals as already approved. D-267 mode double taps and D-271
+startup MTGJSON checks remain tentative.
+
+## Earlier Shuffle and Random-starter acceptance — D-274
 
 The owner accepts the preceding proposal and requests "apply+next". Each new
 connected in-game Shuffle saves a fresh client seed with its original request;

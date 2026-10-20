@@ -260,6 +260,32 @@ recovery. Lower-layer decoder/version/migration tests supplement normal-app E2E;
 no forced re-login, fresh random sample or duplicate invocation is inferred from
 the upgrade. T-631–T-633 specify coverage, not executed tests or build automation.
 
+## Durable command admission and recovery verification — D-275
+
+With real PostgreSQL, distinguish inbox receipt from final execution/result. Stop
+workers after admission, crash before/during/after command commit and lose replies;
+verify one durable slot, ordered resumption, atomic state/result/revision/outbox and
+no false acceptance. A duplicate final rejection/no-op is the original result, not
+a fresh chance against newer state. Different semantic payload/scope under the same
+identity fails without overwriting pending/final data; reauthentication/connection
+headers alone do not change action intent. Lower-layer tests may inject malformed
+protocol inputs, but normal-app E2E cannot manufacture commands/history via helpers.
+
+Race obsolete/new logical streams against admission and worker execution, keeping
+another same-account device active. Replaced streams cannot admit new work; their
+already-admitted records survive and process under normal lifecycle/access checks.
+Resume cannot let a newer unadmitted local suffix overtake older recoverable work,
+or introduce stop-and-wait for ordinary pipelined traffic. Test cross-player ingress
+interleavings, multiple independent games and per-command rejection without whole-
+queue cancellation. Sequence allocation alone is not evidence of ordered ingress.
+
+Normal-app/backend journeys use UI-originated online actions plus external traffic/
+worker/process fault controls to verify receipt/pending/final distinction, restart,
+same-ID recovery, original random inputs and old-incarnation/preparation fences.
+Keep app/backend data throughout recovery checkpoints; no test-only queue/receipt
+screen or injected action to make observations easy. T-636–T-639 supplement existing
+ordering, lifecycle and outcome scenarios; exact controls/limits remain to design.
+
 ## Harness and failure evidence
 
 Coordinate two normal Android instances, adding a third for same-account/device

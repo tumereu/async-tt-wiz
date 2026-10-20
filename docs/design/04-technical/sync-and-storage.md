@@ -1,13 +1,15 @@
 # 6. Synchronization and storage
 
-Status: proposed protocol mechanics supporting confirmed behavior. D-179 replaces
+Status: protocol mechanics are proposed unless selected explicitly. D-179 replaces
 automatic conflict branching with explicit interruption intent. D-187 normally
 accepts ordinary actions against current state, with optimistic guards limited to
 movement and Stack additions, not general previous-value comparisons. Exact API
 and schema are not yet specified. D-263 selects ordered gameplay WebSocket
 transport and HTTPS/JSON for accounts/catalog/reads, using Ktor Client and
 kotlinx.serialization on clients; OpenAPI describes HTTP and explicit schemas
-describe socket messages. These choices do not complete the recovery protocol.
+describe socket messages. D-275 selects stable request identities, PostgreSQL
+durable per-game admission, atomic individual execution and fenced reconnect
+recovery; exact schemas/locking/limits remain technical design, not implementation.
 
 **D-182 release scope:** game actions and shared controls require a connection in
 initial delivery. Downloaded state/history remains readable offline. There is no
@@ -25,8 +27,9 @@ extended disconnected gameplay.
 validates/applies them in arrival order. Multiple actions may be in flight without
 acknowledgement waits. Preserve ordering in delivery, not a per-action dependency
 graph or server-side reconstruction of client order. D-263 selects WebSocket for
-ordered gameplay delivery; exact ordered admission, session replacement/resume
-and in-flight recovery still need design. Independent requests that can overtake
+ordered gameplay delivery; D-275 selects durable per-game inbox admission and
+obsolete-connection fencing, with exact cutover/resume wire details still to design.
+Independent requests that can overtake
 each other would not satisfy the ordered-send requirement, and socket ordering
 alone does not establish per-game ordering across devices or durable acceptance.
 
@@ -154,8 +157,9 @@ an app upgrade. No generator/schema implementation is authorized by this selecti
 
 Game actions may be made only with a connection in initial delivery. They begin
 publication immediately in client action order; no offline gameplay queue is created.
-There is no Send step or waiting for group closure. Service acknowledgement establishes the
-shared result, not a notification or animation.
+There is no Send step or waiting for group closure. Only a final committed outcome
+establishes the request's result. D-275's durable receipt means admitted/pending,
+not accepted gameplay or a caught-up replica; neither animation nor push is proof.
 
 D-180 confirms immediate optimistic local state updates for latency hiding. A
 rejected mutation is visually reversed with an Undo-like animation; this local
@@ -197,9 +201,10 @@ requested historical continuation. D-179 requires an explicit interruption flag
 and chosen boundary for the latter. D-187 applies ordinary operations to current
 state unless impossible, retaining limited movement/Stack guards rather than
 previous-field-value or whole-game-head checks. D-232 Undo/Redo do not supply
-historical-continuation intent. Proposed additional fields include an
-idempotency key, persistent lobby ID, play-incarnation ID, action data and explicit
-historical reference context. D-254 separates requests from server-created events:
+historical-continuation intent. D-275 selects request identity, authenticated
+account/actor and game/lifecycle context, action data/captured references/limited
+guards, random input and explicit historical intent where applicable; exact field
+names and encoding remain technical design. D-254 separates requests from server-created events:
 group membership is deterministic derived output, not a client/menu assignment or
 group guard. A historical group reference does not assign a new event's group.
 D-184 uses ordered
@@ -224,8 +229,9 @@ uninterrupted block against the other player's actions.
 
 Authoritative parent mapping must support accepted current-head actions without
 changing the requested operation, limited guards or interruption intent. Exact
-WebSocket admission/resume, new-object/reference handling, queue size/saturation and animation scheduling
-remain open; they must support the confirmed concurrent online pipeline, not
+WebSocket admission/resume details, new-object/reference handling, queue size/
+saturation and animation scheduling remain technical work within D-275's selected
+durable-inbox/fencing/recovery mechanism; they must support the online pipeline, not
 restore stop-and-wait as a blanket policy. Preserve each operation's identity when
 resolving delivery uncertainty; do not resubmit as a different action/random draw.
 
@@ -266,15 +272,15 @@ Proposed outcomes:
 | Deliberate historical continuation, with explicit flag and boundary | Validate at the selected boundary, then create and activate the interruption branch atomically. Mere review/staleness is not intent. |
 | Successful deliberate activation/interruption/return changes selected shared history | Clear both players' Redo queues atomically with the switch (D-258). Ordinary events and Undo/Redo retain normal semantics. Same-current-target no-op, failed switch or metadata-only archival does not trigger this reset. Retry recovers the original result without reactivation or clearing newer entries. |
 | Further online-pending work after a separate explicit interruption | Detailed dependency/continuation behavior remains open; do not resurrect the superseded automatic-conflict or offline-queue protocol. |
-| Same idempotency key and identical payload retried | Return the original result; never apply twice. |
-| Same key with a different payload | Reject as idempotency-key misuse. |
+| Same request identity and semantic payload retried | Pending admission gets no second position; completed command returns its original outcome, including rejection/no-op. Never apply twice (D-275). |
+| Same identity with different intent/scope | Reject misuse without overwriting the original pending/final record. Transport credentials/connection replacement are not changed action intent (D-275). |
 | D-232 Undo/Redo tree edit is eligible at the authoritative revision | Apply removal/reinsertion once without creating a branch, subject to D-224 replay/N and D-227–D-231 target/stack rules. Exact atomic revision guard and reference reconciliation remain open. |
 | Undo/Redo tree changes while validation/request is in progress | Exact recheck/rejection/reconciliation policy remains open; do not silently reuse D-161's superseded captured-parent rule, change targets or apply an unchecked suffix. D-182 excludes offline Undo creation. |
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
 | Stale non-Undo branch control command | Outcome remains a product decision. D-161 does not approve generic silent discard for branch activation/archive/restore. Preserve nodes and recoverability. |
 | Invalid object/reference or structural constraint | Reject the affected publication with actionable structural error; explicit interruption cannot repair malformed actions. |
 | Explicit historical boundary or new-object reference not yet authoritative | Check the original reference against state at arrival-order processing; do not substitute another base or wait on a sequencing dependency graph (D-184). A failed prerequisite does not cancel later actions whose own checks pass. Exact provisional-reference mapping remains protocol design, not an acknowledgement-before-send policy. |
-| Connection drops during an already-started online request | Outcome may be unknown, not necessarily rejected. Preserve operation identity and recoverable context; exact resolution/retry behavior remains open. No new offline gameplay queue or action creation (D-182). |
+| Connection drops during an already-started online request | Preserve identity/context and automatically look up/retransmit the original as needed under D-275, without duplicate execution, new randomness or lifecycle retargeting. Receipt/timeout is not an accepted/rejected outcome. Exact wire/result categories remain technical design; no offline action creation (D-182). |
 
 **Confirmed D-187:** ordinary actions are attempted against current state and
 normally succeed unless genuinely impossible. Validate/apply each operation in
@@ -360,13 +366,28 @@ queue to avoid supporting offline play.
 Keep recoverable unfinished input separate from accepted game history. Persist
 enough context for an online request whose outcome may be unknown after network
 loss or restart; do not report server acceptance before acknowledgement or a
-verified recorded result. Preserve idempotency, the requested operation and any limited guards,
+verified final recorded result. A durable admission receipt is not gameplay
+acceptance (D-275). Preserve idempotency, the requested operation and any limited guards,
 explicit interruption intent and stored random outcomes when resolving that
 request. Missing acknowledgement alone does not prove rejection or justify an
 Undo-like rollback as a known server rejection.
 
-Exact connection readiness, uncertain-request resolution, whether/how to retry,
-queue sizing/saturation and animation scheduling remain open. D-185 fixes
+### Selected durable admission and outcome recovery — D-275
+
+Use a PostgreSQL-backed durable per-game command inbox with server-assigned admission
+order, atomic individual execution/results/relevant revisions/outbox, stable request
+payload identities and obsolete-connection fencing scoped to the replaced stream.
+Keep receipt, final outcome and accepted-replica catch-up separate. Duplicate pending
+requests keep their original slot; completed duplicates recover original outcomes.
+Timeouts never prove rejection, and neither inbox restart nor connection replacement
+discards already-admitted work. Old-incarnation/preparation/invitation intent never
+mutates a later lifecycle. Other same-account devices remain concurrently usable.
+See [request ordering/recovery](request-ordering-and-recovery.md) for selected
+mechanics, derived race/retry constraints and remaining exact schemas/limits.
+
+Exact connection readiness/resume wire states, retry/backoff, admission/worker
+locking, queue sizing/saturation and animation scheduling remain technical design.
+D-185 fixes
 difference-only corrections with accepted work and valid predictions preserved.
 D-183 rules out a blanket wait-for-acknowledgement interaction gate; D-182 still
 excludes extended offline gameplay/replay. Do not interpret ordinary network latency as permission

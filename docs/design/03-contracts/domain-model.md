@@ -138,6 +138,45 @@ other non-card field normalization requires its own contract.
 | Ping | Stable ID, author, owning group/event ID (D-75), source action/effective-boundary context, referenced destination, and event-wide sequence shown as an order number (D-119). One standard marker/no user label/style controls (D-77). Exact ordering/edit/revision/schema behavior remains open. |
 | Generic link | Stable ID, supported endpoints, binary present/absent relationship; one standard connector/no user labels/styles (D-71). D-120 adds projection-to-projection endpoints whose links disappear with an endpoint projection. Other mixed projection endpoints remain open; no inferred game effect. |
 
+### Game definitions and local catalog independence — D-271
+
+**Confirmed D-271:** clients supply their deck/card definitions to the server as
+part of preparation for game start. The definitions may be arbitrary; the server
+does not require MTGJSON/Scryfall recognition, official-printing equivalence or
+format legality. It checks supported structure, references, resource bounds and
+safe untrusted-data handling, retains the accepted snapshots and supplies those
+records to both participants. Card data is not executable rules. This does not
+add a card-authoring UI or a second manual deck-publication/start step.
+
+The owner's stale-catalog question is otherwise resolved by retained-definition
+and server-authority rules (D-65/D-243/D-259/D-266), not a requirement that both
+players have the latest public catalog. The game service supplies the accepted
+definitions required by its baseline/history/updates, including an opponent's
+card or newly introduced catalog token absent from the recipient's local catalog.
+Retain definition/version identity, any source/printing provenance, faces/display
+data, resolved defaults and image references. Exact fields, structural validation
+and bounded transfer/read mechanics remain
+[technical design](../04-technical/card-data-and-art.md#lazy-images-and-mismatched-catalogs--d-271).
+
+- Resolve a game card from its accepted definition/version, not whichever local
+  public-catalog entry is newer. Catalog refresh cannot rewrite retained meanings.
+- Same names or claimed external IDs do not prove two client-supplied definitions
+  are equal. Keep distinct accepted definitions distinct; neither may overwrite
+  the other deck/game or poison a shared public-catalog entry. Protocol identity/
+  deduplication mechanics remain technical design, not provider authenticity checks.
+- Missing required definition data means an incomplete download to recover, not
+  rejection of an accepted opponent action, an invented unknown definition, lost
+  mutation, or permission to execute its request again. Do not treat an incomplete
+  replica as caught up merely because its revision label matches.
+- D-271 confirms image resolution/download on demand with local caching. Missing
+  image bytes do not make a definition unknown or prevent deck save/Ready/play;
+  use text fallback. An optional default value absent under D-65 still uses its
+  resolved blank fallback, not an invented new mandatory-field requirement.
+- Definition fetching itself is not logged inspection, personal review progress
+  or a gameplay mutation. Preserve downloaded read-only access and account-private
+  snapshots/Logout cleanup, and do not interpret cached faces as new offline
+  inspection authority.
+
 D-176 distinguishes invocation, individual mutation node and playback group.
 Each mutation immediately extends or branches the chosen node/path and publishes
 independently. Bulk commands issue individual operations in a sensible recorded

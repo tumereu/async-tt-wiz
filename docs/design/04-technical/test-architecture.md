@@ -200,6 +200,24 @@ wall-clock delivery. No production exact-alarm permission or shorter hidden poll
 loop may be added simply to make tests timely. T-486–T-490 and T-622–T-624 record
 the expected outcomes; this is verification design, not executed coverage.
 
+## Client definition and image verification — D-271
+
+Use normal client downloads/import/preparation against synthetic catalogs with a
+record present only on one side; the recipient obtains the accepted game definition
+from the real backend. Also create a new catalog token during play, restart and
+exercise stale-catalog recovery. Verify lazy image requests/cache reuse and text
+fallback independently of required game records. Different source versions cannot
+silently change accepted faces/defaults/history. T-627 owns this UI/backend journey.
+
+At lower layers test arbitrary client-supplied definitions without official-source
+verification, differing content under colliding external IDs, structural/resource
+rejection, safe text/URL handling and incomplete-definition transfer recovery.
+T-628 does not authorize an in-app authoring editor or test-only card creation API.
+The tentative startup MTGJSON metadata check remains conditional (T-629); synthetic
+source fixtures test changed content date/version, bounded checks and atomic update
+failure without relying on the real public service. No executable coverage is
+claimed by these specifications.
+
 ## Harness and failure evidence
 
 Coordinate two normal Android instances, adding a third for same-account/device

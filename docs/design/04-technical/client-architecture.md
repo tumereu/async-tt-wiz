@@ -27,6 +27,11 @@ D-265 selects SQLDelight for SQLite access;
 D-270 selects client public-source downloads/local storage for card records and
 artwork; [provider research/design](card-data-and-art.md) keeps provider choice
 separate from that direction and retained authoritative game definitions.
+D-271 confirms lazy image loading/cache; clients submit arbitrary deck definitions
+for structural/security validation and server retention, not official-catalog
+verification. Recipients receive the accepted definitions from the service even
+if absent from their local catalog. Startup MTGJSON update checks are
+tentative, not a blocking full-catalog refresh or new deck-art prerequisite.
 Coil is conditional on canvas integration. Exact versions,
 scene/input design, storage schemas and final screen layouts remain incomplete.
 

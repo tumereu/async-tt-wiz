@@ -16,8 +16,10 @@
   optional FCM and best-effort polling fallback (D-269), recommended WorkManager
   scheduling, Android limits and account-safe delivery independent of game sync.
 - [Card data and artwork](card-data-and-art.md): client public-source downloads
-  and local reuse (D-270), Cockatrice/Oracle source research, and an unselected
-  Scryfall recommendation distinct from licensing approval.
+  and local reuse (D-270), lazy images and arbitrary client-supplied game definitions
+  shared despite stale catalogs (D-271), Cockatrice source research, tentative
+  MTGJSON startup checks and the alternative Scryfall recommendation, not licensing
+  approval.
 - [Test architecture](test-architecture.md): selected Docker backend/database
   boundary; selected Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose scenarios,
   canvas UI automation and real-PostgreSQL migration/concurrency testing.

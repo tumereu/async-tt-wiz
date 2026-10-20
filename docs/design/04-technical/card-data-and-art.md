@@ -13,9 +13,103 @@ Logout cleanup remain; shared public assets are distinct from private game data.
 
 Retain essential per-game definitions, resolved face defaults and recorded results
 on the server under D-65/D-243/D-266. Client catalog updates cannot redefine accepted
-game history or create per-device semantic variants. How the backend validates and
-retains a resolved definition without mandatory client download proxying remains
-technical protocol work; public-source fetching is not game authority (D-259).
+game history or create per-device semantic variants. D-271 below selects
+client-supplied definitions with structural validation, not server verification
+against an official provider. Public-source fetching is not game authority (D-259).
+
+## Lazy images and mismatched catalogs — D-271
+
+**Confirmed:** resolve/download images lazily as needed and cache them locally.
+Do not download every image with a catalog update or make artwork availability a
+deck-save, Ready or gameplay prerequisite. Card records and image bytes have
+different availability requirements; resolve an image from retained printing/face
+references without changing the game's definition. Missing imagery uses text.
+
+**Confirmed clarification:** the client informs the server of its prepared deck
+and supplies the required definitions; these may be **arbitrary**, not necessarily
+recognized by MTGJSON/Scryfall or identical to an official printing. The server
+validates supported schema/structure, references, resource limits and safe handling
+of untrusted content, not official-card authenticity or format legality. Retain
+the accepted snapshots and send those same definitions to the opponent. This is
+ordinary deck preparation before start, not a second manual Send deck/start step.
+It does not approve a new card-authoring UI, arbitrary executable rules or scripts.
+
+**Derived from D-65/D-198/D-243/D-259/D-266:** each game must supply its retained
+essential definitions to either participant independently of their general local
+catalog. A player lacking an opponent's card in an old catalog must receive the
+accepted game definition from the service, not reject the opponent's action or
+require a full public-catalog update. This also applies to a previously absent
+token definition introduced during play, not just the starting decks. Catalog
+content received this way is an accepted game record, not a mandatory public
+catalog/image proxy and not authorization for a custom-definition editor.
+
+Recommended protocol completion:
+
+- At deck resolution/selection, submit or reference each distinct definition
+  needed by the prepared deck; the server structurally validates and retains the
+  accepted version, with no provider lookup required to prove authenticity. Fields
+  include stable definition/version identity, any supplied source/printing
+  provenance, names, faces/display data, resolved per-face corner defaults and
+  image references. Exact schema and validation/resource bounds remain to design.
+  A client-authored snapshot is authoritative for that accepted game, not an
+  authenticated statement about a public provider's global catalog.
+- Distinct supplied definitions may claim the same name/external printing ID yet
+  contain different data. Preserve distinct accepted definition identities rather
+  than overwriting the other deck's records or a global public-catalog entry. Scope
+  deduplication to equivalent definition content/version; exact identity/digest
+  representation remains technical design. Accepted deck/preparation edits obey
+  existing copy isolation and Ready-clearing rules, not silent snapshot changes.
+- Transfer the required distinct definition set with a bounded/paged game baseline,
+  or via explicit definition reads before applying dependent records. Attach or
+  fetch any newly introduced definitions on later deltas. Avoid repeated copies
+  per card instance, full public-catalog transfer or whole gameplay-tree download.
+  Exact eager-versus-on-demand definition paging is technical design, not approved
+  by the owner's question about sending opponent deck data.
+- Prefer the exact retained game-definition identity/version over a newer or older
+  local catalog entry. Never silently overwrite existing games with updated text,
+  face mappings or defaults. Different games may retain different source versions.
+- If a required game definition has not arrived, retain the pending data as
+  incomplete and fetch/recover it; do not fabricate an unknown card, drop its
+  mutation, mark an incomplete replica caught up or rerun an accepted command.
+  A text placeholder can explain loading, not substitute for missing semantic data.
+- A saved-deck import needs resolved structurally supported records for every entry
+  under D-198, not the latest entire catalog or every image. Try source refresh/resolution
+  for unknown input, preserve the pasted text, and leave unresolved/ambiguous input
+  unsaved. Optional provider values legitimately absent use the existing defaults,
+  including D-65's blank corner fallback; do not call that an unresolved card.
+  Already retained deck/game definitions do not require re-downloading the public
+  catalog on another device or after local catalog eviction.
+- Treat supplied text/image references as untrusted data, never executable content.
+  Safe URL schemes/origins, redirects, sizes and credential isolation need explicit
+  downloader validation; arbitrary card definitions are not permission for server
+  SSRF or sending session credentials to a card-image host. Public assets and
+  account-private accepted snapshots retain separate storage/Logout boundaries.
+
+The [domain contract](../03-contracts/domain-model.md#game-definitions-and-local-catalog-independence--d-271)
+owns these derived definition-availability outcomes; the
+[import contract](../03-contracts/accounts-decks-and-lobby.md#deck-list-import-compatibility-and-errors--d-198)
+owns unresolved-entry behavior. Definition download is not a player inspection or
+review/read-receipt event. Private game snapshots obey account/Logout isolation.
+
+## Startup catalog check — tentative owner suggestion, recommended design
+
+The owner suggests the app should probably check MTGJSON for updates at startup.
+Keep that suggestion tentative: it nominates MTGJSON, not a blanket selection of
+all Cockatrice providers/formats or a finalized update policy. The earlier
+Scryfall single-provider recommendation below remains an alternative.
+
+For MTGJSON, use a small version/date check against
+[`Meta.json`](https://mtgjson.com/api/v5/Meta.json), compare with the installed
+catalog's source metadata, and schedule a changed catalog download/import separately
+from image loading. Check source content date/version, not merely schema version.
+Bound/cache/throttle checks across rapid launches and use timeouts/backoff; do not
+make every startup download the full dataset or wait for it before opening usable
+existing games. Staged validation/atomic replacement retains the last good catalog
+when offline or when an update fails. Required missing data for a new import is
+still unresolved until actually obtained, not silently substituted. Exact check
+cadence, initial acquisition, metered-network consent and update presentation remain
+technical/UI work. A startup check reduces missing new cards; game-definition
+delivery above is the correctness mechanism when catalogs still differ.
 
 ## Where Cockatrice obtains its data — research, 2026-10-20
 
@@ -40,7 +134,7 @@ The configured Gatherer fallbacks are observed code defaults, not proof that eve
 historical endpoint still works. Do not copy Cockatrice's card-text-derived
 automation or normalization into our rules-agnostic engine.
 
-## Recommendation for this project — not yet selected
+## Earlier provider recommendation — alternative, not selected
 
 Consider **Scryfall for both records and image URLs** rather than needing MTGJSON
 plus a second identity/image provider. Download a suitable bulk record dataset to

@@ -76,7 +76,7 @@ are not needed simply to separate these responsibilities.
 | Image loading | Coil conditionally accepted, subject to canvas integration (D-263) | Canvas image lifecycle/decoding/cache integration and compatibility validation. |
 | Verification | Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose E2E; Testcontainers for smaller integration tests selected (D-263) | Exact versions, runners/devices, reset/failure controls, CI and measured performance budgets. |
 | Push | FCM optional; app/game sync must work without Google Play services/Play Store distribution, with periodic polling an acceptable notification fallback (D-269) | Registration/packaging/privacy, polling protocol/cadence, coalescing and routing; background delivery is best effort, not a correctness dependency. |
-| Card source | Dynamic game-data boundary (D-243); client downloads card records/art from public sources and stores/reuses them locally (D-270) | Provider permission/terms, descriptive fields, update/cache policy and essential-definition resolution; Cockatrice source research is not provider selection. |
+| Card source | Dynamic data (D-243); client public-source downloads/local reuse (D-270); lazy images and arbitrary client-supplied definitions retained/shared by server (D-271) | Provider permission/terms, structural/security validation and definition transfer, update/cache policy; startup MTGJSON Meta checks suggested, not a finalized provider/update policy. |
 
 These selections are not permission to start a scaffold or install packages.
 See [notifications/background work](notifications-and-background-work.md) for
@@ -130,12 +130,23 @@ provider, initial download scope, update cadence and cache budgets remain design
 
 The backend still owns shared game state and retains essential per-game definitions,
 face identities/defaults and recorded history under D-65/D-243/D-259/D-266. A public
-catalog cache is not an authoritative private game, and direct client downloads do
-not authorize trusting arbitrary client definitions or reinterpreting accepted
-games from each device's newest catalog. Exact validation/version-resolution
-protocol remains technical work. Public availability is not a blanket content
-license. See [card data and artwork](card-data-and-art.md) for Cockatrice's current
+catalog cache is not an authoritative private game. D-271 permits arbitrary
+client-supplied definitions as accepted game data, with structural/security checks
+but no official-provider authenticity requirement. This does not permit executing
+supplied scripts or reinterpreting games from each device's newest catalog. Exact
+validation/version-resolution protocol remains technical work. Public availability
+is not a blanket content license. See [card data and artwork](card-data-and-art.md) for Cockatrice's current
 sources and an explicitly unselected provider recommendation.
+
+D-271 confirms lazy image downloads/cache, separate from required card records,
+and client-supplied deck definitions retained by the service before game start.
+The [definition contract](../03-contracts/domain-model.md#game-definitions-and-local-catalog-independence--d-271)
+makes the service's retained game definitions available even when a recipient's
+general catalog lacks an opponent's card. Deck imports already require resolved
+entries under D-198, not all images or latest-catalog parity. A bounded startup
+MTGJSON `Meta.json` check is the owner's tentative update suggestion; the
+[catalog design](card-data-and-art.md#startup-catalog-check--tentative-owner-suggestion-recommended-design)
+distinguishes that optimization from game-definition correctness.
 
 The specification must select a card-data source and define:
 

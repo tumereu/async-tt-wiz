@@ -607,8 +607,14 @@ The general rules are:
   defaults. D-270 selects client downloads of card records and art from public
   sources with local storage/reuse, not a catalog/art bundle or mandatory backend
   image proxy. The provider, update cadence and download/cache budgets remain to
-  design; this does not require downloading every image up front. This does not
-  add automatic rules or a custom-data editor; provider rights remain separate. See the
+  design. D-271 confirms loading/caching images on demand. The game supplies its
+  retained card definitions even when an opponent's card is absent from your local
+  catalog; missing artwork uses text and does not block play. New deck imports
+  must resolve records, not download all images or require the newest full catalog.
+  Clients supply deck definitions before start; these may be arbitrary, with server
+  structural/security validation rather than official-catalog or format-legality
+  checks. Both players receive the same accepted data; no new card-authoring UI.
+  This does not add automatic rules or a custom-data editor; provider rights remain separate. See the
   [dynamic-data boundary](../04-technical/architecture-and-operations.md#dynamic-game-data--d-243).
 
 ### 12. Notifications

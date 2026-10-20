@@ -120,6 +120,15 @@ all images through the game backend. Include source outage after a successful
 download and interrupted/changed catalog updates (T-625/T-626). Keep game-service
 connectivity separate from catalog-source availability; offline gameplay remains
 excluded and production provider research does not authorize real-card fixtures.
+D-271 variants use intentionally different synthetic catalogs on the two clients:
+create/import/select the supplying player's deck through normal UI, then observe
+the server-retained definitions on the stale-catalog recipient without injecting
+game/definition state via setup APIs. Introduce a new catalog token after start
+through UI too. Block external imagery independently of game-service access and
+verify lazy loading/text fallback. Arbitrary-definition/colliding-external-ID and
+malformed-payload protocol tests supplement, not replace, those UI journeys
+(T-627/T-628). Conditional startup-update T-629 uses synthetic source metadata,
+never a live MTGJSON dependency or a built-in test-only card path.
 
 Suggested fixture coverage:
 

@@ -66,6 +66,16 @@ randomness is an input to replay, never sampled again by replay logic. See
   revisions/outcomes; a socket message is not the only record of an accepted action.
   Notification failures do not roll back gameplay.
 
+D-271 accepts client-supplied deck/card definitions as arbitrary game data. Validate
+supported schema, references, content/resource safety and account/lifecycle access,
+not MTGJSON/Scryfall authenticity, official-printing equivalence or format legality.
+Retain accepted definition snapshots with deck/game preparation before start and
+supply them to other participants regardless of their local catalog versions.
+Stable definition identity must distinguish differing snapshots even if supplied
+names/external IDs collide; accepted copies are not a mutable global official
+catalog. Definition input never runs scripts or supplies server execution logic.
+See [definition contract](../03-contracts/domain-model.md#game-definitions-and-local-catalog-independence--d-271).
+
 The [contracts](../03-contracts/README.md) and
 [sync/storage design](sync-and-storage.md) remain primary for exact outcomes.
 The editable gameplay tree and accepted publication revisions are distinct;

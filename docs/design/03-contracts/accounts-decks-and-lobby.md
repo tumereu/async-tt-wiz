@@ -236,6 +236,24 @@ not a project-specific syntax. The compatibility target is Arena/MTGO-style
   the pasted text available for correction, and require resolving import errors
   before saving. Do not save a partial deck with unresolved entries dropped.
 
+**Catalog availability clarification — D-271:** the resolved-record requirement
+already follows from D-198; it is not a new deck-legality rule. D-271 permits
+arbitrary client-supplied card definitions, subject to supported structure and
+resource/security validation, without official-provider authenticity checks. This
+does not add a card-authoring UI or permit saving an unresolved name-only import.
+A new import must resolve every entry to a definition before save, but need not
+have the newest entire catalog or downloaded artwork. Missing optional corner metadata
+uses D-65's blank fallback, not an unknown-card error. Refresh/source resolution
+may supply a missing record without discarding the input or guessing an ambiguous
+match. Once definitions are retained with a selected deck/game, another device's
+stale/empty general catalog cannot invalidate that accepted copy or reject an
+opponent's card: receive the game's definitions from the service under the
+[domain contract](domain-model.md#game-definitions-and-local-catalog-independence--d-271).
+Submitting deck definitions is part of ordinary saved-deck/lobby preparation before
+start, not an additional gameplay Send or host-start control. Server acceptance
+retains the supplied game data; later preparation changes preserve copy isolation
+and own-Ready clearing rather than silently rewriting an accepted live game.
+
 Example of the supported common shape:
 
 ```text

@@ -14,7 +14,37 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest client card-data/art downloads and Cockatrice research — D-270
+## Latest arbitrary client definitions, lazy art and stale catalogs — D-271
+
+The owner confirms lazy image resolution/download with local caching, asks how
+stale clients handle an opponent's unknown card, and then explicitly accepts that
+the client supplies arbitrary deck/card definitions to the server before start.
+Server validation is structural/security/resource/reference validation, not an
+official-card/MTGJSON/format-legality check. Retain accepted snapshots and supply
+those exact definitions to the opponent; differing supplied content under the same
+claimed name/external ID must not overwrite another deck/game/global catalog.
+This clarifies D-270's earlier caveat about arbitrary input: data may be arbitrary,
+but it is not executable rules, a mutable global official catalog or a new authoring
+UI. Normal deck preparation/Ready/copy-isolation remains; no extra manual Send.
+
+Existing retained-definition/server-authority rules derive the stale-catalog answer:
+required game definitions come from the service even if the recipient lacks them
+in its general catalog, including new token definitions after start. Missing
+required transfer data is incomplete recovery, not a dropped/rejected accepted
+action or duplicate execution. New deck imports need resolved definitions under
+D-198, not artwork or the newest full catalog; D-65 optional blank defaults remain.
+Art bytes load lazily and use text fallback without blocking save/Ready/play.
+
+The owner's startup MTGJSON update check is tentative ("probably"). The
+[catalog design](../design/04-technical/card-data-and-art.md) recommends small
+Meta.json source date/version checks, bounded/cached/throttled and nonblocking for
+usable games, with staged safe updates. Provider selection/cadence/network/update
+UI remains unfinalized; the prior Scryfall-only recommendation is an alternative,
+not secretly selected. T-627/T-628 cover accepted outcomes; startup T-629 is
+conditional and all automated data/sources stay synthetic. No application,
+executable tests, authoring UI or delivery-stage transition is authorized.
+
+## Earlier client card-data/art downloads and Cockatrice research — D-270
 
 The owner wants card records/art downloaded from public sources and stored locally
 by the client, and asks where Cockatrice's installer/updater obtains its records.

@@ -58,6 +58,12 @@ artwork, not a mandatory backend catalog/image proxy. The refetchable public
 catalog/art cache remains distinct from essential accepted per-game definitions
 and account-private recovery/downloads. Exact cache retention/update policy remains
 design work; see [card data and artwork](card-data-and-art.md).
+D-271 permits arbitrary client-supplied definitions after structural/security
+validation, not official-provider verification. Retain accepted snapshots as game
+data and transfer required definitions independently of a recipient's public
+catalog. Differing supplied content under the same name/external ID needs distinct
+definition identity; catalog updates/deduplication cannot overwrite an accepted
+snapshot. Image bytes load/cache lazily and remain separate from required records.
 
 ## Migration boundaries
 

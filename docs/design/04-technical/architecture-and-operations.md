@@ -186,9 +186,12 @@ human examples covering:
   interruption results, idempotency retention, and cancellation semantics.
 - D-258 atomic shared-history switch/both-Redo reset and idempotent recovery; D-259
   state ownership, accepted-replica versus prediction bookkeeping and synchronization
-  revision/checkpoint integrity. Evaluate the
+  revision/checkpoint integrity. D-264 selects gap/duplicate recovery, atomic
+  replica/cursor updates, periodic server-head checks and checkpoint state digests,
+  not per-node/Merkle hashes or a mandatory event chain. The older
   [checksum-chain proposal](sync-and-storage.md#proposed-revision-checksums-and-correction-points--d-259)
-  against mutable gameplay trees, same-head revisions and difference-only repair;
+  is an unselected alternative constrained by mutable gameplay trees, same-head
+  revisions and difference-only repair;
   it is not a blockchain/consensus requirement or a new whole-head action lock.
 - Persistent lobby versus play-incarnation fencing on every gameplay/control/
   exposure request, result reference and per-player Undo/Redo stack. Old requests

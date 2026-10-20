@@ -685,8 +685,10 @@ every event that changes the head.
 
 ### Technical option verification — D-259 checksum proposal
 
-This row verifies the proposed mechanism **if adopted**; it does not select its
-encoding/hash or claim implementation. Equivalent technical choices must still
+This row verifies the older proposed mechanism **if adopted**; D-264 selects
+revision recovery plus checkpoint state digests instead of requiring an event
+chain or per-node/Merkle hashes. T-610 is not a baseline chain requirement and
+does not select its encoding/hash or claim implementation. All mechanisms must
 meet the confirmed authority, convergence and latency-hiding outcomes.
 
 | ID | Scenario | Expected result |
@@ -705,7 +707,15 @@ make a corrupt board cache pass as correct. Deterministic replay remains require
 | T-612 | Through the connected Android UI roll a die and flip a coin while externally delaying responses; observe immediate results, accepted history and the other player's UI. Lose a committed response, restart/reconnect and recover it. | Each invocation's locally generated sample is durably captured before display and reused by server processing/recording; no independent server reroll. Local prediction remains provisional until accepted. Both players eventually see the same recorded result once; retries/replay/recomputation do not sample again or invent another event. New explicit invocations are fresh draws and can coincide by chance. |
 | T-613 | At lower protocol/integration layers send an invalid die/coin sample or inapplicable lifecycle request; separately recover an already-processed request after restart. Exercise an actual displayed prediction whose request cannot commit. | Validate sample shape/range, authorization and lifecycle through the proper boundaries; commit no invalid result. Rejection never automatically rerolls or submits a new invocation. Recover the original stored outcome without re-execution; preserve actual pre-display exposure/recovery obligations under existing rules. Local sampling neither grants authority nor permits offline actions. Synthetic controlled inputs at this lower layer do not authorize E2E result-injection APIs. |
 
-Current oracles use D-224–D-261, not D-159/D-161 captured-parent or remembered-head
+### Revision recovery, checkpoint verification and large history — D-264
+
+| ID | Scenario | Expected result |
+| --- | --- | --- |
+| T-614 | Interrupt a revision transfer, replay duplicates, restart during local application, and lose the final update notification with no subsequent gameplay. Restore eventual connectivity/access and let normal recovery/head checks run. | Apply only on a matching accepted base; recover gaps, ignore duplicate application and save state/cursor atomically. Periodic durable-head comparison discovers the silent missing tail. Accepted replicas converge through retained deltas or a coherent checkpoint replacement; missing acknowledgement does not fabricate rejection or a new request. "Synced" describes the last verified head/scope, not perpetual freshness or local prediction authority. |
+| T-615 | Corrupt a materialized cache while preserving its correct accepted revision or optional log hash; compare snapshot/checkpoint state digests. Vary boundary/revision/schema and UI/predictions independently. | Compare canonical semantic state for the same explicit checkpoint scope/boundary/revision/version; mismatched scopes are not a valid digest comparison. Detect state corruption despite matching revision/log-prefix identity, invalidate affected derived data and rebuild/refetch while preserving pending request/exposure identities and applicable UI. No whole-app wipe, reroll, gameplay rejection or assumption that shared semantic bugs are detectable by hashes. Verification is not a full-unfetched-history proof or a requirement for per-node/Merkle/event-chain hashing. |
+| T-616 | At model/protocol layers synchronize a small append or eligible tree edit in histories of increasing size; page previously unfetched history and interrupt a large update. Supplement with normal-app history navigation/reconnect journeys. | Routine synchronization does not round-trip the full tree or copy unchanged descendants merely because history is large. Transfer changed records and requested bounded history/checkpoint data, preserving individual boundaries, tree edits, required playback and coherent accepted revisions. Unfetched data is not absent history. Exact typed patches, page tokens and chunk staging remain technical design; direct lower-layer large fixtures do not authorize E2E history-seeding helpers. |
+
+Current oracles use D-224–D-264, not D-159/D-161 captured-parent or remembered-head
 controls. New cases supplement the corrected stable older IDs. Technical parameter/
 encoding/performance completion is still required; these are specified tests,
 not an assertion that an application or executable harness exists.

@@ -9,7 +9,8 @@
   canvas UI automation and real-PostgreSQL migration/concurrency testing.
 - [Synchronization and storage](sync-and-storage.md): local durability, queues,
   server authority/replicas versus UI state, publication, branching, replay,
-  proposed revision-checksum chaining/correction points, recovery, access and retention.
+  selected revision recovery/checkpoint state verification, optional older
+  checksum-chain proposal, recovery, access and retention.
 - [Architecture and operations](architecture-and-operations.md): proposed system
   boundaries, technology/provider choices, APIs, security, deployment and reliability.
 

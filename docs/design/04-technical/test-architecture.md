@@ -127,6 +127,22 @@ automatically solves canvas targeting.
 
 See T-599 and T-611–T-613 in [acceptance](../05-verification/acceptance.md).
 
+## Revision/checkpoint verification — D-264
+
+Test missing/duplicate updates, local state/cursor transaction crashes and a silent
+missing final update discovered by periodic server-head checks. Under restored
+connectivity/access, accepted replicas must converge without relying on a later
+gameplay event or a mandatory checksum chain. Separately corrupt materialized
+state while preserving its revision and verify checkpoint state-digest detection
+and safe rebuild. Compare only matching explicit scopes/boundaries/revisions;
+UI/predictions and unfetched-history coverage are not part of that proof.
+
+Measure transfer size against changed/requested data rather than complete history
+size. Large-tree fixtures belong to lower protocol/model tests; normal-app E2E
+retains real UI-created history and recovery assertions. T-614–T-616 specify these
+outcomes; T-610 remains conditional on an optional older event-chain mechanism,
+not the selected baseline. Exact digest/encoding/cadence remains technical design.
+
 ## Canvas-specific verification
 
 Full-canvas rendering removes the automatic per-card widget tree. Provide normal

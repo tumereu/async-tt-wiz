@@ -14,7 +14,35 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest stack and architecture-direction acceptance — D-263
+## Latest integrity agreement and next discussion — D-264
+
+The owner accepts revisions as the convergence foundation plus lightweight
+snapshot/checkpoint state digests, not per-gameplay-node hashes/Merkle trees or a
+mandatory event chain. Recovery needs base/result revisions, gap/duplicate handling,
+atomic local state/cursor writes, committed-delta or coherent-checkpoint catch-up
+and periodic durable-head checks to detect a missing final update. Eventual
+convergence assumes restored connectivity/access and correct successful recovery;
+a correct revision alone does not prove materialized state correct. Compare
+canonical semantic checkpoint state at the same explicit scope/boundary/revision/
+version, excluding UI/predictions; preserve requests/exposures during repair.
+"Synced" means the last verified head, not perpetual freshness. Hashes cannot
+detect a semantic bug shared by both engines. Exact hash/encoding/cadence remains
+technical design. The older D-259 chain is an unselected alternative; T-610 is
+conditional, while T-614–T-616 specify the current baseline/scaling outcomes.
+
+The owner's preceding concern also requires scalable transfer: no routine full-tree
+round-trip. Separate topology/mutations, typed tree patches, paged revision-pinned
+history reads and subtree cache invalidation have been presented as concrete
+proposals, not an approved exact schema/wire format. Earlier durable inbox/FIFO/
+connection-fencing proposals likewise remain detailed proposals; this integrity
+acceptance does not approve every preceding mechanism wholesale.
+
+The owner requests the next topic: present server/client storage and a SQLDelight
+versus Room recommendation for comments. SQLite is already selected, but its access
+library is not; do not silently finalize it. Continue documentation only, with no
+application/scaffold/executable-test implementation or delivery-stage transition.
+
+## Earlier stack and architecture-direction acceptance — D-263
 
 The owner says the recommendations are good, accepting the preceding architecture/
 technology batch. Record selections, not another approval queue: Kotlin/JVM Spring

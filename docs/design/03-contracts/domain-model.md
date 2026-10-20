@@ -94,8 +94,10 @@ Offline use permits downloaded read-only traversal, not new shared action creati
 
 Checking whether a client is current compares its **accepted replica revision**
 with server history, not zoom/menu state or the provisional prediction overlay.
-The [checksum-chain proposal](../04-technical/sync-and-storage.md#proposed-revision-checksums-and-correction-points--d-259)
-supports that check without changing state ownership or gameplay-tree semantics.
+The selected [revision/checkpoint design](../04-technical/sync-and-storage.md#revision-recovery-and-checkpoint-verification--d-264)
+uses revision recovery plus checkpoint state digests without mandatory per-node
+or chained-event hashes. It does not change ownership or gameplay-tree semantics;
+comparison of accepted revisions alone cannot prove a materialized cache correct.
 
 Confirmed card-text normalization (D-59/D-249): trim leading and trailing whitespace
 when a card-text/counter edit is completed, including corner text, card labels

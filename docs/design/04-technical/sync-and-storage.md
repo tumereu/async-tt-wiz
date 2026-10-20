@@ -396,11 +396,56 @@ source order. This is presentation under the existing full-access trust model,
 not a new participant data-security boundary. Exact records, offline historical
 context, branch association, and temporary-display lifecycle remain Q-28.
 
+### Revision recovery and checkpoint verification — D-264
+
+**Selected:** revision-based recovery provides eventual convergence across
+connection failures; checkpoint/snapshot state digests provide an independent
+integrity check. Do not require checksums on every gameplay node, a Merkle tree or
+a chained event checksum for the initial protocol. The older chain option below
+is not the selected baseline.
+
+- Each update identifies its base/result revisions. Apply only to the matching
+  accepted base; recover gaps, ignore already-applied duplicates and atomically
+  save changes with the accepted cursor. Never include pending predictions/UI in
+  that cursor or treat an acknowledgement as a second execution.
+- Keep committed revisions available for catch-up or provide a coherent checkpoint
+  replacement. Reconnect automatically recovers missing data and request outcomes.
+  Periodically compare the durable server head even when no update arrives: a
+  dropped final notification/update must not leave an undetected stale replica.
+- Under eventual connectivity, valid access, successful recovery and a correct
+  implementation, these rules converge the accepted replica. WebSocket/TCP already
+  preserves ordered reliable delivery within a functioning connection; application
+  recovery handles interruptions/crashes/session changes. Digests are not the
+  mechanism that retries missing messages or establishes processing order.
+- Give snapshot payloads integrity digests and compare canonical materialized-state
+  digests at selected checkpoints. Identify scope, game/incarnation, boundary,
+  accepted tree/control revision and schema/reducer/encoding version explicitly.
+  Compare the same covered state on both sides, excluding predictions and personal
+  presentation. A digest of downloaded scope is not proof of unfetched history.
+- A correct saved revision can coexist with a corrupt cache or incorrect reducer
+  output; a state digest can expose that mismatch. A log-prefix hash alone cannot.
+  Invalidate affected derived data and rebuild/refetch from trusted records while
+  preserving original requests, protected exposures and applicable personal state.
+  Do not clear all app storage, invent a rejection or resample random inputs.
+- "Synced" means caught up to the last verified server head for the covered scope,
+  not permanently current: another player can publish immediately afterward.
+  This is a protocol meaning, not a finalized UI label or a new gameplay gate.
+  Hashes also cannot detect a semantic bug shared by client and server.
+
+Canonical encoding/hash algorithm, checkpoint/check frequency, coverage and repair
+mechanics remain technical design. No full-tree transfer is required by the
+integrity check. Earlier typed tree patches, paged history/branch reads and subtree
+cache invalidation are concrete design proposals for meeting the owner's
+large-history constraint, not an approved exact wire/schema format.
+
 ### Proposed revision checksums and correction points — D-259
 
 The owner suggests blockchain-style checksums in events as a synchronization
-mechanism. **The following is a technical proposal**, not a selected hash algorithm,
+mechanism. **D-264 does not select this chain for the baseline protocol.** The
+following remains an alternative technical proposal, not a selected hash algorithm,
 wire/schema format, consensus protocol or permission to freeze gameplay ancestry.
+Do not require it to satisfy the selected revision/checkpoint design above or
+treat its absence as an unresolved owner decision.
 
 - Keep an ordered authoritative revision/publication stream separate from the
   editable gameplay mutation tree. A record may describe a gameplay event, tree

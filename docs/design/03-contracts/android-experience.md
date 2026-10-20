@@ -149,8 +149,9 @@ replacement policy. Finished-session history archives/review are optional
 future work, excluded from R1 (D-214), not a required archive screen or lobby path;
 current-game history remains included. D-213 restores
 last lobby-prepared decks/mainboard/sideboard on return, clears both Ready and
-requires both players to ready again for a fresh game. Starter-selection retention/
-random resolution across games remains open. Do not infer an extra confirmation dialog.
+requires both players to ready again for a fresh game. Starter-option retention
+across games remains separate; D-274 resolves Random once at actual start when
+selected. Do not infer an extra confirmation dialog or a pre-start random roll.
 
 For the inviter, a pending invitation is already an open lobby: allow deck
 preparation/Ready before acceptance, and use Cancel game to cancel its pending

@@ -46,6 +46,13 @@ events/outcomes. Local samples are inputs subject to validation, not independent
 authoritative client events; do not reroll accepted die/coin input. Recorded
 randomness is an input to replay, never sampled again by replay logic. See
 [the shared-processing boundary](client-architecture.md#shared-processing-and-locally-generated-random-inputs--d-261).
+D-274 also selects client-supplied saved seeds for in-game Shuffle: use shared
+versioned Fisher–Yates/unbiased sampling over canonical actual member IDs and
+record the concrete order, not a fresh server roll or client membership snapshot.
+For initial shuffles the server acquires independent fresh inputs; resolve Random
+starter at actual game start and retain all initialization outcomes for recovery.
+Exact generator/seed/version encoding remains technical completion; this is not
+commit–reveal or a proof that untrusted clients sampled honestly.
 
 ## Authority and transaction obligations
 

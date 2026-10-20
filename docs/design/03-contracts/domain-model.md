@@ -212,8 +212,14 @@ invocations, bound to the original request and reused by server processing witho
 an independent reroll. Server acceptance and recording remain authoritative;
 local generation is not offline play. Persist the sample before displaying it
 under the exposure/recovery rules. Exact generator/entropy source, encoding and
-validation remain technical work; Shuffle/starter acquisition is not finalized
-by this permission. No gameplay seed-epoch schema is required by D-92/D-93.
+validation remain technical work. D-274 separately selects a fresh request-bound
+client seed and shared versioned Fisher–Yates/unbiased sampling for in-game
+Shuffle over canonical current member IDs; accepted replay uses concrete orders.
+The server supplies fresh independent setup-shuffle inputs and resolves Random
+starter once at actual game start, retaining initialization outcomes for retries.
+Exact generator/encoding/version registry remains technical work. No gameplay
+seed-epoch or commit–reveal schema is required. See
+[randomness design](../04-technical/sync-and-storage.md#selected-shuffle-and-setup-randomness--d-274).
 
 **D-224 revision:** selective deletion/insertion of a mutation requires identical
 relevant-state `(from, to)` tuples for every later mutation in both timelines,

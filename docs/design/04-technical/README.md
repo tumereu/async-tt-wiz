@@ -29,7 +29,9 @@
 - [Synchronization and storage](sync-and-storage.md): local durability, queues,
   server authority/replicas versus UI state, publication, branching, replay,
   selected revision recovery/checkpoint state verification, optional older
-  checksum-chain proposal, recovery, access and retention.
+  checksum-chain proposal, recovery, access and retention. D-274 selects shared
+  seeded Fisher–Yates Shuffle and server-resolved Random starter at game start;
+  exact generator/encoding/version details remain to specify.
 - [Architecture and operations](architecture-and-operations.md): proposed system
   boundaries, technology/provider choices, APIs, security and reliability. D-272
   requires Docker Compose deployability; production deployment/backups belong in a

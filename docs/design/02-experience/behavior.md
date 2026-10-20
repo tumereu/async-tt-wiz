@@ -89,7 +89,9 @@ The general rules are:
   sideboards there, then each presses Ready. Once both are ready, the game starts.
   Starting automatically shuffles both Libraries and gives each player 20 life;
   no starting-life setting is required. Life can still be edited during play.
-  Choose the starter in the lobby: either player or Random.
+  Choose the starter in the lobby: either player or Random. D-274 resolves Random
+  on the server once when play actually starts, not when selecting the option;
+  retries retain that starter and the initial shuffle orders.
   Changing that selection clears only your own Ready, not the other player's.
   Initially in the lobby, mainboard is in Library, sideboard in a separate
   Sideboard area, and all other card areas are empty. Freely move cards between
@@ -264,6 +266,10 @@ The general rules are:
   heads/tails result. Record who requested what and the outcome, without changing
   cards/counters. Every new roll/flip/shuffle is fresh, including after Undo.
   Review, Redo, and retries reuse the stored result/order; chance may repeat it.
+  D-274 binds a fresh saved client seed to each in-game Shuffle and uses the same
+  versioned shuffle on client/server over actual Library members. Initial shuffles
+  instead use independent fresh server inputs. Different membership can change the
+  accepted order, not authorize replacement cards in already-bound Draw requests.
 
 ### 7. Combat and Stack
 
@@ -557,8 +563,9 @@ The general rules are:
   This does not defer current-game history/Undo/branching or decide deletion of
   finished-session data. The future feature would be read-only, separate from a
   fresh game's history, with no reopening or effect on current play.
-- Starter-selection retention/random resolution across games remains open in the
-  [lifecycle contract](../03-contracts/accounts-decks-and-lobby.md).
+- Starter-option retention across games remains separate in the
+  [lifecycle contract](../03-contracts/accounts-decks-and-lobby.md); D-274 resolves
+  Random once at every actual start that selects it, with no same-start resampling.
 
 ### 11. Offline and failure behavior
 

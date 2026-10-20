@@ -45,7 +45,7 @@ not instructions to overwrite current state with an obsolete snapshot.
 | Numeric +/- | Target/field and delta. | Read current usable number; apply delta once. |
 | Corner Reset | Target and Reset operation, not the face seen when the menu opened. | Read currently selected face and its retained default. F1 changing to F2 means Reset F2, without a stale-text/face lock. |
 | Clone | Same live source ID and Clone operation; new identity is independent. | Copy that source's current approved fields/defaults at processing. Changed counters/notes do not reject or force an old copy. Missing/frozen-only source is inapplicable; no substitute. |
-| Shuffle all | Named Library and new invocation identity. | Sample a duplicate-free permutation of **all current accepted members**, including arrivals and excluding departures. Preserve each member's unrelated fields; no old-membership lock. |
+| Shuffle all | Named Library, new invocation identity and original fresh client seed (D-274). | Shared versioned Fisher–Yates/unbiased sampling over canonical IDs of **all current accepted members**, including arrivals/excluding departures; supplied seed, not an independent server reroll. Preserve unrelated fields; no old-membership lock. Record the concrete accepted permutation. |
 | Specific-card move / top/bottom-N move | Captured card identities/order, source and chosen destination/edge/gap. | Apply the movement guards on the execution state. Never substitute another card to repair a stale selection. A Draw still needs its recorded chosen card at the top. |
 | Ping / Unping | Captured destination identities, requested operation and any explicit historical reference; no bound recording group. | Process in server order and derive recording context from authoritative events under deterministic grouping (D-254). Preserve explicit Ping/Unping semantics; an already-satisfied operation creates no invented event. A stale group prediction is not an extra guard or authority to change old-group markers. |
 | Explicit inspection / View / Reveal | Target references, viewed boundary/revision and chosen scope. | Show and record actual permitted content; no substituted face/source or retroactive recording. Own-area hold inspection is the unlogged exception in D-252. |
@@ -55,10 +55,12 @@ Retry, review and historical Redo reuse accepted concrete results/inputs; they d
 not rerun live Reset, Clone, arithmetic or randomness. Redo fidelity remains
 stricter than this live acceptance rule. D-261 permits local die/coin samples reused
 by the same client/server processing code; acceptance remains server-authoritative.
-Shuffle input/algorithm agreement remains technical design; it must make ordinary
-uncontended shuffle-and-draw predictions agree without a routine acknowledgement
-barrier, while not omitting/resurrecting changed members. See the
-[random-input proposal](../04-technical/sync-and-storage.md#shared-processing-and-random-input-agreement--d-261).
+D-274 selects fresh request-bound client seeds and shared versioned Fisher–Yates/
+unbiased sampling over canonical current-member IDs. Exact generator/encoding/
+versioning remain technical design; uncontended shuffle-and-draw predictions agree
+without a routine acknowledgement barrier, while not omitting/resurrecting changed
+members. See the
+[random-input design](../04-technical/sync-and-storage.md#selected-shuffle-and-setup-randomness--d-274).
 
 ## Ordered multi-object lowering
 

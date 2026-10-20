@@ -95,13 +95,18 @@ die bounds remain technical work. Server-originated lifecycle transitions use
 the same engine with inputs supplied by the server; they do not require a client
 to be present or grant the client authority over game start.
 
-**Shuffle mechanism still proposed:** carry a fresh per-request random seed/input
-and use a versioned shared permutation algorithm over canonical identities of the
-execution state's current Library members. Do not submit the client's old member
-list as the authoritative shuffled board. This can give identical uncontended
-prediction/server order while handling arrivals/departures without a stale-member
-lock. The canonicalization/algorithm/protocol must be specified and verified before
-this mechanism is selected. See [synchronization](sync-and-storage.md#shared-processing-and-random-input-agreement--d-261).
+**Selected Shuffle mechanism — D-274:** generate/save a fresh client seed for each
+new in-game request, and use the same versioned Fisher–Yates/unbiased-sampling
+implementation over a stable canonical ordering of the selected execution state's
+Library card-instance IDs. Server uses actual current membership and the supplied
+seed, not a second sample or the client's old membership. Record/replay the concrete
+accepted order; retransmission/prediction reuse the original seed. Changed membership
+can invalidate bound later draws under ordinary guards, without substitution or an
+acknowledgement barrier for uncontended mulligans. At game start the server supplies
+independent fresh inputs for both Libraries and resolves Random starter once at the
+start transition. Generator/seed/ID encoding and exact versioning remain technical
+completion, not selection of a library default or anti-cheat protocol. See
+[selected randomness design](sync-and-storage.md#selected-shuffle-and-setup-randomness--d-274).
 
 ## Canvas scene and Compose shell
 

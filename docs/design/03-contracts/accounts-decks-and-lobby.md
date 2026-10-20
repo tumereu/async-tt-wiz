@@ -325,8 +325,8 @@ automatic card operations merely from entering that step.
   A deliberately started fresh game after returning to lobby is a new start
   under D-213, not a retry of the ended game's start.
 
-Starter defaults/access/random-resolution timing and the lobby-versus-game
-history/Undo boundary remain open. These rules do not introduce a separate host
+Starter defaults/access and the lobby-versus-game history/Undo boundary need
+completion; D-274 resolves Random at actual start. These rules do not introduce a separate host
 Start action or require online presence from both participants.
 
 ## Leaving the lobby versus cancelling the game — D-206
@@ -420,8 +420,10 @@ Start action or require online presence from both participants.
   automatic fresh shuffles, 20 life each, other card areas empty, turn 1 at Untap
   and no automatic opening draws. Sideboard is again unavailable during play.
   Retrying that same fresh start reuses its recorded outcomes, not another start.
-- Exact starter-selection retention/random-resolution behavior across games
-  remains open. Finished-session history review is deferred below (D-214). This does not approve
+- Exact starter-option retention across games remains separate specification work.
+  D-274 resolves Random once at each actual fresh start if that option is selected;
+  retrying that start never resamples it. Finished-session history review is deferred
+  below (D-214). This does not approve
   win-history/scorekeeping, reopening ended play or deletion of its history.
 
 ## Optional future feature: finished-session history review — D-214
@@ -471,14 +473,20 @@ enforcement, and does not approve additional configurable gameplay areas.
 - Use the selected starter (or recorded random result) as the turn player for
   **turn 1 at Beginning/Untap** (D-108). Retain random outcomes for retries/review
   rather than choosing a different starter when recovering the same operation.
-- Initial selection/default, when Random resolves, who can change the selection,
-  and re-randomization remain open. Starter selection does not
+- **D-274: resolve Random at the actual game-start transition**, not when merely
+  selecting/opening the option in the lobby. The server fairly chooses one of the
+  two participants and records that result with initial shuffle outcomes. No extra
+  client connection/confirmation is required after readiness has been accepted.
+  A genuinely new start with Random selected gets a fresh result; retry/reconnect
+  of the same start reuses its result, even if the repeated choice would look valid.
+- Initial selection/default, edit access and option retention across games remain
+  separate completion work. No pre-start reroll control is approved. Starter selection does not
   replace the existing both-player Ready gate or add a host Start action.
 - **Changing the starter selection clears only the changing player's Ready
   (D-204), preserving the other player's Ready.** The changing player must ready
   again before play can start. This replaces the assistant's proposal to clear
   both players. D-205 separately approves manual withdrawal and start-versus-edit
-  ordering; Random-resolution timing remains open.
+  ordering; D-274 now settles Random-resolution timing at game start.
 
 ## Game-start shuffle and life — D-200
 
@@ -492,6 +500,10 @@ enforcement, and does not approve additional configurable gameplay areas.
 - Starting a game is distinct from entering Untap through tracking or resuming
   the app. Those activities do not repeat initial shuffles or reset life. Retain
   recorded shuffle orders for review/delivery retries rather than sampling again.
+- D-274 uses server-acquired independent fresh inputs for both initial Libraries
+  through the shared versioned shuffle implementation; retain both resulting
+  orders with initialization and resolve Random starter in that same start.
+  Readiness/start semantics and no automatic opening draw remain unchanged.
 
 This replaces the assistant's no-automatic-shuffle recommendation and editable
 lobby starting-life proposal. D-202 separately confirms initial placement and
@@ -568,7 +580,8 @@ Exact generations/IDs are technical work (S-02).
   and the lobby surviving Decline for reinvitation. Leaving the screen or
   disconnecting does not withdraw accepted Ready (D-205); cancellation is a
   separate explicit action (D-206/D-207).
-- Starter-selection defaults, edit access and random-resolution timing. Additional
+- Starter-selection defaults and edit access. D-274 resolves Random at actual
+  game start using a recorded server result, not an extra pre-start roll. Additional
   areas/setup authoring beyond confirmed scope are excluded by D-241. D-201 settles
   either-player/Random starter options. D-202 settles initial mainboard/
   sideboard placement, empty other card areas and no in-game Sideboard access.
@@ -579,7 +592,8 @@ Exact generations/IDs are technical work (S-02).
   shortcut representation/feedback follows the shared composition contract.
 - Lobby-versus-game history/Undo boundary. Saved-deck isolation is confirmed
   (D-191), not an unresolved persistence choice.
-- Starter-selection retention/random resolution across games. Concurrent result
+- Starter-option retention across games; actual Random resolution is settled by
+  D-274 for every start that selects it. Concurrent result
   actions use ordinary server ordering/applicability (D-239), not a separate gap.
   Finished-session
   history review is optional future work outside R1 (D-214), not a release gap.

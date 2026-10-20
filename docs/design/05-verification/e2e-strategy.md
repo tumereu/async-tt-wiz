@@ -193,6 +193,13 @@ phone/tablet targets, a non-Google device, compatible mixed APK versions and an
 incompatible-client update requirement (T-631–T-633). Do not uninstall/clear app
 data, pre-resolve pending outcomes or substitute lower-layer version tests for
 the real normal-app/backend recovery journey.
+D-274 adds UI-only Random-start/committed-response-loss recovery and uncontended/
+changed-membership shuffle-and-draw variants (T-634/T-635, T-590/T-599). Observe
+actual legal results through ordinary controls and compare replay/recovery without
+requiring a predetermined permutation or resampling until one appears. Golden
+seed/algorithm vectors and unbiased-sampling checks belong to lower shared-engine
+tests, not a test-only seed/result picker in the normal app. Selecting Random
+alone does not roll; start requires only existing Ready/lifecycle rules.
 D-269 notification variants include normal UI-created invitations/opponent activity
 on non-Google Android with no FCM server configuration, polling-driven OS display,
 permission/channel denial, and foreground catch-up after blocked background work

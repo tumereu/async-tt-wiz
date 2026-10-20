@@ -126,13 +126,26 @@ automatically solves canvas targeting.
   and restart must preserve the same outcome with no duplicate event. Do not add
   a test-only result picker or set game outcomes via a helper API.
 - Prove uncontended N-card/minus-one mulligans complete their intended draws;
-  independently test changed-membership partial outcomes. The proposed shared
-  Shuffle-input algorithm needs deterministic cross-target/canonicalization tests
-  before adoption; code sharing alone does not select or prove that protocol.
+  independently test changed-membership partial outcomes. D-274 selects shared
+  versioned Fisher–Yates/unbiased sampling over canonical member IDs and a saved
+  fresh client seed. Specify golden vectors for every supported generator/seed/
+  ordering/algorithm version, then verify cross-target equality, input validation,
+  empty/single/many-card permutations and bounded sampling without modulo bias.
+  No unspecified Kotlin/library-default shuffle may replace that contract.
+- Verify a retry/prediction restart/app upgrade retains seed/algorithm identity;
+  recorded history/Redo uses the accepted concrete permutation without fresh
+  entropy or later-member substitution. Distinct new invocations acquire fresh
+  inputs, including after Undo; equal outcomes by chance remain valid.
+- At game start, verify server-acquired independent Library inputs and Random
+  starter resolution only at the start transition. Repeated option selection is
+  not a roll. Recover a committed start after response loss without more setup
+  randomization, life reset or extra client presence/confirmation. New incarnations
+  with Random selected resolve afresh; unchanged defaults/option retention remain
+  separate. This is not statistical proof of honest client randomness or anti-cheat.
 - Test jOOQ schema generation and actual queries against the same migrated database
   used by integration tests; mapping round trips preserve shared semantic state.
 
-See T-599 and T-611–T-613 in [acceptance](../05-verification/acceptance.md).
+See T-599, T-611–T-613 and T-634/T-635 in [acceptance](../05-verification/acceptance.md).
 
 ## Revision/checkpoint verification — D-264
 

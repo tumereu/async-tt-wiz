@@ -72,7 +72,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-048 | Import common MTG plain-text deck exports rather than a custom syntax, with optional printing details and mainboard/sideboard notation. Flag unknown/ambiguous names without substitution, preserve input and require resolving errors before saving (D-198). |
 | P-049 | Save named decks, allow renaming and choose a cover from a deck's cards. Re-import offers Replace or Save as new (D-199). Deleting a saved deck removes it from the saved collection; both editing and deleting preserve copies already selected in lobbies or games (D-221). |
 | P-050 | Automatically shuffle each player's Library on game start and initialize each player at 20 life, with no starting-life setting required now. Do not draw automatically; retain normal in-game life edits (D-200). |
-| P-051 | Choose the starter in the lobby, offering either player or Random; begin turn 1 at Beginning/Untap with that starter (D-108/D-201). |
+| P-051 | Choose the starter in the lobby, offering either player or Random; begin turn 1 at Beginning/Untap with that starter (D-108/D-201). D-274 resolves Random fairly on the server once at actual game start, recording the chosen participant with independent initial Library shuffle outcomes; retry/reconnect never resamples that start. |
 | P-052 | Initially in the lobby, mainboard is in Library, sideboard in a separate Sideboard area, and other card areas are empty. Sideboard is unavailable during play, not a hidden accessible pile; play uses the prepared mainboard without merging in sideboard cards or deleting the saved sideboard (D-202). |
 | P-053 | Freely move cards between mainboard and sideboard in the lobby without format-legality, size or one-for-one exchange restrictions. Preserve game-local edits and own-Ready clearing; no in-game Sideboard access (D-191/D-203). |
 | P-054 | Changing the lobby starter selection clears only the changing player's Ready and preserves the other player's Ready; the changing player must ready again before game start (D-204). |
@@ -82,6 +82,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-058 | D-252: own-area hold shows real faces with no game event; opponent-area hold does not show hidden information. Context Inspect other side logs viewing without flipping; Flip is a separate shared-state operation. |
 | P-059 | D-259: semantic board/history/control, communication and lifecycle state is server-authoritative, changed through requests with provisional local application for latency hiding. Personal non-request UI state is device-local. Replicas, predictions, caches and recovery queues do not create independently authoritative local games; the domain ownership matrix defines the boundary, including logged inspection versus UI-only navigation. |
 | P-060 | Android 10+ / API 29 on phones/tablets, including otherwise-supported non-Google devices. Initially distribute versioned signed APKs and update manually through Android's installer, not a custom in-app updater. Stable package/signing identity and verified supported migrations preserve login/downloads/pending recovery on compatible upgrades. APK and protocol versions are separate; compatible mixed app versions can play together. Incompatibility explains the needed update and safely blocks unsupported requests without wiping work or fabricating unknown outcomes. Exact compatibility windows and release host remain technical work (D-273). |
+| P-061 | D-274: each new in-game Shuffle saves a fresh client seed with its request. Client/server share versioned Fisher–Yates/unbiased sampling over canonical actual member IDs, recording the accepted concrete order. Seed/identity persist through retry/prediction; recorded order persists through history/Redo/recovery. Initial shuffles use independent server inputs. Preserve changed-membership/current-state acceptance and bound Draw fidelity, no offline invocation, acknowledgement barrier, arbitrary result array, seed epochs or competitive commit–reveal requirement. Generator/encoding/version registry remain technical completion. |
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.
@@ -117,8 +118,9 @@ Included:
   for shared ending coordination, without required win-history/scorekeeping.
   D-212 makes acceptance non-undoable, not pending suggestions. D-213 restores
   last lobby-prepared decks/mainboard/sideboard, clears both Ready and requires
-  both to ready again for a fresh game. Cross-game starter-selection retention/
-  random resolution remains open; D-214 defers finished-session history review.
+  both to ready again for a fresh game. Cross-game starter-option retention remains
+  separate; D-274 resolves Random once at every actual start selecting it. D-214
+  defers finished-session history review.
 - Confirmed areas/piles, card movement/orientation/faces, catalog/Blank tokens and
   Clone, ordinary card text and card/player counter/life tools, links and pings.
   No custom-piece, named-value, layout or general correction editor (D-241).

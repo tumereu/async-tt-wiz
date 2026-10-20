@@ -104,22 +104,51 @@ authority. Retransmission and local recomputation preserve the input; result loo
 replay and review preserve the accepted result. Unknown outcome/rejection is not
 an instruction to create another invocation or discard an actual exposure record.
 
-**Proposed Shuffle protocol, not yet selected:** bind fresh random input/seed to
-the invocation; run one versioned shared permutation algorithm over a canonical
-ordering of all execution-time Library member identities. Retain the accepted
-concrete order for replay. With equal inputs/state, client and server must produce
-the same order, so an ordinary uncontended mulligan completes its intended draws
-without an acknowledgement barrier. Independent server sampling that routinely
-invalidates predicted Draw targets is not acceptable.
+### Selected Shuffle and setup randomness — D-274
+
+**Confirmed:** for each new connected in-game Shuffle, the client generates a fresh
+seed and saves it with the original request before prediction/transmission. Client
+prediction and server execution use the same explicitly versioned **Fisher–Yates
+shuffle with unbiased sampling**, starting from a stable canonical ordering of the
+execution state's card-instance identities. Do not rely on ambient/default Kotlin
+randomness or a library shuffle whose algorithm can change without a version.
+The exact random generator, entropy acquisition, canonical-ID encoding/comparator,
+seed format, bounded-integer sampling and algorithm-version registry remain
+technical specification work; use a suitable secure entropy source for fresh inputs.
+
+The server validates normal access/lifecycle/applicability and input/algorithm
+compatibility, uses the supplied seed rather than independently rerolling, and
+records the concrete accepted Library order. Equal input/state produces identical
+prediction/server order, so ordinary uncontended mulligans complete intended draws
+without a routine acknowledgement barrier. The seed does not authorize submitting
+the client's old membership as authoritative, choosing arbitrary outcome arrays or
+making offline Shuffle invocations.
 
 If membership changed, use the actual current members, never the client's old
 snapshot or a stale-whole-Library rejection guard. Different accepted order may
 invalidate already-bound Draw requests; preserve those original identities and
 normal individual partial outcomes without substitution or automatic extra draws.
-Specify canonicalization, unbiased sampling, algorithm/input versions, validation
-and restart/retry handling before adopting the proposed mechanism. D-261 permits
-local die/coin acquisition; it does not by itself finalize Shuffle or random-starter
-input acquisition. Server-triggered setup must not require both clients online.
+Retry/local prediction recomputation preserves the original seed/identity. Accepted
+result recovery, history/review/Redo and downloaded replay reuse the concrete
+recorded order, not a new shuffle against later membership. A genuinely new Shuffle
+gets fresh input even after Undo; equal outcomes by chance remain valid. Preserve
+all existing exposure/recovery obligations and per-constituent outcomes.
+
+**Game start:** the server acquires independent fresh inputs for both initial
+Library shuffles and runs the same shared versioned processing. If the lobby option
+is **Random**, resolve the starter once **at the actual game-start transition**,
+choosing fairly between the two participants. Record the chosen participant and
+both concrete shuffle orders with initialization. Both-player Ready still gates
+start, but randomness does not require an additional client connection, confirmation
+or request after readiness has been accepted. Retry/reconnect never initializes
+again or resamples the same start. A new play incarnation has fresh initial inputs;
+if its selected starter option is Random, it gets its own fresh resolution. Exact
+lobby-option retention/defaults across games remain separate from resolution timing.
+
+This is a cooperative-tabletop design, not commit–reveal, a cryptographic fairness
+proof or competitive anti-cheat. D-273 compatibility must account for random-input/
+algorithm versions: never silently change a pending seed's interpretation across
+an app upgrade. No generator/schema implementation is authorized by this selection.
 
 ## 6.2 Publication and concurrency
 

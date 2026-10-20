@@ -14,7 +14,37 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest Android distribution/support acceptance — D-273
+## Latest Shuffle and Random-starter acceptance — D-274
+
+The owner accepts the preceding proposal and requests "apply+next". Each new
+connected in-game Shuffle saves a fresh client seed with its original request;
+client/server use the same explicitly versioned Fisher–Yates/unbiased-sampling
+implementation over a stable canonical ordering of actual execution-state member
+IDs. The server uses current Library members and the supplied seed, not a second
+sample/client snapshot; record the concrete accepted order. Uncontended mulligans
+agree without acknowledgement waits; changed membership may invalidate already-
+bound Draw requests under ordinary guards, never silently substitute extra cards.
+
+Retry/prediction preserves seed/request identity; history/Redo/accepted recovery
+uses the recorded concrete permutation. New invocations get fresh input even after
+Undo, though chance may repeat outcomes. For game start the server acquires fresh
+independent inputs for both initial Libraries and resolves Random starter fairly
+once at the actual start transition. Record chosen participant/orders with setup;
+same-start recovery cannot resample/reset life, require additional post-readiness
+presence/confirmation or add opening draws. Fresh incarnations with Random selected
+get fresh resolutions; lobby default/edit/option-retention completion is separate.
+
+The [selected randomness design](../design/04-technical/sync-and-storage.md#selected-shuffle-and-setup-randomness--d-274)
+keeps exact generator/entropy/seed/ID encoding, unbiased bounded sampling and version
+registry as technical completion, not an unselected overall mechanism. Old explicit
+"Shuffle still proposed"/"Random timing open" prose is updated, including stable
+T-438/T-439/T-472; T-634/T-635 supplement it. No seed epoch/commit–reveal/competitive
+anti-cheat, test seed picker, executable code or stage transition is authorized.
+Next: present a request-ordering/recovery protocol proposal for comments, without
+promoting prior durable-inbox/connection-fencing details to approved requirements.
+D-267 mode double taps and D-271 startup MTGJSON checks remain tentative.
+
+## Earlier Android distribution/support acceptance — D-273
 
 The owner accepts the preceding release/compatibility proposal and requests
 "apply+next". Select versioned signed APK downloads, manual updates through

@@ -54,6 +54,15 @@ question, not the preservation of recorded ping context/numbering.
 
 ### Deterministic sequence resolution
 
+**Server event authority — D-254:** UI actions send requests, not group definitions.
+The server processes those requests in the agreed arrival order and creates the
+authoritative individual events. Deterministic logic groups those events using
+the rules below. A client may predict the same result for responsiveness, but
+neither opening a menu nor sending a request binds a group or forces a marker.
+Current group context means the context derived from the authoritative event
+prefix, not a client-selected group. Historical reference targets remain separate
+semantic data; they do not assign the new recording event to an old group.
+
 1. Work on one path/incarnation in effective recorded order. Author changes always
    start a new group, including for companions. Local unlogged inspection, mode
    changes and Chat are not grouping inputs.
@@ -114,14 +123,20 @@ categories, not game-rule interpretation. Accepted revealing board edits keep
 their ordinary category; a standalone actual-exposure record uses V. Local own-area
 hold inspection under D-252 has no category because it creates no event.
 
-At each prefix, the recording group is the operational Ping/Unping scope. Starting
-a tap group therefore starts an unpinged context; it does not Unping X in the
-preceding move group. A context action binds that group and target at opening.
-Within it, subsequent pings toggle the existing record normally; destination taps
-in Ping mode are P, never simultaneous T operations. A genuinely new group exits
-Ping mode; adding an anchor to an existing tap/forward segment does not.
+At each authoritative prefix, deterministic grouping determines the recording
+context for Ping/Unping. Starting a tap group therefore starts an unpinged context;
+it does not Unping X in the preceding move group. A context menu binds target
+identities under D-248, **not a group** (D-254). The server applies the requested
+Ping/Unping operation in its current derived recording context; a changed client
+prediction neither targets an old group's marker nor adds a stale-group rejection
+guard. Explicit Unping does not become Ping: if the destination is already absent
+in that context, it changes nothing and fabricates no event under D-176.
+Destination taps in Ping mode are P, never simultaneous T operations. A genuinely
+new group exits Ping mode; adding an anchor to an existing tap/forward segment
+does not.
 
-Record the addressed ping presence/removal and owning context as semantic
+Once the server creates an effective event, record the addressed ping
+presence/removal and its derived owning context as semantic
 identity, independent of rendered separators. Eligible Undo/Redo cannot merge
 previously independent toggle scopes, reinterpret Unping as another event's
 removal or create duplicate same-context destinations. Apply D-224's exact

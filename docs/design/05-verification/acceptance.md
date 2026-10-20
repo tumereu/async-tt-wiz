@@ -654,7 +654,13 @@ and prefix-sensitive E2E planning, not executed test results.
 | T-600 | Capture an explicit logged exposure online before transmission, display, disconnect, Logout, kill process, login as B, then A. Include committed-lost-response variant. | Clear ordinary A downloads; B cannot read/publish A's protected obligation. A recovers the actual exposure once under original context/identity, discoverable in its permitted current-game context. No new offline event, duplicate inspection or snapshot overwrite (S-09). |
 | T-601 | Fail durable exposure capture before display; separately Logout after an actual captured exposure associated with a rejected prediction. | Failed capture shows no new hidden content and creates no exposure/barrier. Actual captured disclosure survives despite board rejection and no transmission, with correct Undo/Redo/visibility participation and account protection (S-04/S-09). |
 
-Current oracles use D-224–D-253, not D-159/D-161 captured-parent or remembered-head
+### Server-created events and deterministic grouping — D-254
+
+| ID | Scenario | Expected result |
+| --- | --- | --- |
+| T-602 | Alice's phone opens Unping X while X is present in move group G. Before submission, her tablet taps an unrelated card, creating the next authoritative tap event/group H. Repeat with delayed request delivery and, separately, initially absent X and an explicit Ping request. | UI/menu state captures targets, not group G. Process the request in normal server order and use the deterministic recording context derived from authoritative events. Unping in unpinged H changes nothing, creates no event and leaves G's X unchanged; it does not become Ping. In the separate Ping variant the created event joins H under the existing same-author rule, with H's numbering. No old-group amendment or group-mismatch rejection. Predictions reconcile to the server result; retry creates no duplicate. Explicit historical references remain separate from group assignment. |
+
+Current oracles use D-224–D-254, not D-159/D-161 captured-parent or remembered-head
 controls. New cases supplement the corrected stable older IDs. Technical parameter/
 encoding/performance completion is still required; these are specified tests,
 not an assertion that an application or executable harness exists.

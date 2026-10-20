@@ -235,6 +235,10 @@ opening the menu, including an inline Set editor; later selection changes cannot
 redirect it. Show that captured scope/count. Accessible Actions uses the same
 binding. Projection/source normalization follows the operation's identity domain
 in [bulk targeting](game-actions.md#target-identity-normalization).
+This captures targets, not a group: UI actions send requests; server-created
+events are grouped deterministically (D-254). A Ping menu does not reserve or
+bind its predicted recording group. Explicit historical references do not assign
+the new event's group either.
 
 Recheck current applicability/existence when each operation is processed. Skip
 individually disabled targets only under D-67; a vanished bound target does not

@@ -36,6 +36,10 @@ remains M/I, not an extra V opening merely because it includes exposure.
 
 Rows describe the **current group context**, not simply the last command. Columns
 are incoming operations, all by the same author on the same path/incarnation.
+These are authoritative server-created events, not UI-defined groups (D-254).
+Clients send requests and may predict this deterministic result; menu opening
+binds targets, not group membership. T-602 covers a request spanning a changed
+predicted group without adding another grouping policy or stale-group guard.
 
 - `+`: append to current group; `|`: start a new group immediately.
 - `k`: append only if matching family key (move tuple or Shuffle target), else `|`.

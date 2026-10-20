@@ -328,8 +328,11 @@ The general rules are:
   Event comments are ordinary tree nodes, not a special comment-only
   branch workflow. References affected by D-232 tree edits remain to be specified;
   do not assume an original alternative is created to retain their old context.
-- Actions sync immediately and form meaningful review groups automatically;
-   grouping only controls navigation/playback and representation. Each group is
+- Actions sync immediately and form meaningful review groups automatically.
+    UI actions send requests, the server creates events, and deterministic logic
+    groups those events (D-254). Opening Actions captures its targets, not a group;
+    local predictions cannot dictate authoritative group membership.
+    Grouping only controls navigation/playback and representation. Each group is
    one playback step whose changes animate concurrently, while each individual
    mutation remains a separate node. The client's state pointer identifies a
    mutation, never a group. Reviewing is not accepting legality or waiving a response.

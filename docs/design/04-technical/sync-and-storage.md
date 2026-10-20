@@ -117,7 +117,11 @@ and chosen boundary for the latter. D-187 applies ordinary operations to current
 state unless impossible, retaining limited movement/Stack guards rather than
 previous-field-value or whole-game-head checks. D-232 Undo/Redo do not supply
 historical-continuation intent. Proposed additional fields include an
-idempotency key, persistent lobby ID, play-incarnation ID, action data and group references. D-184 uses ordered
+idempotency key, persistent lobby ID, play-incarnation ID, action data and explicit
+historical reference context. D-254 separates requests from server-created events:
+group membership is deterministic derived output, not a client/menu assignment or
+group guard. A historical group reference does not assign a new event's group.
+D-184 uses ordered
 delivery rather than dependency metadata for sequencing. Object IDs and explicit
 historical-boundary references remain necessary semantic data, not a sequencing
 graph. Exact field names, revision scopes and schema remain technical design.

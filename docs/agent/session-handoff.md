@@ -14,7 +14,21 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest October 20 review repairs — D-251–D-253
+## Latest owner correction — server events and grouping, D-254
+
+The owner's response concerns **the ping finding F-01**, not every finding in the
+follow-up review. UI actions send requests; the server creates events, which are
+grouped by deterministic logic. The assistant wrongly extended menu target binding
+into authoritative group binding. F-01 is withdrawn, not another owner question.
+
+The grouping/annotation/composition and sync contracts now make group membership
+derived output, never a menu-bound request parameter or stale-group guard. Preserve
+D-248's target IDs, explicit Ping/Unping semantics and historical references without
+using them to assign a new event's group. T-602 and its E2E variant cover an
+intervening tablet event; no executable tests/app exist. Other findings remain
+unselected. No UI/implementation/stage transition is authorized.
+
+## Earlier October 20 review repairs — D-251–D-253
 
 **Subsequent review, not new decisions:** the owner requested another adversarial
 consistency/unspecified-area review. The
@@ -22,8 +36,9 @@ consistency/unspecified-area review. The
 against `57f6a75`: captured ping scope versus current recording event, Redo's shared
 pointer at an activated insertion boundary, delayed exposure after tree revision,
 mixed-token ordered lowering, pending-result grouping and residual active drift.
-Its proposed resolutions are not selected behavior; attempt derivation under
-D-237 before asking about any remaining choice. No contracts/oracles were changed.
+F-01 was subsequently withdrawn under D-254 above. Other proposed resolutions are
+not selected behavior; attempt derivation under D-237 before asking about any
+remaining choice. The original review batch changed no contracts/oracles.
 
 The owner discussed S-01–S-10 in the
 [October 20 review](adversarial-review-2026-10-20.md#documentation-follow-up-after-owner-discussion).

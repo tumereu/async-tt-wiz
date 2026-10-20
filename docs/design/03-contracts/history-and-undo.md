@@ -547,7 +547,11 @@ Proposed action lifecycle:
 
 Publishing submits the requested operation and any limited movement/Stack guards,
 explicit interruption intent and its chosen boundary when applicable, action data,
-and group references (D-187).
+and any explicitly selected historical reference context (D-187).
+The server creates authoritative events from requests; deterministic logic groups
+those events (D-254). A referenced historical group is not an instruction to assign
+the new event to that group. UI/menu state and provisional grouping do not bind
+authoritative group membership or introduce a group-mismatch rejection guard.
 Exact wire fields remain technical design. “Publish” names a protocol
 operation, not an extra interaction. Transport batching is allowed only without
 deliberately waiting to gather a group; every action boundary remains intact.

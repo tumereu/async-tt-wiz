@@ -4,10 +4,11 @@ Reviewed baseline: `57f6a753bcdfc339a59244ec050bf66a86cadcb6`.
 
 ## Outcome
 
-**Yes: another focused consistency/composition pass is warranted.** The latest
-repairs establish useful shared rules, but two concrete control/context outcomes
-are still insufficiently specified. There are also derived completion cases,
-an incomplete action-to-group mapping and active contradictions with D-253.
+**F-01 is withdrawn following the owner's correction (D-254).** It incorrectly
+treated UI/menu state as defining an authoritative group. UI actions send requests;
+the server creates events, and deterministic logic groups those events. The
+conflicting menu-bound-group wording has been corrected, not promoted into another
+owner decision. F-02–F-06 remain review findings, not accepted resolutions.
 
 This is a static review of the five design tiers, current decisions and the
 previous reviews' dispositions. Counterexamples are reasoning fixtures, not
@@ -20,7 +21,7 @@ requirement, D-245's retained-future checks and D-247's Stack comparator.
 
 | ID | Priority | Finding | Classification |
 | --- | --- | --- | --- |
-| F-01 | High | A captured Ping/Unping group can cease to be the current recording group before submission/application. | Demonstrated context ambiguity; derive first, then batch any residual choice. |
+| F-01 | Withdrawn | The review assumed a Ping menu binds an authoritative group. | Incorrect premise; D-254 confirms server-created events and deterministic grouping. |
 | F-02 | High | Successful Redo has no explicit shared-pointer result when its insertion boundary is an activated internal state. | Observable control-contract completion, not merely anchor encoding. |
 | F-03 | Medium | Protected late exposure can refer to a history revision already removed or changed by an eligible Undo. | Derived durability/reference completion; causal participation needs an explicit trace. |
 | F-04 | Medium | Ordered lowering needs an explicit non-placement outcome for disappearing tokens in mixed moves. | Derived algorithm/verification completion, not a new token policy. |
@@ -30,6 +31,18 @@ requirement, D-245's retained-future checks and D-247's Stack comparator.
 Priority denotes specification risk, not an observed software defect.
 
 ## F-01 — Captured ping scope versus a later recording event
+
+**Withdrawn, not a product gap.** The owner specifically rejected this ping
+finding: UI actions do not define groups. Menu target binding under D-248 is not
+group binding. The server processes requests, creates effective events and groups
+those events deterministically. Current-context explicit Unping of an absent
+marker is a no-op, not amendment of an old group, conversion into Ping or a new
+stale-group lock. T-602 and the primary grouping/annotation/composition contracts
+record the corrected request/event distinction. The unrelated findings below
+were not selected or resolved by this correction.
+
+<details>
+<summary>Original F-01 reasoning — withdrawn premise, retained as review history</summary>
 
 **Evidence.** [Grouping](../design/03-contracts/history-grouping.md), lines
 117–130, makes the recording group the operational Ping/Unping scope and binds
@@ -76,6 +89,8 @@ menu **after** the new tap group exists and does not settle this trace.
 
 This is a residual composition issue, not a request to reconsider tap grouping or
 add a ping-ownership picker.
+
+</details>
 
 ## F-02 — Redo's tree result does not fully specify its active state
 
@@ -229,7 +244,7 @@ applying their current rules, not closed by a broad completion claim.
 
 ## Recommended next batch
 
-1. Resolve F-01/F-02 with exact before/after contexts and pointer tables. Attempt
+1. F-01 is withdrawn; do not reopen it. Review F-02's exact pointer transition. Attempt
    derivation first; batch only any genuinely remaining observable choices.
 2. Complete F-03/F-04 against existing durability, identity and token rules.
 3. Finish F-05's classifier and synchronize F-06's active text with current rules.

@@ -3,7 +3,18 @@
 This is editorial/agent context, not new product behavior. It records findings
 from the plain-language summary and tier reorganization.
 
-## Latest October 20 follow-up review repairs
+## Latest owner correction — request/event/group authority, D-254
+
+The owner rejected the subsequent follow-up review's F-01 ping finding. UI actions
+send requests; the server creates events; deterministic logic groups those events.
+The assistant's menu-bound-group premise was wrong. Primary grouping/annotation/
+composition and sync wording now separates captured targets/historical references
+from derived authoritative grouping; T-602 covers intervening server events.
+F-01 is withdrawn, not a genuine unresolved choice or permission for stale-group
+locks, old-group amendment or UI group creation. Other follow-up findings remain
+unselected. See the [corrected review](adversarial-review-2026-10-20-follow-up.md).
+
+## Earlier October 20 follow-up review repairs
 
 The [October 20 disposition](adversarial-review-2026-10-20.md#documentation-follow-up-after-owner-discussion)
 tracks S-01–S-10, owner decisions D-251–D-253 and T-579–T-601. Tap runs now start

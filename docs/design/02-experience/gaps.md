@@ -63,6 +63,7 @@ References point to the primary contracts; D-IDs identify the approved basis.
 | A delayed old lobby request first arrives after ending/return to the same lobby. | Bind the original preparation round; no old Ready/edit/cancel acquires fresh-round intent. Recover committed old outcomes without reapplication. | D-205/D-213/idempotency; T-581/T-582. |
 | Logged exposure is captured online but not sent before Logout. | Protect the outstanding account-scoped recovery obligation, clear ordinary downloads and prevent another account reading/publishing it. | D-246/D-241; T-600/T-601. |
 | Cleanup exposes separate Close/Next step actions but not advance-and-close. | This is allowed: individual actions need full paths; the combination can be quick-only. | D-253; T-233/T-235/T-597. |
+| A Ping menu/request spans another device's intervening event. | The menu captures targets, not a group. The server processes requests and creates events, grouped deterministically. Use its current derived recording context; explicit Unping of an absent marker is a no-op, not an old-group amendment, Ping conversion or group-mismatch rejection. | D-254; T-602. |
 
 ## Genuine gaps
 
@@ -85,6 +86,12 @@ See the [latest disposition](../../agent/adversarial-review-2026-10-20.md#docume
 and [grouping E2E matrix](../05-verification/grouping-matrix.md).
 Technical completion and additional consistency audits remain; this is not an
 exhaustiveness claim or approval of implementation/UI/stage transition.
+
+The subsequent follow-up review's **F-01 is withdrawn under D-254**: its UI-bound
+ping-group premise was wrong. UI requests do not define groups; server-created
+events are grouped deterministically. Corrected contracts and T-602 record this,
+not another owner choice. The other follow-up findings remain unselected; see the
+[review disposition](../../agent/adversarial-review-2026-10-20-follow-up.md#outcome).
 
 This is not a certification that behavior specification is complete. Further
 edge cases may be found, but an owner question needs a concrete unresolved

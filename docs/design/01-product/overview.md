@@ -60,7 +60,9 @@ The app remembers and presents what happened; the players interpret the rules.
    retained branch/node. Only single-player/no-exposure alternatives qualify for
    hiding behind a separate toggle; mixed-player/exposure paths stay visible.
    Event comments also keep the whole alternative visible, even without a reveal.
-   Groups are playback steps whose changes animate concurrently, not tree nodes.
+    UI actions send requests; the server creates events, grouped by deterministic
+    logic (D-254). Groups are playback steps whose changes animate concurrently,
+    not tree nodes or a menu-bound part of a request.
    On return after an interruption, animate from the last local state back to
    the fork, then forward along the new continuation. Pause automatic playback
    and scrub the horizontal bottom timeline to choose an exact mutation boundary.

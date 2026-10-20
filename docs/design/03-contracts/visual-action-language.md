@@ -125,10 +125,15 @@ annotation's own recorded event can inspect its referenced E board/location.
 The same applies when E belongs to an inactive alternative; no activation or
 automatic branch is required, and no replacement object/context is substituted.
 
-For pings, the owning event/numbering sequence is the recording group; retain the
-selected referenced context separately. Ping/Unping addresses that owning event,
-referenced context and destination identity, not a similarly placed object in
-another event. Re-add is a new effective change, not retroactive restoration at E.
+For pings, the owning event/numbering sequence is the recording group determined
+from server-created events by the deterministic grouping rules (D-254). A UI
+request does not define or bind that group. Capture destination identities and
+retain any selected historical referenced context separately; referencing E does
+not assign the new event to E's group. Process Ping/Unping in the server's current
+derived recording context, preserving the requested operation rather than
+reinterpreting Unping as Ping or removing a preceding group's marker. Once
+recorded, its owning context remains part of the event's history. Re-add is a new
+effective change, not retroactive restoration at E.
 First/root additions use a leading recording group under author separation,
 without an owner picker. Number pings in recorded action order within that group;
 delivery retries do not add numbers. Exact compact rendering remains later UI work.

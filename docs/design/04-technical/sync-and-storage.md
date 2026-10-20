@@ -399,10 +399,11 @@ context, branch association, and temporary-display lifecycle remain Q-28.
 ### Bounded revision window and baseline recovery — D-265
 
 **Accepted requirement:** when the revisions needed by a client are unavailable,
-perform a fresh baseline/full sync. The owner's suggested maximum retained revision
-count per game is a proposed implementation direction; exact count/age/byte budgets
-are not selected. This window is distinct from retained gameplay history and
-request/outcome recovery data, as defined in [storage architecture](storage-architecture.md).
+perform a fresh baseline/full sync. D-266 confirms the bounded revision-retention
+direction on the basis that checkpoints are rebuildable caches; exact count/age/
+byte budgets and protocol fields below remain design work. This window is distinct
+from retained gameplay history and request/outcome recovery data, as defined in
+[storage architecture](storage-architecture.md).
 
 Proposed protocol:
 
@@ -543,6 +544,13 @@ and integrity digest. Reusing a surviving node ID after a tree edit must not reu
 an obsolete snapshot. Replay from root
 or a verified snapshot must produce the same logical board.
 
+D-266 explicitly confirms that these checkpoints are a cache/optimization, not a
+replacement durable history. They can be evicted and regenerated from retained
+initial/root state, essential definitions and recorded tree/mutation/control data.
+Missing checkpoints affect reconstruction cost, not the promised reviewable
+history or correctness. A fresh baseline can be generated from that durable basis;
+bounded sync-delta retention must not make its only reconstruction source vanish.
+
 Versioned accepted mutation-tree records and stored outcomes are the durable
 gameplay record. An immutable physical audit/event log may encode tree revisions,
 but logical ancestry is edited by Undo/Redo; immutable parents are not a contract.
@@ -579,8 +587,8 @@ arbitrary content.
 
 ## 6.8 Data retention
 
-D-265 separates a proposed rolling synchronization-delta window from gameplay
-history, checkpoints and idempotency/exposure recovery. A client below the served
+D-265/D-266 separate the selected rolling synchronization-delta direction from
+gameplay history, checkpoints and idempotency/exposure recovery. A client below the served
 revision floor obtains a fresh baseline; that is not authority to expire retained
 current-game history or delete matching request outcomes. See
 [baseline recovery](#bounded-revision-window-and-baseline-recovery--d-265).

@@ -26,6 +26,14 @@ versioned JSONB payloads for structured object/mutation data where suitable. Do 
 let foreign-key cascades or generic JSON updates define tree edits, cleanup or
 game semantics. Transaction boundaries retain the [server obligations](server-architecture.md#authority-and-transaction-obligations).
 
+**Checkpoint meaning — D-266:** checkpoints are rebuildable materialized-state
+caches/optimizations for loading, replay and baseline transfer. Evicting one may
+make reconstruction slower, not remove an inspectable history boundary or change
+its result. Retained initial/root state, essential game definitions and recorded
+mutations/tree/control data remain the durable basis; those are not disposable
+merely because a checkpoint exists. A baseline may be generated again from that
+basis. Checkpoint eviction and sync-delta pruning do not delete recovery outcomes.
+
 ## Client storage responsibilities
 
 SQLDelight provides SQL-first type-safe query APIs over SQLite with platform driver
@@ -56,10 +64,11 @@ Keep four distinct logical categories; this does not require four database files
 
 ## Synchronization retention is not gameplay-history retention
 
-The owner suggests a maximum retained revision count per game and requires fresh
-baseline/full sync when the client's needed revisions are unavailable. A rolling
-revision window is a **proposed mechanism**, not a selected count/age/byte budget or
-permission to expire gameplay history. See the [baseline recovery proposal](sync-and-storage.md#bounded-revision-window-and-baseline-recovery--d-265).
+D-265 proposes a maximum retained revision count and requires fresh baseline/full
+sync when needed revisions are unavailable. D-266 confirms that retention design
+with checkpoints understood as rebuildable caches: a rolling sync-revision window
+is selected in direction, not an exact count/age/byte budget or permission to
+expire gameplay history. See the [baseline recovery design](sync-and-storage.md#bounded-revision-window-and-baseline-recovery--d-265).
 
 Do not prune retained nodes/mutations, branches, Redo/exposure/reference obligations
 or request outcomes merely because their synchronization deltas leave that window.

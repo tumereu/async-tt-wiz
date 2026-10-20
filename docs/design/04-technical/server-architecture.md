@@ -77,8 +77,9 @@ D-265 accepts the [storage layout](storage-architecture.md): separate normalized
 tree topology, versioned mutation/object payloads, incrementally updated current
 state, revision records, request outcomes and notification outbox. Use relational
 columns for structure/queried fields and versioned JSONB where suitable. Exact
-tables/indexes are not finalized. A bounded sync-revision window is proposed, not
-permission to delete retained game history or matching idempotency outcomes.
+tables/indexes are not finalized. D-266 confirms bounded sync-revision retention
+with rebuildable checkpoint caches, not permission to delete retained game history
+or matching idempotency outcomes; exact retention limits remain design work.
 
 Use one migration history for production and real-database tests. Never silently
 edit an applied versioned migration or let an ORM auto-update production schema.

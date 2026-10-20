@@ -153,6 +153,12 @@ lease mechanisms are not selected. SQLDelight migration tests must preserve dura
 recovery data as well as materialized state. Server queries/migrations exercise
 the accepted relational/versioned-payload layout, not a recursive whole-tree blob.
 
+D-266 checkpoint-eviction variants delete only derived checkpoint caches, then
+rebuild the same retained boundary/baseline from durable root/definitions/history.
+Verify unchanged recorded outcomes and history access, with no new random sampling
+or loss of request/exposure recovery. Checkpoint existence must not be required
+for correctness after the rolling delta window has been pruned.
+
 ## Canvas-specific verification
 
 Full-canvas rendering removes the automatic per-card widget tree. Provide normal

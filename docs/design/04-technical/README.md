@@ -31,9 +31,10 @@ revocable sessions and Keystore-backed credentials, and the proposed E2E tool
 combination plus Testcontainers for smaller integration tests. WorkManager is
 selected for appropriate Android background recovery, not the foreground sync path.
 D-265 selects SQLDelight for client SQLite and accepts the storage layout; Coil
-remains conditional on canvas integration. A rolling sync-revision window is
-proposed, with fresh baseline recovery when required deltas are unavailable; this
-does not select a history expiry policy. Exact protocols, schemas, versions,
+remains conditional on canvas integration. D-266 confirms rolling sync-revision
+retention with fresh baseline recovery, retained gameplay history and rebuildable
+checkpoint caches; exact limits/protocols remain design work, not a history expiry
+policy. Exact protocols, schemas, versions,
 hosting/providers, support targets and operational policies remain design work. This agreement authorizes
 documentation planning, not implementation or a delivery-stage transition. The
 [E2E strategy](../05-verification/e2e-strategy.md) defines the confirmed normal-app,

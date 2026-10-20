@@ -14,7 +14,24 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest storage acceptance and revision-retention discussion — D-265
+## Latest checkpoint clarification and retention confirmation — D-266
+
+The owner asks whether checkpoints are caches/optimizations and confirms the
+preceding design on that basis. Yes: checkpoints are rebuildable materialized
+state, not the sole durable history. Preserve retained initial/root state,
+essential definitions and recorded tree/mutation/control data; eviction may slow
+reconstruction but cannot remove reviewable history or change recorded results.
+Fresh baseline transfer can regenerate a checkpoint from that basis, independently
+of the rolling synchronization-delta window and request/outcome recovery.
+
+This confirms the bounded sync-revision retention direction from D-265 while
+keeping gameplay history separate; exact count/age/byte budgets and baseline
+lease/protocol fields remain technical design. Do not keep describing that overall
+direction as needing owner approval or select a history-expiry policy. Checkpoint
+eviction verification supplements the existing integrity/baseline cases. No
+implementation or stage transition is authorized.
+
+## Earlier storage acceptance and revision-retention discussion — D-265
 
 The owner accepts PostgreSQL/jOOQ relational structure with versioned JSONB
 payloads and separate tree topology/mutations/current state/revisions/outcomes/

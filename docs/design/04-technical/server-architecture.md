@@ -27,7 +27,7 @@ subsequently accepts the recommended service/database/migration stack.
 | Migrations | Flyway versioned SQL selected (D-263), reviewed in Git and applied in version order. | Liquibase was considered, not selected; neither tool automatically recovers lost data from destructive changes. |
 | Data access | jOOQ selected (D-261), with explicit queries and transaction boundaries. | Spring JDBC/JPA/Hibernate are not the selected persistence abstraction. Do not introduce an ORM-owned game-state graph. |
 | Request execution | Start with conventional Spring MVC and JDBC transactions. | WebFlux/R2DBC is not needed simply for realtime notifications; evaluate only against a concrete concurrency/resource requirement. |
-| Authentication | Spring Security/revocable non-expiring sessions (D-263/D-268); reset-time all-session revocation (D-279). | Auth profile specifies opaque token/Argon2id/reset mechanics, race ordering and SMTP adapter, not a managed provider or new account UI. |
+| Authentication | Spring Security/revocable non-expiring sessions (D-263/D-268); reset-time all-session revocation (D-279). | Auth profile specifies opaque token/Argon2id/reset mechanics and SMTP adapter. D-289 requires ordinary authorization of new requests, not special reset/commit race ordering; already-authorized work may finish and remote Logout is best effort. No managed provider or new account UI. |
 | API contracts | OpenAPI for HTTPS/JSON, explicit gameplay WebSocket schemas and kotlinx.serialization protocol handling selected (D-263). | Configure compatible HTTP/socket codecs explicitly; do not assume Spring defaults match the shared wire schema or finalize schema evolution. |
 
 Exact supported versions, compatibility, licenses/editions and runtime requirements

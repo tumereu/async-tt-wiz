@@ -24,5 +24,11 @@ The architecture-review discussion (D-285–D-288) corrects speculative-disclosu
 client-sequence and restart/upgrade oracles directly, and adds T-664–T-670 for the
 agreed FIFO/reconciliation, auth/HTTP, guard/resource, invitation and token cases.
 
+D-289 simplifies the follow-up review: correct T-656/T-666/T-667 for ordinary new-
+request authorization, best-effort remote Logout and complete definition HTTP POSTs;
+T-671–T-673 reaffirm stable UUID references, ancestor fallback across full recovery
+and acceptable shared-socket backpressure. No custom upload or reset-race machinery
+is required to satisfy earlier oracles.
+
 Agent delivery gates and implementation-loop instructions live separately in
 [the delivery workflow](../../agent/delivery-workflow.md).

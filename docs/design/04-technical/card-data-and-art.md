@@ -93,6 +93,15 @@ owns these derived definition-availability outcomes; the
 owns unresolved-entry behavior. Definition download is not a player inspection or
 review/read-receipt event. Private game snapshots obey account/Logout isolation.
 
+**Submission simplification — D-289:** the client sends the needed card metadata
+as one ordinary JSON HTTP POST, including before any game exists. This is small
+definition data, not artwork or the entire public catalog. Use normal networking
+library handling; no application-level chunking, upload sessions or separate
+completion step. Validate/retain the complete account-private set, then attach its
+content-addressed IDs to the saved deck/lobby under existing atomic copy/Ready rules.
+No additional user Upload/Send action is introduced. See
+[the HTTP contract](protocol-v1.md#reads-full-transfer-and-versioning).
+
 ## Selected providers and startup update — D-280
 
 The owner selects **MTGJSON records plus Scryfall lazy artwork**, including the

@@ -247,12 +247,19 @@ forge a request, exposure or history branch.
 ## Fault controls, synchronization and evidence
 
 Review-repair variants T-664–T-670 additionally exercise terminal admission failure
-followed by valid work, login/reset ordering, lost HTTP business-mutation replies,
-pre-game definition uploads, cancellation versus reinvitation, compact Stack guards,
+followed by valid work, ordinary session revocation, lost HTTP business-mutation replies,
+pre-game definition HTTP POSTs, cancellation versus reinvitation, compact Stack guards,
 slow subscribers and mixed-token destination anchors. Gameplay and invitation actions
 still originate in the normal UI; malformed-message/precise lock fixtures belong
 to lower-layer tests. D-286 explicitly accepts extra predicted knowledge: do not
 build a special disclosure-report/provenance path to satisfy old exposure oracles.
+
+D-289/T-671–T-673 additionally cover stable locally known node UUIDs before
+acknowledgement and existing deleted-cursor ancestor fallback after full recovery.
+Metadata submission uses a normal complete HTTP POST, not a custom chunked upload.
+Do not add special password-reset/login/game-commit race guarantees or durable
+logout-revocation machinery. Already-authorized work may finish, while new requests
+must respect revocation. Shared-socket slowing under overload is acceptable.
 
 Infrastructure can delay/drop traffic, stop/restart the app or service, publish
 fixture catalog versions, or explicitly revoke a session to arrange an external

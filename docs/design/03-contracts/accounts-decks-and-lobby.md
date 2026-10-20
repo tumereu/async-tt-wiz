@@ -42,6 +42,13 @@ at every entry point. Username/email validation and equivalence are separate
 account/security design, never inherited from a card-text helper. Password
 strength, provider, reset mechanics and storage remain technical/security work.
 
+**Ordinary revocation boundary — D-289:** after successful reset, existing sessions
+no longer authorize new requests. Already-authorized/in-flight work, including
+admitted game commands, may finish normally. No special password-reset-versus-login/
+game/HTTP-commit ordering guarantee is required; normal authentication and request
+checks suffice. This does not weaken password hashing, valid reset-token handling
+or normal game/lifecycle applicability.
+
 ## Session continuity and reauthentication — D-217
 
 - **Stay logged in across app restarts.** Restarting alone does not require the
@@ -77,6 +84,11 @@ surviving process memory; D-279 selects reset-time revocation of all sessions.
   does not delete server-side decks/games or invalidate selected deck copies.
   Downloaded read-only access remains available in the account's ordinary use;
   it is not a promise to retain that content after deliberate Logout.
+- **Local logout is immediate; server logout is best effort (D-289).** Clear local
+  credentials/data and fence callbacks without waiting for connectivity. Once
+  processed, server logout revokes that session for new requests; already-authorized
+  work may finish. A lost/offline logout need not be recovered through a durable
+  credential/revocation queue. Other sessions remain independent.
 - **D-278 replaces protected client recovery obligations:** Logout discards volatile
   pending work/exposure reports; no crash-durable outgoing journal is required.
   This is not proof of rejection or recall of server-admitted work. Future login
@@ -263,6 +275,11 @@ Submitting deck definitions is part of ordinary saved-deck/lobby preparation bef
 start, not an additional gameplay Send or host-start control. Server acceptance
 retains the supplied game data; later preparation changes preserve copy isolation
 and own-Ready clearing rather than silently rewriting an accepted live game.
+
+D-289 uses one ordinary HTTP POST for the needed definition metadata, with normal
+network-library handling, not an application-level chunked/resumable upload protocol.
+An invalid/interrupted body cannot install a partial definition set or replace a
+valid deck. This is automatic data submission, not a new user Upload/Send step.
 
 Example of the supported common shape:
 

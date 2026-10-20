@@ -150,15 +150,41 @@ The owner discussed the technical review and requested these documentation chang
   or reconstruction of removed viewed context. Accepted revealing records remain.
 - Distinct create+first-invite versus reinvite-to-existing requests. Cancellation
   leaves no current game/invite in either order, with no revival/replacement.
-- Standard login/reset race checks and admitted-session metadata; atomic HTTP
-  business outcomes and account-private uploads before game creation; compact Stack
-  checksum guards and practical resource/recovery defaults; explicit disappearing-
+- Atomic HTTP business outcomes and account-private definitions before game creation;
+  compact Stack checksum guards and practical resource/recovery defaults; explicit disappearing-
   token anchor examples and corrected crash/upgrade/exposure test instructions.
 
 T-664–T-670 specify the traces. The chosen stack stays, and prior F-03/G-03's special
 provenance remedy is no longer required. F-04/G-04 is clarified from existing token
 rules, not a fresh behavior choice. This is an identified review-batch disposition,
 not a proof of exhaustive correctness, review/UI gate pass or permission to implement.
+
+### Follow-up architecture-review disposition — D-289
+
+The owner corrected overengineering in the next review and requested application:
+
+- Node references use their stable locally known UUIDs, retained on acceptance.
+  Revision/ordinal cache/read metadata must not require guessed future values or
+  acknowledgement waits before referencing a predicted node.
+- Password reset and processed server Logout stop old sessions authorizing new
+  requests. Already-authorized/in-flight/admitted work may finish. Ordinary auth
+  handling suffices; special reset/login/HTTP/game-commit ordering and execution-time
+  admitted-session fences are not requirements. Local Logout is immediate, remote
+  revocation best effort, with no durable credential/revocation queue.
+- Needed card-definition metadata fits one ordinary HTTP POST; networking libraries
+  handle transport framing/streaming. Remove custom upload sessions/chunks/manifests/
+  completion routes and their tables, not D-276's separate complete-history transfer.
+  Normal structural/security/input validation and atomic definition/deck handling stay.
+- Deleted-review-node ancestor fallback was already specified. Reaffirm its full-
+  recovery application and retained parent metadata; do not present a new gap/service.
+- Shared-socket backpressure occasionally slowing the client's other games is not
+  an issue requiring a transport redesign. Independent workers remain independent.
+
+The review's security-race/Logout/transport concerns are withdrawn as architectural
+blockers. D-289 supersedes the earlier stronger D-284/D-288 requirements where stated;
+the stack, server durability and implementation/UI gates remain unchanged. T-656/
+T-666/T-667 are corrected directly; T-671–T-673 add explicit reference/fallback/overload
+traces. This disposition is not a new policy-question queue or exhaustive certification.
 
 | Work lane | What remains | How to handle it |
 | --- | --- | --- |

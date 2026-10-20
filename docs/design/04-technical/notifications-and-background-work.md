@@ -98,9 +98,10 @@ global/per-game mute. Provide a normal non-FCM build/configuration path with no
 Firebase initialization/registration, plus an optional configured FCM adapter; no
 required startup Google-service request or new provider-selection UI.
 
-Registrations are session+installation bound. Logout revokes/removes registration,
-cancels posted account notifications/jobs and increments local account generation;
-fence late worker/socket callbacks before writing/posting. Reset-time revocation
+Registrations are session+installation bound. Logout immediately cancels posted
+account notifications/jobs and increments local account generation; server logout
+revokes/removes registration when received, best effort if offline/lost (D-289).
+Fence late worker/socket callbacks before writing/posting. Reset-time revocation
 invalidates all old registrations; foreground/session check prevents stale displays.
 Muted/foreground-suppressed activity advances local dedup progress, not review
 progress. Other installations apply their own local suppression independently.

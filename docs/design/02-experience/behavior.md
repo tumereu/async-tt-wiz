@@ -57,6 +57,9 @@ The general rules are:
   Logout clears token/private downloads and volatile work, fencing late callbacks
   from another account. Session invalidation alone is not deliberate Logout.
   D-279 revokes all sessions on successful password reset, not on sending email.
+  D-289 clarifies ordinary authorization: revoked sessions cannot authorize new
+  requests; already-authorized/in-flight work may finish. Local Logout is immediate,
+  with server revocation best effort if offline/lost, not a durable revocation queue.
 - Use the same account on multiple devices, with saved decks, contacts and games
   synchronized between them (D-218). Existing lobby/game deck copies stay isolated
   from saved-deck changes. Exact simultaneous-edit conflict handling and transfer

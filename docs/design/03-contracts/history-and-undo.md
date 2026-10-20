@@ -346,6 +346,9 @@ Unlike a dependent comment, a personal cursor is not a later shared mutation
 protected by the replay test and does not block an otherwise eligible Undo.
 Cursor fallback itself changes no shared play and adds no mutation. Node-ID,
 versioning and cache reconciliation remain technical specification work.
+The same ancestor fallback applies after full recovery if old deltas were pruned;
+retain the required parent/removal information. D-289 reaffirms this existing rule,
+not a new gap or a separate recovery workflow.
 Any further proposed activation/control edge case must first be checked against current rules, not
 assumed to need a new policy. See the [pruned gaps](../02-experience/gaps.md).
 Removal changes the existing tree (D-232), not just a candidate branch; D-223's
@@ -430,6 +433,14 @@ See [transfer design](../04-technical/sync-and-storage.md#complete-current-game-
 Track the accepted replica's server revision separately from these displayed
 positions. A surviving shared node can have a revised materialized state after
 Undo/Redo; its node ID, a personal cursor or a prediction is not a sync cursor.
+
+**Stable references — D-289:** a new predicted mutation has a locally known UUID
+which the server retains if accepted. Later requests reference that UUID in its
+original play scope, without identifier remapping or waiting to learn an eventual
+server revision/ordinal. Missing predicted nodes reject normally if their creation
+did not succeed. Accepted revisions/ordinals qualify reads, caches and exact recorded
+contexts; they are not an extra whole-head guard or mandatory future values for
+node-reference requests. Existing specific inspection/reference protections remain.
 
 The UI labels which state it displays. “Current board” means shared head, not
 “the actions both people have reviewed.” A review cursor may lag the shared

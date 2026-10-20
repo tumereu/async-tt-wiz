@@ -55,10 +55,12 @@ Do not silently promote a proposal to an approved requirement during coding.
 ## Current status
 
 **Documentation only. The architecture review has been discussed and its agreed
-simplifications/repairs applied (D-285–D-288), following the D-278–D-284 technical
+simplifications/repairs applied (D-285–D-289), following the D-278–D-284 technical
 batch. This does not certify every defect absent or pass the review/UI gates.
 No application implementation or stage transition is authorized.** See
 [review disposition](design/02-experience/gaps.md#architecture-review-disposition--d-285d-288).
+The [follow-up disposition](design/02-experience/gaps.md#follow-up-architecture-review-disposition--d-289)
+records the simpler UUID, authorization and ordinary HTTP definition-submission rules.
 
 The confirmed delivery order remains: behavior specification → adversarial review
 and refinement → UI decisions → explicitly authorized iterative implementation.

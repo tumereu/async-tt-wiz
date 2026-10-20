@@ -20,10 +20,17 @@ encoding examples. [Request ordering](request-ordering-and-recovery.md) owns int
 - `scope` is `{gameId, playId?, preparationId?, invitationId?}`. Required lifecycle
   IDs depend on operation; missing or wrong IDs reject, never default to fresh play.
   Account endpoints use authenticated account scope instead of a game ID.
-- A `boundary` is `{playId, nodeId, treeRevision, effectiveOrdinal}`; root has its
-  own ID. The ordinal distinguishes exposure-only records at the same board node.
-  Current tree validation resolves surviving IDs at current revision; revision
-  qualification prevents mistaking a rewritten node's state for its old context.
+- Requests refer to nodes by stable UUID within the original play scope; root has
+  its own ID. The locally known node ID is retained by the server on acceptance,
+  with no remapping or acknowledgement wait (D-289).
+- An accepted read/cache `boundary` is
+  `{playId, nodeId, treeRevision, effectiveOrdinal}`. The ordinal distinguishes
+  exposure-only records at the same board node; revision qualification prevents
+  reusing an obsolete materialization after a tree edit. These are accepted-state
+  metadata, not mandatory guessed future revision/ordinal operands for a request
+  referencing a predicted node. Historical continuation resolves the named retained
+  node in the current authoritative tree; specific inspection/annotation references
+  still retain their required exact viewed context, not a substitute node.
 - Canonical bytes are RFC 8785 canonical JSON of the **typed semantic record**:
   explicitly expand schema defaults/null optionals, omit no semantic fields, sort
   sets/maps with the schema's canonical key order, retain ordered arrays. Reject
@@ -73,8 +80,9 @@ no endless hot retry on invalid auth/update-required/storage failure.
 ## Command and result envelopes
 
 `command` fields: `requestId`, `scope`, `commandVersion=1`, `action`, optional
-`invocationId`, and `continuation` (`null` or `{boundary, explicit:true}`). Transport
-fields are `streamId` and `generation`. Actor is derived from auth,
+`invocationId`, and `continuation` (`null` or `{nodeId, explicit:true}`, within the
+scope's required `playId`). Transport fields are `streamId` and `generation`.
+Actor is derived from auth,
 never trusted from a supplied author label. Request identity is globally unique;
 the server binds it permanently to that account and canonical semantic payload.
 Another account's collision returns inaccessible/conflict, never that outcome.
@@ -82,9 +90,10 @@ Another account's collision returns inaccessible/conflict, never that outcome.
 Optional `inlineDefinitions` carries supported small content-addressed snapshots
 needed by this command, within the same command byte bound. It is semantic input
 and immutable on retry. Validate/retain them atomically with the accepted action;
-they cannot overwrite accepted different content. Larger prepared-deck definitions
-use staged upload below; an already-retained digest needs no repeat content. This
-allows a normal new token to predict/send without a definition-upload ack barrier.
+they cannot overwrite accepted different content. Prepared-deck definition sets
+use the ordinary HTTP POST below; an already-retained digest needs no repeat content.
+This allows a normal new token to predict/send without a metadata-submission
+acknowledgement barrier.
 
 `action` is a discriminated typed payload, not a materialized client board or a list
 of authoritative effects. Every lowered constituent has its own request identity.
@@ -137,7 +146,8 @@ with the same namespace and names `<role>/<zero-based-index>`, enumerated in the
 captured semantic operand order. Shared processing supplies the role registry;
 indices never depend on unordered map iteration or actual accepted placement.
 Server validates these output identities/collisions; it does not remap them to
-fresh IDs. Thus later requests can reference predicted outputs without ack waits.
+fresh IDs. Thus later requests can reference predicted outputs without ack waits
+or knowledge of their eventual server revision/effective ordinal (D-289).
 Failed/no-op creation leaves no object/node: later original references reject if
 actually absent, while independent later work is still evaluated. UUIDv5 is an
 identity function here, not a security hash. Initial game objects use a separately
@@ -186,10 +196,11 @@ one accepted-base/active-prediction/display target update to observers:
   Withdrawn effects stay withdrawn for the remaining process lifetime. Late
   acceptance follows the ordinary incoming path (D-277), including after restart.
 - Two simultaneously explicit historical requests validate their own retained
-  boundary at their execution turn and can create distinct genuine continuations;
+  node at their execution turn and can create distinct genuine continuations;
   no stale-head conflict fork. Later ordinary requests run on current state with
   original operands. A historical chain can name preceding deterministic predicted
-  node IDs; missing prerequisite rejects that reference, never supplies another base.
+  node IDs without inventing future revision/ordinal values; missing prerequisite
+  rejects that reference, never supplies another base.
 - Catch-up cursor is local presentation state, not sync revision. First open without
   a saved valid boundary starts at accepted current state; a saved retained boundary
   with unpresented work uses playback. Serialize playback-complete/head comparison
@@ -216,6 +227,7 @@ follow the authentication contract, not generic replay of secret-bearing respons
 Core routes: `POST /accounts`, `POST /sessions`, `DELETE /session`,
 `POST /password-reset-requests`, `POST /password-resets`, `GET /me`,
 `GET /contacts`, `POST /contacts`, `GET/POST /decks`, `GET/PUT/DELETE /decks/{id}`,
+`POST /definitions` (complete account-private card-metadata set),
 `GET /decks/{id}/definitions/{digest}` (owned-deck accepted definitions),
 `GET /invitations`, `POST /invitations` (create a new game and its first invitation),
 `GET /games`, `GET /games/{id}/head`, `GET /games/{id}/revisions?after=...`,
@@ -240,20 +252,25 @@ serialize on that deck; delete never becomes upsert. Initial game+invitation cre
 is one transaction; subsequent existing-game work enters the game dispatcher.
 Notification registration is an absolute session+installation-bound upsert/delete.
 
-Large content staging uses account-scoped `POST /definition-uploads`,
-`PUT /definition-uploads/{id}/chunks/{index}` and
-`POST /definition-uploads/{id}/complete` with expected digest/count/lengths. Chunk
-bounds match baseline transfer. Upload writes account-private untrusted staging,
-not saved-deck/prepared-game state; completion validates all schemas/digests/references.
+Card definitions are small metadata submissions, not artwork or a full catalog.
+Use one account-scoped `POST /definitions` with the complete JSON definition set
+and normal HTTP request handling (D-289). Networking libraries handle transport
+streaming/framing; there are no application chunk/index/manifest/completion routes,
+resumable-upload sessions or custom upload protocol. Validate the full body's
+schemas/digests/references before atomically retaining the account-private set and
+returning its content-addressed definition IDs. Repeating identical content reuses
+those IDs. An interrupted/invalid request installs no partial set and can be retried
+as an ordinary POST. Apply normal HTTP input/resource validation, not a separate
+upload-quota subsystem or an invented deck-size rule.
+
 No game must exist to import/save a deck. A saved-deck HTTP mutation atomically
-attaches the complete manifest to its accepted entries, or the ordered prepared-deck/
-game command attaches it under existing copy/Ready rules. Upload completion alone
-does neither. Another account cannot attach/read private staging. Incomplete upload
-cannot replace a saved/selected deck or make Ready succeed; no extra user Send step.
-Chunks are immutable by upload/index: identical retries deduplicate and changed
-bytes conflict. Ownership checks cover completion, definition reads and attachment.
-Unused staging expires after 24 hours; attached required definitions do not. The
-service does not fetch arbitrary definition/image URLs on the uploader's behalf.
+attaches the accepted definitions to its entries, or the ordered prepared-deck/game
+command attaches them under existing copy/Ready rules. The metadata POST alone
+does neither; ownership checks cover definition reads and attachment. Missing or
+incomplete definitions cannot replace a saved/selected deck or make Ready succeed.
+There is no extra user Send step, server-side artwork fetch or automatic expiry of
+attached required definitions. This replaces the earlier staged/chunked definition
+upload design, not the separate D-276 complete-history baseline transfer.
 
 HTTP statuses: 400 invalid structure, 401 invalid login, 404 inaccessible/missing
 resource without existence disclosure, 409 identity/lifecycle conflict, 410 expired

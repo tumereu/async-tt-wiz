@@ -97,33 +97,30 @@ Technical profile:
   No permanent account lockout based on an attacker sending bad passwords/emails.
   Tune against legitimate shared-network use; limits do not expire login tokens.
 
-Authorization checks use current account epoch/session revocation on every command
-admission/execution and subscription fetch, not a long-lived unchecked socket cache.
-Execution holds a shared account authorization lock before game/stream locks;
-reset takes the exclusive account lock, changes credentials/epoch and commits before
-reporting success. It never holds game locks. Thus an execution ordered before
-reset can commit; one ordered after cannot authorize using the old epoch. Notify/
-close revoked sockets best effort, but DB authorization is the guarantee. Already
-committed effects stay committed; revoked pending work receives the actual
-authorization failure, not a fabricated rollback. A new same-account session can
-read original outcomes, not transfer another account's requests.
+### Ordinary revocation boundary — D-289
 
-Login/reset race: read the password-verifier version and account auth epoch, perform
-Argon2 verification outside game locks, then take the shared account authorization
-lock and recheck that exact verifier version/epoch before inserting a session. If
-either changed, do not issue a session from stale verification; reverify current
-credentials or fail generically. Reset holds the exclusive lock. Thus a session
-issued before reset is revoked by it; a login finishing afterward cannot authorize
-the old password merely by attaching the new epoch. Parameter rehash uses the same
-version check and must not overwrite a concurrently reset password.
+Check current session validity for new HTTP requests, game-command admission and
+subscription/read access; an open socket is not permanent authorization. After a
+successful password reset, old sessions no longer authorize new requests. Notify/
+close revoked sockets best effort. Requests already authorized/in flight, including
+durably admitted game commands, may finish normally; their committed effects and
+original outcomes remain. A new same-account session may recover those outcomes,
+not another account's work.
 
-Inbox admission stores originating session ID and auth epoch outside the immutable
-gameplay payload. Execution checks that admitted authorization under the account
-lock; a duplicate under new credentials may read its outcome but cannot relabel an
-old admitted command's authorization. A retained original never admitted before
-reauthentication may be newly admitted under the valid same-account session.
-Single-session Logout/revocation uses the exclusive account authorization lock too;
-other sessions remain valid, and account locking only orders the race.
+Use ordinary authentication-library/database handling for password verification,
+session issuance, reset and rehash. No special reset-versus-login/HTTP/game-commit
+linearization guarantee, account authorization lock hierarchy, or execution-time
+admitted-session epoch fence is required. This supersedes the stronger D-284/D-288
+race requirements; it does not remove password hashing, reset-token validation,
+transactional successful reset or normal authorization checks. A retained original
+never admitted before reauthentication may use the valid same-account session.
+
+Explicit Logout immediately clears local credentials/private data and fences old
+callbacks. Send ordinary idempotent server logout/revocation best effort; once the
+server processes it, that session cannot authorize new requests. Local logout does
+not wait for connectivity or confirmed server revocation. An offline/lost logout
+may leave the server session valid; do not retain credentials or create a durable
+revocation workflow solely to close that window. Other sessions remain independent.
 
 Credential endpoints are not generic business-outcome replay stores: registration
 uniqueness prevents duplicate accounts, reset-token consumption makes one password

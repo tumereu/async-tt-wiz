@@ -21,16 +21,15 @@ physical naming is mechanical migration work, not different behavior.
 | `service_writer`, `game` | Singleton writer epoch for transaction fencing; persistent lobby ID, two participants, current preparation/play IDs, lifecycle, next ingress ordinal, next executable ordinal, accepted revision and stream-control version. Membership index per account. |
 | `invitation`, `preparation`, `play` | Distinct attempt/round/incarnation IDs, retained submitted copies, Ready/starter choices and recorded initialization/root. Unique current lifecycle identity per game. |
 | `stream` | Game/account/installation/process-stream ID and fence generation; locked during replace/admit. Other devices have separate rows. No contiguous client-sequence state (D-285). |
-| `inbox` | Unique request identity bound to account/game/lifecycle, canonical semantic bytes/digest, ingress ordinal, stream/generation and admission session ID/auth epoch, pending/final state and result. Unique `(game, ordinal)`; pending-ordinal index. Admission auth metadata is not immutable gameplay intent and cannot be rewritten by a duplicate/relogin. |
+| `inbox` | Unique request identity bound to authenticated account/game/lifecycle, canonical semantic bytes/digest, ingress ordinal, stream/generation, pending/final state and result. Unique `(game, ordinal)`; pending-ordinal index. Already-authorized admitted work may finish after session revocation (D-289); no execution-time session-epoch fence is required. |
 | `node`, `transition` | Game/play/node IDs, current parent, node version, actor/request, effective order, recorded relevant before/after and invariant-closed forward/inverse effects. Index `(play,parent)` and author/effective order. Root has no parent. Removed-for-Redo nodes are detached, not browsable alternative branches. |
 | `effective_record`, `reference` | Exposure/annotation context with board boundary and effective ordinal; immutable viewed identities/revision/content; indexed incoming references and recording-path membership. Exposure-only rows need no fabricated board mutation. |
 | `branch`, `control`, `redo_entry` | Genuine branch identity/archive state; current active node and control revision; per-player/per-play ordered Redo entries with recorded insertion anchors. Snapshot activation never reloads an old Redo stack. |
-| `definition`, `game_definition` | Content-addressed accepted snapshot/version and references; duplicate names/external IDs never overwrite different contents. |
+| `definition`, `account_definition`, `game_definition` | Content-addressed accepted snapshot/version, account-private access and deck/game references. An ordinary complete HTTP POST retains the validated submitted definition set atomically; duplicate content reuses IDs, while duplicate names/external IDs never overwrite different contents. No application upload-session/chunk tables (D-289). |
 | `current_object`, `current_container`, `current_link` | Materialized accepted state keyed by play/object/container/endpoint; normalized membership/order and uniqueness. Ordered containers use deterministic dense integer order in transferred state; update local affected ordering, not unrelated tree records. |
 | `revision`, `checkpoint` | Revision base/result and typed changed records, scope/request identity; optional rebuildable snapshot keyed by boundary/tree-control revision/engine version and semantic digest. |
 | `outbox`, `activity`, `notification_registration` | Atomic committed publication/notification intents, account-scoped monotonically ordered activity hints, per-session installation registrations; unique delivery identities and due/retry indexes. Not gameplay presence/review receipts. |
-| `baseline_transfer`, `baseline_chunk` | Frozen export metadata/chunks at R, owner/membership/auth epoch, expiry and pinned suffix range; full coverage manifest. Disk staging, not a long-held transaction or whole-tree heap blob. |
-| `definition_upload`, `definition_upload_chunk` | Account-private manifest/digest/count/length/expiry and verified chunks; optional intended game is not a prerequisite. Completion validates staging; saved-deck HTTP or ordered game attachment atomically retains required definitions. Staging expiry never removes attached accepted data. |
+| `baseline_transfer`, `baseline_chunk` | Frozen export metadata/chunks at R, owner/membership, expiry and pinned suffix range; full coverage manifest. Reads use ordinary current-session authorization. Disk staging, not a long-held transaction or whole-tree heap blob. |
 
 Constraints: acyclic single-parent retained topology, one current pointer per play,
 same-play references, unique real containment, valid projected source/fallback and
@@ -47,8 +46,13 @@ client clocks. Bounded mailbox pressure pauses reading rather than parallelizing
 admission and overtaking older frames. This deliberately selects a single writer
 service topology, not an HA or multiple-replica capacity claim.
 
-Each admission transaction takes the shared account authorization lock, then locks
-game and relevant stream rows (same order everywhere), validates fence/
+A socket shared by several games may slow all of that client's games when reads
+are paused under overload. This ordinary connection-wide backpressure is acceptable
+(D-289); no per-game transport-isolation machinery is required. Other connections
+and independent game workers are not deliberately blocked by that socket.
+
+New requests use ordinary current-session authorization. Each admission transaction
+locks game then relevant stream rows (same order everywhere), validates fence/
 identity and binds immutable intent. Allocate the next ingress ordinal by updating
 that locked game row; commit the request-identity binding and inbox row atomically.
 Commit before receipt or admitting the next frame.
@@ -71,20 +75,19 @@ dispatcher domain before serving subsequent commands. Reinvitation names an exis
 game and uses its dispatcher/locks, never the creation path. Cancellation makes it
 inapplicable or removes its already-created invitation; either way no current game
 or pending invitation survives. Retained outcome/control rows are not a browsable
-cancelled game or permission to revive it. Definition uploads are account-private
-staging and can precede any game; attachment, not upload completion, changes a deck.
+cancelled game or permission to revive it. A complete definition-set HTTP POST is
+account-private and can precede any game; attachment, not metadata submission alone,
+changes a deck. No chunked/resumable definition upload state is needed (D-289).
 
-A worker first reads a candidate game's lowest pending ordinal/actor without a
-write lock, takes that actor's shared account authorization lock, then claims the
-game using `FOR UPDATE SKIP LOCKED`. Re-read the lowest pending command under the
-game lock: if another worker advanced it to a different actor, release/retry with
-the correct account lock, never acquire account after game. Process that lowest
-ordinal. Lock game before controls/objects/stacks/references. Ingress and stream
-replacement use the same account→game→stream order; reset takes account exclusively
-and never game locks. The
-worker does not skip a slow pending command to process a newer one. Use PostgreSQL
-READ COMMITTED with this explicit serialization; no user-visible revision CAS for
-ordinary edits. Recheck access, auth epoch and lifecycle at execution. Atomic final
+A worker claims a candidate game using `FOR UPDATE SKIP LOCKED`, then selects its
+lowest pending ordinal under that lock. Lock game before controls/objects/stacks/
+references; ingress and stream replacement use game→stream order. The worker does
+not skip a slow pending command to process a newer one. Use PostgreSQL READ COMMITTED
+with this explicit serialization; no user-visible revision CAS for ordinary edits.
+Validate game access, lifecycle and action applicability at execution. Session
+revocation prevents newly authorized requests, but already-authorized/admitted work
+may finish; do not add account authorization locks spanning gameplay transactions
+or mandatory execution-time session/epoch rechecks (D-289). Atomic final
 transaction writes all state/controls/outcome/revision/outbox effects. A worker
 crash before commit rolls back; after commit the recorded outcome is final. Poll
 pending games at startup and every second so lost wake-ups cannot strand the tail.
@@ -100,7 +103,7 @@ before becoming ready; never rely on stale in-memory ownership.
 
 Acquiring writer ownership also increments a persisted singleton writer epoch.
 Each mutating transaction first takes a shared lock on that epoch row and verifies
-its service token, before account→game→stream locks. A replacement acquires the
+its service token, before game→stream locks. A replacement acquires the
 exclusive epoch-row lock, waiting for old transactions to finish, then increments.
 A delayed old service transaction cannot mutate under a stale epoch even if loss
 of its advisory-lock connection has not yet reached application callbacks. Shared
@@ -140,6 +143,12 @@ the tuple test, not repaired by silently attaching a comment to a different even
 Personal removed-node cursor fallback uses D-238's retained parent route. Store
 the removed-node→surviving-parent mapping with the edit so offline replicas can
 perform that fallback. Retained same-ID boundaries need revision qualification.
+
+The same D-238 ancestor fallback applies after full recovery when old deltas are no
+longer available; required retained removal/parent metadata supports it. This
+reaffirms existing behavior, not a new recovery service or unresolved owner choice
+(D-289). Revision qualification here is for cache/read correctness, not replacement
+of stable UUID request references.
 
 Redo stack clearing removes availability, not referenced server history. Initially
 retain detached transition payloads/anchors as non-browsable control records for

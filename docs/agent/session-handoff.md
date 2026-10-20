@@ -14,7 +14,36 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest architecture-review discussion and repairs — D-285–D-288
+## Latest follow-up review simplifications — D-289
+
+The owner discussed the second architecture review, rejected its overengineering
+and requested these changes. The selected stack and specification-only phase stay:
+
+- Nodes have stable locally known UUIDs retained on server acceptance. Requests
+  reference those IDs; read/cache revisions/ordinals do not require guessed future
+  values or an acknowledgement barrier. No remapping/provisional-reference protocol.
+- Ordinary authentication suffices: reset/processed server Logout invalidates old
+  sessions for new requests; already-authorized/in-flight/admitted work may finish.
+  Remove special reset/login/rehash/HTTP/game-commit ordering, account authorization
+  lock hierarchy and execution-time session fences. Local Logout is immediate,
+  remote revocation best effort; no durable logout credential/revocation workflow.
+- The needed card metadata fits a regular complete HTTP POST. Remove application
+  definition-upload chunks/sessions/manifests/completion routes/tables. Libraries
+  handle transport framing/streaming. Keep account-private validation/content IDs,
+  atomic saved-deck/prepared-copy attachment and no extra user Send. This does not
+  remove complete-history baseline chunking or catalog-update staging.
+- Deleted-cursor parent/ancestor fallback was already specified; reaffirm after
+  pruned-delta full recovery using retained parent metadata, not a new gap/service.
+- Shared-socket slowing under overload is acceptable; do not redesign isolation.
+
+Primary contracts/protocol/storage/auth/runtime, summaries and test oracles reflect
+this directly. Correct T-656/T-666/T-667; T-671–T-673 add UUID/fallback/overload traces.
+The review's stronger security/Logout/transport findings are withdrawn as blockers;
+do not resurrect older D-288 race/upload machinery from the historical sections.
+No implementation/UI work or passed review gate is implied. Run documentation
+checks and save/commit/push this batch normally.
+
+## Earlier architecture-review discussion and repairs — D-285–D-288
 
 The owner requested an adversarial technical review, discussed all eight findings,
 corrected the overcomplicated sequencing/exposure/race framing, and asked to apply

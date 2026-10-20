@@ -8,10 +8,19 @@ They distinguish technical choices from owner-approved policy and measured evide
 D-285–D-288 apply the subsequent review discussion: simple FIFO/TCP sending without
 contiguous client admission numbers; ordinary revealing-action reconciliation with
 no speculative-disclosure reports; distinct new-game versus existing-game invite
-requests; login/reset race repair, HTTP business outcomes/pre-game uploads, compact
+requests; HTTP business outcomes/pre-game definitions, compact
 Stack checksum guards, practical backpressure and mixed-token anchor examples.
 The selected stack remains unchanged. Primary contracts and T-664–T-670 carry the
 outcomes; this is not an implementation authorization or a passed design gate.
+
+D-289 applies the follow-up discussion: stable locally known node UUID references
+without guessed future server revisions/ordinals; ordinary authorization of new
+requests after reset/Logout, with in-flight completion allowed and best-effort remote
+Logout; complete card-definition metadata in one ordinary HTTP POST, not a custom
+chunked upload protocol. Existing deleted-cursor ancestor fallback is reaffirmed,
+and connection-wide slowing under shared-socket overload is acceptable. Earlier
+stronger reset-race/admitted-session fencing and staged-definition mechanisms are
+superseded. Corrected T-656/T-666/T-667 and T-671–T-673 carry these outcomes.
 
 - [Protocol v1](protocol-v1.md): types/envelopes, stream resume/fencing, result/delta
   correlation, provisional output IDs, lifecycle/control races, HTTP reads, complete

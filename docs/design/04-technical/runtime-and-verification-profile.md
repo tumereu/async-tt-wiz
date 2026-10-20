@@ -135,12 +135,12 @@ or create an offline queue. No routine per-action final-result waits.
 
 | Resource | Initial bound / action |
 | --- | --- |
-| Ordinary socket command | 1 MiB decoded UTF-8, depth 32; reject before admission on excess. Pre-upload definitions through bounded prepared-deck data path rather than huge per-action snapshots. |
+| Ordinary socket command | 1 MiB decoded UTF-8, depth 32; reject before admission on excess. Submit prepared-deck definitions by ordinary HTTP POST rather than huge per-action snapshots. |
 | Client outgoing memory | 256 requests or 4 MiB; backpressure only at exhaustion. Retained reconnect sends in original order. |
 | Server game mailbox/inbox backlog | 1024 not-yet-final requests per game, bounded 8 MiB pre-admission decoded mailbox. Pause socket reads or `busy` without receipt; do not accept and discard. |
 | Action ingress rate | Token bucket 30 requests/sec/installation, burst 120; 120/sec/account burst 240. Typical bulk operations pipeline without artificial group delay; tune if approved normal operations hit it. |
 | HTTP reads | 60/min/account expensive baseline/export starts separately 2/min and 2 active transfers/account; normal small reads 600/min. 429 gives retry hints. |
-| Prepared/imported definition record | 256 KiB text metadata, 64 faces/record, 64 KiB per text field, safe image references only. Stream large deck submissions in pages under one preparation revision; validate all before installing a changed prepared deck. |
+| Prepared/imported definition record | 256 KiB text metadata, 64 faces/record, 64 KiB per text field, safe image references only. Send the complete needed definition set in one ordinary JSON HTTP POST with normal HTTP-library/server request handling; validate all before installing it. No application-level chunks/pages/upload completion protocol (D-289). |
 | Image | 10 MiB compressed bytes, 4096×4096 / 16 Mpixels decoded; bounds checked before bitmap allocation, no executable SVG/HTML. Oversize/invalid image falls back to text. |
 | Client disposable artwork | 256 MiB disk LRU, decoded memory min(64 MiB, 1/8 app heap), downsample to scene need. Essential definitions/accepted history are not art cache. |
 
@@ -202,7 +202,7 @@ real-PostgreSQL lock/fence/crash/migrations via Testcontainers; native Compose s
 accessibility/gesture/animation tests; normal signed-test APK Appium/UiAutomator2
 journeys with Docker Compose backend and SMTP/synthetic-source adapters. Run clean
 and retained-data compatible-upgrade paths, wrong-version refusal, crash-loss versus
-server-admitted durability, reset races, optional-FCM denial/poll overlap, complete
+server-admitted durability, ordinary session revocation, optional-FCM denial/poll overlap, complete
 branched recovery and D-277 rendered endpoint trajectories. No implemented coverage
 or passing performance measurements are claimed.
 

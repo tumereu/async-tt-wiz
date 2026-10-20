@@ -348,11 +348,14 @@ corrected existing D-177/D-180/D-185 scenarios; no executable coverage is claime
 
 The architecture-review repairs use D-285–D-288 and T-664–T-670. Test FIFO sending
 with a terminal admission failure followed by independent valid work, without a
-missing-number gate; fenced reconnect still resolves original request IDs. Race
-password verification/session creation/rehash against reset and check admitted
-session/epoch metadata cannot be relabelled by reauthentication. Lose HTTP creation/
-update/deletion replies and retry concurrently; assert one original business effect
-and private pre-game definition staging. Test Stack checksum equality on canonical
+missing-number gate; fenced reconnect still resolves original request IDs. D-289
+replaces special reset/login/commit race requirements with ordinary authorization:
+old sessions fail for new requests after revocation; already-authorized/in-flight/
+admitted work may finish. Local logout is immediate and server revocation best
+effort, without a durable revocation queue. Lose HTTP creation/update/deletion replies
+and retry concurrently; assert one original business effect and a complete private
+pre-game definition set sent by ordinary HTTP POST, with no custom chunk/completion
+protocol. Test Stack checksum equality on canonical
 entry projections, realistic workloads and slow-subscriber recovery.
 
 For D-286, race Reveal top N with an opponent Draw in both server orders, correct
@@ -363,6 +366,11 @@ retain their normal records. No per-disclosure side channel/journal is required.
 Mixed-token top/bottom moves and mulligans distinguish disappearance from placement
 and from a concurrently invalidated live anchor. Use normal UIs for E2E actions;
 lower protocol/storage layers own malformed input and deterministic lock traces.
+
+T-671–T-673 cover UUID-only node references without guessed future revision/ordinal
+values, existing ancestor cursor fallback across pruned-delta full recovery, and
+acceptable connection-wide backpressure when games share a socket. D-289 treats
+the latter two as reaffirmed behavior, not architectural blockers/new services.
 
 T-647–T-663 and the completed protocol/storage/runtime/auth/catalog/notification
 profiles supply exact crash-loss, parameter, format, device/performance and failure

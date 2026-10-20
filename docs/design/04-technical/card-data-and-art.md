@@ -62,7 +62,9 @@ Recommended protocol completion:
 - Transfer the required distinct definition set with a bounded/paged game baseline,
   or via explicit definition reads before applying dependent records. Attach or
   fetch any newly introduced definitions on later deltas. Avoid repeated copies
-  per card instance, full public-catalog transfer or whole gameplay-tree download.
+  per card instance or full public-catalog transfer. D-276 initial/full recovery
+  includes the complete retained game tree and its required definitions; an
+  ordinary missing-definition update does not require retransmitting that tree.
   Exact eager-versus-on-demand definition paging is technical design, not approved
   by the owner's question about sending opponent deck data.
 - Prefer the exact retained game-definition identity/version over a newer or older

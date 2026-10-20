@@ -155,19 +155,21 @@ connectivity/access, accepted replicas must converge without relying on a later
 gameplay event or a mandatory checksum chain. Separately corrupt materialized
 state while preserving its revision and verify checkpoint state-digest detection
 and safe rebuild. Compare only matching explicit scopes/boundaries/revisions;
-UI/predictions and unfetched-history coverage are not part of that proof.
+UI/predictions and unrelated historical records are not part of a current-state
+digest proof, even when D-276 has downloaded the complete tree.
 
-Measure transfer size against changed/requested data rather than complete history
-size. Large-tree fixtures belong to lower protocol/model tests; normal-app E2E
+Measure routine incremental transfer against changed data rather than full history
+size; D-276 initial/full recovery intentionally transfers the complete retained
+current-game tree. Large-tree fixtures belong to lower protocol/model tests; normal-app E2E
 retains real UI-created history and recovery assertions. T-614–T-616 specify these
 outcomes; T-610 remains conditional on an optional older event-chain mechanism,
 not the selected baseline. Exact digest/encoding/cadence remains technical design.
 
 Under D-265, test a client below the retained revision floor, missing intermediate
 patches and pruning during a paged baseline transfer. Baseline-required recovery
-must be coherent, preserve original requests/exposures/UI and distinguish partial
-history coverage; retained old branches remain reviewable through normal history
-reads. Original committed request outcomes remain recoverable independently from
+must be coherent, preserve original requests/exposures/UI and complete all retained
+history/branch pages under D-276. Partial staging cannot be marked complete or
+silently left as default lazy branches. Original committed request outcomes remain recoverable independently from
 delta availability. T-617/T-618 cover these obligations; exact window budget and
 lease mechanisms are not selected. SQLDelight migration tests must preserve durable
 recovery data as well as materialized state. Server queries/migrations exercise
@@ -178,6 +180,20 @@ rebuild the same retained boundary/baseline from durable root/definitions/histor
 Verify unchanged recorded outcomes and history access, with no new random sampling
 or loss of request/exposure recovery. Checkpoint existence must not be required
 for correctness after the rolling delta window has been pruned.
+
+D-276 full-download variants include inactive, archived-retained and hidden
+alternatives plus futures beyond an internally selected shared pointer. After a
+complete coherent transfer, disconnect and review every retained continuation via
+normal UI without new history fetches or shared activation. Check initial/root
+data, definitions and control/reference payloads, not just visible branch counts.
+Images remain separate/lazy and current-state checkpoints do not replace history.
+
+At lower protocol/performance layers cover one long path with short offshoots and
+heavily branched outliers exceeding a presumed `<2x` ratio. Verify compressed/chunked
+streaming/staging, interruption/resource failure, coherent concurrent-change
+catch-up and no full-board-per-node duplication or routine full-tree retransmission.
+Exact budgets/formats/transfer leases remain to specify; a workload assumption is
+not permission for a history cap. T-640/T-641 supplement corrected T-616–T-618.
 
 ## Canvas-specific verification
 

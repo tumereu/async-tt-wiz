@@ -207,6 +207,14 @@ originate through normal UI; traffic/process/worker controls arrange failure, no
 insert inbox rows or forge game outcomes. Lower protocol tests own changed-payload
 misuse and exact ingress/fencing races. Preserve app/database state within each
 journey and observe final UI/history, not receipt/server logs alone as success.
+D-276 full-download journeys build retained offshoots through both players' normal
+UIs, then open the existing current game on a fresh normal instance. Verify all
+retained branches/futures are available after completion, including filtered or
+archived-retained alternatives; disconnect and review without new data requests or
+shared activation (T-640/T-641). Keep artwork availability separate and test
+interrupted full recovery without resetting app/backend state mid-checkpoint. Very
+large/pathological trees and chunk-resource measurements remain lower-layer tests,
+not permission to seed E2E history through setup helpers.
 D-269 notification variants include normal UI-created invitations/opponent activity
 on non-Google Android with no FCM server configuration, polling-driven OS display,
 permission/channel denial, and foreground catch-up after blocked background work

@@ -439,9 +439,11 @@ not another source of game authority. Neither path's availability/timing gates
 foreground synchronization or recovery. Poll lightweight authorized activity data,
 not the whole game tree; see [background-work design](notifications-and-background-work.md).
 
-An app opening a historical branch fetches required ancestry before rendering.
-If it is unavailable offline, show that limitation instead of fabricating state.
-The exact minimum offline-download set and cache budget need approval.
+D-276 targets a complete retained current-game tree at initial download/full
+recovery, not lazy historical ancestry by default. Once complete, branch review
+uses downloaded records; any interrupted/incomplete data must be identified rather
+than fabricated or treated as a deleted branch. Exact storage/resource budgets
+remain technical design within this complete-download requirement.
 
 Confirmed D-44/D-45: explicit View and Reveal operations enter the durable shared
 log and synchronize; neither is merely a local browser or best-effort presence
@@ -460,7 +462,37 @@ byte budgets and protocol fields below remain design work. This window is distin
 from retained gameplay history and request/outcome recovery data, as defined in
 [storage architecture](storage-architecture.md).
 
-Proposed protocol:
+### Complete current-game transfer — D-276
+
+**Selected scope:** initial download and fresh-baseline/full recovery include the
+entire retained current-game tree, with all retained branches and required
+definitions, alongside current materialized board/control/Undo/Redo/lifecycle
+state. This supersedes the earlier minimal-baseline-plus-lazy-history proposal;
+the no-routine-full-tree requirement still applies to incremental play/reconnect.
+The [history contract](../03-contracts/history-and-undo.md#complete-current-game-downloads--d-276)
+owns exact observable scope, including hidden alternatives and retained futures.
+
+Transfer compact topology/mutation/group/reference data, root/initial state and
+required per-game definitions/control payloads, not artwork, a full public catalog,
+or redundant full-board snapshots for every node. Shared ancestors/definitions
+can be encoded once. Initial full transfer is allowed to scale with complete tree
+size; routine deltas scale with actual changes, not that same full size.
+
+Use compression and bounded chunks/pages as internal transfer mechanisms; fetch
+all automatically rather than leave offshoots unfetched until opened. Stream/stage
+to local storage without requiring the whole decoded tree or a recursive JSON graph
+in memory. A completed baseline has complete tree coverage at its declared revision;
+partial staging is not a completed full sync. Resume or restart interrupted transfers
+coherently while preserving the previously accepted replica and independent recovery
+records. Exact format, compression, chunk limits, staging, transfer identity and
+lease/pinning mechanics remain technical design, not selected wire schemas.
+
+The expected long main line/short branches motivate this default, not a guaranteed
+`<2x` bound or permission to cap/drop a larger branch. Benchmark long paths, sparse
+offshoots and heavily branched outliers. Complete download does not mean a snapshot
+per mutation, app-wide unlimited storage, an archive of ended games or offline play.
+
+Protocol completion within D-265/D-266/D-276 (exact fields/leases remain proposed):
 
 1. Advertise `currentRevision` and `minimumResumeRevision` for the scope. The latter
    means the oldest **client base revision** from which the full delta suffix is
@@ -471,17 +503,18 @@ Proposed protocol:
    served, return an explicit baseline-required result rather than silently
    skipping deltas or pretending it is current.
 3. Obtain a coherent baseline at revision R: current accepted materialized state,
-   active pointer, control/Undo/Redo/lifecycle state, required definitions and initial
-   topology/history metadata pages with explicit coverage. **Full sync means a new
-   authoritative baseline, not mandatory download of the complete gameplay tree.**
-   Read older branches/path records from retained history on demand, pinned to a
-   coherent revision; invalidated cached pages must not masquerade as current.
+   active pointer, control/Undo/Redo/lifecycle state, retained root/initial data,
+   required definitions and **all retained tree/branch/mutation data**, including
+   dependencies needed for review/replay and retained control/reference obligations.
+   D-276 full recovery targets a complete local current-game tree. Revision-pinned
+   paging/chunking is transport, not a default lazy-history product boundary.
 4. Stage and verify the baseline, then atomically install its accepted state/cursor.
    Preserve original request/random/exposure records and account fences. Resolve
    their actual outcomes independently, re-evaluate remaining predictions and use
    D-185 difference-only corrections, not a whole-app wipe or blind queue replay.
-   Preserve applicable UI and D-238 cursor fallback; required playback can fetch
-   retained path data separately instead of being skipped by checkpoint loading.
+   Preserve applicable UI and D-238 cursor fallback. Complete tree data enables
+   required path playback; loading a current-state checkpoint does not skip it or
+   replace the history transfer. New updates beyond R are caught up separately.
 5. Catch up from R to the newer head. A paged baseline/catch-up token must either
    protect a coherent transfer for a bounded lifetime or explicitly expire/restart
    from a newer baseline if pruning invalidates it. Never combine incompatible
@@ -533,10 +566,12 @@ is not the selected baseline.
   Hashes also cannot detect a semantic bug shared by client and server.
 
 Canonical encoding/hash algorithm, checkpoint/check frequency, coverage and repair
-mechanics remain technical design. No full-tree transfer is required by the
-integrity check. Earlier typed tree patches, paged history/branch reads and subtree
-cache invalidation are concrete design proposals for meeting the owner's
-large-history constraint, not an approved exact wire/schema format.
+mechanics remain technical design. A digest check does not itself require another
+full-tree round-trip: D-276 initial/full recovery downloads the complete tree, while
+normal revisions/checks remain incremental. Typed tree patches and derived-subtree
+cache invalidation are technical proposals, not selected exact wire schemas or
+permission to discard offshoot history and fetch it lazily by default. A current-
+board digest is still not proof of every downloaded historical record.
 
 ### Proposed revision checksums and correction points — D-259
 

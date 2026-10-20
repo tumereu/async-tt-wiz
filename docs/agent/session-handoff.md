@@ -14,7 +14,39 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest durable request ordering/recovery acceptance — D-275
+## Latest complete current-game tree download acceptance — D-276
+
+The owner corrects the proposed active-path/lazy-offshoot approach: games likely
+have one long path and short offshoots, so the **whole branched tree** should be
+downloadable, perhaps less than twice the main path size. They accept the revised
+proposal and request "apply+next". Initial download and fresh-baseline/full recovery
+now target the complete retained current-game tree, current board/control/lifecycle
+state, retained initial data and required definitions/reference/control payloads.
+Include inactive, hidden and archived-retained alternatives and retained futures
+beyond an internal shared pointer; visibility filtering is not download filtering.
+
+This supersedes older D-264–D-266-era "full sync is not a mandatory whole-tree
+download" and minimal-baseline/lazy-history **default**, including older handoff
+summaries below. It does not reverse the no-routine-full-tree constraint: normal
+play/reconnect with usable deltas still sends only changes. Art stays separate/lazy.
+Compression/chunking/paging completes all tree pages automatically, not only those
+the user visits. Compact shared topology/mutation records are not duplicated full
+board snapshots per node or a recursive all-in-memory tree blob. Partial staging
+must remain visibly/internally incomplete; safe resume/restart and coherent install/
+catch-up preserve original request/random/exposure/account/personal recovery.
+
+The expected `<2x` overhead is a heuristic, not a measured guarantee/history cap or
+permission to omit larger offshoots. No finished-session archive/offline gameplay
+scope is added. Exact wire fields/typed patch representation, compression/chunk
+limits and baseline lease/pinning/resource policy remain technical work; acceptance
+does not finalize the earlier exact protocol proposal wholesale. See
+[transfer design](../design/04-technical/sync-and-storage.md#complete-current-game-transfer--d-276).
+Current design prose and T-616–T-618/T-627 are corrected; T-640/T-641 add complete
+tree/offline-read-only review and interrupted/large transfer coverage. No app,
+executable tests or stage transition is authorized. Next: propose client prediction/
+reconciliation mechanics without reopening D-185's agreed difference-only behavior.
+
+## Earlier durable request ordering/recovery acceptance — D-275
 
 The owner accepts the preceding proposal and requests "apply+next". Select stable
 unique request/semantic payload identity, PostgreSQL-backed durable per-game inbox

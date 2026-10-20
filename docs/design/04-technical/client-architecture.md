@@ -169,6 +169,13 @@ personal state are separate logical [storage categories](storage-architecture.md
 under D-265. Fresh baseline/full sync replaces accepted replica data coherently,
 not the original recovery records or all local application storage. Reconcile
 pending predictions against the new baseline without inventing outcomes.
+D-276 initial download/full recovery installs the complete retained current-game
+tree, including inactive/hidden/archived retained branches and futures beyond an
+internal shared pointer, with current board/control state and required definitions.
+Compression/chunking is internal transfer, not lazy branch loading by default;
+track partial staging honestly and complete all pages. Subsequent updates remain
+incremental, and artwork remains lazy. This does not put every node's full board
+snapshot in memory or make the `<2x` expected branch overhead a guaranteed bound.
 
 D-275 binds immutable semantic request identity/payload to durable recovery and
 distinguishes admission receipt from final result and replica catch-up. Resume

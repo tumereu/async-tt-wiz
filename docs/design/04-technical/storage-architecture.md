@@ -49,8 +49,11 @@ types into the game engine. Room Multiplatform was considered, not selected.
 Keep four distinct logical categories; this does not require four database files:
 
 1. **Accepted replica:** downloaded records/control state and an atomic accepted
-   revision/coverage cursor. A partial history cache must distinguish unfetched from
-   nonexistent records and carry coherent revision-qualified pages.
+   revision/coverage cursor. D-276 initial/full recovery downloads the complete
+   retained current-game tree and required definitions, not default lazy branches.
+   Partial staging still distinguishes unfetched from nonexistent records and
+   carries coherent revision-qualified chunks/pages; only complete coverage may
+   be labelled a completed full download.
 2. **Durable recovery:** original requests/random inputs and protected exposure
    obligations. Baseline replacement, cache eviction and Logout never silently
    discard these; preserve account isolation and original lifecycle fences.
@@ -91,6 +94,9 @@ expire gameplay history. See the [baseline recovery design](sync-and-storage.md#
 Do not prune retained nodes/mutations, branches, Redo/exposure/reference obligations
 or request outcomes merely because their synchronization deltas leave that window.
 Checkpoints reduce transfer/replay cost, not the promised current-game review scope.
+D-276 makes initial/full recovery include every retained current-game continuation;
+normal play/reconnect remains incremental. Compression/chunking does not change that
+complete-download target or require storing a full board snapshot for every node.
 Finished-game archives remain outside R1; permanent retention/account erasure and
 removed-record disposal remain separate service/privacy policy.
 

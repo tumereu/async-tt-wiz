@@ -134,6 +134,11 @@ D-275 settles the durable PostgreSQL inbox/request-identity/atomic-outcome/fence
 reconnect mechanism. Exact admission locking/wire states, retention/backpressure,
 readiness/provisional references and buffered-unsent specification remain technical
 completion; do not reopen the selected mechanism or treat a receipt as acceptance.
+D-276 selects complete retained current-game tree downloads on initial/full
+recovery, then incremental synchronization with lazy artwork. Main-path-only or
+default lazy-offshoot loading is superseded; compression/chunk/lease/storage and
+resource details remain technical work. Expected short offshoots do not create a
+history-size cap, fixed `<2x` bound or new finished-session archive requirement.
 
 The [classified Q-register](../../agent/decisions.md#93-release-blocking-questions)
 keeps stable tracking IDs while replacing the original mixed question queue.

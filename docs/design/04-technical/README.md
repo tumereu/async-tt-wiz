@@ -34,7 +34,9 @@
   selected revision recovery/checkpoint state verification, optional older
   checksum-chain proposal, recovery, access and retention. D-274 selects shared
   seeded Fisher–Yates Shuffle and server-resolved Random starter at game start;
-  exact generator/encoding/version details remain to specify.
+  exact generator/encoding/version details remain to specify. D-276 initial/full
+  recovery downloads the complete retained current-game tree; normal sync remains
+  incremental and compression/chunking does not mean default lazy branches.
 - [Architecture and operations](architecture-and-operations.md): proposed system
   boundaries, technology/provider choices, APIs, security and reliability. D-272
   requires Docker Compose deployability; production deployment/backups belong in a

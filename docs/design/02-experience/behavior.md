@@ -624,6 +624,13 @@ The general rules are:
 - Essential stored card data remains usable offline; missing images can fall back
   to text. Sync, history, and notifications must not unnecessarily expose covered
   identities. Reviewing a retained line does not activate it.
+- D-276 initial download/full recovery obtains the **entire retained current-game
+  tree**, including inactive/hidden/archived retained branches, current board/control
+  state and required definitions. Compression/chunking completes all pages; branches
+  are not lazy by default. Normal sync remains incremental and images remain lazy.
+  After a coherent complete download, retained history is available for read-only
+  review offline. This adds neither offline gameplay nor finished-game archives;
+  interrupted/partial downloads must not be presented as complete or absent branches.
 - Game/card definitions, metadata and artwork are dynamically supplied rather
   than a licensed catalog bundled into the app/backend (D-243). Loading updated
   data must not silently change existing game/history meanings or retained face

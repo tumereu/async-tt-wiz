@@ -110,6 +110,10 @@ columns for structure/queried fields and versioned JSONB where suitable. Exact
 tables/indexes are not finalized. D-266 confirms bounded sync-revision retention
 with rebuildable checkpoint caches, not permission to delete retained game history
 or matching idempotency outcomes; exact retention limits remain design work.
+D-276 requires a complete retained current-game tree/current-state/definition
+transfer at initial download/full recovery, with compressed/chunked transport and
+ordinary incremental deltas afterward. This does not change the normalized storage
+layout into one recursive JSONB tree or require full-tree rewrites per action.
 
 Use one migration history for production and real-database tests. Never silently
 edit an applied versioned migration or let an ORM auto-update production schema.

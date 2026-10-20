@@ -386,6 +386,35 @@ are retired designs (D-224–D-236), not current controls. Each successful Undo
 removes one eligible latest-own mutation. A revealing draw cannot be removed;
 the later tracking advance can be removed when otherwise eligible.
 
+### Complete current-game downloads — D-276
+
+**Confirmed:** initial download and fresh-baseline/full recovery obtain the
+**complete retained current-game tree**, not only the active path or branch
+summaries. Include inactive, archived-but-retained and presentation-hidden
+continuations, and retained descendants beyond an internal shared pointer. Explorer
+filtering and personal review do not determine which retained records are downloaded.
+Shared prefixes are the same nodes, not copied once per branch.
+
+Download current board/control/lifecycle state, retained root/initial data, required
+definitions and recorded mutation/group/reference/exposure data needed by those
+paths, plus applicable Undo/Redo payloads. Artwork stays separate and lazy. This
+does not require a full board snapshot for every node, public-catalog download or
+finished-session archives, which remain excluded from R1 under D-214.
+
+Use compressed/chunked transfer as needed, automatically completing all tree pages;
+lazy branch fetch is not the default. A partial/interrupted download is explicitly
+incomplete, not absent history or a completed full sync. A coherent completed
+download supports retained-branch read-only review offline; new shared actions and
+logged inspection still require connection under the existing rules. Account-private
+Logout cleanup/recovery protection is unchanged.
+
+Normal play/reconnect with usable deltas synchronizes only changes, including
+Undo/Redo's edits to existing topology and newly retained branches, not a full-tree
+round-trip per action. The owner expects one long path with short offshoots, perhaps
+less than twice the path size; this is a workload expectation, not an enforced
+branch-size/history cap, a proven bound or permission to omit larger continuations.
+See [transfer design](../04-technical/sync-and-storage.md#complete-current-game-transfer--d-276).
+
 ## 3.1 Three positions that must never be confused
 
 - **Shared head / active state:** synchronized current game-state pointer. It may

@@ -125,6 +125,11 @@ Raspberry Pi as a possible first trial. Application container/configuration,
 migration/compatibility and persistent-state/recovery interfaces remain technical
 work here, as does the existing Compose E2E environment. Do not turn cloud-provider,
 host provisioning or backup automation into new owner questions/application tasks.
+D-273 settles initial Android support/distribution: API 29 / Android 10+, signed APK
+downloads and manual installer updates, with compatible upgrade/mixed-version
+behavior. Reference-device budgets, exact build/signing/release mechanics and
+protocol compatibility windows remain technical work, not a fresh question about
+whether Play Store publication or a custom in-app updater is required.
 
 The [classified Q-register](../../agent/decisions.md#93-release-blocking-questions)
 keeps stable tracking IDs while replacing the original mixed question queue.

@@ -111,6 +111,13 @@ database, not a developer's mutable production connection. Keep generated schema
 types server-only and verify regeneration/queries against the migration history.
 Exact code-generation integration and versions remain technical design.
 
+D-273 versions protocols separately from APK releases. Permit compatible mixed
+client versions; identify/refuse unsupported protocol/semantic combinations before
+mutation and explain the update requirement. This does not revoke valid sessions,
+erase recovery records or imply rejection of an earlier unknown-outcome command.
+Exact negotiation/window/recovery contracts remain to design; see
+[Android distribution/compatibility](android-distribution-and-compatibility.md).
+
 ## Still to design
 
 Ordered WebSocket admission and locking, relational schema and payload representation,

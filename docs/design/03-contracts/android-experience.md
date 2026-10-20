@@ -2,7 +2,8 @@
 
 Status: proposed interaction architecture except confirmed requirements noted
 below, including D-177's resume/playback and bottom timeline behavior. Annotated
-wireframes, exact layouts, visual design, and Android support versions remain open.
+wireframes, exact layouts and visual design remain open. D-273 selects Android
+10+ (API 29), signed APK distribution and manual updates as specified below.
 
 Confirmed card gestures and proposed drag/pile/intent details are defined in
 [Game board and controls](board-and-controls.md), the primary tabletop-input
@@ -57,6 +58,39 @@ node one individual mutation, superseding combined-node mappings such as D-132.
 Groups control playback/navigation and concurrent animation, not publication or
 the node pointed to by the client. Missing-area/out-of-combat handling remains
 open; button wording/placement is stage 3.
+
+## Android support, distribution and upgrades — D-273
+
+**Confirmed:** initially distribute versioned **signed APK downloads**, without
+requiring Google Play. Users install updates through Android's normal installer;
+there is no custom in-app updater requirement. GitHub Releases is an example host,
+not a separately selected release-hosting service or production deployment task.
+Keep a stable package name/signing identity so compatible updates preserve app
+data; keep signing keys out of Git and the distributed APK's embedded secrets.
+
+- **Minimum Android 10 (API 29).** Target phones and tablets, including otherwise
+  supported devices without Google Play services. Verify dependency compatibility
+  against that floor; do not silently raise it to match a library/test tool.
+  Exact compile/target SDK, device matrix and dependency versions remain technical
+  work; this does not promise every device meets measured performance targets.
+- Compatible app upgrades retain valid login, downloaded data and pending request/
+  exposure recovery. Preserve original identities/recorded results through local
+  migrations rather than requiring uninstall, app-data clearing or a new login
+  merely because the app was upgraded. D-268 explicit revocation/token loss still
+  applies; exact failed-migration recovery remains technical design.
+- Version the network protocol separately from APK releases. Different app
+  versions may participate together when their protocol/semantic behavior is
+  compatible; matching APK version numbers are not a game-join requirement.
+- When an update is required for incompatibility, explain it and block unsupported
+  requests before mutation, not erase pending work, fabricate rejection of an
+  unknown-outcome request or silently reinterpret it. After a compatible upgrade,
+  recover original outcomes/identities under the existing rules. Preserve already
+  supported downloaded read-only access rather than forcing a destructive reset.
+
+Define supported upgrade/compatibility paths and verify migrations. Exact wire
+negotiation/error fields, compatibility windows and update-message presentation
+remain technical/UI work, not indefinite support for every old protocol or a new
+automatic updater. See [release/compatibility design](../04-technical/android-distribution-and-compatibility.md).
 
 ## 5.1 Navigation and screens
 

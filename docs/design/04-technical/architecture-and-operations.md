@@ -61,7 +61,8 @@ are not needed simply to separate these responsibilities.
 | Area | Selected direction or proposed candidate | Decision still needed |
 | --- | --- | --- |
 | Shared client language/core | Kotlin Multiplatform selected (D-260) | Module/API details; future platform integrations, not delivery commitments. |
-| Android UI/rendering | Compose Canvas game area with styled Compose surrounding UI selected (D-263) | Scene/animation/input design, accessibility/automation mapping, minimum Android API and versions. |
+| Android UI/rendering | Compose Canvas game area/styled Compose shell (D-263); Android 10+ / API 29 (D-273) | Scene/animation/input detail, accessibility/automation, exact target/compile SDK and dependency/device matrix; do not silently raise the accepted minimum. |
+| Android distribution/compatibility | Signed APK downloads/manual updates, stable package/signing identity; compatible upgrades preserve data and mixed app versions can share games (D-273) | Artifact/signing workflow, release host, protocol negotiation/compatibility windows and supported migrations; no required Play Store or custom in-app updater. |
 | Local persistence | Transactional SQLite through SQLDelight selected (D-265) | Schema, migrations, drivers, encryption and baseline/cache/recovery boundaries; Room is not selected. |
 | Background work | WorkManager for appropriate Android background recovery (D-263); best-effort notification polling fallback permitted (D-269) | Polling scheduler/cadence, retry/lifecycle and battery policy; recommend WorkManager, not exact-alarm permission. Foreground sync never waits for scheduled work. |
 | Shared service | Kotlin/JVM Spring Boot modular monolith (D-263), deployable through Docker Compose (D-272) | Supported versions/runtime resources and module boundaries; production deployment belongs in a separate repository, not a required VPS/cloud platform. |
@@ -93,8 +94,8 @@ D-269's optional-provider boundary versus proposed polling/scheduling mechanisms
 5. Pin compatible versions and CI/device/performance budgets.
 
 This is technical specification work, not a new implementation plan or gate pass.
-Support targets, production catalog/art rights, distribution and retention/privacy
-expectations still need completion; unspecified details are not automatically fresh
+Exact reference devices/resources, production catalog/art rights, release mechanics
+and retention/privacy expectations still need completion; unspecified details are not automatically fresh
 product questions. D-272 settles Docker Compose deployability and assigns production
 hosting/deployment/backups to a separate repository; do not keep VPS/provider/budget
 selection or backup automation in this repository's implementation backlog.
@@ -339,7 +340,8 @@ Still required before implementation:
   there (D-272), not new application-repository automation tasks.
 - Metrics for sync lag, failed/conflicted operations, replay integrity, database
   pressure, notification failures, and errors without leaking game content.
-- Application distribution/signing, release channels and crash-reporting consent;
+- D-273 application artifact/signing/release mechanics, compatible upgrade paths
+  and crash-reporting consent; signed APK/manual update/API 29 direction is settled,
   production host/operator cost and provisioning are external under D-272.
 
 ## 7.7 No implementation shortcuts across specification gaps

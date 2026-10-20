@@ -225,6 +225,28 @@ source fixtures test changed content date/version, bounded checks and atomic upd
 failure without relying on the real public service. No executable coverage is
 claimed by these specifications.
 
+## Android release and compatibility verification — D-273
+
+Exercise signed APK installation/manual in-place upgrade on the accepted API 29
+floor and representative later phone/tablet versions, including a non-Google
+device/emulator. Exact matrix remains to define; a newer automation driver's
+requirements cannot silently drop API 29 from app coverage. Use native/platform
+checks where needed rather than claiming an untested minimum.
+
+Preserve synthetic app/backend state across upgrade checkpoints: existing valid
+session, downloads, accepted definitions, UI/personal state and original pending
+request/exposure recovery. Upgrade with compatible signing/package identity,
+verify SQLDelight migrations, then recover an actual lost-response command once.
+Never uninstall/clear data to make this test pass. Failed/interrupted migration
+paths retain recoverability and must not silently wipe the database.
+
+Run compatible different APK versions against the same backend/game. Separately
+exercise an unsupported protocol/semantic version and verify safe update-required
+handling before mutation, preserving original pending records for post-upgrade
+recovery. Lower-layer decoder/version/migration tests supplement normal-app E2E;
+no forced re-login, fresh random sample or duplicate invocation is inferred from
+the upgrade. T-631–T-633 specify coverage, not executed tests or build automation.
+
 ## Harness and failure evidence
 
 Coordinate two normal Android instances, adding a third for same-account/device

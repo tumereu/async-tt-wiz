@@ -186,6 +186,13 @@ assertion to the current contract; older superseded scenarios do not override
 newer rules. Additional account-reset/email and notification journeys must also
 cross the normal app/backend paths; select their service harnesses when the
 underlying technical delivery is designed.
+D-273 release/upgrade variants install signed APKs through the normal Android
+installer and retain app/backend state across in-scenario upgrade checkpoints,
+including actual UI-originated unknown-outcome requests. Include API 29, later
+phone/tablet targets, a non-Google device, compatible mixed APK versions and an
+incompatible-client update requirement (T-631–T-633). Do not uninstall/clear app
+data, pre-resolve pending outcomes or substitute lower-layer version tests for
+the real normal-app/backend recovery journey.
 D-269 notification variants include normal UI-created invitations/opponent activity
 on non-Google Android with no FCM server configuration, polling-driven OS display,
 permission/channel denial, and foreground catch-up after blocked background work

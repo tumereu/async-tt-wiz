@@ -14,7 +14,32 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest Compose deployment and external operations scope — D-272
+## Latest Android distribution/support acceptance — D-273
+
+The owner accepts the preceding release/compatibility proposal and requests
+"apply+next". Select versioned signed APK downloads, manual updates through
+Android's normal installer, stable package/signing identity and **Android 10+ /
+API 29**. GitHub Releases was an example, not a selected host. No required Play
+Store/custom in-app updater. Test phones/tablets and an otherwise-supported
+non-Google device; dependency/automation selection cannot silently raise the floor.
+
+Compatible upgrades preserve valid login/downloads/original pending request and
+exposure recovery through verified supported migrations. APK releases and protocol
+versions are distinct; compatible different APK versions may play together. For
+unsupported protocol/semantic combinations explain the needed update and refuse
+unsupported operations before mutation, without wiping data, converting a pending
+request to a new invocation or inventing rejection of an unknown prior outcome.
+Exact negotiation/error/window schemas, SDK/dependencies, reference devices,
+release/signing mechanics and update presentation remain technical/UI completion.
+
+See [release/compatibility design](../design/04-technical/android-distribution-and-compatibility.md)
+and T-631–T-633. D-272 external production deployment/backups remains unchanged.
+No app/scaffold/build automation/executable tests or stage transition is authorized.
+Next discussion: propose the still-unselected deterministic Shuffle/random-starter
+mechanism, without marking it approved by this release-policy acceptance. D-267
+Select/Ping double taps and D-271 startup MTGJSON checks remain tentative.
+
+## Earlier Compose deployment and external operations scope — D-272
 
 The owner may first deploy on a Raspberry Pi; the important requirement is Docker
 Compose deployability. Production deployment and backups belong in a **separate

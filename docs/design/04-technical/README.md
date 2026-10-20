@@ -4,6 +4,9 @@
   and Compose Canvas direction, shared core, accepted scene/gesture-coordinator
   boundaries and platform-specific interfaces. D-267 corrects normal card input
   to single-tap Actions and double-tap tap/untap; mode double taps remain tentative.
+- [Android distribution and compatibility](android-distribution-and-compatibility.md):
+  signed APKs/manual installation, Android 10+ and safe compatible upgrades/mixed
+  app versions (D-273), with exact protocol/build/version details still to design.
 - [Server architecture](server-architecture.md): Spring Boot/PostgreSQL/Flyway
   selections, jOOQ, authority and transaction boundaries.
 - [Storage architecture](storage-architecture.md): selected relational/versioned

@@ -29,6 +29,17 @@ The general rules are:
 
 ## Confirmed behavior
 
+### Android installation and updates
+
+- Android 10+ (API 29), phones and tablets; Google Play services are not required
+  for app use. Initially distribute signed APK downloads and use Android's normal
+  installer for manual updates, with no custom in-app updater (D-273).
+- Compatible upgrades preserve valid login, downloads and pending recovery.
+  Different app versions may play together when their protocols/semantics are
+  compatible. Explain required incompatible-client updates and block unsupported
+  requests without wiping work or treating unknown outcomes as rejection. See the
+  [Android contract](../03-contracts/android-experience.md#android-support-distribution-and-upgrades--d-273).
+
 ### Before the table: accounts, decks, and lobby
 
 - Log in to reach the main menu; registration is available. The menu offers

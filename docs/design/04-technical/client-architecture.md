@@ -35,6 +35,12 @@ tentative, not a blocking full-catalog refresh or new deck-art prerequisite.
 Coil is conditional on canvas integration. Exact versions,
 scene/input design, storage schemas and final screen layouts remain incomplete.
 
+D-273 selects Android 10+ (API 29), signed APK distribution and manual updates
+through Android's normal installer, with stable package/signing identity and
+compatible upgrades preserving login/downloads/recovery. Compatible different APK
+versions may share a game; incompatible operations get an explicit safe update
+requirement, not a data wipe. See [release/compatibility design](android-distribution-and-compatibility.md).
+
 ## Proposed module boundaries
 
 | Boundary | Responsibilities | Must not depend on |

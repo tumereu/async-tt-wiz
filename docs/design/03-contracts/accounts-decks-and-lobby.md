@@ -14,7 +14,7 @@
 
 Registration/login/recovery and session continuity are confirmed below. These
 do not revoke D-182's downloaded read-only offline access; exact interaction
-between expired sessions and offline access remains open.
+between a reauthentication-required state and offline access remains open.
 
 ## Registration, login, and account privacy — D-197
 
@@ -44,18 +44,29 @@ strength, provider, reset mechanics and storage remain technical/security work.
 
 - **Stay logged in across app restarts.** Restarting alone does not require the
   user to enter credentials again while their session remains valid.
-- **If the session expires, ask the user to log in again.** After successful
+- **D-268: no routine time-based session expiry.** The owner requests permanent
+  login convenience, allowing a non-expiring token or saved credentials with
+  automatic reauthentication. Use the non-expiring, revocable-token route; storing
+  the password is not needed. Idle time, absolute session age, app/service restarts
+  or reconnects must not require login again. Explicit Logout clears this device's
+  login and must not be defeated by automatic reauthentication.
+- **If credentials become unavailable or the server explicitly invalidates the
+  session, ask the user to log in again.** Non-expiring does not mean unrevocable,
+  valid after account access is removed or recoverable after local app data/keys
+  are lost. After successful
   login to the same account, **return to the same game and recover pending
   actions**, rather than losing the game context or requiring manual resending.
 - Pending already-sent online actions retain their original request identities
   and conditions. Use D-216 automatic recovery and D-185 reconciliation: no
   duplicate execution, repeated random sampling or presumed rejection merely
-  because authentication expired. This does not authorize offline gameplay.
+  because authentication became invalid. This does not authorize offline gameplay.
 
-Exact session lifetime/refresh/storage, failed or cancelled reauthentication and
-expired-session navigation remain specification work. D-218 confirms multiple
+Token encoding/protection/revocation mechanics, failed or cancelled reauthentication
+and reauthentication-required navigation remain specification work; idle/absolute
+expiry is not a remaining default to select after D-268. D-218 confirms multiple
 devices; D-241 below settles explicit Logout cleanup and cross-account isolation.
-Session expiry alone is not an explicit Logout or permission to lose pending work.
+Session invalidation alone is not an explicit Logout or permission to lose pending
+work. Password-reset session invalidation policy remains separately unselected.
 
 ### Logout and account-private downloads — D-241
 

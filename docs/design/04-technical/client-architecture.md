@@ -16,7 +16,10 @@ be generated locally; server acceptance still establishes the shared result.
 around it; SQLite for client durability; Ktor Client/kotlinx.serialization for
 network/protocol handling; Gradle Kotlin DSL for builds. WorkManager handles
 appropriate Android background recovery, not ordinary foreground action delivery.
-Use Keystore-backed credential protection. D-265 selects SQLDelight for SQLite access;
+Use Keystore-backed credential protection. D-268 persists a non-expiring revocable
+session token, not the password; reconnects/restarts/inactivity must not require
+routine login. See [authentication/session design](authentication-and-sessions.md).
+D-265 selects SQLDelight for SQLite access;
 Coil is conditional on canvas integration. Exact versions,
 scene/input design, storage schemas and final screen layouts remain incomplete.
 

@@ -9,6 +9,9 @@
 - [Storage architecture](storage-architecture.md): selected relational/versioned
   server storage, SQLDelight client categories/migrations, and separation of sync
   revision retention from gameplay history and request recovery.
+- [Authentication and sessions](authentication-and-sessions.md): non-expiring
+  revocable login tokens without saved passwords (D-268), account-safe recovery,
+  and security/reset mechanisms still proposed.
 - [Test architecture](test-architecture.md): selected Docker backend/database
   boundary; selected Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose scenarios,
   canvas UI automation and real-PostgreSQL migration/concurrency testing.

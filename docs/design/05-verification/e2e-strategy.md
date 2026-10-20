@@ -183,7 +183,9 @@ forge a request, exposure or history branch.
 ## Fault controls, synchronization and evidence
 
 Infrastructure can delay/drop traffic, stop/restart the app or service, publish
-fixture catalog versions, or expire a session to arrange an external condition.
+fixture catalog versions, or explicitly revoke a session to arrange an external
+condition. D-268 excludes ordinary idle/age expiry; do not expire tokens merely
+by advancing time or use this fault capability to bypass normal authentication.
 Those controls are not additional user/deck initialization permissions: never
 use them to move a card, mutate history, forge a committed outcome or insert an
 in-flight request. Initiate all user commands in the UI. Observe actual recorded

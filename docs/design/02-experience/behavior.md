@@ -37,14 +37,16 @@ The general rules are:
   is still tentative.
 - Register with username, email and password; log in with email/password and
   reset forgotten passwords by email. Other users see your username, not your email.
-- Stay logged in across app restarts. If your session expires, log in again,
-  then return to the same game and automatically recover pending already-sent
-  actions without manual resending or duplicate execution (D-217). Exact session
-  mechanics and expired-session offline navigation still need contracts. Explicit
+- Stay logged in across restarts and long inactivity, with no routine time-based
+  session expiry (D-268). Use a persistent revocable token rather than saving the
+  password. If access is explicitly invalidated or the saved token is lost, log in
+  again, then return to the same game and recover pending already-sent actions
+  without manual resending/duplicate execution (D-217). Exact token mechanics and
+  reauthentication-required offline navigation still need contracts. Explicit
   Logout removes private downloaded content, preserving protected recovery records
   for already-sent requests and logged exposure durably initiated online before
   transmission; another account must never access/publish that data (D-241).
-  Session expiry alone is not deliberate Logout. Server retention/account-erasure
+  Session invalidation alone is not deliberate Logout. Server retention/account-erasure
   obligations remain privacy/service design.
 - Use the same account on multiple devices, with saved decks, contacts and games
   synchronized between them (D-218). Existing lobby/game deck copies stay isolated

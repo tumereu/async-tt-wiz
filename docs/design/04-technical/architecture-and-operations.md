@@ -72,7 +72,7 @@ are not needed simply to separate these responsibilities.
 | Transport | HTTPS/JSON for accounts/catalog/reads; ordered WebSocket for gameplay with durable revision recovery selected (D-263) | Commands/envelopes, admission order, reconnect/resume, pagination, idempotency and compatibility; a socket alone is not durable delivery. |
 | Client networking/serialization | Ktor Client and kotlinx.serialization selected (D-263) | Platform engines, wire schemas/codecs, timeout/recovery and schema evolution. |
 | Build/API contracts | Gradle Kotlin DSL and OpenAPI for HTTP selected (D-263); explicit WebSocket schemas | Module/build/version matrix, jOOQ generation and HTTP/socket schema consistency. |
-| Security/session integration | Spring Security, revocable sessions and Keystore-backed Android credential protection selected (D-263) | Session/token storage/refresh/revocation, password/reset mechanisms, email delivery and rate limits; no new account-management UI scope. |
+| Security/session integration | Spring Security/Keystore protection (D-263); non-expiring revocable session tokens without saved passwords (D-268) | Token storage/revocation, password/reset mechanisms, email delivery and rate limits; no idle/absolute expiry default or new account-management UI scope. |
 | Image loading | Coil conditionally accepted, subject to canvas integration (D-263) | Canvas image lifecycle/decoding/cache integration and compatibility validation. |
 | Verification | Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose E2E; Testcontainers for smaller integration tests selected (D-263) | Exact versions, runners/devices, reset/failure controls, CI and measured performance budgets. |
 | Push | Platform-compatible notification delivery | Provider, device registration, privacy and failure policy. |
@@ -223,8 +223,11 @@ login and password reset by email. Other users see usernames, not account emails
 do not expose email in contact/invitation/game payloads to other users. Provider,
 exact session/token storage and reset mechanics remain technical design or
 explicit behavior gaps. D-263 selects Spring Security, revocable sessions and
-Keystore-backed Android credential protection, not new account-management screens
-or arbitrary provider defaults. End-to-end
+Keystore-backed Android credential protection. D-268 requires permanent-login
+convenience through a non-expiring revocable token without saved passwords, not
+idle/absolute session expiry. See [authentication/session design](authentication-and-sessions.md)
+for selected requirements versus still-proposed reset/security mechanisms; no new
+account-management screens or arbitrary provider defaults are approved. End-to-end
 encryption and self-hosting are also open choices, not implied by “private game.”
 
 D-249 excludes credentials from card-text trimming: preserve password whitespace

@@ -14,7 +14,29 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest scene/input acceptance and gesture correction — D-267
+## Latest permanent-login convenience requirement — D-268
+
+The owner wants an auth token that lasts forever, or saved credentials plus
+automatic reauthentication unless explicitly logged out. Use the non-expiring
+revocable-token route: preserve login through app/service restarts, reconnect and
+long inactivity without idle/absolute age expiry, and do not store the password.
+Logout clears the local login and must not be undone by auto-reauthentication;
+device sessions remain independent. This does not bypass explicit security
+revocation/account authorization, or promise recovery after local token/app-data/
+Keystore-key loss. Invalid access can require login; preserve D-217 same-account
+game/pending-outcome recovery, D-241 account-private cleanup and protected exposures.
+
+The [authentication document](../design/04-technical/authentication-and-sessions.md)
+separates that requirement from recommended opaque-token/hash/Keystore mechanics.
+The preceding Argon2id/rate-limit/reset-token/reset-revokes-all suggestions have
+not all been approved by this focused correction; reset session policy/provider
+remain proposals. Do not conflate short-lived reset links or socket/network
+timeouts with login-token expiry. Older normative expiry/lifetime-open prose and
+T-396/T-480–T-482/T-543 are updated; T-621 covers no-time-expiry/device isolation.
+Mode gesture proposal D-267 remains tentative. No application/scaffold/executable
+test implementation or delivery-stage transition is authorized.
+
+## Earlier scene/input acceptance and gesture correction — D-267
 
 The owner accepts the canvas scene/input proposal: shared engine → displayed
 live prediction OR personal historical boundary → scene/layout → animation/camera

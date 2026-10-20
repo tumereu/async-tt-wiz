@@ -14,7 +14,18 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest owner correction — server events and grouping, D-254
+## Latest review direction — clarity for later implementation, D-255
+
+The owner explicitly welcomes finding and correcting ambiguities: the eventual
+implementation will use a long loop, so clear specifications matter. Do not read
+the F-01 correction as an instruction to stop reviewing or dismiss unclear wording
+merely because its intended policy is settled. Correct documentation defects and
+make derived outcomes explicit; distinguish them from actual undecided behavior
+requiring owner input. D-237's no-redundant-policy-question rule remains. This is
+also recorded in AGENTS.md, not approval of remaining review proposals, application
+code or a delivery-stage transition.
+
+## Earlier owner correction — server events and grouping, D-254
 
 The owner's response concerns **the ping finding F-01**, not every finding in the
 follow-up review. UI actions send requests; the server creates events, which are

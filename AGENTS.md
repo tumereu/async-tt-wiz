@@ -15,6 +15,11 @@
   resolutions and their sources, so the owner can revise or accept together.
   Clearly distinguish unresolved choices/proposals from those derived outcomes.
   Do not manufacture a next question when no true gap has been established.
+- **Actively clarify ambiguous specifications (D-255).** Even when intended policy
+  is settled, find and correct ambiguous wording, contradictions and mistaken
+  assumptions. Distinguish documentation defects from genuinely undecided behavior;
+  make derived outcomes explicit so the eventual long implementation loop need not
+  guess. D-237 limits unnecessary policy questions, not useful consistency repairs.
 - **After every completed edit batch, validate, commit and push before replying.**
   Do not wait for a separate request or a later checkpoint. No commit/push is
   needed for discussion that changes no files.

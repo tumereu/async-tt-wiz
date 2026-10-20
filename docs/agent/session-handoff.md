@@ -14,7 +14,36 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Latest integrity agreement and next discussion — D-264
+## Latest storage acceptance and revision-retention discussion — D-265
+
+The owner accepts PostgreSQL/jOOQ relational structure with versioned JSONB
+payloads and separate tree topology/mutations/current state/revisions/outcomes/
+outbox/checkpoints; selects **SQLDelight over SQLite** for the client. Four local
+logical categories separate accepted replica, durable requests/exposures, disposable
+caches and personal state; database schemas/generated types need not be shared
+with the common engine. Flyway server and SQLDelight client migrations preserve
+pending obligations/recorded outcomes. The [storage document](../design/04-technical/storage-architecture.md)
+is the primary layout description; exact tables/indexes/versions/encryption remain.
+
+The owner then suggests perhaps capping stored sync revisions per game and requires
+full sync if the needed revision is unavailable; they are unsure about doing that
+to gameplay history. Record the rolling delta window/count as **proposed**, not an
+approved history cap or exact budget. The [baseline proposal](../design/04-technical/sync-and-storage.md#bounded-revision-window-and-baseline-recovery--d-265)
+defines an oldest resumable client-base revision, explicit baseline-required result,
+coherent current-state/control baseline plus paged history coverage, atomic install
+and further catch-up. Full sync is not full-tree download. Pruning/lease races must
+restart safely; exact pinning/cap/resource details remain design work. Preserve
+pending request/exposure identities, recorded randomness, account/incarnation fences,
+personal review fallback and required playback. Request outcomes/deduplication are
+independently retained; missing old deltas never imply a command did not execute.
+
+Retained current-game branches/mutations, Redo/exposures/references cannot expire
+because a sync revision leaves its window. No new finished-game archive guarantee,
+permanent retention/account-erasure policy or deleted-record disposal is approved.
+T-617/T-618 and test architecture add specified verification, not executable tests.
+No implementation/scaffold or delivery-stage transition is authorized.
+
+## Earlier integrity agreement and next discussion — D-264
 
 The owner accepts revisions as the convergence foundation plus lightweight
 snapshot/checkpoint state digests, not per-gameplay-node hashes/Merkle trees or a

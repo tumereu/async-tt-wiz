@@ -12,8 +12,8 @@ selected. This planning does not authorize application code or a
 delivery-stage transition. D-115's behavior/review/UI/implementation gates remain;
 not every schema/library choice is a prerequisite for finishing behavior work.
 
-Focused proposals: [client](client-architecture.md),
-[server](server-architecture.md), and [test architecture](test-architecture.md).
+Focused documents: [client](client-architecture.md), [server](server-architecture.md),
+[storage](storage-architecture.md), and [test architecture](test-architecture.md).
 This document retains cross-cutting API, data-source, security and operational work.
 
 ## 7.1 Proposed boundaries
@@ -62,10 +62,11 @@ are not needed simply to separate these responsibilities.
 | --- | --- | --- |
 | Shared client language/core | Kotlin Multiplatform selected (D-260) | Module/API details; future platform integrations, not delivery commitments. |
 | Android UI/rendering | Compose Canvas game area with styled Compose surrounding UI selected (D-263) | Scene/animation/input design, accessibility/automation mapping, minimum Android API and versions. |
-| Local persistence | Transactional SQLite selected (D-263); Room Multiplatform or SQLDelight | Choose between those access libraries; schema, migrations, encryption and cache/recovery boundaries. |
+| Local persistence | Transactional SQLite through SQLDelight selected (D-265) | Schema, migrations, drivers, encryption and baseline/cache/recovery boundaries; Room is not selected. |
 | Background work | WorkManager for appropriate Android background recovery selected (D-263) | Retry/lifecycle policy and battery restrictions; foreground gameplay sync must not wait for scheduled work. |
 | Shared service | Kotlin/JVM Spring Boot modular monolith selected (D-263) | Supported versions, hosting/operator model and detailed module boundaries. |
 | Shared database | PostgreSQL selected (D-263) | Schema, backup/restore, version and capacity. |
+| Storage layout | Relational structure with versioned JSONB payloads and separate topology/mutations/current state/revisions/outcomes/outbox accepted (D-265) | Exact tables/indexes and independent revision/history/idempotency retention; a full sync is not a whole-tree transfer. |
 | Server data access | jOOQ selected (D-261) | Version/edition, schema code generation and explicit transactional query design; generated records stay server-only. |
 | Database migrations | Flyway with versioned SQL selected (D-263) | Compatible versions/editions and deployment/upgrade procedure. |
 | Transport | HTTPS/JSON for accounts/catalog/reads; ordered WebSocket for gameplay with durable revision recovery selected (D-263) | Commands/envelopes, admission order, reconnect/resume, pagination, idempotency and compatibility; a socket alone is not durable delivery. |

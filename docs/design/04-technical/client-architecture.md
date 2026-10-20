@@ -16,8 +16,8 @@ be generated locally; server acceptance still establishes the shared result.
 around it; SQLite for client durability; Ktor Client/kotlinx.serialization for
 network/protocol handling; Gradle Kotlin DSL for builds. WorkManager handles
 appropriate Android background recovery, not ordinary foreground action delivery.
-Use Keystore-backed credential protection. Room Multiplatform versus SQLDelight
-remains unresolved; Coil is conditional on canvas integration. Exact versions,
+Use Keystore-backed credential protection. D-265 selects SQLDelight for SQLite access;
+Coil is conditional on canvas integration. Exact versions,
 scene/input design, storage schemas and final screen layouts remain incomplete.
 
 ## Proposed module boundaries
@@ -102,6 +102,12 @@ this mechanism is selected. See [synchronization](sync-and-storage.md#shared-pro
 
 ## State and lifecycle constraints
 
+The accepted replica, durable request/exposure recovery, disposable caches and
+personal state are separate logical [storage categories](storage-architecture.md#client-storage-responsibilities)
+under D-265. Fresh baseline/full sync replaces accepted replica data coherently,
+not the original recovery records or all local application storage. Reconcile
+pending predictions against the new baseline without inventing outcomes.
+
 The [ownership matrix](../03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259)
 owns the accepted-replica/prediction/UI/recovery distinction. The
 [sync design](sync-and-storage.md) owns durability and reconciliation mechanisms.
@@ -118,7 +124,7 @@ define in the performance plan; canvas alone is not a performance guarantee.
 
 - Exact Compose/canvas APIs, reusable presentation scope and conditional Coil
   integration, without treating library selection as proof of frame performance.
-- Room Multiplatform versus SQLDelight, SQLite schema/migrations and encryption.
+- SQLDelight schema/migrations, platform drivers, encryption and baseline/cache coverage.
 - Ktor platform engines, kotlinx.serialization wire schemas and ordered WebSocket
   delivery/resume alongside HTTPS/JSON accounts/catalog/reads.
 - Durable recovery versus UI-state restoration and account isolation.

@@ -143,6 +143,16 @@ retains real UI-created history and recovery assertions. T-614–T-616 specify t
 outcomes; T-610 remains conditional on an optional older event-chain mechanism,
 not the selected baseline. Exact digest/encoding/cadence remains technical design.
 
+Under D-265, test a client below the retained revision floor, missing intermediate
+patches and pruning during a paged baseline transfer. Baseline-required recovery
+must be coherent, preserve original requests/exposures/UI and distinguish partial
+history coverage; retained old branches remain reviewable through normal history
+reads. Original committed request outcomes remain recoverable independently from
+delta availability. T-617/T-618 cover these obligations; exact window budget and
+lease mechanisms are not selected. SQLDelight migration tests must preserve durable
+recovery data as well as materialized state. Server queries/migrations exercise
+the accepted relational/versioned-payload layout, not a recursive whole-tree blob.
+
 ## Canvas-specific verification
 
 Full-canvas rendering removes the automatic per-card widget tree. Provide normal

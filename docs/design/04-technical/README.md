@@ -4,6 +4,9 @@
   and Compose Canvas direction, shared core and platform-specific interfaces.
 - [Server architecture](server-architecture.md): Spring Boot/PostgreSQL/Flyway
   selections, jOOQ, authority and transaction boundaries.
+- [Storage architecture](storage-architecture.md): selected relational/versioned
+  server storage, SQLDelight client categories/migrations, and separation of sync
+  revision retention from gameplay history and request recovery.
 - [Test architecture](test-architecture.md): selected Docker backend/database
   boundary; selected Kotlin/JUnit + Appium/UiAutomator2 + Docker Compose scenarios,
   canvas UI automation and real-PostgreSQL migration/concurrency testing.
@@ -27,9 +30,11 @@ Ktor Client/kotlinx.serialization, Gradle Kotlin DSL/OpenAPI, Spring Security wi
 revocable sessions and Keystore-backed credentials, and the proposed E2E tool
 combination plus Testcontainers for smaller integration tests. WorkManager is
 selected for appropriate Android background recovery, not the foreground sync path.
-Room Multiplatform versus SQLDelight remains unresolved; Coil is conditional on
-canvas integration. Exact protocols, schemas, versions, hosting/providers, support
-targets and operational policies remain design work. This agreement authorizes
+D-265 selects SQLDelight for client SQLite and accepts the storage layout; Coil
+remains conditional on canvas integration. A rolling sync-revision window is
+proposed, with fresh baseline recovery when required deltas are unavailable; this
+does not select a history expiry policy. Exact protocols, schemas, versions,
+hosting/providers, support targets and operational policies remain design work. This agreement authorizes
 documentation planning, not implementation or a delivery-stage transition. The
 [E2E strategy](../05-verification/e2e-strategy.md) defines the confirmed normal-app,
 real-backend test boundary and synthetic data/art requirement (D-244).

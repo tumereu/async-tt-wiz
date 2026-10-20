@@ -396,6 +396,50 @@ source order. This is presentation under the existing full-access trust model,
 not a new participant data-security boundary. Exact records, offline historical
 context, branch association, and temporary-display lifecycle remain Q-28.
 
+### Bounded revision window and baseline recovery — D-265
+
+**Accepted requirement:** when the revisions needed by a client are unavailable,
+perform a fresh baseline/full sync. The owner's suggested maximum retained revision
+count per game is a proposed implementation direction; exact count/age/byte budgets
+are not selected. This window is distinct from retained gameplay history and
+request/outcome recovery data, as defined in [storage architecture](storage-architecture.md).
+
+Proposed protocol:
+
+1. Advertise `currentRevision` and `minimumResumeRevision` for the scope. The latter
+   means the oldest **client base revision** from which the full delta suffix is
+   available, avoiding ambiguity about the first retained delta's base. Revisions
+   do not restart or reuse identifiers when old delta records are removed.
+2. For the same scope, a client between the floor and current revision receives
+   the needed suffix. If its base is too old or another required gap cannot be
+   served, return an explicit baseline-required result rather than silently
+   skipping deltas or pretending it is current.
+3. Obtain a coherent baseline at revision R: current accepted materialized state,
+   active pointer, control/Undo/Redo/lifecycle state, required definitions and initial
+   topology/history metadata pages with explicit coverage. **Full sync means a new
+   authoritative baseline, not mandatory download of the complete gameplay tree.**
+   Read older branches/path records from retained history on demand, pinned to a
+   coherent revision; invalidated cached pages must not masquerade as current.
+4. Stage and verify the baseline, then atomically install its accepted state/cursor.
+   Preserve original request/random/exposure records and account fences. Resolve
+   their actual outcomes independently, re-evaluate remaining predictions and use
+   D-185 difference-only corrections, not a whole-app wipe or blind queue replay.
+   Preserve applicable UI and D-238 cursor fallback; required playback can fetch
+   retained path data separately instead of being skipped by checkpoint loading.
+5. Catch up from R to the newer head. A paged baseline/catch-up token must either
+   protect a coherent transfer for a bounded lifetime or explicitly expire/restart
+   from a newer baseline if pruning invalidates it. Never combine incompatible
+   pages or report synced after losing the needed suffix mid-transfer. Pinning,
+   temporary retention allowance and resource limits remain protocol design.
+
+Pruning revision patches must not delete retained tree/mutation/branch records,
+Redo payloads, recorded randomness/exposures/references or idempotency outcomes.
+An old committed request still recovers its original result; absence from the
+rolling revision window is not evidence that it never ran. Outcome/deduplication
+retention needs an independent safe policy; never execute an uncertain old request
+as fresh merely because its result was expired. No limit on gameplay history or
+finished-game archive/retention promise is selected here.
+
 ### Revision recovery and checkpoint verification — D-264
 
 **Selected:** revision-based recovery provides eventual convergence across
@@ -534,6 +578,12 @@ they cannot introduce malformed trees, mutate another game's IDs, or execute
 arbitrary content.
 
 ## 6.8 Data retention
+
+D-265 separates a proposed rolling synchronization-delta window from gameplay
+history, checkpoints and idempotency/exposure recovery. A client below the served
+revision floor obtains a fresh baseline; that is not authority to expire retained
+current-game history or delete matching request outcomes. See
+[baseline recovery](#bounded-revision-window-and-baseline-recovery--d-265).
 
 Proposed default: retain complete history and archived branches for a retained
 game. Cache eviction removes only refetchable local data, never unsynchronized

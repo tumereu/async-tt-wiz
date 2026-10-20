@@ -16,6 +16,17 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Latest confirmations — shared switches and server/UI authority, D-258/D-259
 
+**Subsequent review request:** the owner asks for an adversarial review of the
+current specs and a walkthrough. The [current report](adversarial-review-2026-10-20-current.md)
+reviews `f249d3f` and records G-01–G-07: historical bulk continuation handoff,
+ordered first-application recovery, existing F-03/F-04 late-exposure/mixed-token
+completion, a randomness/prediction proof obligation, leading-ping prose versus
+the explicit O/T classifier, and existing F-06 active drift plus the root README.
+No new owner-only policy choice is established; distinguish derived repairs from
+technical mechanisms. This batch changes review/continuity records only, not
+contracts or acceptance oracles. F-01 stays withdrawn, F-02/F-05 stay resolved;
+no implementation or stage transition is authorized.
+
 The owner confirms the scoped Redo rule: successful deliberate activation of a
 different node/branch, interruption from the past or return to another continuation
 clears **both players' Redo queues for this game**, atomically with the server

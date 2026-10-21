@@ -1,5 +1,5 @@
 ---
-title: "Async Table — UI review including gameplay"
+title: "Async Tabletop Wizards — UI review including gameplay"
 date: "2026-10-21"
 lang: en
 ---
@@ -8,9 +8,16 @@ lang: en
 
 **Draft for owner review. Structure matters; style is provisional.** This is the
 Stitch-based UI documentation pilot and gameplay extension, not an approved final
-interface or a working Android app. “Async Table” is a working mockup title only.
+interface or a working Android app. Confirmed branding: **Async Tabletop Wizards**;
+subtitle: **Specialized tabletop simulator for asynchronous wizardry** (D-292).
 
 Review editions: [PDF download](review.pdf) · [Markdown source](review.md).
+
+**Cumulative owner direction:** [feedback and explicit supersessions](feedback.md).
+Later rounds retain earlier decisions unless the owner explicitly changes them.
+This full document is republished at the same browser-refresh URL after changes.
+The D-292 fullscreen/navigation/copy revisions below are confirmed direction;
+remaining geometry/style proposals are not silently approved by this round.
 
 Both **portrait and landscape are required** (D-290). Each screen below has a
 412 × 892 portrait capture and an 892 × 412 landscape capture. These are logical
@@ -45,10 +52,13 @@ need their own visual state completion; their behavior is not removed.
   entire possible list. On-screen keyboard, large-text and split-screen variants
   still need their own later visual checks.
 
-Typical draft dimensions: 24 px system-status allowance, 56 px app bar, 16 px
-outer margins, 12 px gaps, 48 px controls and a 16 px bottom safe-area allowance.
-These are review targets, not measured native Android implementation claims.
-Different operating-system insets will change the usable area.
+**Fullscreen (D-292):** no system status/navigation strip or dedicated app-title
+bar. Necessary hamburger, Back, phase/history and other actions remain compact
+in-screen controls, not branding chrome. Ordinary labels, game-state feedback and
+errors are not forbidden “status bars.” Review targets remain roughly 16 px outer
+margins, 12 px gaps and 48 px controls, without reserving fake system-bar space.
+Native cutouts, temporary OS bar reveal, keyboard and accessibility still need
+safe placement/verification; these are not implemented Android claims.
 
 **Important:** these are static mockups. Their behavior is specified in the notes,
 not demonstrated by functioning buttons. An incidental label/decoration in a
@@ -59,16 +69,18 @@ generated image does not authorize a feature that contradicts those notes.
 ```text
 Sign in ↔ Create account
    └─ Forgot password → email link → New password → Sign in
-Main menu
-   ├─ Play → Accept invitation → same lobby
-   │       ├─ New game → Contacts → Invite → waiting lobby
-   │       ├─ Open lobby → choose/prepare deck → Ready
-    │       └─ Open active game → G01 live table ↔ H01/H02 history
-   ├─ Manage decks → deck details → rename / cover / re-import / delete
-   │              └─ Import → resolve all entries → save new or replace
-   ├─ Contacts → username search → Add contact → Invite
-   ├─ Android notification settings → operating-system settings
-   └─ Logout → signed-out entry
+Hamburger navigation (persistent on landscape non-gameplay screens)
+   ├─ Menu → main menu (Games / Manage decks / Contacts)
+   │   ├─ Manage decks → deck details → rename / cover / re-import / delete
+   │   │              └─ Import → resolve all entries → save new or replace
+   │   └─ Contacts → username search → Add contact → Invite
+   ├─ Games → games browser (Games first, Invitations afterward)
+   │   └─ each current game → its table or lobby, according to lifecycle state
+   │       ├─ In play → G01 live table ↔ H01/H02 history
+   │       └─ Setup → choose/prepare deck → Ready
+   └─ Logout (fixed footer outside scroll area) → signed-out entry
+Games browser → Accept invitation → same lobby
+              └─ New game → Contacts → Invite → waiting lobby
 Lobby → both Ready → G01 live table
 History → Continue playing from here → H03 armed intent
     ├─ Cancel / Return to live → no shared change
@@ -83,9 +95,10 @@ forms and personal navigation are not automatically cross-device shared state.
 
 ## Layout choices being proposed
 
-The following are **UI proposals**, not new behavior approvals: a distinct
-Contacts destination, its “Invite” placement, list/grid arrangements, bounded
-authentication forms, two-column landscape panels, import review/save routing,
+The following remain **UI proposals**, not new behavior approvals: Contacts'
+“Invite” placement, list/grid arrangements outside the confirmed D-292 navigation,
+authentication forms other than A01's selected same-card composition,
+two-column landscape panels, import review/save routing,
 cover-selection confirmation, destructive-action dialogs and the read-only
 reconnect escape. “Random” is selected in the example lobby state; these images
 do not choose a universal initial starter default or retention policy.
@@ -120,7 +133,7 @@ behavior; the particular control geometry remains proposed.
 Refer to a screen ID and orientation, for example “L04 landscape: make the
 sideboard narrower.” Review the hierarchy, approximate space allocation,
 icon-versus-text choices, visibility of actions and the state transitions.
-Colors, fonts, borders and the working name can be ignored for this pilot.
+Colors, fonts and borders remain provisional; the app name/subtitle are confirmed.
 
 ::: {.screen-section}
 ## A01 — Sign in
@@ -130,12 +143,14 @@ Colors, fonts, borders and the working name can be ignored for this pilot.
 ![A01 portrait — sign-in form with example error](images/sign-in-portrait.png)
 :::
 ::: {.landscape}
-![A01 landscape — intro and form side by side](images/sign-in-landscape.png)
+![A01 landscape — same centered login card, scrollable at short height](images/sign-in-landscape.png)
 :::
 :::
 
-**Layout:** portrait gives the form a bounded central column; landscape moves
-the modest app intro beside the form instead of enlarging the fields. Email and
+**Layout (confirmed D-292):** both orientations center the **same bounded login
+card**, including app name/subtitle, without a landscape intro/form split. The
+short landscape viewport scrolls this unchanged card rather than shrinking targets
+or switching composition. Email and
 Password are text fields; the eye is an icon button. Sign in, Create account and
 Forgot password are labeled actions. The image deliberately includes an example
 credential error; a clean initial form omits that message.
@@ -146,7 +161,7 @@ context. A valid existing login skips this screen across ordinary restarts and
 inactivity. No guest entry, alternate social provider or routine session expiry.
 Password visibility is personal UI only. Back does not sign another device out.
 
-**Basis:** D-188, D-197, D-217, D-249, D-268, D-289.
+**Basis:** D-188, D-197, D-217, D-249, D-268, D-289, D-292.
 :::
 
 ::: {.screen-section}
@@ -209,7 +224,8 @@ the landscape scrolling cost visible rather than hiding it in the tap budget.
 
 **Layout:** one Email field, Send reset link text button, neutral submitted-state
 notice and Back to sign in. The initial state uses the same structure without
-the submitted notice. The sample email is synthetic, not account data.
+the submitted notice. No session/sign-in explanation on the screen (D-292).
+The sample email is synthetic, not account data.
 
 **Interaction:** request an email reset link without revealing whether that
 address is registered. A delivery/request failure keeps the address editable and
@@ -234,7 +250,9 @@ email-link flow continues at A04, not an invented six-digit-code screen.
 
 **Layout:** New password is a field; its eye is an icon button. Change password
 is a text button. The valid reset-link state is shown. Email and username are
-not additional editable account settings here.
+not additional editable account settings here. Remove session/sign-in explanations
+and generic reassurance copy from the screen (D-292); the behavior below remains.
+The compact form is centered without an empty landscape explanation panel.
 
 **Interaction:** successful reset changes the password and revokes existing
 sessions for new requests, then returns to Sign in with a success notice. An
@@ -252,25 +270,62 @@ but not separately pictured in this pilot.
 
 ::: {.screen-pair}
 ::: {.portrait}
-![N01 portrait — main destinations and Logout](images/home-portrait.png)
+![N01 portrait — main destinations and hamburger, no utility links](images/home-portrait.png)
 :::
 ::: {.landscape}
 ![N01 landscape — compact main-menu layout](images/home-landscape.png)
 :::
 :::
 
-**Layout:** Play, Manage decks and Contacts are large icon-plus-text destinations.
-Android notification settings is a smaller text link to OS settings, not a new
-in-app preferences suite. Logout is separately labeled. “alex” is an example
-username, not the authenticated service account used to produce these designs.
+**Layout (D-292):** Games, Manage decks and Contacts are large icon-plus-text
+destinations, without explanatory subtitles/marketing text. No notification-settings
+or direct Logout link in main-menu content. Landscape includes the shared persistent
+navigation; portrait uses the hamburger. See N02 for its open state.
 
-**Interaction:** Play opens P01; Manage decks opens D01; Contacts opens P02.
-Logout immediately clears this device's login and private downloads, returning
+**Interaction:** Games opens P01; Manage decks opens D01; Contacts opens P02.
+Logout from the navigation footer immediately clears this device's login and private downloads, returning
 to A01 without deleting server games/decks or logging out independent devices.
 Remote revocation is best effort. This proposed layout does not add a routine
 logout confirmation or expose account-email data in shared player lists.
 
-**Basis:** D-188, D-196, D-218, D-220, D-241, D-282, D-289.
+**Basis:** D-188, D-196, D-218, D-220, D-241, D-282, D-289, D-292.
+:::
+
+::: {.screen-section}
+## N02 — Shared Menu / Games navigation
+
+::: {.screen-pair}
+::: {.portrait}
+![N02 portrait — open hamburger drawer with fixed Logout footer](images/navigation-open-portrait.png)
+:::
+::: {.landscape}
+![N02 landscape — persistent navigation beside main-menu content](images/navigation-open-landscape.png)
+:::
+:::
+
+**Confirmed structure (D-292):** Menu and Games are clickable top-level
+destinations, not expand-only headers. Menu opens N01; its indented subitems are
+Manage decks and Contacts only. Games opens P01; its indented list contains each
+current game, including waiting/preparation states, not a separate Lobbies category.
+Task screens needing a selected deck/game stay in their contextual routes.
+
+**Scrolling:** the category/subitem/game area scrolls independently; Logout stays
+in a fixed non-scrolling bottom footer. Portrait hamburger opens this drawer;
+Close, Back or tapping outside dismisses it without a shared change. Landscape
+non-gameplay screens always show the navigation alongside content. Gameplay in
+either orientation keeps it collapsed until the hamburger is used; it must not
+permanently reduce the landscape board. A modal temporarily blocks background
+navigation until dismissed. Rotation retains the current destination and unfinished
+input while switching navigation presentation, not issuing another request.
+
+**State:** game rows open that same game's current table or lobby. Setup → play,
+return-to-lobby, acceptance and cancellation update the same listing under existing
+server lifecycle rules; no duplicated “lobby versus game” identity. Incoming invites
+not yet accepted remain in P01's Invitations section, not playable own-game rows.
+Example usernames/status labels are synthetic; row geometry remains reviewable.
+
+**Provenance:** locally composed inert design derivative, not a new Stitch screen
+or working navigation. The surrounding screenshots apply the same shared shell.
 :::
 
 ::: {.screen-section}
@@ -278,25 +333,27 @@ logout confirmation or expose account-email data in shared player lists.
 
 ::: {.screen-pair}
 ::: {.portrait}
-![P01 portrait — invitations, games and retained lobby](images/play-portrait.png)
+![P01 portrait — combined Games list followed by Invitations](images/play-portrait.png)
 :::
 ::: {.landscape}
-![P01 landscape — invitations beside games and lobbies](images/play-landscape.png)
+![P01 landscape — navigation beside Games, with Invitations afterward](images/play-landscape.png)
 :::
 :::
 
-**Layout:** explicitly separated invitation, active-game and lobby sections.
-Accept/Decline, Open, Open lobby, Reinvite and New game are text actions; status
-labels are not action buttons. Landscape gives lists separate columns.
+**Layout (D-292):** one Games list contains in-play and setup/lobby states;
+Invitations follows it, not before or as a separate left-hand first column.
+Accept/Decline, Open, Reinvite and New game are text actions; necessary lifecycle
+status labels distinguish rows without inventing a structural Lobbies category.
+The same order applies in landscape, beside persistent navigation; lists scroll.
 
 **Interaction:** Accept enters the exact existing lobby as L02, without Ready or
 an immediate start. Decline retains the inviter's lobby/preparation/Ready.
 Reinvite addresses that lobby, not a replacement game. Invitations do not expire
 automatically; cancelling a game removes its invitation and current listing.
-Open active game reaches G00 in this pilot. New game opens P02. An empty list
+Open active game reaches G01; a setup row opens its existing lobby. New game opens P02. An empty list
 would show “No current games” with New game, not a finished-game archive.
 
-**Basis:** D-188, D-195, D-208, D-209, D-214, D-287. Empty/loading states are not
+**Basis:** D-188, D-195, D-208, D-209, D-214, D-287, D-292. Empty/loading states are not
 separate mockups yet; no unread/read, presence or result statistics are implied.
 :::
 
@@ -947,8 +1004,8 @@ dismissal are additional interaction cost, not hidden zero-cost steps.
 
 | Starting state → goal | Proposed route and explicit activations | Additional work |
 | --- | --- | --- |
-| Main menu → existing active game | Play → Open: **2 taps**. | List scrolling if needed. |
-| Main menu → accept a visible invite | Play → Accept: **2 taps**, arriving in the same lobby, not Ready. | Scrolling if needed. |
+| Main menu → existing active game | Games → Open: **2 taps**, or a visible landscape navigation game row: **1 tap**. | Portrait drawer → game: **2 taps**; list scrolling if needed. |
+| Main menu → accept a visible invite | Games → Accept: **2 taps**, arriving in the same lobby, not Ready. | Invitations follows Games; scrolling if needed. |
 | Main menu → invite a saved contact | Contacts → Invite: **2 taps**, arriving in waiting lobby. | Contact-list scrolling if needed. |
 | Main menu → search, add and invite | Contacts → Search field → Search → Add contact → Invite: **5 taps**. | Type username; keyboard/scroll cost may add taps. |
 | Main menu → save a new imported list | Manage decks → Import → list field → Review import → name field → Save deck: **6 taps**. | Paste/type list and name; correction/keyboard/scroll cost. |
@@ -966,8 +1023,9 @@ with a keyboard; the later large-text/keyboard review must count that cost too.
 
 # Coverage and limits
 
-**Pictured:** 27 primary screen/state drafts and two scrolled continuations, all
-in both orientations: **58 captures**. These include an
+**Pictured:** 28 primary screen/state drafts (27 Stitch-derived plus locally
+composed N02) and two scrolled continuations, all in both orientations:
+**60 captures**. These include the shared navigation,
 inline sign-in error, submitted reset request, unresolved import, two import save
 modes in one state, collection-deletion modal, waiting invitation, no-own-deck
 lobby, preparation, accepted Ready, cancellation modal and reconnect dialog,
@@ -988,8 +1046,9 @@ board. Static examples do not settle all camera bounds, hit regions or timings.
 **Not claimed:** final visual style, full keyboard/large-text/tablet/foldable
 coverage, touch/accessibility usability validation, live Android behavior,
 exhaustive state/concurrency testing or a passed UI/review gate. Platform
-notification permission dialogs/settings belong to Android; this pilot includes
-their entry point, not fabricated custom mute/settings screens.
+notification permission dialogs/settings belong to Android; this revision removes
+their old main-menu shortcut, not OS authority or notification behavior. No custom
+mute/settings screen or replacement shortcut is invented.
 
 Behavior and UI discrepancies found during review are documentation/design work,
 not permission to add features or start application implementation.
@@ -1002,6 +1061,13 @@ the screen manifest are retained with this packet. Each responsive source is
 captured at both fixed viewports; no portrait screenshot is stretched to make a
 landscape image. Review captures, not Stitch's default large canvas preview,
 are the images embedded here.
+
+**D-292 owner revision:** all sources/captures now apply the cumulative
+[feedback](feedback.md): fullscreen, current branding, same-card sign-in,
+reset-copy removal, shared Menu/Games navigation and combined games-before-invites
+browser. N02 is an additional locally composed state; these revisions were made
+to local inert derivatives, not claimed as new cloud edits. Historical generation
+briefs/raw sources are retained unchanged as provenance, not current instructions.
 
 See [generation briefs](generation-briefs.md) and [source manifest](manifest.json).
 The exported HTML is design material with executable interactions removed, not

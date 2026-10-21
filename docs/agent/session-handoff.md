@@ -14,7 +14,33 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current gameplay UI extension — D-291
+## Current UI feedback iteration — D-292
+
+Before UI edits, read [cumulative feedback](../design/02-experience/ui/feedback.md).
+All decisions persist unless explicitly changed; append new rounds/supersessions.
+AGENTS.md now requires rebuilding/publishing the **full** HTML at the exact same
+`https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html` URL after edits. The
+document service serves the repository UI directory directly; compare served
+bytes with the rebuilt file. Preserve routes and report remote-access limits.
+
+Selected: fullscreen without OS/title bars (necessary controls stay), app name
+Async Tabletop Wizards / subtitle Specialized tabletop simulator for asynchronous
+wizardry; same centered login card both orientations; no reset-session explanation
+copy. Shared Menu/Games hamburger: Menu opens main menu with indented Manage decks
+and Contacts only; Games opens browser with every current game/setup row. Logout
+fixed below scrolling navigation. Landscape non-gameplay keeps navigation visible,
+gameplay does not. Main menu has Games/Manage decks/Contacts, no notification-settings
+or direct Logout links or redundant descriptions. Browser combines games/setup in
+one list **before** Invitations. Current primary contracts/oracles replace old
+Logout/Play/Friends-placement wording; actual auth/lifecycle behavior is unchanged.
+
+All 27 local source derivatives apply this round; N02 is a new locally composed
+open-navigation state. No new cloud edit is claimed; raw sources/prompts stay as
+historical provenance. Total 28 primary sources + two scroll continuations = 60
+captures / 30 states. Earlier counts/layout prose below are historical. D-291
+gameplay direction stays; no implementation, general stage transition or passed gate.
+
+## Earlier gameplay UI extension — D-291
 
 The owner now authorizes extending the same Stitch project and Markdown/HTML/PDF
 review packet with the gameplay screen, in both orientations. Read the clarified

@@ -3,6 +3,9 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
+**Current edition: D-292 owner-feedback revision**, documented below. The original
+pilot/gameplay counts and cloud checks in earlier sections are historical.
+
 - The original pilot has **21 distinct Stitch-generated responsive sources**,
   plus two alternate scroll positions: 23 review states and **46 PNG captures**.
   The D-291 extension adds six gameplay sources in the same private Stitch
@@ -105,4 +108,45 @@ a service worker is a possible explanation.
 - Loopback HTML/PDF availability and the new Serve configuration are checked.
   This host still cannot independently verify its own tailnet HTTPS endpoint;
   **the owner must try the new port-8443 URL from the phone/browser**. Do not
-  describe that device-level check as already successful.
+   describe that device-level check as already successful.
+
+## Owner-feedback iteration — D-292
+
+- Added the durable [cumulative feedback record](feedback.md), preserving D-290/
+  D-291 and this round's F01–F10 plus both explicit clarification answers.
+  `AGENTS.md` requires same-URL full publication and carry-forward in every round.
+- Revised all **27 retained local design derivatives**, not the raw cloud exports,
+  for fullscreen and the applicable authenticated shell. Added a locally composed
+  N02 open-navigation source: **28 primary sources + two scroll continuations =
+  30 review states / 60 captures**. No new Stitch/cloud revision is claimed.
+- Offline capture passed for all 30 states in both orientations: inert body,
+  no executable scripts, no HTTP(S) dependencies, loaded local fonts and no page
+  horizontal overflow. Targets are at least 48 × 48; no offscreen audited control
+  lacks a scrollable ancestor. A first-pass sidebar-induced L03 overflow and
+  D01 grid collapse were corrected before the final recapture.
+- Added static artifact regression checks for D-292: hidden OS allowances/title
+  badges; exact Menu/Games categories and indented main destinations; appropriate
+  persistent/drawer visibility; fixed Logout under an artificially long scrolling
+  list; identical 380 px centered sign-in card and exact name/subtitle; no reset
+  session explanations; no main-menu utility/subtitle clutter; Games then
+  Invitations in one browser list. This supplements, not replaces, future T-397/
+  T-676 native interaction/rotation/lifecycle/cutout/accessibility verification.
+- Inspected both-orientation contact sheets and enlarged key screens. The sign-in
+  card is the same composition in both orientations; **short landscape scrolls**,
+  so lower sign-in links are not visible in the initial capture. Navigation's
+  bottom Logout remains visible while the game list scrolls. P01 landscape needs
+  content scrolling to reach Invitations after Games. Deck details/import and
+  gameplay retain their original feature routes. Redundant helper panels were
+  removed rather than leaving empty landscape explanation columns.
+- Full HTML/PDF rebuilt from the same Markdown/images: **30 states, 60 embedded
+  captures, 35 PDF pages**. Build checks include image dimensions, declared screen
+  IDs in PDF text, decoded HTML images and no phone-width reading overflow.
+- The same document service serves this repository's UI directory directly; no
+  upload, new URL, public host or route change is needed. The served full HTML is
+  compared byte-for-byte with `review.html`, with loopback HTTP availability for
+  HTML/PDF/assets and unchanged tailnet-only port-8443 proxy configuration.
+  Self-connection/another-device HTTPS is not established by those local checks;
+  the browser refresh remains at the exact existing private review URL.
+- Local Markdown-link, Python syntax and whitespace checks apply before saving.
+  These are documentation tooling/artifact checks, not application implementation
+  or a passed UI/review gate.

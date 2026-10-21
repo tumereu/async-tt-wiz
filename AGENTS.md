@@ -5,6 +5,16 @@
   [design index](docs/README.md) and [session handoff](docs/agent/session-handoff.md).
 - Preserve unrelated user work. Inspect Git status before editing and include
   only the files belonging to the current task when saving.
+- **Keep UI review refreshable and feedback cumulative.** After any UI-document
+  edit batch, rebuild and publish a new HTML edition of the **full** review document
+  at the exact existing URL: `https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html`.
+  Replace the served edition in place so the owner's browser refresh continues the
+  review; do not substitute a partial document or a new/versioned URL. Verify the
+  published artifact. Record each round's owner feedback durably in the UI packet's
+  feedback/decision record and keep applying all earlier decisions unless the owner
+  explicitly changes them. Preserve provenance and mark explicit supersessions;
+  never lose earlier feedback during regeneration or iterative rounds. Ask about
+  genuine uncertainties instead of silently inventing or reversing decisions.
 - **Design only true gaps/edge cases (D-237).** Apply current agreed rules before
   asking the owner. A question must identify a concrete missing outcome/scope
   choice or a genuine ambiguity/contradiction those rules cannot resolve. Do not

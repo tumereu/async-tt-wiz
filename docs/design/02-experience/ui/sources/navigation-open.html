@@ -1,0 +1,34 @@
+<!-- INERT DESIGN DERIVATIVE: D-292 navigation review, locally composed. Not application implementation. -->
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>N02 — Open navigation — Async Tabletop Wizards</title>
+<style>
+* { box-sizing: border-box; margin: 0; }
+body { width: 100%; height: 100dvh; display: flex; flex-direction: column;
+  overflow: hidden; background: #f8f9fa; color: #243b35; font: 15px/1.4 system-ui; }
+button { min-width: 48px; min-height: 48px; font: inherit; }
+main { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 16px; }
+.destinations-group { display: flex; flex-direction: column; gap: 12px; }
+.dest-card { min-height: 72px; width: 100%; border: 1px solid #c5cfca;
+  border-radius: 8px; background: white; padding: 16px; text-align: left; font-weight: 600; }
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="review-authenticated review-home review-drawer-open" inert>
+<button class="review-hamburger" aria-label="Open navigation">☰</button>
+<div class="navigation-scrim"></div>
+<aside class="review-navigation" aria-label="App navigation">
+  <div class="navigation-scroll">
+    <button class="navigation-close" aria-label="Close navigation">×</button>
+    <button class="navigation-category">Menu</button>
+    <button class="navigation-child">Manage decks</button>
+    <button class="navigation-child">Contacts</button>
+    <button class="navigation-category">Games</button>
+    <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
+    <button class="navigation-child navigation-game">With riley<small>Waiting for acceptance</small></button>
+    <button class="navigation-child navigation-game">With sam<small>Invitation declined</small></button>
+  </div>
+  <div class="navigation-footer"><button>Logout</button></div>
+</aside>
+<main class="layout-container"><nav class="destinations-group" aria-label="Main destinations">
+  <button class="dest-card">Games</button><button class="dest-card">Manage decks</button><button class="dest-card">Contacts</button>
+</nav></main>
+</body></html>

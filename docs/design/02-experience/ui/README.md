@@ -3,8 +3,9 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension, with both portrait and landscape views: 27 primary drafts plus two
-  scrolled continuations, 58 captures total. G00 remains the original placeholder;
+  extension and D-292 owner revisions, with both orientations: 28 primary drafts
+  plus two scrolled continuations, 60 captures total. N02 shows shared navigation.
+  G00 remains the original placeholder;
   G01–G03 and H01–H03 add the live/history table and controls.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
   clarified interactions and remaining geometry proposals.
@@ -16,6 +17,9 @@ These are specification artifacts, not application code or an approved final UI.
   The manifest records both cloud versions and retained raw outputs.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
+- **[Cumulative feedback](feedback.md):** preserve every owner decision across
+  rounds unless explicitly superseded; read before regeneration. D-292 corrects
+  all local derivatives; raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
   the phone-friendly reading edition; the PDF is the fixed-layout review edition.
 
@@ -41,11 +45,22 @@ uv run --with playwright --with pypdf scripts/build-ui-review.py
 
 The build renders the Markdown, embeds its review images in the HTML, prints the
 PDF and checks that every declared screen has both image orientations. It does
-not call Stitch, authenticate, generate application code or publish anything.
+not call Stitch, authenticate, generate application code or configure hosting.
 The static source mockups are visual design material, not a working app.
+
+**Required after each UI-document edit batch:** recapture affected sources, rebuild
+the **full** packet, and publish/verify `review.html` in place at the exact preferred
+URL below. The current service serves this repository directory directly, so
+rebuilding these files publishes the replacement without a new URL or route.
+Compare the served HTML with the rebuilt file and retain all screen sections.
+Also rebuild PDF from the same Markdown/images. Never replace the full edition
+with a changed-screen subset. Append owner feedback/explicit supersessions to
+`feedback.md` before regeneration; carry it forward through every later round.
 The manifest's review base URL gives PDF links their phone-accessible addresses;
-override `UI_REVIEW_BASE_URL` when rebuilding for another host. Printing fulfills
-the self-contained HTML from disk at that address; it is not a remote-access test.
+keep it at the existing publication origin for owner review. The tooling's
+`UI_REVIEW_BASE_URL` override is not permission to move publication to another host.
+Printing fulfills the self-contained HTML from disk at that address; it is not a
+remote-access test.
 
 To recapture both orientations after editing the inert design sources, first run:
 
@@ -59,7 +74,12 @@ This avoids changing unrelated captures of animation frames while editing one sc
 
 This blocks HTTP(S) requests and checks that the sources remain inert, their
 fonts are local/loaded and their page width fits each viewport. It is an artifact
-sanity check, not full interaction, accessibility or Android verification.
+sanity check, not full interaction, accessibility or Android verification. D-292
+checks also reject visible mock OS/title-bar badges, wrong navigation categories/
+visibility, scrolling Logout, a split/off-center login card, restored reset-session
+copy, main-menu utility/subtitle clutter, wrong browser section order and undersized
+or offscreen unscrollable controls. These are static artifact regressions, not a
+proof that every earlier feedback decision or future native state is verified.
 
 ## Private review hosting
 

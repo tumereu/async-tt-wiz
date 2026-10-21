@@ -100,13 +100,26 @@ automatic updater. See [release/compatibility design](../04-technical/android-di
 
 ## 5.1 Navigation and screens
 
-**Confirmed entry/setup (D-188–D-190):** login before the main menu, available
-registration, Logout/Manage decks/Play, adding users, current games including
+**Confirmed entry/setup (D-188–D-190 / D-292):** login before the main menu, available
+registration, shared Menu/Games navigation with fixed Logout footer, adding users, current games including
 pending invites, import-only deck editing, and a lobby with deck selection,
 mainboard/sideboard management and both-player Ready. The
 [primary contract](accounts-decks-and-lobby.md) distinguishes these requirements
-from open details. Friends as a separate menu name is tentative. Other screen
+from open details. D-292 selects Contacts as the destination name. Other screen
 responsibilities below remain proposed unless separately confirmed.
+
+**Confirmed fullscreen/presentation — D-292:** no dedicated app-title bar,
+Android status bar or permanent system-navigation strip; keep necessary hamburger,
+Back and gameplay phase/history controls compact in the screen. Do not reserve
+mock OS-bar space. Safe cutout placement and transient OS/accessibility/keyboard
+behavior still apply. App name is **Async Tabletop Wizards**, subtitle
+**Specialized tabletop simulator for asynchronous wizardry**. Sign-in uses the
+same centered bounded card in both orientations, scrolling at short height rather
+than a landscape intro/form split. Remove redundant explanatory/marketing copy,
+including reset-session/sign-in helpers, without changing actual authentication.
+Landscape non-gameplay shows persistent Menu/Games navigation; portrait and all
+gameplay use its hamburger drawer. See the primary navigation contract and
+[cumulative UI feedback](../02-experience/ui/feedback.md).
 
 D-191 additionally confirms that changing your deck/mainboard/sideboard clears
 your own Ready, and lobby deck changes do not modify the saved deck.
@@ -127,8 +140,8 @@ timing and transfer of personal device state remain open; see the
 | Screen | Main responsibilities |
 | --- | --- |
 | Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). D-268 keeps login across restarts/long inactivity with a non-expiring revocable token, not a stored password or idle/absolute timeout. After explicit invalidation/token loss, same-account login returns to the same game and recovers pending actions without manual resend/duplicates (D-217). Explicit Logout clears login/private downloads while protecting recovery records/account isolation (D-241). Validation, token/reset/recovery mechanics and reauthentication-required navigation need completion. |
-| Main menu | Logout, Manage decks and Play (D-188). Username search/add saves contacts without mutual approval (D-196); separate Friends naming/placement remains tentative. |
-| Games (Play) | Current games including pending invitations, with recipient Accept/Decline and lobby entry on Accept (D-190/D-195). Finished-session history archives/review are optional future work, not R1 (D-214). Catch-up state, pending work and branch-change presentation remain proposed. |
+| Main menu / shared navigation | Main-menu content: Games, Manage decks, Contacts, no redundant subtitles or notification-settings/direct Logout links. Shared navigation: clickable Menu/Games categories, indented destinations/current games and non-scrolling bottom Logout (D-292). Username search/add saves contacts without mutual approval (D-196). |
+| Games (formerly Play) | One current Games list including in-play and setup/lobby states, followed by Invitations (D-292), with recipient Accept/Decline and same-lobby entry on Accept (D-190/D-195). Finished-session history archives/review are optional future work, not R1 (D-214). Catch-up state, pending work and branch-change presentation remain proposed. |
 | Game lobby/invite | Invite/accept into lobby (D-195), prepare mainboard in Library and sideboard in separate Sideboard, other card areas initially empty (D-202). Select either player or Random as starter (D-201), both press Ready (D-189/D-190). Start shuffles Libraries and initializes life 20 without a required starting-life setting or automatic draw (D-200); begin turn 1 at Untap (D-108). Sideboard is unavailable during play, including browser/move paths (D-202). Remaining setup/lifecycle details are open. |
 | Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename decks, choose a cover from their cards, and re-import with Replace/Save as new (D-199). Delete saved decks from the collection; both editing/deleting leave selected lobby/game copies unchanged (D-221). D-241 excludes fuller deck editing/export and deleted-deck trash/restore. Approved-import/metadata, confirmation presentation, server retention and concurrent-race contracts need completion. |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |

@@ -2,6 +2,9 @@
 
 ## What we are building
 
+**Async Tabletop Wizards** — **Specialized tabletop simulator for asynchronous
+wizardry** (confirmed name/subtitle, D-292).
+
 A native Android shared tabletop for two cooperative people to play card games
 manually, together or asynchronously. Magic: The Gathering is the first use case.
 The app remembers and presents what happened; the players interpret the rules.

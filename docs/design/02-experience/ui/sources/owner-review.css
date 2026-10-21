@@ -1,0 +1,103 @@
+/* Cumulative D-292 owner corrections. Inert design artifacts, not application CSS. */
+html, body { box-sizing: border-box; }
+.status-bar, .status-bar-inset, .status, .safe-inset-bottom, .bottom-safe-inset,
+.safe-area-bottom, .bottom-safe-area, .safe-area, .safe-inset, .safe,
+.android-nav-pill, .home-indicator, .nav-pill, .bottom-inset,
+.safe-inset-bar, .home-indicator-pill { display: none !important; }
+.top-bar, .top-app-bar, .app-bar, .top {
+  height: auto !important; min-height: 48px !important; padding: 0 8px !important;
+  background: transparent !important; border: 0 !important; box-shadow: none !important;
+  flex-shrink: 0; gap: 4px !important;
+}
+.top-bar h1, .top-app-bar h1, .app-bar h1, .top-bar .app-title-group,
+.top-bar-titles, .app-bar .app-title-group, .draft-badge, .badge-draft,
+.top-bar-badge, .top .title small { display: none !important; }
+.top .title { display: none; }
+.top .history-button, .top .top-live { margin-left: auto; }
+.top .top-live + .top-continue { margin-left: 0; }
+.review-hamburger { width: 48px !important; height: 48px !important; min-width: 48px;
+  border: 0; background: transparent; color: #243b35; font: 24px/1 system-ui;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  position: absolute; top: 0; left: 4px; z-index: 20; }
+.review-authenticated .top-bar, .review-authenticated .top-app-bar,
+.review-authenticated .app-bar, .review-authenticated .top { padding-left: 56px !important; }
+.review-home .app-bar { display: none; }
+.review-home .layout-container { margin-top: 48px; }
+.review-navigation { display: none; position: fixed; inset: 0 auto 0 0;
+  width: 220px; background: #fff; border-right: 1px solid #c5cfca; z-index: 30;
+  color: #243b35; font: 15px/1.3 system-ui, sans-serif; flex-direction: column; }
+.review-navigation .navigation-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
+.review-navigation button { width: 100%; min-height: 48px; padding: 10px 12px;
+  display: flex; align-items: center; justify-content: flex-start; text-align: left;
+  border: 0; background: transparent; border-radius: 5px; color: inherit;
+  font: inherit; flex-shrink: 0; }
+.review-navigation .navigation-category { font-weight: 700; }
+.review-navigation .navigation-child { padding-left: 28px; }
+.review-navigation .navigation-child small { display: block; font-size: 12px; color: #61736d; }
+.review-navigation .navigation-game { display: block; }
+.review-navigation .navigation-footer { flex-shrink: 0; padding: 8px;
+  border-top: 1px solid #d8dfdb; }
+.review-navigation .navigation-footer button { color: #a32727; }
+.navigation-scrim { display: none; }
+.review-drawer-open .review-navigation { display: flex; width: 280px; }
+.review-drawer-open .navigation-scrim { display: block; position: fixed;
+  inset: 0; z-index: 29; background: #243b3540; }
+.review-gameplay .menu { top: 48px; }
+.review-home .layout-container { display: flex !important; flex-direction: column;
+  padding: 16px; gap: 16px; overflow-y: auto; }
+.review-home .destinations-group { width: 100%; max-width: 540px; margin: auto;
+  display: flex; flex-direction: column; }
+.review-home .dest-card { justify-content: flex-start; }
+.review-home .dest-subtitle { display: none; }
+.review-authenticated .sync-note, .review-authenticated .sync-notice,
+.review-authenticated .bg-sync-notice, .review-authenticated .orientation-meta { display: none; }
+.screen-shell.review-authenticated { display: flex !important; }
+.screen-shell .content-wrapper { min-height: 0; }
+.review-games .app-content { flex-direction: column !important; overflow-y: auto !important; }
+.review-games .content-column { height: auto !important; flex: none !important;
+  overflow: visible !important; max-width: 640px; margin-inline: auto; }
+.review-games .item-row { gap: 6px; padding: 12px; }
+.review-login .top-bar { display: none !important; }
+.review-login .content-viewport { display: block; overflow-y: auto; }
+.review-login .screen-layout { min-height: 100%; padding: 16px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.review-login .form-panel { flex: none; width: 100%; max-width: 380px;
+  padding: 20px; overflow: visible; display: block; }
+.review-login .intro-panel { width: auto; max-width: none; margin: 0 0 16px;
+  padding: 0; text-align: center; display: block; background: none; border: 0; }
+.review-login .app-heading { font-size: 24px; margin-bottom: 8px; }
+.review-login .app-subheading { font-size: 15px; }
+.review-login .form-title { font-size: 22px; margin-bottom: 16px; }
+.review-login .form-group { gap: 6px; margin-bottom: 12px; }
+.review-login .form-label { font-size: 14px; }
+.review-login .text-input { height: 48px; font-size: 16px; }
+.review-login .input-action-btn { width: 48px; height: 48px; }
+.review-login .error-notice { margin: 0 0 12px; }
+.review-login .primary-btn { height: 48px; margin-top: 0; font-size: 16px; }
+.review-login .secondary-links { flex-direction: column; gap: 4px;
+  margin-top: 12px; padding-top: 8px; }
+.review-login .link-btn { font-size: 15px; }
+.review-password .content-reflow-wrapper { display: block; width: 100%; max-width: 380px !important;
+  height: auto; margin: auto; }
+.review-password .main-scroll-container { display: flex; padding: 16px; overflow-y: auto; }
+.review-password .landscape-pane-right { display: block; width: 100%; }
+.review-password .form-card { padding: 20px; }
+@media (orientation: landscape) {
+  body.review-authenticated:not(.review-gameplay) { padding-left: 220px !important; }
+  .review-authenticated:not(.review-gameplay) .review-navigation { display: flex; width: 220px; }
+  .review-authenticated:not(.review-gameplay) .review-hamburger,
+  .review-authenticated:not(.review-gameplay) .navigation-close { display: none !important; }
+  .review-authenticated:not(.review-gameplay) .navigation-scrim { display: none; }
+  .review-authenticated:not(.review-gameplay) .review-navigation .navigation-close { display: none; }
+  .review-authenticated:not(.review-gameplay) .top-bar,
+  .review-authenticated:not(.review-gameplay) .top-app-bar,
+  .review-authenticated:not(.review-gameplay) .app-bar { padding-left: 8px !important; }
+  .review-home .layout-container { margin-top: 0; }
+  .screen-shell .content-wrapper { display: flex !important; flex-direction: column;
+    height: auto; overflow: hidden; }
+  .screen-shell .action-panel { flex-shrink: 0; border: 0; padding: 0; }
+  .screen-shell .decks-scroll-panel { min-height: 0; }
+  .screen-shell .decks-grid-container { grid-template-columns: minmax(0, 1fr) !important; }
+  .landscape-panels-wrapper { display: block; height: auto; }
+  .landscape-panels-wrapper .deck-list { display: flex; flex-direction: column; }
+}

@@ -42,10 +42,16 @@ The general rules are:
 
 ### Before the table: accounts, decks, and lobby
 
-- Log in to reach the main menu; registration is available. The menu offers
-  Logout, Manage decks, and Play. Search by username and save users as contacts,
-  without mutual friend-request approval. **Friends** as a separate menu name
-  is still tentative.
+- Log in to reach the main menu; registration is available. D-292 selects
+  **Async Tabletop Wizards**, subtitle **Specialized tabletop simulator for
+  asynchronous wizardry**, fullscreen without system/title bars, and shared
+  hamburger navigation: **Menu** → main menu (indented Manage decks / Contacts),
+  **Games** → games browser (indented current games, including setup states).
+  Landscape non-gameplay keeps navigation visible; gameplay does not. Logout is
+  fixed outside navigation's scrolling list, not directly in main-menu content.
+  No main-menu notification-settings shortcut or redundant explanatory subtitles.
+  Necessary in-screen navigation/gameplay controls remain. Search by username and
+  save contacts without mutual friend-request approval.
 - Register with username, email and password; log in with email/password and
   reset forgotten passwords by email. Other users see your username, not your email.
 - Stay logged in across restarts and long inactivity, with no routine time-based
@@ -64,7 +70,8 @@ The general rules are:
   synchronized between them (D-218). Existing lobby/game deck copies stay isolated
   from saved-deck changes. Exact simultaneous-edit conflict handling and transfer
   of personal device state are not settled by this decision.
-- Play shows current games, including pending invitations.
+- Games (formerly Play) combines in-play/setup games in one list, with Invitations
+  afterward; lobbies are game states, not a separate category (D-292).
 - Invite an added user to a game. For you, it is already an open lobby: select/
   prepare your deck and ready while waiting. Cancel game also cancels the pending
   invite. The recipient can Accept or Decline in Play; accepting opens the same

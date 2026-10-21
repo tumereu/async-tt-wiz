@@ -363,8 +363,19 @@ button, a[href], [role="button"] { min-width:48px !important; min-height:48px !i
 a[href] { display:inline-flex; align-items:center; justify-content:center; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
 /* Sources are inert visual mockups, not a functional application. */
-</style></head>
-<body inert="">
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="review-authenticated review-home" inert="">
+  <button class="review-hamburger" aria-label="Open navigation">☰</button>
+  <aside class="review-navigation" aria-label="App navigation">
+    <div class="navigation-scroll">
+      <button class="navigation-category">Menu</button>
+      <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
+      <button class="navigation-category">Games</button>
+      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">With riley<small>Waiting for acceptance</small></button>
+      <button class="navigation-child navigation-game">With sam<small>Invitation declined</small></button>
+    </div><div class="navigation-footer"><button>Logout</button></div>
+  </aside>
 
   <!-- Minimal Android Status Area 24px -->
   <div class="status-bar" aria-hidden="true">
@@ -387,28 +398,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
   <!-- Responsive Layout Container (Portrait: stacked; Landscape: two compact panels) -->
   <main class="layout-container">
 
-    <!-- User summary & auxiliary actions panel -->
-    <section class="nav-panel">
-      <div class="session-header">
-        <span class="section-label">Account</span>
-        <h2 class="user-status">Signed in as <span class="username-highlight">alex</span></h2>
-        <p class="helper-text">Two-player asynchronous tabletop</p>
-      </div>
-
-      <!-- Visibly separated utility actions -->
-      <nav class="actions-container" aria-label="Account Settings and Session">
-        <button type="button" class="text-button" aria-label="Open Android notification settings">
-          <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
-          <span>Android notification settings</span>
-        </button>
-
-        <button type="button" class="text-button logout-btn" aria-label="Sign out of alex">
-          <span class="material-symbols-outlined" aria-hidden="true">logout</span>
-          <span>Logout</span>
-        </button>
-      </nav>
-    </section>
-
     <!-- Main Destination Cards -->
     <nav class="destinations-group" aria-label="Main Destinations">
       <!-- Play -->
@@ -417,8 +406,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
           <span class="material-symbols-outlined">swords</span>
         </div>
         <div class="dest-content">
-          <span class="dest-title">Play</span>
-          <span class="dest-subtitle">Current games and invitations</span>
+          <span class="dest-title">Games</span>
         </div>
         <span class="material-symbols-outlined dest-chevron" aria-hidden="true">chevron_right</span>
       </a>
@@ -430,7 +418,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         </div>
         <div class="dest-content">
           <span class="dest-title">Manage decks</span>
-          <span class="dest-subtitle">Import and organise saved lists</span>
         </div>
         <span class="material-symbols-outlined dest-chevron" aria-hidden="true">chevron_right</span>
       </a>
@@ -442,7 +429,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         </div>
         <div class="dest-content">
           <span class="dest-title">Contacts</span>
-          <span class="dest-subtitle">Find players by username</span>
         </div>
         <span class="material-symbols-outlined dest-chevron" aria-hidden="true">chevron_right</span>
       </a>

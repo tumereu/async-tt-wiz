@@ -2,6 +2,13 @@
 
 Generation context for the [review packet](review.md), not approved product requirements.
 
+**Historical prompts below are preserved as provenance.** For current generation
+or revision, first apply the cumulative [owner feedback](feedback.md), including
+D-292's name/subtitle, fullscreen, same-card sign-in, removal of reset-session
+helpers, Menu/Games navigation and combined games-before-invitations browser.
+Those confirmed changes supersede conflicting bars/copy/navigation below. D-292
+is locally revised inert design material, not an additional cloud-generation claim.
+
 ## Common prompt
 
 ```text

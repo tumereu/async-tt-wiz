@@ -191,8 +191,18 @@ button, a[href], [role="button"] { min-width:48px !important; min-height:48px !i
 a[href] { display:inline-flex; align-items:center; justify-content:center; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
 /* Sources are inert visual mockups, not a functional application. */
-</style></head>
-<body class="screen-shell" inert="">
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="screen-shell review-authenticated review-decks" inert="">
+  <button class="review-hamburger" aria-label="Open navigation">☰</button>
+  <aside class="review-navigation" aria-label="App navigation">
+    <div class="navigation-scroll">
+      <button class="navigation-category">Menu</button>
+      <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
+      <button class="navigation-category">Games</button>
+      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">With sam<small>Invitation declined</small></button>
+    </div><div class="navigation-footer"><button>Logout</button></div>
+  </aside>
 
   <!-- Status Area: Minimal 24px Android status bar -->
   <header class="status-bar h-[24px] shrink-0 w-full flex items-center justify-between px-4 text-xs text-textSecondary select-none border-b border-borderSubtle bg-appBg">
@@ -213,9 +223,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <h1 class="text-[22px] font-semibold tracking-tight text-textPrimary leading-none">Manage decks</h1>
     </div>
 
-    <div class="flex items-center">
-      <span class="text-[13px] font-medium text-textMuted px-2 py-0.5 rounded border border-borderSubtle bg-appBg">Draft D01</span>
-    </div>
   </nav>
 
   <!-- Main Scrollable / Viewport Shell Area -->
@@ -229,16 +236,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         <span>Import deck</span>
       </button>
 
-      <!-- Sync notice banner -->
-      <div class="flex items-center gap-2 p-3 bg-surface rounded-lg border border-borderSubtle text-textSecondary">
-        <span class="material-symbols-outlined text-textMuted text-[18px] shrink-0">sync</span>
-        <p class="text-[13px] leading-snug">Saved decks sync across your devices.</p>
-      </div>
-
       <!-- Descriptive Section Header -->
       <div class="flex items-center justify-between pt-1 px-0.5">
         <h2 class="text-[13px] font-semibold text-textMuted tracking-wider uppercase">Saved lists (3)</h2>
-        <span class="text-[13px] text-textMuted">Tap row for details</span>
       </div>
     </section>
 
@@ -324,11 +324,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       </div>
     </div>
   </main>
-
-  <!-- Android Bottom Safe Inset: 16px with standard gesture pill -->
-  <footer class="h-[16px] shrink-0 w-full flex items-center justify-center bg-appBg">
-    <div class="w-28 h-1 bg-gray-300 rounded-full"></div>
-  </footer>
 
 
 </body></html>

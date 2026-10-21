@@ -1,6 +1,13 @@
 {
   "generated": "2026-10-21",
-  "status": "proposed UI pilot with gameplay extension D-291",
+  "status": "UI review pilot with gameplay extension D-291 and confirmed owner revisions D-292",
+  "currentFeedback": "feedback.md",
+  "ownerRevision": {
+    "decision": "D-292",
+    "scope": "All captured local derivatives: fullscreen shell; cumulative owner feedback; A01 single card; reset-copy cleanup; authenticated Menu/Games navigation with fixed Logout; combined games/setup list before invitations.",
+    "provenance": "Local inert design revisions, not a new Stitch/cloud edit. Historical per-screen briefs and raw original/revision sources below describe the earlier generation, not current requirements; feedback.md and review.md take precedence.",
+    "newLocalSource": "N02 open navigation; all other sources revise retained derivatives in place."
+  },
   "stitchProject": "6617750535460836476",
   "viewports": {
     "portrait": [
@@ -13,6 +20,246 @@
     ]
   },
   "screens": [
+    {
+      "id": "N02",
+      "slug": "navigation-open",
+      "title": "Open navigation",
+      "brief": "D-292 portrait hamburger drawer and persistent landscape navigation. Clickable Menu/Games categories, indented Manage decks/Contacts and all current games including setup states; Logout outside the scrolling list. Static local design, not working navigation.",
+      "source": "sources/navigation-open.html",
+      "derivation": "Locally composed owner-feedback state, not a new Stitch generation.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u00d7",
+              "x": 8,
+              "y": 8,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Menu",
+              "x": 8,
+              "y": 56,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 104,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 152,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 200,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 248,
+              "width": 263,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nWaiting for acceptance",
+              "x": 8,
+              "y": 303,
+              "width": 263,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 358,
+              "width": 263,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 836,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 16,
+              "y": 350,
+              "width": 380,
+              "height": 72,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 16,
+              "y": 434,
+              "width": 380,
+              "height": 72,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 16,
+              "y": 518,
+              "width": 380,
+              "height": 72,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [],
+          "controls": [
+            {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nWaiting for acceptance",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 310,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 286,
+              "y": 86,
+              "width": 540,
+              "height": 72,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 286,
+              "y": 170,
+              "width": 540,
+              "height": 72,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 286,
+              "y": 254,
+              "width": 540,
+              "height": 72,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "A01",
       "slug": "sign-in",
@@ -46,7 +293,7 @@
             {
               "text": "name@example.com",
               "x": 37,
-              "y": 368,
+              "y": 355,
               "width": 338,
               "height": 48,
               "scrollAncestor": false,
@@ -55,7 +302,7 @@
             {
               "text": "Enter your password",
               "x": 37,
-              "y": 454,
+              "y": 437,
               "width": 338,
               "height": 48,
               "scrollAncestor": false,
@@ -64,7 +311,7 @@
             {
               "text": "visibility",
               "x": 327,
-              "y": 454,
+              "y": 437,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -73,7 +320,7 @@
             {
               "text": "Sign in",
               "x": 37,
-              "y": 544,
+              "y": 526,
               "width": 338,
               "height": 48,
               "scrollAncestor": false,
@@ -82,7 +329,7 @@
             {
               "text": "Create account",
               "x": 147,
-              "y": 629,
+              "y": 595,
               "width": 118,
               "height": 48,
               "scrollAncestor": false,
@@ -91,7 +338,7 @@
             {
               "text": "Forgot password?",
               "x": 138,
-              "y": 689,
+              "y": 647,
               "width": 136,
               "height": 48,
               "scrollAncestor": false,
@@ -111,57 +358,57 @@
           "controls": [
             {
               "text": "name@example.com",
-              "x": 413,
-              "y": 131,
-              "width": 406,
+              "x": 277,
+              "y": 195,
+              "width": 338,
               "height": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Enter your password",
-              "x": 413,
-              "y": 202,
-              "width": 406,
+              "x": 277,
+              "y": 277,
+              "width": 338,
               "height": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "visibility",
-              "x": 771,
-              "y": 202,
+              "x": 567,
+              "y": 277,
               "width": 48,
               "height": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Sign in",
-              "x": 413,
-              "y": 275,
-              "width": 406,
+              "x": 277,
+              "y": 366,
+              "width": 338,
               "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
+              "scrollAncestor": true,
+              "inViewport": false
             },
             {
               "text": "Create account",
-              "x": 413,
-              "y": 332,
-              "width": 103,
+              "x": 391,
+              "y": 435,
+              "width": 110,
               "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
+              "scrollAncestor": true,
+              "inViewport": false
             },
             {
               "text": "Forgot password?",
-              "x": 699,
-              "y": 332,
-              "width": 120,
+              "x": 382,
+              "y": 487,
+              "width": 128,
               "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
+              "scrollAncestor": true,
+              "inViewport": false
             }
           ]
         }
@@ -199,17 +446,13 @@
             {
               "family": "Roboto",
               "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
             }
           ],
           "controls": [
             {
               "text": "arrow_back",
               "x": 8,
-              "y": 28,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -218,7 +461,7 @@
             {
               "text": "Choose a username",
               "x": 33,
-              "y": 239,
+              "y": 180,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -227,7 +470,7 @@
             {
               "text": "name@domain.com",
               "x": 33,
-              "y": 352,
+              "y": 293,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -236,7 +479,7 @@
             {
               "text": "Enter password",
               "x": 33,
-              "y": 465,
+              "y": 406,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -245,7 +488,7 @@
             {
               "text": "visibility",
               "x": 329,
-              "y": 465,
+              "y": 406,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -254,7 +497,7 @@
             {
               "text": "Create account",
               "x": 33,
-              "y": 533,
+              "y": 474,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -263,7 +506,7 @@
             {
               "text": "Sign in",
               "x": 265,
-              "y": 601,
+              "y": 542,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -286,17 +529,13 @@
             {
               "family": "Roboto",
               "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
             }
           ],
           "controls": [
             {
               "text": "arrow_back",
               "x": 8,
-              "y": 20,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -305,7 +544,7 @@
             {
               "text": "Choose a username",
               "x": 331,
-              "y": 119,
+              "y": 99,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -314,7 +553,7 @@
             {
               "text": "name@domain.com",
               "x": 331,
-              "y": 224,
+              "y": 204,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -323,7 +562,7 @@
             {
               "text": "Enter password",
               "x": 331,
-              "y": 329,
+              "y": 309,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -332,7 +571,7 @@
             {
               "text": "visibility",
               "x": 811,
-              "y": 329,
+              "y": 309,
               "width": 48,
               "height": 48,
               "scrollAncestor": true,
@@ -341,7 +580,7 @@
             {
               "text": "Create account",
               "x": 331,
-              "y": 393,
+              "y": 373,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -350,7 +589,7 @@
             {
               "text": "Sign in",
               "x": 655,
-              "y": 457,
+              "y": 437,
               "width": 58,
               "height": 48,
               "scrollAncestor": true,
@@ -392,17 +631,13 @@
             {
               "family": "Roboto",
               "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
             }
           ],
           "controls": [
             {
               "text": "arrow_back",
               "x": 8,
-              "y": 28,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -411,7 +646,7 @@
             {
               "text": "Choose a username",
               "x": 33,
-              "y": 239,
+              "y": 180,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -420,7 +655,7 @@
             {
               "text": "name@domain.com",
               "x": 33,
-              "y": 352,
+              "y": 293,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -429,7 +664,7 @@
             {
               "text": "Enter password",
               "x": 33,
-              "y": 465,
+              "y": 406,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -438,7 +673,7 @@
             {
               "text": "visibility",
               "x": 329,
-              "y": 465,
+              "y": 406,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -447,7 +682,7 @@
             {
               "text": "Create account",
               "x": 33,
-              "y": 533,
+              "y": 474,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -456,7 +691,7 @@
             {
               "text": "Sign in",
               "x": 265,
-              "y": 601,
+              "y": 542,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -479,17 +714,13 @@
             {
               "family": "Roboto",
               "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
             }
           ],
           "controls": [
             {
               "text": "arrow_back",
               "x": 8,
-              "y": 20,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -498,7 +729,7 @@
             {
               "text": "Choose a username",
               "x": 331,
-              "y": -17,
+              "y": -37,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -507,7 +738,7 @@
             {
               "text": "name@domain.com",
               "x": 331,
-              "y": 88,
+              "y": 68,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -516,7 +747,7 @@
             {
               "text": "Enter password",
               "x": 331,
-              "y": 193,
+              "y": 173,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -525,7 +756,7 @@
             {
               "text": "visibility",
               "x": 811,
-              "y": 193,
+              "y": 173,
               "width": 48,
               "height": 48,
               "scrollAncestor": true,
@@ -534,7 +765,7 @@
             {
               "text": "Create account",
               "x": 331,
-              "y": 257,
+              "y": 237,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -543,7 +774,7 @@
             {
               "text": "Sign in",
               "x": 655,
-              "y": 321,
+              "y": 301,
               "width": 58,
               "height": 48,
               "scrollAncestor": true,
@@ -596,8 +827,8 @@
           "controls": [
             {
               "text": "arrow_back",
-              "x": 4,
-              "y": 28,
+              "x": 8,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -624,7 +855,7 @@
             {
               "text": "Back to sign in",
               "x": 141,
-              "y": 648,
+              "y": 583,
               "width": 130,
               "height": 48,
               "scrollAncestor": false,
@@ -656,8 +887,8 @@
           "controls": [
             {
               "text": "arrow_back",
-              "x": 4,
-              "y": 24,
+              "x": 8,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -666,28 +897,28 @@
             {
               "text": "INPUT",
               "x": 428,
-              "y": 116,
+              "y": 133,
               "width": 411,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Send reset link",
               "x": 428,
-              "y": 174,
+              "y": 191,
               "width": 411,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Back to sign in",
               "x": 568,
-              "y": 326,
+              "y": 301,
               "width": 130,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
               "inViewport": true
             }
           ]
@@ -727,8 +958,8 @@
           "controls": [
             {
               "text": "arrow_back",
-              "x": 4,
-              "y": 28,
+              "x": 8,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -736,17 +967,17 @@
             },
             {
               "text": "Enter new password",
-              "x": 33,
-              "y": 197,
-              "width": 346,
+              "x": 37,
+              "y": 381,
+              "width": 338,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "visibility",
-              "x": 331,
-              "y": 197,
+              "x": 327,
+              "y": 381,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -754,9 +985,9 @@
             },
             {
               "text": "Change password",
-              "x": 33,
-              "y": 265,
-              "width": 346,
+              "x": 37,
+              "y": 449,
+              "width": 338,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -764,7 +995,7 @@
             {
               "text": "Back to sign in",
               "x": 141,
-              "y": 391,
+              "y": 538,
               "width": 130,
               "height": 48,
               "scrollAncestor": false,
@@ -784,8 +1015,8 @@
           "controls": [
             {
               "text": "arrow_back",
-              "x": 4,
-              "y": 20,
+              "x": 8,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -793,17 +1024,17 @@
             },
             {
               "text": "Enter new password",
-              "x": 431,
-              "y": 128,
-              "width": 408,
+              "x": 293,
+              "y": 141,
+              "width": 306,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "visibility",
-              "x": 791,
-              "y": 128,
+              "x": 551,
+              "y": 141,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -811,17 +1042,17 @@
             },
             {
               "text": "Change password",
-              "x": 431,
-              "y": 196,
-              "width": 408,
+              "x": 293,
+              "y": 209,
+              "width": 306,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Back to sign in",
-              "x": 570,
-              "y": 323,
+              "x": 381,
+              "y": 298,
               "width": 130,
               "height": 48,
               "scrollAncestor": false,
@@ -857,59 +1088,42 @@
               "status": "loaded"
             },
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
               "family": "Material Symbols Outlined",
               "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "notifications\nAndroid notification settings",
-              "x": 16,
-              "y": 181,
-              "width": 380,
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "logout\nLogout",
+              "text": "swords\nGames\nchevron_right",
               "x": 16,
-              "y": 239,
-              "width": 380,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "swords\nPlay\nCurrent games and invitations\nchevron_right",
-              "x": 16,
-              "y": 303,
+              "y": 341,
               "width": 380,
               "height": 78,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "style\nManage decks\nImport and organise saved lists\nchevron_right",
+              "text": "style\nManage decks\nchevron_right",
               "x": 16,
-              "y": 393,
+              "y": 431,
               "width": 380,
               "height": 78,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "group\nContacts\nFind players by username\nchevron_right",
+              "text": "group\nContacts\nchevron_right",
               "x": 16,
-              "y": 483,
+              "y": 521,
               "width": 380,
               "height": 78,
               "scrollAncestor": false,
@@ -926,61 +1140,107 @@
               "status": "loaded"
             },
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
               "family": "Material Symbols Outlined",
               "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "notifications\nAndroid notification settings",
-              "x": 16,
-              "y": 290,
-              "width": 263,
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nWaiting for acceptance",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 310,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "logout\nLogout",
-              "x": 16,
-              "y": 342,
-              "width": 263,
-              "height": 48,
+              "text": "swords\nGames\nchevron_right",
+              "x": 286,
+              "y": 108,
+              "width": 536,
+              "height": 60,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "swords\nPlay\nCurrent games and invitations\nchevron_right",
-              "x": 312,
-              "y": 80,
-              "width": 560,
-              "height": 62,
+              "text": "style\nManage decks\nchevron_right",
+              "x": 286,
+              "y": 176,
+              "width": 536,
+              "height": 60,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "style\nManage decks\nImport and organise saved lists\nchevron_right",
-              "x": 312,
-              "y": 150,
-              "width": 560,
-              "height": 62,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "group\nContacts\nFind players by username\nchevron_right",
-              "x": 312,
-              "y": 219,
-              "width": 560,
-              "height": 62,
+              "text": "group\nContacts\nchevron_right",
+              "x": 286,
+              "y": 244,
+              "width": 536,
+              "height": 60,
               "scrollAncestor": false,
               "inViewport": true
             }
@@ -1028,9 +1288,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1038,35 +1307,17 @@
             },
             {
               "text": "New game",
-              "x": 288,
-              "y": 28,
+              "x": 296,
+              "y": 0,
               "width": 108,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Accept",
-              "x": 48,
-              "y": 229,
-              "width": 86,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Decline",
-              "x": 142,
-              "y": 229,
-              "width": 77,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Open",
-              "x": 48,
-              "y": 461,
+              "x": 46,
+              "y": 189,
               "width": 64,
               "height": 48,
               "scrollAncestor": false,
@@ -1074,18 +1325,36 @@
             },
             {
               "text": "Reinvite",
-              "x": 48,
-              "y": 694,
+              "x": 46,
+              "y": 327,
               "width": 81,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Open lobby",
-              "x": 137,
-              "y": 694,
-              "width": 102,
+              "text": "Open",
+              "x": 135,
+              "y": 327,
+              "width": 64,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Accept",
+              "x": 46,
+              "y": 530,
+              "width": 86,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decline",
+              "x": 140,
+              "y": 530,
+              "width": 77,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1115,9 +1384,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 20,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1125,35 +1457,17 @@
             },
             {
               "text": "New game",
-              "x": 781,
-              "y": 20,
+              "x": 789,
+              "y": 0,
               "width": 95,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Accept",
-              "x": 42,
-              "y": 197,
-              "width": 67,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Decline",
-              "x": 117,
-              "y": 197,
-              "width": 65,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Open",
-              "x": 480,
-              "y": 197,
+              "x": 262,
+              "y": 177,
               "width": 54,
               "height": 48,
               "scrollAncestor": true,
@@ -1161,18 +1475,36 @@
             },
             {
               "text": "Reinvite",
-              "x": 480,
-              "y": 397,
+              "x": 262,
+              "y": 315,
               "width": 69,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Open",
+              "x": 339,
+              "y": 315,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Accept",
+              "x": 262,
+              "y": 502,
+              "width": 67,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
             },
             {
-              "text": "Open lobby",
-              "x": 557,
-              "y": 397,
-              "width": 89,
+              "text": "Decline",
+              "x": 337,
+              "y": 502,
+              "width": 65,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
@@ -1209,9 +1541,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 8,
-              "y": 28,
+              "x": 48,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1220,7 +1561,7 @@
             {
               "text": "Enter exact username",
               "x": 33,
-              "y": 187,
+              "y": 133,
               "width": 254,
               "height": 48,
               "scrollAncestor": false,
@@ -1229,7 +1570,7 @@
             {
               "text": "Search",
               "x": 295,
-              "y": 187,
+              "y": 133,
               "width": 84,
               "height": 48,
               "scrollAncestor": false,
@@ -1238,7 +1579,7 @@
             {
               "text": "Add contact",
               "x": 255,
-              "y": 324,
+              "y": 270,
               "width": 111,
               "height": 48,
               "scrollAncestor": false,
@@ -1247,7 +1588,7 @@
             {
               "text": "Invite",
               "x": 299,
-              "y": 492,
+              "y": 438,
               "width": 67,
               "height": 48,
               "scrollAncestor": false,
@@ -1256,7 +1597,7 @@
             {
               "text": "Invite",
               "x": 299,
-              "y": 566,
+              "y": 512,
               "width": 67,
               "height": 48,
               "scrollAncestor": false,
@@ -1275,9 +1616,72 @@
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "Menu",
               "x": 8,
-              "y": 24,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 220,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1285,17 +1689,17 @@
             },
             {
               "text": "Enter exact username",
-              "x": 29,
-              "y": 167,
-              "width": 302,
+              "x": 249,
+              "y": 121,
+              "width": 192,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Search",
-              "x": 339,
-              "y": 167,
+              "x": 449,
+              "y": 121,
               "width": 84,
               "height": 48,
               "scrollAncestor": false,
@@ -1303,8 +1707,8 @@
             },
             {
               "text": "Add contact",
-              "x": 301,
-              "y": 286,
+              "x": 411,
+              "y": 240,
               "width": 111,
               "height": 48,
               "scrollAncestor": false,
@@ -1313,7 +1717,7 @@
             {
               "text": "Invite",
               "x": 781,
-              "y": 152,
+              "y": 128,
               "width": 67,
               "height": 48,
               "scrollAncestor": false,
@@ -1322,7 +1726,7 @@
             {
               "text": "Invite",
               "x": 781,
-              "y": 222,
+              "y": 198,
               "width": 67,
               "height": 48,
               "scrollAncestor": false,
@@ -1360,9 +1764,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 8,
-              "y": 28,
+              "x": 48,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1371,7 +1784,7 @@
             {
               "text": "content_paste\nImport deck",
               "x": 16,
-              "y": 96,
+              "y": 64,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -1390,9 +1803,72 @@
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "Menu",
               "x": 8,
-              "y": 20,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 220,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1400,9 +1876,9 @@
             },
             {
               "text": "content_paste\nImport deck",
-              "x": 16,
-              "y": 76,
-              "width": 847,
+              "x": 236,
+              "y": 56,
+              "width": 640,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1451,9 +1927,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1462,7 +1947,7 @@
             {
               "text": "Rename",
               "x": 305,
-              "y": 111,
+              "y": 79,
               "width": 74,
               "height": 48,
               "scrollAncestor": false,
@@ -1471,7 +1956,7 @@
             {
               "text": "Choose cover",
               "x": 89,
-              "y": 191,
+              "y": 159,
               "width": 99,
               "height": 48,
               "scrollAncestor": false,
@@ -1480,7 +1965,7 @@
             {
               "text": "Re-import",
               "x": 16,
-              "y": 266,
+              "y": 234,
               "width": 186,
               "height": 48,
               "scrollAncestor": false,
@@ -1489,7 +1974,7 @@
             {
               "text": "Delete saved deck",
               "x": 210,
-              "y": 266,
+              "y": 234,
               "width": 186,
               "height": 48,
               "scrollAncestor": false,
@@ -1498,7 +1983,7 @@
             {
               "text": "Mainboard\n60",
               "x": 16,
-              "y": 389,
+              "y": 357,
               "width": 190,
               "height": 48,
               "scrollAncestor": false,
@@ -1507,7 +1992,7 @@
             {
               "text": "Sideboard\n15",
               "x": 206,
-              "y": 389,
+              "y": 357,
               "width": 190,
               "height": 48,
               "scrollAncestor": false,
@@ -1538,9 +2023,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 12,
-              "y": 28,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1548,8 +2096,8 @@
             },
             {
               "text": "Rename",
-              "x": 276,
-              "y": 97,
+              "x": 408,
+              "y": 65,
               "width": 70,
               "height": 48,
               "scrollAncestor": false,
@@ -1557,8 +2105,8 @@
             },
             {
               "text": "Choose cover",
-              "x": 75,
-              "y": 173,
+              "x": 295,
+              "y": 141,
               "width": 93,
               "height": 48,
               "scrollAncestor": false,
@@ -1566,36 +2114,36 @@
             },
             {
               "text": "Re-import",
-              "x": 12,
-              "y": 240,
-              "width": 170,
+              "x": 232,
+              "y": 208,
+              "width": 126,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Delete saved deck",
-              "x": 190,
-              "y": 240,
-              "width": 170,
+              "x": 366,
+              "y": 208,
+              "width": 126,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Mainboard\n60",
-              "x": 384,
-              "y": 86,
-              "width": 248,
+              "x": 516,
+              "y": 54,
+              "width": 182,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Sideboard\n15",
-              "x": 632,
-              "y": 86,
-              "width": 248,
+              "x": 698,
+              "y": 54,
+              "width": 182,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1632,9 +2180,18 @@
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "\u2630",
               "x": 4,
-              "y": 28,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1643,7 +2200,7 @@
             {
               "text": "Review import",
               "x": 16,
-              "y": 756,
+              "y": 772,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -1652,7 +2209,7 @@
             {
               "text": "Retry lookup",
               "x": 16,
-              "y": 812,
+              "y": 828,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -1671,9 +2228,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 4,
-              "y": 24,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1681,18 +2301,18 @@
             },
             {
               "text": "Review import",
-              "x": 517,
-              "y": 346,
-              "width": 173,
+              "x": 611,
+              "y": 354,
+              "width": 127,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Retry lookup",
-              "x": 701,
-              "y": 346,
-              "width": 173,
+              "x": 747,
+              "y": 354,
+              "width": 127,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1744,9 +2364,18 @@
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "\u2630",
               "x": 4,
-              "y": 28,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1755,7 +2384,7 @@
             {
               "text": "INPUT",
               "x": 31,
-              "y": 530,
+              "y": 498,
               "width": 350,
               "height": 48,
               "scrollAncestor": true,
@@ -1764,7 +2393,7 @@
             {
               "text": "Save deck",
               "x": 47,
-              "y": 914,
+              "y": 882,
               "width": 318,
               "height": 48,
               "scrollAncestor": true,
@@ -1773,7 +2402,7 @@
             {
               "text": "Edit pasted list",
               "x": 47,
-              "y": 972,
+              "y": 940,
               "width": 318,
               "height": 48,
               "scrollAncestor": true,
@@ -1804,9 +2433,72 @@
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "Menu",
               "x": 8,
-              "y": 22,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1814,27 +2506,27 @@
             },
             {
               "text": "INPUT",
-              "x": 437,
-              "y": 198,
-              "width": 422,
+              "x": 554,
+              "y": 178,
+              "width": 305,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Save deck",
-              "x": 437,
-              "y": 507,
-              "width": 207,
+              "x": 554,
+              "y": 503,
+              "width": 148,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
             },
             {
               "text": "Edit pasted list",
-              "x": 652,
-              "y": 507,
-              "width": 207,
+              "x": 711,
+              "y": 503,
+              "width": 148,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
@@ -1886,9 +2578,18 @@
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "\u2630",
               "x": 4,
-              "y": 28,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1897,7 +2598,7 @@
             {
               "text": "INPUT",
               "x": 31,
-              "y": 343,
+              "y": 359,
               "width": 350,
               "height": 48,
               "scrollAncestor": true,
@@ -1906,7 +2607,7 @@
             {
               "text": "Save deck",
               "x": 47,
-              "y": 727,
+              "y": 743,
               "width": 318,
               "height": 48,
               "scrollAncestor": true,
@@ -1915,7 +2616,7 @@
             {
               "text": "Edit pasted list",
               "x": 47,
-              "y": 785,
+              "y": 801,
               "width": 318,
               "height": 48,
               "scrollAncestor": true,
@@ -1946,9 +2647,72 @@
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "Menu",
               "x": 8,
-              "y": 22,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1956,27 +2720,27 @@
             },
             {
               "text": "INPUT",
-              "x": 437,
-              "y": 35,
-              "width": 422,
+              "x": 554,
+              "y": 18,
+              "width": 305,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Save deck",
-              "x": 437,
-              "y": 344,
-              "width": 207,
+              "x": 554,
+              "y": 343,
+              "width": 148,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Edit pasted list",
-              "x": 652,
-              "y": 344,
-              "width": 207,
+              "x": 711,
+              "y": 343,
+              "width": 148,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
@@ -2015,9 +2779,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2026,7 +2799,7 @@
             {
               "text": "Use selected card",
               "x": 16,
-              "y": 760,
+              "y": 776,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -2035,7 +2808,7 @@
             {
               "text": "Cancel",
               "x": 16,
-              "y": 816,
+              "y": 832,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -2054,9 +2827,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2128,9 +2964,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2139,7 +2984,7 @@
             {
               "text": "folder_open\nImport deck",
               "x": 16,
-              "y": 96,
+              "y": 64,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -2201,9 +3046,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 20,
-              "y": 20,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2211,16 +3119,16 @@
             },
             {
               "text": "folder_open\nImport deck",
-              "x": 16,
-              "y": 84,
-              "width": 860,
+              "x": 236,
+              "y": 64,
+              "width": 640,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "close",
-              "x": 645,
+              "x": 755,
               "y": 72,
               "width": 48,
               "height": 48,
@@ -2229,7 +3137,7 @@
             },
             {
               "text": "Delete saved deck",
-              "x": 452,
+              "x": 562,
               "y": 286,
               "width": 235,
               "height": 48,
@@ -2238,7 +3146,7 @@
             },
             {
               "text": "Keep deck",
-              "x": 205,
+              "x": 315,
               "y": 286,
               "width": 235,
               "height": 48,
@@ -2277,9 +3185,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2288,7 +3205,7 @@
             {
               "text": "Change deck",
               "x": 33,
-              "y": 267,
+              "y": 235,
               "width": 95,
               "height": 48,
               "scrollAncestor": false,
@@ -2297,7 +3214,7 @@
             {
               "text": "Prepare deck",
               "x": 144,
-              "y": 267,
+              "y": 235,
               "width": 96,
               "height": 48,
               "scrollAncestor": false,
@@ -2306,7 +3223,7 @@
             {
               "text": "alex\n(You)",
               "x": 33,
-              "y": 477,
+              "y": 445,
               "width": 110,
               "height": 48,
               "scrollAncestor": false,
@@ -2315,7 +3232,7 @@
             {
               "text": "riley\n(Opponent)",
               "x": 151,
-              "y": 477,
+              "y": 445,
               "width": 110,
               "height": 48,
               "scrollAncestor": false,
@@ -2324,7 +3241,7 @@
             {
               "text": "Random\n(Example)",
               "x": 269,
-              "y": 477,
+              "y": 445,
               "width": 110,
               "height": 48,
               "scrollAncestor": false,
@@ -2333,7 +3250,7 @@
             {
               "text": "Ready",
               "x": 16,
-              "y": 731,
+              "y": 747,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -2342,7 +3259,7 @@
             {
               "text": "Cancel game",
               "x": 16,
-              "y": 787,
+              "y": 803,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -2361,9 +3278,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nWaiting for acceptance",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 12,
-              "y": 22,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2371,8 +3351,8 @@
             },
             {
               "text": "Change deck",
-              "x": 29,
-              "y": 223,
+              "x": 249,
+              "y": 203,
               "width": 89,
               "height": 48,
               "scrollAncestor": false,
@@ -2380,8 +3360,8 @@
             },
             {
               "text": "Prepare deck",
-              "x": 130,
-              "y": 223,
+              "x": 350,
+              "y": 203,
               "width": 90,
               "height": 48,
               "scrollAncestor": false,
@@ -2389,35 +3369,35 @@
             },
             {
               "text": "alex\n(You)",
-              "x": 495,
-              "y": 236,
-              "width": 117,
+              "x": 597,
+              "y": 216,
+              "width": 83,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "riley\n(Opponent)",
-              "x": 620,
-              "y": 236,
-              "width": 117,
+              "x": 688,
+              "y": 216,
+              "width": 83,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Random\n(Example)",
-              "x": 746,
-              "y": 236,
-              "width": 117,
+              "x": 780,
+              "y": 216,
+              "width": 83,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Ready",
-              "x": 46,
-              "y": 326,
+              "x": 236,
+              "y": 336,
               "width": 240,
               "height": 48,
               "scrollAncestor": false,
@@ -2425,8 +3405,8 @@
             },
             {
               "text": "Cancel game",
-              "x": 750,
-              "y": 326,
+              "x": 780,
+              "y": 336,
               "width": 96,
               "height": 48,
               "scrollAncestor": false,
@@ -2479,9 +3459,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2490,7 +3479,7 @@
             {
               "text": "Choose deck",
               "x": 245,
-              "y": 251,
+              "y": 219,
               "width": 121,
               "height": 48,
               "scrollAncestor": false,
@@ -2539,9 +3528,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nPreparing",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 12,
-              "y": 22,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2549,8 +3601,8 @@
             },
             {
               "text": "Choose deck",
-              "x": 293,
-              "y": 195,
+              "x": 403,
+              "y": 175,
               "width": 121,
               "height": 48,
               "scrollAncestor": false,
@@ -2608,19 +3660,24 @@
               "status": "loaded"
             },
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
               "family": "Material Symbols Outlined",
               "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
+              "text": "\u2630",
               "x": 4,
-              "y": 28,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2629,7 +3686,7 @@
             {
               "text": "folder_open\nImport deck",
               "x": 280,
-              "y": 247,
+              "y": 68,
               "width": 114,
               "height": 48,
               "scrollAncestor": false,
@@ -2638,7 +3695,7 @@
             {
               "text": "Select",
               "x": 303,
-              "y": 319,
+              "y": 140,
               "width": 76,
               "height": 48,
               "scrollAncestor": false,
@@ -2647,7 +3704,7 @@
             {
               "text": "Select",
               "x": 303,
-              "y": 412,
+              "y": 233,
               "width": 76,
               "height": 48,
               "scrollAncestor": false,
@@ -2656,7 +3713,7 @@
             {
               "text": "Select",
               "x": 303,
-              "y": 505,
+              "y": 325,
               "width": 76,
               "height": 48,
               "scrollAncestor": false,
@@ -2677,19 +3734,78 @@
               "status": "loaded"
             },
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
               "family": "Material Symbols Outlined",
               "status": "loaded"
             }
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nPreparing",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 4,
-              "y": 20,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2698,7 +3814,7 @@
             {
               "text": "folder_open\nImport deck",
               "x": 774,
-              "y": 78,
+              "y": 58,
               "width": 102,
               "height": 48,
               "scrollAncestor": false,
@@ -2706,8 +3822,8 @@
             },
             {
               "text": "Select",
-              "x": 510,
-              "y": 150,
+              "x": 798,
+              "y": 130,
               "width": 65,
               "height": 48,
               "scrollAncestor": false,
@@ -2715,8 +3831,8 @@
             },
             {
               "text": "Select",
-              "x": 802,
-              "y": 150,
+              "x": 798,
+              "y": 211,
               "width": 65,
               "height": 48,
               "scrollAncestor": false,
@@ -2724,8 +3840,8 @@
             },
             {
               "text": "Select",
-              "x": 510,
-              "y": 231,
+              "x": 798,
+              "y": 292,
               "width": 65,
               "height": 48,
               "scrollAncestor": false,
@@ -2779,9 +3895,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2790,19 +3915,19 @@
             {
               "text": "Move 1 to sideboard",
               "x": 209,
-              "y": 256,
+              "y": 167,
               "width": 170,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Move 1 to mainboard",
               "x": 204,
-              "y": 677,
+              "y": 588,
               "width": 175,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
               "inViewport": true
             }
           ]
@@ -2830,9 +3955,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nPreparing",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2840,8 +4028,8 @@
             },
             {
               "text": "Move 1 to sideboard",
-              "x": 251,
-              "y": 230,
+              "x": 361,
+              "y": 185,
               "width": 170,
               "height": 48,
               "scrollAncestor": false,
@@ -2850,7 +4038,7 @@
             {
               "text": "Move 1 to mainboard",
               "x": 684,
-              "y": 230,
+              "y": 167,
               "width": 175,
               "height": 48,
               "scrollAncestor": false,
@@ -2894,19 +4082,24 @@
               "status": "loaded"
             },
             {
-              "family": "Inter",
-              "status": "loaded"
-            },
-            {
               "family": "Material Symbols Outlined",
               "status": "loaded"
             }
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 8,
-              "y": 28,
+              "x": 48,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2915,7 +4108,7 @@
             {
               "text": "Change deck",
               "x": 33,
-              "y": 289,
+              "y": 257,
               "width": 95,
               "height": 48,
               "scrollAncestor": false,
@@ -2924,7 +4117,7 @@
             {
               "text": "Prepare deck",
               "x": 144,
-              "y": 289,
+              "y": 257,
               "width": 96,
               "height": 48,
               "scrollAncestor": false,
@@ -2933,7 +4126,7 @@
             {
               "text": "Withdraw Ready",
               "x": 16,
-              "y": 712,
+              "y": 728,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -2942,7 +4135,7 @@
             {
               "text": "Cancel game",
               "x": 151,
-              "y": 816,
+              "y": 832,
               "width": 110,
               "height": 48,
               "scrollAncestor": false,
@@ -2967,19 +4160,78 @@
               "status": "loaded"
             },
             {
-              "family": "Inter",
-              "status": "loaded"
-            },
-            {
               "family": "Material Symbols Outlined",
               "status": "loaded"
             }
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nPreparing \u00b7 you are Ready",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 4,
-              "y": 18,
+              "x": 220,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -2987,8 +4239,8 @@
             },
             {
               "text": "Change deck",
-              "x": 25,
-              "y": 224,
+              "x": 245,
+              "y": 208,
               "width": 89,
               "height": 48,
               "scrollAncestor": false,
@@ -2996,8 +4248,8 @@
             },
             {
               "text": "Prepare deck",
-              "x": 130,
-              "y": 224,
+              "x": 350,
+              "y": 208,
               "width": 90,
               "height": 48,
               "scrollAncestor": false,
@@ -3005,8 +4257,8 @@
             },
             {
               "text": "Withdraw Ready",
-              "x": 597,
-              "y": 352,
+              "x": 649,
+              "y": 358,
               "width": 115,
               "height": 48,
               "scrollAncestor": false,
@@ -3015,7 +4267,7 @@
             {
               "text": "Cancel game",
               "x": 776,
-              "y": 352,
+              "y": 358,
               "width": 104,
               "height": 48,
               "scrollAncestor": false,
@@ -3065,9 +4317,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3076,7 +4337,7 @@
             {
               "text": "Change deck",
               "x": 33,
-              "y": 254,
+              "y": 222,
               "width": 83,
               "height": 48,
               "scrollAncestor": false,
@@ -3085,7 +4346,7 @@
             {
               "text": "Prepare deck",
               "x": 132,
-              "y": 254,
+              "y": 222,
               "width": 83,
               "height": 48,
               "scrollAncestor": false,
@@ -3094,7 +4355,7 @@
             {
               "text": "Ready",
               "x": 16,
-              "y": 725,
+              "y": 741,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -3103,7 +4364,7 @@
             {
               "text": "Cancel game",
               "x": 146,
-              "y": 785,
+              "y": 801,
               "width": 120,
               "height": 48,
               "scrollAncestor": false,
@@ -3112,7 +4373,7 @@
             {
               "text": "close",
               "x": 329,
-              "y": 316,
+              "y": 308,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3121,7 +4382,7 @@
             {
               "text": "Cancel game",
               "x": 47,
-              "y": 526,
+              "y": 518,
               "width": 318,
               "height": 48,
               "scrollAncestor": false,
@@ -3130,7 +4391,7 @@
             {
               "text": "Keep game",
               "x": 47,
-              "y": 584,
+              "y": 576,
               "width": 318,
               "height": 48,
               "scrollAncestor": false,
@@ -3161,9 +4422,72 @@
           ],
           "controls": [
             {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "With riley\nWaiting for acceptance",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 24,
+              "x": 228,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3171,8 +4495,8 @@
             },
             {
               "text": "Change deck",
-              "x": 79,
-              "y": 231,
+              "x": 253,
+              "y": 207,
               "width": 83,
               "height": 48,
               "scrollAncestor": true,
@@ -3180,8 +4504,8 @@
             },
             {
               "text": "Prepare deck",
-              "x": 178,
-              "y": 231,
+              "x": 352,
+              "y": 207,
               "width": 83,
               "height": 48,
               "scrollAncestor": true,
@@ -3189,8 +4513,8 @@
             },
             {
               "text": "Ready",
-              "x": 146,
-              "y": 340,
+              "x": 256,
+              "y": 356,
               "width": 240,
               "height": 48,
               "scrollAncestor": false,
@@ -3198,8 +4522,8 @@
             },
             {
               "text": "Cancel game",
-              "x": 402,
-              "y": 340,
+              "x": 512,
+              "y": 356,
               "width": 120,
               "height": 48,
               "scrollAncestor": false,
@@ -3207,8 +4531,8 @@
             },
             {
               "text": "close",
-              "x": 621,
-              "y": 123,
+              "x": 731,
+              "y": 119,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3216,8 +4540,8 @@
             },
             {
               "text": "Cancel game",
-              "x": 452,
-              "y": 289,
+              "x": 562,
+              "y": 285,
               "width": 205,
               "height": 48,
               "scrollAncestor": false,
@@ -3225,8 +4549,8 @@
             },
             {
               "text": "Keep game",
-              "x": 235,
-              "y": 289,
+              "x": 345,
+              "y": 285,
               "width": 207,
               "height": 48,
               "scrollAncestor": false,
@@ -3264,9 +4588,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 8,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3285,9 +4618,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 8,
-              "y": 20,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3341,9 +4683,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 28,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3352,7 +4703,7 @@
             {
               "text": "Review downloaded data",
               "x": 47,
-              "y": 510,
+              "y": 502,
               "width": 318,
               "height": 48,
               "scrollAncestor": false,
@@ -3361,7 +4712,7 @@
             {
               "text": "Back to games",
               "x": 47,
-              "y": 568,
+              "y": 560,
               "width": 318,
               "height": 48,
               "scrollAncestor": false,
@@ -3396,9 +4747,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 16,
-              "y": 24,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3407,7 +4767,7 @@
             {
               "text": "Review downloaded data",
               "x": 237,
-              "y": 276,
+              "y": 270,
               "width": 203,
               "height": 48,
               "scrollAncestor": false,
@@ -3416,7 +4776,7 @@
             {
               "text": "Back to games",
               "x": 452,
-              "y": 276,
+              "y": 270,
               "width": 203,
               "height": 48,
               "scrollAncestor": false,
@@ -3462,9 +4822,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 20,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3472,8 +4841,8 @@
             },
             {
               "text": "Main 1\nphase",
-              "x": 58,
-              "y": 20,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -3481,8 +4850,8 @@
             },
             {
               "text": "History",
-              "x": 283,
-              "y": 20,
+              "x": 281,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -3490,8 +4859,8 @@
             },
             {
               "text": "more_vert",
-              "x": 358,
-              "y": 20,
+              "x": 356,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3500,7 +4869,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 346,
+              "y": 342,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3509,7 +4878,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 346,
+              "y": 342,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3518,7 +4887,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 346,
+              "y": 342,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3527,7 +4896,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 401,
+              "y": 397,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3536,7 +4905,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 401,
+              "y": 397,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3545,7 +4914,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 401,
+              "y": 397,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3554,7 +4923,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 828,
+              "y": 840,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -3563,7 +4932,7 @@
             {
               "text": "Actions",
               "x": 174,
-              "y": 828,
+              "y": 840,
               "width": 72,
               "height": 48,
               "scrollAncestor": false,
@@ -3572,7 +4941,7 @@
             {
               "text": "Normal\nmode \u25be",
               "x": 336,
-              "y": 828,
+              "y": 840,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -3591,9 +4960,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 16,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3601,8 +4979,8 @@
             },
             {
               "text": "Main 1\nphase",
-              "x": 58,
-              "y": 16,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -3610,8 +4988,8 @@
             },
             {
               "text": "History",
-              "x": 763,
-              "y": 16,
+              "x": 761,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -3619,8 +4997,8 @@
             },
             {
               "text": "more_vert",
-              "x": 838,
-              "y": 16,
+              "x": 836,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3629,7 +5007,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3638,7 +5016,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3647,7 +5025,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3656,7 +5034,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3665,7 +5043,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3674,7 +5052,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3683,7 +5061,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 354,
+              "y": 362,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -3692,7 +5070,7 @@
             {
               "text": "Actions",
               "x": 414,
-              "y": 354,
+              "y": 362,
               "width": 72,
               "height": 48,
               "scrollAncestor": false,
@@ -3701,7 +5079,7 @@
             {
               "text": "Normal\nmode \u25be",
               "x": 816,
-              "y": 354,
+              "y": 362,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -3755,9 +5133,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 20,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3765,8 +5152,8 @@
             },
             {
               "text": "Declare atk\nphase",
-              "x": 58,
-              "y": 20,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -3774,8 +5161,8 @@
             },
             {
               "text": "History",
-              "x": 283,
-              "y": 20,
+              "x": 281,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -3783,8 +5170,8 @@
             },
             {
               "text": "more_vert",
-              "x": 358,
-              "y": 20,
+              "x": 356,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3793,7 +5180,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 288,
+              "y": 284,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3802,7 +5189,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 288,
+              "y": 284,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3811,7 +5198,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 288,
+              "y": 284,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3820,7 +5207,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 343,
+              "y": 339,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3829,7 +5216,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 343,
+              "y": 339,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3838,7 +5225,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 343,
+              "y": 339,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -3847,7 +5234,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 828,
+              "y": 840,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -3856,7 +5243,7 @@
             {
               "text": "Declare + tap",
               "x": 98,
-              "y": 828,
+              "y": 840,
               "width": 114,
               "height": 48,
               "scrollAncestor": false,
@@ -3865,7 +5252,7 @@
             {
               "text": "Without tap",
               "x": 218,
-              "y": 828,
+              "y": 840,
               "width": 103,
               "height": 48,
               "scrollAncestor": false,
@@ -3874,7 +5261,7 @@
             {
               "text": "Select \u00b7 2\nmode \u25be",
               "x": 336,
-              "y": 827,
+              "y": 839,
               "width": 66,
               "height": 50,
               "scrollAncestor": false,
@@ -3893,9 +5280,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 16,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3903,8 +5299,8 @@
             },
             {
               "text": "Declare atk\nphase",
-              "x": 58,
-              "y": 16,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -3912,8 +5308,8 @@
             },
             {
               "text": "History",
-              "x": 763,
-              "y": 16,
+              "x": 761,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -3921,8 +5317,8 @@
             },
             {
               "text": "more_vert",
-              "x": 838,
-              "y": 16,
+              "x": 836,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -3931,7 +5327,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3940,7 +5336,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3949,7 +5345,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3958,7 +5354,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3967,7 +5363,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3976,7 +5372,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -3985,7 +5381,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 354,
+              "y": 362,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -3994,7 +5390,7 @@
             {
               "text": "Declare + tap",
               "x": 338,
-              "y": 354,
+              "y": 362,
               "width": 114,
               "height": 48,
               "scrollAncestor": false,
@@ -4003,7 +5399,7 @@
             {
               "text": "Without tap",
               "x": 458,
-              "y": 354,
+              "y": 362,
               "width": 103,
               "height": 48,
               "scrollAncestor": false,
@@ -4012,7 +5408,7 @@
             {
               "text": "Select \u00b7 2\nmode \u25be",
               "x": 816,
-              "y": 353,
+              "y": 361,
               "width": 66,
               "height": 50,
               "scrollAncestor": false,
@@ -4066,9 +5462,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 20,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4076,8 +5481,8 @@
             },
             {
               "text": "more_vert",
-              "x": 358,
-              "y": 20,
+              "x": 170,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4086,7 +5491,7 @@
             {
               "text": "Continue playing from here",
               "x": 10,
-              "y": 702,
+              "y": 714,
               "width": 223,
               "height": 48,
               "scrollAncestor": false,
@@ -4095,7 +5500,7 @@
             {
               "text": "Back to live",
               "x": 295,
-              "y": 702,
+              "y": 714,
               "width": 107,
               "height": 48,
               "scrollAncestor": false,
@@ -4104,7 +5509,7 @@
             {
               "text": "Previous",
               "x": 10,
-              "y": 828,
+              "y": 840,
               "width": 86,
               "height": 48,
               "scrollAncestor": false,
@@ -4113,7 +5518,7 @@
             {
               "text": "Play",
               "x": 194,
-              "y": 828,
+              "y": 840,
               "width": 53,
               "height": 48,
               "scrollAncestor": false,
@@ -4122,7 +5527,7 @@
             {
               "text": "Next",
               "x": 346,
-              "y": 828,
+              "y": 840,
               "width": 56,
               "height": 48,
               "scrollAncestor": false,
@@ -4141,9 +5546,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 16,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4151,8 +5565,8 @@
             },
             {
               "text": "Back to live",
-              "x": 500,
-              "y": 16,
+              "x": 498,
+              "y": 0,
               "width": 107,
               "height": 48,
               "scrollAncestor": false,
@@ -4160,8 +5574,8 @@
             },
             {
               "text": "Continue playing from here",
-              "x": 611,
-              "y": 16,
+              "x": 609,
+              "y": 0,
               "width": 223,
               "height": 48,
               "scrollAncestor": false,
@@ -4169,8 +5583,8 @@
             },
             {
               "text": "more_vert",
-              "x": 838,
-              "y": 16,
+              "x": 836,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4179,7 +5593,7 @@
             {
               "text": "Previous",
               "x": 10,
-              "y": 354,
+              "y": 362,
               "width": 86,
               "height": 48,
               "scrollAncestor": false,
@@ -4188,7 +5602,7 @@
             {
               "text": "Play",
               "x": 434,
-              "y": 354,
+              "y": 362,
               "width": 53,
               "height": 48,
               "scrollAncestor": false,
@@ -4197,7 +5611,7 @@
             {
               "text": "Next",
               "x": 826,
-              "y": 354,
+              "y": 362,
               "width": 56,
               "height": 48,
               "scrollAncestor": false,
@@ -4251,9 +5665,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 20,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4261,8 +5684,8 @@
             },
             {
               "text": "more_vert",
-              "x": 358,
-              "y": 20,
+              "x": 170,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4271,7 +5694,7 @@
             {
               "text": "Continue playing from here",
               "x": 10,
-              "y": 702,
+              "y": 714,
               "width": 223,
               "height": 48,
               "scrollAncestor": false,
@@ -4280,7 +5703,7 @@
             {
               "text": "Back to live",
               "x": 295,
-              "y": 702,
+              "y": 714,
               "width": 107,
               "height": 48,
               "scrollAncestor": false,
@@ -4289,7 +5712,7 @@
             {
               "text": "Previous",
               "x": 10,
-              "y": 828,
+              "y": 840,
               "width": 86,
               "height": 48,
               "scrollAncestor": false,
@@ -4298,7 +5721,7 @@
             {
               "text": "Pause",
               "x": 188,
-              "y": 828,
+              "y": 840,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -4307,7 +5730,7 @@
             {
               "text": "Next",
               "x": 346,
-              "y": 828,
+              "y": 840,
               "width": 56,
               "height": 48,
               "scrollAncestor": false,
@@ -4326,9 +5749,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 16,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4336,8 +5768,8 @@
             },
             {
               "text": "Back to live",
-              "x": 500,
-              "y": 16,
+              "x": 498,
+              "y": 0,
               "width": 107,
               "height": 48,
               "scrollAncestor": false,
@@ -4345,8 +5777,8 @@
             },
             {
               "text": "Continue playing from here",
-              "x": 611,
-              "y": 16,
+              "x": 609,
+              "y": 0,
               "width": 223,
               "height": 48,
               "scrollAncestor": false,
@@ -4354,8 +5786,8 @@
             },
             {
               "text": "more_vert",
-              "x": 838,
-              "y": 16,
+              "x": 836,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4364,7 +5796,7 @@
             {
               "text": "Previous",
               "x": 10,
-              "y": 354,
+              "y": 362,
               "width": 86,
               "height": 48,
               "scrollAncestor": false,
@@ -4373,7 +5805,7 @@
             {
               "text": "Pause",
               "x": 428,
-              "y": 354,
+              "y": 362,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -4382,7 +5814,7 @@
             {
               "text": "Next",
               "x": 826,
-              "y": 354,
+              "y": 362,
               "width": 56,
               "height": 48,
               "scrollAncestor": false,
@@ -4436,9 +5868,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 20,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4446,8 +5887,8 @@
             },
             {
               "text": "Main 1\nphase",
-              "x": 58,
-              "y": 20,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -4455,8 +5896,8 @@
             },
             {
               "text": "History",
-              "x": 283,
-              "y": 20,
+              "x": 281,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -4464,8 +5905,8 @@
             },
             {
               "text": "more_vert",
-              "x": 358,
-              "y": 20,
+              "x": 356,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4474,7 +5915,7 @@
             {
               "text": "Cancel",
               "x": 211,
-              "y": 68,
+              "y": 48,
               "width": 69,
               "height": 48,
               "scrollAncestor": false,
@@ -4483,7 +5924,7 @@
             {
               "text": "Return to live",
               "x": 284,
-              "y": 68,
+              "y": 48,
               "width": 120,
               "height": 48,
               "scrollAncestor": false,
@@ -4492,7 +5933,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 370,
+              "y": 366,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4501,7 +5942,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 370,
+              "y": 366,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4510,7 +5951,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 370,
+              "y": 366,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4519,7 +5960,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 425,
+              "y": 421,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4528,7 +5969,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 425,
+              "y": 421,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4537,7 +5978,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 425,
+              "y": 421,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4546,7 +5987,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 828,
+              "y": 840,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -4555,7 +5996,7 @@
             {
               "text": "Actions at A",
               "x": 158,
-              "y": 828,
+              "y": 840,
               "width": 104,
               "height": 48,
               "scrollAncestor": false,
@@ -4564,7 +6005,7 @@
             {
               "text": "Normal\nmode \u25be",
               "x": 336,
-              "y": 828,
+              "y": 840,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -4583,9 +6024,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 16,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4593,8 +6043,8 @@
             },
             {
               "text": "Main 1\nphase",
-              "x": 58,
-              "y": 16,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -4602,8 +6052,8 @@
             },
             {
               "text": "History",
-              "x": 763,
-              "y": 16,
+              "x": 761,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -4611,8 +6061,8 @@
             },
             {
               "text": "more_vert",
-              "x": 838,
-              "y": 16,
+              "x": 836,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4621,7 +6071,7 @@
             {
               "text": "Cancel",
               "x": 458,
-              "y": 64,
+              "y": 48,
               "width": 69,
               "height": 48,
               "scrollAncestor": false,
@@ -4630,7 +6080,7 @@
             {
               "text": "Return to live",
               "x": 764,
-              "y": 64,
+              "y": 48,
               "width": 120,
               "height": 48,
               "scrollAncestor": false,
@@ -4639,7 +6089,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 163,
+              "y": 147,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4648,7 +6098,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 163,
+              "y": 147,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4657,7 +6107,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 163,
+              "y": 147,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4666,7 +6116,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4675,7 +6125,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4684,7 +6134,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4693,7 +6143,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 354,
+              "y": 362,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -4702,7 +6152,7 @@
             {
               "text": "Actions at A",
               "x": 398,
-              "y": 354,
+              "y": 362,
               "width": 104,
               "height": 48,
               "scrollAncestor": false,
@@ -4711,7 +6161,7 @@
             {
               "text": "Normal\nmode \u25be",
               "x": 816,
-              "y": 354,
+              "y": 362,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -4765,9 +6215,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 20,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4775,8 +6234,8 @@
             },
             {
               "text": "Main 1\nphase",
-              "x": 58,
-              "y": 20,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -4784,8 +6243,8 @@
             },
             {
               "text": "History",
-              "x": 283,
-              "y": 20,
+              "x": 281,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -4793,8 +6252,8 @@
             },
             {
               "text": "more_vert",
-              "x": 358,
-              "y": 20,
+              "x": 356,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4803,7 +6262,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 346,
+              "y": 342,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4812,7 +6271,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 346,
+              "y": 342,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4821,7 +6280,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 346,
+              "y": 342,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4830,7 +6289,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 401,
+              "y": 397,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4839,7 +6298,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 401,
+              "y": 397,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4848,7 +6307,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 401,
+              "y": 397,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4857,7 +6316,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 828,
+              "y": 840,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -4866,7 +6325,7 @@
             {
               "text": "Actions",
               "x": 174,
-              "y": 828,
+              "y": 840,
               "width": 72,
               "height": 48,
               "scrollAncestor": false,
@@ -4875,7 +6334,7 @@
             {
               "text": "Normal\nmode \u25be",
               "x": 336,
-              "y": 828,
+              "y": 840,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -4884,7 +6343,7 @@
             {
               "text": "redo\nRedo",
               "x": 163,
-              "y": 98,
+              "y": 78,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,
@@ -4893,7 +6352,7 @@
             {
               "text": "chat_bubble\nChat",
               "x": 163,
-              "y": 146,
+              "y": 126,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,
@@ -4902,7 +6361,7 @@
             {
               "text": "apps\nGame actions",
               "x": 163,
-              "y": 194,
+              "y": 174,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,
@@ -4911,7 +6370,7 @@
             {
               "text": "close\nClose menu",
               "x": 163,
-              "y": 242,
+              "y": 222,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,
@@ -4930,9 +6389,18 @@
           ],
           "controls": [
             {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "arrow_back",
-              "x": 6,
-              "y": 16,
+              "x": 56,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4940,8 +6408,8 @@
             },
             {
               "text": "Main 1\nphase",
-              "x": 58,
-              "y": 16,
+              "x": 108,
+              "y": 0,
               "width": 58,
               "height": 48,
               "scrollAncestor": false,
@@ -4949,8 +6417,8 @@
             },
             {
               "text": "History",
-              "x": 763,
-              "y": 16,
+              "x": 761,
+              "y": 0,
               "width": 71,
               "height": 48,
               "scrollAncestor": false,
@@ -4958,8 +6426,8 @@
             },
             {
               "text": "more_vert",
-              "x": 838,
-              "y": 16,
+              "x": 836,
+              "y": 0,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4968,7 +6436,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4977,7 +6445,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4986,7 +6454,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 115,
+              "y": 99,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -4995,7 +6463,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5004,7 +6472,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5013,7 +6481,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 245,
+              "y": 253,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5022,7 +6490,7 @@
             {
               "text": "Undo\nhold: Redo",
               "x": 10,
-              "y": 354,
+              "y": 362,
               "width": 73,
               "height": 48,
               "scrollAncestor": false,
@@ -5031,7 +6499,7 @@
             {
               "text": "Actions",
               "x": 414,
-              "y": 354,
+              "y": 362,
               "width": 72,
               "height": 48,
               "scrollAncestor": false,
@@ -5040,7 +6508,7 @@
             {
               "text": "Normal\nmode \u25be",
               "x": 816,
-              "y": 354,
+              "y": 362,
               "width": 66,
               "height": 48,
               "scrollAncestor": false,
@@ -5049,7 +6517,7 @@
             {
               "text": "redo\nRedo",
               "x": 643,
-              "y": 94,
+              "y": 78,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,
@@ -5058,7 +6526,7 @@
             {
               "text": "chat_bubble\nChat",
               "x": 643,
-              "y": 142,
+              "y": 126,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,
@@ -5067,7 +6535,7 @@
             {
               "text": "apps\nGame actions",
               "x": 643,
-              "y": 190,
+              "y": 174,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,
@@ -5076,7 +6544,7 @@
             {
               "text": "close\nClose menu",
               "x": 643,
-              "y": 238,
+              "y": 222,
               "width": 234,
               "height": 48,
               "scrollAncestor": false,

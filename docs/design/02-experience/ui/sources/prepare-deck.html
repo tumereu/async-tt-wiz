@@ -364,8 +364,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
   .status-bar { display:flex; }
   .top-bar { height:56px; min-height:56px; }
 }
-</style></head>
-<body inert="">
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="review-authenticated" inert="">
+  <button class="review-hamburger" aria-label="Open navigation">☰</button>
+  <aside class="review-navigation" aria-label="App navigation">
+    <div class="navigation-scroll">
+      <button class="navigation-category">Menu</button>
+      <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
+      <button class="navigation-category">Games</button>
+      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">With riley<small>Preparing</small></button>
+    </div><div class="navigation-footer"><button>Logout</button></div>
+  </aside>
   <div class="app-shell">
 
     <!-- Android Minimal Status Area (24px) -->

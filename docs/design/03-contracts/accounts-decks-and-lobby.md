@@ -1,16 +1,31 @@
 # Accounts, decks, and game lobby
 
-## Confirmed entry and navigation — D-188
+## Confirmed entry and navigation — D-188 / D-292
 
 - Users must log in before reaching the main menu. Registration is available;
   guest entry to the main menu is not part of this flow.
-- The main menu provides **Logout**, **Manage decks**, and **Play**.
+- App name: **Async Tabletop Wizards**. Subtitle: **Specialized tabletop simulator
+  for asynchronous wizardry** (D-292).
+- The main menu provides **Games**, **Manage decks** and **Contacts**, without
+  explanatory destination subtitles, a notification-settings shortcut or direct
+  Logout. **Games** is the current label for the earlier **Play** destination.
+- Post-login hamburger navigation has two clickable top-level categories:
+  **Menu** opens the main menu, with indented **Manage decks** and **Contacts**;
+  **Games** opens the games browser, with each current game indented beneath it.
+  Contextual screens such as import/preparation are not global menu destinations.
+  Logout is pinned to the navigation's bottom, outside its scrolling list.
+  Landscape non-gameplay screens always show this navigation; gameplay in either
+  orientation and portrait non-gameplay use the hamburger drawer. Necessary Back,
+  hamburger and gameplay controls remain available without dedicated title bars.
 - Users can **search by username and save users as contacts**, without a separate
-  friend request or mutual approval (D-196). A separate **Friends** menu/feature
-  name is tentative. Contact removal and exact search behavior remain open.
-- **Play** shows current games, including pending invitations. Basic invitation
-  behavior and cancellation authority are confirmed below; remaining lifecycle
-  details and completed-game handling are open.
+  friend request or mutual approval (D-196). D-292 selects **Contacts** as the
+  destination name. Contact removal and exact search behavior remain separate.
+- The **Games** browser combines in-play games and setup/lobby states into one
+  Games list, followed by Invitations, in that order in both orientations.
+  A lobby is a game's setup state, not a separate structural category or identity.
+  Opening a row uses its current lifecycle state; invitation acceptance still
+  enters the exact existing lobby under the rules below. D-292 changes presentation,
+  not invitation/Ready/reinvite/cancellation behavior or archive scope.
 
 Registration/login/recovery and session continuity are confirmed below. These
 do not revoke D-182's downloaded read-only offline access; exact interaction

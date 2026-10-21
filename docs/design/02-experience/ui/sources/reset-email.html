@@ -355,7 +355,7 @@ button, a[href], [role="button"] { min-width:48px !important; min-height:48px !i
 a[href] { display:inline-flex; align-items:center; justify-content:center; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
 /* Sources are inert visual mockups, not a functional application. */
-</style></head>
+</style><link rel="stylesheet" href="owner-review.css"></head>
 <body inert="">
   <div class="app-shell">
     <!-- Minimal Android Status Area (24px) -->
@@ -388,7 +388,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         <!-- Left contextual column in landscape; top in portrait -->
         <section class="context-panel">
           <h1 class="page-title">Reset password</h1>
-          <p class="page-desc">Enter your account email to receive a recovery link. Verify your inbox and spam folder.</p>
         </section>
 
         <!-- Right form card in landscape; centered in portrait -->
@@ -411,9 +410,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
           </div>
 
           <!-- Explanatory line -->
-          <p class="session-notice">
-            Existing sessions stay signed in until the password is changed.
-          </p>
 
           <!-- Secondary Action -->
           <div class="actions-footer">

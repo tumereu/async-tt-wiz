@@ -462,8 +462,18 @@ button, a[href], [role="button"] { min-width:48px !important; min-height:48px !i
 a[href] { display:inline-flex; align-items:center; justify-content:center; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
 /* Sources are inert visual mockups, not a functional application. */
-</style></head>
-<body inert="">
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="review-authenticated" inert="">
+  <button class="review-hamburger" aria-label="Open navigation">☰</button>
+  <aside class="review-navigation" aria-label="App navigation">
+    <div class="navigation-scroll">
+      <button class="navigation-category">Menu</button>
+      <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
+      <button class="navigation-category">Games</button>
+      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">With riley<small>Waiting for acceptance</small></button>
+    </div><div class="navigation-footer"><button>Logout</button></div>
+  </aside>
 
   <!-- Android Minimal Status Bar (24px) -->
   <div class="status-bar">

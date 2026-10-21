@@ -444,8 +444,18 @@ button, a[href], [role="button"] { min-width:48px !important; min-height:48px !i
 a[href] { display:inline-flex; align-items:center; justify-content:center; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
 /* Sources are inert visual mockups, not a functional application. */
-</style></head>
-<body inert="">
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="review-authenticated review-games" inert="">
+  <button class="review-hamburger" aria-label="Open navigation">☰</button>
+  <aside class="review-navigation" aria-label="App navigation">
+    <div class="navigation-scroll">
+      <button class="navigation-category">Menu</button>
+      <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
+      <button class="navigation-category">Games</button>
+      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">With sam<small>Invitation declined</small></button>
+    </div><div class="navigation-footer"><button>Logout</button></div>
+  </aside>
 
   <!-- Minimal Android Status Area (24px) -->
   <header class="status-bar" aria-label="Status bar">
@@ -473,37 +483,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
   <!-- App Main Content Area -->
   <main class="app-content">
 
-    <!-- Column 1: Invitations (In Landscape: Left Column) -->
-    <section class="content-column" aria-label="Invitations column">
-      <div class="section-card">
-        <div class="section-header">
-          <h2 class="section-title">Invitations</h2>
-          <span class="section-count">1 pending</span>
-        </div>
-        <div class="list-group">
-          <!-- Row: From riley with Accept and Decline text buttons, no expiry -->
-          <article class="item-row">
-            <div class="item-info">
-              <span class="item-primary">From riley</span>
-              <span class="item-secondary">Match invitation</span>
-            </div>
-            <div class="item-actions">
-              <button class="btn-contained-teal">Accept</button>
-              <button class="btn-text-danger">Decline</button>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
     <!-- Column 2: Current games and Lobbies (In Landscape: Right Column) -->
     <section class="content-column" aria-label="Current games and lobbies column">
 
       <!-- Current games section -->
       <div class="section-card">
         <div class="section-header">
-          <h2 class="section-title">Current games</h2>
-          <span class="section-count">1 active</span>
+          <h2 class="section-title">Games</h2>
+          <span class="section-count">2</span>
         </div>
         <div class="list-group">
           <!-- Row: Game with morgan, Active game, Open text button, no score or presence -->
@@ -516,17 +503,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
               <button class="btn-text">Open</button>
             </div>
           </article>
-        </div>
-      </div>
-
-      <!-- Lobbies section -->
-      <div class="section-card">
-        <div class="section-header">
-          <h2 class="section-title">Lobbies</h2>
-          <span class="section-count">1 setup</span>
-        </div>
-        <div class="list-group">
-          <!-- Row: With sam, Invitation declined, Reinvite text button and Open lobby action -->
           <article class="item-row">
             <div class="item-info">
               <span class="item-primary">With sam</span>
@@ -534,7 +510,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
             </div>
             <div class="item-actions">
               <button class="btn-text">Reinvite</button>
-              <button class="btn-text">Open lobby</button>
+              <button class="btn-text">Open</button>
             </div>
           </article>
         </div>
@@ -542,6 +518,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
 
     </section>
 
+    <section class="content-column" aria-label="Invitations">
+      <div class="section-card">
+        <div class="section-header"><h2 class="section-title">Invitations</h2><span class="section-count">1 pending</span></div>
+        <article class="item-row">
+          <div class="item-info"><span class="item-primary">From riley</span></div>
+          <div class="item-actions"><button class="btn-contained-teal">Accept</button><button class="btn-text-danger">Decline</button></div>
+        </article>
+      </div>
+    </section>
   </main>
 
   <!-- Bottom Safe Inset (16px) -->

@@ -97,8 +97,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
   .primary-btn { margin-top:0; }
   .secondary-links { margin-top:4px; padding-top:4px; }
 }
-</style></head>
-<body inert="">
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="review-login" inert="">
   <div class="app-shell">
     <!-- Android Status Area (24px) -->
     <div class="status-bar" aria-hidden="true">
@@ -120,13 +120,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
     <main class="content-viewport">
       <div class="screen-layout">
         <!-- Intro & App Info Panel (Left on Landscape, Top on Portrait) -->
-        <section class="intro-panel" aria-labelledby="app-brand-title">
-          <h2 id="app-brand-title" class="app-heading">Async Table</h2>
-          <p class="app-subheading">Cooperative asynchronous tabletop for two players.</p>
-        </section>
-
         <!-- Sign-in Form Panel (Right on Landscape, Centered on Portrait) -->
         <section class="form-panel" aria-labelledby="form-heading">
+          <section class="intro-panel" aria-labelledby="app-brand-title">
+            <h1 id="app-brand-title" class="app-heading">Async Tabletop Wizards</h1>
+            <p class="app-subheading">Specialized tabletop simulator for asynchronous wizardry</p>
+          </section>
           <h2 id="form-heading" class="form-title">Sign in</h2>
 
           <form novalidate="">

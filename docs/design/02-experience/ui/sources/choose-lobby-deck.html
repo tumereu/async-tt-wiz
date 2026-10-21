@@ -365,8 +365,18 @@ button, a[href], [role="button"] { min-width:48px !important; min-height:48px !i
 a[href] { display:inline-flex; align-items:center; justify-content:center; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
 /* Sources are inert visual mockups, not a functional application. */
-</style></head>
-<body inert="">
+</style><link rel="stylesheet" href="owner-review.css"></head>
+<body class="review-authenticated" inert="">
+  <button class="review-hamburger" aria-label="Open navigation">☰</button>
+  <aside class="review-navigation" aria-label="App navigation">
+    <div class="navigation-scroll">
+      <button class="navigation-category">Menu</button>
+      <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
+      <button class="navigation-category">Games</button>
+      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">With riley<small>Preparing</small></button>
+    </div><div class="navigation-footer"><button>Logout</button></div>
+  </aside>
   <div class="app-viewport">
     <!-- Android Minimal Status Area (24px) -->
     <header class="status-bar" aria-label="System status">
@@ -392,19 +402,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
     <!-- Main Content Area -->
     <main class="content-area">
       <div class="landscape-panels-wrapper">
-        <!-- Left Panel / Guidance Card in Landscape, Top Card in Portrait -->
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <section class="info-card" aria-label="Deck selection behavior">
-            <span class="info-card-header">Game-local copy</span>
-            <p class="helper-text">
-              Selecting makes a copy for this game. Saved decks stay unchanged.
-            </p>
-            <p class="sub-notice">
-              Choice returns immediately to lobby and clears your Ready status.
-            </p>
-          </section>
-        </div>
-
         <!-- Right Panel in Landscape / Follow-on Content in Portrait -->
         <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
           <header class="section-header">

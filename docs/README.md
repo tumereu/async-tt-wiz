@@ -22,6 +22,9 @@ The owner has authorized a limited **[UI review packet](design/02-experience/ui/
 using Stitch, with portrait and landscape mockups, interaction notes and compiled
 HTML/PDF review editions: the original non-gameplay pilot (D-290) and the
 [gameplay-screen extension](design/02-experience/gameplay-screen-proposal.md) (D-291).
+The [cumulative UI feedback record](design/02-experience/ui/feedback.md) preserves
+D-292's confirmed fullscreen, branding, same-card sign-in and navigation revisions
+and the required same-URL full HTML publication workflow for later rounds.
 This authorizes these design artifacts, not application implementation, a passed
 review/UI gate or approval of the proposed layouts.
 

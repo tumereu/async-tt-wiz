@@ -78,7 +78,11 @@ share one cooperative writer lock. This is not a lock on arbitrary human editors
    explicit dependencies/independent lanes around blockers; otherwise keep task/
    batch order. A scoped review stays valid across unrelated/report-only commits.
    A new agent confirms the hint against the actual contracts/records and explains
-   the choice, rather than trusting stale conversational memory.
+    the choice, rather than trusting stale conversational memory.
+   Explicit independent children and completed independent groups are included;
+   inherited ancestor prerequisites still apply. A globally blocked selection may
+   save planning-only evidence that makes a safe lane/review scope runnable, then
+   exit before the new work starts in a fresh unit.
 3. Create a fresh OpenCode session using the documented API and exact high model.
    Do **not** resume an old implementation conversation or fork its reasoning.
    Pass only this new session ID to the headless CLI. Supply the bounded unit,
@@ -109,6 +113,36 @@ approved independent task runnable. A global blocker or unmet release criterion
 stops distinctly from completion. Already completed/pushed state is reported
 without spending another model session.
 
+### Group review coverage and bounded continuation
+
+Every group retains its full `review.units` scope. Before checking an oversized
+pending unit, a planning-only review session may split it into children, preserving
+the original scope/ID. Fresh sessions add checked leaf IDs to `review.completed`
+with each actual starting code commit. Unchecked or evidenced-blocked scopes stay
+in the record. The driver rejects removed/narrowed obligations, unreported coverage
+changes and completion with missing review. A last-task critical finding's targeted
+fix/verification therefore cannot replace the first independent group review.
+Ordinary verified fixes do not restart unaffected group coverage. Material changes
+use explicit scoped invalidation/reopening; unavailable review scopes can later be
+unblocked with retained availability evidence. See the
+[unit schema](implementation-agent.md#bounded-group-review-checkpoints).
+
+Implementation likewise needs a completed outcome, evidenced blocker or a genuine
+planning-only split. Metadata-only changes to an in-progress task are rejected.
+Budget exhaustion remains a pause, not completion; review checkpoints add real
+sessions to the budget instead of assuming every group fits one invocation.
+
+### Release-gate authority
+
+The gate array is required and its IDs/order/authority are retained. Operator-owned
+rights/signing/distribution/operator-readiness gates change only outside active
+units with their authority record. The recorded task-owned reference measurement
+gate may pass only in I33's completed parent unit with a `gateUpdates` entry,
+retained passing required-check output and that run's report path as `record`.
+Child evidence does not waive the parent's full qualification. Agent `not-applicable`
+waivers, silent changes, omissions/removals and wrong-task passes are rejected.
+Resolved operator gates likewise need a retained authority/evidence `record`.
+
 ## Permissions and scope
 
 [implementation-permissions.json](implementation-permissions.json) is the explicit
@@ -124,6 +158,17 @@ needs and explicitly approve necessary changes. A denied legitimate command is a
 blocker to resolve, not permission for the agent to expand its own grants. The
 profile/driver/prompt and state runner/authorization controls are checked for
 changes after each unit; update these outside an active unit after review.
+
+For review/verify, the driver appends a direct-edit deny-all with narrower allows
+for state, **current-run** report/check outputs and `runner.reviewTestPaths` only.
+Blocked/final-report roles allow no test edits. The actual committed diff is checked
+as well: runtime source/resources, build inputs and unrelated/old report output
+cannot be repaired or relabeled as check evidence in a verifier/reviewer. Test-only
+roots cover the proposed conventional Kotlin/JVM/Android test layouts and must be
+qualified against the actual I01 modules; do not import test code as runtime behavior
+or widen the record inside a unit. A failed verification reopens the issue for a
+fresh fix, rather than changing runtime code and certifying that repair itself.
+These extra restrictions do not change global configuration or expand tool grants.
 
 **This is not an OS sandbox.** Allowed Python/Gradle/repository scripts execute
 with the host user's authority; shell directory inference is best effort. The
@@ -153,6 +198,12 @@ The driver writes private journals under `<git-common-dir>/implementation-loop/`
 No attempt to embed a commit's own hash in that commit is made. Reports reference
 the starting/reviewed code commit; the private journal records resulting commits.
 Failed/interrupted records and dirty work remain available—never silently reset.
+Legacy active states that say `reviewed` without the new independent coverage
+record are rejected. Migrate them only from actual retained group-review reports
+and inspected code anchors, outside an active unit; never infer review completion
+from a fixer/verification result or clear history to make validation pass. The
+real application state was still draft, so its new empty coverage records require
+no completed-work migration.
 
 After inspecting the logs, stopping any still-active recorded session and repairing
 the underlying issue **with applicable checks passing**, acknowledge the halt:
@@ -194,8 +245,34 @@ real Git commit/push boundaries, failed saves, timeout interruption dispatch,
 stop/lock/recovery and preservation of unrelated dirty/staged work. They do not
 touch the real branch or launch a fake application in place of product E2E.
 
+### Current follow-up repair qualification — 2026-10-21
+
+IR-08–IR-13 from the [follow-up review](implementation-loop-followup-review-2026-10-21.md)
+are repaired. **74 automated tests pass**, retaining the earlier 48 and adding 26
+regressions for first-review provenance, verifier/reviewer source/build boundaries,
+scoped edit permissions, gate inventory/authority/evidence, independent descendants/
+reviews/blocked planning, meaningful implementation progress and bounded review
+split/checkpoint/fix/invalidation/unblock paths. Six focused probes were red before
+the driver repair; the full expanded suite is green afterward.
+
+Driver SHA-256:
+`d51ee004fc88bc6603b5dc643231aae2c14b2a3612a2c27c00a9827870c2c460`.
+Unit-prompt SHA-256:
+`413e501ebc4663b68c437311b70b13460300b4cb7b8aff85274d563b28d7f6ef`.
+Deterministic repair logs: `/tmp/opencode/atw-followup-repair-red.log` and
+`/tmp/opencode/atw-followup-repair-check.log`; the checked-in qualification script
+is the stable executable regression source. The project guard still refuses
+**Implementation is not authorized**, and `status` shows I01/no retained run with
+draft authorization intact. No application code/scaffolding, paid infrastructure,
+global configuration change or release-gate waiver was introduced.
+
+The current live fresh-session qualification and retained evidence are recorded
+below when that bounded isolated cycle finishes; the historical six-session run
+is not evidence for the revised checkpoint/role protocol.
+
 ### Current review-repair qualification — 2026-10-21
 
+**Historical IR-01–IR-07 repair batch; the follow-up qualification above is current.**
 The owner requested the [readiness review's](implementation-loop-review-2026-10-21.md)
 recommended repairs. IR-01–IR-05 now have focused regression coverage and IR-06/
 IR-07 are clarified/assigned in the task plan. **48 automated tests pass**, retaining
@@ -211,7 +288,7 @@ expanded suite was run green afterward. Actual-project `status` still reports
 still refuses **Implementation is not authorized**, without launching a session.
 Python syntax, documentation links and whitespace are checked separately.
 
-Current driver SHA-256:
+Driver SHA-256 at that repair:
 `f6734bc4570aa59c2e4c5ac05a9d9b80f552b8dfb2b17c1db6a5597e4e1530e7`.
 Repair logs: `/tmp/opencode/atw-loop-repair-red.log`,
 `/tmp/opencode/atw-loop-repair-check.log` and

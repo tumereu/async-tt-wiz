@@ -70,8 +70,9 @@ defer all verification to reviewers or mark unexecuted checks passing.
 
 ### Review a group
 
-Use a fresh review session after a coherent B1–B8 group, not after each file/task/
-commit or arbitrary count of commits. The reviewer may run tests, inspect code,
+Use fresh review sessions after a coherent B1–B8 group, not after each file/task/
+commit or arbitrary count of commits. A group may have bounded review checkpoints
+with retained scope/commit anchors; it need not fit one invocation. The reviewer may run tests, inspect code,
 exercise UI and add focused regression evidence. Do not let the same session
 implement the batch and then declare its own independent review complete.
 
@@ -96,7 +97,8 @@ contrary to current requirements. Do not require reproduction of every theoretic
 interleaving or add protocol guarantees merely because they could be imagined.
 
 **Do not file blockers for:** arbitrary style/naming preferences, speculative
-abstractions, decorative mockup differences, enterprise availability guarantees,
+abstractions or new decorative preferences (distinct from D-303's explicit final
+interface-to-mock discrepancies), enterprise availability guarantees,
 competitive anti-cheat/secrecy, or contrived message/reset combinations already
 allowed by D-289. Example: an authorized message finishing after successful reset
 is allowed; a new request using a revoked credential, a cross-account disclosure
@@ -107,6 +109,21 @@ Disposition is `actionable`, `nonblocking-polish`, `not-a-defect`, `duplicate`, 
 real user benefit; it is not a compulsory new backlog or permission to leave an
 approved functional requirement broken. No review quota/minimum finding count.
 A clean review may close the batch without inventing another round of questions.
+
+Each batch's `review.units` retains the complete capability obligation. A review
+planning unit may split a pending obligation into bounded children without removing
+or narrowing its original scope. Subsequent fresh review units add checked leaf IDs
+to `review.completed`, anchored individually to the actual starting commit, and
+retain the remaining scopes. This is one coherent group review across fresh units,
+not independent review after every implementation child. Checks/findings stay in
+the corresponding reports. Blocked review scopes retain evidence separately; they
+are not completion, and other ready review scopes/independent batches may continue.
+
+Only complete independent coverage can close the group. An implementation-time
+critical finding and its targeted fix/verification **never replace the first group
+review**, even if all implementation tasks are now done. A material behavior change
+records explicit affected-scope invalidation/rechecks; report-only/unrelated commits
+do not erase completed coverage. See the [unit record schema](implementation-agent.md#bounded-group-review-checkpoints).
 
 The final B8 review additionally performs the task plan's
 [complete interface-to-mock comparison](implementation-plan.md#final-interface-to-mock-review--required-b8-completion-gate):
@@ -123,8 +140,13 @@ not silently `verified`. A subsequent fresh verification session checks that
 bounded finding set and affected behavior, then closes it or records remaining
 evidence. It does **not** restart a full unconstrained audit after every fix.
 
-A review session normally commits its report/findings, not product fixes mixed
-into the same review. A fix can be combined with closely related fixes in one run.
+A review/verification session must not change product source, runtime resources or
+build/configuration inputs and certify that change itself. Its edit permissions
+are narrowed to state/current report outputs and approved test-only paths, and its
+actual committed diff is checked. Failed fixes return to a fixing unit; focused
+regression tests may be added without product repairs. Shell/script execution is
+not an OS sandbox and must not bypass this boundary.
+A fix can be combined with closely related fixes in one run.
 Preserve rejected/withdrawn/duplicate findings and their sources so later sessions
 do not resurrect them. Reopen only on new evidence or a relevant behavior change.
 No arbitrary number of rounds can waive a real defect; repeated no-progress
@@ -162,8 +184,13 @@ lane/blocker bookkeeping and material review/finding reopenings use the explicit
 explained arrays in [the unit report contract](implementation-agent.md), never
 unreported advancement of unrelated tasks or reviews. A critical finding discovered
 inside an implementation unit is explicitly reported and prioritized normally.
-An early critical fix's clean verification returns an incomplete batch to pending,
-not prematurely reviewed. Final clean review/verification anchors the starting code
+An early critical fix's clean verification returns an incomplete batch to pending;
+a complete batch with missing review coverage becomes ready-for-review, not reviewed.
+Each implementation boundary needs a completed outcome, evidenced blocker or real
+planning-only child split; changing notes on an in-progress task is not progress.
+A blocked selection may save explained planning/unblocking that makes independent
+approved work runnable, but must exit before that work starts in a fresh unit.
+Final clean review/verification anchors the starting code
 commit that the fresh reviewer/verifier actually inspected.
 
 The report/state changes are saved with the unit. A commit cannot truthfully
@@ -175,6 +202,12 @@ contains that commit. A final assistant sentence/zero process exit alone is not
 evidence of completion or a successful push.
 Every report/check-output reference must exist byte-for-byte in that commit;
 local ignored build output is not a durable check record.
+Review/verification/planning check outputs belong to that run's report prefix;
+runtime files or older reports cannot masquerade as newly owned check output.
+The required external release-gate inventory is retained: operator gates cannot
+be waived by an active agent. Only an explicitly task-owned gate may be passed by
+its exact completed owning task with retained passing evidence and a gate-update
+report. Every resolved gate retains its authority/evidence record.
 
 ## Runner lifecycle and stop rules
 

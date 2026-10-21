@@ -16,19 +16,24 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current preparation — D-300–D-302
 
-**Latest follow-up readiness review, not repairs:**
-[IR-08–IR-13](implementation-loop-followup-review-2026-10-21.md) identify additional
-group-review/verification/gate boundaries and independent-work/progress/bounded-review
-risks. The existing 48 tests still pass; eight additional diagnostic probes retain
-the new counterexamples. No driver repair, permission change, application work or
-activation was performed. IR-01–IR-07 below remain corrected, not reopened. Address
-the new findings and actual activation/resource preflight before an unattended R1 run.
+**Latest owner-requested follow-up repairs:**
+[IR-08–IR-13](implementation-loop-followup-review-2026-10-21.md) are corrected with
+**74 passing deterministic runner tests**: first group-review coverage cannot be
+replaced by targeted verification; reviewer/verifier runtime/build changes are
+rejected; gate inventory/authority is retained; safe independent children/reviews
+and blocked planning work; note churn is rejected; group reviews can be split and
+checkpointed with exact code anchors and remaining/blocked scopes retained.
+The state adds inactive review accounting/test-only boundaries/gate authority;
+every application task stays pending and draft/not-authorized. See
+[current qualification](implementation-runner.md#current-follow-up-repair-qualification--2026-10-21)
+for actual live-cycle evidence/limits. Actual build/device permissions, hardware,
+external release prerequisites and explicit owner activation remain separate.
 Owner follow-up D-303 adds a required final B8 interface-to-mock comparison: I36 prepares
 the complete current-state/orientation inventory, the independent reviewer compares
 all interfaces, and fresh fix/verify units correct and recheck discrepancies before
 closure. This supplements I32, not another implementation task or activation.
 
-**Latest owner-requested readiness repairs:**
+**Earlier owner-requested readiness repairs:**
 [IR-01–IR-07](implementation-loop-review-2026-10-21.md) are corrected. **48 automated
 runner tests pass**: bounded subsets no longer charge untouched findings; counters
 survive failed verification; role/target transitions prevent self-verification and

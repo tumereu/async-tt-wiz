@@ -28,7 +28,9 @@ support continuity and traceability; they are not another competing specificatio
 - [Follow-up loop-readiness review](implementation-loop-followup-review-2026-10-21.md):
   IR-08–IR-13 cover missing first group reviews, verifier code repairs, mutable
   release gates, independent-lane scheduling, metadata churn and bounded review;
-  diagnostic probes retained, repairs not applied and application still inactive.
+  original diagnostic probes retained, owner-requested repairs applied with 74
+  passing deterministic tests; application still inactive. Current qualification
+  and the bounded live cycle are recorded in driver operations.
 - [Local E2E environment qualification](e2e-environment-smoke-2026-10-21.md): measured
   Kotlin/JUnit/Appium/Windows-emulator/Docker smoke results, retained evidence and
   limitations; not product acceptance or implementation authorization.

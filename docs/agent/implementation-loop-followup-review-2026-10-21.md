@@ -1,6 +1,41 @@
 # Follow-up adversarial loop-readiness review — 2026-10-21
 
-## Verdict and scope
+## Owner-requested repair disposition — 2026-10-21
+
+The owner requested the repairs. **IR-08–IR-13 are corrected in the driver,
+protocol, plan and regression suite.** The current deterministic suite has **74
+passing tests** (the earlier 48 retained plus 26 additions). A fresh live-session
+qualification of this revised protocol is recorded in
+[driver operations](implementation-runner.md#current-follow-up-repair-qualification--2026-10-21).
+The original findings below remain pre-repair provenance, not claims that those
+same defects remain. Tooling repairs do not authorize or activate application work.
+
+| Finding | Repair and regression evidence |
+| --- | --- |
+| IR-08 | Independent group-review coverage is separate from findings. A last-task discovery now executes implement → fix → verify → first review, never verify → complete without review. |
+| IR-09 | Review/verify direct-edit permissions are narrowed, and actual committed paths are checked against current outputs/state/approved test-only roots. Runtime/build repairs are rejected; adding a focused test remains supported. |
+| IR-10 | Require and preserve the release-gate inventory. Operator gates cannot change inside a unit; an explicitly task-owned gate requires its exact completed owner task, reported transition, committed passing check output and authority record. No agent waiver. |
+| IR-11 | Ready independent children retain inherited prerequisites; completed independent capabilities get due review. A blocked planning unit can save an evidenced runnable lane/unblock and exit before fresh work starts. |
+| IR-12 | Implementation boundaries require a completed outcome, evidenced blocker or real planning-only split with concrete child outcomes/checks/dependencies. In-progress note churn and code mixed into planning are rejected. |
+| IR-13 | Retain original group obligations and split pending review scopes in a planning-only unit; fresh sessions check bounded leaves with actual code anchors. Preserve remaining/blocked scopes and allow explicit scoped invalidation/unblocking. Full group coverage and finding fix/verification still precede closure, including D-303's final mock comparison. |
+
+Six focused regressions were run red before driver repairs (three wrongly accepted
+handoffs and three refusals of the required valid continuation); the complete
+expanded suite passes afterward. Additional positive/negative cases cover all
+eight original diagnostic observations, actual source/build changes, test-only
+edits, gate authority, review checkpoint/split/narrowing/omission, fixes during a
+partial review, evidence-backed scope blockers and inherited child prerequisites.
+The [original diagnostic source](review-evidence/implementation-loop-followup-2026-10-21.py)
+is retained as historical reproduction material; repaired guards can now stop it
+at the first rejected handoff. Use the qualification suite for current regressions.
+
+All application tasks remain pending, authorization remains `not-authorized` and
+mode remains `draft`. The state adds inactive review-scope accounting, review
+test-only paths and explicit gate authority; no gate was passed or waived. Actual
+build/device-permission qualification, resource availability and external release
+prerequisites remain separate activation work, not silently completed by these fixes.
+
+## Original verdict and scope — before repairs
 
 **Not ready for an unattended whole-R1 run yet.** The B1–B8 delivery order is a
 reasonable foundation, and the earlier IR-01–IR-07 repairs remain in place. This

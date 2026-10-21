@@ -63,6 +63,16 @@ do not add reviews after each child. Splitting is technical planning, not a requ
 for routine owner approval or permission to broaden scope. Do not call a whole
 multi-session feature complete because one internal layer was committed.
 
+Independent group reviews can likewise span bounded fresh units. Their state
+records retain the full original capability obligation, any planning-only review
+splits, completed leaf scopes with exact reviewed code commits, remaining scopes
+and evidenced blockers. A targeted fix/verification cannot replace missing first
+group review. Keep group boundaries; do not add independent review after each
+implementation child. See the [bounded review schema](implementation-agent.md#bounded-group-review-checkpoints).
+Implementation boundaries must complete an outcome, record an evidenced blocker or
+perform a planning-only split with concrete child `outcome`, `checks` and explicit
+`dependsOn`; repeated `in-progress` metadata updates are not saved work units.
+
 Each task starts by recording its exact P-/T-/F-IDs, contract sections and checks.
 The seeds below aid selection, not an exhaustive substitute for the primary
 contracts. I01 establishes complete coverage accounting for **P-001–P-072,
@@ -81,7 +91,7 @@ real containerized backend for ordinary account entry/navigation/recovery.
 
 | Task | Implementation and completion outcome |
 | --- | --- |
-| I01 | Establish reproducible Gradle modules, version locks and JVM21/API29→SDK36 clean builds; shared semantic/protocol boundaries, Spring image/config/health and PostgreSQL/Flyway/jOOQ generation; minimal SQLDelight storage/migration path. Add task-to-requirement/test coverage ledger and stable synthetic datasets/art. Provide exact build/unit/integration/E2E commands, isolated Compose and Testcontainers ownership, the measured WSL/Windows device adapter, readiness/reset/evidence/cleanup. No production orchestration or alternate test app. |
+| I01 | Establish reproducible Gradle modules, version locks and JVM21/API29→SDK36 clean builds; shared semantic/protocol boundaries, Spring image/config/health and PostgreSQL/Flyway/jOOQ generation; minimal SQLDelight storage/migration path. Add task-to-requirement/test coverage ledger and stable synthetic datasets/art. Provide exact build/unit/integration/E2E commands, isolated Compose and Testcontainers ownership, the measured WSL/Windows device adapter, readiness/reset/evidence/cleanup. Use/qualify the configured test-only review paths for the actual module layout; reviewers/verifiers cannot edit runtime or build inputs, and runner-control changes require separate reviewed preparation outside an active unit. No production orchestration or alternate test app. |
 | I02 | Implement register/login, persistent revocable tokens/Keystore, ordinary authorization and server account privacy; native A01/A02 forms/errors with consistent whitespace/Unicode passwords. Actual requests/storage, not a fake login or hard-coded user. |
 | I03 | Implement N01/N02 authenticated shell and Menu/Games navigation, fixed Logout, portrait drawer/landscape persistent navigation and native Back/fullscreen/rotation behavior. Restore valid login/context; Logout clears local private work/downloads immediately and fences old-account callbacks. Account-owned data synchronizes, unfinished UI stays personal. |
 | I04 | Complete A03/A04 email reset/deep-link handling and synthetic mailbox adapter; successful reset revokes old sessions for **new** requests, invalid/expired links do not. Run normal-app registration/login/reset/logout/resume journeys through Kotlin/JUnit/Appium, including restart and a second account/device. No special ordering against already-authorized gameplay. |
@@ -289,6 +299,14 @@ not replace this final comparison after I33–I36 and intervening changes.
   explicit source-backed intentional-difference disposition, and no actionable UI
   comparison finding remains. Missing device access or capture/interaction evidence
   is a recorded blocker, never a presumed visual pass.
+
+This final comparison may be planned into bounded review sub-units (for example
+entry/navigation, decks/contacts, lobby, table/actions, history/chat and integration),
+with every current state/orientation assigned and retained in the inventory. Save
+each unit's exact reviewed commit/check evidence and remaining targets. Do not
+compress the 98-capture comparison into a superficial one-session sample or remove
+unreviewed targets to fit a timeout. All required sub-units and discrepancy
+fix/verification still precede final B8 closure.
 
 ## Completion and remaining activation work
 

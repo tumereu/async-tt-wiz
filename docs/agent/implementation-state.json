@@ -5,7 +5,8 @@
   "authorizationRecord": null,
   "runner": {
     "model": "openai/gpt-6.1-sol#high",
-    "permissions": "docs/agent/implementation-permissions.json"
+    "permissions": "docs/agent/implementation-permissions.json",
+    "reviewTestPaths": ["**/src/test/**", "**/src/commonTest/**", "**/src/jvmTest/**", "**/src/androidTest/**", "**/src/androidInstrumentedTest/**", "tests/**"]
   },
   "plan": "docs/agent/implementation-plan.md",
   "loopContract": "docs/agent/implementation-loop.md",
@@ -23,14 +24,22 @@
   "runs": [],
   "findings": [],
   "batches": [
-    { "id": "B1", "status": "pending", "reviewedCommit": null },
-    { "id": "B2", "status": "pending", "reviewedCommit": null },
-    { "id": "B3", "status": "pending", "reviewedCommit": null },
-    { "id": "B4", "status": "pending", "reviewedCommit": null },
-    { "id": "B5", "status": "pending", "reviewedCommit": null },
-    { "id": "B6", "status": "pending", "reviewedCommit": null },
-    { "id": "B7", "status": "pending", "reviewedCommit": null },
-    { "id": "B8", "status": "pending", "reviewedCommit": null }
+    { "id": "B1", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B1 entry/navigation/reset/resume journey, privacy, failures and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B2", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B2 catalog/import/deck-management journey, failures, retained definitions and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B3", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B3 two-player invitation/preparation/start journey, lifecycle overlaps and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B4", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B4 responsive shared tabletop/Canvas journey, concurrency/recovery and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B5", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B5 manual toolkit, links, hidden inspection, tokens, combat/Stack and integrated real-use journey against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B6", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B6 catch-up/history/Undo/Redo/branch/archive/full-recovery journey and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B7", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B7 chat/result/rematch/deletion/notifications/background journey and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B8", "status": "pending", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B8 final whole-R1 journeys, coverage/performance/compatibility/delivery evidence and D-303 complete interface-to-mock comparison in both orientations, including unpictured interfaces and all discrepancy fix/rechecks" }], "completed": {}, "blocked": {} } }
   ],
   "tasks": [
     { "id": "I01", "batch": "B1", "status": "pending" },
@@ -75,9 +84,9 @@
     "Qualified thin session runner, scoped permissions, stop control and configured run budget"
   ],
   "externalReleaseGates": [
-    { "id": "rights-attribution", "status": "unverified" },
-    { "id": "release-signing-distribution", "status": "unverified" },
-    { "id": "reference-device-performance", "status": "unverified" },
-    { "id": "external-operator-interface-readiness", "status": "unverified" }
+    { "id": "rights-attribution", "status": "unverified", "authority": "operator" },
+    { "id": "release-signing-distribution", "status": "unverified", "authority": "operator" },
+    { "id": "reference-device-performance", "status": "unverified", "authority": "task", "task": "I33" },
+    { "id": "external-operator-interface-readiness", "status": "unverified", "authority": "operator" }
   ]
 }

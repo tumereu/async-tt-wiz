@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import fcntl
+import fnmatch
 import hashlib
 import json
 import os
@@ -64,11 +65,93 @@ def repo_path(root, relative):
     return result
 
 
+def review_record(batch):
+    return batch.get("review", {"units": [{"id": "capability", "scope": "Full capability and integration"}],
+                                "completed": {}, "blocked": {}})
+
+
+def review_nodes(batch):
+    nodes, leaves = {}, set()
+    def visit(units):
+        require(isinstance(units, list) and units, "Review scope must not be empty")
+        for unit in units:
+            require(isinstance(unit, dict) and isinstance(unit.get("id"), str) and unit["id"] and
+                    unit["id"] not in nodes and isinstance(unit.get("scope"), str) and unit["scope"].strip(),
+                    "Review units need unique IDs and concrete scope")
+            nodes[unit["id"]] = unit
+            if "children" in unit:
+                visit(unit["children"])
+            else:
+                leaves.add(unit["id"])
+    visit(review_record(batch)["units"])
+    return nodes, leaves
+
+
+def review_complete(batch):
+    return review_nodes(batch)[1] <= review_record(batch)["completed"].keys()
+
+
+def pending_review(batch):
+    record = review_record(batch)
+    return review_nodes(batch)[1] - record["completed"].keys() - record.get("blocked", {}).keys()
+
+
+def check_reference(report, evidence, *, passing=False):
+    return any(c.get("evidence") == evidence and (not passing or
+               c.get("kind") == "required" and c.get("exitCode") == 0) for c in report.get("checks", []))
+
+
+def session_permissions(base, state, choice, state_relative, report_relative, run_id):
+    if choice["mode"] in {"implement", "fix"}:
+        return base
+    paths = [state_relative, report_relative, f"{REPORTS}/{run_id}-*", f"{REPORTS}/{run_id}/*"]
+    if choice["mode"] in {"review", "verify"}:
+        paths += state.get("runner", {}).get("reviewTestPaths", [])
+    return base + [{"action": "edit", "resource": "*", "effect": "deny"}] + [
+        {"action": "edit", "resource": path, "effect": "allow"} for path in paths]
+
+
+def validate_gates(before, after, choice, report):
+    old, new = before["externalReleaseGates"], after["externalReleaseGates"]
+    require([g["id"] for g in old] == [g["id"] for g in new], "Agent removed/reordered a release gate")
+    updates = report.get("gateUpdates", [])
+    require(isinstance(updates, list) and all(isinstance(g, dict) and g.get("id") for g in updates) and
+            len({g["id"] for g in updates}) == len(updates), "Invalid release gate updates")
+    changed = {g["id"] for g, previous in zip(new, old) if g != previous}
+    require(changed == {g["id"] for g in updates}, "Unreported release gate change")
+    for previous, gate in zip(old, new):
+        if previous == gate:
+            continue
+        update = next(g for g in updates if g["id"] == gate["id"])
+        require(previous.get("authority", "operator") == "task" and choice["mode"] == "implement" and
+                choice["target"] == previous.get("task") and
+                next(t for t in after["tasks"] if t["id"] == choice["target"])["status"] == "implemented",
+                "External release gate requires its recorded operator/task authority")
+        expected = {**previous, "status": "passed", "evidence": update.get("evidence"), "record": after["runs"][-1]}
+        require(previous["status"] in {"unverified", "blocked"} and gate == expected and
+                check_reference(report, gate.get("evidence"), passing=True),
+                "Release gate pass needs this owning task's retained passing evidence; no waiver")
+
+
 def validate_state(state):
     require(state.get("formatVersion") == 1, "Unsupported state format")
     require(isinstance(state.get("runs"), list) and state.get("activeRun") is None,
             "State must have a runs list and no unfinished activeRun")
     tasks, batches, findings = state["tasks"], state["batches"], state["findings"]
+    patterns = state.get("runner", {}).get("reviewTestPaths", [])
+    require(isinstance(patterns, list) and all(isinstance(p, str) and "/" in p and
+            not p.startswith("/") and ".." not in p.split("/") and p not in {"**/*", "*/**"}
+            for p in patterns), "Review test paths must be explicit repository-relative test-only patterns")
+    require(isinstance(state.get("externalReleaseGates"), list), "Missing external release gate inventory")
+    gates = state["externalReleaseGates"]
+    require(len({g["id"] for g in gates}) == len(gates), "Duplicate release gate IDs")
+    for gate in gates:
+        require(gate.get("status") in {"unverified", "blocked", "passed", "not-applicable"} and
+                gate.get("authority", "operator") in {"operator", "task"}, "Invalid release gate status/authority")
+        if gate.get("authority") == "task":
+            require(gate.get("task") in {t["id"] for t in tasks}, "Release gate has unknown owning task")
+        if gate["status"] in {"passed", "not-applicable"}:
+            require(gate.get("record"), "Resolved release gate needs an authority/evidence record")
     for collection in (tasks, batches, findings):
         require(len({item["id"] for item in collection}) == len(collection), "Duplicate state IDs")
     batch_ids = {item["id"] for item in batches}
@@ -97,11 +180,22 @@ def validate_state(state):
         require(members, "Empty review batch")
         require(batch["status"] in {"pending", "ready-for-review", "changes-requested",
                                     "fixes-awaiting-check", "reviewed"}, "Unknown batch status")
+        record = review_record(batch)
+        _, leaves = review_nodes(batch)
+        completed, blocked = record["completed"], record.get("blocked", {})
+        require(isinstance(completed, dict) and set(completed) <= leaves and
+                all(isinstance(v, str) and v for v in completed.values()), "Invalid anchored review coverage")
+        require(isinstance(blocked, dict) and set(blocked) <= leaves and not set(blocked) & set(completed) and
+                all(isinstance(v, dict) and v.get("reason") and v.get("evidence") for v in blocked.values()),
+                "Invalid blocked review units")
+        require(not completed or all(t["status"] == "implemented" for t in members),
+                "Review coverage cannot precede implemented capability")
         if batch["status"] == "reviewed":
             require(batch.get("reviewedCommit") and all(t["status"] == "implemented" for t in members),
                     "Reviewed batch has unfinished tasks or no reviewed commit")
             require(not any(needs_attention(f) for f in findings if f["batch"] == batch["id"]),
                     "Reviewed batch has unresolved findings")
+            require(review_complete(batch), "Reviewed batch has missing independent group-review coverage")
     for finding in findings:
         require(finding["batch"] in batch_ids and finding["status"] in {
             "open", "fixed-awaiting-check", "verified", "withdrawn", "duplicate", "blocked"},
@@ -158,6 +252,7 @@ def validate_transition(before, after, choice, report):
     adjustments = explained("taskAdjustments", old_tasks)
     reopened = explained("reopenedBatches", old_batches)
     reopened_issues = explained("reopenedFindings", old_issues)
+    validate_gates(before, after, choice, report)
     if mode == "review":
         require(all(i in new_issues and new_issues[i]["batch"] == target for i in attempted),
                 "Review escaped its finding scope")
@@ -179,11 +274,21 @@ def validate_transition(before, after, choice, report):
             "New children must be pending descendants of the selected implementation task")
     if new_ids:
         require(new_tasks[target]["status"] == "in-progress", "Split-only unit must leave parent in progress")
+        require(all(isinstance(new_tasks[i].get("outcome"), str) and new_tasks[i]["outcome"].strip() and
+                    isinstance(new_tasks[i].get("checks"), list) and new_tasks[i]["checks"] and
+                    all(isinstance(c, str) and c.strip() for c in new_tasks[i]["checks"]) and
+                    "dependsOn" in new_tasks[i] for i in new_ids),
+                "Planning-only split needs concrete child outcomes, checks and dependencies")
     for identifier, old in old_tasks.items():
         new = new_tasks[identifier]
         if mode == "implement" and identifier == target:
             require(old["status"] != "implemented", "Cannot reimplement a completed task")
             require(set(old.get("children", [])) <= set(new.get("children", [])), "Agent removed existing children")
+            require(new["status"] in {"implemented", "blocked"} or new_ids,
+                    "Implementation unit needs a completed outcome, evidenced blocker or planning-only split")
+            if new["status"] == "blocked":
+                require(new.get("blocker") and check_reference(report, new.get("blockerEvidence")),
+                        "Blocked implementation needs retained blocker evidence")
         elif new != old:
             require(identifier in adjustments and old.get("children", []) == new.get("children", []) and
                     (new["status"] == old["status"] or old["status"] != "implemented" and
@@ -220,15 +325,68 @@ def validate_transition(before, after, choice, report):
             require(new["batch"] == old["batch"], "Agent reassigned a finding")
 
     target_batch = new_tasks[target]["batch"] if mode == "implement" else target
+    checked = identifiers("reviewedUnitIds")
+    blocked_units = identifiers("blockedReviewUnitIds")
+    require(mode == "review" or not checked | blocked_units, "Only a review unit can add review coverage/blockers")
+
+    def unit_adjustments(key):
+        entries = report.get(key, [])
+        require(isinstance(entries, list), f"Invalid {key}")
+        result = {}
+        for entry in entries:
+            require(isinstance(entry, dict) and entry.get("id") in old_batches and entry.get("reason") and
+                    isinstance(entry.get("unitIds"), list) and entry["unitIds"] and
+                    all(isinstance(i, str) for i in entry["unitIds"]) and
+                    len(set(entry["unitIds"])) == len(entry["unitIds"]) and entry["id"] not in result,
+                    f"Invalid {key} scope/reason")
+            if key == "reviewUnblocks":
+                require(check_reference(report, entry.get("evidence")), "Review unblock needs retained availability evidence")
+            result[entry["id"]] = set(entry["unitIds"])
+        return result
+
+    invalidations, unblocks = unit_adjustments("reviewInvalidations"), unit_adjustments("reviewUnblocks")
     for batch in after["batches"]:
         old = old_batches[batch["id"]]
+        previous, record = review_record(old), review_record(batch)
+        old_nodes, old_leaves = review_nodes(old)
+        nodes, leaves = review_nodes(batch)
+        require(old_nodes.keys() <= nodes.keys(), "Agent removed review obligations")
+        split = set()
+        for identifier, node in old_nodes.items():
+            if node != nodes[identifier]:
+                require(mode == "review" and batch["id"] == target and identifier in old_leaves and
+                        identifier not in previous["completed"] and identifier not in previous.get("blocked", {}) and
+                        nodes[identifier] == {**node, "children": nodes[identifier].get("children")} and
+                        nodes[identifier].get("children"), "Review split must preserve pending parent scope")
+                split.add(identifier)
+        require(not (nodes.keys() - old_nodes.keys()) or split, "Unreported new review scope")
+        if split:
+            require(not checked | blocked_units, "Review splitting is planning-only; check children in fresh units")
+        removed = invalidations.get(batch["id"], set())
+        released = unblocks.get(batch["id"], set())
+        require(removed <= previous["completed"].keys() and released <= previous.get("blocked", {}).keys(),
+                "Review invalidation/unblock must name retained coverage/blockers")
+        expected_coverage = {i: c for i, c in previous["completed"].items() if i not in removed}
+        expected_blocked = {i: c for i, c in previous.get("blocked", {}).items() if i not in released}
+        if mode == "review" and batch["id"] == target:
+            require(checked | blocked_units <= leaves - previous["completed"].keys() - previous.get("blocked", {}).keys(),
+                    "Review must advance pending leaf scopes, not repeat/replace old coverage")
+            expected_coverage.update({i: report["startCommit"] for i in checked})
+            for identifier in blocked_units:
+                blocker = record.get("blocked", {}).get(identifier, {})
+                require(blocker.get("reason") and check_reference(report, blocker.get("evidence")),
+                        "Blocked review scope needs retained evidence")
+                expected_blocked[identifier] = blocker
+            require(checked or blocked_units or split, "No completed review scope or planning-only split")
+        require(record["completed"] == expected_coverage and record.get("blocked", {}) == expected_blocked,
+                "Unreported or role-invalid review coverage change")
         issues = [f for f in after["findings"] if f["batch"] == batch["id"] and needs_attention(f)]
         attention = ("fixes-awaiting-check" if any(f["status"] == "fixed-awaiting-check" for f in issues)
                      else "changes-requested" if issues else None)
         if batch["id"] == target_batch and mode in {"implement", "review", "fix", "verify"}:
             done = all(t["status"] == "implemented" for t in after["tasks"] if t["batch"] == batch["id"])
-            expected = attention or ("reviewed" if mode in {"review", "verify"} and done else
-                                     "ready-for-review" if mode == "implement" and done else "pending")
+            expected = attention or ("reviewed" if done and review_complete(batch) else
+                                     "ready-for-review" if done else "pending")
             require(batch["status"] == expected, "Batch transition bypasses its selected role or remaining work")
             if expected == "reviewed":
                 require(batch.get("reviewedCommit") == report["startCommit"], "Review must anchor the inspected starting commit")
@@ -236,7 +394,8 @@ def validate_transition(before, after, choice, report):
                 require(batch.get("reviewedCommit") in ([old.get("reviewedCommit"), report["startCommit"]]
                         if mode == "review" else [old.get("reviewedCommit")]), "Unexpected review anchor change")
         elif batch != old:
-            require(batch["id"] in reopened and old["status"] == "reviewed" and
+            require((batch["id"] in reopened if old["status"] == "reviewed" else
+                     batch["id"] in invalidations or batch["id"] in unblocks) and
                     batch["status"] == (attention or "ready-for-review") and
                     batch.get("reviewedCommit") == old.get("reviewedCommit"),
                     "Unrelated batch advancement needs an explained scoped reopening")
@@ -279,22 +438,33 @@ def selection(state):
     tasks = state["tasks"]
     by_id = {t["id"]: t for t in tasks}
     children = {child for t in tasks for child in t.get("children", [])}
+    parents = {child: t for t in tasks for child in t.get("children", [])}
+    # A completed independent capability has the same review priority as normal work.
+    for batch in state["batches"]:
+        if batch["status"] != "reviewed" and pending_review(batch) and all(
+                t["status"] == "implemented" for t in tasks if t["batch"] == batch["id"]):
+            return {"mode": "review", "target": batch["id"], "findingIds": []}
     def candidate(task):
         if task["status"] in {"implemented", "blocked"}:
             return None
         if not all(by_id[d]["status"] == "implemented" for d in task.get("dependsOn", [])):
             return None
-        for child in task.get("children", []):
-            if by_id[child]["status"] != "implemented":
-                return candidate(by_id[child])
+        previous_complete = True
+        for identifier in task.get("children", []):
+            child = by_id[identifier]
+            if previous_complete or "dependsOn" in child:
+                found = candidate(child)
+                if found:
+                    return found
+            previous_complete = previous_complete and child["status"] == "implemented"
+        if not previous_complete:
+            return None
         return {"mode": "implement", "target": task["id"], "findingIds": []}
     for batch in state["batches"]:
         if batch["status"] == "reviewed":
             continue  # A later/report-only HEAD does not invalidate this scoped review.
         members = [t for t in tasks if t["batch"] == batch["id"]]
         if all(t["status"] == "implemented" for t in members):
-            if batch["status"] in {"pending", "ready-for-review"}:
-                return {"mode": "review", "target": batch["id"], "findingIds": []}
             break  # An unresolved blocked finding is not another full-review request.
         previous_complete = True
         for task in members:
@@ -308,14 +478,21 @@ def selection(state):
         break
     # An explicitly recorded independent lane may continue around a blocked batch.
     for task in tasks:
-        if task.get("independent") and task["id"] not in children:
+        if task.get("independent"):
+            ancestor = parents.get(task["id"])
+            ancestors_ready = True
+            while ancestor:
+                ancestors_ready &= all(by_id[d]["status"] == "implemented" for d in ancestor.get("dependsOn", []))
+                ancestor = parents.get(ancestor["id"])
+            if not ancestors_ready:
+                continue
             found = candidate(task)
             if found:
                 return found
     outstanding = any(f["status"] in {"open", "fixed-awaiting-check", "blocked"}
                       and f["disposition"] in {"actionable", "blocked-owner/environment"}
                       for f in state["findings"])
-    gates = all(g["status"] in {"passed", "not-applicable"} for g in state.get("externalReleaseGates", []))
+    gates = all(g["status"] in {"passed", "not-applicable"} for g in state["externalReleaseGates"])
     finished = all(t["status"] == "implemented" for t in tasks) and all(
         b["status"] == "reviewed" for b in state["batches"])
     return {"mode": "complete" if finished and gates and not outstanding else "blocked",
@@ -415,6 +592,24 @@ class Runner:
         require(entries in ([f"100644 blob {blob}"], [f"100755 blob {blob}"]),
                 f"Check evidence is not committed byte-for-byte: {relative}")
 
+    def role_paths(self, state, choice, report, actual, report_relative):
+        """Default-deny runtime/build changes outside implement/fix roles."""
+        planning = choice["mode"] == "blocked" or choice["mode"] == "implement" and next(
+            t for t in load(self.state_path)["tasks"] if t["id"] == choice["target"])["status"] == "in-progress"
+        splitting_review = choice["mode"] == "review" and not report.get("reviewedUnitIds") and not report.get("blockedReviewUnitIds")
+        if choice["mode"] in {"implement", "fix"} and not planning:
+            return
+        prefix = f"{REPORTS}/{report['runId']}"
+        outputs = {report_relative} | {c["evidence"] for c in report.get("checks", [])}
+        require(all(p == report_relative or p.startswith(prefix + "-") or p.startswith(prefix + "/") for p in outputs),
+                "Review/planning evidence must be owned by this run, not runtime/build input")
+        allowed = {self.state_relative} | outputs
+        patterns = state.get("runner", {}).get("reviewTestPaths", [])
+        for path in actual - allowed:
+            require(not planning and not splitting_review and choice["mode"] in {"review", "verify"} and
+                    any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns),
+                    f"Product changes forbidden in {choice['mode']}/planning unit: {path}")
+
     def safe_git(self):
         require(not self.git("status", "--porcelain=v1", "--untracked-files=all"),
                 "Dirty working tree/index: preserve and inspect it; nothing was staged or discarded")
@@ -455,7 +650,8 @@ class Runner:
         active_path = self.journal / "active.json"
         atomic_json(active_path, record)
         try:
-            session = self.client.create(f"ATW {choice['mode']} {choice['target']} {run_id}", permissions)
+            session = self.client.create(f"ATW {choice['mode']} {choice['target']} {run_id}", session_permissions(
+                permissions, state, choice, self.state_relative, report_relative, run_id))
             record.update(sessionID=session, status="running")
             atomic_json(active_path, record)
             context = {**record, "state": self.state_relative, "wallTimeSeconds": seconds}
@@ -503,9 +699,13 @@ class Runner:
                     require(check["exitCode"] == 0 or report["outcome"] == "failed", "Required check failed")
             require(report["outcome"] != "failed", "Agent reported an unresolved failure")
             if report["outcome"] == "progress":
-                require(choice["mode"] not in {"complete", "blocked"}, "No runnable work for claimed progress")
+                require(choice["mode"] != "complete", "No runnable work for claimed progress")
                 require(progress_view(state) != progress_view(after), "No task/finding/review progress; refusing to spin")
-                if choice["mode"] == "implement":
+                if choice["mode"] == "blocked":
+                    require(selection(after)["mode"] not in {"blocked", "complete"} and
+                            (report.get("taskAdjustments") or report.get("reviewUnblocks") or report.get("reopenedFindings")),
+                            "Blocked planning must establish evidenced runnable independent work")
+                elif choice["mode"] == "implement":
                     require(new_tasks[choice["target"]] != old_tasks[choice["target"]],
                             "Selected implementation task did not advance")
                 elif choice["mode"] in {"fix", "verify"}:
@@ -533,10 +733,13 @@ class Runner:
             require({report_relative, self.state_relative} <= actual, "Report/state not saved in this unit")
             for path in claimed:
                 repo_path(self.root, path)
+            self.role_paths(state, choice, report, actual, report_relative)
             for path in {report_relative, self.state_relative} | {c["evidence"] for c in report.get("checks", [])}:
                 self.committed_file(path, finish)
             self.git("diff", "--check", start, finish)
             for batch in after["batches"]:
+                for commit in review_record(batch)["completed"].values():
+                    self.git("merge-base", "--is-ancestor", commit, finish)
                 if batch["status"] == "reviewed":
                     self.git("merge-base", "--is-ancestor", batch["reviewedCommit"], finish)
             require(self.git("symbolic-ref", "--short", "HEAD") == record["branch"],

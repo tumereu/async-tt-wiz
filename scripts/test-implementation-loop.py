@@ -22,12 +22,26 @@ def initial_state():
     return {
         "formatVersion": 1, "mode": "active", "authorization": "authorized",
         "authorizationRecord": "Owner-authorized disposable runner qualification only",
-        "runner": {"model": loop.MODEL, "permissions": "docs/agent/implementation-permissions.json"},
+        "runner": {"model": loop.MODEL, "permissions": "docs/agent/implementation-permissions.json",
+                   "reviewTestPaths": ["tests/**"]},
         "activeRun": None, "runs": [], "findings": [], "externalReleaseGates": [],
         "batches": [{"id": "B1", "status": "pending", "reviewedCommit": None}],
         "tasks": [{"id": "F1", "batch": "B1", "status": "pending"},
                   {"id": "F2", "batch": "B1", "status": "pending"}],
     }
+
+
+def review_record(commit=None):
+    return {"units": [{"id": "capability", "scope": "Full capability and integration"}],
+            "completed": {"capability": commit} if commit else {}, "blocked": {}}
+
+
+def reviewed(batch, commit):
+    batch.update(status="reviewed", reviewedCommit=commit, review=review_record(commit))
+
+
+def review_leaves(units):
+    return [i for u in units for i in (review_leaves(u["children"]) if u.get("children") else [u["id"]])]
 
 
 class GitFixture:
@@ -84,6 +98,7 @@ class FakeOpenCode:
         self.runner = None
         self.transform = None
         self.finding_limit = None
+        self.review_limit = None
 
     def create(self, title, permissions):
         identifier = "ses_fixture_" + str(len(self.sessions))
@@ -105,6 +120,7 @@ class FakeOpenCode:
             return {"model": loop.MODEL_REF}
         state = self.fixture.state()
         finding_ids = []
+        reviewed_ids = []
         if self.fault != "no-progress":
             if mode == "implement":
                 task = next(t for t in state["tasks"] if t["id"] == choice["target"])
@@ -112,13 +128,21 @@ class FakeOpenCode:
                 if all(t["status"] == "implemented" for t in state["tasks"]):
                     state["batches"][0]["status"] = "ready-for-review"
             elif mode == "review":
-                if self.issue:
+                batch = next(b for b in state["batches"] if b["id"] == choice["target"])
+                review = batch.setdefault("review", review_record())
+                pending = [i for i in review_leaves(review["units"]) if i not in review["completed"] and
+                           i not in review.get("blocked", {})]
+                reviewed_ids = pending[:self.review_limit]
+                review["completed"].update({i: context["startCommit"] for i in reviewed_ids})
+                if self.issue and not any(f["id"] == "R1" for f in state["findings"]):
                     state["findings"].append({"id": "R1", "batch": "B1", "status": "open",
                                                 "disposition": "actionable"})
                     finding_ids = ["R1"]
-                    state["batches"][0]["status"] = "changes-requested"
+                    batch["status"] = "changes-requested"
                 else:
-                    state["batches"][0].update(status="reviewed", reviewedCommit=context["startCommit"])
+                    batch["status"] = "ready-for-review" if set(review_leaves(review["units"])) - review["completed"].keys() else "reviewed"
+                    if batch["status"] == "reviewed":
+                        batch["reviewedCommit"] = context["startCommit"]
             elif mode in {"fix", "verify"}:
                 finding_ids = choice["findingIds"][:self.finding_limit]
                 for finding in state["findings"]:
@@ -134,7 +158,10 @@ class FakeOpenCode:
                 issues = [f for f in state["findings"] if f["batch"] == batch["id"]]
                 batch["status"] = ("fixes-awaiting-check" if any(f["status"] == "fixed-awaiting-check" for f in issues)
                                    else "changes-requested" if any(f["status"] == "open" for f in issues)
-                                   else "reviewed")
+                                   else "reviewed" if set(review_leaves(batch.get("review", review_record())["units"])) <=
+                                   batch.get("review", review_record())["completed"].keys()
+                                   else "ready-for-review" if all(t["status"] == "implemented" for t in state["tasks"]
+                                                                if t["batch"] == batch["id"]) else "pending")
                 if batch["status"] == "reviewed":
                     batch["reviewedCommit"] = context["startCommit"]
             elif mode == "complete":
@@ -145,8 +172,7 @@ class FakeOpenCode:
             state["authorizationRecord"] = "Agent changed authorization"
         state["runs"].append(context["report"])
         evidence = context["report"].replace(".json", "-checks.log")
-        paths = [loop.STATE, context["report"], evidence, "probe.txt"]
-        self.fixture.write("probe.txt", f"{mode} {choice['target']} {len(state['runs'])}\n")
+        paths = [loop.STATE, context["report"], evidence]
         self.fixture.write(evidence, "Fixture required check output\n")
         report = {
             "runId": context["runId"], "sessionID": session, "startCommit": context["startCommit"],
@@ -157,6 +183,7 @@ class FakeOpenCode:
             "checks": [{"kind": "required", "command": "fixture check", "exitCode": 1
                         if self.fault == "failed-check" else 0, "evidence": evidence}],
             "changedPaths": paths,
+            "reviewedUnitIds": reviewed_ids,
         }
         if self.fault == "wrong-selection":
             report["mode"] = "review"
@@ -167,6 +194,14 @@ class FakeOpenCode:
                                       "exitCode": 1, "evidence": evidence})
         if self.transform:
             self.transform(context, state, report)
+        if mode in {"implement", "fix"} and not (mode == "implement" and next(
+                t for t in state["tasks"] if t["id"] == choice["target"])["status"] == "in-progress"):
+            paths.append("probe.txt")
+            self.fixture.write("probe.txt", f"{mode} {choice['target']} {len(state['runs'])}\n")
+        if mode == "implement":
+            task = next(t for t in state["tasks"] if t["id"] == choice["target"])
+            if task["status"] == "blocked":
+                task.update(blocker="Controlled missing fixture resource", blockerEvidence=evidence)
         self.fixture.write(loop.STATE, state)
         self.fixture.write(context["report"], report)
         if self.fault == "extra-path":
@@ -205,14 +240,14 @@ class SelectionTests(unittest.TestCase):
         state = initial_state()
         for task in state["tasks"]:
             task["status"] = "implemented"
-        state["batches"][0].update(status="reviewed", reviewedCommit="older-code-commit")
+        reviewed(state["batches"][0], "older-code-commit")
         self.assertEqual(loop.selection(state)["mode"], "complete")
 
     def test_release_gate_not_fake_completion(self):
         state = initial_state()
         for task in state["tasks"]:
             task["status"] = "implemented"
-        state["batches"][0].update(status="reviewed", reviewedCommit="code")
+        reviewed(state["batches"][0], "code")
         state["externalReleaseGates"] = [{"id": "hardware", "status": "unverified"}]
         self.assertEqual(loop.selection(state)["mode"], "blocked")
 
@@ -237,6 +272,59 @@ class SelectionTests(unittest.TestCase):
         with self.assertRaises(loop.Halt):
             loop.selection(state)
 
+    def test_independent_child_is_not_hidden_by_blocked_sibling(self):
+        state = initial_state()
+        state["tasks"][0].update(status="in-progress", children=["F1a", "F1b"])
+        state["tasks"] += [{"id": "F1a", "batch": "B1", "status": "blocked"},
+                           {"id": "F1b", "batch": "B1", "status": "pending", "independent": True, "dependsOn": []}]
+        self.assertEqual(loop.selection(state)["target"], "F1b")
+        del state["tasks"][-1]["dependsOn"]
+        state["tasks"][-1].pop("independent")
+        self.assertEqual(loop.selection(state)["mode"], "blocked")
+
+    def test_independent_child_still_inherits_ancestor_dependencies(self):
+        state = initial_state()
+        state["tasks"][0].update(status="in-progress", children=["F1a"], dependsOn=["F2"])
+        state["tasks"][1]["status"] = "blocked"
+        state["tasks"].append({"id": "F1a", "batch": "B1", "status": "pending", "independent": True, "dependsOn": []})
+        self.assertEqual(loop.selection(state)["mode"], "blocked")
+
+    def test_independent_completed_batch_gets_due_review(self):
+        state = initial_state()
+        state["tasks"][0]["status"] = "blocked"
+        state["tasks"].append({"id": "F3", "batch": "B2", "status": "implemented", "independent": True, "dependsOn": []})
+        state["batches"].append({"id": "B2", "status": "ready-for-review", "reviewedCommit": None})
+        self.assertEqual(loop.selection(state), {"mode": "review", "target": "B2", "findingIds": []})
+
+    def test_missing_or_invalid_gate_inventory_refused(self):
+        for fault in ("missing", "duplicate", "invalid", "unsupported-pass"):
+            state = initial_state()
+            state["externalReleaseGates"] = [{"id": "hardware", "status": "unverified"}]
+            if fault == "missing":
+                del state["externalReleaseGates"]
+            elif fault == "duplicate":
+                state["externalReleaseGates"] *= 2
+            else:
+                state["externalReleaseGates"][0]["status"] = "passed" if fault == "unsupported-pass" else "ignore"
+            with self.subTest(fault=fault), self.assertRaises(loop.Halt):
+                loop.selection(state)
+
+    def test_review_session_edit_permissions_are_narrowed_not_expanded(self):
+        base = [{"action": "edit", "resource": "*", "effect": "allow"}]
+        rules = loop.session_permissions(base, initial_state(), {"mode": "verify"}, loop.STATE,
+                                         loop.REPORTS + "/r.json", "r")
+        def effect(path):
+            return next(rule["effect"] for rule in reversed(rules) if rule["action"] == "edit" and
+                        loop.fnmatch.fnmatchcase(path, rule["resource"]))
+        self.assertEqual(effect("arithmetic.py"), "deny")
+        self.assertEqual(effect("build.gradle.kts"), "deny")
+        self.assertEqual(effect("tests/regression.py"), "allow")
+        self.assertEqual(effect(loop.STATE), "allow")
+        self.assertEqual(effect(loop.REPORTS + "/r-checks.log"), "allow")
+        self.assertEqual(effect(loop.REPORTS + "/previous-checks.log"), "deny")
+        self.assertEqual(loop.session_permissions(base, initial_state(), {"mode": "fix"}, loop.STATE,
+                                                 loop.REPORTS + "/r.json", "r"), base)
+
     def test_children_cannot_change_batch_have_two_parents_or_be_skipped(self):
         for fault in ("batch", "parents", "unfinished"):
             with self.subTest(fault=fault):
@@ -259,7 +347,7 @@ class TransitionTests(unittest.TestCase):
         before = initial_state()
         for task in before["tasks"]:
             task["status"] = "implemented"
-        before["batches"][0].update(status="reviewed", reviewedCommit="previous-review")
+        reviewed(before["batches"][0], "previous-review")
         before["tasks"].append({"id": "F3", "batch": "B2", "status": "pending"})
         before["batches"].append({"id": "B2", "status": "pending", "reviewedCommit": None})
         after = copy.deepcopy(before)
@@ -272,6 +360,8 @@ class TransitionTests(unittest.TestCase):
     def test_scoped_reopening_does_not_review_another_capability(self):
         before, after, choice, report = self.fixture()
         after["batches"][0]["status"] = "ready-for-review"
+        after["batches"][0]["review"]["completed"] = {}
+        report["reviewInvalidations"] = [{"id": "B1", "unitIds": ["capability"], "reason": "Changed integration"}]
         report["reopenedBatches"] = [{"id": "B1", "reason": "Delivered integration materially changes B1 behavior"}]
         loop.validate_state(after)
         loop.validate_transition(before, after, choice, report)
@@ -324,8 +414,10 @@ class TransitionTests(unittest.TestCase):
         before["batches"][0]["status"] = "ready-for-review"
         after = copy.deepcopy(before)
         after["batches"][0].update(status="reviewed", reviewedCommit="arbitrary-ancestor")
+        after["batches"][0]["review"] = review_record("inspected-code")
         with self.assertRaisesRegex(loop.Halt, "Review must anchor"):
-            loop.validate_transition(before, after, loop.selection(before), {"startCommit": "inspected-code"})
+            loop.validate_transition(before, after, loop.selection(before), {
+                "startCommit": "inspected-code", "reviewedUnitIds": ["capability"]})
 
 
 class RunnerTests(unittest.TestCase):
@@ -381,6 +473,7 @@ class RunnerTests(unittest.TestCase):
         for task in state["tasks"]:
             task["status"] = "implemented"
         state["batches"][0]["status"] = "changes-requested"
+        state["batches"][0]["review"] = review_record(self.fixture.git("rev-parse", "HEAD"))
         state["findings"] = [{"id": f"R{i+1}", "batch": "B1", "status": "open",
                               "disposition": "actionable", "diagnosis": "initial diagnosis"}
                              for i in range(count)]
@@ -479,6 +572,8 @@ class RunnerTests(unittest.TestCase):
             state["tasks"][0].update(status="in-progress", children=["F1a", "F1b"])
             state["tasks"] += [{"id": name, "batch": "B1", "status": "pending"}
                                 for name in ("F1a", "F1b")]
+            for task in state["tasks"][-2:]:
+                task.update(outcome="Bounded fixture outcome", checks=["fixture check"], dependsOn=[])
         client.transform = split
         runner.run(1, 30)
         client.transform = None
@@ -711,6 +806,279 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(loop.Halt, "wall-time"):
             client.execute("ses_owned", "fixture", self.fixture.base / "timeout.log", 0.05)
         self.assertIn(("post", "/api/session/ses_owned/interrupt"), calls)
+
+    def test_last_task_discovery_still_gets_first_group_review(self):
+        runner, client = self.runner(issue=False)
+        def discover(context, state, report):
+            if context["selection"]["mode"] == "implement" and context["selection"]["target"] == "F2":
+                state["findings"] = [{"id": "R1", "batch": "B1", "status": "open", "disposition": "actionable"}]
+                state["batches"][0]["status"] = "changes-requested"
+                report["newFindingIds"] = ["R1"]
+        client.transform = discover
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["implement", "implement", "fix", "verify", "review", "complete"])
+
+    def test_verifier_cannot_repair_runtime_code(self):
+        self.seed_findings()
+        runner, client = self.runner()
+        runner.run(1, 30)
+        def repair(context, state, report):
+            self.fixture.write("arithmetic.py", "print(2 + 3)\n")
+            report["changedPaths"].append("arithmetic.py")
+        client.transform = repair
+        with self.assertRaisesRegex(loop.Halt, "Product changes forbidden"):
+            runner.run(1, 30)
+
+    def test_gate_cannot_disappear(self):
+        state = self.fixture.state()
+        state["externalReleaseGates"] = [{"id": "hardware", "status": "unverified"}]
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner()
+        client.transform = lambda context, state, report: state.update(externalReleaseGates=[])
+        with self.assertRaisesRegex(loop.Halt, "release gate"):
+            runner.run(1, 30)
+
+    def test_metadata_only_in_progress_is_not_a_unit(self):
+        runner, client = self.runner()
+        def churn(context, state, report):
+            state["tasks"][0].update(status="in-progress", note="Still planning")
+        client.transform = churn
+        with self.assertRaisesRegex(loop.Halt, "completed outcome|planning-only split"):
+            runner.run(1, 30)
+
+    def test_group_review_can_checkpoint_and_resume(self):
+        state = self.fixture.state()
+        for task in state["tasks"]:
+            task["status"] = "implemented"
+        state["batches"][0].update(status="ready-for-review", review={
+            "units": [{"id": "entry", "scope": "Normal workflow"}, {"id": "recovery", "scope": "Recovery integration"}],
+            "completed": {}, "blocked": {}})
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner(issue=False)
+        client.review_limit = 1
+        self.assertEqual(runner.run(1, 30)["status"], "paused")
+        self.assertEqual(self.fixture.state()["batches"][0]["status"], "ready-for-review")
+        self.assertEqual(runner.run(3, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["review", "review", "complete"])
+
+    def test_blocked_selection_can_save_a_new_independent_lane(self):
+        state = self.fixture.state()
+        state["tasks"][0]["status"] = "blocked"
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner(issue=False)
+        def lane(context, state, report):
+            state["tasks"][1].update(dependsOn=[], independent=True)
+            report["taskAdjustments"] = [{"id": "F2", "reason": "Independent approved work"}]
+        client.transform = lane
+        self.assertEqual(runner.run(1, 30)["status"], "paused")
+        self.assertEqual(loop.selection(self.fixture.state())["target"], "F2")
+
+    def seed_review(self, units=None):
+        state = self.fixture.state()
+        for task in state["tasks"]:
+            task["status"] = "implemented"
+        state["batches"][0].update(status="ready-for-review", review=review_record())
+        if units:
+            state["batches"][0]["review"]["units"] = units
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+
+    def test_review_cannot_repair_runtime_or_build_inputs(self):
+        self.seed_review()
+        runner, client = self.runner(issue=False)
+        def repair(context, state, report):
+            self.fixture.write("build.gradle.kts", "// not a reviewer-owned input\n")
+            report["changedPaths"].append("build.gradle.kts")
+        client.transform = repair
+        with self.assertRaisesRegex(loop.Halt, "Product changes forbidden"):
+            runner.run(1, 30)
+
+    def test_verifier_may_add_focused_test_without_runtime_change(self):
+        self.seed_findings()
+        runner, client = self.runner()
+        runner.run(1, 30)
+        def regression(context, state, report):
+            self.fixture.write("tests/regression.py", "assert 2 + 3 == 5\n")
+            report["changedPaths"].append("tests/regression.py")
+        client.transform = regression
+        self.assertEqual(runner.run(1, 30)["status"], "paused")
+        self.assertEqual(self.fixture.state()["findings"][0]["status"], "verified")
+
+    def test_runtime_file_cannot_masquerade_as_check_output(self):
+        self.seed_review()
+        runner, client = self.runner(issue=False)
+        def masquerade(context, state, report):
+            self.fixture.write("runtime.py", "print(5)\n")
+            report["checks"].append({"kind": "required", "command": "fake evidence", "exitCode": 0, "evidence": "runtime.py"})
+            report["changedPaths"].append("runtime.py")
+        client.transform = masquerade
+        with self.assertRaisesRegex(loop.Halt, "evidence must be owned"):
+            runner.run(1, 30)
+
+    def test_task_owned_gate_needs_explicit_retained_evidence(self):
+        state = self.fixture.state()
+        state["externalReleaseGates"] = [{"id": "measurement", "status": "unverified", "authority": "task", "task": "F1"}]
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner()
+        def measured(context, state, report):
+            evidence = report["checks"][0]["evidence"]
+            state["externalReleaseGates"][0].update(status="passed", evidence=evidence, record=context["report"])
+            report["gateUpdates"] = [{"id": "measurement", "evidence": evidence}]
+        client.transform = measured
+        self.assertEqual(runner.run(1, 30)["status"], "paused")
+        self.assertEqual(self.fixture.state()["externalReleaseGates"][0]["status"], "passed")
+
+    def test_operator_gate_cannot_be_waived_even_with_report(self):
+        state = self.fixture.state()
+        state["externalReleaseGates"] = [{"id": "rights", "status": "unverified", "authority": "operator"}]
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner()
+        def waive(context, state, report):
+            evidence = report["checks"][0]["evidence"]
+            state["externalReleaseGates"][0].update(status="not-applicable", record=context["report"])
+            report["gateUpdates"] = [{"id": "rights", "evidence": evidence}]
+        client.transform = waive
+        with self.assertRaisesRegex(loop.Halt, "operator/task authority"):
+            runner.run(1, 30)
+
+    def test_unreported_gate_pass_is_refused(self):
+        state = self.fixture.state()
+        state["externalReleaseGates"] = [{"id": "measurement", "status": "unverified", "authority": "task", "task": "F1"}]
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner()
+        client.transform = lambda context, state, report: state["externalReleaseGates"][0].update(status="passed", record=context["report"])
+        with self.assertRaisesRegex(loop.Halt, "Unreported release gate change"):
+            runner.run(1, 30)
+
+    def test_review_plan_can_split_without_narrowing_parent_scope(self):
+        self.seed_review()
+        runner, client = self.runner(issue=False)
+        def split(context, state, report):
+            batch = state["batches"][0]
+            batch.update(status="ready-for-review", reviewedCommit=None)
+            batch["review"]["completed"] = {}
+            batch["review"]["units"][0]["children"] = [
+                {"id": "workflow", "scope": "Workflow and usability"},
+                {"id": "recovery", "scope": "Privacy/recovery/integration"}]
+            report["reviewedUnitIds"] = []
+        client.transform = split
+        self.assertEqual(runner.run(1, 30)["status"], "paused")
+        client.transform = None
+        client.review_limit = 1
+        self.assertEqual(runner.run(3, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["review", "review", "review", "complete"])
+
+    def test_review_cannot_remove_remaining_scope(self):
+        self.seed_review([{"id": "workflow", "scope": "Workflow"}, {"id": "recovery", "scope": "Recovery"}])
+        runner, client = self.runner(issue=False)
+        def omit(context, state, report):
+            review = state["batches"][0]["review"]
+            review["units"].pop()
+            review["completed"].pop("recovery")
+            report["reviewedUnitIds"] = ["workflow"]
+        client.transform = omit
+        with self.assertRaisesRegex(loop.Halt, "removed review obligations"):
+            runner.run(1, 30)
+
+    def test_review_checkpoint_with_findings_resumes_after_fresh_fix_verification(self):
+        self.seed_review([{"id": "workflow", "scope": "Workflow"}, {"id": "recovery", "scope": "Recovery"}])
+        runner, client = self.runner()
+        client.review_limit = 1
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["review", "fix", "verify", "review", "complete"])
+
+    def test_blocked_review_scope_is_preserved_and_can_be_unblocked(self):
+        self.seed_review([{"id": "workflow", "scope": "Workflow"}, {"id": "recovery", "scope": "Recovery"}])
+        runner, client = self.runner(issue=False)
+        def unavailable(context, state, report):
+            batch = state["batches"][0]
+            batch.update(status="ready-for-review", reviewedCommit=None)
+            batch["review"]["completed"].pop("recovery")
+            batch["review"]["blocked"] = {"recovery": {"reason": "Device unavailable", "evidence": report["checks"][0]["evidence"]}}
+            report.update(reviewedUnitIds=["workflow"], blockedReviewUnitIds=["recovery"])
+        client.transform = unavailable
+        runner.run(1, 30)
+        self.assertEqual(loop.selection(self.fixture.state())["mode"], "blocked")
+        def available(context, state, report):
+            state["batches"][0]["review"]["blocked"] = {}
+            report["reviewUnblocks"] = [{"id": "B1", "unitIds": ["recovery"], "reason": "Device availability checked",
+                                        "evidence": report["checks"][0]["evidence"]}]
+        client.transform = available
+        self.assertEqual(runner.run(1, 30)["status"], "paused")
+        client.transform = None
+        self.assertEqual(runner.run(3, 30)["status"], "complete")
+
+    def test_review_coverage_change_needs_explicit_scoped_invalidation(self):
+        self.seed_review([{"id": "workflow", "scope": "Workflow"}, {"id": "recovery", "scope": "Recovery"}])
+        runner, client = self.runner()
+        client.review_limit = 1
+        runner.run(1, 30)
+        def invalidate(context, state, report):
+            state["batches"][0]["review"]["completed"] = {}
+            report["reviewInvalidations"] = [{"id": "B1", "unitIds": ["workflow"], "reason": "Repair changes the reviewed workflow"}]
+        client.transform = invalidate
+        runner.run(1, 30)
+        client.transform = None
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["review", "fix", "verify", "review", "review", "complete"])
+
+    def test_review_split_cannot_silently_narrow_the_parent(self):
+        self.seed_review()
+        runner, client = self.runner(issue=False)
+        def narrow(context, state, report):
+            batch = state["batches"][0]
+            batch.update(status="ready-for-review", reviewedCommit=None)
+            batch["review"]["completed"] = {}
+            batch["review"]["units"][0].update(scope="Only cosmetic checks", children=[{"id": "small", "scope": "One icon"}])
+            report["reviewedUnitIds"] = []
+        client.transform = narrow
+        with self.assertRaisesRegex(loop.Halt, "preserve pending parent scope"):
+            runner.run(1, 30)
+
+    def test_planning_split_cannot_include_runtime_implementation(self):
+        runner, client = self.runner(issue=False)
+        def mixed(context, state, report):
+            state["tasks"][0].update(status="in-progress", children=["F1a"])
+            state["tasks"].append({"id": "F1a", "batch": "B1", "status": "pending", "dependsOn": [],
+                                   "outcome": "Concrete fixture child", "checks": ["fixture check"]})
+            self.fixture.write("arithmetic.py", "print(5)\n")
+            report["changedPaths"].append("arithmetic.py")
+        client.transform = mixed
+        with self.assertRaisesRegex(loop.Halt, "Product changes forbidden"):
+            runner.run(1, 30)
+
+    def test_gate_pass_by_wrong_task_is_refused(self):
+        state = self.fixture.state()
+        state["externalReleaseGates"] = [{"id": "measurement", "status": "unverified", "authority": "task", "task": "F2"}]
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner()
+        def wrong_task(context, state, report):
+            evidence = report["checks"][0]["evidence"]
+            state["externalReleaseGates"][0].update(status="passed", record=context["report"], evidence=evidence)
+            report["gateUpdates"] = [{"id": "measurement", "evidence": evidence}]
+        client.transform = wrong_task
+        with self.assertRaisesRegex(loop.Halt, "operator/task authority"):
+            runner.run(1, 30)
+
+    def test_blocked_mode_cannot_spin_on_metadata(self):
+        state = self.fixture.state()
+        state["tasks"][0]["status"] = "blocked"
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+        runner, client = self.runner()
+        def churn(context, state, report):
+            state["tasks"][0]["note"] = "Still blocked"
+            report["taskAdjustments"] = [{"id": "F1", "reason": "No new runnable work"}]
+        client.transform = churn
+        with self.assertRaisesRegex(loop.Halt, "establish evidenced runnable"):
+            runner.run(1, 30)
 
 
 if __name__ == "__main__":

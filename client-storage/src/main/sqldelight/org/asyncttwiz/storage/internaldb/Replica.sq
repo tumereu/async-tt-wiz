@@ -1,0 +1,33 @@
+CREATE TABLE accepted_cursor (
+  scope_id TEXT NOT NULL PRIMARY KEY,
+  revision INTEGER NOT NULL CHECK (revision >= 0)
+);
+
+CREATE TABLE accepted_record (
+  scope_id TEXT NOT NULL REFERENCES accepted_cursor(scope_id),
+  record_kind TEXT NOT NULL,
+  record_id TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  payload_version INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (scope_id, record_kind, record_id)
+);
+
+selectCursor:
+SELECT revision FROM accepted_cursor WHERE scope_id = ?;
+
+insertCursor:
+INSERT OR IGNORE INTO accepted_cursor(scope_id, revision) VALUES (?, ?);
+
+updateCursor:
+UPDATE accepted_cursor SET revision = ? WHERE scope_id = ?;
+
+selectRecords:
+SELECT record_kind, record_id, payload_version, payload_json
+FROM accepted_record WHERE scope_id = ? ORDER BY record_kind, record_id;
+
+putRecord:
+INSERT OR REPLACE INTO accepted_record(scope_id, record_kind, record_id, payload_version, payload_json)
+VALUES (?, ?, ?, ?, ?);
+
+removeRecord:
+DELETE FROM accepted_record WHERE scope_id = ? AND record_kind = ? AND record_id = ?;

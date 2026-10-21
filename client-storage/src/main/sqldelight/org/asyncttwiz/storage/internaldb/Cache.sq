@@ -1,0 +1,14 @@
+CREATE TABLE public_cache (
+  cache_key TEXT NOT NULL PRIMARY KEY,
+  payload_version INTEGER NOT NULL CHECK (payload_version > 0),
+  payload_json TEXT NOT NULL
+);
+
+selectEntry:
+SELECT payload_version, payload_json FROM public_cache WHERE cache_key = ?;
+
+putEntry:
+INSERT OR REPLACE INTO public_cache(cache_key, payload_version, payload_json) VALUES (?, ?, ?);
+
+evictAll:
+DELETE FROM public_cache;

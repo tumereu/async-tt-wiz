@@ -1,0 +1,12 @@
+{
+  "command": [
+    "./scripts/gradle.sh",
+    "--no-daemon",
+    "--console=plain",
+    "--write-locks",
+    "resolveAndLockAll"
+  ],
+  "exitCode": 1,
+  "outputSha256": "e616e70db21b7c7a94639e8c7457fc88b2d5f2231daaf947c778de9e48fbbd44",
+  "output": "Picked up JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true\nTo honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.\nDaemon will be stopped at the end of the build \n\nFAILURE: Build failed with an exception.\n\n* Where:\nBuild file '/home/tuomas/projects/async-tt-wiz/client-storage/build.gradle.kts' line: 17\n\n* What went wrong:\nclass com.android.build.gradle.internal.api.DefaultAndroidLibrarySourceSet_Decorated cannot be cast to class com.android.build.gradle.api.AndroidLibrarySourceSet (com.android.build.gradle.internal.api.DefaultAndroidLibrarySourceSet_Decorated and com.android.build.gradle.api.AndroidLibrarySourceSet are in unnamed module of loader org.gradle.internal.classloader.VisitableURLClassLoader$InstrumentingVisitableURLClassLoader @7633a825)\n\n* Try:\n> Run with --stacktrace option to get the stack trace.\n> Run with --info or --debug option to get more log output.\n> Run with --scan to get full insights from a Build Scan (powered by Develocity).\n> Get more help at https://help.gradle.org.\n\nBUILD FAILED in 15s\n"
+}

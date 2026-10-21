@@ -1,0 +1,7 @@
+ALTER TABLE accepted_record ADD COLUMN payload_version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE personal_state ADD COLUMN payload_version INTEGER NOT NULL DEFAULT 1;
+CREATE TABLE public_cache (
+  cache_key TEXT NOT NULL PRIMARY KEY,
+  payload_version INTEGER NOT NULL CHECK (payload_version > 0),
+  payload_json TEXT NOT NULL
+);

@@ -149,4 +149,6 @@ look simpler.
 **Next:** [Tier 2 — user-facing behavior](../02-experience/behavior.md).
 For traceability, see the [detailed product contract](../03-contracts/product.md).
 
-**Status:** specification only; no application implementation is authorized.
+**Status:** stage-4 implementation of the agreed R1 is authorized under
+[D-304](../../agent/implementation-authorization.md); this design is the baseline,
+not a claim of implemented or verified application behavior.

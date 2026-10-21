@@ -1,4 +1,4 @@
-# 14. Session handoff — implementation-loop preparation, not activation
+# 14. Session handoff — implementation authorized
 
 Updated 2026-10-21. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](decisions.md); detailed contracts
@@ -14,7 +14,24 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current preparation — D-300–D-302
+## Current authorization — D-304
+
+The owner tried the driver, saw “implementation not authorized,” and explicitly
+authorized it. [D-304's durable record](implementation-authorization.md) now backs
+`active/authorized` state and stage 4 implementation of the agreed whole R1. Earlier
+no-implementation/current-stage-1 instructions in historical sections below are
+superseded **for authorization only**; do not ask for that approval again or infer
+approval of excluded/unselected behavior. All tests, grouped reviews, fresh fix
+verification, D-303 final mock comparison, scoped permissions and release gates stay.
+
+All 36 tasks remain pending at authorization recording; no application session was
+launched here. The operator starts the driver with their selected positive budgets.
+I01 qualifies actual build/test/device commands and inventories resources; missing
+hardware/permissions are honest affected-work blockers, not completed gates. Continue
+independent approved work where safe. External release readiness is not authorized
+or verified merely by permission to implement.
+
+## Preparation evidence — D-300–D-303
 
 **Latest owner-requested follow-up repairs:**
 [IR-08–IR-13](implementation-loop-followup-review-2026-10-21.md) are corrected with
@@ -23,8 +40,8 @@ replaced by targeted verification; reviewer/verifier runtime/build changes are
 rejected; gate inventory/authority is retained; safe independent children/reviews
 and blocked planning work; note churn is rejected; group reviews can be split and
 checkpointed with exact code anchors and remaining/blocked scopes retained.
-The state adds inactive review accounting/test-only boundaries/gate authority;
-every application task stays pending and draft/not-authorized. See
+The repair batch added review accounting/test-only boundaries/gate authority while
+the application was still draft/not-authorized; D-304 above now authorizes it. See
 [current qualification](implementation-runner.md#current-follow-up-repair-qualification--2026-10-21)
 for evidence/limits. **Eight fresh live sessions passed on the repaired driver**:
 two implementations (last-task defect discovery), fix, verify, review planning,
@@ -32,7 +49,7 @@ two bounded review checkpoints and completion. Every role was exact high, idle,
 committed and pushed; verification did not skip first review. An independent audit/
 fresh fixture-suite repeat passed, and completed restart launched no session. The
 304-file private archive/digest is in the operations record. Actual build/device permissions, hardware,
-external release prerequisites and explicit owner activation remain separate.
+and external release prerequisites remain separate from that authorization.
 Owner follow-up D-303 adds a required final B8 interface-to-mock comparison: I36 prepares
 the complete current-state/orientation inventory, the independent reviewer compares
 all interfaces, and fresh fix/verify units correct and recheck discrepancies before
@@ -100,11 +117,10 @@ The real project execution guard refused to start. Private evidence archive:
 `~/.local/share/async-tt-wiz-e2e-tools/runner-20261021/` (232 files; manifest SHA-256
 `70562b7553c8bc1c842e30093d94afeab496a6219db9b8fd17aafebf4038acbc`).
 
-`implementation-state.json` stays **draft/not-authorized**, every application task
-pending. No app code/scaffolding was built. Before activation, review/refine the
-plan and actual build/test permissions, select budgets and obtain explicit owner
-implementation authorization after the design gates. Do not start I01 from
-tooling approval, passed smoke tests or the mere existence of the task list.
+At the preparation checkpoint, `implementation-state.json` was draft/not-authorized
+and no app code/scaffolding was built. D-304 now provides the missing explicit owner
+authorization. The current state/authorization record above governs execution;
+tooling smokes alone would not have supplied that approval.
 
 ## Completed UI feedback iteration — D-299
 
@@ -1992,6 +2008,10 @@ Remaining action families and same-author compound precedence are explicitly ope
 this is not completion of grouping design or authorization to implement.
 
 ## Current stage and working agreement
+
+**Historical D-242-era working agreement:** the stage/no-code statements in this
+section are superseded by D-304's current authorization above. Retained for provenance,
+not a prohibition on the authorized implementation loop.
 
 - **Documentation only. No application implementation or scaffolding exists or
   is authorized.** Stage 1 behavior specification is incomplete.

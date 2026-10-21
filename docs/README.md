@@ -42,8 +42,9 @@ counters, ending-player-filled End controls, short action-name tooltips without
 stealing hold actions, and a compact pannable grouped tree with delegated R1 icon
 ranking. H07's archive/return UI is withdrawn as unnecessary for branch switching,
 not a retirement of the older archive feature. G13 pictures the tooltip. Remaining copy cuts are proposals.
-This authorizes these design artifacts, not application implementation, a passed
-review/UI gate or approval of the proposed layouts.
+Those pilot decisions authorized design artifacts, not implementation by themselves.
+D-304 now separately authorizes the agreed implementation using the packet as its
+initial baseline; no claim of perfect/frozen UI or already-passed app verification.
 
 ## Separate agent records
 
@@ -83,11 +84,16 @@ Do not silently promote a proposal to an approved requirement during coding.
 
 ## Current status
 
-**Documentation only. The architecture review has been discussed and its agreed
-simplifications/repairs applied (D-285–D-289), following the D-278–D-284 technical
-batch. This does not certify every defect absent or pass the review/UI gates.
-No application implementation or general stage transition is authorized; the
-limited UI pilot above is separately authorized.** See
+**Stage 4: implementation authorized — D-304.** The owner explicitly authorized
+the agreed entire-R1 plan after attempting the runner. See the
+[authorization record](agent/implementation-authorization.md) and
+[active state](agent/implementation-state.json). Earlier specification-only/no-code
+stage statements are historical; current scope, tests, review/fix obligations and
+external release gates remain. No application task or verification result is
+declared complete by authorization alone.
+
+The architecture review's agreed simplifications/repairs (D-285–D-289), following
+the D-278–D-284 technical batch, remain the implementation baseline. See
 [review disposition](design/02-experience/gaps.md#architecture-review-disposition--d-285d-288).
 The [follow-up disposition](design/02-experience/gaps.md#follow-up-architecture-review-disposition--d-289)
 records the simpler UUID, authorization and ordinary HTTP definition-submission rules.

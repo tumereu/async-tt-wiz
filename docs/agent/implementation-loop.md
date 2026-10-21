@@ -1,7 +1,7 @@
 # Fresh-session implementation loop and behavioral review contract
 
-Owner direction D-300/D-303; prepared under D-301 and executable driver work D-302.
-**Product execution remains inactive.** Read
+Owner direction D-300/D-303/D-304; prepared under D-301 and executable driver work D-302.
+**Product implementation is authorized by [D-304](implementation-authorization.md).** Read
 the [task plan](implementation-plan.md), [state record](implementation-state.json)
 and [delivery authorization gates](delivery-workflow.md) before any execution.
 
@@ -155,10 +155,11 @@ rounds stop/escalate instead of creating an endless review/fix carousel.
 ## Durable records
 
 `implementation-state.json` is the small status/selection record; the task plan
-owns task scope, and product contracts own behavior. It starts in `draft` with
-`authorization: not-authorized`. No application task is complete or running.
+owns task scope, and product contracts own behavior. It initially started in `draft`;
+D-304 now records `mode: active`, `authorization: authorized` and the owner record.
+All application tasks remain pending until actual implementation units run.
 
-When execution is authorized, each run adds a durable report under the future
+During authorized execution, each run adds a durable report under the
 `docs/agent/implementation-runs/` directory and references it from state. Record:
 
 - Run ID/session ID, mode, task/child or batch, starting commit and owned paths.
@@ -216,7 +217,7 @@ see [operations/qualification](implementation-runner.md). OpenCode V2.1.1 CLI he
 and the V2 API were checked: create a fresh top-level session, then attach the
 headless invocation only to that newly created ID. Never assume a conversational
 ending or zero CLI exit alone is the required durable outcome. D-302 authorizes
-this tooling, not activation of the product task plan.
+this tooling; D-304 separately authorizes the product task plan.
 
 Required behavior for that wrapper:
 
@@ -276,8 +277,9 @@ Tooling qualification exercises dispatch/one-unit exit, grouped-review priority,
 fix verification, save/push failure, stop control and interrupted-work recovery in
 isolated non-product fixtures; see the operations record for actual evidence.
 Do not start coding merely because state files exist or a headless session can
-be launched. Product execution still requires explicit implementation authorization
-and reviewed activation/permission settings.
+be launched. Product execution now has explicit D-304 authorization; operator
+budgets and actual build/device permission qualification remain required. This
+authorization-recording change does not itself start the driver.
 The safe default after interruption is to stop and preserve dirty work. Any
 explicit resume must reconcile the recorded unit/owned paths first; qualification
 must prove unrelated work is never discarded or blindly staged.

@@ -849,5 +849,6 @@ See [scope proposals and genuine gaps](gaps.md). Detailed feature contracts are
 in [Tier 3](../03-contracts/README.md); agent interpretation notes and handoffs are
 kept separately, not mixed into the player-facing design.
 
-**Current status:** documentation only; this overview approves no new behavior
-and does not authorize implementation.
+**Current status:** the agreed R1 implementation is authorized under
+[D-304](../../agent/implementation-authorization.md). This overview remains a
+behavior baseline, not approval of extra features or a claim of passing app tests.

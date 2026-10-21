@@ -1,17 +1,22 @@
 # Project instructions
 
-- This project is specification-only. Do not create application code or scaffolding
-  or advance delivery stages without the owner's approval. Read the
+- **Implementation is authorized — D-304.** The owner explicitly authorized the
+  agreed entire-R1 implementation loop; see the
+  [authorization record](docs/agent/implementation-authorization.md). Stage 4 app
+  code/scaffolding within the plan is now allowed. Earlier specification-only/
+  not-authorized stage wording is historical, not a current coding prohibition;
+  it does not approve extra product behavior or waive checks/release gates. Read the
   [design index](docs/README.md) and [session handoff](docs/agent/session-handoff.md).
 - Preserve unrelated user work. Inspect Git status before editing and include
   only the files belonging to the current task when saving.
-- **Implementation-loop preparation — D-300–D-302.** Read the
-  [draft task plan](docs/agent/implementation-plan.md),
+- **Authorized implementation loop — D-300–D-304.** Read the
+  [task plan](docs/agent/implementation-plan.md),
   [fresh-session/review contract](docs/agent/implementation-loop.md) and
-  [inactive progress record](docs/agent/implementation-state.json). The owner
+  [active progress record](docs/agent/implementation-state.json). D-301 initially
   authorized isolated environment/tooling smoke tests and planning against the
   finished UI packet as a good-enough starting point, not a perfect/frozen UI or
-  application implementation. The future loop uses one fresh agent per bounded
+  application implementation; D-304 now separately authorizes implementation.
+  The loop uses one fresh agent per bounded
   implement/review/fix/verify unit, saving and exiting before the next agent.
   Independent reviews follow coherent capability groups, not every task. Focus
   findings on evidenced, credible effects on real use: usability, responsiveness,
@@ -21,11 +26,13 @@
   message-order guarantees as blockers. Preserve basic security, current agreed
   outcomes and required tests; no invented behavior, silent omissions or bypasses.
   D-302 separately authorizes building/qualifying the
-  [loop driver](scripts/implementation-loop.py), not application implementation.
+  [loop driver](scripts/implementation-loop.py); D-304 authorizes its application scope.
   Every driver role must use **`openai/gpt-6.1-sol#high`**, checked against session
   metadata with no fallback. See [driver operations](docs/agent/implementation-runner.md).
-  The application state remains `draft/not-authorized`; never activate it from
-  tooling approval alone.
+  The application state is `active/authorized` with D-304 recorded. The operator
+  supplies run/time budgets when launching; do not start another loop alongside
+  one already running. Qualify actual build/device commands in I01 under the
+  existing permissions, retain unavailable-resource blockers and all release gates.
 - **Keep UI review refreshable and feedback cumulative.** After any UI-document
   edit batch, rebuild and publish a new HTML edition of the **full** review document
   at the exact existing URL: `https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html`.
@@ -51,7 +58,7 @@
   assumptions. Distinguish documentation defects from genuinely undecided behavior;
   make derived outcomes explicit so the eventual long implementation loop need not
   guess. D-237 limits unnecessary policy questions, not useful consistency repairs.
-- **Prepare comprehensively now; execute autonomously later (D-256).** During the
+- **Comprehensive preparation and autonomous implementation (D-256/D-304).** During the
   specification phase, systematically seek inconsistencies and missing outcomes
   across all tiers, feature interactions, state/lifecycle transitions, concurrency,
   failure/recovery and verification. Do not stop at the existing finding list or
@@ -63,8 +70,9 @@
   constraints, implement, test, review, fix, validate, save and select the next
   slice. Resolve spec-derived/technical details autonomously; escalate only genuine
   blockers or owner decisions, continuing independent approved work where safe.
-  Do not invent product behavior, bypass failed checks or expand scope. This future
-  autonomy does not authorize implementation or a stage transition now.
+  Do not invent product behavior, bypass failed checks or expand scope. D-304 now
+  supplies that explicit implementation/stage authorization; it does not launch a
+  driver by itself or waive operator budgets, stop control or genuine blockers.
 - **Server authority is the default for game state (D-259).** Shared board,
   history/control, Undo/Redo, communication and lifecycle state change through
   requests to the server, with provisional client application for latency hiding.

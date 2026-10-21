@@ -34,7 +34,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
 | P-011 | The first release fully targets two-player games. |
 | P-012 | Initial delivery requires a connection for game actions, including shared Undo/branch controls. Downloaded games remain readable offline, but offline action creation and later queue synchronization are excluded (D-182, superseding D-09's offline-action scope). |
-| P-013 | D-115 delivery sequence: complete behavior specification, adversarial review/refinement, UI drafts/decisions, then iterative implementation. We are still in stage 1; no implementation is authorized. |
+| P-013 | D-115 delivery sequence: behavior specification, adversarial review/refinement, UI drafts/decisions, then iterative implementation. D-304 now explicitly authorizes stage-4 execution of the agreed R1 against the current specification/review/UI baseline. This is not approval of extra scope or a claim of passed implementation/release checks. |
 | P-014 | Cover the manual actions needed to play MTG, rather than a small subset limited to a demonstration game. |
 | P-015 | Every individual mutation immediately saves locally and synchronizes automatically; there is no gameplay Send step, bulk/group publication gate or animation dependency (D-176). D-179 determines its accepted parent. D-183 requires a small local online send queue, concurrent transmission and per-action outcomes without routine acknowledgement waits. D-184 requires clients to send in action order and the server to process in arrival order, not reconstruct order from dependency metadata. |
 | P-016 | Minimize taps and other user actions throughout the UX. |
@@ -52,7 +52,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-028 | Include a temporary combat area with attacker/blocker projections in visual paired-slot groups, without individual attacker↔blocker assignments inside a pair (D-112 refined by D-137/D-139). Projection creation preserves original battlefield positions; later card actions through projections edit/move the same real cards (D-123). |
 | P-029 | Name the former Cast area Stack; allow ability projections without moving their originals (D-113). D-242 includes sources in Graveyard and Exile as well as Battlefield and keeps existing sources live-linked across locations. |
 | P-030 | Offer contextual Stack quick actions: actual instant/sorcery → Graveyard, actual permanent → Battlefield, projection → remove projection. Design exact behavior case by case before implementation (D-114). |
-| P-031 | Stage 1 must cover all agreed behavior, including combat/Stack cases. Stage 2 adversarial review precedes stage 3 UI drafts; stage 4+ implementation is iterative. Do not replace behavior design with UI drafts or technical-schema decisions now (D-115). |
+| P-031 | The specification must cover all agreed behavior, including combat/Stack cases; review/UI decisions precede iterative implementation (D-115). D-304 authorizes the current stage-4 plan; preserve the agreed contracts, resolve derived technical details and escalate only genuine product choices/blockers rather than silently substituting new behavior. |
 | P-032 | Combat-area creation, attacker declaration, and tapping are separate actions. Phase-appropriate multiselect Declare + tap / Declare without tapping shortcuts also create the area when absent (D-116/D-117). |
 | P-033 | Blockers can be dragged to individual attackers or blank unassigned slots; attacker spacing grows with assigned blocker count (D-118). |
 | P-034 | Pings show event-wide order numbers (D-119). Links between projections disappear when endpoint projections disappear (D-120). |
@@ -98,7 +98,9 @@ case by case, not automatic interpretation of card text or generic moves.
 P-065 governs older references above to preserving pending recovery through restart/
 upgrade: preserve accepted downloads/login, not a required durable outgoing journal.
 P-066–P-069 and the focused technical profiles complete earlier tentative defaults;
-they do not authorize application code or a stage transition.
+they do not independently authorize application code or a stage transition.
+The current [D-304 owner record](../../agent/implementation-authorization.md)
+separately supplies that implementation authorization.
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these
 entry/setup behaviors and their remaining decisions.

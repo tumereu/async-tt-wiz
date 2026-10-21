@@ -1,10 +1,11 @@
-# Draft implementation task plan
+# Implementation task plan
 
 Prepared 2026-10-21 under D-300/D-301, **after** the isolated environment tests and
-the UI agent's completed batch. **Planning only; application implementation and
-the autonomous runner are not activated.** The owner asked to treat the finished
-UI as good enough to move toward implementation, not perfect or frozen. This
-planning assumption does not certify all design gates or approve extra features.
+the UI agent's completed batch. **Implementation authorized under D-304:** see the
+[owner authorization record](implementation-authorization.md) and active state.
+The owner asked to treat the finished UI as good enough to implement, not perfect
+or frozen. D-304 supplies that implementation approval; it does not certify every defect absent,
+approve extra features or claim required app/device/release checks have passed.
 The later D-303 owner follow-up adds the explicit final interface-to-mock review
 and correction gate under B8.
 
@@ -324,14 +325,15 @@ production data, deploy, or work in the separate operations repository. Distingu
 implemented software, verified software and externally releasable software in the
 final report; do not label the whole project done with concealed remaining gates.
 
-Before starting application work:
+Execution prerequisites and remaining qualification:
 
-- Owner explicitly authorizes the implementation loop/scope after the design
-  gates; update the state record with that authorization, not an agent's inference.
+- **Owner authorization is now recorded — D-304.** Proceed with stage-4 work
+  against this plan; do not request routine per-task or repeated implementation
+  approval. Earlier stage-prohibition wording is superseded by the owner record.
 - Use the separately authorized [thin driver](implementation-runner.md) and inspect
   its qualification/per-session permissions within approved boundaries. D-302
   pins `openai/gpt-6.1-sol#high`; supply explicit session-count/wall-time budgets.
-  Building this tooling does not activate product execution or authorize I01.
+  Tooling approval alone would not authorize I01; D-304 now separately does.
 - Recheck toolchain/device preflight from the measured topology; qualify the
   **normal app/backend** in B1/B4 instead of claiming the browser fixture passed it.
 - Inventory physical-phone/current-Android/tablet/non-GMS access, upgrade signing
@@ -339,7 +341,7 @@ Before starting application work:
   work, not a fabricated pass or a surprise late-B8 prerequisite. Exercise intended
   bootstrap/build/test/device adapter commands under the actual per-session
   permissions; do not infer permission-profile qualification from a separate smoke.
-- Reconcile activation/stage wording with the explicit owner authorization. The
+- Current activation/stage wording follows D-304's explicit authorization. The
   runner's `complete` additionally requires the recorded external release gates;
   if software is implemented but required verification or external readiness is
   blocked, report those dimensions separately and stop honestly, without waiving
@@ -347,5 +349,5 @@ Before starting application work:
 - Establish the per-task run/evidence records and concrete commands in I01. Exact
   build commands cannot truthfully be reported as existing before builds exist.
 
-No implementation approval, automatic stage advance or perfection claim is
-implied by drafting this plan or by the environment smoke result.
+Implementation approval now comes from D-304, not from the plan's existence or
+environment smokes. It does not waive checks, broaden scope or claim perfection.

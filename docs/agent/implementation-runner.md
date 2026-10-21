@@ -1,10 +1,11 @@
 # Implementation-loop driver
 
 The driver is **[scripts/implementation-loop.py](../../scripts/implementation-loop.py)**,
-using Python's standard library on Linux/WSL and OpenCode V2. The owner authorized
-building and qualifying this tooling under D-302, **not starting application
-implementation**. The real [state](implementation-state.json) remains
-`draft` / `not-authorized`.
+using Python's standard library on Linux/WSL and OpenCode V2. D-302 authorized its
+tooling qualification; **D-304 now explicitly authorizes application implementation**
+under the [owner record](implementation-authorization.md). The real
+[state](implementation-state.json) is `active` / `authorized`. No session starts
+until the operator invokes `run` with positive budgets.
 
 Every role is pinned to **`openai/gpt-6.1-sol#high`**. There is no model override
 flag or fallback. The driver checks the recorded model, creates a fresh top-level
@@ -24,14 +25,15 @@ From the repository root, inspect without starting an agent:
 python3 scripts/implementation-loop.py status
 ```
 
-`next` is a guarded selection hint, **not authorization**. The real checkout may
-show I01 while still refusing execution. The following future activation example
-also refuses to run until explicit owner authorization is recorded:
+`next` is a guarded selection hint, not independent authorization. The real checkout
+now has D-304 authorization, with I01 initially pending. For example, after choosing
+these budgets, the operator can run:
 
 ```sh
 python3 scripts/implementation-loop.py run --max-runs 100 --timeout-seconds 3600
 ```
 
+The numbers above are examples, not a run launched by recording authorization.
 Both budgets are required operator choices, not implicitly unlimited. A run-count
 limit pauses after a saved unit and is not project completion. The time budget
 covers each headless agent invocation; API/startup/shutdown operations have their
@@ -247,6 +249,11 @@ touch the real branch or launch a fake application in place of product E2E.
 
 ### Current follow-up repair qualification — 2026-10-21
 
+The qualification observations below were recorded **before** D-304 activation.
+Their draft/not-authorized project-guard outcomes are historical evidence of the
+guard, not the current execution status. D-304 now satisfies that authorization
+check; it does not retroactively pass normal-app/device/release qualification.
+
 IR-08–IR-13 from the [follow-up review](implementation-loop-followup-review-2026-10-21.md)
 are repaired. **74 automated tests pass**, retaining the earlier 48 and adding 26
 regressions for first-review provenance, verifier/reviewer source/build boundaries,
@@ -301,7 +308,8 @@ archive below remains separate provenance and was not overwritten.
 
 This qualifies the revised orchestration/report/role protocol, not normal
 Gradle/Android/Canvas builds, device permissions, real UI parity, reference hardware
-or external release readiness. Product authorization remains draft/not-authorized.
+or external release readiness. At qualification time, product authorization was
+still draft/not-authorized; D-304 now supersedes that historical state only.
 
 ### Current review-repair qualification — 2026-10-21
 

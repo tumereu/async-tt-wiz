@@ -4,6 +4,14 @@ These are the existing delivery gates and agent implementation instructions,
 separated from [acceptance scenarios](../design/05-verification/acceptance.md).
 The original section numbers remain for stable links.
 
+**Current stage: 4 — implementation authorized by D-304.** See the
+[explicit owner record](implementation-authorization.md). The owner permits the
+agreed entire-R1 plan to proceed using the current specifications/reviews/UI packet
+as its baseline. Earlier stage/no-code statements and readiness checklists below
+are preparation history, not a requirement to obtain the same authorization again.
+This does not certify every checklist assertion, executable test or external gate
+passed; actual qualification and honest blockers remain required.
+
 ## Saving edits (D-178)
 
 After every completed edit batch, run the applicable checks and then
@@ -47,7 +55,7 @@ comprehensive clarity, not a claim that all conceivable defects can be ruled out
 - [ ] Acceptance scenarios state testable outcomes for those contracts.
 - [ ] The owner agrees the behavior specification is ready for review.
 
-**Current stage: 1.** UI drafts and final schema/API/library/deployment choices
+**Historical stage-1 prerequisite:** UI drafts and final schema/API/library/deployment choices
 are not prerequisites for completing this stage. Concrete technical questions
 remain tracked; they must not replace missing behavior decisions.
 
@@ -63,7 +71,7 @@ remain tracked; they must not replace missing behavior decisions.
 - [ ] UI drafts and decisions cover screens, controls/gestures, layout, accessible
       alternatives, and error/recovery states against the reviewed behavior.
 - [ ] Previously approved interaction requirements are incorporated/reconciled.
-- [ ] The owner authorizes iterative implementation after these stages.
+- [x] The owner authorizes iterative implementation (D-304, 2026-10-21).
 
 Necessary technical/schema/API/operations design is prepared for the relevant
 implementation slice. This is not an additional requirement to finish every
@@ -71,15 +79,16 @@ future technical artifact globally during stage 1.
 
 ## 8.4 Confirmed delivery stages
 
-1. **Behavior specification — current.** Define the whole agreed release behavior
+1. **Behavior specification.** Define the whole agreed release behavior
    case by case, including the newly required combat/Stack conveniences.
 2. **Specification adversarial review and refinement.** Review behavior before UI.
 3. **UI drafts and decisions.** Decide presentation and concrete interactions.
-4. **Implementation, looping/iterative from here onward.** Develop and verify
+4. **Implementation — current, D-304.** Develop and verify
    approved slices, refining explicit contracts as needed.
 
-Stages 1–3 are documentation/design only; no prototype or implementation is
-currently authorized. Earlier alternate design-round order is superseded.
+Stages 1–3 were documentation/design only. D-304 now explicitly authorizes stage-4
+implementation against the agreed baseline; earlier no-code prohibitions are
+superseded for authorization, not blanket approval of unrelated proposals.
 
 ## 8.5 Later specification-driven implementation loop
 
@@ -90,8 +99,8 @@ launches a fresh agent for one bounded implementation, grouped behavioral review
 fix or targeted verification unit; it validates/saves/pushes and exits before the
 next agent. Independent review is after coherent capabilities, **not each task**;
 tests and relevant validation still accompany every task. The
-[draft plan](implementation-plan.md), [execution/review contract](implementation-loop.md)
-and [inactive state](implementation-state.json) define the proposed work/dependency
+[implementation plan](implementation-plan.md), [execution/review contract](implementation-loop.md)
+and [active state](implementation-state.json) define the work/dependency
 and handoff details. This sequencing refines the generic cycle below; its
 per-slice checks are not mandatory independent reviewer sessions after each slice.
 
@@ -107,9 +116,10 @@ one/two/three-device checks; normal-app/backend acceptance is still unimplemente
 D-302 separately authorized the [driver and isolated qualification](implementation-runner.md),
 which passed 25 automated tests and a six-session real-agent cycle with every role
 pinned to `openai/gpt-6.1-sol#high`. This qualifies tooling, not application behavior.
-No application implementation/runner activation or stage transition is granted;
-the real state remains draft/not-authorized. Activation still needs owner approval,
-reviewed build/test permissions and explicit run-count/wall-time budgets.
+Those preparation decisions alone did not grant implementation or a stage change.
+D-304 now separately grants that authorization and the real state is active/
+authorized. Actual build/test permission qualification, resource evidence and
+explicit operator-selected run-count/wall-time budgets remain required.
 
 **Autonomous through completion — D-256:** once this loop is authorized and begins,
 continue through the entire agreed scope without asking for routine slice approval
@@ -117,7 +127,7 @@ or a new "continue" after each milestone. Establish the agreed scope and observa
 completion criteria before starting; a finished slice is not the end of the loop.
 Select the next slice, carry out the cycle below and repeat until all those criteria
 are satisfied. Progress updates are not approval gates. This does not authorize
-starting implementation during the current specification phase.
+starting work outside D-304's approved scope or bypassing actual verification.
 
 1. Select an approved vertical slice and its requirement/test IDs.
 2. Complete necessary technical design for that slice (schema/API/storage/etc.)
@@ -142,8 +152,8 @@ starting implementation during the current specification phase.
    one slice or one coding pass is complete.
 
 The older candidate order (core → local table → sync → history → toolkit →
-entry/catalog) is superseded **as the current planning draft**, not as an approved
-stage transition, by the source-linked B1–B8 plan. It gets normal entry/decks/lobby
+entry/catalog) is superseded by the source-linked B1–B8 plan, now authorized under
+D-304. It gets normal entry/decks/lobby
 and real-UI test wiring in place before claiming gameplay E2E; shared server
 authority is the default from the first shared behavior, never a local game to
-retrofit later. The plan can be refined within approved scope before activation.
+retrofit later. The plan can be refined within approved scope during execution.

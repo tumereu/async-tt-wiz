@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "mode": "draft",
-  "authorization": "not-authorized",
-  "authorizationRecord": null,
+  "mode": "active",
+  "authorization": "authorized",
+  "authorizationRecord": "docs/agent/implementation-authorization.md",
   "runner": {
     "model": "openai/gpt-6.1-sol#high",
     "permissions": "docs/agent/implementation-permissions.json",

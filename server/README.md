@@ -2,8 +2,9 @@
 
 JVM21 consumer of `:core` and `:protocol`. **I01c1 provides real PostgreSQL17,
 forward-only Flyway migrations, an explicit executable migration command and
-server-only generated jOOQ bindings.** This is not a live service: Spring Boot,
-writer acquisition/fencing, runtime readiness and health are I01c2; the application
+server-only generated jOOQ bindings. I01c2a adds the real database writer
+ownership/epoch-fenced transaction boundary.** This is not a live service: Spring
+Boot, runtime configuration, readiness and health are I01c2b; the application
 image/lifecycle qualification is I01c3. No account/game/inbox/outbox schema or worker
 exists yet. No ready endpoint or worker-recovery behavior is fabricated.
 
@@ -48,8 +49,10 @@ compares every generated relative path/SHA-256. The tests use those generated
 table/field types against the same versioned migrated schema, including committed
 and rolled-back transactions.
 
-No container reuse, shared database, fixed host port or global Docker cleanup is
-used. Each generator/test owns its container and anonymous volumes, closes them
+No container reuse, shared database, hard-coded/shared host port or global Docker
+cleanup is used. Restart tests reserve an OS-allocated port and give Docker an
+explicit binding: otherwise Docker can change a random publication on stop/start
+while Testcontainers caches the old address. Each generator/test owns its container and anonymous volumes, closes them
 and checks their removal. Testcontainers' resource reaper covers interrupted JVMs.
 Outputs identify the owned resources; collect evidence before cleanup on failure.
 No unrelated container, network or volume may be stopped/removed.
@@ -91,10 +94,68 @@ migration's SQL/DDL and preserve previously supported data/history. Future upgra
 must add forward versioned migrations, not rewrite deployed V1.
 
 `service_writer` contains a checked singleton key and nonnegative bigint epoch,
-initialized to 0. I01c2 must acquire the advisory lock, advance this persisted epoch
-and fence mutating transactions; merely having this row confers no writer ownership.
+initialized to 0. Merely having this row confers no writer ownership.
 The explicit migration command must remain separate from service startup, and I01c3
 must package both interfaces in the same image.
+
+## Database ownership boundary — I01c2a
+
+`WriterOwnership` is a server-only closeable component, not a running service or
+HTTP readiness implementation. The future Spring lifecycle must periodically call
+`refresh()`, handle safe `OwnershipFailure` reasons as unready, and use `token()`
+to probe existing ownership before reporting readiness. `refresh()` returns empty
+when another instance owns the advisory lock; it does not wait for that owner.
+It never calls migrate, creates history, baselines, cleans or repairs a database.
+Acquisition validates Flyway history/checksums and requires no pending migrations;
+empty, unversioned, future and invalid schemas remain unavailable and unchanged.
+
+The dedicated lock connection holds the stable two-int PostgreSQL session advisory
+lock `(0x41545457, 1)`. Acquisition takes `FOR UPDATE` on the singleton, increments
+and commits the persisted epoch, then reloads/checks the only implemented durable
+foundation state before publishing an opaque instance-bound token. A failed or
+ambiguous acquisition releases its connection and publishes no token. No automatic
+retry of a mutating transaction is performed.
+
+All future mutating repositories must use `transaction(token, callback)` **before**
+game/stream locks. It probes the dedicated session, starts a separate transaction,
+takes `FOR SHARE` on the epoch row, checks the token and holds that shared lock
+through callback and commit/rollback. Callbacks do local database work only: no
+network calls, transaction-control statements, retained connections or autocommit
+changes. Concurrent callbacks are not synchronized with one another. The replacement
+writer's exclusive epoch update waits for existing shared locks; delayed stale
+transactions cannot cross the new epoch even if their earlier session probe succeeded.
+An unobserved DB restart with an unchanged stored epoch also cannot admit a transaction
+under the destroyed lock session.
+
+Observed DB/lock loss, a failed transaction or `close()` invalidates the token.
+Recovery requires fresh ownership/schema validation and singleton reload, never a
+cached ready flag. Failure reasons intentionally omit raw JDBC/Flyway errors, causes
+and suppressed exceptions. Diagnostic strings contain no connection inputs. Connection
+defaults override URL timeouts: connect 3 seconds, socket/statement 5 seconds, lock
+2 seconds and idle-in-transaction 10 seconds. Callbacks must remain bounded local
+work; these defaults are not a scheduler, a whole-request deadline or a guarantee
+that arbitrary callback code is interruptible. Close is terminal/idempotent and
+releases the dedicated connection without waiting for application callbacks; a
+restart creates a new manager and epoch. Existing transactions still fence a
+replacement until commit/rollback or their database timeout. Spring process drain
+and actual SIGTERM/30-second qualification remain I01c2b/I01c3.
+
+`WriterOwnershipTest` uses real owned PostgreSQL, test-owned probe tables and
+lower-layer transactions, never product test-action endpoints. It observes actual
+replacement row-lock waits in `pg_stat_activity`, synchronizes simultaneous shared
+transactions with latches, terminates the lock backend, stops/restarts PostgreSQL
+with retained storage, pauses/unpauses it to test socket bounds, and proves refusal,
+rollback, stale-token fencing, revalidation, recovery and exact owned cleanup.
+Run just this scope with:
+
+```sh
+./scripts/gradle.sh --no-daemon --console=plain :server:test \
+  --tests org.asyncttwiz.server.database.WriterOwnershipTest verifyModuleBoundaries
+```
+
+No account/game/inbox/outbox/mail/push worker exists. Each future durable worker
+must join recovery/readiness before the real service can accept commands; this
+singleton-only foundation does not claim those workers have reloaded.
 
 ## Scope, evidence and remaining obligations
 
@@ -118,3 +179,8 @@ Ryuk reaper before its asynchronous shutdown completed; the unchanged handoff ch
 then passed against a settled snapshot with no owned containers/reapers remaining.
 B1 independent review remains after I01–I04 together; this child
 does not close I01c, I01, B1, architecture/device qualification or any release gate.
+
+The [I01c2a run](../docs/agent/implementation-runs/20261021T191440Z-b4076baa.json)
+adds ownership/fencing evidence toward T-630/T-662, with the original port-restart
+diagnostics retained. It does not close I01c2, its ancestors or any independent
+review. Spring/HTTP/configuration/process and image checks are explicitly pending.

@@ -4,18 +4,25 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.sql.DriverManager
+import java.net.ServerSocket
 import java.util.UUID
 
 /** Never attaches to Compose/developer databases and never enables container reuse. */
-class OwnedPostgres : AutoCloseable {
+class OwnedPostgres(retainPortAcrossRestart: Boolean = false) : AutoCloseable {
+    // Docker can republish a random host port on stop/start while Testcontainers caches
+    // the original mapping. Only restart tests reserve an OS-allocated, explicit port.
+    // No hard-coded/shared host port; release the reservation immediately before create.
+    private val portReservation = if (retainPortAcrossRestart) ServerSocket(0) else null
     val container = PostgreSQLContainer(DockerImageName.parse(System.getProperty("asyncttwiz.postgresImage")).asCompatibleSubstituteFor("postgres"))
         .withDatabaseName("foundation_integration")
         .withUsername("foundation_test")
         .withPassword(UUID.randomUUID().toString())
         .withLabel("org.asyncttwiz.owner", "server-integration")
         .withReuse(false)
+        .apply { portReservation?.let { setPortBindings(listOf("${it.localPort}:5432")) } }
 
     fun start(): OwnedPostgres {
+        portReservation?.close()
         container.start()
         println("OWNED integration PostgreSQL container=${container.containerId} image=${container.dockerImageName}")
         connection().use { connection ->
@@ -35,6 +42,7 @@ class OwnedPostgres : AutoCloseable {
     fun connection() = DriverManager.getConnection(container.jdbcUrl, container.username, container.password)
 
     override fun close() {
+        portReservation?.close()
         val id = container.containerId ?: return
         val client = container.dockerClient
         val volumes = client.inspectContainerCmd(id).exec().mounts.orEmpty().mapNotNull { it.name }

@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -134,7 +134,10 @@
     {
       "id": "I01c2a",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json",
+      "buildNotes": "server/README.md",
+      "qualification": "Server-only closeable ownership/fencing foundation passes real PostgreSQL17 supported/retained schema validation and empty/unversioned/future/checksum/missing-singleton refusal without migration/repair. Two independent managers prove dedicated advisory ownership, persisted epoch advance, lower-layer stale-token fencing, observed exclusive-row-lock waiting through old commit/rollback and simultaneous shared-row-lock transactions. Bounded acquisition/blackhole probes, actual retained-DB stop/start, unobserved restart with unchanged epoch, recovery revalidation/reload, rollback, safe errors and repeated close/restart pass. Clean JVM21 shared/server tests, deterministic jOOQ regeneration, strict locks/boundaries and a repeated 22-test server suite pass without skipped tests; owned containers/volumes are removed. Initial restart harness port-republication failures and the dynamically allocated stable-port repair are retained. Spring process/HTTP/configuration/SIGTERM remains I01c2b, image I01c3; I01c2/ancestors/B1 review/product E2E and release gates remain open.",
       "dependsOn": ["I01c1"],
       "outcome": "Implement the server-only database ownership/fencing foundation using the unchanged explicit migration interface and existing V1 service_writer schema: non-migrating schema/history/checksum validation, a dedicated advisory-lock connection, persisted epoch advancement under an exclusive epoch-row lock, and an epoch-checked shared-row-lock entry to mutating transactions. Invalidate ownership on database/lock-connection failure and require reacquisition, schema validation and reload of the implemented singleton state before exposing an available ownership token. Keep lifecycle operations bounded and resources closeable for Spring integration in I01c2b; this child does not supply HTTP readiness, account/game/inbox/outbox workers or new action endpoints.",
       "checks": [

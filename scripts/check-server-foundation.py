@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check actual I01c1 outputs/boundaries and print executed test XML as evidence."""
+"""Check actual database foundation outputs/boundaries and print executed test XML."""
 import fnmatch
 import hashlib
 import json
@@ -32,6 +32,8 @@ for path in reports:
     print("Actual JUnit report:", path)
     print(path.read_text())
 assert tests >= 10
+ownership = ET.parse("server/build/test-results/test/TEST-org.asyncttwiz.server.database.WriterOwnershipTest.xml").getroot()
+assert int(ownership.attrib["tests"]) >= 12
 print("PASS actual server JVM21 tests without skipped/failing cases:", tests)
 
 jar = Path("server/build/libs/server-0.1.0.jar")
@@ -41,6 +43,7 @@ with zipfile.ZipFile(jar) as archive:
     assert {struct.unpack(">H", archive.read(name)[6:8])[0] for name in classes} == {65}
     assert "org/asyncttwiz/server/generated/tables/ServiceWriter.class" in classes
     assert "org/asyncttwiz/server/database/MigrationCommand.class" in classes
+    assert "org/asyncttwiz/server/database/WriterOwnership.class" in classes
     assert not any("/tools/" in name for name in classes), "Code generator leaked into runtime"
 print("PASS real server/generated-field Java21 classfiles; runtime JAR SHA256:", hashlib.sha256(jar.read_bytes()).hexdigest())
 
@@ -57,4 +60,4 @@ for module in ("core", "protocol", "client-storage", "androidApp", "e2e"):
     for path in Path(module, "src").rglob("*.*"):
         if path.suffix in (".kt", ".java"):
             assert "org.asyncttwiz.server.generated" not in path.read_text(), path
-print("PASS generated persistence stays server-only; no service/ownership/readiness/image or gameplay workers claimed")
+print("PASS generated persistence/ownership stays server-only; no live service/readiness/image or gameplay workers claimed")

@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>H02 — Grouped playback running (Async Table)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+  <style>
+    /* CSS Reset and Core Setup */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    :root {
+      --bg-app: #0b1319;
+      --surface-dark: #0f1922;
+      --surface-dock: #13202b;
+      --surface-card: #ffffff;
+      --border-dark: #223746;
+      --border-subtle: #192a36;
+      --text-main: #f0f4f8;
+      --text-muted: #8ca3ba;
+      --text-subtle: #566c7d;
+      --teal-primary: #00796b;
+      --teal-accent: #00897b;
+      --teal-light: #4db6ac;
+      --teal-glow: rgba(77, 182, 172, 0.25);
+      --amber-gold: #ffb300;
+      --amber-light: #ffe082;
+      --cyan-bright: #26c6da;
+      --red-muted: #ef5350;
+
+      /* Green battlefield bands */
+      --bf-dark-green: #11281e;
+      --bf-dark-green-border: #1d4332;
+      --bf-light-green: #163628;
+      --bf-light-green-border: #23543e;
+      --slot-border: rgba(77, 182, 172, 0.2);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg-app);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text-main);
+      user-select: none;
+    }
+
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      display: inline-block;
+      text-transform: none;
+      letter-spacing: normal;
+      word-wrap: normal;
+      white-space: nowrap;
+      direction: ltr;
+      vertical-align: middle;
+    }
+
+    /* Overall App Shell */
+    #app-root {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* --- FIXED TOP BAR (48px + system inset) --- */
+    header.app-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 16px;
+      background-color: var(--surface-dark);
+      border-bottom: 1px solid var(--border-dark);
+      z-index: 50;
+      flex-shrink: 0;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .icon-btn:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .game-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .game-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: var(--text-main);
+    }
+    .game-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #192a36;
+      color: var(--teal-light);
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 500;
+    }
+    .game-turn-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .topbar-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .phase-badge-readonly {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 4px;
+      background: #142834;
+      border: 1px solid #1f3f52;
+      color: #80deea;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .phase-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cyan-bright);
+      box-shadow: 0 0 6px var(--cyan-bright);
+    }
+    .phase-lock-text {
+      font-size: 9px;
+      color: var(--text-muted);
+      border-left: 1px solid #284457;
+      padding-left: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-reviewing {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      background: rgba(255, 179, 0, 0.12);
+      border: 1px solid rgba(255, 179, 0, 0.35);
+      border-radius: 4px;
+      color: var(--amber-light);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-reviewing:active {
+      background: rgba(255, 179, 0, 0.22);
+    }
+    .btn-back-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 10px;
+      background: var(--teal-primary);
+      border: 1px solid var(--teal-accent);
+      border-radius: 4px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .btn-back-live:active {
+      background: var(--teal-accent);
+    }
+
+    /* --- FIXED OPPONENT COVERED HAND (TOP) --- */
+    .opponent-hand-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 36px;
+      padding: 0 16px;
+      background-color: #0c1720;
+      border-bottom: 1px solid #172633;
+      z-index: 40;
+      flex-shrink: 0;
+    }
+    .opp-hand-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Roboto Mono', monospace;
+    }
+    .opp-hand-pills {
+      display: flex;
+      gap: 5px;
+    }
+    .opp-card-back {
+      width: 22px;
+      height: 28px;
+      background: #1b2d3b;
+      border: 1px solid #2d4557;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #5c7b94;
+      font-size: 10px;
+      font-family: 'Roboto Mono', monospace;
+    }
+    .opp-hand-status {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--amber-gold);
+      font-family: 'Roboto Mono', monospace;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* --- MAIN WORKSPACE (BOARD + SPECIAL DOCK) --- */
+    .workspace-area {
+      display: flex;
+      flex: 1;
+      width: 100%;
+      height: calc(100% - 48px - 36px - 146px); /* minus topbars and bottom history suite */
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* SPECIAL DOCK (Landscape: left sidebar. Portrait: central strip between BFs) */
+    .zone-dock {
+      background-color: var(--surface-dock);
+      border-right: 1px solid var(--border-dark);
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+      flex-shrink: 0;
+      width: 140px;
+      padding: 8px;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    .dock-player-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: #0f1a23;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #1c2e3c;
+    }
+    .dock-player-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+    .player-tag {
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'Roboto Mono', monospace;
+      color: var(--text-main);
+    }
+    .player-role {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .dock-life-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 4px 6px;
+      background: #091118;
+      border: 1px solid #162430;
+      border-radius: 3px;
+    }
+    .dock-life-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .dock-life-val {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: #ff8a80;
+    }
+    .dock-counts-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+    .count-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 38px;
+      background: #0a131b;
+      border: 1px solid #192a38;
+      border-radius: 3px;
+    }
+    .count-lbl {
+      font-size: 8px;
+      color: var(--text-subtle);
+      font-weight: 600;
+    }
+    .count-val {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* --- BOARD VIEWPORT (SCROLLABLE/PAN IF NEEDED, NO PAGE SCROLL) --- */
+    .board-viewport {
+      flex: 1;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: #080f14;
+      display: flex;
+      flex-direction: column;
+      padding: 6px 12px 14px 12px;
+      gap: 6px;
+      position: relative;
+    }
+
+    /* Six Row Battlefield System */
+    .bf-band {
+      border-radius: 4px;
+      padding: 4px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+    }
+    .bf-outer {
+      background: var(--bf-dark-green);
+      border: 1px solid var(--bf-dark-green-border);
+    }
+    .bf-inner {
+      background: var(--bf-light-green);
+      border: 1px solid var(--bf-light-green-border);
+    }
+    .band-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-family: 'Roboto Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6da385;
+      margin-bottom: 2px;
+    }
+    .band-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .card-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 48px;
+      width: 100%;
+    }
+
+    /* Cards and Empty Slots */
+    .card-thumb {
+      width: 48px;
+      height: 48px;
+      background: #fff;
+      color: #111;
+      border-radius: 3px;
+      border: 1px solid #ccc;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 3px 4px;
+      font-size: 8px;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .card-thumb .c-name {
+      font-weight: 700;
+      line-height: 1.1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card-thumb .c-type {
+      font-size: 7px;
+      color: #555;
+    }
+    .card-thumb .c-pt {
+      align-self: flex-end;
+      background: #eef3f1;
+      padding: 1px 3px;
+      border-radius: 2px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 7px;
+      font-weight: 700;
+    }
+    /* Tapped cards alone rotate clockwise 90 degrees */
+    .card-thumb.tapped {
+      transform: rotate(90deg);
+      border-color: #888;
+      box-shadow: 1px 0 3px rgba(0,0,0,0.4);
+    }
+    .card-slot {
+      width: 48px;
+      height: 48px;
+      border: 1px dashed var(--slot-border);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(109, 163, 133, 0.4);
+      font-size: 7px;
+      font-family: 'Roboto Mono', monospace;
+      flex-shrink: 0;
+    }
+
+    /* CENTER LANES: COMBAT LANE (2 ROWS) & SHARED STACK LANE */
+    .center-lanes {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 4px 0;
+    }
+    .lane-box {
+      border-radius: 4px;
+      padding: 4px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .lane-combat {
+      background: rgba(255, 179, 0, 0.04);
+      border: 1px solid rgba(255, 179, 0, 0.35);
+    }
+    .lane-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-family: 'Roboto Mono', monospace;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--amber-gold);
+    }
+    .combat-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .combat-subrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .combat-subrow-label {
+      width: 70px;
+      font-size: 8px;
+      font-family: 'Roboto Mono', monospace;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    /* Projected cards use dashed borders */
+    .card-thumb.projected-blocker {
+      border: 1.5px dashed #ef5350;
+      background: #fff;
+    }
+    .card-thumb.projected-attacker {
+      border: 1.5px dashed #00897b;
+      background: #fff;
+    }
+    .combat-vs-arrow {
+      font-size: 9px;
+      color: var(--amber-gold);
+      font-family: 'Roboto Mono', monospace;
+      margin-left: 10px;
+    }
+
+    .lane-stack {
+      background: rgba(38, 198, 218, 0.04);
+      border: 1px solid rgba(38, 198, 218, 0.3);
+    }
+    .stack-header {
+      color: var(--cyan-bright);
+    }
+    .stack-items {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+    }
+    .stack-card {
+      height: 40px;
+      padding: 3px 6px;
+      border-radius: 3px;
+      background: #fff;
+      color: #111;
+      border: 1px solid #26c6da;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 8px;
+    }
+    .stack-desc {
+      font-size: 8px;
+      color: var(--text-muted);
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    /* --- FIXED OWN HAND BAR (READ-ONLY IN HISTORY, HOVERING ABOVE CHROME) --- */
+    .own-hand-hover {
+      height: 42px;
+      background: #09131a;
+      border-top: 1px solid #1b2d3c;
+      border-bottom: 1px solid #14212c;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 35;
+      flex-shrink: 0;
+    }
+    .own-hand-tag {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 600;
+    }
+    .hand-locked-badge {
+      font-size: 9px;
+      color: var(--amber-gold);
+      background: rgba(255, 179, 0, 0.1);
+      border: 1px solid rgba(255, 179, 0, 0.3);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: 'Roboto Mono', monospace;
+      text-transform: uppercase;
+    }
+    .hand-cards-list {
+      display: flex;
+      gap: 6px;
+    }
+    .hand-card-item {
+      height: 32px;
+      padding: 2px 6px;
+      background: #fff;
+      color: #111;
+      border-radius: 2px;
+      font-size: 8px;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      border: 1px solid #ccc;
+    }
+    .hand-card-item .hc-cost {
+      font-size: 7px;
+      color: #00796b;
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    /* --- HISTORY SUITE: TIMELINE + GROUPED TRANSPORT & ACTIONS --- */
+    footer.history-suite {
+      background-color: var(--surface-dark);
+      border-top: 1px solid var(--border-dark);
+      display: flex;
+      flex-direction: column;
+      padding: 8px 16px 12px 16px;
+      gap: 8px;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    /* Timeline & Progress */
+    .timeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .timeline-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 11px;
+    }
+    .timeline-state-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--amber-gold);
+      font-weight: 600;
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--amber-gold);
+      box-shadow: 0 0 8px var(--amber-gold);
+      animation: pulseAnim 1.5s infinite;
+    }
+    @keyframes pulseAnim {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .timeline-hint {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+    .timeline-counter {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    /* Scrubbing Track with Markers & Diagonal Branch Stub */
+    .timeline-track-wrap {
+      position: relative;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    .timeline-base-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: #1b2f3e;
+      border-radius: 2px;
+    }
+    /* Animated grouped playback segment */
+    .timeline-played-fill {
+      position: absolute;
+      left: 0;
+      width: 62%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--teal-light), var(--amber-gold));
+      border-radius: 2px;
+    }
+    .timeline-group-bracket {
+      position: absolute;
+      left: 35%;
+      width: 27%;
+      height: 22px;
+      border: 1px solid rgba(255, 179, 0, 0.45);
+      background: rgba(255, 179, 0, 0.08);
+      border-radius: 3px;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .group-bracket-label {
+      font-size: 8px;
+      color: var(--amber-gold);
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Branch Stub at marker A */
+    .branch-stub-svg {
+      position: absolute;
+      left: 20%;
+      top: -2px;
+      width: 30px;
+      height: 24px;
+      pointer-events: none;
+    }
+
+    /* Event markers */
+    .event-dot {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #39546b;
+      transform: translate(-50%, 0);
+      top: 15px;
+    }
+    .event-dot.passed {
+      background: var(--teal-light);
+    }
+    .event-dot.label-a {
+      left: 20%;
+    }
+    .event-dot.label-x {
+      left: 45%;
+    }
+    .event-dot.label-z {
+      left: 85%;
+    }
+
+    /* Active selected marker Y (where playback currently is) */
+    .marker-y-wrap {
+      position: absolute;
+      left: 62%;
+      top: 2px;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 5;
+    }
+    .marker-needle {
+      width: 2px;
+      height: 18px;
+      background: var(--amber-gold);
+      box-shadow: 0 0 8px var(--amber-gold);
+    }
+    .marker-badge-y {
+      background: var(--amber-gold);
+      color: #0c141a;
+      font-size: 9px;
+      font-weight: 800;
+      font-family: 'Roboto Mono', monospace;
+      padding: 1px 5px;
+      border-radius: 3px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    /* Bottom Transport & Dedicated Actions */
+    .transport-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .playback-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-transport {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 48px;
+      min-width: 48px;
+      padding: 0 14px;
+      background: #14222d;
+      border: 1px solid #233a4c;
+      color: var(--text-main);
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-transport:active {
+      background: #1c3141;
+    }
+    .btn-pause-primary {
+      background: var(--amber-gold);
+      border-color: #ffa000;
+      color: #0b141a;
+      font-weight: 700;
+      min-width: 90px;
+    }
+    .btn-pause-primary:active {
+      background: #ff8f00;
+    }
+
+    .history-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-continue-here {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 48px;
+      padding: 0 16px;
+      background: var(--teal-primary);
+      border: 1px solid var(--teal-accent);
+      color: #fff;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-continue-here:active {
+      background: var(--teal-accent);
+    }
+    .btn-nav-live {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 48px;
+      padding: 0 14px;
+      background: transparent;
+      border: 1px solid #284457;
+      color: var(--text-muted);
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-nav-live:active {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* RESPONSIVE LAYOUT MEDIA QUERIES (Landscape vs Portrait)                 */
+    /* ---------------------------------------------------------------------- */
+
+    /* LANDSCAPE (e.g. 892x412 desktop / landscape tablet) */
+    @media (orientation: landscape) {
+      .workspace-area {
+        flex-direction: row;
+      }
+      .zone-dock {
+        width: 140px;
+        height: 100%;
+        border-right: 1px solid var(--border-dark);
+        border-bottom: none;
+      }
+      .portrait-dock-strip {
+        display: none !important;
+      }
+      .landscape-dock-sidebar {
+        display: flex !important;
+      }
+    }
+
+    /* PORTRAIT (e.g. 412x892 mobile portrait) */
+    @media (orientation: portrait) {
+      .workspace-area {
+        flex-direction: column;
+        height: calc(100% - 48px - 36px - 156px);
+      }
+      /* In portrait, hide left sidebar dock; it becomes a central strip BETWEEN battlefields */
+      .landscape-dock-sidebar {
+        display: none !important;
+      }
+      .portrait-dock-strip {
+        display: flex !important;
+        flex-direction: column;
+        gap: 4px;
+        background: #0d1822;
+        border-top: 1px solid #1a2c3a;
+        border-bottom: 1px solid #1a2c3a;
+        padding: 6px 8px;
+        margin: 2px 0;
+        border-radius: 4px;
+      }
+      .portrait-player-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+      }
+      .p-tag-group {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        width: 90px;
+      }
+      .p-life-badge {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: #ff8a80;
+      }
+      .p-counts-group {
+        display: flex;
+        gap: 4px;
+      }
+      .p-count-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: #081017;
+        border: 1px solid #182836;
+        padding: 3px 6px;
+        border-radius: 3px;
+        font-size: 9px;
+        font-family: 'Roboto Mono', monospace;
+      }
+      .p-count-pill span.val {
+        color: var(--text-main);
+        font-weight: 700;
+      }
+      .p-count-pill span.lbl {
+        color: var(--text-subtle);
+      }
+
+      /* Compact transport for portrait */
+      .transport-bar {
+        flex-wrap: wrap;
+      }
+      .playback-controls {
+        flex: 1;
+        justify-content: flex-start;
+      }
+      .history-actions {
+        flex: 1;
+        justify-content: flex-end;
+      }
+      .btn-continue-here {
+        padding: 0 10px;
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app-root">
+
+    <!-- 1. FIXED APP TOP BAR (48px) -->
+    <header class="app-topbar">
+      <div class="topbar-left">
+        <button class="icon-btn" aria-label="Back">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <div class="game-meta">
+          <span class="game-title">Game with riley</span>
+          <span class="game-badge">H02</span>
+          <span class="game-turn-sub">Turn 4 • Match #1</span>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <!-- Read-only step square: no advance tap, locked in historical review -->
+        <div class="phase-badge-readonly" title="Historical step snapshot (read-only)">
+          <div class="phase-dot"></div>
+          <span>Combat • Declare Blockers</span>
+          <span class="phase-lock-text">Locked</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Active Reviewing Indicator & Back to Live Navigation -->
+        <div class="btn-reviewing">
+          <span class="material-symbols-outlined" style="font-size: 16px;">history</span>
+          <span>Reviewing H02</span>
+        </div>
+        <button class="btn-back-live" title="Personal review navigation — returns view to live turn">
+          <span class="material-symbols-outlined" style="font-size: 14px;">skip_next</span>
+          <span>Back to Live</span>
+        </button>
+        <button class="icon-btn" aria-label="More options">
+          <span class="material-symbols-outlined">more_vert</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. FIXED OPPONENT COVERED HAND BAR (TOP) -->
+    <div class="opponent-hand-bar">
+      <span class="opp-hand-label">riley's Hand (5 cards, concealed):</span>
+      <div class="opp-hand-pills">
+        <div class="opp-card-back">?</div>
+        <div class="opp-card-back">?</div>
+        <div class="opp-card-back">?</div>
+        <div class="opp-card-back">?</div>
+        <div class="opp-card-back">?</div>
+      </div>
+      <div class="opp-hand-status">
+        <span class="material-symbols-outlined" style="font-size: 14px;">lock_clock</span>
+        <span>Historical snapshot</span>
+      </div>
+    </div>
+
+    <!-- 3. WORKSPACE AREA (LANDSCAPE DOCK + BOARD VIEWPORT) -->
+    <div class="workspace-area">
+
+      <!-- LANDSCAPE ONLY: Left Sidebar Dock with BOTH players' controls -->
+      <aside class="zone-dock landscape-dock-sidebar">
+        <!-- Opponent Riley Block -->
+        <div class="dock-player-block">
+          <div class="dock-player-header">
+            <span class="player-tag">@riley</span>
+            <span class="player-role">Opponent</span>
+          </div>
+          <div class="dock-life-row">
+            <span class="dock-life-label">Life</span>
+            <span class="dock-life-val">20</span>
+          </div>
+          <div class="dock-counts-grid">
+            <div class="count-box">
+              <span class="count-lbl">LIB</span>
+              <span class="count-val">50</span>
+            </div>
+            <div class="count-box">
+              <span class="count-lbl">GRAVE</span>
+              <span class="count-val">2</span>
+            </div>
+            <div class="count-box">
+              <span class="count-lbl">EXILE</span>
+              <span class="count-val">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Own Alex Block -->
+        <div class="dock-player-block" style="border-color: #1e3f34;">
+          <div class="dock-player-header">
+            <span class="player-tag" style="color: var(--teal-light);">@alex (You)</span>
+            <span class="player-role">Inviter</span>
+          </div>
+          <div class="dock-life-row">
+            <span class="dock-life-label">Life</span>
+            <span class="dock-life-val">20</span>
+          </div>
+          <div class="dock-counts-grid">
+            <div class="count-box">
+              <span class="count-lbl">LIB</span>
+              <span class="count-val">50</span>
+            </div>
+            <div class="count-box">
+              <span class="count-lbl">GRAVE</span>
+              <span class="count-val">2</span>
+            </div>
+            <div class="count-box">
+              <span class="count-lbl">EXILE</span>
+              <span class="count-val">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: auto; padding: 4px; font-size: 9px; color: var(--text-subtle); text-align: center; font-family: 'Roboto Mono', monospace;">
+          History boundary state
+        </div>
+      </aside>
+
+      <!-- BOARD VIEWPORT (6 rows: riley dark 1, riley light 2, center lanes, alex light 2, alex dark 1) -->
+      <main class="board-viewport">
+
+        <!-- ROW 1: RILEY OUTER BAND (Dark green, 1 row for Lands) -->
+        <section class="bf-band bf-outer">
+          <div class="band-meta">
+            <span>RILEY • OUTER BAND (LANDS / ROW 1)</span>
+            <span>2 Lands active</span>
+          </div>
+          <div class="band-rows">
+            <div class="card-row">
+              <div class="card-thumb">
+                <span class="c-name">Quiet Grove</span>
+                <span class="c-type">Land</span>
+                <span class="c-pt">G</span>
+              </div>
+              <div class="card-thumb tapped" title="Tapped Forest (rotated 90deg)">
+                <span class="c-name">Forest</span>
+                <span class="c-type">Tap: G</span>
+                <span class="c-pt">Land</span>
+              </div>
+              <div class="card-slot">slot</div>
+              <div class="card-slot">slot</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROWS 2 & 3: RILEY INNER BAND (Light green, 2 rows for other permanents) -->
+        <section class="bf-band bf-inner">
+          <div class="band-meta">
+            <span>RILEY • INNER BAND (SUPPORT & CREATURES / ROWS 2 & 3)</span>
+            <span>2 Permanents</span>
+          </div>
+          <div class="band-rows">
+            <!-- Row 2: Support / Artifacts -->
+            <div class="card-row">
+              <div class="card-thumb">
+                <span class="c-name">Rift Catalyst</span>
+                <span class="c-type">Artifact</span>
+                <span class="c-pt">Passive</span>
+              </div>
+              <div class="card-slot">slot</div>
+              <div class="card-slot">slot</div>
+            </div>
+            <!-- Row 3: Creatures -->
+            <div class="card-row">
+              <div class="card-thumb">
+                <span class="c-name">Stone Guide</span>
+                <span class="c-type">Creature</span>
+                <span class="c-pt">2 / 3</span>
+              </div>
+              <div class="card-thumb">
+                <span class="c-name">River Warden</span>
+                <span class="c-type">Creature</span>
+                <span class="c-pt">1 / 4</span>
+              </div>
+              <div class="card-slot">slot</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PORTRAIT ONLY: Central Strip dock BETWEEN battlefields -->
+        <div class="portrait-dock-strip">
+          <div class="portrait-player-row">
+            <div class="p-tag-group">
+              <span class="player-tag">@riley</span>
+              <span class="p-life-badge">20 HP</span>
+            </div>
+            <div class="p-counts-group">
+              <div class="p-count-pill"><span class="lbl">LIB</span> <span class="val">50</span></div>
+              <div class="p-count-pill"><span class="lbl">GRV</span> <span class="val">2</span></div>
+              <div class="p-count-pill"><span class="lbl">EXL</span> <span class="val">0</span></div>
+            </div>
+          </div>
+          <div class="portrait-player-row">
+            <div class="p-tag-group">
+              <span class="player-tag" style="color: var(--teal-light);">@alex (You)</span>
+              <span class="p-life-badge">20 HP</span>
+            </div>
+            <div class="p-counts-group">
+              <div class="p-count-pill"><span class="lbl">LIB</span> <span class="val">50</span></div>
+              <div class="p-count-pill"><span class="lbl">GRV</span> <span class="val">2</span></div>
+              <div class="p-count-pill"><span class="lbl">EXL</span> <span class="val">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CENTER LANES: SHARED STACK & COMBAT LANE -->
+        <div class="center-lanes">
+
+          <!-- Shared Stack Lane -->
+          <section class="lane-box lane-stack">
+            <div class="lane-header stack-header">
+              <span>⚡ SHARED STACK LANE (Event resolution in progress)</span>
+              <span>1 Item on Stack</span>
+            </div>
+            <div class="stack-items">
+              <div class="stack-card">
+                <span style="font-weight:700;">Aegis Ward</span>
+                <span style="color:#00796b;">Instant • Target: Sentinel</span>
+              </div>
+              <span class="stack-desc">← Cast by @alex during attack phase</span>
+            </div>
+          </section>
+
+          <!-- 2-Row Combat Lane: Blockers above Attackers (Dashed border projections) -->
+          <section class="lane-box lane-combat">
+            <div class="lane-header">
+              <span>⚔ COMBAT PROJECTION LANE (Dashed Projections — Blockers above Attackers)</span>
+              <span>Step: Blockers Assigned</span>
+            </div>
+            <div class="combat-grid">
+              <!-- Top Row: Blockers -->
+              <div class="combat-subrow">
+                <span class="combat-subrow-label">Blockers (Riley)</span>
+                <div class="card-thumb projected-blocker" title="Assigned blocker projected from Riley battlefield">
+                  <span class="c-name">[Proj] Stone G.</span>
+                  <span class="c-type">Blocker</span>
+                  <span class="c-pt" style="color:#ef5350;">2 / 3</span>
+                </div>
+                <span class="combat-vs-arrow">⤋ BLOCKING</span>
+              </div>
+              <!-- Bottom Row: Attackers -->
+              <div class="combat-subrow">
+                <span class="combat-subrow-label">Attackers (Alex)</span>
+                <div class="card-thumb projected-attacker" title="Declared attacker projected from Alex battlefield">
+                  <span class="c-name">[Proj] Meadow Sent.</span>
+                  <span class="c-type">Attacker</span>
+                  <span class="c-pt" style="color:#00796b;">3 / 4</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ROWS 4 & 5: ALEX INNER BAND (Light green, 2 rows for other permanents) -->
+        <section class="bf-band bf-inner">
+          <div class="band-meta">
+            <span>ALEX (YOU) • INNER BAND (CREATURES & PERMANENTS / ROWS 4 & 5)</span>
+            <span>2 Creatures</span>
+          </div>
+          <div class="band-rows">
+            <!-- Row 4: Creatures -->
+            <div class="card-row">
+              <div class="card-thumb">
+                <span class="c-name">Meadow Sent.</span>
+                <span class="c-type">Creature (Attacking)</span>
+                <span class="c-pt">3 / 4</span>
+              </div>
+              <div class="card-thumb">
+                <span class="c-name">Frontline Scout</span>
+                <span class="c-type">Creature</span>
+                <span class="c-pt">2 / 1</span>
+              </div>
+              <div class="card-slot">slot</div>
+            </div>
+            <!-- Row 5: Support / Open Slots -->
+            <div class="card-row">
+              <div class="card-slot">slot</div>
+              <div class="card-slot">slot</div>
+              <div class="card-slot">slot</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROW 6: ALEX OUTER BAND (Dark green, 1 row for Lands) -->
+        <section class="bf-band bf-outer">
+          <div class="band-meta">
+            <span>ALEX (YOU) • OUTER BAND (LANDS / ROW 6)</span>
+            <span>2 Lands active (1 tapped)</span>
+          </div>
+          <div class="band-rows">
+            <div class="card-row">
+              <div class="card-thumb tapped" title="Tapped Training Land">
+                <span class="c-name">Training Land</span>
+                <span class="c-type">Land (Tap)</span>
+                <span class="c-pt">Basic</span>
+              </div>
+              <div class="card-thumb" title="Untapped Training Land">
+                <span class="c-name">Training Land</span>
+                <span class="c-type">Land</span>
+                <span class="c-pt">Basic</span>
+              </div>
+              <div class="card-slot">slot</div>
+              <div class="card-slot">slot</div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- 4. FIXED OWN HAND (READ-ONLY IN HISTORY, HOVERING ABOVE CHROME) -->
+    <div class="own-hand-bar own-hand-hover">
+      <span class="own-hand-tag">Your Hand (Read-only):</span>
+      <span class="hand-locked-badge">Locked in History</span>
+      <div class="hand-cards-list">
+        <div class="hand-card-item">
+          <span>Ember Adept</span>
+          <span class="hc-cost">1R • 2/2</span>
+        </div>
+        <div class="hand-card-item">
+          <span>Solar Flare</span>
+          <span class="hc-cost">2R • Sorcery</span>
+        </div>
+        <div class="hand-card-item">
+          <span>Training Land</span>
+          <span class="hc-cost">Land</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. FIXED HISTORY SUITE FOOTER: TIMELINE + GROUPED TRANSPORT CONTROLS -->
+    <footer class="history-suite">
+
+      <!-- Timeline Header & Hint -->
+      <div class="timeline-container">
+        <div class="timeline-info-row">
+          <div class="timeline-state-tag">
+            <div class="pulse-dot"></div>
+            <span>Playing grouped events</span>
+            <span class="timeline-hint">(Drag timeline to pause)</span>
+          </div>
+          <div class="timeline-counter">
+            <span>Event 18 of 28</span>
+          </div>
+        </div>
+
+        <!-- Scrubbing Track with Group Bracket, Branch Stub at A, and Selected Marker Y -->
+        <div class="timeline-track-wrap" title="Historical timeline — Drag to pause and scrub">
+          <!-- Baseline -->
+          <div class="timeline-base-line"></div>
+
+          <!-- Played Progress Fill -->
+          <div class="timeline-played-fill"></div>
+
+          <!-- Highlighted Playback Group Bracket around current animation -->
+          <div class="timeline-group-bracket">
+            <span class="group-bracket-label">Playback group</span>
+          </div>
+
+          <!-- Branch Stub SVG at marker A (small diagonal off-path stub) -->
+          <svg class="branch-stub-svg" viewBox="0 0 30 24">
+            <line x1="5" y1="18" x2="24" y2="4" stroke="#ffb300" stroke-width="2" stroke-dasharray="3,2" />
+            <circle cx="24" cy="4" r="2.5" fill="#ffb300" />
+          </svg>
+
+          <!-- Marker A (Historical branch origin) -->
+          <div class="event-dot passed label-a" title="Marker A: Branch stub"></div>
+
+          <!-- Marker X (Earlier resolution boundary) -->
+          <div class="event-dot passed label-x" title="Marker X: Completed combat trigger"></div>
+
+          <!-- Active Marker Y (Selected playback position) -->
+          <div class="marker-y-wrap" title="Selected event marker Y">
+            <div class="marker-badge-y">Y</div>
+            <div class="marker-needle"></div>
+          </div>
+
+          <!-- Marker Z (Future game state in timeline) -->
+          <div class="event-dot label-z" title="Marker Z: Final live event"></div>
+        </div>
+      </div>
+
+      <!-- Transport Controls: Previous / Pause / Next + Continue Action + Back to Live -->
+      <div class="transport-bar">
+        <!-- Playback Group Stepping & Pause -->
+        <div class="playback-controls">
+          <button class="btn-transport" title="Step backward one grouped event">
+            <span class="material-symbols-outlined">fast_rewind</span>
+            <span>Prev</span>
+          </button>
+
+          <!-- PAUSE BUTTON (Active playing state in H02) -->
+          <button class="btn-transport btn-pause-primary" title="Pause grouped playback">
+            <span class="material-symbols-outlined">pause</span>
+            <span>Pause</span>
+          </button>
+
+          <button class="btn-transport" title="Step forward one grouped event">
+            <span>Next</span>
+            <span class="material-symbols-outlined">fast_forward</span>
+          </button>
+        </div>
+
+        <!-- Distinct Review & Arming Actions -->
+        <div class="history-actions">
+          <!-- Continue playing from here: pauses at exact displayed boundary before arming gameplay; never forks on press -->
+          <button class="btn-continue-here" title="Pauses at exact displayed boundary before arming gameplay (no fork until accepted move)">
+            <span class="material-symbols-outlined">call_split</span>
+            <span>Continue playing from here</span>
+          </button>
+
+          <!-- Top / bottom personal review navigation -->
+          <button class="btn-nav-live" title="Return review camera to current live turn">
+            <span>Back to live</span>
+          </button>
+        </div>
+      </div>
+
+    </footer>
+
+  </div>
+</body>
+</html>

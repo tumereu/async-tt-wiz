@@ -18,9 +18,10 @@ down should add precision, not introduce a new usability model.
 
 ### UI review pilot
 
-The owner has authorized a limited **[non-gameplay UI pilot](design/02-experience/ui/README.md)**
+The owner has authorized a limited **[UI review packet](design/02-experience/ui/README.md)**
 using Stitch, with portrait and landscape mockups, interaction notes and compiled
-HTML/PDF review editions (D-290). Gameplay remains an explicit placeholder.
+HTML/PDF review editions: the original non-gameplay pilot (D-290) and the
+[gameplay-screen extension](design/02-experience/gameplay-screen-proposal.md) (D-291).
 This authorizes these design artifacts, not application implementation, a passed
 review/UI gate or approval of the proposed layouts.
 

@@ -101,3 +101,61 @@ Game shell with EMPTY gray gameplay placeholder only, all board design omitted. 
 ## Export normalization
 
 The manifest records screen-specific corrections. Exporting removed executable scripts, event handlers and external artwork, froze styles/fonts locally, normalized trailing whitespace and enforced 48px action/field targets in both orientations. A generated turn-based marketing phrase was corrected where present; the app does not enforce a turn-bound action model. Source copies ending in `.stitch.html.txt` retain the service output (apart from whitespace), and `.html` files are inert normalized review sources. Raw source copies are text, not runnable pages.
+
+## Gameplay extension common prompt — D-291
+
+```text
+Create one STATIC RESPONSIVE gameplay screen design in the existing Async Table project, consistent with its low-fidelity gray/teal Android UI. This is design material, NOT application implementation. No real artwork, no external images, no gradients. Use synthetic abstract card rectangles, readable control labels, Material Symbols only for icons. Produce HTML and an editable Stitch screen.
+Support BOTH 412x892 portrait AND 892x412 landscape in the SAME HTML using explicit media queries. Body 100dvh, width 100%, overflow hidden, no hardcoded portrait body width. Minimal system inset 20px; compact top bar 48px; bottom safe inset 12px. Actual buttons >=48x48px; compact card thumbnails are zoomable board objects, not tiny toolbar buttons. Fit shell; allow board viewport to pan/scroll if necessary, not page-level scrolling. Do not stretch a portrait screenshot. Structural layout is more important than style.
+
+BOARD: own player alex at bottom; opponent riley above. For each player there is ONE generic battlefield region visually split into a DARKER muted green OUTER band with ONE card row mainly for lands and a LIGHTER muted green INNER band with TWO card rows for other permanents. Thus top-to-bottom: riley dark single row, riley light two rows, center lanes, alex light two rows, alex dark single row. Indicate all six rows subtly even when sparsely occupied. Crossing green colors is NOT a semantic zone move or card-type restriction. Both sides retain matching horizontal alignment; never reverse x positions, mirror text or turn opponent faces upside down. Tapped cards alone rotate clockwise 90 degrees. Use few synthetic cards and spare slots; thumbnails can have abbreviated labels; inspection provides readable faces later.
+
+SPECIAL CONTROLS: landscape LEFT sidebar with BOTH players' labeled life and Library/Graveyard/Exile counts; never put opponent controls on right. In portrait these become a central strip BETWEEN battlefields, with riley/alex associations explicit. Counts visible at zero. Life 20 each, Library 50 each, Graveyard 2 each, Exile 0 each are illustrative only. Landscape sidebar can use three labeled compact 48px-high rows per player, each spanning available width. Portrait two participant rows, three zone buttons each and life label; do NOT put all six controls in one overflowing row. The shared STACK lane is between battlefields, with a separate two-row COMBAT lane only when open. Blockers above attackers. These are NOT the real battlefield cards moving to combat; use dashed borders for projection occurrences.
+
+HAND AND CHROME: own face-up hand is a hovering compact fan/row fixed to screen just ABOVE bottom controls, below own dark land band in initial framing; it does not move when board pans. In landscape reserve compact hand height so controls remain reachable. Opponent covered hand is a compact row at TOP, outside the battlefield, with a count and no leaked names. This top-hand location is a draft assumption. Cards, Stack and combat remain inside the board viewport; hands, top bar, special-zone dock and bottom controls are separate fixed UI. Avoid large headers/branding. No online presence, priority, legal actions, game engine rules, mana system, Sideboard, score or mandatory Send. Fixed chrome and board are distinct.
+
+LIVE TOP: Back icon, small phase square labeled Main 1 (or specified step), History text button, overflow icon. Phase tap opens tracking controls, never silently advances; no phase enforcement. LIVE BOTTOM: Undo icon/text at far LEFT with concise hold hint (hold=Redo, not Undo+Redo); contextual quick action center if specified; mode square at RIGHT labeled Normal or Select. Mode tap opens Normal/Select/Ping chooser, NOT an unlabeled mystery cycle. Explicit Redo exists in overflow and accessibility, no separate Redo button unless showing overflow. Chat is reachable via overflow.
+
+HISTORY: same board geometry at the selected historical boundary and ongoing sync, but NO gameplay controls, Undo, quick actions, mode editing, live phase editor or hand edit controls. Top phase is read-only. Bottom has Previous LEFT, Play/Pause CENTER, Next RIGHT; those step automatic groups, NOT Undo/Redo. A left-to-right horizontal timeline immediately ABOVE transport has individual event dots, exact selected event marker, small diagonal off-path stubs, not expanded tree. Scrubbing selects exact events; touching timeline during playback pauses then scrubs. Include explicit Continue playing from here action separate from Play/Pause and Back to live review navigation. No fork until subsequent accepted gameplay mutation. Personal review is NOT branch activation.
+
+Return ONE screen for the state below, no explanatory document or comparisons. Do not include product features not requested. STATE:
+```
+
+### G01 — Live table and fixed hand
+
+Live normal mode, combat CLOSED, Stack empty but labeled. Sparse cards show dark one-row and light two-row arrangement. alex hand three face-up synthetic cards (Meadow, River, Guide), riley covered hand 3. Main 1 phase. Bottom center can show a neutral Actions menu button (not an invented phase-specific shortcut). History and overflow visible. No timeline in live mode.
+
+### G02 — Live combat and populated Stack
+
+Live Select mode in Declare attackers. Combat OPEN: a clearly paired dashed blocker occurrence above attacker occurrence, sources still visible in green battlefield. Shared Stack has one actual card Ember and one dashed effect projection Guide; distinguish real vs projection. Bottom center quick actions Declare + tap and Without tap, horizontally scrollable within their bounded toolbar area if needed. Show selection count 2. Landscape may need vertical board navigation rather than clipping controls; no hidden extra button below page. alex floating hand still visible.
+
+### H01 — Historical review paused at an exact event
+
+Historical mode PAUSED. Exact selected event X is INSIDE a playback group; timeline labels A, X, Y, Z, selected X outlined with vertical marker. Small diagonal branch stub at A indicates retained old line; no expanded tree. Top read-only Main 1; label Reviewing X. Footer Previous / Play / Next, timeline directly above, Continue playing from here separate and visible. No Undo, mode chooser, quick actions or gameplay editing. Hand and zones are historical read-only content.
+
+### H02 — Grouped playback running
+
+Historical mode PLAYING. Footer Previous / Pause / Next. Timeline has selected Y marker and branch stub at A; concise status Playing grouped events and hint Drag timeline to pause. Continue playing from here remains separate; it pauses at the exact displayed selected boundary before arming gameplay, never forks on press. Top Back to live is personal navigation. No gameplay action controls or editable phase.
+
+### H03 — Historical continuation armed before first action
+
+Gameplay mode armed after Continue playing from here at historical event A, but NO action yet, so NO new branch exists. Show compact conspicuous banner Continuing from A · no action yet with Cancel text button. Original displaced future is retained, no actual fork created on entering. Live controls Undo/Actions/Normal return, but do not imply Undo is relative to review cursor: actual Undo eligibility/target still use shared current history. Include Return to live text navigation. All new gameplay actions bind explicit historical intent at A; first successful mutation creates/activates continuation. No timeline transport. Keep fixed floating own hand.
+
+### G03 — Explicit Redo and mode chooser routes
+
+Live table with top-right overflow OPEN as bounded popover with explicit labeled Redo, Chat, Game actions, Close menu, each >=48px tall; no giant full-page settings. Include explanatory small footer hint Hold Undo for Redo. Bottom-right mode square labeled Normal. Do NOT show mode chooser simultaneously; the document will explain its three mutually exclusive choices Normal/Select/Ping. Actual background remains the live table, not placeholder. Redo and Undo are server requests; do not assert unconditional eligibility. Keep all popover entries reachable in landscape, scrolling popover if needed.
+
+The original G00/U01 exports above are retained as pilot provenance, not the current gameplay composition. Gameplay review derivatives are substantially recomposed locally using G01's generated gray/teal card-and-chrome vocabulary, not pixel-identical cloud exports. Repairs expose both battlefield halves and fixed history controls, remove invented actions, harmonize the six states and keep historical controls read-only. H01/H02 depict sparse closed-combat boundaries; G02 depicts populated combat. Raw Stitch output remains separately retained; the manifest records original screen IDs and full repair/derivation notes. Both orientations are recaptured from the inert derivatives with HTTP(S) blocked.
+
+## Corrected editable cloud revisions
+
+Each of the six gameplay states was subsequently sent to Stitch `edit_screens`
+with its complete repaired reference HTML and the shared `gameplay-review.css`
+inlined. Instructions required faithful state/label/layout correction at both
+viewports, all six battlefield rows, screen-fixed own Hand, central lanes,
+48 px controls, read-only historical chrome, distinct continuation intent and
+no invented Pass/concession/automatic-resolution behavior. This is design
+revision, not application implementation. The manifest's `stitchRevisionScreen`
+and `revisionOriginalSource` retain each returned cloud revision and its raw text.
+These revisions are editable in the existing project; validated packet captures
+still come from the local inert derivatives, not an unverified pixel-parity claim.

@@ -1,5 +1,5 @@
 ---
-title: "Async Table — non-gameplay UI pilot"
+title: "Async Table — UI review including gameplay"
 date: "2026-10-21"
 lang: en
 ---
@@ -7,7 +7,7 @@ lang: en
 # Review scope
 
 **Draft for owner review. Structure matters; style is provisional.** This is the
-first Stitch-based trial of the UI documentation process, not an approved final
+Stitch-based UI documentation pilot and gameplay extension, not an approved final
 interface or a working Android app. “Async Table” is a working mockup title only.
 
 Review editions: [PDF download](review.pdf) · [Markdown source](review.md).
@@ -18,11 +18,13 @@ pixel/dp-like design viewports, not physical screen pixels or a promise about
 every Android device. The landscape image is a real rendering of the responsive
 design at the short, wide viewport—not a rotated or stretched portrait image.
 
-The pilot covers account entry, navigation, games/invitations, contacts, saved
-decks, import and lobby preparation. Gameplay, history, combat, reveal, card
-menus, communication and end-of-play overlays are **not designed here**. G00 and
-U01 contain deliberately empty gameplay areas; their rectangles do not settle
-the eventual board layout.
+The packet covers account entry, navigation, games/invitations, contacts, saved
+decks, import and lobby preparation, plus the **D-291 gameplay extension**:
+live table, fixed Hand, central Stack/combat, paused/running history, armed
+historical continuation and the explicit Redo route. G00 and U01 retain the
+original pilot's empty board for provenance, not as the current gameplay design.
+Reveal trays, full card/zone menus, inspectors, chat and ending overlays still
+need their own visual state completion; their behavior is not removed.
 
 ## Reading the mockups
 
@@ -61,13 +63,16 @@ Main menu
    ├─ Play → Accept invitation → same lobby
    │       ├─ New game → Contacts → Invite → waiting lobby
    │       ├─ Open lobby → choose/prepare deck → Ready
-   │       └─ Open active game → gameplay placeholder
+    │       └─ Open active game → G01 live table ↔ H01/H02 history
    ├─ Manage decks → deck details → rename / cover / re-import / delete
    │              └─ Import → resolve all entries → save new or replace
    ├─ Contacts → username search → Add contact → Invite
    ├─ Android notification settings → operating-system settings
    └─ Logout → signed-out entry
-Lobby → both Ready → gameplay placeholder
+Lobby → both Ready → G01 live table
+History → Continue playing from here → H03 armed intent
+    ├─ Cancel / Return to live → no shared change
+    └─ first successful mutation → active continuation
 ```
 
 Back leaves a screen; it is not a game cancellation, Ready withdrawal, gameplay
@@ -85,6 +90,13 @@ cover-selection confirmation, destructive-action dialogs and the read-only
 reconnect escape. “Random” is selected in the example lobby state; these images
 do not choose a universal initial starter default or retention policy.
 
+For gameplay, the owner selects a trial own Hand hovering above the fixed bottom
+controls, central Stack/combat lanes, hold Undo for Redo and pause-on-drag history.
+Green bands and orientation-specific left/middle special-zone controls follow
+the owner's layout brief. Opponent top Hand, life placement, phase/mode shapes,
+camera geometry and colors remain proposals. See G01–G03 and H01–H03; agreement
+to try a layout is not approval of final sizes or a passed UI gate.
+
 Existing rules are applied without asking for approval again: no guest/social
 login, contact approval, full saved-deck builder, score archive, host Start,
 extra Send, online-presence requirement, automatic opening draw, in-game
@@ -95,6 +107,10 @@ Sideboard or in-app notification mute controls.
 The primary repository source is
 `docs/design/03-contracts/accounts-decks-and-lobby.md`. The Android experience
 contract and technical notification profile add platform/recovery constraints.
+Gameplay additionally follows `board-and-controls.md`, `history-and-undo.md`,
+`history-grouping.md`, `combat-stack-and-projections.md` and the clarified
+`../gameplay-screen-proposal.md`. These are source anchors, not extra required
+reading to understand the packet's interaction notes.
 These source references are repository documents, not extra pages required to
 read the hosted packet. Decision references below identify already agreed
 behavior; the particular control geometry remains proposed.
@@ -618,8 +634,8 @@ both-online indicator. Cancel game remains separate and applies only before star
 **Interaction:** Ready persists after leaving/disconnection; it is not a liveness
 lease. The second accepted Ready starts once, even while the first player is away.
 Start shuffles both Libraries, sets life to 20, resolves a selected Random starter
-and begins turn 1 at Untap, with **no automatic opening draw**. The pilot then
-shows G00. On returning after an accepted game ending, restore last prepared
+and begins turn 1 at Untap, with **no automatic opening draw**. The extended packet
+then uses G01 (G00 is the original placeholder). On returning after an accepted game ending, restore last prepared
 decks, clear both Ready and use this lobby structure in its not-ready state;
 both must ready again. Back alone never withdraws Ready or cancels the game.
 
@@ -669,14 +685,14 @@ reviewable UI proposal, not approval of an extra gameplay-ending confirmation.
 gives the non-gameplay navigation a destination and demonstrates two orientations.
 It does not settle how much space the real board, hand, history or controls get.
 
-**Interaction:** active-game Open and lobby Start transitions terminate at this
-placeholder for the pilot. The real app's start remains automatic on both Ready;
+**Interaction:** the original non-gameplay pilot terminated active-game Open and
+automatic start transitions here; the D-291 extension now uses G01. Start remains automatic on both Ready;
 there is no Start control here. Back returns to current games, not a shared game
 Undo, game cancellation or result suggestion. No Sideboard is shown during play.
 
-**Scope:** live/historic/playback views, card menus, selection, dragging, combat,
-Stack, reveal, inspectors, history tree, chat and result coordination require a
-later gameplay design batch with the owner's verbal guidance.
+**Scope:** this placeholder is retained only for the original pilot's provenance.
+The live/history/combat/Stack direction is now pictured below; full card/reveal/
+inspection/chat/result overlays and expanded branch navigation remain unpictured.
 :::
 
 ::: {.screen-section}
@@ -704,7 +720,223 @@ instead syncs server state and may lose uncommitted local work. Unknown outcome
 is not rejection; the UI must not invite duplicate submission as a fresh action.
 
 **Basis:** D-182, D-215, D-216, D-241, D-246, D-252, D-278. The exact dialog escape
-and wording are UI proposals; the gameplay contents remain undesigned.
+and wording are UI proposals. This original capture still omits the board;
+the same blocking/read-only rule applies over the new gameplay layouts.
+:::
+
+::: {.screen-section}
+## G01 — Live table and fixed hand
+
+::: {.screen-pair}
+::: {.portrait}
+![G01 portrait — green battlefield bands, middle special zones and fixed own Hand](images/gameplay-live-portrait.png)
+:::
+::: {.landscape}
+![G01 landscape — both players' special zones on the left and floating own Hand](images/gameplay-live-landscape.png)
+:::
+:::
+
+**Layout:** own battlefield below, opponent above, reflected top/bottom while
+retaining x positions. Each has an outer darker one-row band and inner lighter
+two-row band. These are **one generic battlefield per player**, not new land/
+creature zones or type restrictions. All faces point toward the viewer; only
+ordinary tapped cards rotate. Empty slots/rows are visual framing, not a capacity
+limit. The camera can pan beyond occupied columns by a still-unspecified margin.
+
+**Fixed versus movable:** the owner's Hand hovers below the land band and above
+bottom controls, independent of board panning. The proposed opponent Hand is a
+covered top row. Both players' Library/Graveyard/Exile counts and proposed life
+grouping occupy the central strip in portrait, a **left** sidebar in landscape.
+The board camera alone pans/zooms; fixed docks do not become shared placement.
+Small abstract thumbnails stand in for zoomable cards, not legible full-size faces.
+Dense states may need vertical navigation; readable minimum card/peek targets and
+expanded Hand geometry still need device/gesture review.
+
+**Controls:** bottom-left tap Undo / hold Redo; bottom-center contextual actions;
+bottom-right current mode. The proposed mode square opens explicit Normal /
+Select / Ping choices. Select toggles membership editing without clearing the
+selection when turned off; Ping consumes its taps. Phase tap opens the existing
+tracking picker, not an automatic game action. History opens personal review.
+Overflow exposes Redo, Chat and full Game actions; a generic Actions affordance
+does not invent a phase shortcut or remove the full per-card action paths.
+
+**Gestures:** normal single tap opens captured-scope card Actions; double tap
+performs one selection-aware tap/untap. Hold inspects; drag moves the captured
+card/selection. Empty-space drag selects; two-finger pan/pinch navigates. These
+are documented interactions, **not functioning gestures in these static files**.
+Own/opponent hidden-face rules remain unchanged. No in-game Sideboard, Send,
+presence, turn lock or inferred card rules.
+
+**Basis:** D-267/D-281, D-259 and D-291; board/inspection contracts. Life placement,
+top Hand and control shapes remain review proposals.
+:::
+
+::: {.screen-section}
+## G02 — Live combat and populated Stack
+
+::: {.screen-pair}
+::: {.portrait}
+![G02 portrait — central Stack and paired combat projections with sources retained](images/gameplay-combat-portrait.png)
+:::
+::: {.landscape}
+![G02 landscape — dense central lanes with fixed controls retained](images/gameplay-combat-landscape.png)
+:::
+:::
+
+**Layout:** Stack and combat occupy distinct central lanes between battlefields.
+Combat uses blockers above attackers in visible pairs; dashed occurrences denote
+projections whose real sources remain in their green battlefield positions.
+Stack distinguishes an actual card from an independent effect projection. They
+are not ordinary three-card visual piles and do not share that capacity limit.
+
+**Actions:** during Declare attackers with a selection, offer Declare + tap /
+Without tap. The first composes occurrence entry and individual source taps;
+the second preserves source orientation. The center quick-action strip can scroll
+horizontally without moving Undo/mode controls. Full constituent paths remain
+available outside the quick window. Neither rendering this state nor entering a
+phase declares attackers, closes combat, resolves Stack or calculates damage.
+
+Combat persists until explicit closure, including when empty. Ordinary phase
+advancement does not close it. Moving a source out of Battlefield cleans up its
+combat occurrences, not its independent Stack effects. Card-directed edits through
+live projections affect the real source; occurrence removal is separate. Dense
+combat may need board navigation rather than smaller fixed controls. Empty/open,
+many-pair and frozen-token-effect visuals remain further review states.
+
+**Basis:** D-112–D-158, D-176, D-242/D-253 and D-291.
+:::
+
+::: {.screen-section}
+## H01 — Historical review paused at an exact event
+
+::: {.screen-pair}
+::: {.portrait}
+![H01 portrait — paused timeline selecting exact mutation X and separate continuation action](images/gameplay-history-paused-portrait.png)
+:::
+::: {.landscape}
+![H01 landscape — read-only historical table with group transport and exact cursor](images/gameplay-history-paused-landscape.png)
+:::
+:::
+
+**Layout:** the table/Hand show the selected historical boundary. Live editing
+chrome is replaced with Previous / Play / Next at the bottom, and the path
+timeline immediately above. The exact X marker can lie inside a playback group.
+Diagonal branch stubs indicate retained alternatives, not a full expanded tree.
+Off-path navigation needs a further branch-selection view; a stub is not itself
+permission to activate, archive or delete anything.
+
+**Interaction:** Previous/Next navigate groups; timeline drag selects individual
+mutation boundaries and updates the board during the drag. Board animation uses
+the displayed-to-selected endpoint, not a compulsory queue of every passed node.
+Phase is read-only; gameplay edits, Undo/Redo, quick actions and mode input are
+hidden. Permitted local inspection/navigation remains, but a hidden-information
+request is not silently issued by browsing. Sync continues while paused, with
+normal deleted-cursor ancestor fallback.
+
+**Continue playing from here** is distinct from Play. It arms intent at the exact
+selected event and exposes gameplay controls (H03), without creating a fork.
+Back to live uses the existing catch-up/changed-path traversal toward the shared
+continuation, not an unexplained snapshot jump; viewing a branch does not activate
+it. Offline review never enables this gameplay continuation route.
+
+**Basis:** D-177/D-179, D-238/D-245, D-277 and D-291.
+:::
+
+::: {.screen-section}
+## H02 — Grouped playback running
+
+::: {.screen-pair}
+::: {.portrait}
+![H02 portrait — running group playback with Pause and exact timeline marker](images/gameplay-history-playing-portrait.png)
+:::
+::: {.landscape}
+![H02 landscape — compact playback controls and pause-on-drag timeline](images/gameplay-history-playing-landscape.png)
+:::
+:::
+
+**Interaction:** Pause stops personal playback, not server sync. Touching/dragging
+the timeline **pauses first, then scrubs** exact events. Continue playing from here
+also pauses at the selected concrete boundary and arms intent; it is not the
+transport Play action. Each playback group animates its net start-to-end board
+change; separate groups remain staged even if downloaded together.
+
+**Returning:** backgrounded games with unpresented updates enter this playback
+flow from the last presented/reviewed context. Changed paths retain the specified
+common-ancestor rollback before catch-up. Reaching the shared live boundary
+returns to live; an expected own confirmation alone does not manufacture a replay.
+No autoplay preference, speed default, finished-game archive or animation timing
+is chosen by this mockup.
+
+**Basis:** D-177/D-277 and D-291. Historical no-edit chrome matches H01.
+:::
+
+::: {.screen-section}
+## H03 — Historical continuation armed before first action
+
+::: {.screen-pair}
+::: {.portrait}
+![H03 portrait — continuing from A with no mutation or new fork yet](images/gameplay-continue-portrait.png)
+:::
+::: {.landscape}
+![H03 landscape — armed historical intent and restored gameplay controls](images/gameplay-continue-landscape.png)
+:::
+:::
+
+**State:** “Continuing from A · no action yet” distinguishes the displayed past
+from ordinary live following. This is an armed personal intent, not a third
+authoritative game state. The old future remains retained and active until a
+successful explicit continuation mutation creates/activates the new line.
+Cancel / Return to live before that action only leaves personal intent; there is
+no empty branch to delete. Failure/no-change likewise does not create one.
+
+**Undo clarification:** old `A → B → C`, new `A → X → Y`: eligible latest-own Undo
+may remove Y and then X, including the first action immediately after the fork.
+It leaves the current boundary at A without automatically returning to B→C.
+The fork point A cannot be undone/crossed while it actually has multiple retained
+child continuations. Recompute eligibility after each accepted Undo: removing the
+last action of a new line does not leave a permanent “was once a fork” lock, but
+the remaining linear future still participates in ordinary replay checks.
+Author, revealing-action, dependency, replay-work and later-fork checks still
+apply. This addresses accidental branch creation using the **existing rule**;
+it is not unconditional cancellation of any action or recall of a sent request.
+
+Undo availability/target remains based on shared current history, not the
+personal historical cursor. When a server accepts a locally withdrawn request
+later, its accepted effect still arrives normally. Exact banner wording and
+return/Cancel placement are proposals; the intent and server boundary are not.
+
+**Basis:** D-179, D-224/D-233/D-245, D-258/D-277 and D-291.
+:::
+
+::: {.screen-section}
+## G03 — Explicit Redo and mode chooser routes
+
+::: {.screen-pair}
+::: {.portrait}
+![G03 portrait — overflow with explicit Redo, Chat and Game actions](images/gameplay-controls-portrait.png)
+:::
+::: {.landscape}
+![G03 landscape — reachable explicit Redo alternative above fixed live controls](images/gameplay-controls-landscape.png)
+:::
+:::
+
+**Redo arbitration:** tap Undo invokes Undo only; recognizing a hold invokes Redo
+only. No Undo on press-down, no Undo on release after a hold and no automatic
+repeat is selected here. The controls menu exposes labeled Redo and native
+accessibility must provide an equivalent explicit action, without requiring a
+timed hold. Both routes use the same server-authoritative per-player game stack,
+eligibility and retry rules. Exact hold interval/feedback is still UI work.
+
+**Menus:** overflow is a proposed route to Chat and Game actions, not a newly
+invented settings suite. Game actions must retain existing tracking, random,
+token, combat and ending paths; this packet does not yet picture their complete
+menus or editors. The separate bottom-right mode square opens Normal / Select /
+Ping, rather than silently cycling modes. It does not open this overflow menu.
+Choice-sheet layout remains unpictured; normal/Select/Ping tap semantics are
+already specified. Close/Back dismisses without a shared edit.
+
+**Basis:** D-235/D-259, D-267/D-281 and D-291. No claim that an incidental
+enabled/disabled color proves the complete eligibility computation.
 :::
 
 # Whole-journey interaction budgets
@@ -724,6 +956,8 @@ dismissal are additional interaction cost, not hidden zero-cost steps.
 | Preparation open → transfer one copy | Select row → Move 1: **2 taps**. | List scrolling if needed; repeated moves must not add a Send step. |
 | Ready lobby → leave without withdrawing | Back: **1 tap**. | No cancellation or publication prompt. |
 | Saved-deck details → delete collection entry | Delete saved deck → confirm deletion: **2 taps**. | Copies selected in games survive. |
+| Live → exact history → armed continuation | History → drag timeline → Continue playing from here: **2 taps + 1 drag**. | If playback is running, dragging itself pauses before scrubbing; no separate Pause tap. First gameplay mutation is additional and alone creates/activates continuation. |
+| Live → eligible Redo | Hold Undo: **1 hold**, or overflow → Redo: **2 taps**. | No earlier Undo emitted; hold timing/native accessibility still need validation. |
 
 The import review split, cover confirmation and cancellation dialog are intentional
 pilot proposals whose interaction cost should be reviewed, not silently declared
@@ -732,17 +966,24 @@ with a keyboard; the later large-text/keyboard review must count that cost too.
 
 # Coverage and limits
 
-**Pictured:** 21 primary screen/state drafts and two scrolled continuations, all
-in both orientations: **46 captures**. These include an
+**Pictured:** 27 primary screen/state drafts and two scrolled continuations, all
+in both orientations: **58 captures**. These include an
 inline sign-in error, submitted reset request, unresolved import, two import save
 modes in one state, collection-deletion modal, waiting invitation, no-own-deck
-lobby, preparation, accepted Ready, cancellation modal and reconnect dialog.
+lobby, preparation, accepted Ready, cancellation modal and reconnect dialog,
+plus six gameplay states: live, populated Stack/combat, paused exact history,
+running playback, armed continuation and explicit Redo menu.
 
 **Described but not separately pictured:** clean authentication forms, network
 and field errors, invalid reset link, empty/loading/search-no-results lists,
 rename editor, import lookup-in-progress/save failure, replacing-mode selection,
 returned-lobby not-ready state and successful reconnect. These still need visual
 state completion before claiming that every non-gameplay state is designed.
+Gameplay expansions still needed include Hand expansion, phase/mode choice sheets,
+card/zone action menus, readable inspector, shared View/Reveal trays, dense/empty
+combat variants, branch selection/return/archive views, chat/comments and ending
+dialogs, plus selected/conflict/reconnect/large-text/gesture variants over the real
+board. Static examples do not settle all camera bounds, hit regions or timings.
 
 **Not claimed:** final visual style, full keyboard/large-text/tablet/foldable
 coverage, touch/accessibility usability validation, live Android behavior,
@@ -767,6 +1008,21 @@ The exported HTML is design material with executable interactions removed, not
 production frontend/application scaffolding. Any documented normalization or
 repair of generated presentation is recorded in the manifest/build notes rather
 than silently attributed to Stitch.
+
+**Gameplay source distinction:** six new designs exist in the same Stitch project.
+Their raw `.stitch.html.txt` outputs are retained, but the packet captures
+**substantially locally recomposed inert derivatives**, not pixel-identical cloud
+exports. The derivatives harmonize G01's gray/teal abstract-card vocabulary across
+all six states, fit both battlefield halves into the sparse initial framing,
+restore clipped history controls, separate fixed docks from the board camera and
+remove invented Pass/concession/Declare Action wording. H01/H02 use a sparse
+closed-combat historical boundary; G02 illustrates populated combat separately.
+The repaired reference HTML/CSS was then sent back to Stitch's edit operation,
+creating **six corrected editable cloud revisions** in the same project. Initial
+and revised raw outputs and their resource IDs are retained in the manifest; a
+cloud revision does not prove pixel identity with the local derivative. Use this
+packet for the checked portrait/landscape comparison, and Stitch for the editable
+originals/revisions; neither is an approved implementation or final geometry.
 
 Review repairs included removing Stitch-invented 60/15-card size restrictions
 from lobby/preparation wording, describing definition resolution rather than

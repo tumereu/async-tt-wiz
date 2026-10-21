@@ -1,6 +1,6 @@
 {
   "generated": "2026-10-21",
-  "status": "proposed UI pilot",
+  "status": "proposed UI pilot with gameplay extension D-291",
   "stitchProject": "6617750535460836476",
   "viewports": {
     "portrait": [
@@ -3425,6 +3425,1674 @@
           ]
         }
       }
+    },
+    {
+      "id": "G01",
+      "slug": "gameplay-live",
+      "title": "Live table and fixed hand",
+      "brief": "Live normal mode, combat CLOSED, Stack empty but labeled. Sparse cards show dark one-row and light two-row arrangement. alex hand three face-up synthetic cards (Meadow, River, Guide), riley covered hand 3. Main 1 phase. Bottom center can show a neutral Actions menu button (not an invented phase-specific shortcut). History and overflow visible. No timeline in live mode.",
+      "stitchScreen": "projects/6617750535460836476/screens/487d1f4a6cef4964a39d3b0fcbfb2bde",
+      "source": "sources/gameplay-live.html",
+      "originalSource": "sources/gameplay-live.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 1,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Substantial local harmonization of all six gameplay derivatives to the G01 gray/teal card-and-chrome vocabulary; original raw Stitch HTML retained separately.",
+          "Recomposed responsive fixed shell and six-row framing to expose both battlefield halves and history controls at both capture sizes; board thumbnails are not approved native hit geometry.",
+          "Kept orientation-specific zone dock outside board camera, fixed own Hand above bottom chrome, and history timeline directly above group transport.",
+          "Removed invented Pass, concession, Declare Action and automatic-resolution/ability wording; retained only existing Actions/ending routes.",
+          "Historical zones are read-only labels, phase non-editable, with no gameplay controls; explicit continuation is separate from transport.",
+          "H01/H02 review snapshots use closed combat for a sparse first composition; G02 shows the populated open-combat case."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1\nphase",
+              "x": 58,
+              "y": 20,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 283,
+              "y": 20,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 358,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 346,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 346,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 346,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 401,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 401,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 401,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 828,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 174,
+              "y": 828,
+              "width": 72,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal\nmode \u25be",
+              "x": 336,
+              "y": 828,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1\nphase",
+              "x": 58,
+              "y": 16,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 763,
+              "y": 16,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 838,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 354,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 414,
+              "y": 354,
+              "width": 72,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal\nmode \u25be",
+              "x": 816,
+              "y": 354,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivation": {
+        "layoutBase": "G01 Stitch export",
+        "sharedReviewStyle": "sources/gameplay-review.css",
+        "status": "locally recomposed inert review derivative, not pixel-identical Stitch export"
+      },
+      "stitchRevisionScreen": "projects/6617750535460836476/screens/39c879fe852b4dc08ed212d160fb7c7c",
+      "revisionOriginalSource": "sources/gameplay-live.stitch-revised.html.txt",
+      "revisionBrief": "Sent the complete locally repaired inert reference HTML and gameplay-review.css to edit_screens, requesting faithful correction of this state at both review viewports, no invented actions or clipping. Cloud output is an editable revision, not a claim of pixel identity with locally validated derivatives."
+    },
+    {
+      "id": "G02",
+      "slug": "gameplay-combat",
+      "title": "Live combat and populated Stack",
+      "brief": "Live Select mode in Declare attackers. Combat OPEN: a clearly paired dashed blocker occurrence above attacker occurrence, sources still visible in green battlefield. Shared Stack has one actual card Ember and one dashed effect projection Guide; distinguish real vs projection. Bottom center quick actions Declare + tap and Without tap, horizontally scrollable within their bounded toolbar area if needed. Show selection count 2. Landscape may need vertical board navigation rather than clipping controls; no hidden extra button below page. alex floating hand still visible.",
+      "stitchScreen": "projects/6617750535460836476/screens/0c640298b90b483ea8af8abf966fa0ff",
+      "source": "sources/gameplay-combat.html",
+      "originalSource": "sources/gameplay-combat.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 1,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Substantial local harmonization of all six gameplay derivatives to the G01 gray/teal card-and-chrome vocabulary; original raw Stitch HTML retained separately.",
+          "Recomposed responsive fixed shell and six-row framing to expose both battlefield halves and history controls at both capture sizes; board thumbnails are not approved native hit geometry.",
+          "Kept orientation-specific zone dock outside board camera, fixed own Hand above bottom chrome, and history timeline directly above group transport.",
+          "Removed invented Pass, concession, Declare Action and automatic-resolution/ability wording; retained only existing Actions/ending routes.",
+          "Historical zones are read-only labels, phase non-editable, with no gameplay controls; explicit continuation is separate from transport.",
+          "H01/H02 review snapshots use closed combat for a sparse first composition; G02 shows the populated open-combat case."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare atk\nphase",
+              "x": 58,
+              "y": 20,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 283,
+              "y": 20,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 358,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 288,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 288,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 288,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 343,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 343,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 343,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 828,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare + tap",
+              "x": 98,
+              "y": 828,
+              "width": 114,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Without tap",
+              "x": 218,
+              "y": 828,
+              "width": 103,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select \u00b7 2\nmode \u25be",
+              "x": 336,
+              "y": 827,
+              "width": 66,
+              "height": 50,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare atk\nphase",
+              "x": 58,
+              "y": 16,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 763,
+              "y": 16,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 838,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 354,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare + tap",
+              "x": 338,
+              "y": 354,
+              "width": 114,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Without tap",
+              "x": 458,
+              "y": 354,
+              "width": 103,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select \u00b7 2\nmode \u25be",
+              "x": 816,
+              "y": 353,
+              "width": 66,
+              "height": 50,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivation": {
+        "layoutBase": "G01 Stitch export",
+        "sharedReviewStyle": "sources/gameplay-review.css",
+        "status": "locally recomposed inert review derivative, not pixel-identical Stitch export"
+      },
+      "stitchRevisionScreen": "projects/6617750535460836476/screens/1ab28aa06c6c4971b4100ca851927c66",
+      "revisionOriginalSource": "sources/gameplay-combat.stitch-revised.html.txt",
+      "revisionBrief": "Sent the complete locally repaired inert reference HTML and gameplay-review.css to edit_screens, requesting faithful correction of this state at both review viewports, no invented actions or clipping. Cloud output is an editable revision, not a claim of pixel identity with locally validated derivatives."
+    },
+    {
+      "id": "H01",
+      "slug": "gameplay-history-paused",
+      "title": "Historical review paused at an exact event",
+      "brief": "Historical mode PAUSED. Exact selected event X is INSIDE a playback group; timeline labels A, X, Y, Z, selected X outlined with vertical marker. Small diagonal branch stub at A indicates retained old line; no expanded tree. Top read-only Main 1; label Reviewing X. Footer Previous / Play / Next, timeline directly above, Continue playing from here separate and visible. No Undo, mode chooser, quick actions or gameplay editing. Hand and zones are historical read-only content.",
+      "stitchScreen": "projects/6617750535460836476/screens/77d7565f204145d9a15556cdd2d2be65",
+      "source": "sources/gameplay-history-paused.html",
+      "originalSource": "sources/gameplay-history-paused.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 2,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Substantial local harmonization of all six gameplay derivatives to the G01 gray/teal card-and-chrome vocabulary; original raw Stitch HTML retained separately.",
+          "Recomposed responsive fixed shell and six-row framing to expose both battlefield halves and history controls at both capture sizes; board thumbnails are not approved native hit geometry.",
+          "Kept orientation-specific zone dock outside board camera, fixed own Hand above bottom chrome, and history timeline directly above group transport.",
+          "Removed invented Pass, concession, Declare Action and automatic-resolution/ability wording; retained only existing Actions/ending routes.",
+          "Historical zones are read-only labels, phase non-editable, with no gameplay controls; explicit continuation is separate from transport.",
+          "H01/H02 review snapshots use closed combat for a sparse first composition; G02 shows the populated open-combat case."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 358,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 10,
+              "y": 702,
+              "width": 223,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to live",
+              "x": 295,
+              "y": 702,
+              "width": 107,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 10,
+              "y": 828,
+              "width": 86,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Play",
+              "x": 194,
+              "y": 828,
+              "width": 53,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 346,
+              "y": 828,
+              "width": 56,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to live",
+              "x": 500,
+              "y": 16,
+              "width": 107,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 611,
+              "y": 16,
+              "width": 223,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 838,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 10,
+              "y": 354,
+              "width": 86,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Play",
+              "x": 434,
+              "y": 354,
+              "width": 53,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 826,
+              "y": 354,
+              "width": 56,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivation": {
+        "layoutBase": "G01 Stitch export",
+        "sharedReviewStyle": "sources/gameplay-review.css",
+        "status": "locally recomposed inert review derivative, not pixel-identical Stitch export"
+      },
+      "stitchRevisionScreen": "projects/6617750535460836476/screens/c6be1b9e730f44a390720da8939c2630",
+      "revisionOriginalSource": "sources/gameplay-history-paused.stitch-revised.html.txt",
+      "revisionBrief": "Sent the complete locally repaired inert reference HTML and gameplay-review.css to edit_screens, requesting faithful correction of this state at both review viewports, no invented actions or clipping. Cloud output is an editable revision, not a claim of pixel identity with locally validated derivatives."
+    },
+    {
+      "id": "H02",
+      "slug": "gameplay-history-playing",
+      "title": "Grouped playback running",
+      "brief": "Historical mode PLAYING. Footer Previous / Pause / Next. Timeline has selected Y marker and branch stub at A; concise status Playing grouped events and hint Drag timeline to pause. Continue playing from here remains separate; it pauses at the exact displayed selected boundary before arming gameplay, never forks on press. Top Back to live is personal navigation. No gameplay action controls or editable phase.",
+      "stitchScreen": "projects/6617750535460836476/screens/5cdc3ce7326144199345b7e25b50a610",
+      "source": "sources/gameplay-history-playing.html",
+      "originalSource": "sources/gameplay-history-playing.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Substantial local harmonization of all six gameplay derivatives to the G01 gray/teal card-and-chrome vocabulary; original raw Stitch HTML retained separately.",
+          "Recomposed responsive fixed shell and six-row framing to expose both battlefield halves and history controls at both capture sizes; board thumbnails are not approved native hit geometry.",
+          "Kept orientation-specific zone dock outside board camera, fixed own Hand above bottom chrome, and history timeline directly above group transport.",
+          "Removed invented Pass, concession, Declare Action and automatic-resolution/ability wording; retained only existing Actions/ending routes.",
+          "Historical zones are read-only labels, phase non-editable, with no gameplay controls; explicit continuation is separate from transport.",
+          "H01/H02 review snapshots use closed combat for a sparse first composition; G02 shows the populated open-combat case."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 358,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 10,
+              "y": 702,
+              "width": 223,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to live",
+              "x": 295,
+              "y": 702,
+              "width": 107,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 10,
+              "y": 828,
+              "width": 86,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Pause",
+              "x": 188,
+              "y": 828,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 346,
+              "y": 828,
+              "width": 56,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to live",
+              "x": 500,
+              "y": 16,
+              "width": 107,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 611,
+              "y": 16,
+              "width": 223,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 838,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 10,
+              "y": 354,
+              "width": 86,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Pause",
+              "x": 428,
+              "y": 354,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 826,
+              "y": 354,
+              "width": 56,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivation": {
+        "layoutBase": "G01 Stitch export",
+        "sharedReviewStyle": "sources/gameplay-review.css",
+        "status": "locally recomposed inert review derivative, not pixel-identical Stitch export"
+      },
+      "stitchRevisionScreen": "projects/6617750535460836476/screens/e41c606cf598429db3ebd5543518d1c6",
+      "revisionOriginalSource": "sources/gameplay-history-playing.stitch-revised.html.txt",
+      "revisionBrief": "Sent the complete locally repaired inert reference HTML and gameplay-review.css to edit_screens, requesting faithful correction of this state at both review viewports, no invented actions or clipping. Cloud output is an editable revision, not a claim of pixel identity with locally validated derivatives."
+    },
+    {
+      "id": "H03",
+      "slug": "gameplay-continue",
+      "title": "Historical continuation armed before first action",
+      "brief": "Gameplay mode armed after Continue playing from here at historical event A, but NO action yet, so NO new branch exists. Show compact conspicuous banner Continuing from A \u00b7 no action yet with Cancel text button. Original displaced future is retained, no actual fork created on entering. Live controls Undo/Actions/Normal return, but do not imply Undo is relative to review cursor: actual Undo eligibility/target still use shared current history. Include Return to live text navigation. All new gameplay actions bind explicit historical intent at A; first successful mutation creates/activates continuation. No timeline transport. Keep fixed floating own hand.",
+      "stitchScreen": "projects/6617750535460836476/screens/2e838a26a4b04756adcd9ea7e6e30e55",
+      "source": "sources/gameplay-continue.html",
+      "originalSource": "sources/gameplay-continue.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Substantial local harmonization of all six gameplay derivatives to the G01 gray/teal card-and-chrome vocabulary; original raw Stitch HTML retained separately.",
+          "Recomposed responsive fixed shell and six-row framing to expose both battlefield halves and history controls at both capture sizes; board thumbnails are not approved native hit geometry.",
+          "Kept orientation-specific zone dock outside board camera, fixed own Hand above bottom chrome, and history timeline directly above group transport.",
+          "Removed invented Pass, concession, Declare Action and automatic-resolution/ability wording; retained only existing Actions/ending routes.",
+          "Historical zones are read-only labels, phase non-editable, with no gameplay controls; explicit continuation is separate from transport.",
+          "H01/H02 review snapshots use closed combat for a sparse first composition; G02 shows the populated open-combat case."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1\nphase",
+              "x": 58,
+              "y": 20,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 283,
+              "y": 20,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 358,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel",
+              "x": 211,
+              "y": 68,
+              "width": 69,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Return to live",
+              "x": 284,
+              "y": 68,
+              "width": 120,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 370,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 370,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 370,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 425,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 425,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 425,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 828,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions at A",
+              "x": 158,
+              "y": 828,
+              "width": 104,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal\nmode \u25be",
+              "x": 336,
+              "y": 828,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1\nphase",
+              "x": 58,
+              "y": 16,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 763,
+              "y": 16,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 838,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel",
+              "x": 458,
+              "y": 64,
+              "width": 69,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Return to live",
+              "x": 764,
+              "y": 64,
+              "width": 120,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 163,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 163,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 163,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 354,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions at A",
+              "x": 398,
+              "y": 354,
+              "width": 104,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal\nmode \u25be",
+              "x": 816,
+              "y": 354,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivation": {
+        "layoutBase": "G01 Stitch export",
+        "sharedReviewStyle": "sources/gameplay-review.css",
+        "status": "locally recomposed inert review derivative, not pixel-identical Stitch export"
+      },
+      "stitchRevisionScreen": "projects/6617750535460836476/screens/41c47cc7d77f42b69d8a6bdca7387d93",
+      "revisionOriginalSource": "sources/gameplay-continue.stitch-revised.html.txt",
+      "revisionBrief": "Sent the complete locally repaired inert reference HTML and gameplay-review.css to edit_screens, requesting faithful correction of this state at both review viewports, no invented actions or clipping. Cloud output is an editable revision, not a claim of pixel identity with locally validated derivatives."
+    },
+    {
+      "id": "G03",
+      "slug": "gameplay-controls",
+      "title": "Explicit Redo and mode chooser routes",
+      "brief": "Live table with top-right overflow OPEN as bounded popover with explicit labeled Redo, Chat, Game actions, Close menu, each >=48px tall; no giant full-page settings. Include explanatory small footer hint Hold Undo for Redo. Bottom-right mode square labeled Normal. Do NOT show mode chooser simultaneously; the document will explain its three mutually exclusive choices Normal/Select/Ping. Actual background remains the live table, not placeholder. Redo and Undo are server requests; do not assert unconditional eligibility. Keep all popover entries reachable in landscape, scrolling popover if needed.",
+      "stitchScreen": "projects/6617750535460836476/screens/386c330fde6c408183e303db67fef31c",
+      "source": "sources/gameplay-controls.html",
+      "originalSource": "sources/gameplay-controls.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Substantial local harmonization of all six gameplay derivatives to the G01 gray/teal card-and-chrome vocabulary; original raw Stitch HTML retained separately.",
+          "Recomposed responsive fixed shell and six-row framing to expose both battlefield halves and history controls at both capture sizes; board thumbnails are not approved native hit geometry.",
+          "Kept orientation-specific zone dock outside board camera, fixed own Hand above bottom chrome, and history timeline directly above group transport.",
+          "Removed invented Pass, concession, Declare Action and automatic-resolution/ability wording; retained only existing Actions/ending routes.",
+          "Historical zones are read-only labels, phase non-editable, with no gameplay controls; explicit continuation is separate from transport.",
+          "H01/H02 review snapshots use closed combat for a sparse first composition; G02 shows the populated open-combat case."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1\nphase",
+              "x": 58,
+              "y": 20,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 283,
+              "y": 20,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 358,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 346,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 346,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 346,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 401,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 401,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 401,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 828,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 174,
+              "y": 828,
+              "width": 72,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal\nmode \u25be",
+              "x": 336,
+              "y": 828,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "redo\nRedo",
+              "x": 163,
+              "y": 98,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "chat_bubble\nChat",
+              "x": 163,
+              "y": 146,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "apps\nGame actions",
+              "x": 163,
+              "y": 194,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "close\nClose menu",
+              "x": 163,
+              "y": 242,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 6,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1\nphase",
+              "x": 58,
+              "y": 16,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 763,
+              "y": 16,
+              "width": 71,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 838,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 115,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 12,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 69,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 126,
+              "y": 245,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 354,
+              "width": 73,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 414,
+              "y": 354,
+              "width": 72,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal\nmode \u25be",
+              "x": 816,
+              "y": 354,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "redo\nRedo",
+              "x": 643,
+              "y": 94,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "chat_bubble\nChat",
+              "x": 643,
+              "y": 142,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "apps\nGame actions",
+              "x": 643,
+              "y": 190,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "close\nClose menu",
+              "x": 643,
+              "y": 238,
+              "width": 234,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivation": {
+        "layoutBase": "G01 Stitch export",
+        "sharedReviewStyle": "sources/gameplay-review.css",
+        "status": "locally recomposed inert review derivative, not pixel-identical Stitch export"
+      },
+      "stitchRevisionScreen": "projects/6617750535460836476/screens/179223a1c2fd4156baa39fa52ca8e566",
+      "revisionOriginalSource": "sources/gameplay-controls.stitch-revised.html.txt",
+      "revisionBrief": "Sent the complete locally repaired inert reference HTML and gameplay-review.css to edit_screens, requesting faithful correction of this state at both review viewports, no invented actions or clipping. Cloud output is an editable revision, not a claim of pixel identity with locally validated derivatives."
     }
   ],
   "provenanceNote": "21 Stitch-generated responsive sources; 23 review states including two scrolled continuations; 46 viewport captures.",

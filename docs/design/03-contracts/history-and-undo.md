@@ -284,6 +284,18 @@ under the usual latest-own, replay, exposure and N rules. For example:
 - In the same tree, an eligible own action B can be undone without removing F
   or changing C. No branching point lies at or after B on its active path.
 
+**Accidental interruption clarification — D-291:** with old `A → B → C` and new
+`A → X → Y`, eligible latest-own Undo can remove Y then X. X is immediately after
+the fork A, not the forbidden branching point itself. Removing X leaves A as the
+current boundary and retains B→C without automatically activating it; return is
+separate. All ordinary author/exposure/replay/work/later-fork checks still apply.
+This is not an exception permitting Undo of A **while A remains a branching
+point**. Recompute eligibility from the retained tree after each accepted Undo:
+if removing the last action of a new continuation eliminates the actual fork,
+there is no permanent “was once a fork” lock. Any next target still needs every
+ordinary check, including replay of the retained linear future beyond the shared
+pointer; removing X does not by itself authorize Undo of A.
+
 **Retained linear future (D-245):** after the fork check there is at most one
 retained successor chain after the target. Validate every event on that chain,
 including events beyond an explicitly activated internal shared node, against its
@@ -1407,8 +1419,11 @@ continues in either mode. A pause is not a shared gameplay interruption.
    changes animate as the net previous-boundary to group-end board difference
    while remaining ordered mutation nodes (D-277).
 4. The player can pause automatic playback. While paused, show a horizontal
-   event timeline at the bottom of the screen. Dragging it left/right selects
-   an exact mutation boundary, including a boundary inside a displayed group.
+    event timeline at the bottom of the screen. Dragging it left/right selects
+    an exact mutation boundary, including a boundary inside a displayed group.
+    D-291 keeps the path timeline visible during playback too: touching/dragging
+    it pauses first, then scrubs with endpoint-based board updates while dragging.
+    Previous/Next transport steps groups; scrubbing remains mutation-granular.
 5. Continue playback from that node, or explicitly choose to continue play there
    before using ordinary game controls. D-179 requires deliberate continuation
    intent for a historical branch, not just a paused cursor. D-232 Undo/Redo edit
@@ -1420,6 +1435,18 @@ activation or mutation publications. Preserve retained alternatives and pending
 local work. Pausing the animation does not pause synchronization or change the
 shared active continuation. A displayed animation between endpoints is not an
 invented tree state: a paused/scrubbed game state identifies a concrete node.
+
+**Gameplay review UI — D-291:** historical browsing hides gameplay/edit controls
+and replaces live chrome with Previous, Play/Pause, Next and the exact path
+timeline, including compact off-path branch stubs. This is not permission to drop
+retained alternatives or stop sync. Explicit “Continue playing from here” is
+separate from playback: pause at the selected exact node and arm personal
+continuation intent, then reveal gameplay controls. The first successful new
+mutation carrying that intent creates/activates the continuation; Undo/Redo still
+edit the existing tree rather than supply that intent. Arming, cancelling,
+scrubbing or a failed/no-change action does not create an empty fork. Undo still targets shared current
+history under its existing rules, not whichever node the personal cursor displays.
+Exact button shapes/spacing remain trial layouts for owner review.
 
 The owner has specified the playback/timeline behavior, not its final geometry,
 animation speed, automatic-versus-manual preference default or accessibility

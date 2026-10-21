@@ -1,10 +1,11 @@
 # 5. Android experience
 
 Status: proposed interaction architecture except confirmed requirements noted
-below, including D-177's resume/playback and bottom timeline behavior. D-290
-authorizes a limited [non-gameplay UI pilot](../02-experience/ui/README.md) with
-portrait and landscape drafts and compiled review documents. Its layouts remain
-proposed; gameplay/final visual design and the full UI gate remain incomplete.
+below, including D-177's resume/playback and bottom timeline behavior. D-290/D-291
+authorize a limited [UI review packet](../02-experience/ui/README.md): the original
+non-gameplay pilot plus a live/history gameplay extension, in portrait and
+landscape with compiled review documents. Its layouts remain reviewable;
+full gameplay visual-state coverage/final design and the UI gate remain incomplete.
 D-273 selects Android
 10+ (API 29), signed APK distribution and manual updates as specified below.
 
@@ -21,8 +22,8 @@ D-112–D-114 additionally require combat/Stack projections, visual attacker/blo
 grouping (D-139), and contextual Stack actions. Their behavior is being specified in
 [the primary contract](combat-stack-and-projections.md). D-115 reserves new
 UI drafts, final layouts, and concrete control choices for delivery stage 3;
-D-290 now explicitly permits the limited non-gameplay pilot, without approving
-its proposals, passing the full UI gate or authorizing application code.
+D-290/D-291 explicitly permit the limited pilot and gameplay extension without
+approving final geometry, passing the full UI gate or authorizing application code.
 
 D-116–D-118 separate combat-area creation/declaration/tapping, add phase-appropriate
 multiselect declaration combinations, blocker-to-attacker drops/blank slots, and

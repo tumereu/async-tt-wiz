@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>H03 — Historical continuation armed before first action (Async Table)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :root {
+    --bg-page: #f1f5f9;
+    --bg-surface: #ffffff;
+    --border-color: #cbd5e1;
+    --border-subtle: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --brand-teal: #0d7265;
+    --brand-teal-dark: #094d44;
+    --brand-teal-light: #e6f4f2;
+    --amber-bg: #fffbeb;
+    --amber-border: #fde68a;
+    --amber-text: #92400e;
+    --outer-band-bg: #dde7dd;
+    --outer-band-border: #cad7ca;
+    --inner-band-bg: #eaf1ea;
+    --inner-band-border: #d4e2d4;
+    --card-bg: #ffffff;
+    --card-border: #94a3b8;
+    --card-slot-border: #b8c9b8;
+  }
+
+  body {
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    user-select: none;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 20px;
+  }
+
+  /* SYSTEM INSETS */
+  .system-inset-top {
+    height: 20px;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .system-inset-bottom {
+    height: 12px;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .home-indicator {
+    width: 96px;
+    height: 4px;
+    background: #94a3b8;
+    border-radius: 2px;
+  }
+
+  /* TOP BAR (48px) */
+  .top-bar {
+    height: 48px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .top-bar-left, .top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .icon-btn {
+    min-width: 44px;
+    height: 40px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-primary);
+  }
+  .icon-btn:hover {
+    background: #f8fafc;
+    border-color: var(--border-color);
+  }
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .screen-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+  .draft-badge {
+    font-size: 10px;
+    font-weight: 600;
+    background: #e2e8f0;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* PHASE SQUARE (opens tracking controls, never advances silently) */
+  .phase-btn {
+    height: 34px;
+    padding: 0 10px;
+    background: #f8fafc;
+    border: 1.5px solid var(--brand-teal);
+    border-radius: 6px;
+    color: var(--brand-teal);
+    font-weight: 600;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  .history-nav-btn {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  /* CONTINUATION ARMED BANNER (CONSPICUOUS) */
+  .continuation-banner {
+    background: #fef3c7;
+    border-bottom: 1.5px solid #f59e0b;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    color: #92400e;
+    font-size: 12px;
+    z-index: 10;
+  }
+  .continuation-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d97706;
+    flex-shrink: 0;
+  }
+  .continuation-status strong {
+    font-weight: 700;
+    color: #78350f;
+  }
+  .banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .banner-text-btn {
+    background: transparent;
+    border: none;
+    font-weight: 600;
+    font-size: 12px;
+    color: #92400e;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 2px 4px;
+  }
+  .banner-text-btn:hover {
+    color: #451a03;
+  }
+
+  /* MAIN APP LAYOUT CONTAINER */
+  .app-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* LANDSCAPE LEFT DOCK (SPECIAL ZONES & LIFE) */
+  .zone-dock-landscape {
+    display: none; /* activated in landscape media query */
+    width: 140px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+    flex-shrink: 0;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8px 6px;
+    overflow-y: auto;
+  }
+
+  .player-zone-group {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .player-dock-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 3px;
+  }
+  .life-display-box {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 6px;
+  }
+  .life-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .life-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+  .zone-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+  }
+  .zone-metric-cell {
+    background: #ffffff;
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 3px 2px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .zone-name {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+  .zone-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* CENTRAL PORTRAIT STRIP */
+  .zone-strip-portrait {
+    display: flex;
+    background: #f8fafc;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 4px 8px;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .portrait-participant-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .portrait-participant-label {
+    font-size: 10px;
+    font-weight: 700;
+    width: 60px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-secondary);
+  }
+  .portrait-life-pill {
+    background: #ffffff;
+    border: 1.5px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .portrait-zones-group {
+    display: flex;
+    gap: 4px;
+  }
+  .portrait-zone-btn {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  /* BOARD VIEWPORT AREA */
+  .board-viewport {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    display: flex;
+    flex-direction: column;
+    background: #f1f5f9;
+    position: relative;
+    padding: 4px 6px;
+    gap: 3px;
+  }
+
+  /* OPPONENT COVERED HAND (TOP, FIXED CHROME) */
+  .opponent-covered-hand {
+    background: #e2e8f0;
+    border-bottom: 1px solid var(--border-color);
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .covered-cards-row {
+    display: flex;
+    gap: 3px;
+  }
+  .card-back-thumb {
+    width: 22px;
+    height: 30px;
+    background: #94a3b8;
+    border: 1px solid #64748b;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f1f5f9;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  /* BATTLEFIELD REGIONS & 6 ROWS */
+  .battlefield-band {
+    border-radius: 4px;
+    padding: 3px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .band-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #475569;
+  }
+  .band-outer {
+    background: var(--outer-band-bg);
+    border: 1px solid var(--outer-band-border);
+  }
+  .band-inner {
+    background: var(--inner-band-bg);
+    border: 1px solid var(--inner-band-border);
+  }
+
+  .card-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 48px;
+    overflow-x: auto;
+    padding: 2px 0;
+  }
+
+  /* CARDS AND SLOTS */
+  .card-slot {
+    width: 44px;
+    height: 44px;
+    border: 1px dashed var(--card-slot-border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: #718096;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .card-thumb {
+    width: 44px;
+    height: 44px;
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 4px;
+    padding: 2px 3px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .card-thumb.tapped {
+    transform: rotate(90deg);
+    margin: 0 4px;
+  }
+  .card-top {
+    font-size: 8px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+  }
+  .card-mid {
+    font-size: 7px;
+    color: var(--text-muted);
+    line-height: 1;
+  }
+  .card-bottom {
+    font-size: 8px;
+    font-weight: 800;
+    text-align: right;
+    color: var(--text-secondary);
+  }
+
+  /* CENTER LANES: STACK & COMBAT */
+  .center-lanes {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+    margin: 2px 0;
+  }
+  .stack-lane {
+    background: #f1f5f9;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 3px 6px;
+  }
+  .lane-title {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .stack-items-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .stack-pill {
+    background: #ffffff;
+    border: 1.5px solid var(--brand-teal);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stack-pill.historical-marker {
+    border-color: #f59e0b;
+    background: #fffbeb;
+  }
+
+  /* COMBAT LANE (2 ROWS: BLOCKERS ABOVE ATTACKERS, DASHED PROJECTIONS) */
+  .combat-lane {
+    background: #fefce8;
+    border: 1px solid #fef08a;
+    border-radius: 4px;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .combat-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .combat-row-label {
+    width: 60px;
+    font-size: 8px;
+    font-weight: 700;
+    color: #854d0e;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .projected-card {
+    width: 44px;
+    height: 44px;
+    background: #ffffff;
+    border: 1.5px dashed #ca8a04;
+    border-radius: 4px;
+    padding: 2px 3px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  /* OWN FACE-UP HAND (FIXED FLOATING JUST ABOVE BOTTOM CONTROLS) */
+  .floating-hand-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    border-top: 1px solid var(--border-color);
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+    z-index: 5;
+  }
+  .hand-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .hand-cards-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 2px 0;
+  }
+  .hand-card-playable {
+    min-width: 50px;
+    height: 46px;
+    background: #ffffff;
+    border: 1.5px solid var(--brand-teal);
+    border-radius: 4px;
+    padding: 2px 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .hand-card-playable:hover {
+    background: var(--brand-teal-light);
+  }
+
+  /* BOTTOM GAMEPLAY CONTROLS (LIVE CONTROLS RETURN IN H03) */
+  .bottom-controls-bar {
+    height: 52px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .undo-btn-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    height: 48px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+    padding: 2px;
+  }
+  .undo-btn-group:hover {
+    background: #f8fafc;
+  }
+  .undo-hold-hint {
+    font-size: 8px;
+    color: var(--text-muted);
+    margin-top: -2px;
+  }
+
+  .quick-action-center {
+    flex: 1;
+    max-width: 220px;
+    height: 48px;
+    background: var(--brand-teal);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .quick-action-center:hover {
+    background: var(--brand-teal-dark);
+  }
+
+  .mode-chooser-btn {
+    min-width: 52px;
+    height: 48px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 6px;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .mode-sublabel {
+    font-size: 8px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  /* MEDIA QUERY: RESPONSIVE TO BOTH PORTRAIT (<=600px width) AND LANDSCAPE (>600px width / landscape) */
+  @media (orientation: landscape) and (min-width: 600px) {
+    .zone-dock-landscape {
+      display: flex;
+    }
+    .zone-strip-portrait {
+      display: none;
+    }
+    .board-viewport {
+      padding: 4px 8px;
+    }
+    .floating-hand-container {
+      max-height: 64px;
+      padding: 2px 8px;
+    }
+    .hand-card-playable {
+      min-width: 46px;
+      height: 40px;
+    }
+    .bottom-controls-bar {
+      height: 48px;
+    }
+    .quick-action-center {
+      height: 42px;
+    }
+    .undo-btn-group, .mode-chooser-btn {
+      height: 42px;
+    }
+  }
+
+  @media (orientation: portrait), (max-width: 599px) {
+    .zone-dock-landscape {
+      display: none;
+    }
+    .zone-strip-portrait {
+      display: flex;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Minimal System Inset (20px) -->
+  <header class="system-inset-top">
+    <span>10:30</span>
+    <span>Async Table • Android UI</span>
+    <span>5G 98%</span>
+  </header>
+
+  <!-- Compact Top Bar (48px) -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <button class="icon-btn" title="Back" aria-label="Back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="title-group">
+        <span class="screen-title">Game with riley</span>
+        <span class="draft-badge">Draft H03</span>
+      </div>
+    </div>
+
+    <div class="top-bar-right">
+      <!-- Small phase square (labeled Main 1, opens tracking controls on tap, never silent advance) -->
+      <button class="phase-btn" title="Phase Tracker: Main 1 (Tap to edit tracking)">
+        <span class="material-symbols-outlined" style="font-size: 16px;">schedule</span>
+        <span>Main 1</span>
+      </button>
+
+      <!-- History text navigation button -->
+      <button class="history-nav-btn" title="Review History">
+        <span class="material-symbols-outlined" style="font-size: 16px;">history</span>
+        <span>History</span>
+      </button>
+
+      <!-- Overflow menu button -->
+      <button class="icon-btn" title="Overflow menu (Redo, Chat, Settings)">
+        <span class="material-symbols-outlined">more_vert</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CONSPICUOUS CONTINUATION ARMED BANNER (H03 SPECIFIC) -->
+  <aside class="continuation-banner" aria-label="Historical Continuation Status">
+    <div class="continuation-status">
+      <div class="status-dot"></div>
+      <span>Continuing from <strong>Event A</strong> · no action yet</span>
+    </div>
+    <div class="banner-actions">
+      <button class="banner-text-btn" title="Cancel armed continuation and stay at Event A">Cancel</button>
+      <button class="banner-text-btn" title="Return directly to current live game head">Return to live</button>
+    </div>
+  </aside>
+
+  <!-- MAIN APP CONTAINER (Dock + Board) -->
+  <main class="app-body">
+
+    <!-- LANDSCAPE LEFT SIDEBAR (Special Zones & Life for BOTH Players) -->
+    <aside class="zone-dock-landscape" aria-label="Player Zone Dock">
+      <!-- Opponent Riley -->
+      <div class="player-zone-group">
+        <div class="player-dock-header">
+          <span>@riley (Opponent)</span>
+        </div>
+        <div class="life-display-box">
+          <span class="life-label">Life</span>
+          <span class="life-value">20</span>
+        </div>
+        <div class="zone-metrics-grid">
+          <div class="zone-metric-cell" title="Library count">
+            <span class="zone-name">Lib</span>
+            <span class="zone-count">50</span>
+          </div>
+          <div class="zone-metric-cell" title="Graveyard count">
+            <span class="zone-name">Grave</span>
+            <span class="zone-count">2</span>
+          </div>
+          <div class="zone-metric-cell" title="Exile count">
+            <span class="zone-name">Exile</span>
+            <span class="zone-count">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historical Intent Note -->
+      <div style="font-size: 9px; color: var(--text-muted); text-align: center; padding: 4px;">
+        Armed at A<br/>Pending branch
+      </div>
+
+      <!-- Own Player Alex -->
+      <div class="player-zone-group">
+        <div class="player-dock-header">
+          <span>@alex (You)</span>
+        </div>
+        <div class="life-display-box">
+          <span class="life-label">Life</span>
+          <span class="life-value">20</span>
+        </div>
+        <div class="zone-metrics-grid">
+          <div class="zone-metric-cell" title="Library count">
+            <span class="zone-name">Lib</span>
+            <span class="zone-count">50</span>
+          </div>
+          <div class="zone-metric-cell" title="Graveyard count">
+            <span class="zone-name">Grave</span>
+            <span class="zone-count">2</span>
+          </div>
+          <div class="zone-metric-cell" title="Exile count">
+            <span class="zone-name">Exile</span>
+            <span class="zone-count">0</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- BOARD VIEWPORT (Zoomable/pannable container, all 6 rows + center lanes) -->
+    <section class="board-viewport" aria-label="Game Board">
+
+      <!-- Opponent Covered Hand (Top fixed chrome draft assumption) -->
+      <header class="opponent-covered-hand">
+        <span>@riley's Hand (5 cards, concealed)</span>
+        <div class="covered-cards-row">
+          <div class="card-back-thumb">?</div>
+          <div class="card-back-thumb">?</div>
+          <div class="card-back-thumb">?</div>
+          <div class="card-back-thumb">?</div>
+          <div class="card-back-thumb">?</div>
+        </div>
+      </header>
+
+      <!-- ROW 1: RILEY OUTER BAND (Darker muted green, single row, mainly lands) -->
+      <div class="battlefield-band band-outer">
+        <div class="band-header">
+          <span>Riley — Lands &amp; Resources (Outer Band)</span>
+          <span>1 Land</span>
+        </div>
+        <div class="card-row">
+          <!-- Synthetic Card 1 (Tapped clockwise 90deg) -->
+          <div class="card-thumb tapped" title="Quiet Grove (Tapped Land)">
+            <div class="card-top">Grove</div>
+            <div class="card-mid">Land</div>
+            <div class="card-bottom">90°</div>
+          </div>
+          <div class="card-thumb" title="Untapped Land">
+            <div class="card-top">Forest</div>
+            <div class="card-mid">Land</div>
+            <div class="card-bottom">•</div>
+          </div>
+          <div class="card-slot">Empty</div>
+          <div class="card-slot">Empty</div>
+        </div>
+      </div>
+
+      <!-- ROW 2 & 3: RILEY INNER BAND (Lighter muted green, two rows, other permanents) -->
+      <div class="battlefield-band band-inner">
+        <div class="band-header">
+          <span>Riley — Permanents &amp; Support (Inner Band)</span>
+          <span>2 Creatures</span>
+        </div>
+        <!-- Inner Row 1 -->
+        <div class="card-row">
+          <div class="card-thumb" title="Stone Guide">
+            <div class="card-top">Stone G.</div>
+            <div class="card-mid">Creature</div>
+            <div class="card-bottom">2 / 3</div>
+          </div>
+          <div class="card-slot">Slot</div>
+          <div class="card-slot">Slot</div>
+        </div>
+        <!-- Inner Row 2 -->
+        <div class="card-row">
+          <div class="card-thumb" title="River Warden">
+            <div class="card-top">River W.</div>
+            <div class="card-mid">Creature</div>
+            <div class="card-bottom">1 / 4</div>
+          </div>
+          <div class="card-slot">Slot</div>
+        </div>
+      </div>
+
+      <!-- PORTRAIT CENTRAL STRIP (Between Battlefields with explicit riley & alex zones) -->
+      <div class="zone-strip-portrait">
+        <!-- Riley row -->
+        <div class="portrait-participant-row">
+          <span class="portrait-participant-label">@riley</span>
+          <div class="portrait-life-pill">
+            <span style="font-size: 8px; color: var(--text-muted);">HP</span>
+            <span>20</span>
+          </div>
+          <div class="portrait-zones-group">
+            <div class="portrait-zone-btn">LIB 50</div>
+            <div class="portrait-zone-btn">GRV 2</div>
+            <div class="portrait-zone-btn">EXL 0</div>
+          </div>
+        </div>
+        <!-- Alex row -->
+        <div class="portrait-participant-row">
+          <span class="portrait-participant-label">@alex (You)</span>
+          <div class="portrait-life-pill" style="border-color: var(--brand-teal);">
+            <span style="font-size: 8px; color: var(--brand-teal);">HP</span>
+            <span>20</span>
+          </div>
+          <div class="portrait-zones-group">
+            <div class="portrait-zone-btn">LIB 50</div>
+            <div class="portrait-zone-btn">GRV 2</div>
+            <div class="portrait-zone-btn">EXL 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER LANES: SHARED STACK & COMBAT LANE -->
+      <div class="center-lanes">
+        <!-- Shared Stack Lane -->
+        <div class="stack-lane">
+          <div class="lane-title">
+            <span>Shared Stack (At Event A)</span>
+            <span>LIFO order</span>
+          </div>
+          <div class="stack-items-row">
+            <div class="stack-pill historical-marker" title="Historical baseline marker at step A">
+              <span class="material-symbols-outlined" style="font-size: 14px; color: #d97706;">bookmark</span>
+              <span>Event A Snapshot</span>
+            </div>
+            <div class="stack-pill" title="Aegis Ward target: Meadow Sentinel">
+              <span class="material-symbols-outlined" style="font-size: 14px; color: var(--brand-teal);">layers</span>
+              <span>Aegis Ward (@alex)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Combat Lane (Dashed borders for projection occurrences) -->
+        <div class="combat-lane">
+          <div class="lane-title" style="color: #854d0e;">
+            <span>Combat Lane (Projections)</span>
+            <span>Dashed occurrences</span>
+          </div>
+          <!-- Blockers above Attackers -->
+          <div class="combat-row">
+            <span class="combat-row-label">Blockers:</span>
+            <div class="projected-card" title="[Proj] Stone Guide">
+              <div class="card-top">[P] Stone</div>
+              <div class="card-mid">Blocker</div>
+              <div class="card-bottom">2 / 3</div>
+            </div>
+          </div>
+          <div class="combat-row">
+            <span class="combat-row-label">Attackers:</span>
+            <div class="projected-card" title="[Proj] Meadow Sentinel">
+              <div class="card-top">[P] Meadow</div>
+              <div class="card-mid">Attacker</div>
+              <div class="card-bottom">3 / 4</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 4 & 5: ALEX INNER BAND (Lighter muted green, two rows, other permanents) -->
+      <div class="battlefield-band band-inner">
+        <div class="band-header">
+          <span>Alex (You) — Permanents &amp; Support (Inner Band)</span>
+          <span>1 Creature, 1 Artifact</span>
+        </div>
+        <!-- Inner Row 1 -->
+        <div class="card-row">
+          <div class="card-thumb" title="Meadow Sentinel">
+            <div class="card-top">Meadow S.</div>
+            <div class="card-mid">Creature</div>
+            <div class="card-bottom">3 / 4</div>
+          </div>
+          <div class="card-thumb" title="Rift Catalyst">
+            <div class="card-top">Rift Cat.</div>
+            <div class="card-mid">Artifact</div>
+            <div class="card-bottom">Active</div>
+          </div>
+          <div class="card-slot">Slot</div>
+        </div>
+        <!-- Inner Row 2 -->
+        <div class="card-row">
+          <div class="card-slot">Slot</div>
+          <div class="card-slot">Slot</div>
+          <div class="card-slot">Slot</div>
+        </div>
+      </div>
+
+      <!-- ROW 6: ALEX OUTER BAND (Darker muted green, single row, mainly lands) -->
+      <div class="battlefield-band band-outer">
+        <div class="band-header">
+          <span>Alex (You) — Lands &amp; Resources (Outer Band)</span>
+          <span>1 Land</span>
+        </div>
+        <div class="card-row">
+          <div class="card-thumb" title="Training Land">
+            <div class="card-top">Training</div>
+            <div class="card-mid">Land</div>
+            <div class="card-bottom">•</div>
+          </div>
+          <div class="card-slot">Slot</div>
+          <div class="card-slot">Slot</div>
+          <div class="card-slot">Slot</div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- OWN FACE-UP HAND (FIXED FLOATING JUST ABOVE BOTTOM CONTROLS) -->
+  <section class="floating-hand-container" aria-label="Your Hand">
+    <div class="hand-header">
+      <span>Your Hand (3 cards) · Playable from Event A</span>
+      <span style="font-size: 9px; color: var(--brand-teal); font-weight: 700;">Tap to play action</span>
+    </div>
+    <div class="hand-cards-row">
+      <div class="hand-card-playable" title="Ember Adept (Creature)">
+        <div class="card-top">Ember Adept</div>
+        <div class="card-mid">Creature • 2R</div>
+        <div class="card-bottom">2 / 2</div>
+      </div>
+      <div class="hand-card-playable" title="Solar Flare (Sorcery)">
+        <div class="card-top">Solar Flare</div>
+        <div class="card-mid">Sorcery • 2R</div>
+        <div class="card-bottom">3 Dmg</div>
+      </div>
+      <div class="hand-card-playable" title="Training Land">
+        <div class="card-top">Training Land</div>
+        <div class="card-mid">Basic Land</div>
+        <div class="card-bottom">Tap: {1}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM GAMEPLAY CONTROLS (Live controls returned: Undo, Actions, Mode) -->
+  <footer class="bottom-controls-bar">
+    <!-- Undo Button with concise hold hint (hold=Redo) -->
+    <button class="undo-btn-group" title="Undo action (Hold for Redo)">
+      <span class="material-symbols-outlined">undo</span>
+      <span class="undo-hold-hint">hold=Redo</span>
+    </button>
+
+    <!-- Contextual quick action center (Binds explicit historical intent at A) -->
+    <button class="quick-action-center" title="Execute armed gameplay action at Event A">
+      <span class="material-symbols-outlined">play_circle</span>
+      <span>Declare Action at A</span>
+    </button>
+
+    <!-- Mode square: Normal/Select/Ping chooser -->
+    <button class="mode-chooser-btn" title="Mode Chooser (Normal, Select, Ping)">
+      <span class="material-symbols-outlined" style="font-size: 18px;">touch_app</span>
+      <span>Normal</span>
+      <span class="mode-sublabel">Mode ▾</span>
+    </button>
+  </footer>
+
+  <!-- Minimal System Inset (12px) -->
+  <footer class="system-inset-bottom">
+    <div class="home-indicator"></div>
+  </footer>
+
+</body>
+</html>

@@ -23,8 +23,9 @@ move-and-ping presentation for the Stack area is defined in
 [Visual action language](visual-action-language.md).
 D-112–D-114 additionally require combat/Stack projections and contextual actions;
 [their primary contract](combat-stack-and-projections.md) is being specified
-case by case. D-115 keeps current work in stage 1, behavior specification; new
-screen layouts and concrete gesture choices belong to stage 3.
+case by case. D-115 keeps the general delivery gates; D-290/D-291 separately
+authorize the limited UI pilot/gameplay design artifacts below, not application
+implementation or a passed general UI/review gate.
 
 This document is the primary contract for tabletop interaction. It supplements
 the [Android experience](android-experience.md) and
@@ -74,7 +75,27 @@ copy or recreate the token; occurrence layout/removal remains available.
 
 ## 10.2 Proposed board areas
 
-Portrait-first conceptual layout, not an approved pixel wireframe:
+**Current gameplay review direction — D-291:** both portrait and landscape are
+required. The [gameplay layout brief](../02-experience/gameplay-screen-proposal.md)
+and [review packet](../02-experience/ui/review.md) (G01)
+replace the older portrait-only sketch below as the current trial composition,
+not approved final geometry. Each generic battlefield has an outer darker-green
+one-row band and an inner lighter-green two-row band. Colors suggest lands versus
+other permanents but do not restrict types or create new semantic zones. Opponent
+geometry reflects top/bottom only, retaining horizontal positions and viewer-facing
+card text. Library/Graveyard/Exile controls for both players stay on the left in
+landscape and between participants in portrait. Counts remain visible.
+
+The owner selects a floating own Hand below the land band and above screen-fixed
+bottom controls, independent of board pan/zoom, and central Stack/combat lanes.
+The opponent's top covered Hand and life grouped with special zones remain draft
+placement proposals. Both orientations must retain usable controls; dense boards
+may need navigation rather than a promise that all cards fit at readable size.
+Horizontal camera bounds stop a still-unspecified card-slot margin beyond the
+outermost cards, not a finite placement boundary. Empty-board/cross-band bounds
+and exact zoom remain geometry completion.
+
+Earlier conceptual sketch retained for context, not a competing current layout:
 
 This is an MTG-oriented sketch using the confirmed areas and life/counter tools,
 not an R1 area/named-value authoring editor. The engine does not interpret labels.
@@ -120,6 +141,10 @@ not an R1 area/named-value authoring editor. The engine does not interpret label
   D-203 permits free mainboard/sideboard transfers in that lobby without legality,
   size or one-for-one restrictions; own Ready clears and saved decks stay unchanged.
 - Player controls and review/undo stay reachable while the table pans/zooms.
+- D-291's first draft uses bottom-left tap Undo / hold Redo; a recognized hold
+  emits only Redo, never an earlier Undo or a release-time Undo. Explicit Redo
+  remains in the controls menu and accessibility actions. Exact timing is not
+  selected; ordinary server eligibility/recovery rules apply to either route.
 - Exact sizing, dock placement, large-screen layouts, and whether both zone
   docks fit at the default phone zoom require annotated wireframes.
 

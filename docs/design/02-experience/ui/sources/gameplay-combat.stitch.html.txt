@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>G02 — Live combat and populated Stack (Async Table)</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Google Material Symbols Outlined -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<style>
+  :root {
+    --bg-page: #f8fafc;
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+    --teal-primary: #0d695c;
+    --teal-hover: #094e44;
+    --teal-subtle: #f0fdfa;
+    --teal-border: #99f6e4;
+    --border-subtle: #e2e8f0;
+
+    /* Muted green battlefield bands as specified */
+    --bf-dark-green: #e6ede6;
+    --bf-dark-green-border: #cbd5cb;
+    --bf-light-green: #f2f6f2;
+    --bf-light-green-border: #dbe4db;
+
+    /* Card aesthetics */
+    --card-bg: #ffffff;
+    --card-border: #94a3b8;
+    --card-tapped-rotate: 90deg;
+  }
+
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+    background-color: #f1f5f9;
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1;
+  }
+
+  /* Synthetic abstract cards */
+  .synth-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 3px 5px;
+    font-size: 11px;
+    line-height: 1.2;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .synth-card.tapped {
+    transform: rotate(90deg);
+    margin: 0 10px; /* spacing compensation when rotated */
+  }
+
+  .synth-card.selected-glow {
+    outline: 2px solid var(--teal-primary);
+    box-shadow: 0 0 0 3px rgba(13, 105, 92, 0.25);
+  }
+
+  .synth-card.dashed-proj {
+    border: 1.5px dashed #0d695c;
+    background: rgba(240, 253, 250, 0.85);
+  }
+
+  .synth-card.dashed-blocker {
+    border: 1.5px dashed #dc2626;
+    background: rgba(254, 242, 242, 0.85);
+  }
+
+  .card-slot-placeholder {
+    border: 1px dashed #cbd5e1;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  /* Custom scrollbar for board viewport */
+  .custom-board-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-board-scroll::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.03);
+  }
+  .custom-board-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+
+  /* Common interactive touch targets */
+  .touch-target-48 {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* PORTRAIT LAYOUT (< 640px or orientation: portrait) */
+  @media (orientation: portrait), (max-width: 639px) {
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      width: 100%;
+    }
+
+    /* Landscape sidebar is hidden in portrait */
+    .dock-landscape-sidebar {
+      display: none !important;
+    }
+
+    /* Portrait dock between battlefields is visible */
+    .dock-portrait-strip {
+      display: flex !important;
+    }
+  }
+
+  /* LANDSCAPE LAYOUT (>= 640px and orientation: landscape) */
+  @media (orientation: landscape) and (min-width: 640px) {
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      width: 100%;
+    }
+
+    .main-body-row {
+      display: flex;
+      flex-direction: row;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      position: relative;
+    }
+
+    /* Landscape sidebar is visible */
+    .dock-landscape-sidebar {
+      display: flex !important;
+      width: 180px;
+      flex-shrink: 0;
+      background: #ffffff;
+      border-right: 1px solid var(--border-subtle);
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    /* Portrait dock between battlefields is hidden */
+    .dock-portrait-strip {
+      display: none !important;
+    }
+  }
+</style>
+</head>
+<body class="text-slate-800 antialiased select-none">
+
+<div class="app-shell relative bg-slate-100">
+
+  <!-- ================= TOP STATUS & APP BAR (48px + 20px status inset) ================= -->
+  <header class="w-full bg-white border-b border-slate-200 flex-shrink-0 z-30 pt-[4px]">
+    <!-- Minimal top system inset row (20px status bar) -->
+    <div class="h-5 px-4 flex items-center justify-between text-[11px] text-slate-500 font-medium tracking-tight">
+      <span>10:30</span>
+      <div class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-[13px]">signal_cellular_alt</span>
+        <span class="material-symbols-outlined text-[13px]">wifi</span>
+        <span class="material-symbols-outlined text-[13px]">battery_full</span>
+      </div>
+    </div>
+
+    <!-- 48px Header Nav Bar -->
+    <div class="h-12 px-3 flex items-center justify-between">
+      <!-- Left: Back icon -->
+      <button class="touch-target-48 flex items-center justify-center text-slate-700 hover:text-slate-900 active:bg-slate-100 rounded" title="Back to Games" aria-label="Back">
+        <span class="material-symbols-outlined text-[24px]">arrow_back</span>
+      </button>
+
+      <!-- Center-Left: Opponent summary and live match identifier -->
+      <div class="flex items-center gap-2 pl-1">
+        <span class="font-semibold text-sm text-slate-900">Game with riley</span>
+        <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">Draft G02</span>
+      </div>
+
+      <!-- Right Chrome: Phase tracker square + History button + Overflow -->
+      <div class="flex items-center gap-1">
+        <!-- Interactive Phase Square (labeled Main 1 / Declare attackers) -->
+        <button class="h-9 px-2.5 rounded bg-teal-50 border border-teal-600 text-teal-800 flex flex-col items-center justify-center hover:bg-teal-100 active:scale-95 transition-transform" title="Phase tracker (tap to adjust tracking)">
+          <div class="text-[8px] uppercase tracking-wider font-bold text-teal-700 leading-none">Declare Atk</div>
+          <div class="text-[11px] font-semibold leading-tight text-teal-900">Combat</div>
+        </button>
+
+        <!-- History text button -->
+        <button class="h-9 px-2.5 rounded text-xs font-medium text-slate-700 hover:bg-slate-100 flex items-center gap-1" title="Open timeline history review">
+          <span class="material-symbols-outlined text-[18px]">history</span>
+          <span>History</span>
+        </button>
+
+        <!-- Overflow menu icon -->
+        <button class="touch-target-48 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded" title="More options" aria-label="Menu">
+          <span class="material-symbols-outlined text-[22px]">more_vert</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= MIDDLE AREA: OPTIONAL LANDSCAPE SIDEBAR + MAIN BOARD VIEWPORT ================= -->
+  <div class="main-body-row flex-1 flex overflow-hidden relative">
+
+    <!-- ================= LANDSCAPE LEFT SIDEBAR (>=640px landscape) ================= -->
+    <aside class="dock-landscape-sidebar hidden flex-col justify-between p-2 border-r border-slate-200 text-xs">
+      <!-- Opponent (Riley) Section -->
+      <div class="border border-slate-200 rounded p-2 bg-slate-50 space-y-1.5">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-1">
+          <span class="font-semibold text-slate-700">@riley</span>
+          <span class="text-[10px] text-slate-500 uppercase">Opponent</span>
+        </div>
+        <!-- Life row (48px touch target) -->
+        <div class="h-10 px-2 rounded bg-white border border-slate-200 flex items-center justify-between font-mono">
+          <span class="text-slate-600 text-[11px]">Life</span>
+          <span class="text-lg font-bold text-slate-900">20</span>
+        </div>
+        <!-- Zone counters (3 compact 48px rows / touch areas) -->
+        <div class="grid grid-cols-3 gap-1 text-center font-mono">
+          <button class="h-10 rounded bg-white border border-slate-200 flex flex-col items-center justify-center hover:bg-slate-50" title="Library">
+            <span class="text-[9px] text-slate-500 uppercase">Lib</span>
+            <span class="font-bold text-slate-800">50</span>
+          </button>
+          <button class="h-10 rounded bg-white border border-slate-200 flex flex-col items-center justify-center hover:bg-slate-50" title="Graveyard">
+            <span class="text-[9px] text-slate-500 uppercase">Grave</span>
+            <span class="font-bold text-slate-800">2</span>
+          </button>
+          <button class="h-10 rounded bg-white border border-slate-200 flex flex-col items-center justify-center hover:bg-slate-50" title="Exile">
+            <span class="text-[9px] text-slate-500 uppercase">Exile</span>
+            <span class="font-bold text-slate-800">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Turn & Phase prompt badge in sidebar -->
+      <div class="my-2 p-1.5 bg-teal-50 border border-teal-200 rounded text-center">
+        <div class="text-[10px] font-bold text-teal-800 uppercase">Declare Attackers</div>
+        <div class="text-[10px] text-teal-600">Select mode active (2 chosen)</div>
+      </div>
+
+      <!-- Own Player (Alex) Section -->
+      <div class="border border-teal-200 rounded p-2 bg-teal-50/40 space-y-1.5">
+        <div class="flex items-center justify-between border-b border-teal-200 pb-1">
+          <span class="font-semibold text-teal-950">@alex (You)</span>
+          <span class="text-[10px] text-teal-700 uppercase font-medium">Turn Active</span>
+        </div>
+        <!-- Life row (48px touch target) -->
+        <div class="h-10 px-2 rounded bg-white border border-teal-300 flex items-center justify-between font-mono">
+          <span class="text-teal-900 text-[11px]">Life</span>
+          <span class="text-lg font-bold text-teal-950">20</span>
+        </div>
+        <!-- Zone counters -->
+        <div class="grid grid-cols-3 gap-1 text-center font-mono">
+          <button class="h-10 rounded bg-white border border-slate-200 flex flex-col items-center justify-center hover:bg-slate-50" title="Library">
+            <span class="text-[9px] text-slate-500 uppercase">Lib</span>
+            <span class="font-bold text-slate-800">50</span>
+          </button>
+          <button class="h-10 rounded bg-white border border-slate-200 flex flex-col items-center justify-center hover:bg-slate-50" title="Graveyard">
+            <span class="text-[9px] text-slate-500 uppercase">Grave</span>
+            <span class="font-bold text-slate-800">2</span>
+          </button>
+          <button class="h-10 rounded bg-white border border-slate-200 flex flex-col items-center justify-center hover:bg-slate-50" title="Exile">
+            <span class="text-[9px] text-slate-500 uppercase">Exile</span>
+            <span class="font-bold text-slate-800">0</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ================= BOARD VIEWPORT (Allow board viewport to pan/scroll if needed) ================= -->
+    <main class="flex-1 flex flex-col overflow-y-auto overflow-x-hidden relative custom-board-scroll bg-slate-200/60 p-2 sm:p-3">
+
+      <!-- ================= OPPONENT COVERED HAND DOCK (Fixed at top outside battlefield) ================= -->
+      <div class="w-full bg-white/95 backdrop-blur border border-slate-300 rounded-md px-3 py-1.5 mb-2 flex items-center justify-between shadow-sm flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-slate-700">@riley's Hand</span>
+          <span class="text-[10px] bg-slate-200 text-slate-700 font-mono px-1.5 py-0.2 rounded font-bold">5 cards</span>
+        </div>
+        <!-- Covered cards visual (anonymous card backs, no leaked names) -->
+        <div class="flex items-center gap-1">
+          <div class="w-7 h-9 rounded-[3px] bg-slate-400 border border-slate-500 flex items-center justify-center text-[9px] text-white font-mono shadow-xs">?</div>
+          <div class="w-7 h-9 rounded-[3px] bg-slate-400 border border-slate-500 flex items-center justify-center text-[9px] text-white font-mono shadow-xs">?</div>
+          <div class="w-7 h-9 rounded-[3px] bg-slate-400 border border-slate-500 flex items-center justify-center text-[9px] text-white font-mono shadow-xs">?</div>
+          <div class="w-7 h-9 rounded-[3px] bg-slate-400 border border-slate-500 flex items-center justify-center text-[9px] text-white font-mono shadow-xs">?</div>
+          <div class="w-7 h-9 rounded-[3px] bg-slate-400 border border-slate-500 flex items-center justify-center text-[9px] text-white font-mono shadow-xs">?</div>
+        </div>
+      </div>
+
+      <!-- ================= SIX-ROW BATTLEFIELD CONTAINER ================= -->
+      <!-- Top-to-bottom order:
+           1. Riley Dark Outer Band (1 row - Lands)
+           2. Riley Light Inner Band (2 rows - Other permanents)
+           [Center Lanes: Combat Lane (2 rows) + Stack Lane + Portrait dock]
+           3. Alex Light Inner Band (2 rows - Other permanents)
+           4. Alex Dark Outer Band (1 row - Lands)
+      -->
+      <div class="w-full space-y-1.5 flex-1">
+
+        <!-- 1. RILEY DARK GREEN OUTER BAND (1 Row: Lands) -->
+        <section class="rounded-md border p-1.5" style="background-color: var(--bf-dark-green); border-color: var(--bf-dark-green-border);">
+          <div class="flex items-center justify-between text-[10px] text-slate-600 font-semibold mb-1 px-1">
+            <span>RILEY — LANDS & RESOURCES</span>
+            <span class="text-[9px] font-normal text-slate-500">Outer band (Dark)</span>
+          </div>
+          <!-- 1 single row of cards -->
+          <div class="flex items-center gap-2 overflow-x-auto min-h-[58px] py-1 px-0.5">
+            <!-- 2 synthetic basic lands for Riley (tapped card rotated 90 deg) -->
+            <div class="synth-card w-[52px] h-[52px] tapped" title="Training Land (Tapped)">
+              <div class="text-[9px] font-bold text-slate-800 truncate">Land</div>
+              <div class="text-[8px] text-slate-500">Tapped 90°</div>
+            </div>
+            <div class="synth-card w-[52px] h-[52px]" title="Training Land">
+              <div class="text-[9px] font-bold text-slate-800 truncate">Land</div>
+              <div class="text-[8px] text-slate-500">Untapped</div>
+            </div>
+            <!-- Empty slot indicator -->
+            <div class="card-slot-placeholder w-[50px] h-[52px] flex items-center justify-center text-[8px] text-slate-400">Empty</div>
+          </div>
+        </section>
+
+        <!-- 2. RILEY LIGHT GREEN INNER BAND (2 Rows: Permanents / Creatures) -->
+        <section class="rounded-md border p-1.5 space-y-1.5" style="background-color: var(--bf-light-green); border-color: var(--bf-light-green-border);">
+          <div class="flex items-center justify-between text-[10px] text-slate-700 font-semibold px-1">
+            <span>RILEY — PERMANENTS & CREATURES (SOURCE ORIGINS)</span>
+            <span class="text-[9px] font-normal text-slate-500">Inner band (Light, 2 rows)</span>
+          </div>
+
+          <!-- Riley Row 1 (Support / artifacts) -->
+          <div class="flex items-center gap-2 overflow-x-auto min-h-[54px] py-0.5 px-0.5 border-b border-dashed border-slate-300">
+            <!-- Stone Guide (source still visible in green battlefield while projecting blocker) -->
+            <div class="synth-card w-[68px] h-[52px] border-amber-300" title="Stone Guide (Source permanent)">
+              <div class="text-[9px] font-bold text-slate-900 truncate">Stone Guide</div>
+              <div class="text-[8px] text-slate-500 flex justify-between">
+                <span>Creature</span>
+                <span class="font-mono font-bold text-amber-700">2/3</span>
+              </div>
+            </div>
+            <div class="card-slot-placeholder w-[50px] h-[50px] flex items-center justify-center text-[8px] text-slate-400">Slot</div>
+            <div class="card-slot-placeholder w-[50px] h-[50px] flex items-center justify-center text-[8px] text-slate-400">Slot</div>
+          </div>
+
+          <!-- Riley Row 2 (Frontline / other creatures) -->
+          <div class="flex items-center gap-2 overflow-x-auto min-h-[54px] py-0.5 px-0.5">
+            <div class="synth-card w-[68px] h-[52px]" title="River Warden">
+              <div class="text-[9px] font-bold text-slate-900 truncate">River Warden</div>
+              <div class="text-[8px] text-slate-500 flex justify-between">
+                <span>Creature</span>
+                <span class="font-mono">1/4</span>
+              </div>
+            </div>
+            <div class="card-slot-placeholder w-[50px] h-[50px] flex items-center justify-center text-[8px] text-slate-400">Slot</div>
+          </div>
+        </section>
+
+        <!-- ================= CENTER LANES: PORTRAIT DOCK + COMBAT LANE + STACK LANE ================= -->
+
+        <!-- 3A. PORTRAIT ZONE CONTROLS STRIP (Visible ONLY in Portrait / narrow) -->
+        <div class="dock-portrait-strip flex flex-col gap-1 bg-white border border-slate-300 rounded-md p-1.5 shadow-xs">
+          <!-- Riley Controls in Portrait -->
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center gap-1.5">
+              <span class="font-semibold text-slate-700">@riley</span>
+              <span class="font-mono font-bold px-1.5 py-0.5 bg-slate-100 rounded text-slate-900">20 HP</span>
+            </div>
+            <div class="flex items-center gap-1 font-mono text-[11px]">
+              <button class="h-8 px-2 rounded border border-slate-200 bg-slate-50 flex items-center gap-1" title="Riley Library">
+                <span class="text-[9px] text-slate-500">L</span>
+                <span class="font-bold">50</span>
+              </button>
+              <button class="h-8 px-2 rounded border border-slate-200 bg-slate-50 flex items-center gap-1" title="Riley Graveyard">
+                <span class="text-[9px] text-slate-500">G</span>
+                <span class="font-bold">2</span>
+              </button>
+              <button class="h-8 px-2 rounded border border-slate-200 bg-slate-50 flex items-center gap-1" title="Riley Exile">
+                <span class="text-[9px] text-slate-500">E</span>
+                <span class="font-bold">0</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="h-[1px] bg-slate-200 w-full"></div>
+
+          <!-- Alex Controls in Portrait -->
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center gap-1.5">
+              <span class="font-semibold text-teal-900">@alex (You)</span>
+              <span class="font-mono font-bold px-1.5 py-0.5 bg-teal-50 border border-teal-200 rounded text-teal-950">20 HP</span>
+            </div>
+            <div class="flex items-center gap-1 font-mono text-[11px]">
+              <button class="h-8 px-2 rounded border border-teal-200 bg-teal-50/50 flex items-center gap-1" title="Alex Library">
+                <span class="text-[9px] text-teal-700">L</span>
+                <span class="font-bold">50</span>
+              </button>
+              <button class="h-8 px-2 rounded border border-teal-200 bg-teal-50/50 flex items-center gap-1" title="Alex Graveyard">
+                <span class="text-[9px] text-teal-700">G</span>
+                <span class="font-bold">2</span>
+              </button>
+              <button class="h-8 px-2 rounded border border-teal-200 bg-teal-50/50 flex items-center gap-1" title="Alex Exile">
+                <span class="text-[9px] text-teal-700">E</span>
+                <span class="font-bold">0</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3B. COMBAT LANE (OPEN): Separate Two-Row Lane (Blocker above Attacker) -->
+        <section class="bg-amber-50/80 border-2 border-amber-300 rounded-md p-2 shadow-xs">
+          <div class="flex items-center justify-between text-[11px] font-bold text-amber-900 mb-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-amber-700">swords</span>
+              <span>COMBAT LANE (OPEN) — DECLARE ATTACKERS</span>
+            </div>
+            <span class="text-[9px] font-semibold bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded">Dashed Projections</span>
+          </div>
+
+          <!-- Two Rows: Blocker occurrence above attacker occurrence with clear pairing -->
+          <div class="flex flex-col items-center justify-center gap-2 p-2 bg-white/70 rounded border border-amber-200">
+
+            <!-- ROW 1 (TOP): Blocker Occurrence (Dashed Red Border Projection) -->
+            <div class="flex flex-col items-center">
+              <div class="text-[9px] font-bold uppercase text-red-700 tracking-wider mb-0.5">Assigned Blocker (Riley)</div>
+              <div class="synth-card dashed-blocker w-[130px] h-[54px] shadow-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-red-950 truncate">[Proj] Stone Guide</span>
+                  <span class="text-[8px] bg-red-100 text-red-800 px-1 rounded">Blocker</span>
+                </div>
+                <div class="text-[8px] text-slate-600 italic">Projected from Riley BF</div>
+                <div class="flex items-center justify-between text-[9px] font-mono font-bold text-slate-800">
+                  <span>Creature</span>
+                  <span class="text-red-700">2 / 3</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pairing indicator arrow -->
+            <div class="flex items-center gap-1 text-slate-400">
+              <span class="material-symbols-outlined text-[18px] text-amber-600">keyboard_double_arrow_down</span>
+              <span class="text-[9px] font-bold text-amber-700 uppercase">Blocked by</span>
+              <span class="material-symbols-outlined text-[18px] text-amber-600">keyboard_double_arrow_up</span>
+            </div>
+
+            <!-- ROW 2 (BOTTOM): Attacker Occurrence (Dashed Teal Border Projection) -->
+            <div class="flex flex-col items-center">
+              <div class="synth-card dashed-proj w-[130px] h-[54px] shadow-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-teal-950 truncate">[Proj] Meadow Sent.</span>
+                  <span class="text-[8px] bg-teal-100 text-teal-800 px-1 rounded">Attacker</span>
+                </div>
+                <div class="text-[8px] text-slate-600 italic">Projected from Alex BF</div>
+                <div class="flex items-center justify-between text-[9px] font-mono font-bold text-slate-800">
+                  <span>Creature</span>
+                  <span class="text-teal-800">3 / 4</span>
+                </div>
+              </div>
+              <div class="text-[9px] font-bold uppercase text-teal-700 tracking-wider mt-0.5">Declared Attacker (Alex)</div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 3C. SHARED STACK LANE (Between battlefields) -->
+        <!-- Requirement: One actual card 'Ember' + one dashed effect projection 'Guide' -->
+        <section class="bg-indigo-50/70 border border-indigo-200 rounded-md p-1.5 shadow-xs">
+          <div class="flex items-center justify-between text-[10px] font-bold text-indigo-900 mb-1 px-1">
+            <div class="flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px] text-indigo-700">layers</span>
+              <span>SHARED STACK (2 ITEMS)</span>
+            </div>
+            <span class="text-[9px] text-indigo-600 font-normal">Resolves top-to-bottom (LIFO)</span>
+          </div>
+
+          <div class="flex items-center gap-2 overflow-x-auto py-1 px-1">
+            <!-- 1. ACTUAL CARD: Ember Adept (Solid card rectangle) -->
+            <div class="synth-card w-[124px] h-[54px] border-indigo-400 bg-white shadow-sm flex-shrink-0" title="Real card on stack: Ember Adept">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-900 truncate">Ember Adept</span>
+                <span class="text-[8px] bg-indigo-100 text-indigo-800 font-semibold px-1 rounded">Card</span>
+              </div>
+              <div class="text-[8px] text-slate-500">Cast creature spell</div>
+              <div class="text-[8px] text-indigo-900 font-mono flex justify-between">
+                <span>alex</span>
+                <span>Active item</span>
+              </div>
+            </div>
+
+            <!-- 2. DASHED EFFECT PROJECTION: Guide Trigger (Dashed rectangle) -->
+            <div class="synth-card dashed-proj w-[130px] h-[54px] flex-shrink-0" title="Triggered ability projection: Stone Guide">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-teal-900 truncate">[Proj] Guide Trig</span>
+                <span class="text-[8px] bg-teal-50 border border-teal-300 text-teal-700 font-semibold px-1 rounded">Trigger</span>
+              </div>
+              <div class="text-[8px] text-slate-600">On-block ability effect</div>
+              <div class="text-[8px] text-teal-800 font-mono flex justify-between">
+                <span>riley</span>
+                <span>Projection</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. ALEX LIGHT GREEN INNER BAND (2 Rows: Permanents / Selected Attacker) -->
+        <section class="rounded-md border p-1.5 space-y-1.5" style="background-color: var(--bf-light-green); border-color: var(--bf-light-green-border);">
+          <div class="flex items-center justify-between text-[10px] text-teal-950 font-semibold px-1">
+            <span>ALEX (YOU) — PERMANENTS & CREATURES</span>
+            <span class="text-[9px] font-normal text-teal-800">Inner band (Light, 2 rows)</span>
+          </div>
+
+          <!-- Alex Row 1: Meadow Sentinel (SELECTED glow, Source of attack) + Frontline Scout -->
+          <div class="flex items-center gap-2 overflow-x-auto min-h-[56px] py-1 px-0.5 border-b border-dashed border-teal-200">
+            <!-- Meadow Sentinel: Selected glow in Select Mode -->
+            <div class="synth-card selected-glow w-[74px] h-[52px] bg-teal-50/30" title="Meadow Sentinel (Selected to attack)">
+              <div class="flex items-center justify-between">
+                <span class="text-[9px] font-bold text-teal-950 truncate">Meadow Sent.</span>
+                <span class="material-symbols-outlined text-[13px] text-teal-700">check_circle</span>
+              </div>
+              <div class="text-[8px] text-teal-700 font-medium flex justify-between">
+                <span>Creature</span>
+                <span class="font-mono font-bold">3/4</span>
+              </div>
+              <div class="text-[7px] text-teal-800 font-semibold">Attacking source</div>
+            </div>
+
+            <!-- Frontline Scout: Also selected (2 count active) -->
+            <div class="synth-card selected-glow w-[74px] h-[52px] bg-teal-50/30" title="Frontline Scout (Selected)">
+              <div class="flex items-center justify-between">
+                <span class="text-[9px] font-bold text-teal-950 truncate">Frontline Sc.</span>
+                <span class="material-symbols-outlined text-[13px] text-teal-700">check_circle</span>
+              </div>
+              <div class="text-[8px] text-teal-700 font-medium flex justify-between">
+                <span>Creature</span>
+                <span class="font-mono font-bold">2/1</span>
+              </div>
+              <div class="text-[7px] text-teal-800 font-semibold">Select #2</div>
+            </div>
+
+            <!-- Rift Catalyst -->
+            <div class="synth-card w-[64px] h-[52px]" title="Rift Catalyst">
+              <div class="text-[9px] font-bold text-slate-800 truncate">Rift Catal.</div>
+              <div class="text-[8px] text-slate-500">Artifact</div>
+            </div>
+
+            <!-- Empty slot -->
+            <div class="card-slot-placeholder w-[50px] h-[50px] flex items-center justify-center text-[8px] text-slate-400">Slot</div>
+          </div>
+
+          <!-- Alex Row 2: Secondary permanents -->
+          <div class="flex items-center gap-2 overflow-x-auto min-h-[52px] py-0.5 px-0.5">
+            <div class="card-slot-placeholder w-[50px] h-[50px] flex items-center justify-center text-[8px] text-slate-400">Slot</div>
+            <div class="card-slot-placeholder w-[50px] h-[50px] flex items-center justify-center text-[8px] text-slate-400">Slot</div>
+            <div class="card-slot-placeholder w-[50px] h-[50px] flex items-center justify-center text-[8px] text-slate-400">Slot</div>
+          </div>
+        </section>
+
+        <!-- 5. ALEX DARK GREEN OUTER BAND (1 Row: Lands) -->
+        <section class="rounded-md border p-1.5" style="background-color: var(--bf-dark-green); border-color: var(--bf-dark-green-border);">
+          <div class="flex items-center justify-between text-[10px] text-slate-700 font-semibold mb-1 px-1">
+            <span>ALEX (YOU) — LANDS & RESOURCES</span>
+            <span class="text-[9px] font-normal text-slate-500">Outer band (Dark)</span>
+          </div>
+          <!-- 1 single row of cards -->
+          <div class="flex items-center gap-2 overflow-x-auto min-h-[58px] py-1 px-0.5">
+            <!-- 3 lands (one tapped clockwise 90deg, two untapped) -->
+            <div class="synth-card w-[52px] h-[52px] tapped" title="Training Land (Tapped 90 deg)">
+              <div class="text-[9px] font-bold text-slate-800 truncate">Land</div>
+              <div class="text-[8px] text-slate-500">Tapped 90°</div>
+            </div>
+            <div class="synth-card w-[52px] h-[52px]" title="Training Land">
+              <div class="text-[9px] font-bold text-slate-800 truncate">Land</div>
+              <div class="text-[8px] text-slate-500">Untapped</div>
+            </div>
+            <div class="synth-card w-[52px] h-[52px]" title="Training Land">
+              <div class="text-[9px] font-bold text-slate-800 truncate">Land</div>
+              <div class="text-[8px] text-slate-500">Untapped</div>
+            </div>
+            <div class="card-slot-placeholder w-[50px] h-[52px] flex items-center justify-center text-[8px] text-slate-400">Empty</div>
+          </div>
+        </section>
+
+        <!-- Padding space at bottom of board scroll area to prevent overlap with floating hand -->
+        <div class="h-16 w-full"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ================= OWN FACE-UP FLOATING HAND ROW (Fixed just above bottom controls) ================= -->
+  <!-- Specification: fixed to screen just ABOVE bottom controls, below own dark land band in initial framing; does not move when board pans -->
+  <section class="w-full bg-white/95 backdrop-blur-md border-t border-slate-300 px-3 py-1.5 z-20 shadow-md flex-shrink-0">
+    <div class="flex items-center justify-between mb-1">
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Your Hand</span>
+        <span class="text-[9px] bg-teal-100 text-teal-800 font-mono px-1.5 rounded font-bold">4 cards</span>
+      </div>
+      <span class="text-[9px] text-slate-500">Tap to inspect or play</span>
+    </div>
+
+    <!-- Hand card strip (Compact synthetic card rectangles) -->
+    <div class="flex items-center gap-1.5 overflow-x-auto py-0.5">
+      <div class="synth-card w-[78px] h-[48px] hover:border-teal-600 cursor-pointer" title="Aegis Ward">
+        <div class="text-[9px] font-bold text-slate-900 truncate">Aegis Ward</div>
+        <div class="text-[8px] text-slate-500 flex justify-between">
+          <span>Instant</span>
+          <span class="font-mono text-teal-700">1W</span>
+        </div>
+      </div>
+      <div class="synth-card w-[78px] h-[48px] hover:border-teal-600 cursor-pointer" title="Solar Flare">
+        <div class="text-[9px] font-bold text-slate-900 truncate">Solar Flare</div>
+        <div class="text-[8px] text-slate-500 flex justify-between">
+          <span>Sorcery</span>
+          <span class="font-mono text-red-700">2R</span>
+        </div>
+      </div>
+      <div class="synth-card w-[78px] h-[48px] hover:border-teal-600 cursor-pointer" title="Meadow Sentinel">
+        <div class="text-[9px] font-bold text-slate-900 truncate">Meadow Sent.</div>
+        <div class="text-[8px] text-slate-500 flex justify-between">
+          <span>Creature</span>
+          <span class="font-mono">3/4</span>
+        </div>
+      </div>
+      <div class="synth-card w-[78px] h-[48px] hover:border-teal-600 cursor-pointer" title="Training Land">
+        <div class="text-[9px] font-bold text-slate-900 truncate">Training Land</div>
+        <div class="text-[8px] text-slate-500">Basic Land</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIVE BOTTOM CONTROLS (Undo, Contextual quick actions, Mode square) ================= -->
+  <!-- Specification:
+       LIVE BOTTOM:
+       - Undo icon/text at far LEFT with concise hold hint (hold=Redo, not Undo+Redo)
+       - Contextual quick action center: Declare + tap and Without tap (horizontal scrollable if needed)
+       - Mode square at RIGHT labeled Select (tap opens Normal/Select/Ping chooser)
+       - Selection count 2 displayed
+       - Actual buttons >= 48x48px
+       - Bottom safe inset 12px
+  -->
+  <footer class="w-full bg-white border-t border-slate-300 z-30 px-2 sm:px-3 pt-1.5 pb-[12px] flex-shrink-0">
+    <div class="flex items-center justify-between gap-1.5 sm:gap-3">
+
+      <!-- LEFT: Undo touch button with concise hold hint (min 48x48) -->
+      <button class="touch-target-48 h-12 px-2.5 rounded bg-slate-100 hover:bg-slate-200 border border-slate-300 flex flex-col items-center justify-center text-slate-700 active:bg-slate-300" title="Undo previous action (hold for Redo)" aria-label="Undo">
+        <div class="flex items-center gap-1">
+          <span class="material-symbols-outlined text-[18px]">undo</span>
+          <span class="text-xs font-semibold">Undo</span>
+        </div>
+        <span class="text-[8px] text-slate-500 font-medium leading-none">Hold: Redo</span>
+      </button>
+
+      <!-- CENTER: Contextual Quick Actions for Declare Attackers (Horizontally scrollable toolbar) -->
+      <div class="flex-1 max-w-[500px] flex items-center justify-center gap-2 overflow-x-auto py-0.5">
+
+        <!-- Selection count badge -->
+        <div class="h-12 px-2 rounded bg-teal-50 border border-teal-200 flex flex-col items-center justify-center text-center flex-shrink-0">
+          <span class="text-[8px] text-teal-700 font-bold uppercase">Selected</span>
+          <span class="text-sm font-bold text-teal-950 font-mono leading-none">2</span>
+        </div>
+
+        <!-- Action 1: Declare + tap (Primary quick action) -->
+        <button class="touch-target-48 h-12 px-3 rounded bg-teal-700 hover:bg-teal-800 active:scale-98 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm flex-shrink-0 transition-colors" title="Declare selected as attackers and tap them">
+          <span class="material-symbols-outlined text-[18px]">rotate_right</span>
+          <span class="whitespace-nowrap">Declare + tap</span>
+        </button>
+
+        <!-- Action 2: Without tap (Alternative quick action) -->
+        <button class="touch-target-48 h-12 px-3 rounded bg-white hover:bg-slate-50 border border-teal-700 active:bg-teal-50 text-teal-800 font-semibold text-xs flex items-center justify-center gap-1 shadow-xs flex-shrink-0 transition-colors" title="Declare selected as attackers without tapping (vigilance / custom)">
+          <span class="material-symbols-outlined text-[18px]">check</span>
+          <span class="whitespace-nowrap">Without tap</span>
+        </button>
+
+      </div>
+
+      <!-- RIGHT: Mode square labeled Select (min 48x48) -->
+      <!-- Tap opens Normal / Select / Ping chooser (NOT an unlabeled mystery cycle) -->
+      <button class="touch-target-48 h-12 px-2.5 rounded bg-teal-800 text-white border border-teal-950 flex flex-col items-center justify-center active:scale-95 transition-transform flex-shrink-0" title="Current Mode: Select (tap to switch between Normal / Select / Ping)">
+        <div class="flex items-center gap-0.5">
+          <span class="material-symbols-outlined text-[16px]">touch_app</span>
+          <span class="text-xs font-bold leading-none">Select</span>
+        </div>
+        <span class="text-[8px] text-teal-200 uppercase tracking-tighter mt-0.5 leading-none">Mode Menu</span>
+      </button>
+
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

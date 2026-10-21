@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Capture the inert UI design sources offline, without contacting Stitch."""
 
+import argparse
 import asyncio
 import json
 import os
@@ -15,14 +16,19 @@ UI = ROOT / 'docs/design/02-experience/ui'
 VIEWPORTS = {'portrait': (412, 892), 'landscape': (892, 412)}
 
 
-async def main():
+async def main(screen_ids):
     manifest = json.loads((UI / 'manifest.json').read_text())
+    known_ids = {screen['id'] for screen in manifest['screens']}
+    if set(screen_ids) - known_ids:
+        raise ValueError(f'Unknown screen IDs: {sorted(set(screen_ids) - known_ids)}')
     chrome = os.environ.get('CHROME_PATH') or shutil.which('google-chrome') or shutil.which('chromium')
     if not chrome:
         raise SystemExit('Install Google Chrome/Chromium first.')
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(executable_path=chrome)
         for screen in manifest['screens']:
+            if screen_ids and screen['id'] not in screen_ids:
+                continue
             context = await browser.new_context()
             blocked = []
 
@@ -81,4 +87,6 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('screen_ids', nargs='*', help='Capture only these IDs; default: all')
+    asyncio.run(main(parser.parse_args().screen_ids))

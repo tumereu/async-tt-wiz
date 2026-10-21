@@ -14,7 +14,33 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI pilot — D-290
+## Current gameplay UI extension — D-291
+
+The owner now authorizes extending the same Stitch project and Markdown/HTML/PDF
+review packet with the gameplay screen, in both orientations. Read the clarified
+[gameplay brief](../design/02-experience/gameplay-screen-proposal.md) and G01–G03 /
+H01–H03 in the packet. The original non-gameplay-only limit below is superseded
+for these design artifacts, not for application implementation or a passed gate.
+
+Owner answers: own Hand hovers below the land band above the fixed bottom controls;
+central Stack/combat lanes; hold Undo for Redo with explicit menu/accessibility
+alternative; dragging a playing timeline pauses then scrubs. Existing grouped
+Previous/Next and exact-mutation scrub remain distinct. Accidental-branch concern
+is satisfied by existing eligible Undo of the first child after a fork; do not
+invent Undo across the fork or automatic return to the displaced continuation.
+Recompute after each Undo: if the last extra continuation disappears, a former
+fork is not a permanent lock; retained linear-future replay checks still apply.
+Opponent top Hand, life grouping and exact controls/geometry remain proposals.
+The packet now has 27 primary sources plus two scrolled continuations / 58 captures.
+It has a 34-page PDF, with gameplay on pages 27–32. Six initial and six corrected
+cloud gameplay resources are retained in the same project; the manifest links
+both versions. Checked captures use substantially locally recomposed inert
+derivatives, also supplied as references for the corrected cloud pass, not a
+claim that the service's final output is pixel-identical.
+See artifact validation for the rebuilt PDF and private route checks. No code,
+general stage transition, final UI approval or exhaustive state coverage implied.
+
+## Original UI pilot — D-290
 
 The owner explicitly requested both portrait and landscape support/mockups and a
 Stitch-based **non-gameplay** pilot, with gameplay omitted or empty. The

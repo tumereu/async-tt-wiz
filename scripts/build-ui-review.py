@@ -70,7 +70,7 @@ async def compile_pdf(chrome):
                        display_header_footer=True,
                        header_template='<span></span>',
                        footer_template='<div style="font-size:8px;width:100%;text-align:center;color:#666">'
-                                       'Async Table · UI pilot · '
+                                       'Async Table · UI review · '
                                        '<span class="pageNumber"></span> / '
                                        '<span class="totalPages"></span></div>')
         await page.set_viewport_size({'width': 412, 'height': 892})
@@ -92,7 +92,7 @@ def main():
     subprocess.run([
         pandoc, 'review.md', '--from=markdown+fenced_divs+implicit_figures',
         '--to=html5', '--standalone', '--embed-resources', '--toc', '--toc-depth=2',
-        '--metadata=title:Async Table — non-gameplay UI pilot',
+        '--metadata=title:Async Table — UI review including gameplay',
         '--css=review.css', '--output=review.html',
     ], cwd=UI, check=True)
     asyncio.run(compile_pdf(chrome))

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>G01 — Live table and fixed hand (Async Table)</title>
+  <!-- Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Base setup and strict 100dvh layout */
+    :root {
+      --color-primary: #006a60;
+      --color-primary-light: #4ea89d;
+      --color-primary-dark: #004d40;
+      --color-bg: #f8fafc;
+      --color-surface: #ffffff;
+      --color-border: #cbd5e1;
+      --color-text-main: #0f172a;
+      --color-text-muted: #64748b;
+
+      /* Battlefield bands */
+      --bf-dark-outer: #d8e5dd;   /* Darker muted green outer band for lands */
+      --bf-light-inner: #ebf3ee;  /* Lighter muted green inner band for other permanents */
+      --bf-slot-border: rgba(0, 106, 96, 0.22);
+      --card-bg: #ffffff;
+      --card-border: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--color-bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--color-text-main);
+    }
+
+    .material-symbols-outlined {
+      font-size: 22px;
+      line-height: 1;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    /* Target minimal tap targets */
+    .btn-target {
+      min-width: 48px;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Synthetic card thumbnail */
+    .card-rect {
+      width: 48px;
+      height: 64px;
+      background: var(--card-bg);
+      border: 1.5px solid #334155;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 3px 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .card-tapped {
+      transform: rotate(90deg);
+      transform-origin: center center;
+      margin: 0 6px;
+    }
+
+    .card-back {
+      background: #334155;
+      border: 1.5px solid #1e293b;
+      border-radius: 4px;
+      width: 42px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+
+    .card-slot-ghost {
+      width: 48px;
+      height: 64px;
+      border: 1px dashed var(--bf-slot-border);
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    /* Outer dark band & inner light band */
+    .bf-outer-band {
+      background-color: var(--bf-dark-outer);
+      border-top: 1px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+    }
+
+    .bf-inner-band {
+      background-color: var(--bf-light-inner);
+    }
+
+    /* PORTRAIT vs LANDSCAPE explicit media queries */
+
+    /* Default is PORTRAIT styling */
+    #landscape-sidebar {
+      display: none;
+    }
+    #portrait-center-strip {
+      display: flex;
+    }
+    .board-viewport {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* LANDSCAPE MEDIA QUERY (width >= height or orientation landscape) */
+    @media (orientation: landscape) and (max-height: 600px), (min-width: 650px) and (orientation: landscape) {
+      #layout-container {
+        flex-direction: row !important;
+      }
+      #landscape-sidebar {
+        display: flex !important;
+        width: 190px;
+        min-width: 190px;
+        border-right: 1px solid var(--color-border);
+        background: #ffffff;
+        flex-direction: column;
+        justify-content: space-between;
+        z-index: 20;
+      }
+      #portrait-center-strip {
+        display: none !important;
+      }
+      .board-viewport {
+        overflow-y: auto;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen w-screen overflow-hidden select-none bg-slate-50 text-slate-800">
+
+  <!-- SYSTEM TOP INSET BAR (20px status simulated) -->
+  <header class="h-[20px] bg-slate-100 flex items-center justify-between px-3 text-[11px] text-slate-500 font-medium select-none z-30 shrink-0 border-b border-slate-200">
+    <span class="tracking-tight">10:30</span>
+    <div class="flex items-center space-x-1.5">
+      <span class="material-symbols-outlined text-[13px]">signal_cellular_alt</span>
+      <span class="material-symbols-outlined text-[13px]">wifi</span>
+      <span class="material-symbols-outlined text-[13px]">battery_full</span>
+      <span class="ml-1 text-[10px] font-semibold text-slate-600">Draft G01</span>
+    </div>
+  </header>
+
+  <!-- COMPACT TOP BAR (48px) -->
+  <nav class="h-[48px] bg-white border-b border-slate-200 flex items-center justify-between px-2 shrink-0 z-30 shadow-xs">
+    <div class="flex items-center space-x-1">
+      <button class="btn-target rounded-full hover:bg-slate-100 text-slate-700 active:bg-slate-200 transition" title="Back to Games">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="flex flex-col leading-tight ml-0.5">
+        <span class="font-bold text-sm tracking-tight text-slate-900">Game with riley</span>
+        <span class="text-[10px] text-teal-800 font-medium">Async Table • Live Match</span>
+      </div>
+    </div>
+
+    <!-- Center/Right controls: Phase square, History text button, overflow -->
+    <div class="flex items-center space-x-1.5">
+      <!-- Small Phase square labeled Main 1 (Tapping opens phase tracker modal/sheet, never auto-advances) -->
+      <button class="h-[36px] px-2.5 bg-teal-50 border border-teal-700 rounded text-teal-900 flex items-center space-x-1 hover:bg-teal-100 active:scale-95 transition" title="Phase Tracker (Main 1) - Tap to edit phase tracking">
+        <span class="material-symbols-outlined text-[18px] text-teal-700">schedule</span>
+        <span class="text-xs font-bold uppercase tracking-wider">Main 1</span>
+      </button>
+
+      <!-- History text button (Review state boundary / log) -->
+      <button class="h-[36px] px-2.5 rounded hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center space-x-1 border border-slate-200" title="Inspect Game History">
+        <span class="material-symbols-outlined text-[18px]">history</span>
+        <span>History</span>
+      </button>
+
+      <!-- Overflow icon (Contains Redo, Chat, Game details, Accessibility) -->
+      <button class="btn-target w-[48px] h-[48px] rounded-full hover:bg-slate-100 text-slate-700" title="More options (Chat, Redo, Log)">
+        <span class="material-symbols-outlined">more_vert</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- OPPONENT COVERED HAND DOCK (Fixed chrome at top, outside battlefield, covered count 3, no names leaked) -->
+  <section aria-label="Opponent hand" class="bg-slate-100 border-b border-slate-300 py-1 px-3 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center space-x-2">
+      <span class="text-xs font-bold text-slate-700">@riley</span>
+      <span class="text-[11px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono">Hand: 3 cards</span>
+    </div>
+    <!-- 3 covered cards face-down -->
+    <div class="flex items-center space-x-1.5">
+      <div class="card-back" title="Covered card 1">
+        <span class="material-symbols-outlined text-slate-400 text-sm">shield</span>
+      </div>
+      <div class="card-back" title="Covered card 2">
+        <span class="material-symbols-outlined text-slate-400 text-sm">shield</span>
+      </div>
+      <div class="card-back" title="Covered card 3">
+        <span class="material-symbols-outlined text-slate-400 text-sm">shield</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN VIEWPORT CONTAINER (Sidebar in Landscape, Board in center) -->
+  <main id="layout-container" class="flex-1 flex flex-col overflow-hidden relative">
+
+    <!-- LANDSCAPE LEFT SIDEBAR (Shown only in landscape: labeled life and Lib/Grave/Exile counts for both players) -->
+    <aside id="landscape-sidebar" class="p-2 border-r border-slate-200 flex flex-col justify-between overflow-y-auto">
+      <!-- Riley (Opponent) Side Dock -->
+      <div class="bg-slate-50 border border-slate-200 rounded p-2 mb-2">
+        <div class="flex items-center justify-between pb-1 border-b border-slate-200">
+          <span class="text-xs font-bold text-slate-800">@riley (Opponent)</span>
+          <span class="text-xs font-extrabold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">20 HP</span>
+        </div>
+        <!-- 3 labeled compact 48px-high rows spanning width -->
+        <div class="grid grid-cols-3 gap-1 mt-1.5 text-center">
+          <button class="h-[44px] flex flex-col items-center justify-center bg-white border border-slate-300 rounded p-0.5 hover:bg-slate-50">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">Library</span>
+            <span class="text-xs font-bold text-slate-800">50</span>
+          </button>
+          <button class="h-[44px] flex flex-col items-center justify-center bg-white border border-slate-300 rounded p-0.5 hover:bg-slate-50">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">Grave</span>
+            <span class="text-xs font-bold text-slate-800">2</span>
+          </button>
+          <button class="h-[44px] flex flex-col items-center justify-center bg-white border border-slate-300 rounded p-0.5 hover:bg-slate-50">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">Exile</span>
+            <span class="text-xs font-bold text-slate-400">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Center status reminder in landscape -->
+      <div class="text-center py-1">
+        <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Combat Closed</span>
+      </div>
+
+      <!-- Alex (You) Side Dock -->
+      <div class="bg-slate-50 border border-slate-200 rounded p-2">
+        <div class="flex items-center justify-between pb-1 border-b border-slate-200">
+          <span class="text-xs font-bold text-teal-900">@alex (You)</span>
+          <span class="text-xs font-extrabold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">20 HP</span>
+        </div>
+        <!-- 3 labeled compact rows -->
+        <div class="grid grid-cols-3 gap-1 mt-1.5 text-center">
+          <button class="h-[44px] flex flex-col items-center justify-center bg-white border border-teal-300 rounded p-0.5 hover:bg-teal-50">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">Library</span>
+            <span class="text-xs font-bold text-slate-800">50</span>
+          </button>
+          <button class="h-[44px] flex flex-col items-center justify-center bg-white border border-teal-300 rounded p-0.5 hover:bg-teal-50">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">Grave</span>
+            <span class="text-xs font-bold text-slate-800">2</span>
+          </button>
+          <button class="h-[44px] flex flex-col items-center justify-center bg-white border border-teal-300 rounded p-0.5 hover:bg-teal-50">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">Exile</span>
+            <span class="text-xs font-bold text-slate-400">0</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- BOARD VIEWPORT (Scrollable/Pannable if needed, fits shell) -->
+    <div class="board-viewport p-2 flex-1 flex flex-col justify-between select-none">
+
+      <!-- ============================================== -->
+      <!-- TOP REGION: OPPONENT RILEY BATTLEFIELD         -->
+      <!-- ============================================== -->
+      <div class="flex flex-col rounded border border-slate-300 overflow-hidden shadow-xs mb-1">
+
+        <!-- RILEY DARK SINGLE ROW (Outer band: Lands) -->
+        <div class="bf-outer-band px-2 py-1.5 flex flex-col">
+          <div class="flex items-center justify-between text-[10px] text-slate-600 font-semibold mb-1">
+            <span>RILEY • OUTER LANDS (1 ROW)</span>
+            <span class="text-slate-500 font-mono">1 Land</span>
+          </div>
+          <div class="flex items-center space-x-2 overflow-x-auto py-0.5 min-h-[70px]">
+            <!-- 1 synthetic land card (Quiet Grove) -->
+            <div class="card-rect" title="Quiet Grove (Land)">
+              <div class="text-[8px] font-bold text-slate-800 truncate">Grove</div>
+              <div class="my-auto text-center">
+                <span class="material-symbols-outlined text-teal-800 text-xs">forest</span>
+              </div>
+              <div class="text-[7px] text-slate-500 text-right">Land</div>
+            </div>
+            <!-- Ghost spare slots indicating row capacity -->
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost opacity-40"></div>
+          </div>
+        </div>
+
+        <!-- RILEY LIGHT TWO ROWS (Inner band: Other permanents) -->
+        <div class="bf-inner-band px-2 py-1.5 border-t border-slate-200 flex flex-col">
+          <div class="flex items-center justify-between text-[10px] text-teal-900 font-semibold mb-1">
+            <span>RILEY • INNER PERMANENTS (2 ROWS)</span>
+            <span class="text-slate-500 font-mono">1 Creature</span>
+          </div>
+
+          <!-- Riley Inner Row 1 -->
+          <div class="flex items-center space-x-2 overflow-x-auto py-0.5 min-h-[70px] border-b border-dashed border-teal-200/60 mb-1">
+            <!-- Synthetic card: Ember Adept -->
+            <div class="card-rect" title="Ember Adept (Creature 2/2)">
+              <div class="flex justify-between items-center">
+                <span class="text-[8px] font-bold text-slate-800 truncate">Ember</span>
+                <span class="text-[8px] font-extrabold text-teal-800">2R</span>
+              </div>
+              <div class="my-auto text-center">
+                <span class="material-symbols-outlined text-orange-700 text-xs">local_fire_department</span>
+              </div>
+              <div class="flex justify-between items-center text-[7px] font-mono text-slate-600">
+                <span>Creature</span>
+                <span class="font-bold text-slate-800">2/2</span>
+              </div>
+            </div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost opacity-50"></div>
+          </div>
+
+          <!-- Riley Inner Row 2 (Empty spare slots) -->
+          <div class="flex items-center space-x-2 overflow-x-auto py-0.5 min-h-[70px]">
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost opacity-40"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- CENTER LANES: PORTRAIT ZONE DOCK & SHARED STACK-->
+      <!-- ============================================== -->
+      <div class="my-1 flex flex-col space-y-1">
+
+        <!-- PORTRAIT CENTRAL SPECIAL CONTROLS STRIP (Between Battlefields) -->
+        <div id="portrait-center-strip" class="bg-white border border-slate-300 rounded p-1.5 flex flex-col space-y-1.5 shadow-xs">
+          <!-- Riley row -->
+          <div class="flex items-center justify-between border-b border-slate-100 pb-1">
+            <div class="flex items-center space-x-1.5 min-w-[90px]">
+              <span class="text-xs font-bold text-slate-800">@riley</span>
+              <span class="text-xs font-extrabold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">20 HP</span>
+            </div>
+            <!-- Three zone buttons for riley (Library, Graveyard, Exile) -->
+            <div class="flex items-center space-x-1">
+              <button class="btn-target h-[36px] min-h-[36px] px-2 bg-slate-50 border border-slate-200 rounded text-center text-slate-700 hover:bg-slate-100" title="Riley Library (50 cards)">
+                <span class="text-[9px] font-semibold text-slate-500 mr-1">LIB</span>
+                <span class="text-xs font-bold">50</span>
+              </button>
+              <button class="btn-target h-[36px] min-h-[36px] px-2 bg-slate-50 border border-slate-200 rounded text-center text-slate-700 hover:bg-slate-100" title="Riley Graveyard (2 cards)">
+                <span class="text-[9px] font-semibold text-slate-500 mr-1">GY</span>
+                <span class="text-xs font-bold">2</span>
+              </button>
+              <button class="btn-target h-[36px] min-h-[36px] px-2 bg-slate-50 border border-slate-200 rounded text-center text-slate-400 hover:bg-slate-100" title="Riley Exile (0 cards)">
+                <span class="text-[9px] font-semibold text-slate-400 mr-1">EX</span>
+                <span class="text-xs font-bold">0</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Alex row -->
+          <div class="flex items-center justify-between pt-0.5">
+            <div class="flex items-center space-x-1.5 min-w-[90px]">
+              <span class="text-xs font-bold text-teal-900">@alex</span>
+              <span class="text-xs font-extrabold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">20 HP</span>
+            </div>
+            <!-- Three zone buttons for alex -->
+            <div class="flex items-center space-x-1">
+              <button class="btn-target h-[36px] min-h-[36px] px-2 bg-teal-50/60 border border-teal-300 rounded text-center text-slate-800 hover:bg-teal-100" title="Alex Library (50 cards)">
+                <span class="text-[9px] font-semibold text-teal-700 mr-1">LIB</span>
+                <span class="text-xs font-bold">50</span>
+              </button>
+              <button class="btn-target h-[36px] min-h-[36px] px-2 bg-teal-50/60 border border-teal-300 rounded text-center text-slate-800 hover:bg-teal-100" title="Alex Graveyard (2 cards)">
+                <span class="text-[9px] font-semibold text-teal-700 mr-1">GY</span>
+                <span class="text-xs font-bold">2</span>
+              </button>
+              <button class="btn-target h-[36px] min-h-[36px] px-2 bg-slate-50 border border-slate-200 rounded text-center text-slate-400 hover:bg-slate-100" title="Alex Exile (0 cards)">
+                <span class="text-[9px] font-semibold text-slate-400 mr-1">EX</span>
+                <span class="text-xs font-bold">0</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SHARED STACK LANE (Empty but clearly labeled; combat is CLOSED per prompt) -->
+        <div class="border border-dashed border-slate-300 bg-slate-100/70 rounded px-2.5 py-1.5 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="material-symbols-outlined text-slate-400 text-sm">layers</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Shared Stack (Empty)</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-medium italic">Combat lane closed</span>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- BOTTOM REGION: OWN PLAYER ALEX BATTLEFIELD     -->
+      <!-- ============================================== -->
+      <div class="flex flex-col rounded border border-slate-300 overflow-hidden shadow-xs mt-1">
+
+        <!-- ALEX LIGHT TWO ROWS (Inner band: Other permanents) -->
+        <div class="bf-inner-band px-2 py-1.5 flex flex-col">
+          <div class="flex items-center justify-between text-[10px] text-teal-900 font-semibold mb-1">
+            <span>ALEX (YOU) • INNER PERMANENTS (2 ROWS)</span>
+            <span class="text-slate-500 font-mono">1 Creature</span>
+          </div>
+
+          <!-- Alex Inner Row 1 -->
+          <div class="flex items-center space-x-2 overflow-x-auto py-0.5 min-h-[70px] border-b border-dashed border-teal-200/60 mb-1">
+            <!-- Synthetic Card: Meadow Sentinel (Upright, matching horizontal alignment) -->
+            <div class="card-rect" title="Meadow Sentinel (Creature 1/3)">
+              <div class="flex justify-between items-center">
+                <span class="text-[8px] font-bold text-slate-800 truncate">Sentinel</span>
+                <span class="text-[8px] font-extrabold text-teal-800">2W</span>
+              </div>
+              <div class="my-auto text-center">
+                <span class="material-symbols-outlined text-teal-700 text-xs">shield_person</span>
+              </div>
+              <div class="flex justify-between items-center text-[7px] font-mono text-slate-600">
+                <span>Creature</span>
+                <span class="font-bold text-slate-800">1/3</span>
+              </div>
+            </div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost opacity-50"></div>
+          </div>
+
+          <!-- Alex Inner Row 2 (Empty spare slots) -->
+          <div class="flex items-center space-x-2 overflow-x-auto py-0.5 min-h-[70px]">
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost opacity-40"></div>
+          </div>
+        </div>
+
+        <!-- ALEX DARK SINGLE ROW (Outer band: Lands) -->
+        <div class="bf-outer-band px-2 py-1.5 border-t border-slate-200 flex flex-col">
+          <div class="flex items-center justify-between text-[10px] text-slate-700 font-semibold mb-1">
+            <span>ALEX (YOU) • OUTER LANDS (1 ROW)</span>
+            <span class="text-slate-500 font-mono">1 Tapped Land</span>
+          </div>
+          <div class="flex items-center space-x-3 overflow-x-auto py-0.5 min-h-[70px]">
+            <!-- Tapped card: rotates clockwise 90 degrees -->
+            <div class="card-rect card-tapped" title="Training Land (Basic Land - Tapped)">
+              <div class="text-[8px] font-bold text-slate-800 truncate">TrainLand</div>
+              <div class="my-auto text-center">
+                <span class="material-symbols-outlined text-teal-700 text-xs">terrain</span>
+              </div>
+              <div class="text-[7px] text-slate-500 text-right">Land (90°)</div>
+            </div>
+            <!-- Ghost spare slots -->
+            <div class="card-slot-ghost ml-2"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost"></div>
+            <div class="card-slot-ghost opacity-40"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ============================================== -->
+  <!-- OWN FACE-UP HAND DOCK                          -->
+  <!-- Hovering compact row fixed above bottom controls-->
+  <!-- ============================================== -->
+  <section aria-label="Alex Hand" class="bg-white/95 backdrop-blur-xs border-t-2 border-teal-700 px-3 py-1.5 shrink-0 z-20 shadow-md">
+    <div class="flex items-center justify-between max-w-xl mx-auto">
+      <div class="flex items-center space-x-1.5">
+        <span class="text-xs font-bold text-teal-900">Your Hand (3)</span>
+        <span class="text-[10px] text-slate-500 font-medium">Face-up</span>
+      </div>
+      <!-- 3 face-up synthetic cards: Meadow, River, Guide -->
+      <div class="flex items-center space-x-2">
+
+        <!-- Card 1: Meadow (Meadow Sentinel) -->
+        <button class="card-rect hover:-translate-y-1 hover:border-teal-700 transition cursor-pointer text-left" title="Card in hand: Meadow Sentinel">
+          <div class="flex justify-between items-center">
+            <span class="text-[8px] font-bold text-slate-800 truncate">Meadow</span>
+            <span class="text-[7px] font-bold text-teal-800">2W</span>
+          </div>
+          <div class="my-auto text-center">
+            <span class="material-symbols-outlined text-teal-700 text-xs">shield_person</span>
+          </div>
+          <div class="text-[7px] text-slate-500">1/3</div>
+        </button>
+
+        <!-- Card 2: River (River Warden) -->
+        <button class="card-rect hover:-translate-y-1 hover:border-teal-700 transition cursor-pointer text-left" title="Card in hand: River Warden">
+          <div class="flex justify-between items-center">
+            <span class="text-[8px] font-bold text-slate-800 truncate">River</span>
+            <span class="text-[7px] font-bold text-teal-800">1U</span>
+          </div>
+          <div class="my-auto text-center">
+            <span class="material-symbols-outlined text-teal-600 text-xs">water_drop</span>
+          </div>
+          <div class="text-[7px] text-slate-500">1/2</div>
+        </button>
+
+        <!-- Card 3: Guide (Stone Guide) -->
+        <button class="card-rect hover:-translate-y-1 hover:border-teal-700 transition cursor-pointer text-left" title="Card in hand: Stone Guide">
+          <div class="flex justify-between items-center">
+            <span class="text-[8px] font-bold text-slate-800 truncate">Guide</span>
+            <span class="text-[7px] font-bold text-teal-800">3G</span>
+          </div>
+          <div class="my-auto text-center">
+            <span class="material-symbols-outlined text-teal-900 text-xs">navigation</span>
+          </div>
+          <div class="text-[7px] text-slate-500">3/3</div>
+        </button>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- LIVE BOTTOM CONTROLS (Undo, Actions, Mode)     -->
+  <!-- Actual buttons >= 48x48px                      -->
+  <!-- ============================================== -->
+  <footer class="h-[54px] bg-white border-t border-slate-200 px-3 flex items-center justify-between shrink-0 z-30">
+
+    <!-- FAR LEFT: Undo icon/text with concise hold hint (hold=Redo) -->
+    <div class="flex items-center">
+      <button class="btn-target px-2 rounded-lg hover:bg-slate-100 text-slate-700 flex flex-col items-center justify-center leading-none active:bg-slate-200" title="Undo action (Press and hold for Redo)">
+        <div class="flex items-center space-x-1">
+          <span class="material-symbols-outlined text-[20px]">undo</span>
+          <span class="text-xs font-bold">Undo</span>
+        </div>
+        <span class="text-[8px] text-slate-400 font-medium mt-0.5">hold=Redo</span>
+      </button>
+    </div>
+
+    <!-- CENTER: Contextual neutral Actions menu button -->
+    <div class="flex items-center">
+      <button class="btn-target px-4 bg-teal-800 hover:bg-teal-900 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center space-x-1.5 active:scale-98 transition" title="Open Table Actions Menu">
+        <span class="material-symbols-outlined text-[18px]">menu_open</span>
+        <span>Actions</span>
+      </button>
+    </div>
+
+    <!-- FAR RIGHT: Mode square labeled Normal (Tap opens Normal / Select / Ping chooser) -->
+    <div class="flex items-center">
+      <button class="btn-target px-2.5 h-[48px] border-2 border-teal-700 bg-teal-50 rounded-lg text-teal-950 flex flex-col items-center justify-center leading-none hover:bg-teal-100 active:scale-95 transition" title="Active Interaction Mode: Normal. Tap to open Normal/Select/Ping chooser">
+        <div class="flex items-center space-x-0.5">
+          <span class="material-symbols-outlined text-[16px] text-teal-700">touch_app</span>
+          <span class="text-[11px] font-extrabold tracking-wide uppercase">Normal</span>
+        </div>
+        <span class="text-[8px] text-teal-700 font-medium mt-0.5">Mode ▾</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- BOTTOM SYSTEM SAFE INSET (12px inset bar) -->
+  <div class="h-[12px] bg-slate-100 w-full flex items-center justify-center shrink-0 border-t border-slate-200">
+    <div class="w-24 h-1 bg-slate-300 rounded-full"></div>
+  </div>
+
+</body>
+</html>

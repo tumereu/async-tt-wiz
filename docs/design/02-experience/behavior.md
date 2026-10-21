@@ -373,7 +373,15 @@ The general rules are:
    Then watch automatic playback or step forward through groups. You can pause
    automatic playback; the horizontal timeline at the bottom can be dragged
    left/right to select the exact mutation where you want to continue. Merely
-   navigating does not publish another game edit or change the shared active line.
+    navigating does not publish another game edit or change the shared active line.
+- In the gameplay review direction (D-291), historical browsing hides gameplay
+  edits. Previous/Next step groups; dragging the path timeline selects exact
+  mutations and pauses playback first if necessary. “Continue playing from here”
+  arms personal intent; only a subsequent successful mutation creates/activates
+  the new continuation. An eligible first action after a fork can be undone;
+  the fork itself cannot, and Undo does not automatically return to the old line.
+  The [gameplay brief](gameplay-screen-proposal.md) and
+  [review packet](ui/README.md) show the still-reviewable placement proposals.
 - Core grouping rules: a tap begins a new group unless the current group contains
    only taps/pings; the following substantive action joins that run (D-251), except
    for an ending suggestion. **Every ending suggestion is a strict singleton group

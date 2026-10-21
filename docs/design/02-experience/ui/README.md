@@ -2,11 +2,18 @@
 
 These are specification artifacts, not application code or an approved final UI.
 
-- **[Non-gameplay pilot](review.md):** screen/state mockups and interaction notes,
-  with both portrait and landscape views: 21 primary drafts plus two scrolled
-  continuations, 46 captures total. Gameplay is intentionally a placeholder.
-- `sources/` retains the static Stitch design exports; `images/` contains review
-  captures. The source manifest records screen identities, prompts and provenance.
+- **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
+  extension, with both portrait and landscape views: 27 primary drafts plus two
+  scrolled continuations, 58 captures total. G00 remains the original placeholder;
+  G01–G03 and H01–H03 add the live/history table and controls.
+- **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
+  clarified interactions and remaining geometry proposals.
+- `sources/` retains raw Stitch output and inert review derivatives; `images/`
+  contains captures of the latter. The gameplay derivatives were substantially
+  recomposed locally to fix responsive cropping and invented actions; they are
+  not claimed pixel-identical to the designs in Stitch. Those repaired references
+  were also sent back to Stitch to create six corrected editable cloud revisions.
+  The manifest records both cloud versions and retained raw outputs.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
@@ -15,13 +22,14 @@ These are specification artifacts, not application code or an approved final UI.
 ## Review contract
 
 The owner requested both orientations and a Stitch-based non-gameplay pilot
-(D-290). Approximate geometry, icon-versus-text distinctions, visible actions,
+(D-290), then explicitly extended it to gameplay (D-291). Approximate geometry,
+icon-versus-text distinctions, visible actions,
 state changes and navigation matter now; colors, typography and decorative
 styling are provisional. Existing feature contracts still govern behavior.
 
 Reviewing a screen does not approve new product behavior or authorize application
-implementation. Nor does this limited pilot claim that gameplay, accessibility,
-every transient state or the full UI gate is complete.
+implementation. Nor does this limited packet claim that all gameplay overlays,
+accessibility, every transient state or the full UI gate is complete.
 
 ## Rebuild
 
@@ -44,6 +52,10 @@ To recapture both orientations after editing the inert design sources, first run
 ```sh
 uv run --with playwright scripts/capture-ui-review.py
 ```
+
+Optional screen IDs restrict a recapture batch, for example
+`uv run --with playwright scripts/capture-ui-review.py G01 G02 H01 H02 H03 G03`.
+This avoids changing unrelated captures of animation frames while editing one screen.
 
 This blocks HTTP(S) requests and checks that the sources remain inert, their
 fonts are local/loaded and their page width fits each viewport. It is an artifact

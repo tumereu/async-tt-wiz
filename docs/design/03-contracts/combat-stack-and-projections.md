@@ -25,8 +25,10 @@ whole-board lock. Later queued entries use their locally predicted pre-action
 Stack state, not an acknowledgement gate. Exact snapshot encoding/equality
 representation and provisional-ID mapping remain technical design.
 Delivery order: behavior specification → adversarial review/refinement → UI
-drafts/decisions → iterative implementation. User-specified interaction requirements
-are recorded now; UI drafts/exact geometry remain stage 3, not current work.
+drafts/decisions → iterative implementation. D-291 separately authorizes the
+limited [gameplay review extension](../02-experience/ui/README.md), including trial
+central Stack/combat lanes in both orientations. This is not full combat/Stack
+visual-state completion, final geometry approval or application authorization.
 
 ## 13.1 Confirmed capabilities
 

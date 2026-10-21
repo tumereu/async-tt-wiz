@@ -861,7 +861,17 @@ authorize implementation or create another policy-gap queue.
 | T-672 | Save a review cursor at B in `root → A → B → C`; while disconnected remove eligible B then A, leaving `root → C`. Prune old deltas and recover by full baseline. | Existing D-238 fallback reaches root through B/A's retained parent/removal information, not C or a detached snapshot. This is the same ancestor rule as incremental recovery, not a new recovery workflow or owner choice. A cursor on surviving C stays at C. |
 | T-673 | Saturate a game mailbox on a socket shared with another game; keep another connection and independent game workers active. | Bounded socket-read backpressure may slow both games on that client's connection. This is acceptable overload behavior; no per-game transport-isolation redesign is required. Keep normal FIFO/fencing/durable outcomes and do not deliberately stall independent workers or other connections. |
 
-Current oracles use D-224–D-289, not D-159/D-161 captured-parent or remembered-head
+### Gameplay review interactions — D-291
+
+These are future normal-app verification scenarios, not claims that the static
+Stitch captures execute gestures or pass native accessibility checks.
+
+| ID | Scenario | Required outcome |
+| --- | --- | --- |
+| T-674 | In portrait and short landscape, pan/zoom the table with own Hand visible; open combat and populate Stack. Tap Undo, then separately hold it; invoke explicit menu/accessibility Redo. | Own Hand and bottom controls remain screen-fixed; special-zone controls use the orientation-specific middle/left placement. Combat projections preserve source positions. A tap issues Undo only; a recognized hold issues Redo only, with no press-down or release-time Undo. Explicit Redo has the same target/eligibility/recovery rules. Dense board navigation does not clip or shrink fixed controls. |
+| T-675 | Play history, drag its timeline to a mutation inside a group, step Previous/Next, arm continuation at A, then cancel; separately create eligible own X after A and Undo it. | Drag pauses before exact-event scrubbing; board updates during drag. Previous/Next step groups. Review has no gameplay edits and sync continues. Arming/cancelling alone creates no fork; failed/no-change first actions do not either. New successful X carries explicit A intent. Eligible Undo removes X, leaving A with the displaced line retained but not automatically active. No operation removes/crosses an actual retained fork. Recompute eligibility after accepted Undo, not a permanent lock because A was once a fork; the remaining linear future and ordinary checks still apply. |
+
+Current oracles use D-224–D-291, not D-159/D-161 captured-parent or remembered-head
 controls. New cases supplement the corrected stable older IDs. Technical parameter/
 encoding/performance completion is still required; these are specified tests,
 not an assertion that an application or executable harness exists.

@@ -1,17 +1,19 @@
 # Gameplay canvas screen proposal — live and historical modes
 
-Captured 2026-10-21 from the owner's gameplay-layout notes. This is a standalone
-continuation brief for review **after the separate initial UI draft session**.
-It does not modify that session's [non-gameplay pilot](ui/README.md), replace its
-gameplay placeholder, authorize implementation or declare the UI gate passed.
+Captured 2026-10-21 from the owner's gameplay-layout notes and clarified with the
+owner in the follow-up gameplay review batch (D-291). The owner now authorizes
+extending the same Stitch project and [Markdown/HTML/PDF packet](ui/README.md)
+with this screen in both orientations. G00 remains labeled as the original pilot
+placeholder for provenance; G01–G03 and H01–H03 are the gameplay extension.
+This authorizes design artifacts only, not implementation or a passed UI gate.
 
 ## Status and scope
 
 The concrete layout below records the owner's requested design direction.
 Items described as “maybe,” “perhaps” or “I think” remain tentative, as marked.
-This proposal is not a synchronized replacement for the behavioral contracts;
-in particular, the Undo/interruption question below must not be silently treated
-as an already-applied contract change.
+This proposal supplements the behavioral contracts. The interruption clarification
+below applies the existing Undo rule, not a change allowing Undo across forks.
+Trial placement and presentation remain reviewable rather than final UI approval.
 
 Scope here: the basic canvas appearance, responsive layout, live controls and
 historical timeline. Exact sizing, colors, icons and interaction details can be
@@ -73,7 +75,7 @@ Reserve a **fixed bottom control area**, independent of board panning/zooming:
 
 | Position | Proposed content | Certainty |
 | --- | --- | --- |
-| Bottom left | Undo button; possibly hold it for Redo. | Tentative placement/gesture. |
+| Bottom left | Tap Undo; hold for Redo, never both. Explicit Redo is also available in the controls menu and accessibility actions. | Owner-selected first draft (D-291); timings remain to design. |
 | Bottom center | Contextual quick actions. | Requested direction; individual contents follow existing action contracts. |
 | Bottom right | Current selection/interaction mode indicator, perhaps a square showing only the mode; tap to change mode. | Tentative control shape/presentation. |
 
@@ -82,9 +84,31 @@ Also provide a way to switch from live into **historical** mode; its exact contr
 and location are not settled. A phase display does not by itself specify a new
 phase-changing gesture.
 
-Redo reachability/accessibility and hold-versus-tap arbitration need design if
-the hold-to-Redo idea is retained; do not interpret a hold as both Undo and Redo.
-This is an interaction-design follow-up, not a new Undo eligibility rule.
+Recognizing a hold consumes the touch: do not invoke Undo on press-down and then
+Redo, or invoke Undo on release after a recognized hold. Exact timing, feedback
+and native accessibility presentation remain design work. Disabled operations
+must explain their actual eligibility; the shortcut does not bypass Undo checks.
+
+### Hands and central lanes — D-291 first draft
+
+- Put the owner's Hand below the darker land band in initial framing, hovering
+  immediately above the fixed bottom controls. It is an expandable row/fan and
+  stays screen-fixed when the board pans/zooms; it is not another battlefield row.
+- The draft places the opponent's covered Hand at the top outer edge as a
+  **proposal**, not a separately confirmed fixed-top requirement. Ordinary hidden
+  face/inspection rules still apply; no routine name leaks through backs.
+- Use central lanes for shared Stack and temporary combat. Combat has blockers
+  above attackers; projection entry leaves real battlefield sources in place.
+  Combat is shown only when its shared area exists, including an explicitly open
+  empty area. Stack supports both actual cards and independent effect projections.
+- Life grouped with each participant's special zones, mode square opening an
+  explicit Normal/Select/Ping chooser, and compact phase control at top left are
+  **draft presentation choices**. The existing phase-tap tracking picker remains;
+  a phase tap does not itself execute a shortcut or enforce rules.
+- Dense combat, expanded hands and short landscape height may require zoom/pan.
+  Prefer initial full-height framing, but do not shrink controls or claim that
+  every populated table fits at a universally readable card size. Review captures
+  are a starting composition, not final camera/hit-target geometry.
 
 ## 5. Historical-mode screen chrome and timeline
 
@@ -102,13 +126,14 @@ Historical viewing replaces the live action chrome:
   the marker/highlight design is not chosen yet.
 - Swipe/drag the timeline horizontally to change that exact event. Board changes
   animate as the user drags rather than updating only after release.
-- **Tentative:** allow timeline dragging only while paused. Whether a drag during
-  playback is ignored or first pauses playback is not selected.
+- **D-291:** touching/dragging the timeline during playback pauses first, then
+  scrubs exact mutation boundaries with board animation during the drag.
 
 Exact-event scrubbing must remain distinct from grouped automatic playback. Under
 the existing history contract, playback steps use automatic groups but individual
-mutation boundaries remain reviewable. The exact Back/Next button granularity is
-not settled by these notes. Animation follows the selected displayed endpoints,
+mutation boundaries remain reviewable. Previous/Next step groups, consistent with
+the existing history contract; timeline scrubbing selects individual mutations.
+Animation follows the selected displayed endpoints,
 not a queue that forces every intermediate event to finish animating.
 
 ## 6. Continue playing from a historical point
@@ -128,39 +153,43 @@ affordance does not itself create a shared-history mutation/fork. This matches
 the existing explicit-continuation model: the first accepted mutation creates
 and activates the continuation, not the personal review cursor alone.
 
-**Owner's tentative Undo revision:** “It should be possible to undo up to this
-interrupt action I think, even if previously specified not possible.” Preserve
-this as an explicit follow-up, not as rejected because an older rule exists.
+**Owner clarification — D-291:** the concern was correcting accidental branch
+creation by undoing the action immediately after the branch point. The owner is
+content with the current rule if it already permits that. It does:
 
-Current contracts already allow Undo of otherwise eligible latest-own mutations
-strictly after a fork, including on an interruption branch, without automatically
-reactivating its displaced future. They prohibit removing the fork point or
-reaching back before it (D-233/D-245), and treat explicit branch return separately.
-Thus undoing eligible actions **on the new branch down to its first action** may
-already be covered; undoing the fork boundary/shared switch, crossing it, or
-automatically returning to the displaced continuation would change behavior.
-The scope of “up to this interrupt action,” including whether that action itself
-is included, needs to be made precise in the continuation discussion. Do not
-silently waive revealing-action, dependency, author or replay-safety checks.
+Given old `A → B → C` and new `A → X → Y`, eligible latest-own Undo can remove Y
+and then X, leaving the current boundary at A. X is a child of the fork, not the
+fork point A. Undo cannot remove A while it is a branching point, or cross an
+actual retained fork. The old B→C
+continuation is retained, **not automatically reactivated**; explicit return is
+separate. Revealing, dependency, author, replay-work and later-fork restrictions
+still apply: this is not unconditional cancellation/recall of a sent action.
+After each accepted Undo, recalculate from the remaining tree; a former fork does
+not impose a permanent lock if its last extra continuation has been removed.
+Any remaining future still participates in normal replay/eligibility checks.
+
+The armed pre-action UI shows “Continuing from A · no action yet” and Cancel /
+Return to live routes. Cancel merely leaves this personal intent; no branch needs
+deleting because none exists yet. Undo does not become cursor-relative just
+because the displayed board is historical; Undo/Redo edit the existing tree rather
+than supply continuation intent. A failed/no-change first action must
+not create an empty fork or pretend the continuation succeeded.
 
 ## 7. Continuation checklist and existing contract anchors
 
-Resume here once the other session's UI packet is ready:
+Review the gameplay extension alongside the original pilot:
 
 - Review these live/historical arrangements in portrait and landscape alongside
   the initial non-gameplay draft, without assuming its placeholder is approved.
 - Refine camera margin N/empty-board bounds, zoom, zone/life geometry and chrome.
-- Resolve tentative hold-to-Redo, phase/mode controls, paused-only timeline drag
-  and the precise requested Undo boundary at an interruption as one review batch.
-- Account for the existing Hand, shared Stack and temporary combat area when
-  completing the screen. Their positions are **not specified by these notes**;
-  do not infer that the green bands replace or omit them.
+- Hold-to-Redo, pause-then-scrub and the Undo boundary were clarified above.
+  Review actual phase/mode presentation and hand/central-lane spacing in captures.
 - Keep personal review and UI state separate from server-authoritative gameplay.
   Historical mode must still receive sync; hiding action controls is not a server
   pause, branch activation or independently authoritative local game.
-- If a behavior revision is agreed, synchronize the primary contracts, affected
-  summaries, decision provenance and acceptance scenarios in that later batch.
-  This capture intentionally changes only this separate proposal file.
+- The board/history contracts, summary and verification notes carry the clarified
+  interactions. Exact camera margin N, empty-board bounds, touch timing and dense
+  geometry remain UI completion, not new product behavior selected by a mockup.
 
 Relevant sources for that follow-up:
 

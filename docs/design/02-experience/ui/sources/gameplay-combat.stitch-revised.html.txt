@@ -1,0 +1,160 @@
+<!-- INERT DESIGN DERIVATIVE: Stitch projects/6617750535460836476/screens/0c640298b90b483ea8af8abf966fa0ff; substantial local responsive/content repairs, see manifest. Not application implementation. -->
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G02 — Live combat and populated Stack</title><style>/* Inert review-only layout repairs to the Stitch drafts; not application CSS.
+   Small board thumbnails illustrate framing, not approved native hit targets. */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  src: url('https://fonts.gstatic.com/s/materialsymbolsoutlined/v227/kJF1BvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oDMzByHX9rA6RzaxHMPdY43zj-jCxv3fzvRNU22ZXGJpEpYo3_FQUrblgOiTSTg.woff2') format('woff2');
+}
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100dvh; margin: 0; overflow: hidden; }
+body { display: flex; flex-direction: column; color: #243b35; background: #f6f8f7;
+  font: 13px/1.25 system-ui, sans-serif; }
+button { min-width: 48px; min-height: 48px; padding: 4px 10px; border: 1px solid #b7c8c1;
+  border-radius: 6px; background: white; color: inherit; font: 600 13px/1.2 system-ui; flex-shrink: 0; }
+.icon { font-family: 'Material Symbols Outlined'; font-weight: 400; font-style: normal;
+  font-size: 22px; line-height: 1; display: inline-block; white-space: nowrap; }
+.icon-button { width: 48px; padding: 0; border: 0; display: grid; place-items: center; }
+.primary { background: #086e65; border-color: #086e65; color: white; }
+.status { height: 20px; flex-shrink: 0; display: flex; justify-content: space-between;
+  padding: 2px 12px; color: #61736d; font-size: 11px; background: #edf2f0; }
+.top { height: 48px; display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  padding: 0 6px; background: white; border-bottom: 1px solid #bccbc4; }
+.title { flex: 1; min-width: 0; font-size: 13px; }
+.title small { display: block; font-size: 11px; color: #61736d; }
+.phase { width: 58px; padding: 2px; font-size: 11px; border-color: #086e65; }
+.phase.readonly { min-width: 58px; height: 44px; display: grid; place-content: center;
+  text-align: center; border: 1px solid #b7c8c1; border-radius: 6px; }
+.phase small { display: block; font-size: 9px; font-weight: 400; }
+.top .history-button { padding: 4px 8px; }
+.top-continue, .top-live { display: none; }
+.opponent-hand { height: 28px; padding: 2px 12px; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0; font-size: 12px; background: #edf2f0; }
+.backs { display: flex; gap: 4px; }
+.back { width: 14px; height: 20px; border: 1px solid #6c8178; border-radius: 2px; background: #496358; }
+.workspace { min-height: 0; flex: 1; display: flex; padding: 6px; gap: 6px; overflow: hidden; }
+.sidebar { display: none; }
+.board { min-height: 0; min-width: 0; flex: 1; display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr); gap: 4px; overflow: hidden; }
+.participant { min-height: 0; display: grid; border: 1px solid #b7c8c1; border-radius: 4px;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 2fr); overflow: hidden; }
+.participant.own { grid-template-rows: minmax(0, 2fr) minmax(0, 1fr); }
+.band { min-height: 0; display: flex; flex-direction: column; position: relative; padding: 3px 8px; }
+.dark { background: #c9dbcd; }
+.light { background: #e2eee4; }
+.band-label { position: absolute; right: 6px; top: 2px; font-size: 9px; color: #57705e; z-index: 1; }
+.card-row { flex: 1; min-height: 0; display: flex; align-items: center; gap: 14px;
+  padding-left: 7px; border-bottom: 1px dashed #bdcfbf; }
+.card-row:last-child { border-bottom: 0; }
+.piece { height: min(82%, 68px); aspect-ratio: 5 / 7; flex-shrink: 0; min-height: 12px;
+  border: 1px solid #6c8178; background: white; border-radius: 3px;
+  display: flex; flex-direction: column; justify-content: space-between; padding: 2px;
+  font-size: 8px; line-height: 1.05; overflow: hidden; }
+.piece strong { font-size: 8px; font-weight: 600; white-space: nowrap; }
+.piece .art { flex: 1; display: grid; place-items: center; color: #7b9482; }
+.piece .art .icon { font-size: 17px; }
+.piece small { font-size: 7px; }
+.piece.tapped { transform: rotate(90deg); margin-inline: 7px; }
+.ghost { border: 1px dashed #b1c9b7; background: transparent; opacity: .6; }
+.projection { border: 2px dashed #087b73; background: #f7fffc; }
+.selected { outline: 2px solid #087b73; outline-offset: 2px; }
+.middle { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.portrait-dock { background: white; border: 1px solid #b7c8c1; border-radius: 5px; padding: 3px 5px; }
+.zone-person { display: flex; gap: 5px; align-items: center; justify-content: space-between; }
+.zone-person + .zone-person { border-top: 1px solid #dbe4df; margin-top: 3px; padding-top: 3px; }
+.who { width: 92px; flex-shrink: 0; font-size: 12px; }
+.who b { display: block; font-size: 13px; }
+.zones { display: flex; gap: 4px; flex: 1; }
+.zones button, .zone-label { min-width: 0; flex: 1; min-height: 48px; padding: 3px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid #c9d5cf; border-radius: 4px; background: #f8faf9; font-size: 11px; }
+.zones b { display: block; font-size: 13px; }
+.stack { height: 42px; display: flex; align-items: center; gap: 10px; padding: 3px 8px;
+  border: 1px solid #bbc9c2; background: #f1f4f2; border-radius: 4px; overflow: hidden; }
+.stack .piece { height: 34px; width: 52px; aspect-ratio: auto; }
+.lane-label { font-size: 11px; font-weight: 600; min-width: 68px; }
+.lane-note { color: #61736d; font-size: 10px; margin-left: auto; }
+.combat { height: 114px; padding: 3px 8px; border: 1px dashed #9a925a; background: #faf8ea;
+  display: grid; grid-template-columns: 74px 1fr; grid-template-rows: 1fr 1fr; gap: 3px 8px; }
+.combat .role { align-self: center; font-size: 10px; }
+.combat .pair { min-height: 0; border-inline: 1px solid #d5cda7; padding-inline: 12px;
+  display: flex; align-items: center; gap: 10px; }
+.combat .piece { height: 42px; }
+.hand { height: 80px; margin: 0 8px; padding: 5px 12px; flex-shrink: 0; display: flex;
+  align-items: center; gap: 12px; border: 1px solid #88a79a; border-radius: 7px 7px 0 0;
+  background: #fff; box-shadow: 0 -3px 8px #243b3514; z-index: 2; }
+.hand-label { flex: 1; min-width: 78px; font-size: 12px; }
+.hand-label small { display: block; font-size: 10px; color: #61736d; }
+.hand-cards { display: flex; height: 100%; gap: 8px; }
+.hand .piece { height: 100%; width: 44px; aspect-ratio: auto; }
+.bottom { height: 56px; display: flex; gap: 8px; align-items: center; justify-content: space-between;
+  padding: 4px 10px; background: white; flex-shrink: 0; }
+.undo { display: flex; flex-direction: column; gap: 2px; align-items: center; border: 0; }
+.undo small { font-size: 10px; color: #61736d; font-weight: 400; }
+.quick { display: flex; gap: 6px; overflow-x: auto; min-width: 0; align-items: center; }
+.quick button { font-size: 12px; }
+.mode { width: 66px; padding: 3px; border-color: #086e65; }
+.mode small { display: block; font-size: 9px; font-weight: 400; }
+.safe { height: 12px; flex-shrink: 0; background: #e9efec; }
+.intent { min-height: 48px; flex-shrink: 0; background: #fff4ce; display: flex; align-items: center;
+  justify-content: space-between; gap: 4px; padding: 0 8px; font-size: 12px; }
+.intent button { background: transparent; border: 0; }
+.continue-row { height: 52px; display: flex; justify-content: space-between; align-items: center;
+  padding: 2px 10px; background: white; gap: 6px; flex-shrink: 0; }
+.timeline { height: 72px; padding: 4px 12px; flex-shrink: 0; background: #eef4f1; border-top: 1px solid #b7c8c1; }
+.timeline-label { display: flex; justify-content: space-between; font-size: 11px; }
+.timeline svg { width: 100%; height: 48px; display: block; }
+.transport { display: flex; justify-content: space-between; width: 100%; }
+.menu { position: absolute; z-index: 8; top: 68px; right: 8px; width: 248px;
+  border: 1px solid #b7c8c1; border-radius: 6px; background: white; box-shadow: 0 5px 18px #243b3529;
+  padding: 6px; max-height: calc(100dvh - 144px); overflow-y: auto; }
+.menu h2 { margin: 4px 8px; font-size: 12px; color: #61736d; }
+.menu button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; justify-content: start; }
+.menu p { font-size: 11px; padding: 0 8px; color: #61736d; }
+@media (min-width: 700px) and (max-height: 500px) {
+  .status { height: 16px; padding-block: 0; }
+  .opponent-hand { height: 24px; }
+  .back { height: 16px; width: 12px; }
+  .workspace { padding: 3px 6px; }
+  .sidebar { display: flex; flex-direction: column; justify-content: space-between; width: 180px;
+    flex-shrink: 0; gap: 8px; background: white; border: 1px solid #b7c8c1; padding: 5px; overflow-y: auto; }
+  .sidebar .zone-person { display: block; }
+  .sidebar .who { width: auto; display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .sidebar .who b { font-size: 12px; }
+  .sidebar .zones { gap: 3px; }
+  .sidebar .zones button, .sidebar .zone-label { min-width: 48px; font-size: 9px; }
+  .portrait-dock { display: none; }
+  .board { gap: 2px; }
+  .band { padding: 1px 6px; }
+  .band-label { font-size: 8px; top: 1px; }
+  .card-row { gap: 14px; }
+  .piece { height: 86%; padding: 1px; font-size: 6px; border-radius: 2px; }
+  .piece strong { font-size: 6px; }
+  .piece small { font-size: 5px; }
+  .piece .art { display: none; }
+  .stack { height: 26px; padding: 1px 8px; }
+  .stack .piece { height: 22px; width: 58px; }
+  .combat { height: 64px; padding-block: 1px; }
+  .combat .piece { height: 27px; }
+  .hand { height: 50px; max-width: 650px; width: calc(100% - 200px); margin-left: auto; margin-right: 8px; padding: 3px 10px; }
+  .hand .piece { width: 40px; }
+  .hand .piece strong { font-size: 8px; }
+  .hand .piece small { font-size: 7px; }
+  .bottom { height: 52px; }
+  .safe { height: 8px; }
+  .top-continue, .top-live { display: block; }
+  .continue-row { display: none; }
+  .timeline { height: 44px; padding: 1px 12px; }
+  .timeline svg { height: 28px; }
+  .timeline-label { font-size: 10px; }
+  .intent { min-height: 48px; }
+  .menu { top: 64px; max-height: calc(100dvh - 124px); }
+}
+</style></head>
+<body inert><div class="status"><span>10:30</span><span>Draft G02 · Live controls</span></div>
+<header class="top"><button class="icon-button" aria-label="Back to games"><span class="icon" aria-hidden="true">arrow_back</span></button>
+<button class="phase" aria-label="Phase tracking">Declare atk<small>phase</small></button><div class="title"><b>Game with riley</b><small>Shared tabletop</small></div>
+<button class="history-button">History</button><button class="icon-button" aria-label="Game menu"><span class="icon" aria-hidden="true">more_vert</span></button></header><section class="opponent-hand"><span>riley · Hand 3 · covered</span><div class="backs"><span class="back"></span><span class="back"></span><span class="back"></span></div></section><main class="workspace"><aside class="sidebar" aria-label="Special zones"><div class="zone-person"><div class="who"><b>riley</b><span>Life 20</span></div><div class="zones"><button>Library<b>50</b></button><button>Graveyard<b>2</b></button><button>Exile<b>0</b></button></div></div><div class="zone-person"><div class="who"><b>alex · you</b><span>Life 20</span></div><div class="zones"><button>Library<b>50</b></button><button>Graveyard<b>2</b></button><button>Exile<b>0</b></button></div></div></aside>
+<div class="board"><section class="participant "><div class="band dark"><span class="band-label">riley · outer / 1 row</span><div class="card-row"><div class="piece " aria-label="Land"><strong>Land</strong><div class="art"><span class="icon" aria-hidden="true">forest</span></div><small></small></div><div class="piece ghost"></div><div class="piece ghost"></div><div class="piece ghost"></div></div></div><div class="band light"><span class="band-label">riley · inner / 2 rows</span><div class="card-row"><div class="piece ghost"></div><div class="piece ghost"></div><div class="piece ghost"></div></div><div class="card-row"><div class="piece selected" aria-label="Guide"><strong>Guide</strong><div class="art"><span class="icon" aria-hidden="true">shield_person</span></div><small>2/3</small></div><div class="piece ghost"></div><div class="piece ghost"></div><div class="piece ghost"></div></div></div></section><div class="middle"><div class="portrait-dock"><div class="zone-person"><div class="who"><b>riley</b><span>Life 20</span></div><div class="zones"><button>Library<b>50</b></button><button>Graveyard<b>2</b></button><button>Exile<b>0</b></button></div></div><div class="zone-person"><div class="who"><b>alex · you</b><span>Life 20</span></div><div class="zones"><button>Library<b>50</b></button><button>Graveyard<b>2</b></button><button>Exile<b>0</b></button></div></div></div><div class="stack"><span class="lane-label">Stack</span><div class="piece " aria-label="Ember"><strong>Ember</strong><div class="art"><span class="icon" aria-hidden="true">local_fire_department</span></div><small>actual</small></div><div class="piece projection" aria-label="Guide"><strong>Guide</strong><div class="art"><span class="icon" aria-hidden="true">shield_person</span></div><small>effect</small></div></div><div class="combat"><span class="role">Blockers</span><div class="pair"><div class="piece projection" aria-label="Guide"><strong>Guide</strong><div class="art"><span class="icon" aria-hidden="true">shield_person</span></div><small>source riley</small></div></div><span class="role">Attackers</span><div class="pair"><div class="piece projection" aria-label="Sentinel"><strong>Sentinel</strong><div class="art"><span class="icon" aria-hidden="true">shield_person</span></div><small>source alex</small></div></div></div></div><section class="participant own"><div class="band light"><span class="band-label">alex · inner / 2 rows</span><div class="card-row"><div class="piece selected" aria-label="Sentinel"><strong>Sentinel</strong><div class="art"><span class="icon" aria-hidden="true">shield_person</span></div><small>1/3</small></div><div class="piece ghost"></div><div class="piece ghost"></div><div class="piece ghost"></div></div><div class="card-row"><div class="piece ghost"></div><div class="piece ghost"></div><div class="piece ghost"></div></div></div><div class="band dark"><span class="band-label">alex · outer / 1 row</span><div class="card-row"><div class="piece tapped" aria-label="Land"><strong>Land</strong><div class="art"><span class="icon" aria-hidden="true">forest</span></div><small></small></div><div class="piece ghost"></div><div class="piece ghost"></div><div class="piece ghost"></div></div></div></section></div></main><section class="hand"><div class="hand-label"><b>Your Hand · 3</b><small>Fixed above controls</small></div><div class="hand-cards"><div class="piece " aria-label="Meadow"><strong>Meadow</strong><div class="art"><span class="icon" aria-hidden="true">shield_person</span></div><small>1/3</small></div><div class="piece " aria-label="River"><strong>River</strong><div class="art"><span class="icon" aria-hidden="true">water_drop</span></div><small>1/2</small></div><div class="piece " aria-label="Guide"><strong>Guide</strong><div class="art"><span class="icon" aria-hidden="true">terrain</span></div><small>2/3</small></div></div></section><footer class="bottom"><button class="undo">Undo<small>hold: Redo</small></button><div class="quick"><button class="primary">Declare + tap</button><button>Without tap</button></div><button class="mode">Select · 2<small>mode ▾</small></button></footer><div class="safe"></div></body></html>

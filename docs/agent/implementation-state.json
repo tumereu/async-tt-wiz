@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -90,13 +90,52 @@
     {
       "id": "I01c",
       "batch": "B1",
-      "status": "pending",
+      "status": "in-progress",
+      "children": ["I01c1", "I01c2", "I01c3"],
+      "planningRecord": "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json",
       "dependsOn": ["I01a"],
       "outcome": "Implement the minimal real Spring Boot/PostgreSQL17 foundation with explicit Flyway migration command, jOOQ generation against disposable migrated PostgreSQL, configuration/secret-file inputs, database-backed single-writer ownership and live/ready health contracts. Build a digest-pinned application image and establish Testcontainers-owned integration isolation; do not implement account, durable gameplay inbox or production orchestration ahead of their tasks.",
       "checks": [
         "Run real PostgreSQL Testcontainers clean/retained-schema migrations and jOOQ generation/query round trips, checking the same migrated schema rather than H2 or hand-written generated stubs.",
         "Build/run the real application image; check explicit migration, startup readiness, DB loss/reacquisition, second-writer and unsupported-schema refusal, configuration/secret redaction, bounded SIGTERM and restart. Report not-yet-implemented workers honestly; never return ready without schema and writer ownership.",
         "Retain exact unit/integration/image commands, image/dependency versions and owned-container cleanup evidence; keep full amd64/arm64 compatibility qualification assigned to I35."
+      ]
+    },
+    {
+      "id": "I01c1",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a"],
+      "outcome": "Establish the minimal real PostgreSQL17/Flyway/jOOQ persistence foundation in :server: versioned SQL for the service-writer singleton/epoch, an explicit executable migration command (not automatic service-start migration), and reproducible jOOQ generation against disposable migrated PostgreSQL. Pin and lock qualified dependencies and PostgreSQL image digest. Keep generated types server-only; no account/game/inbox/outbox schemas ahead of their tasks. Testcontainers owns integration databases, never I01e's later Compose environment.",
+      "checks": [
+        "Run the actual explicit migration command on an empty Testcontainers PostgreSQL17 database and again on retained supported foundation data; assert Flyway history/checksums, idempotent rerun and retained rows. Exercise transactional migration failure/checksum or unsupported-schema refusal without destructive clean/repair fallback.",
+        "Generate real jOOQ bindings from that migration history in a disposable PostgreSQL instance and execute generated-field query/transaction round trips against the same migrated schema; verify rollback and deterministic regeneration. No H2, production/developer DB or hand-written generated stubs.",
+        "Run clean JVM21 compilation/tests and module-boundary checks with ordinary strict locks after intentional dependency qualification. Retain exact generation/migration/test commands, versions/licenses, owned-container identity/cleanup and approved server/src/test source-path evidence; report that no live Spring service/image/worker is supplied yet."
+      ]
+    },
+    {
+      "id": "I01c2",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01c1"],
+      "outcome": "Implement the real minimal Spring Boot/JVM21 service using I01c1's schema and explicit migration interface, runtime configuration/secret-file inputs and redacted live/ready health contracts. Own the database advisory lock on a dedicated connection, advance the persisted writer epoch on acquisition and fence mutating transactions through the epoch row. Lose readiness/admission on DB or ownership loss; reacquire and revalidate/reload the implemented durable foundation before readiness. Keep runtime/generated types outside shared semantics and do not fabricate future account, durable inbox/outbox or mail/push workers.",
+      "checks": [
+        "Run the real Spring service against Testcontainers-owned migrated PostgreSQL: responsive detail-free /health/live, /health/ready only with supported validated schema, live DB and current writer ownership. An empty or unsupported/checksum-mismatched schema is never auto-created/migrated or ready; unknown public routes do not expose configuration/secrets.",
+        "Prove one writer at a time with two real service instances, DB loss/reconnection and lock-connection termination/takeover. Use lower-layer transactions to show a replacement epoch waits for old shared epoch-row locks and stale-token transactions cannot mutate after takeover; do not add product test-action endpoints. Verify readiness drops and only successful ownership/schema recovery restores it.",
+        "Exercise required/malformed configuration and missing/unreadable secret-file failure, safe JDBC/config logging, configured port/health binding and bounded shutdown/restart of the real service. Keep passwords/token material out of responses/logs and document exactly which workers are not yet implemented; future workers must become readiness dependencies when introduced.",
+        "Run focused unit/integration regressions, I01c1 migration/generation tests and module-boundary checks with qualified pinned Spring dependencies/locks; retain actual commands, outputs and Testcontainers/process cleanup. Image-level lifecycle qualification remains I01c3, not a passing claim from JVM tests."
+      ]
+    },
+    {
+      "id": "I01c3",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01c1", "I01c2"],
+      "outcome": "Package the real service and explicit migration command in one application OCI image with a qualified digest-pinned JVM21 base and retained built-image identity. Supply reproducible local image build/run/configuration documentation and isolated image-lifecycle checks using owned PostgreSQL17, not production orchestration or the later reusable E2E Compose environment. Qualify the available amd64 runtime; retain full architecture/compatibility obligations in I35 without publishing/deploying the image.",
+      "checks": [
+        "Build the actual image from clean locked sources/generated schema and run its migration command against fresh and retained owned PostgreSQL. Run the service from the same image; prove it never migrates automatically and never becomes ready on empty, incompatible or invalid schema. Retain base/PostgreSQL digests, application image ID, Java version and exact build/run commands.",
+        "Exercise the image's actual live/ready HTTP endpoints, secret-file/configuration inputs and redacted startup/failure output, a competing second writer, DB outage and ownership reacquisition/takeover, then bounded SIGTERM (at most 30 seconds) and persistent-DB restart. Assert the implemented foundation's stored data/epoch survives, without claiming nonexistent gameplay inbox/outbox recovery.",
+        "Rerun affected service/database tests, verify no credentials/build-only tooling leak into the runtime image, collect failures before targeted cleanup and prove all owned containers/networks/volumes/processes are removed without touching unrelated resources. Record unavailable arm64 execution as an I35 qualification limitation, not a waived release gate."
       ]
     },
     {

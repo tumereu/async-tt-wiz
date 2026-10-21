@@ -34,6 +34,8 @@
   any screen. In-form/contextual exit/close links and Android native Back provide
   navigation. Keep necessary labels, errors and outcomes.
 - Main-menu options have an **ATW** logo above them (wizard-hat motif is provisional).
+  D-297 also places that logo inside A01's centered login card in both orientations;
+  short viewports scroll the same card rather than splitting/shrinking it.
   Use matching destination icons across the menu and indented navigation entries;
   Logout has its own icon. Top-level Menu/Games remain text. Button actions normally
   have meaningful icons plus text where space permits; tight gameplay controls use
@@ -68,6 +70,11 @@
 - Lobby title is its **game name**, details show state and creation date. Cancel
   game is top-right on that title row; Reinvite is inside the opponent's slot.
   Ready/Withdraw Ready remain bottom actions, with no leaving-lobby helper text.
+  D-297 shows each player's actual readiness with a colored status icon: green
+  checkmark for Ready, distinct non-ready/pending icon otherwise. Keep meaningful
+  status text/accessibility; color alone is insufficient. Invitation pending or
+  declined is not Ready or online presence. Deck changes/withdrawal/start still
+  follow the existing server-authoritative rules, not client-inferred readiness.
 - Deck picker rows select a personal draft using a border, without per-row Select
   buttons. **One bottom confirmation** submits the chosen prepared-copy selection
   and returns to lobby. Selecting/highlighting rows alone does not clear Ready or
@@ -235,6 +242,7 @@ cursors, settings or all cached downloads from this account-data decision.
   applies across already-in-scope searches, not just contacts; saved contacts may
   remain a separate collection. It changes no matching/privacy/request semantics
   and does not authorize additional search tools.
+  D-297 makes the results header a small subordinate label, not another title.
 - It does not automatically add you to their contacts or accept a game invitation
   on their behalf. Game invitations still use recipient Accept/Decline (D-195).
 - Exact username/search grammar, contact removal and discoverability/privacy

@@ -29,7 +29,7 @@ The general rules are:
 
 ## Confirmed behavior
 
-### Current table presentation and ownership — D-295/D-296
+### Current table presentation and ownership — D-295–D-297
 
 - Own field is green, opponent field red; no battlefield area labels, visible
   slots or row separators. Logical snapping remains. Cards and ordinary visual
@@ -68,6 +68,18 @@ No tooltip/tutorial or Continuing from banner: armed play looks like live play
 at that historical state. The first successful mutation still creates the fork,
 not holding, arming or ordinary playback.
 
+D-297 compacts Hand gaps and makes overflowing hands horizontally pannable.
+Landscape own Hand shares the bottom quick-action row; covered opponent Hand is
+trialed in the existing top row, clear of the battlefield. Combat pairs fit their
+wider card side plus tiny margins, with one-card new-pair drop targets beside them;
+those affordances do not preserve empty shared pairs. Player counters are evenly
+spread circles. The timeline selection square stays centered while its path slides,
+including endpoints with the unused half empty. Chat has its own button, unread
+bubble and panel (personal viewing state, not read receipts). Card actions are
+direct grouped square icons, including inline owner and +/−/Set, no category
+submenus. A dialog is acceptable with a persistent current-state card preview;
+outside tap/native Back dismiss, repeated field edits retain it as already agreed.
+
 ### Android installation and updates
 
 - Android 10+ (API 29), phones and tablets; Google Play services are not required
@@ -83,6 +95,9 @@ not holding, arming or ordinary playback.
 
 Across already-in-scope searches, results/loading/empty/error feedback stay in
 the search field's own card/panel, not a separate results card (D-296).
+D-297 makes the results heading a small label rather than a competing title.
+Login also has the ATW logo, and each lobby player has a colored readiness icon
+(green check for Ready), with meaningful status text/accessibility, not presence.
 
 - Log in to reach the main menu; registration is available. D-292 selects
   **Async Tabletop Wizards**, subtitle **Specialized tabletop simulator for

@@ -16,7 +16,7 @@ Review editions: [PDF download](review.pdf) · [Markdown source](review.md).
 **Cumulative owner direction:** [feedback and explicit supersessions](feedback.md).
 Later rounds retain earlier decisions unless the owner explicitly changes them.
 This full document is republished at the same browser-refresh URL after changes.
-The D-292–D-296 cumulative revisions below are confirmed direction;
+The D-292–D-297 cumulative revisions below are confirmed direction;
 remaining geometry/style proposals are not silently approved by this round.
 
 Both **portrait and landscape are required** (D-290). Each screen below has a
@@ -32,7 +32,8 @@ historical continuation and the explicit Redo route. D-294 removes obsolete G00
 from the current packet and replaces U01's empty backdrop with a real table.
 G04–G08 add card/owner/player actions, token/ping/reveal examples and signed
 player-value drag previews (G08b is the negative-preview continuation).
-Full zone menus, gameplay-specific inspectors, chat and result-ending overlays
+G09/G10 and H04/H05 add game chat, overflowing hands and centered timeline endpoints.
+Full zone menus, gameplay-specific inspectors and result-ending overlays
 still need completion; D08 is a deck-context inspection reference and P04 the
 separate active-delete confirmation.
 
@@ -123,10 +124,12 @@ D-295 selects a games-list-only reconnect escape. “Random” is selected in th
 do not choose a universal initial starter default or retention policy.
 
 For gameplay, the owner selects a trial own Hand hovering above the fixed bottom
-controls, responsive Stack/combat, hold Undo for Redo and pause-on-drag history.
+controls in portrait, sharing the quick-action row in landscape (D-297), responsive
+Stack/combat, hold Undo for Redo and pause-on-drag history.
 Own green/opponent red bands, colored life squares and orientation-specific
-left/middle special-zone controls follow the cumulative direction. Opponent top
-Hand, exact life placement, phase/mode shapes and camera geometry remain proposals.
+left/middle special-zone controls follow the cumulative direction. Covered opponent
+Hand in the landscape top control row, exact life placement, phase/mode shapes and
+camera geometry remain proposals.
 See G01–G06 and H01–H03; agreement
 to try a layout is not approval of final sizes or a passed UI gate.
 
@@ -168,7 +171,7 @@ Colors, fonts and borders remain provisional; the app name/subtitle are confirme
 :::
 
 **Layout (confirmed D-292):** both orientations center the **same bounded login
-card**, including app name/subtitle, without a landscape intro/form split. The
+card**, including ATW logo (D-297) and app name/subtitle, without a landscape intro/form split. The
 short landscape viewport scrolls this unchanged card rather than shrinking targets
 or switching composition. Email and
 Password are text fields; the eye is an icon button. Sign in, Create account and
@@ -1034,9 +1037,14 @@ Life is only a player-colored square with the number, without printed names or
 special piles; portrait shows each player's row only when at least one counter
 is nonempty/nonzero. Hiding a row never deletes zero values or removes menu access.
 
-**Fixed versus movable:** the owner's Hand hovers below the land band and above
-bottom controls, independent of board panning. The proposed opponent Hand is a
-covered top row. Both players' Library/Graveyard/Exile counts and proposed life
+**Fixed versus movable:** in portrait the owner's Hand hovers below the land band
+above bottom controls, independent of board panning. **D-297:** landscape own Hand
+shares the bottom row with quick actions; the proposed covered opponent Hand moves
+into the existing top control row, so neither hand covers the battlefield or takes
+its vertical space. Portrait opponent Hand remains a covered top row. Both hands
+use compact gaps and left/right pan when they overflow (G10), without changing card
+scale, order, privacy or dispatching a move from navigation.
+Both players' Library/Graveyard/Exile counts and proposed life
 grouping occupy the central strip in portrait, a **left** sidebar in landscape.
 Fixed dock anchors do not become shared placement. **D-296:** every card drawing
 uses the same current zoom, across battlefield, combat, Stack, hands/backs, reveals
@@ -1044,15 +1052,18 @@ and special piles. These captures use **one 40 px card height**, in both
 orientations and every area, not a selected final native minimum. There is no
 row-height/zone-dependent shrinking. Landscape deliberately pans the table to a
 middle framing; the full-height board remains navigable rather than being squeezed
-into its viewport. Hands hover over the field in landscape, not over history
-transport/timeline. Dense/expanded-hand/hit geometry still needs device review.
+into its viewport. Landscape hands occupy the existing top/bottom rows, clear of
+field and history timeline; transport remains reachable. Dense/hit geometry still
+needs device review. Visible player counter circles spread evenly over the whole
+row (D-297), preserving the portrait visibility predicate.
 
 **Controls:** bottom-left tap Undo / hold Redo; bottom-center contextual actions;
 bottom-right current mode. The proposed mode square opens explicit Normal /
 Select / Ping choices. Select toggles membership editing without clearing the
 selection when turned off; Ping consumes its taps. Phase tap opens the existing
 tracking picker, not an automatic game action. History opens personal review.
-Overflow exposes Redo, Chat and full Game actions; a generic Actions affordance
+Overflow exposes Redo and full Game actions; a **separate Chat button** opens G09,
+with an unread bubble when incoming messages remain unviewed. A generic Actions affordance
 does not invent a phase shortcut or remove the full per-card action paths.
 
 **Gestures:** normal single tap opens captured-scope card Actions; double tap
@@ -1087,6 +1098,16 @@ Dashed owner-colored borders distinguish projections from real cards.
 **D-296 landscape supersession:** Stack is in the **left side panel between
 player-info blocks**, not beside central combat. Combat cards use exactly the
 same card size as all other areas at this zoom. Portrait placement is retained.
+
+**D-297:** pairs no longer stretch equally across the combat row: each fits the
+wider attacker/blocker side plus tiny margins. The example's first pair has two
+blockers and one attacker; the second is attacker-only. One-card-width empty
+insertion targets remain visible before, between and after them, with both sides
+addressable. An open empty area has one such target. They are drop affordances,
+not saved empty pairs: merely rendering/cancelling creates nothing, and D-138
+still removes fully empty semantic pairs. A valid drag creates/reuses/inserts only
+the requested occurrences, never moves their real battlefield sources. Pan for
+more pairs; no equal-width stretching or smaller combat cards.
 
 Stack uses the same **diagonal corner-peek** presentation as ordinary piles, but
 has **no gameplay item-count capacity**: show the top card plus at most two below
@@ -1140,6 +1161,12 @@ accessible event details identify exact boundary, type, author and outcome.
 owner. Faint vertical dividers mark effective group changes (not every event).
 Selection outlines the icon without replacing its type or author color. The
 exact X marker can lie inside a playback group.
+**D-297:** that marker is **always at the timeline viewport's exact center**.
+The selection square stays still while the path slides under it during scrub,
+Previous/Next and playback. At the first/last event the unused half stays empty,
+not edge-clamped or filled with invented events/line. H04/H05 show endpoints;
+one-event paths leave both halves empty. Resize/fallback recenters the actual
+selected boundary, without choosing a different event to fill the strip.
 Diagonal branch stubs indicate retained alternatives, not a full expanded tree.
 Off-path navigation needs a further branch-selection view; a stub is not itself
 permission to activate, archive or delete anything.
@@ -1242,7 +1269,7 @@ replaced with the live head just because they are not printed in a banner.
 
 ::: {.screen-pair}
 ::: {.portrait}
-![G03 portrait — overflow with explicit Redo, Chat and Game actions](images/gameplay-controls-portrait.png)
+![G03 portrait — overflow with explicit Redo and Game actions; Chat has its own button](images/gameplay-controls-portrait.png)
 :::
 ::: {.landscape}
 ![G03 landscape — reachable explicit Redo alternative above fixed live controls](images/gameplay-controls-landscape.png)
@@ -1256,13 +1283,14 @@ accessibility must provide an equivalent explicit action, without requiring a
 timed hold. Both routes use the same server-authoritative per-player game stack,
 eligibility and retry rules. Exact hold interval/feedback is still UI work.
 
-**Menus:** overflow is a proposed route to Chat and Game actions, not a newly
+**Menus:** overflow is a proposed route to Game actions, not a newly
 invented settings suite. Game actions must retain existing tracking, random,
 token, combat and ending paths; this packet does not yet picture their complete
 menus or editors. The separate bottom-right mode square opens Normal / Select /
 Ping, rather than silently cycling modes. It does not open this overflow menu.
 Choice-sheet layout remains unpictured; normal/Select/Ping tap semantics are
 already specified. Close/Back dismisses without a shared edit.
+Chat now has a separate direct button/panel (D-297), not an overflow-only route.
 
 **Basis:** D-235/D-259, D-267/D-281 and D-291. No claim that an incidental
 enabled/disabled color proves the complete eligibility computation.
@@ -1282,15 +1310,27 @@ enabled/disabled color proves the complete eligibility computation.
 
 Normal single tap opens this card's Actions without rotating it. A selected card
 binds the selected set; an unselected card binds only itself and preserves prior
-selection. The menu shows Library top/bottom, Graveyard/Exile, inspection and
-existing card tools plus **Change owner**. Inspect other side retains its logged
+selection. **D-297:** grouped square **icon-only** buttons show Library top/bottom,
+Graveyard/Exile, inspection and existing card tools, plus **inline owner choices**.
+Corner text has direct +/−/Set rows for left/right/both numbers; each of six counter
+colors has direct +/−/Set, even when absent. The underlined number(s) identify the
+addressed part of the one corner string; this is not separate P/T engine state.
+No Card text / Counters / Owner category submenu adds another tap. Inspect other side retains its logged
 disclosure rule; opening a menu alone logs nothing. Orientation still uses normal
 double tap, with explicit Tap/Untap commands in Select mode, not a new normal-mode
 Tap button. This example is not every contextual/source/occurrence menu.
 
-Choosing Change owner opens G06 with the same captured card identities. Cancel/
-close has no shared effect. Native accessible actions provide the same route.
-**Basis:** D-248/D-252/D-267 and D-295.
+A dialog is the owner's accepted alternative to their initial floating-buttons
+request. The title-corner preview shows the context card's current permitted
+visual state, and stays visible while direct controls scroll. G06 shows it updated
+after retained edits. Opening/closing creates no shared edit; outside tap, X and
+native Back dismiss without recalling earlier submitted requests. Completed
+corner/counter +/−/Set keep the menu; successful Move to Graveyard closes it, as
+already agreed. No universal close/stay rule is invented for all other actions.
+Required Set editor/inspection/Link endpoint selection completes its chosen action,
+not an intermediate action-category menu. Every icon retains an accessible name
+and actual availability; hidden faces/names never leak into the preview.
+**Basis:** D-54/D-61/D-63/D-67, D-248/D-252/D-267 and D-295/D-297.
 :::
 
 ::: {.screen-section}
@@ -1325,18 +1365,24 @@ ping and View/Reveal contracts; D-295 placement.
 :::
 
 ::: {.screen-section}
-## G06 — Change owner
+## G06 — Retained card actions after edits
 
 ::: {.screen-pair}
 ::: {.portrait}
-![G06 portrait — two player-color owner choices, current owner selected](images/gameplay-owner-choice-portrait.png)
+![G06 portrait — retained direct actions with red owner, 2/4 and blue counter 3 in preview](images/gameplay-owner-choice-portrait.png)
 :::
 ::: {.landscape}
-![G06 landscape — owner chooser over the unchanged table](images/gameplay-owner-choice-landscape.png)
+![G06 landscape — scrolled direct values with persistent updated title-corner preview](images/gameplay-owner-choice-landscape.png)
 :::
 :::
 
-The choices use player colors without printed player names. Accessible labels
+**D-297 supersedes the separate owner chooser:** the same action dialog stays open,
+now with a red owner border, corner text **2/4** and blue counter **3**. This is a
+static after-edit example, not a working sequence or one atomic multi-field edit.
+Landscape scrolls the values to show the lower colors while the preview remains
+visible. +/−/Set retention does not require reopening the menu between adjustments.
+
+Inline owner choices use player colors without printed player names. Accessible labels
 identify both participants, the card and current selection. Choosing the other
 owner submits the ordinary connected shared card edit, with immediate prediction;
 choosing the already-current value is a no-op. No additional Save/confirmation.
@@ -1344,7 +1390,7 @@ Owner starts as creator/bringer, is independent of field position and never
 restricts either player's editing rights. The border updates on all live views/
 projections, devices and historical boundaries under normal recovery/eligible
 Undo rules. This does not add controller, permission or rules-engine semantics.
-**Basis:** D-295; primary owner contract in board-and-controls.md.
+**Basis:** D-295/D-297; primary owner/field contracts in board-and-controls.md.
 :::
 
 ::: {.screen-section}
@@ -1414,10 +1460,98 @@ active Blue value makes this player's portrait row visible; the opponent's all-
 empty/zero row stays hidden. No authoritative intermediate edit is created.
 :::
 
+::: {.screen-section}
+## G09 — Direct game-chat panel
+
+::: {.screen-pair}
+::: {.portrait}
+![G09 portrait — game-wide chat panel, message field and direct send](images/gameplay-chat-portrait.png)
+:::
+::: {.landscape}
+![G09 landscape — side chat panel with reachable close and composer](images/gameplay-chat-landscape.png)
+:::
+:::
+
+The separate top Chat button opens this panel directly. Closed-panel table/history
+examples show its unread bubble; this example has presented all three messages,
+so the bubble is absent. Incoming messages remain unread until actually presented
+in the panel, not merely because it opened while they were offscreen. Own echoes
+do not create incoming unread. Viewing is personal UI, not a read receipt,
+presence signal, gameplay mutation or history activation/fork. Game-wide chat is
+not filtered to the selected event/branch; event comments stay separate.
+
+Close/native Back dismisses the panel. Sending the completed message uses the
+existing connected chat request; no gameplay Send, automatic posting of drafts,
+sent-message Edit/Delete/Undo or new alert category. Keyboard/large-text variants
+still need visual review. **Basis:** D-94/D-240/D-259 and D-297.
+:::
+
+::: {.screen-section}
+## G10 — Compact overflowing hands
+
+::: {.screen-pair}
+::: {.portrait}
+![G10 portrait — 24-card hands, compact spacing and partial cards at both pan edges](images/gameplay-hand-overflow-portrait.png)
+:::
+::: {.landscape}
+![G10 landscape — hands pan within existing top and bottom control rows](images/gameplay-hand-overflow-landscape.png)
+:::
+:::
+
+Both example hands contain **24 cards** at the same 40 px table scale, with small
+gaps instead of battlefield-sized empty footprints. Captures show a static mid-pan
+position, not a functioning swipe. Every first/last card remains reachable by
+left/right pan and native accessible navigation; the count is total membership,
+not only visible cards. Covered opponent cards disclose no names/art. Landscape
+own Hand occupies the quick-action row, while opponent Hand is trialed in the
+existing top row, leaving the battlefield free. Pan and actual card dragging must
+remain distinct, with no request from navigation/cancel or retargeting on sync.
+**Basis:** D-267 scene/input, D-296 uniform scale and D-297.
+:::
+
+::: {.screen-section}
+## H04 — First event stays centered
+
+::: {.screen-pair}
+::: {.portrait}
+![H04 portrait — first event under fixed center selection, left half empty](images/gameplay-history-start-portrait.png)
+:::
+::: {.landscape}
+![H04 landscape — first event centered in the timeline viewport](images/gameplay-history-start-landscape.png)
+:::
+:::
+
+The path starts at the selection square in the exact center; there are no earlier
+nodes or continuing path line in the left half. This setup example has full
+libraries and no automatically drawn Hand/battlefield cards. The retained future
+extends right; its existence does not activate it. The fixed square uses the same
+viewport anchor as H01/H02/H05. **Basis:** D-297; existing exact-boundary playback.
+:::
+
+::: {.screen-section}
+## H05 — Final event stays centered
+
+::: {.screen-pair}
+::: {.portrait}
+![H05 portrait — final event centered, right half empty](images/gameplay-history-end-portrait.png)
+:::
+::: {.landscape}
+![H05 landscape — stationary center selection at the path endpoint](images/gameplay-history-end-landscape.png)
+:::
+:::
+
+The final selected event does not slide to the right edge. The path lies left of
+the fixed center square; the unused right half stays empty. First/last examples
+illustrate anchoring, not a complete executable game/replay trace. An only-event
+path leaves both halves empty. Normal live-boundary catch-up, branch navigation,
+deleted-cursor fallback and sync rules remain unchanged; filling empty space must
+never choose another boundary or fabricate events. **Basis:** D-297.
+:::
+
 # Copy audit — suggested further deletions
 
 **All 41 current pictured states, both orientations, audited.** Round 2's table
-is retained cumulatively; D-294–D-296 dispositions below mark selected/superseded items
+is retained cumulatively; D-294–D-297 dispositions below mark selected/superseded items
 without turning all earlier suggestions into approvals. This table is
 owner-review advice, **not a new approval list for already confirmed outcomes**.
 “Suggest” items are deliberately **not all removed** from the mockups yet. Existing
@@ -1458,7 +1592,8 @@ in the specification notes. No blanket deletion of labels, errors or lifecycle s
 | G05 | No Battlefield/Reveal/player-name headings. | Revealed card contents, token badge, numbered pings, owner borders and P/T. |
 | H03 | **D-296 supersedes the earlier keep-banner proposal: no Continuing from banner at all.** | Internal captured boundary/intent, normal play controls and contextual Cancel/Return remain; arming alone does not fork. |
 | G07 / G08 / G08b | No drag tutorial, extra confirmation or shortcut tooltip on the table. | Menu field/color/value controls, signed delta preview and accessible meanings; values remain unchanged before release. |
-| G03 | Delete “Hold Undo for Redo, or choose Redo here. Ordinary eligibility applies.” and inherited diagram labels. | Explicit labeled Redo/Chat/Game actions menu entries and actual availability feedback; menu has room for icon + text. |
+| G03 | Delete “Hold Undo for Redo, or choose Redo here. Ordinary eligibility applies.” and inherited diagram labels. | Explicit labeled Redo/Game actions menu entries and actual availability feedback; Chat now has its own button (D-297). |
+| G09 / G10 / H04 / H05 | No swipe, unread or endpoint tutorials printed on the screen. | Actual messages/composer, total hand counts, exact timeline boundary/type and normal transport; semantics stay in notes/accessibility. |
 
 No layout-driven explanation deletion here changes the server rules, retry/Ready
 semantics or accessibility help. If accepted later, apply the named suggestions as
@@ -1485,6 +1620,8 @@ dismissal are additional interaction cost, not hidden zero-cost steps.
 | Saved-deck details → delete collection entry | Delete saved deck → confirm deletion: **2 taps**. | Copies selected in games survive. |
 | Live → exact history → armed continuation | History → drag timeline → Continue playing from here: **2 taps + 1 drag**. | If playback is running, dragging itself pauses before scrubbing; no separate Pause tap. First gameplay mutation is additional and alone creates/activates continuation. |
 | Live → eligible Redo | Hold Undo: **1 hold**, or overflow → Redo: **2 taps**. | No earlier Undo emitted; hold timing/native accessibility still need validation. |
+| Live → game chat | Chat: **1 tap**. | Read existing messages; typing/send is additional. No overflow detour or shared read receipt. |
+| Card → repeated field adjustment / owner edit | Card → direct icon: **2 taps** initially; next +/− is **1 tap** while retained. Owner choice likewise **2 taps** from the table, no chooser submenu. | Set needs actual text editing/completion; Link needs endpoint selection. Scroll direct controls when necessary; ordinary 48 px buttons are not reduced. |
 
 The import review split, cover confirmation and cancellation dialog are intentional
 pilot proposals whose interaction cost should be reviewed, not silently declared
@@ -1493,29 +1630,30 @@ with a keyboard; the later large-text/keyboard review must count that cost too.
 
 # Coverage and limits
 
-**Pictured:** 37 primary screen/state drafts (26 original Stitch-derived states,
-some locally recomposed, plus N02, P03–P05, D07/D08 and G04–G08), two
+**Pictured:** 41 primary screen/state drafts (26 original Stitch-derived states,
+some locally recomposed, plus N02, P03–P05, D07/D08, G04–G10 and H04/H05), two
 scrolled continuations, L04b's faded feedback and G08b's negative preview:
-**41 states / 82 captures**.
+**45 states / 90 captures**.
 These include the shared navigation,
 inline sign-in error, submitted reset request, unresolved import, two import save
 modes in contextual D07 (Overwrite selected), collection-deletion modal, declined
 inviter lobby with Reinvite, game context/active-delete confirmation, full card
 inspection, mandatory named creation, no-own-deck
 lobby, preparation, accepted Ready, cancellation modal and reconnect dialog,
-plus eleven primary gameplay states and the G08b continuation: live, populated Stack/combat, paused exact history,
+plus fifteen primary gameplay states and the G08b continuation: live, populated Stack/combat, paused exact history,
 running playback, armed continuation, explicit Redo menu, card actions, token/
-ping/reveal presentation, owner choice, player-value context and signed drag previews.
+ping/reveal presentation, retained updated actions, player-value context, signed
+drag previews, game-chat panel, overflow hands and both timeline endpoints.
 
 **Described but not separately pictured:** clean authentication forms, network
 and field errors, invalid reset link, empty/loading/search-no-results lists,
 rename field editor, import lookup-in-progress/save failure, Merge-selected preview,
 returned-lobby not-ready state and successful reconnect. These still need visual
 state completion before claiming that every non-gameplay state is designed.
-Gameplay expansions still needed include Hand expansion, phase/mode choice sheets,
+Gameplay expansions still needed include alternate Hand expansion, phase/mode choice sheets,
 remaining card/zone action menus, gameplay-specific inspector/disclosure states
 (D08 pictures inspection in a deck context), further View/Reveal variants, dense/empty
-combat variants, branch selection/return/archive views, chat/comments and ending
+combat variants, branch selection/return/archive views, further chat/comments and ending
 dialogs, plus selected/conflict/reconnect/large-text/gesture variants over the real
 board. Static examples do not settle all camera bounds, hit regions or timings.
 
@@ -1585,6 +1723,17 @@ the top route stays and H03 loses its banner. G07/G08/G08b add three inert state
 **41 states / 82 captures**. `table-round5.css` overrides prior geometry; inert
 templates are materialized by documentation capture only, with a static landscape
 camera and Stack relocation. No executable application interactions/cloud edit.
+
+**D-297 owner revision:** F58–F68 add the login logo, subordinate search labels,
+readiness icons, compact pannable hands in existing landscape control rows,
+content-width combat/insertion targets, evenly spread circular player counters,
+fixed-center timeline/endpoints, separate chat button/unread panel and direct
+square icon card actions with retained title-corner preview. The follow-up accepts
+a dialog instead of the initial floating-only preference. G06 is now a retained
+updated action dialog, not an owner submenu. G09/G10/H04/H05 add four local inert
+states: **45 states / 90 captures**. `table-round6.css` retains earlier direction
+except explicit supersessions; static repetition/scroll/center offsets are document
+tooling, not executable application interactions or a new cloud revision.
 
 See [generation briefs](generation-briefs.md) and [source manifest](manifest.json).
 The exported HTML is design material with executable interactions removed, not

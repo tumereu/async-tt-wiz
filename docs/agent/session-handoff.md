@@ -14,7 +14,34 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-296
+## Current UI feedback iteration — D-297
+
+Read cumulative F01–F68 before UI edits; keep the full HTML/PDF at the same exact
+port-8443 review.html URL, replace in place and verify. No app/cloud implementation
+or gate/stage change. Round 6 adds login logo, small subordinate search-results
+label, both players' colored readiness (green check Ready), compact pannable hands,
+landscape own Hand in quick-action row and proposed covered opponent Hand in the
+existing top row. Neither hand takes battlefield space. Combat pairs fit their
+wider side plus tiny margins; one-card insertion targets before/between/after
+active groups (one open/empty) are UI affordances, not retained empty pairs.
+
+Player counters are circles spread over full row, prior visibility rules intact.
+Timeline square stays at exact viewport center even at endpoints with unused half
+empty; H04/H05 show this. Chat has direct button/unread bubble and G09 panel, local
+viewing only, no receipts/presence. G10 shows 24-card pannable hands. Card actions
+are grouped square icons with direct +/−/Set and inline owner choices, no category
+submenus. Latest follow-up accepts dialog instead of initial floating-only request;
+persistent title-corner current-state preview remains visible while actions scroll.
+G06 now shows updated retained dialog (owner riley, 2/4, blue 3), not a chooser.
+Outside/X/native Back dismiss; existing repeated-edit/Graveyard lifetimes persist.
+
+**41 primary + four continuations = 45 states / 90 captures.** Shared inert sources
+use cumulative round6 CSS; doc capture composes snapshots/scroll/center offsets,
+not application handlers. Primary account/board/combat/history/model summaries and
+future T-696–T-702 align. Preserve earlier provenance/copy suggestions; validate,
+publish full artifact in place, save and push every completed batch.
+
+## Previous UI feedback iteration — D-296
 
 Read cumulative F01–F57 before UI edits. Full HTML/PDF stays at the exact port-8443
 review.html URL, replaced in place and verified after UI batches. No app/cloud

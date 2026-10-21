@@ -48,6 +48,20 @@ Stack's total appears in the same top-left circular count badge as other special
 piles; the pile/badge opens its retained ordered contents. Geometry/count display
 changes no source/occurrence guards, capacity or lifecycle behavior.
 
+**D-297 combat geometry:** each paired group is only as wide as its wider side's
+actual card envelopes plus tiny inner/inter-card margins; do not stretch all pairs
+equally across the area. A multi-card side grows its pair while the other side
+remains aligned with that group. Keep the same table card scale, accommodating
+rotation and horizontal navigation rather than shrinking combat cards. Whenever
+combat is open, show one-card-width **new-pair drop targets** before, between and
+after active pairs; with no active pairs show one empty target. Both blocker and
+attacker halves remain addressable, including blocker-only entry. These are local
+insertion affordances, not empty shared pairs: D-138 still removes every fully
+empty semantic pair. A valid drop uses existing create/reuse/move/insert guards;
+rendering, panning or cancelling a drag creates nothing. Accessible targeted entry
+must not depend on hitting a tiny gap. Closed combat does not gain a permanent
+visible empty row from these affordances. Exact margins/artwork remain reviewable.
+
 ## 13.1 Confirmed capabilities
 
 **Basic spatial model (D-158):** combat is a separate area between the player's

@@ -3,7 +3,48 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
-## Current round results — D-296
+## Current round results — D-297
+
+- Appended F58–F68 with explicit supersessions; all earlier feedback/provenance
+  remains. Updated 19 existing states and added G09/G10/H04/H05: **41 primary +
+  four continuations = 45 states / 90 captures / 57 PDF pages**. G06 replaces the
+  separate owner submenu with a retained updated action dialog; its historical
+  slug remains stable, with the former edition preserved in Git.
+- Recaptured the 23 changed/new states in both orientations with remote assets
+  blocked, inert bodies/no scripts, loaded local fonts, fitting document widths
+  and ordinary controls at least 48 px/reachable through scroll. The capture tool
+  composes repetition, static Hand pan, timeline offsets and retained-dialog
+  snapshots only; it does not implement native interactions or message reading.
+- Added artifact regressions for login logo, small results label, both readiness
+  icons/green Ready check, compact gaps and actual horizontal overflow/scroll reach
+  to both Hand ends, landscape hands in existing control rows, content-width combat
+  with one-card before/between/after insertion targets, full-row counter circles,
+  exact center reticle/event including endpoints, separate Chat/panel and direct
+  square named icon-only card actions with inline owner/all-color value controls.
+  Existing uniform scale, pile totals, owner, portrait counter predicates, history
+  transport and earlier presentation checks remain enabled.
+- Visually inspected login, search, readiness, live/combat, overflow hands, chat,
+  both timeline endpoints and before/retained card actions in both orientations.
+  Landscape tools stay visible while the direct value column scrolls; the header
+  preview stays visible and reflects owner riley, corner 2/4 and blue counter 3.
+  Setup endpoint uses full libraries without automatically drawn/placed cards.
+  No claim that these snapshots execute a complete game/replay trace.
+- Full HTML/PDF build validates all 45 state IDs/90 images, image dimensions and
+  decoding, phone-width layout and 57 PDF pages. No near-blank PDF pages (minimum
+  217 extracted text characters) or local-file links. JSON, Python syntax, all
+  683 relative documentation links and whitespace checks pass. Primary contracts,
+  state-ownership model, summaries and future T-696–T-702 align; none of those
+  native interaction/gesture/server/accessibility tests were run.
+- Replaced the full HTML/PDF **in place at the exact existing port-8443 URL**.
+  All 45 headings/90 embedded images remain. Verified 123 served artifacts,
+  including every current source/capture plus HTML/PDF/manifest/feedback/styles,
+  return HTTP 200 via the document service and exactly match repository bytes.
+  The service is active; Tailscale still retains the port-8443 document proxy and
+  both original port-443 routes. Host tailnet HTTPS self-connection is still
+  refused, so a phone/other-peer refresh is not independently verified. No route
+  changes, public hosting, cloud edit, app code or passed UI/review/stage gate.
+
+## Previous round results — D-296
 
 - Appended F48–F57 without losing earlier decisions/provenance. P02 field/results
   now share a card; new G07/G08/G08b show the life/player-counter menu and signed
@@ -81,7 +122,7 @@ verification.
   phone/other-peer refresh is not independently verified. No public hosting, route
   change, new cloud generation, application implementation or passed gate.
 
-**Current edition: D-296 cumulative owner-feedback revision**, documented above. The original
+**Current edition: D-297 cumulative owner-feedback revision**, documented above. The original
 pilot/gameplay counts and cloud checks in earlier sections are historical.
 
 - The original pilot has **21 distinct Stitch-generated responsive sources**,

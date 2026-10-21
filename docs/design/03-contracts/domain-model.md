@@ -121,6 +121,14 @@ relative field request/prediction; normal accepted-state reconciliation follows.
 Counter-row visibility, shared card drawing scale and static dock anchors are
 also personal presentation, never an implicit counter edit or pile move.
 
+D-297 Hand panning, combat insertion affordances, timeline centering, open Chat
+panel/local unread indication and card-action preview/scroll/dismissal are also
+personal UI. Empty combat targets are not stored pairs; only a valid completed
+drop issues occurrence edits. Opening/viewing chat sends no read receipt or game
+mutation. Actual chat posts, owner/corner/counter edits and combat drops still go
+through their ordinary server requests; a preview remains a view of predicted/
+accepted state, not an independently authoritative card or hidden-face grant.
+
 Confirmed card-text normalization (D-59/D-249): trim leading and trailing whitespace
 when a card-text/counter edit is completed, including corner text, card labels
 and notes and equivalent player-counter input. Preserve internal whitespace and line

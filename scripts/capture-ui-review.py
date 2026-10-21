@@ -20,6 +20,7 @@ async def compose_table_review(page, screen, orientation):
     """Materialize inert repeated design markup, never application interactions."""
     await page.evaluate('''({id, orientation}) => {
         const active=['G05','G07','G08','G08b','H01','H02'].includes(id);
+        const history=['H01','H02','H04','H05'].includes(id);
         for (const pane of document.querySelectorAll('.zone-person')) {
             const own=pane.classList.contains('own'), name=own?'alex':'riley';
             const life=pane.querySelector('.life-square');
@@ -33,8 +34,10 @@ async def compose_table_review(page, screen, orientation):
                 button.insertAdjacentHTML('beforeend','<span class="delta-preview" aria-label="Uncommitted life delta, plus 3">+3</span>');
             }
             for (const zone of pane.querySelectorAll('.zones button')) {
-                const label=zone.getAttribute('aria-label'), count=Number(zone.querySelector('b').textContent);
+                const label=zone.getAttribute('aria-label');
                 const library=label.includes('Library'), exile=label.includes('Exile');
+                const count=id==='H04'?(library?60:0):Number(zone.querySelector('b').textContent);
+                if (id==='H04') zone.setAttribute('aria-label',label.replace(/[0-9]+ cards/,`${count} cards`));
                 zone.replaceChildren(document.querySelector('#pile-display-template').content.cloneNode(true));
                 zone.classList.add('pile-control');
                 zone.dataset.zone=library?'library':exile?'exile':'graveyard';
@@ -66,8 +69,11 @@ async def compose_table_review(page, screen, orientation):
             const side=document.querySelector('.sidebar');
             side.insertBefore(document.querySelector('.stack'), side.querySelector('.zone-person.own'));
             document.querySelectorAll('.reveal-strip').forEach(e=>document.querySelector('.workspace').append(e));
+            document.querySelector('.top .title').after(document.querySelector('.opponent-hand'));
+            document.querySelector(history?'.bottom.historical-only':'.bottom.live-only')
+                .insertBefore(document.querySelector('.hand'), document.querySelector(history?'.transport':'.quick'));
         }
-        if (['H01','H02'].includes(id)) {
+        if (history) {
             document.querySelectorAll('.zones button,button.life-square,.counter-chip').forEach(e=>{
                 const span=document.createElement('span'); span.className=e.className+' zone-readout';
                 if (e.closest('.zones')) span.classList.add('zone-label');
@@ -76,11 +82,85 @@ async def compose_table_review(page, screen, orientation):
                 e.replaceWith(span);
             });
         }
+        // Empty insertion affordances are not empty persisted combat pairs.
+        const combat=document.querySelector('.combat');
+        for (const slot of [...combat.children]) {
+            for (const [i,footprint] of [...slot.children].entries()) {
+                const side=document.createElement('div'); side.className='combat-side';
+                side.dataset.side=i===0?'blocker':'attacker';
+                footprint.replaceWith(side); side.append(footprint);
+                if (!footprint.children.length) footprint.remove();
+            }
+            combat.insertBefore(document.querySelector('#combat-insertion-template').content.cloneNode(true),slot);
+        }
+        combat.append(document.querySelector('#combat-insertion-template').content.cloneNode(true));
+        combat.setAttribute('aria-label','Open combat, two active paired slots and three new-pair drop targets; blockers above attackers');
+        // Show adaptive width with two blockers sharing the first pair.
+        const firstSide=combat.querySelector('.combat-slot:not(.combat-insert) .combat-side');
+        firstSide.append(firstSide.firstElementChild.cloneNode(true));
+        firstSide.lastElementChild.querySelector('strong').textContent='Ward';
+        // Static direct controls for each card-counter color, not app handlers.
+        for (const color of ['red','blue','green','yellow','purple','gray']) {
+            const fragment=document.querySelector('#card-counter-row-template').content.cloneNode(true);
+            const row=fragment.firstElementChild; row.classList.add(color);
+            row.setAttribute('aria-label',color+' card counter');
+            for (const [i,button] of [...row.querySelectorAll('button')].entries())
+                button.setAttribute('aria-label',[`Increase ${color} card counter by one`,
+                    `Decrease ${color} card counter by one`,`Set ${color} card counter`][i]);
+            if (id==='G06' && color==='blue') row.querySelector('strong').textContent='3';
+            document.querySelector('.card-counter-rows').append(fragment);
+        }
+        if (id==='G06') {
+            const preview=document.querySelector('.card-preview');
+            preview.classList.replace('owner-own','owner-opponent');
+            preview.setAttribute('aria-label','Sentinel, face up, untapped, owner riley, corner text 2/4, blue counter 3');
+            preview.querySelector('.pt').textContent='2/4';
+            document.querySelector('.inline-owners .choose-own').setAttribute('aria-pressed','false');
+            document.querySelector('.inline-owners .choose-opponent').setAttribute('aria-pressed','true');
+            for (const sample of document.querySelectorAll('.corner-sample')) {
+                sample.children[0].textContent='2'; sample.children[1].textContent='4';
+            }
+            document.querySelector('.participant.own .piece').classList.replace('owner-own','owner-opponent');
+            document.querySelector('.participant.own .piece .pt').textContent='2/4';
+        }
+        if (id==='G10') {
+            const cards=document.querySelector('.hand-cards');
+            const examples=[...cards.children];
+            for (let i=3;i<24;i++) cards.append(examples[i%3].cloneNode(true));
+            document.querySelector('.hand').setAttribute('aria-label',"alex's hand, 24 cards, horizontally pannable");
+            document.querySelector('.hand .hand-count').textContent='24';
+            const opponent=document.querySelector('.opponent-hand');
+            for (let i=3;i<24;i++) opponent.insertBefore(opponent.querySelector('.back').cloneNode(true),opponent.querySelector('.hand-count'));
+            opponent.setAttribute('aria-label','riley, covered hand, 24 cards, horizontally pannable');
+            opponent.querySelector('.hand-count').textContent='24';
+        }
+        if (id==='G09') document.querySelector('.chat-button').setAttribute('aria-label','Game chat, no unread messages');
+        if (id==='H04') {
+            document.querySelectorAll('.participant .card-row,.hand-cards').forEach(e=>e.replaceChildren());
+            document.querySelectorAll('.opponent-hand .back').forEach(e=>e.remove());
+            document.querySelectorAll('.hand-count').forEach(e=>e.textContent='0');
+            document.querySelector('.hand').setAttribute('aria-label',"alex's hand, 0 cards");
+            document.querySelector('.opponent-hand').setAttribute('aria-label','riley, covered hand, 0 cards');
+            document.querySelector('.stack-content').remove();
+            document.querySelector('.stack-empty').style.display='flex';
+        }
+        // A fixed center reticle; only the path's static capture offset changes.
+        const track=document.querySelector('.event-track'), viewport=document.createElement('div');
+        viewport.className='event-viewport'; track.replaceWith(viewport); viewport.append(track);
+        viewport.insertAdjacentHTML('beforeend','<span class="selection-square" aria-hidden="true"></span>');
+        const nodes=[...track.querySelectorAll('.event-node')];
+        const selected=id==='H04'?nodes[0]:id==='H05'?nodes.at(-1):track.querySelector(id==='H02'?'.cursor-y':'.cursor-x');
+        selected.setAttribute('aria-current','step');
+        track.style.transform=`translateX(-${selected.offsetLeft+selected.offsetWidth/2}px)`;
+        if (id==='H04' || id==='H05') {
+            document.querySelector('.timeline-label .paused-label').textContent=id==='H04'?'Paused · A · Setup':'Paused · Last · Reveal';
+            track.setAttribute('aria-label',id==='H04'?'Start of event path centered, left half empty':'End of event path centered, right half empty');
+        }
     }''', {'id': screen['id'], 'orientation': orientation})
 
 
 async def validate_owner_revision(page, screen, orientation):
-    """Regression checks for cumulative D-292–D-296 static presentation."""
+    """Regression checks for cumulative D-292–D-297 static presentation."""
     issues = await page.evaluate(r'''({id, orientation}) => {
         const issues = [];
         const visible = e => !!(e && e.getBoundingClientRect().width && e.getBoundingClientRect().height);
@@ -134,6 +214,8 @@ async def validate_owner_revision(page, screen, orientation):
             }
         }
         if (id === 'A01') {
+            const logo=document.querySelector('.form-panel .atw-logo');
+            if (!visible(logo) || !logo.complete || !logo.naturalWidth) issues.push('Missing login ATW logo');
             const card = document.querySelector('.form-panel').getBoundingClientRect();
             if (Math.abs(card.width - 380) > 1 || Math.abs(card.x + card.width/2 - innerWidth/2) > 1)
                 issues.push('Login card changed size or is not centered');
@@ -173,6 +255,11 @@ async def validate_owner_revision(page, screen, orientation):
         if (id==='P02' && document.querySelector('#username-search-input').closest('.section-card') !==
             document.querySelector('#search-results-heading').closest('.section-card'))
             issues.push('Search results separated from search field card');
+        if (id==='P02') {
+            const label=document.querySelector('#search-results-heading');
+            if (/^H[1-6]$/.test(label.tagName) || parseFloat(getComputedStyle(label).fontSize)>13)
+                issues.push('Search results look like another title');
+        }
         if (id === 'D07') {
             const selected = document.querySelector('.segmented [aria-pressed="true"]');
             if (!selected || selected.textContent !== 'Overwrite') issues.push('Import default is not Overwrite');
@@ -191,6 +278,14 @@ async def validate_owner_revision(page, screen, orientation):
             }
         }
         if (['L01','L02','L05','L06'].includes(id)) {
+            const statuses=[...document.querySelectorAll('main .readiness')];
+            if (statuses.length!==2) issues.push('Missing per-player readiness');
+            for (const status of statuses) {
+                const icon=getComputedStyle(status,'::before');
+                if (!icon.fontFamily.includes('Review Symbols') ||
+                    status.dataset.ready==='true' && (!icon.content.includes('check_circle') || icon.color!=='rgb(35, 121, 99)'))
+                    issues.push('Missing colored readiness icon/green Ready check');
+            }
             if (!title || title.textContent.trim()!=='Crackling Mist') issues.push('Lobby game-name title missing');
             if (!document.querySelector('.game-details time')) issues.push('Lobby creation date missing');
             const cancel=document.querySelector('.screen-controls [aria-label="Cancel game"]');
@@ -267,10 +362,66 @@ async def validate_owner_revision(page, screen, orientation):
                     c=side.querySelector('.own').getBoundingClientRect();
                 if (stack.parentElement!==side || b.top<a.bottom-.1 || b.bottom>c.top+.1)
                     issues.push('Landscape Stack not between player info blocks');
+                const hand=document.querySelector('.hand'), bottom=hand.parentElement.getBoundingClientRect(), h=hand.getBoundingClientRect();
+                if (!hand.parentElement.matches('.bottom') || h.top<bottom.top-.1 || h.bottom>bottom.bottom+.1)
+                    issues.push('Landscape own Hand not in bottom action row');
+                if (document.querySelector('.opponent-hand').parentElement!==document.querySelector('.top'))
+                    issues.push('Landscape opponent Hand still occupies battlefield');
             } else {
                 for (const row of document.querySelectorAll('.portrait-dock .counter-row'))
                     if (visible(row)!==(row.dataset.nonzero==='true')) issues.push('Portrait counter-row conditional visibility');
             }
+            for (const row of document.querySelectorAll('.counter-row')) {
+                if (!visible(row)) continue;
+                const chips=[...row.querySelectorAll('.counter-chip')], bounds=row.getBoundingClientRect();
+                const first=chips[0].getBoundingClientRect(), last=chips.at(-1).getBoundingClientRect();
+                if (Math.abs(first.left-bounds.left)>1 || Math.abs(last.right-bounds.right)>1 ||
+                    chips.some(e=>getComputedStyle(e).borderRadius!=='50%'))
+                    issues.push('Counters not circular/spread across entire row');
+            }
+            if (parseFloat(getComputedStyle(document.querySelector('.hand-cards')).gap)>2)
+                issues.push('Hand card gap not compact');
+            if (id==='G10') for (const hand of document.querySelectorAll('.hand-cards,.opponent-hand')) {
+                if (hand.scrollWidth<=hand.clientWidth || getComputedStyle(hand).overflowX!=='auto')
+                    issues.push('Overflowing Hand not horizontally pannable');
+                hand.scrollLeft=hand.scrollWidth;
+                if (hand.scrollLeft<=0) issues.push('Hand cannot reach rightmost cards');
+                hand.scrollLeft=0;
+                if (hand.scrollLeft!==0) issues.push('Hand cannot return to leftmost cards');
+                hand.scrollLeft=48;
+            }
+            if (id==='G02') {
+                const inserts=[...document.querySelectorAll('.combat-insert')], slots=[...document.querySelectorAll('.combat-slot')];
+                if (inserts.length!==3 || slots.some((e,i)=>e.classList.contains('combat-insert')!==(i%2===0)))
+                    issues.push('Combat insertion targets missing before/between/after pairs');
+                for (const slot of slots) {
+                    const sides=[...slot.children].map(e=>e.getBoundingClientRect().width);
+                    if (Math.abs(slot.getBoundingClientRect().width-Math.max(...sides))>1.1)
+                        issues.push('Combat slot stretched beyond card contents');
+                }
+                if (inserts.some(e=>Math.abs(e.getBoundingClientRect().width-(40*.7143+7))>1.1))
+                    issues.push('Empty combat target not one-card width plus tiny margin');
+            }
+            if (['G04','G06'].includes(id)) {
+                const dialog=document.querySelector('.card-action-dialog'), preview=dialog.querySelector('.card-preview');
+                if (!visible(preview) || preview.getBoundingClientRect().top<dialog.getBoundingClientRect().top)
+                    issues.push('Card state preview missing from dialog title corner');
+                if (dialog.querySelectorAll('.card-counter-rows .card-value-row').length!==6 ||
+                    dialog.querySelectorAll('.card-values button').length!==27 ||
+                    dialog.querySelectorAll('.inline-owners button').length!==2)
+                    issues.push('Card +/-/Set or inline owner choices hidden in submenu');
+                for (const button of dialog.querySelectorAll('button')) {
+                    const b=button.getBoundingClientRect();
+                    const text=[...button.childNodes].filter(e=>e.nodeType===Node.TEXT_NODE).map(e=>e.textContent).join('').trim();
+                    if (b.width!==48 || b.height!==48 || text || !button.getAttribute('aria-label'))
+                        issues.push('Card action not square icon-only/named');
+                }
+                if (id==='G06' && (!preview.classList.contains('owner-opponent') || preview.querySelector('.pt').textContent!=='2/4'))
+                    issues.push('Retained card preview not updated');
+            }
+            if (!visible(document.querySelector('.chat-button'))) issues.push('Missing direct game chat button');
+            if (id==='G09' && (!visible(document.querySelector('.chat-panel')) || visible(document.querySelector('.unread-bubble'))))
+                issues.push('Chat panel/read sample not shown');
             if (id==='H03' && (document.querySelector('.intent') || /Continuing from/.test(document.body.innerText)))
                 issues.push('Continuation banner returned');
             if (id==='G05' && orientation==='landscape') {
@@ -282,7 +433,16 @@ async def validate_owner_revision(page, screen, orientation):
                         issues.push('Landscape reveal not between libraries and field');
                 }
             }
-            if (['H01','H02'].includes(id)) {
+            if (['H01','H02','H04','H05'].includes(id)) {
+                const viewport=document.querySelector('.event-viewport').getBoundingClientRect(),
+                    selected=document.querySelector('.event-node[aria-current="step"]').getBoundingClientRect(),
+                    square=document.querySelector('.selection-square').getBoundingClientRect();
+                const center=viewport.left+viewport.width/2;
+                if (Math.abs(selected.left+selected.width/2-center)>.1 || Math.abs(square.left+square.width/2-center)>.1)
+                    issues.push('Timeline selected event/reticle not exactly centered');
+                if (id==='H04' && document.querySelector('[aria-current="step"]')!==document.querySelector('.event-node') ||
+                    id==='H05' && document.querySelector('[aria-current="step"]')!==[...document.querySelectorAll('.event-node')].at(-1))
+                    issues.push('Wrong centered endpoint sample');
                 const icons=new Map(), reverse=new Map();
                 for (const node of document.querySelectorAll('.event-node')) {
                     const type=node.dataset.eventType, icon=node.textContent;
@@ -371,6 +531,11 @@ async def main(screen_ids):
                             document.querySelector('.phase.live-only').setAttribute('aria-label','Phase tracking, Declare attackers');
                         }''')
                 await page.evaluate('document.fonts.ready')
+                if screen['id'] == 'G06':
+                    await page.evaluate('''() => {
+                        const scroll=document.querySelector('.card-action-scroll');
+                        scroll.scrollTop=scroll.scrollHeight;
+                    }''')
                 if screen.get('captureVariant') and orientation == 'landscape':
                     # A static camera framing, not smaller area-specific cards.
                     await page.evaluate('''() => {

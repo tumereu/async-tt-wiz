@@ -91,9 +91,12 @@ card text. Library/Graveyard/Exile controls for both players stay on the left in
 landscape and between participants in portrait. Counts remain visible.
 
 The owner selects a floating own Hand below the land band and above screen-fixed
-bottom controls, independent of board panning, and central combat. D-296 keeps
+bottom controls in portrait, independent of board panning, and central combat.
+D-297 puts the landscape own Hand in the bottom quick-actions row instead.
+D-296 keeps
 Stack central in portrait but between player info in the landscape left sidebar.
-The opponent's top covered Hand and life grouped with special zones remain draft
+The opponent's covered Hand in the existing top control row in landscape, a
+separate top row in portrait, and life grouped with special zones remain draft
 placement proposals. Both orientations must retain usable controls; dense boards
 may need navigation rather than a promise that all cards fit at readable size.
 Horizontal camera bounds stop a still-unspecified card-slot margin beyond the
@@ -119,6 +122,8 @@ All table card representations use one card size at the same zoom: battlefield,
 combat/Stack projections and real cards, Hand/covered Hand, reveals, Library,
 Graveyard and Exile. Do not fit an area by shrinking only its cards or derive card
 size from its row height. Rotation/piles keep the equal horizontal envelope above.
+This equal allocation governs battlefield cards/piles; D-297 compacts Hand gaps
+and combat-side margins without changing the cards' actual dimensions.
 Pan/scroll/reflow when space runs out; deliberately magnified inspection remains
 separate. Dock/Hand anchors can remain screen-fixed while their card drawings use
 the common scale. Camera movement never changes shared placement or pile order.
@@ -135,11 +140,51 @@ Across already-in-scope contents/token searches, the field, results and loading/
 empty/error feedback belong inside the same card/panel (D-296), not a separate
 results card. Search remains local browsing where already permitted and does not
 silently issue a new logged disclosure or add a new search capability.
+D-297 makes the results heading a small subordinate label, not a new title.
+
+### Compact hands and direct card actions — D-297
+
+- Reduce Hand inter-card gaps. Both hands pan horizontally in either direction
+  when content exceeds available width, without shrinking their card scale,
+  clipping unreachable cards or moving/reordering them. Keep leftmost and rightmost
+  entries reachable. Landscape own Hand shares the fixed bottom row with quick
+  actions; Undo/mode and quick controls remain usable. Trial covered opponent Hand
+  in the existing top control row so neither hand takes battlefield height/area.
+  Portrait placement persists. Native accessible navigation must not require a
+  precision swipe; pan-versus-card-drag arbitration retains captured identities.
+- Card Actions exposes applicable actions immediately as square **icon-only**
+  buttons grouped in rows, without category submenus. Corner text exposes direct
+  +/−/Set, including left/right/both slash-pair adjustments; every counter color
+  has direct +/−/Set, including absent counters. Owner choices appear inline, not
+  behind Change owner → chooser. Current text/values and captured scope/count stay
+  visible; all buttons have unambiguous accessible action/target names. Nonnumeric
+  arithmetic stays disabled, not replaced by an initialization route. Existing
+  normal-mode orientation mapping and per-source/occurrence applicability remain.
+- A required Set text editor, inspector or Link endpoint picker completes the
+  chosen action; it is not permission to add intermediate action-category menus.
+  Scrolling the direct controls is permitted when they cannot all fit, especially
+  in landscape/large text; do not shrink ordinary buttons to avoid scrolling.
+- The current review trials a dialog (owner explicitly accepts this alternative
+  to the initial floating-buttons request). Show the context card in a title
+  corner, with its **current permitted visual state**, including orientation,
+  face/cover, owner, corner text and counters. It stays visible while actions
+  scroll and updates with prediction/reconciliation/accepted remote changes.
+  This is a magnified state preview, not a smaller table scale, additional
+  authoritative card or automatic hidden-side inspection. Conceal names/art/text
+  whenever the applicable viewed region/disclosure rules require it.
+- Preserve D-248's captured target IDs: previewing the context card does not
+  retarget a selection after sync/selection changes. Outside tap, top-right X or
+  native Back dismiss without a game edit or cancelling an already-sent edit.
+  Completed corner/counter +/- and Set retain the dialog for repeated edits;
+  successful context Move to Graveyard still dismisses. Other existing per-action
+  lifetimes are not replaced with a universal close/stay rule. G04/G06 show before
+  and retained updated states, not a working editor or authorization to implement.
 
 ### Player values: row, life menu and drag preview — D-296
 
 - Put each player's six-color counter affordances on a row beneath that player's
-  Library/Graveyard/Exile. Landscape keeps the row. In portrait show that player's
+  Library/Graveyard/Exile. D-297 renders these as circles, evenly distributed over
+  the full row, not left-aligned squares. Landscape keeps the row. In portrait show that player's
   row only if at least one value is nonempty and not numeric zero. A negative or
   nonnumeric nonempty value qualifies. Under existing trimming/integer grammar,
   `0`, `+0`, `-0` and zero with leading zeros do not qualify; absent/empty also do
@@ -891,6 +936,14 @@ Confirmed optional communication direction (D-94/D-95):
 1. A table Chat control opens the game-wide conversation. Posting a message is
    ordinary text submission, separate from gameplay publication; play never
    waits for a message or a gameplay Send step.
+   D-297 gives Chat a **separate directly available button** and a panel, not an
+   overflow-only route. Show a bubble for unviewed incoming game-chat messages.
+   This is personal UI state: mark only messages actually presented in the panel
+   as viewed, not hidden/offscreen messages merely because it opened. Own sent
+   echoes do not create unread incoming messages. Do not publish read receipts,
+   presence or gameplay mutations for opening/closing/viewing chat, and do not
+   change the selected historical boundary or fork intent. Existing immutable
+   sent-chat/no-Undo rules persist; this adds no Edit/Delete, mute or alert category.
 2. A group/event context Note/Reply action opens a multiline editor linked to
    that event. Keep these optional text records distinct from card notes and
    pings; text is not required to explain an action. Do not publish unfinished

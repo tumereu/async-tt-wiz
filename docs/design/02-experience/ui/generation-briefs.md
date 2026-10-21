@@ -43,7 +43,7 @@ reveal placement and dense type-icon nodes. New G04–G06 show card actions, tok
 ping/reveals and owner chooser. These are local inert revisions only; all raw
 prompts below are historical, not permission to restore superseded layouts.
 
-**D-296 current revisions:** F48–F57 put every search/results set in one card,
+**D-296 revisions retained:** F48–F57 put every search/results set in one card,
 landscape Stack between side player info, all table cards at one common zoom,
 author-colored type icons with faint effective-group dividers, top-left circular
 special-pile totals and player counters below zones. Portrait per-player rows hide
@@ -56,6 +56,24 @@ tooltips/tutorials; armed play uses the selected state with no Continuing from
 banner and still creates no fork until a first successful mutation. G07/G08/G08b
 are inert player-menu/positive/negative-preview states. Capture-only templates/
 landscape framing are local documentation, not a new Stitch edit or working app.
+
+**D-297 current revisions:** F58–F68 add ATW on login, small label-like search
+results, colored per-player readiness (green check Ready), compact pannable hands
+and landscape own Hand in the quick-action row. Covered opponent Hand is trialed
+in the existing top control row, not taking battlefield space. Combat pair widths
+fit their wider card side plus tiny margins; one-card insertion targets stay
+before/between/after active pairs (one open/empty), without retaining empty shared
+pairs. Player counters are evenly spread circles. Timeline selected event/square
+stays exactly centered, path slides, unused endpoint half stays empty. Chat has a
+separate button/unread bubble and panel, not an overflow-only route or read receipt.
+Card actions are direct grouped square icons, including corner/all counter
++/−/Set and inline owner choices, no category submenus. The latest owner follow-up
+accepts a dialog instead of the initial floating-only preference; retain a visible
+title-corner current-state card preview while actions scroll and support outside/
+native Back/X dismissal with existing action-specific retention. G06 is now the
+retained updated dialog, not a separate owner chooser. G09/G10/H04/H05 add chat,
+overflow hands and centered endpoints. Full same-URL edition, local inert sources
+only; no new cloud generation, application implementation or gate transition.
 
 ## Common prompt
 

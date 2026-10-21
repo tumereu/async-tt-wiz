@@ -3,13 +3,14 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension and cumulative D-292–D-296 revisions, with both orientations: 37 primary
-  drafts plus four continuations, 82 captures total.
+  extension and cumulative D-292–D-297 revisions, with both orientations: 41 primary
+  drafts plus four continuations, 90 captures total.
   N02 shows navigation;
   P03/P04 show context/deletion, D07 contextual import and D08 full inspection.
   P05 adds named creation. G00 is retired provenance, not a current screen;
-  G01–G08/G08b and H01–H03 add live/history, contextual actions, token/ping/reveals
-  and life/player-counter menus and signed drag previews.
+  G01–G10/G08b and H01–H05 add live/history, direct actions/retained card preview,
+  token/ping/reveals, life/player-counter menus/drag previews, chat, overflowing
+  hands and fixed-center timeline endpoints.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
   clarified interactions and remaining geometry proposals.
 - `sources/` retains raw Stitch output and inert review derivatives; `images/`
@@ -21,7 +22,7 @@ These are specification artifacts, not application code or an approved final UI.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - **[Cumulative feedback](feedback.md):** preserve every owner decision across
-  rounds unless explicitly superseded; read before regeneration. F01–F57 apply;
+  rounds unless explicitly superseded; read before regeneration. F01–F68 apply;
   the packet's full-screen copy audit lists further deletion suggestions, not
   silently approved removals. Raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
@@ -115,6 +116,14 @@ attached history transport with retained hold/top continuation routes and no ban
 The source's inert templates are repeated by capture tooling for piles/counter
 rows; landscape Stack placement and camera framing are static composition steps.
 Player menu and +3/−2 preview snapshots are not implemented gesture handling.
+
+D-297 checks add login logo, subordinate search label, two player-readiness icons,
+compact horizontally pannable overflowing hands, landscape hand placement in the
+existing control rows, content-width combat pairs and adjacent insertion targets,
+full-row circular player counters, centered timeline/endpoint examples, direct
+chat/panel and square named icon-only card actions with inline owner/value controls
+and persistent updated state preview. Static scroll/offset/template composition
+is capture tooling, not native pan/drag/dismissal or message-read implementation.
 
 ## Private review hosting
 

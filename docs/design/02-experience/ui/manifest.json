@@ -1,12 +1,12 @@
 {
   "generated": "2026-10-21",
-  "status": "UI review including gameplay and cumulative owner revisions D-292\u2013D-296; obsolete G00 retired",
+  "status": "UI review including gameplay and cumulative owner revisions D-292\u2013D-297; obsolete G00 retired",
   "currentFeedback": "feedback.md",
   "ownerRevision": {
-    "decision": "D-296 (retains D-292\u2013D-295 except explicit supersessions)",
-    "scope": "Cumulative F01\u2013F57: search field/results in one card; landscape sidebar Stack between player info; one card zoom everywhere; author-colored timeline/group dividers; top-left circular pile totals; player-counter row/portrait condition and life menu/release-only delta drags; labeled attached history transport with hold-to-continue shortcut; no continuation banner.",
+    "decision": "D-297 (retains D-292\u2013D-296 except explicit supersessions)",
+    "scope": "Cumulative F01\u2013F68: login logo, subordinate search label, per-player colored readiness, compact pannable hands/landscape bottom-row own Hand and top-row opponent trial, content-width combat/new-pair drop targets, evenly spread circular player counters, fixed-center timeline/endpoints, direct chat/unread panel, direct square icon card actions with inline owner choices and persistent current-state preview.",
     "provenance": "Local inert design revisions, not a new Stitch/cloud edit. Historical per-screen briefs and raw original/revision sources below describe the earlier generation, not current requirements; feedback.md and review.md take precedence.",
-    "newLocalSource": "table-round4.html with cumulative table-round5.css and inert repetition templates; documentation capture materializes piles/counter rows and static camera/variant framing, not application behavior. G07/G08/G08b add player menu and positive/negative drag-preview endpoints. Prior editions remain in Git/cloud provenance; no new cloud generation."
+    "newLocalSource": "table-round4.html with cumulative table-round5.css/table-round6.css and inert repetition templates. Capture tooling only materializes static compositions. G06 replaces the separate owner submenu with a retained updated dialog; G09/G10/H04/H05 add chat, overflow hands and timeline endpoints. Prior editions remain in Git/cloud provenance; no new cloud generation."
   },
   "stitchProject": "6617750535460836476",
   "viewports": {
@@ -29,6 +29,1454 @@
     }
   ],
   "screens": [
+    {
+      "id": "G09",
+      "slug": "gameplay-chat",
+      "title": "Game chat panel",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G09",
+      "derivation": "D-297 local inert game-wide chat panel, separate direct button; personal unread bubble pictured on closed-panel states.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 190,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, no unread messages",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close game chat",
+              "x": 343,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Send game chat message",
+              "x": 343,
+              "y": 823,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 670,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, no unread messages",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 64,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 116,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 168,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 220,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 272,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 64,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 116,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 168,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 220,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 272,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 762,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close game chat",
+              "x": 823,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Send game chat message",
+              "x": 823,
+              "y": 343,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "G10",
+      "slug": "gameplay-hand-overflow",
+      "title": "Overflowing horizontally pannable hands",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G10",
+      "derivation": "D-297 local inert 24-card hand examples, static mid-pan framing; landscape own Hand in action row, covered opponent Hand trial in top row.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 190,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 670,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 64,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 116,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 168,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 220,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 272,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 64,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 116,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 168,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 220,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 272,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 762,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "H04",
+      "slug": "gameplay-history-start",
+      "title": "History start centered",
+      "source": "sources/table-round4.html",
+      "captureVariant": "H01",
+      "derivation": "D-297 static first-event center anchoring with empty left half.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 240,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Return to live",
+              "x": 298,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Play",
+              "x": 58,
+              "y": 840,
+              "width": 296,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 354,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 720,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Return to live",
+              "x": 778,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 474,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Play",
+              "x": 522,
+              "y": 362,
+              "width": 300,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 822,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "H05",
+      "slug": "gameplay-history-end",
+      "title": "History end centered",
+      "source": "sources/table-round4.html",
+      "captureVariant": "H01",
+      "derivation": "D-297 static final-event center anchoring with empty right half.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 240,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Return to live",
+              "x": 298,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Play",
+              "x": 58,
+              "y": 840,
+              "width": 296,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 354,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Continue playing from here",
+              "x": 720,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Return to live",
+              "x": 778,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Previous",
+              "x": 474,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Play",
+              "x": 522,
+              "y": 362,
+              "width": 300,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Next",
+              "x": 822,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "G07",
       "slug": "gameplay-player-actions",
@@ -63,7 +1511,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -73,6 +1521,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -183,7 +1641,7 @@
             },
             {
               "text": "3",
-              "x": 61,
+              "x": 64,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -193,7 +1651,7 @@
             },
             {
               "text": "\u2014",
-              "x": 112,
+              "x": 119,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -203,7 +1661,7 @@
             },
             {
               "text": "\u2014",
-              "x": 163,
+              "x": 173,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -213,7 +1671,7 @@
             },
             {
               "text": "\u2014",
-              "x": 214,
+              "x": 228,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -223,7 +1681,7 @@
             },
             {
               "text": "0",
-              "x": 265,
+              "x": 282,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -519,7 +1977,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -529,6 +1987,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -599,7 +2067,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -609,7 +2077,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -619,7 +2087,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -629,7 +2097,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -639,7 +2107,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -709,7 +2177,7 @@
             },
             {
               "text": "3",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -719,7 +2187,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -729,7 +2197,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -739,7 +2207,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -749,7 +2217,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -769,7 +2237,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -1045,7 +2513,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -1055,6 +2523,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -1165,7 +2643,7 @@
             },
             {
               "text": "3",
-              "x": 61,
+              "x": 64,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1175,7 +2653,7 @@
             },
             {
               "text": "\u2014",
-              "x": 112,
+              "x": 119,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1185,7 +2663,7 @@
             },
             {
               "text": "\u2014",
-              "x": 163,
+              "x": 173,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1195,7 +2673,7 @@
             },
             {
               "text": "\u2014",
-              "x": 214,
+              "x": 228,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1205,7 +2683,7 @@
             },
             {
               "text": "0",
-              "x": 265,
+              "x": 282,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1281,7 +2759,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -1291,6 +2769,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -1361,7 +2849,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1371,7 +2859,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1381,7 +2869,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1391,7 +2879,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1401,7 +2889,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1471,7 +2959,7 @@
             },
             {
               "text": "3",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -1481,7 +2969,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -1491,7 +2979,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -1501,7 +2989,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -1511,7 +2999,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -1531,7 +3019,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -1587,7 +3075,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -1597,6 +3085,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -1707,7 +3205,7 @@
             },
             {
               "text": "3\n\u22122",
-              "x": 61,
+              "x": 64,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1717,7 +3215,7 @@
             },
             {
               "text": "\u2014",
-              "x": 112,
+              "x": 119,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1727,7 +3225,7 @@
             },
             {
               "text": "\u2014",
-              "x": 163,
+              "x": 173,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1737,7 +3235,7 @@
             },
             {
               "text": "\u2014",
-              "x": 214,
+              "x": 228,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1747,7 +3245,7 @@
             },
             {
               "text": "0",
-              "x": 265,
+              "x": 282,
               "y": 401,
               "width": 48,
               "height": 48,
@@ -1823,7 +3321,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -1833,6 +3331,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -1903,7 +3411,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1913,7 +3421,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1923,7 +3431,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1933,7 +3441,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -1943,7 +3451,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -2013,7 +3521,7 @@
             },
             {
               "text": "3\n\u22122",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2023,7 +3531,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2033,7 +3541,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2043,7 +3551,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2053,7 +3561,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2073,7 +3581,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -2101,7 +3609,7 @@
       "title": "Card context actions",
       "source": "sources/table-round4.html",
       "captureVariant": "G04",
-      "derivation": "D-295 local inert normal card action menu; Change owner added, existing actions retained.",
+      "derivation": "D-295 original card action example, revised D-297 to direct grouped square icons, inline owner/corner/all counter controls and persistent current-state preview; no category submenus.",
       "audit": {
         "portrait": {
           "documentWidth": 412,
@@ -2129,7 +3637,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -2139,6 +3647,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -2280,7 +3798,7 @@
             {
               "text": "Close card actions",
               "x": 336,
-              "y": 269,
+              "y": 46,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -2290,78 +3808,68 @@
             {
               "text": "Inspect",
               "x": 28,
-              "y": 325,
-              "width": 177,
+              "y": 144,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Inspect other side",
-              "x": 207,
-              "y": 325,
-              "width": 177,
+              "text": "Inspect other side, logged viewing",
+              "x": 105,
+              "y": 144,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library top",
+              "text": "Turn face down",
+              "x": 182,
+              "y": 144,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Library top",
+              "x": 259,
+              "y": 144,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Library bottom",
+              "x": 336,
+              "y": 144,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Graveyard",
               "x": 28,
-              "y": 375,
-              "width": 177,
+              "y": 196,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library bottom",
-              "x": 207,
-              "y": 375,
-              "width": 177,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Graveyard",
-              "x": 28,
-              "y": 425,
-              "width": 177,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile",
-              "x": 207,
-              "y": 425,
-              "width": 177,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Change owner",
-              "x": 28,
-              "y": 475,
-              "width": 177,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Card text / counters",
-              "x": 207,
-              "y": 475,
-              "width": 177,
+              "text": "Move to Exile",
+              "x": 105,
+              "y": 196,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -2369,19 +3877,19 @@
             },
             {
               "text": "Clone",
-              "x": 28,
-              "y": 525,
-              "width": 177,
+              "x": 182,
+              "y": 196,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Link",
-              "x": 207,
-              "y": 525,
-              "width": 177,
+              "text": "Link, select another endpoint",
+              "x": 259,
+              "y": 196,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -2389,19 +3897,339 @@
             },
             {
               "text": "Ping",
-              "x": 28,
-              "y": 575,
-              "width": 177,
+              "x": 336,
+              "y": 196,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Stack effect",
-              "x": 207,
-              "y": 575,
-              "width": 177,
+              "text": "Add Stack effect",
+              "x": 28,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare attacker without tapping",
+              "x": 105,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Reset corner text",
+              "x": 182,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "rotate_90_degrees_cw",
+              "x": 259,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to alex",
+              "x": 284,
+              "y": 313,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to riley",
+              "x": 336,
+              "y": 313,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase left corner number by one",
+              "x": 232,
+              "y": 372,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease left corner number by one",
+              "x": 284,
+              "y": 372,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 336,
+              "y": 372,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase right corner number by one",
+              "x": 232,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease right corner number by one",
+              "x": 284,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 336,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase both corner numbers by one",
+              "x": 232,
+              "y": 478,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease both corner numbers by one",
+              "x": 284,
+              "y": 478,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 336,
+              "y": 478,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase red card counter by one",
+              "x": 232,
+              "y": 531,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease red card counter by one",
+              "x": 284,
+              "y": 531,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set red card counter",
+              "x": 336,
+              "y": 531,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase blue card counter by one",
+              "x": 232,
+              "y": 584,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease blue card counter by one",
+              "x": 284,
+              "y": 584,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set blue card counter",
+              "x": 336,
+              "y": 584,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase green card counter by one",
+              "x": 232,
+              "y": 637,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease green card counter by one",
+              "x": 284,
+              "y": 637,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set green card counter",
+              "x": 336,
+              "y": 637,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase yellow card counter by one",
+              "x": 232,
+              "y": 690,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease yellow card counter by one",
+              "x": 284,
+              "y": 690,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set yellow card counter",
+              "x": 336,
+              "y": 690,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase purple card counter by one",
+              "x": 232,
+              "y": 743,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease purple card counter by one",
+              "x": 284,
+              "y": 743,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set purple card counter",
+              "x": 336,
+              "y": 743,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase gray card counter by one",
+              "x": 232,
+              "y": 796,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease gray card counter by one",
+              "x": 284,
+              "y": 796,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set gray card counter",
+              "x": 336,
+              "y": 796,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -2435,7 +4263,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -2445,6 +4273,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -2515,7 +4353,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -2525,7 +4363,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -2535,7 +4373,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -2545,7 +4383,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -2555,7 +4393,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -2625,7 +4463,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2635,7 +4473,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2645,7 +4483,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2655,7 +4493,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2665,7 +4503,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -2685,7 +4523,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -2705,8 +4543,8 @@
             },
             {
               "text": "Close card actions",
-              "x": 656,
-              "y": 79,
+              "x": 766,
+              "y": 28,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -2715,123 +4553,433 @@
             },
             {
               "text": "Inspect",
-              "x": 188,
-              "y": 135,
-              "width": 171,
+              "x": 78,
+              "y": 126,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Inspect other side",
-              "x": 361,
-              "y": 135,
-              "width": 171,
+              "text": "Inspect other side, logged viewing",
+              "x": 156,
+              "y": 126,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Library top",
-              "x": 533,
-              "y": 135,
-              "width": 171,
+              "text": "Turn face down",
+              "x": 234,
+              "y": 126,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Library bottom",
-              "x": 188,
-              "y": 185,
-              "width": 171,
+              "text": "Move to Library top",
+              "x": 312,
+              "y": 126,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Graveyard",
-              "x": 361,
-              "y": 185,
-              "width": 171,
+              "text": "Move to Library bottom",
+              "x": 390,
+              "y": 126,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Exile",
-              "x": 533,
-              "y": 185,
-              "width": 171,
+              "text": "Move to Graveyard",
+              "x": 78,
+              "y": 178,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Change owner",
-              "x": 188,
-              "y": 235,
-              "width": 171,
+              "text": "Move to Exile",
+              "x": 156,
+              "y": 178,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Card text / counters",
-              "x": 361,
-              "y": 235,
-              "width": 171,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Clone",
-              "x": 533,
-              "y": 235,
-              "width": 171,
+              "x": 234,
+              "y": 178,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Link",
-              "x": 188,
-              "y": 285,
-              "width": 171,
+              "text": "Link, select another endpoint",
+              "x": 312,
+              "y": 178,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Ping",
-              "x": 361,
-              "y": 285,
-              "width": 171,
+              "x": 390,
+              "y": 178,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Stack effect",
-              "x": 533,
-              "y": 285,
-              "width": 171,
+              "text": "Add Stack effect",
+              "x": 78,
+              "y": 230,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
+            },
+            {
+              "text": "Declare attacker without tapping",
+              "x": 156,
+              "y": 230,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Reset corner text",
+              "x": 234,
+              "y": 230,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "rotate_90_degrees_cw",
+              "x": 312,
+              "y": 230,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to alex",
+              "x": 338,
+              "y": 295,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to riley",
+              "x": 390,
+              "y": 295,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase left corner number by one",
+              "x": 662,
+              "y": 129,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease left corner number by one",
+              "x": 714,
+              "y": 129,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 766,
+              "y": 129,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase right corner number by one",
+              "x": 662,
+              "y": 182,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease right corner number by one",
+              "x": 714,
+              "y": 182,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 766,
+              "y": 182,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase both corner numbers by one",
+              "x": 662,
+              "y": 235,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease both corner numbers by one",
+              "x": 714,
+              "y": 235,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 766,
+              "y": 235,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase red card counter by one",
+              "x": 662,
+              "y": 288,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease red card counter by one",
+              "x": 714,
+              "y": 288,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set red card counter",
+              "x": 766,
+              "y": 288,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase blue card counter by one",
+              "x": 662,
+              "y": 341,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease blue card counter by one",
+              "x": 714,
+              "y": 341,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set blue card counter",
+              "x": 766,
+              "y": 341,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase green card counter by one",
+              "x": 662,
+              "y": 394,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Decrease green card counter by one",
+              "x": 714,
+              "y": 394,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Set green card counter",
+              "x": 766,
+              "y": 394,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Increase yellow card counter by one",
+              "x": 662,
+              "y": 447,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Decrease yellow card counter by one",
+              "x": 714,
+              "y": 447,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Set yellow card counter",
+              "x": 766,
+              "y": 447,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Increase purple card counter by one",
+              "x": 662,
+              "y": 500,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Decrease purple card counter by one",
+              "x": 714,
+              "y": 500,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Set purple card counter",
+              "x": 766,
+              "y": 500,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Increase gray card counter by one",
+              "x": 662,
+              "y": 553,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Decrease gray card counter by one",
+              "x": 714,
+              "y": 553,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Set gray card counter",
+              "x": 766,
+              "y": 553,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
             }
           ]
         }
@@ -2871,7 +5019,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -2881,6 +5029,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -2991,7 +5149,7 @@
             },
             {
               "text": "3",
-              "x": 61,
+              "x": 64,
               "y": 457,
               "width": 48,
               "height": 48,
@@ -3001,7 +5159,7 @@
             },
             {
               "text": "\u2014",
-              "x": 112,
+              "x": 119,
               "y": 457,
               "width": 48,
               "height": 48,
@@ -3011,7 +5169,7 @@
             },
             {
               "text": "\u2014",
-              "x": 163,
+              "x": 173,
               "y": 457,
               "width": 48,
               "height": 48,
@@ -3021,7 +5179,7 @@
             },
             {
               "text": "\u2014",
-              "x": 214,
+              "x": 228,
               "y": 457,
               "width": 48,
               "height": 48,
@@ -3031,7 +5189,7 @@
             },
             {
               "text": "0",
-              "x": 265,
+              "x": 282,
               "y": 457,
               "width": 48,
               "height": 48,
@@ -3107,7 +5265,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -3117,6 +5275,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -3187,7 +5355,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3197,7 +5365,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3207,7 +5375,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3217,7 +5385,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3227,7 +5395,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3297,7 +5465,7 @@
             },
             {
               "text": "3",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3307,7 +5475,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3317,7 +5485,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3327,7 +5495,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3337,7 +5505,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3357,7 +5525,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -3382,10 +5550,10 @@
     {
       "id": "G06",
       "slug": "gameplay-owner-choice",
-      "title": "Change owner choice",
+      "title": "Retained updated card actions",
       "source": "sources/table-round4.html",
       "captureVariant": "G06",
-      "derivation": "D-295 local inert two-participant owner chooser; colored identity squares with accessible participant names.",
+      "derivation": "D-297 supersedes the separate D-295 owner chooser: retained dialog after owner/corner/counter edits, persistent current-state preview and scrolled direct values; prior edition remains in Git.",
       "audit": {
         "portrait": {
           "documentWidth": 412,
@@ -3413,7 +5581,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -3423,6 +5591,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -3562,9 +5740,9 @@
               "inViewport": true
             },
             {
-              "text": "Close owner choice",
+              "text": "Close card actions",
               "x": 336,
-              "y": 394,
+              "y": 46,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -3572,20 +5750,430 @@
               "inViewport": true
             },
             {
-              "text": "person\ncheck",
+              "text": "Inspect",
               "x": 28,
-              "y": 450,
-              "width": 174,
+              "y": 144,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "person",
-              "x": 210,
-              "y": 450,
-              "width": 174,
+              "text": "Inspect other side, logged viewing",
+              "x": 105,
+              "y": 144,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Turn face down",
+              "x": 182,
+              "y": 144,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Library top",
+              "x": 259,
+              "y": 144,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Library bottom",
+              "x": 336,
+              "y": 144,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Graveyard",
+              "x": 28,
+              "y": 196,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Exile",
+              "x": 105,
+              "y": 196,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Clone",
+              "x": 182,
+              "y": 196,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Link, select another endpoint",
+              "x": 259,
+              "y": 196,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ping",
+              "x": 336,
+              "y": 196,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Add Stack effect",
+              "x": 28,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare attacker without tapping",
+              "x": 105,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Reset corner text",
+              "x": 182,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "rotate_90_degrees_cw",
+              "x": 259,
+              "y": 248,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to alex",
+              "x": 284,
+              "y": 313,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to riley",
+              "x": 336,
+              "y": 313,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase left corner number by one",
+              "x": 232,
+              "y": 372,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease left corner number by one",
+              "x": 284,
+              "y": 372,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 336,
+              "y": 372,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase right corner number by one",
+              "x": 232,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease right corner number by one",
+              "x": 284,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 336,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase both corner numbers by one",
+              "x": 232,
+              "y": 478,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease both corner numbers by one",
+              "x": 284,
+              "y": 478,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 336,
+              "y": 478,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase red card counter by one",
+              "x": 232,
+              "y": 531,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease red card counter by one",
+              "x": 284,
+              "y": 531,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set red card counter",
+              "x": 336,
+              "y": 531,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase blue card counter by one",
+              "x": 232,
+              "y": 584,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease blue card counter by one",
+              "x": 284,
+              "y": 584,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set blue card counter",
+              "x": 336,
+              "y": 584,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase green card counter by one",
+              "x": 232,
+              "y": 637,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease green card counter by one",
+              "x": 284,
+              "y": 637,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set green card counter",
+              "x": 336,
+              "y": 637,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase yellow card counter by one",
+              "x": 232,
+              "y": 690,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease yellow card counter by one",
+              "x": 284,
+              "y": 690,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set yellow card counter",
+              "x": 336,
+              "y": 690,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase purple card counter by one",
+              "x": 232,
+              "y": 743,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease purple card counter by one",
+              "x": 284,
+              "y": 743,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set purple card counter",
+              "x": 336,
+              "y": 743,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Increase gray card counter by one",
+              "x": 232,
+              "y": 796,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease gray card counter by one",
+              "x": 284,
+              "y": 796,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set gray card counter",
+              "x": 336,
+              "y": 796,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -3619,7 +6207,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -3629,6 +6217,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -3699,7 +6297,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3709,7 +6307,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3719,7 +6317,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3729,7 +6327,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3739,7 +6337,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -3809,7 +6407,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3819,7 +6417,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3829,7 +6427,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3839,7 +6437,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3849,7 +6447,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -3869,7 +6467,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -3888,9 +6486,9 @@
               "inViewport": true
             },
             {
-              "text": "Close owner choice",
-              "x": 656,
-              "y": 154,
+              "text": "Close card actions",
+              "x": 766,
+              "y": 28,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -3898,23 +6496,433 @@
               "inViewport": true
             },
             {
-              "text": "person\ncheck",
-              "x": 188,
-              "y": 210,
-              "width": 254,
+              "text": "Inspect",
+              "x": 78,
+              "y": 126,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "person",
-              "x": 450,
-              "y": 210,
-              "width": 254,
+              "text": "Inspect other side, logged viewing",
+              "x": 156,
+              "y": 126,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
-              "scrollAncestor": false,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Turn face down",
+              "x": 234,
+              "y": 126,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Library top",
+              "x": 312,
+              "y": 126,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Library bottom",
+              "x": 390,
+              "y": 126,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Graveyard",
+              "x": 78,
+              "y": 178,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Move to Exile",
+              "x": 156,
+              "y": 178,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Clone",
+              "x": 234,
+              "y": 178,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Link, select another endpoint",
+              "x": 312,
+              "y": 178,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Ping",
+              "x": 390,
+              "y": 178,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Add Stack effect",
+              "x": 78,
+              "y": 230,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Declare attacker without tapping",
+              "x": 156,
+              "y": 230,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Reset corner text",
+              "x": 234,
+              "y": 230,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "rotate_90_degrees_cw",
+              "x": 312,
+              "y": 230,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to alex",
+              "x": 338,
+              "y": 295,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set Sentinel owner to riley",
+              "x": 390,
+              "y": 295,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase left corner number by one",
+              "x": 662,
+              "y": -90,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Decrease left corner number by one",
+              "x": 714,
+              "y": -90,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Set corner text",
+              "x": 766,
+              "y": -90,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Increase right corner number by one",
+              "x": 662,
+              "y": -37,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Decrease right corner number by one",
+              "x": 714,
+              "y": -37,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Set corner text",
+              "x": 766,
+              "y": -37,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Increase both corner numbers by one",
+              "x": 662,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease both corner numbers by one",
+              "x": 714,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set corner text",
+              "x": 766,
+              "y": 16,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase red card counter by one",
+              "x": 662,
+              "y": 69,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease red card counter by one",
+              "x": 714,
+              "y": 69,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set red card counter",
+              "x": 766,
+              "y": 69,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase blue card counter by one",
+              "x": 662,
+              "y": 122,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease blue card counter by one",
+              "x": 714,
+              "y": 122,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set blue card counter",
+              "x": 766,
+              "y": 122,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase green card counter by one",
+              "x": 662,
+              "y": 175,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease green card counter by one",
+              "x": 714,
+              "y": 175,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set green card counter",
+              "x": 766,
+              "y": 175,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase yellow card counter by one",
+              "x": 662,
+              "y": 228,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease yellow card counter by one",
+              "x": 714,
+              "y": 228,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set yellow card counter",
+              "x": 766,
+              "y": 228,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase purple card counter by one",
+              "x": 662,
+              "y": 281,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease purple card counter by one",
+              "x": 714,
+              "y": 281,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set purple card counter",
+              "x": 766,
+              "y": 281,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Increase gray card counter by one",
+              "x": 662,
+              "y": 334,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Decrease gray card counter by one",
+              "x": 714,
+              "y": 334,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set gray card counter",
+              "x": 766,
+              "y": 334,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
               "inViewport": true
             }
           ]
@@ -5671,7 +8679,7 @@
             {
               "text": "name@example.com",
               "x": 37,
-              "y": 355,
+              "y": 419,
               "width": 338,
               "height": 48,
               "minimumWidth": 48,
@@ -5681,7 +8689,7 @@
             {
               "text": "Enter your password",
               "x": 37,
-              "y": 437,
+              "y": 501,
               "width": 338,
               "height": 48,
               "minimumWidth": 48,
@@ -5691,7 +8699,7 @@
             {
               "text": "visibility",
               "x": 327,
-              "y": 437,
+              "y": 501,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -5701,7 +8709,7 @@
             {
               "text": "Sign in",
               "x": 37,
-              "y": 526,
+              "y": 590,
               "width": 338,
               "height": 48,
               "minimumWidth": 48,
@@ -5711,7 +8719,7 @@
             {
               "text": "Create account",
               "x": 131,
-              "y": 595,
+              "y": 659,
               "width": 150,
               "height": 48,
               "minimumWidth": 48,
@@ -5721,7 +8729,7 @@
             {
               "text": "Forgot password?",
               "x": 122,
-              "y": 647,
+              "y": 711,
               "width": 168,
               "height": 48,
               "minimumWidth": 48,
@@ -5747,7 +8755,7 @@
             {
               "text": "name@example.com",
               "x": 277,
-              "y": 195,
+              "y": 323,
               "width": 338,
               "height": 48,
               "minimumWidth": 48,
@@ -5757,27 +8765,27 @@
             {
               "text": "Enter your password",
               "x": 277,
-              "y": 277,
+              "y": 405,
               "width": 338,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": true,
-              "inViewport": true
+              "inViewport": false
             },
             {
               "text": "visibility",
               "x": 567,
-              "y": 277,
+              "y": 405,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": true,
-              "inViewport": true
+              "inViewport": false
             },
             {
               "text": "Sign in",
               "x": 277,
-              "y": 366,
+              "y": 494,
               "width": 338,
               "height": 48,
               "minimumWidth": 48,
@@ -5787,7 +8795,7 @@
             {
               "text": "Create account",
               "x": 375,
-              "y": 435,
+              "y": 563,
               "width": 142,
               "height": 48,
               "minimumWidth": 48,
@@ -5797,7 +8805,7 @@
             {
               "text": "Forgot password?",
               "x": 366,
-              "y": 487,
+              "y": 615,
               "width": 160,
               "height": 48,
               "minimumWidth": 48,
@@ -6974,7 +9982,7 @@
             {
               "text": "Add contact",
               "x": 223,
-              "y": 232,
+              "y": 228,
               "width": 143,
               "height": 48,
               "minimumWidth": 48,
@@ -6984,7 +9992,7 @@
             {
               "text": "Invite",
               "x": 267,
-              "y": 400,
+              "y": 396,
               "width": 99,
               "height": 48,
               "minimumWidth": 48,
@@ -6994,7 +10002,7 @@
             {
               "text": "Invite",
               "x": 267,
-              "y": 474,
+              "y": 470,
               "width": 99,
               "height": 48,
               "minimumWidth": 48,
@@ -7110,7 +10118,7 @@
             {
               "text": "Add contact",
               "x": 379,
-              "y": 210,
+              "y": 206,
               "width": 143,
               "height": 48,
               "minimumWidth": 48,
@@ -8976,7 +11984,7 @@
             {
               "text": "Change deck",
               "x": 29,
-              "y": 198,
+              "y": 203,
               "width": 173,
               "height": 48,
               "minimumWidth": 48,
@@ -8986,7 +11994,7 @@
             {
               "text": "Prepare deck",
               "x": 210,
-              "y": 198,
+              "y": 203,
               "width": 173,
               "height": 48,
               "minimumWidth": 48,
@@ -8996,7 +12004,7 @@
             {
               "text": "Reinvite",
               "x": 29,
-              "y": 358,
+              "y": 368,
               "width": 119,
               "height": 48,
               "minimumWidth": 48,
@@ -9006,7 +12014,7 @@
             {
               "text": "alex",
               "x": 29,
-              "y": 476,
+              "y": 486,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -9016,7 +12024,7 @@
             {
               "text": "riley",
               "x": 148,
-              "y": 476,
+              "y": 486,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -9026,7 +12034,7 @@
             {
               "text": "Random",
               "x": 268,
-              "y": 476,
+              "y": 486,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -9138,7 +12146,7 @@
             {
               "text": "Change deck",
               "x": 249,
-              "y": 198,
+              "y": 203,
               "width": 140,
               "height": 60,
               "minimumWidth": 48,
@@ -9148,7 +12156,7 @@
             {
               "text": "Prepare deck",
               "x": 397,
-              "y": 198,
+              "y": 203,
               "width": 140,
               "height": 60,
               "minimumWidth": 48,
@@ -9158,7 +12166,7 @@
             {
               "text": "Reinvite",
               "x": 575,
-              "y": 177,
+              "y": 182,
               "width": 119,
               "height": 48,
               "minimumWidth": 48,
@@ -9168,7 +12176,7 @@
             {
               "text": "alex",
               "x": 575,
-              "y": 295,
+              "y": 300,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -9178,7 +12186,7 @@
             {
               "text": "riley",
               "x": 672,
-              "y": 295,
+              "y": 300,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -9188,7 +12196,7 @@
             {
               "text": "Random",
               "x": 770,
-              "y": 295,
+              "y": 300,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -9262,7 +12270,7 @@
             {
               "text": "Choose deck",
               "x": 29,
-              "y": 180,
+              "y": 185,
               "width": 154,
               "height": 48,
               "minimumWidth": 48,
@@ -9272,7 +12280,7 @@
             {
               "text": "alex",
               "x": 29,
-              "y": 380,
+              "y": 390,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -9282,7 +12290,7 @@
             {
               "text": "riley",
               "x": 148,
-              "y": 380,
+              "y": 390,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -9292,7 +12300,7 @@
             {
               "text": "Random",
               "x": 268,
-              "y": 380,
+              "y": 390,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -9404,7 +12412,7 @@
             {
               "text": "Choose deck",
               "x": 249,
-              "y": 180,
+              "y": 185,
               "width": 154,
               "height": 48,
               "minimumWidth": 48,
@@ -9414,7 +12422,7 @@
             {
               "text": "alex",
               "x": 575,
-              "y": 217,
+              "y": 222,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -9424,7 +12432,7 @@
             {
               "text": "riley",
               "x": 672,
-              "y": 217,
+              "y": 222,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -9434,7 +12442,7 @@
             {
               "text": "Random",
               "x": 770,
-              "y": 217,
+              "y": 222,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -10195,7 +13203,7 @@
             {
               "text": "Change deck",
               "x": 29,
-              "y": 198,
+              "y": 203,
               "width": 173,
               "height": 48,
               "minimumWidth": 48,
@@ -10205,7 +13213,7 @@
             {
               "text": "Prepare deck",
               "x": 210,
-              "y": 198,
+              "y": 203,
               "width": 173,
               "height": 48,
               "minimumWidth": 48,
@@ -10215,7 +13223,7 @@
             {
               "text": "alex",
               "x": 29,
-              "y": 398,
+              "y": 408,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -10225,7 +13233,7 @@
             {
               "text": "riley",
               "x": 148,
-              "y": 398,
+              "y": 408,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -10235,7 +13243,7 @@
             {
               "text": "Random",
               "x": 268,
-              "y": 398,
+              "y": 408,
               "width": 115,
               "height": 48,
               "minimumWidth": 48,
@@ -10347,7 +13355,7 @@
             {
               "text": "Change deck",
               "x": 249,
-              "y": 198,
+              "y": 203,
               "width": 140,
               "height": 60,
               "minimumWidth": 48,
@@ -10357,7 +13365,7 @@
             {
               "text": "Prepare deck",
               "x": 397,
-              "y": 198,
+              "y": 203,
               "width": 140,
               "height": 60,
               "minimumWidth": 48,
@@ -10367,7 +13375,7 @@
             {
               "text": "alex",
               "x": 575,
-              "y": 217,
+              "y": 222,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -10377,7 +13385,7 @@
             {
               "text": "riley",
               "x": 672,
-              "y": 217,
+              "y": 222,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -10387,7 +13395,7 @@
             {
               "text": "Random",
               "x": 770,
-              "y": 217,
+              "y": 222,
               "width": 93,
               "height": 48,
               "minimumWidth": 48,
@@ -10676,7 +13684,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -10686,6 +13694,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -10862,7 +13880,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -10872,6 +13890,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -10942,7 +13970,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -10952,7 +13980,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -10962,7 +13990,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -10972,7 +14000,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -10982,7 +14010,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11052,7 +14080,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11062,7 +14090,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11072,7 +14100,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11082,7 +14110,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11092,7 +14120,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11112,7 +14140,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -11197,7 +14225,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -11207,6 +14235,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -11373,7 +14411,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -11383,6 +14421,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -11453,7 +14501,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11463,7 +14511,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11473,7 +14521,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11483,7 +14531,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11493,7 +14541,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11563,7 +14611,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11573,7 +14621,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11583,7 +14631,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11593,7 +14641,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11603,7 +14651,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -11623,7 +14671,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -11706,7 +14754,7 @@
             },
             {
               "text": "Attack",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -11716,6 +14764,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -11777,7 +14835,7 @@
             {
               "text": "20",
               "x": 10,
-              "y": 460,
+              "y": 440,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -11787,7 +14845,7 @@
             {
               "text": "50",
               "x": 64,
-              "y": 456,
+              "y": 436,
               "width": 87,
               "height": 56,
               "minimumWidth": 48,
@@ -11797,7 +14855,7 @@
             {
               "text": "Guide\nshield\nGuide\nshield\n2",
               "x": 153,
-              "y": 456,
+              "y": 436,
               "width": 87,
               "height": 56,
               "minimumWidth": 48,
@@ -11807,7 +14865,7 @@
             {
               "text": "0\nblock",
               "x": 243,
-              "y": 456,
+              "y": 436,
               "width": 87,
               "height": 56,
               "minimumWidth": 48,
@@ -11817,7 +14875,7 @@
             {
               "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
               "x": 342,
-              "y": 369,
+              "y": 359,
               "width": 56,
               "height": 56,
               "minimumWidth": 48,
@@ -11892,7 +14950,7 @@
             },
             {
               "text": "Attack",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -11902,6 +14960,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -11972,7 +15040,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11982,7 +15050,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -11992,7 +15060,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -12002,7 +15070,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -12012,7 +15080,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -12082,7 +15150,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -12092,7 +15160,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -12102,7 +15170,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -12112,7 +15180,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -12122,7 +15190,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -12142,7 +15210,7 @@
             },
             {
               "text": "Declare attackers and tap",
-              "x": 380,
+              "x": 696,
               "y": 362,
               "width": 54,
               "height": 48,
@@ -12152,7 +15220,7 @@
             },
             {
               "text": "Declare attackers without tapping",
-              "x": 440,
+              "x": 756,
               "y": 362,
               "width": 54,
               "height": 48,
@@ -12235,7 +15303,7 @@
             },
             {
               "text": "Continue playing from here",
-              "x": 292,
+              "x": 240,
               "y": 0,
               "width": 54,
               "height": 48,
@@ -12245,9 +15313,19 @@
             },
             {
               "text": "Return to live",
-              "x": 350,
+              "x": 298,
               "y": 0,
               "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 356,
+              "y": 0,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -12321,7 +15399,7 @@
             },
             {
               "text": "Continue playing from here",
-              "x": 772,
+              "x": 720,
               "y": 0,
               "width": 54,
               "height": 48,
@@ -12331,9 +15409,19 @@
             },
             {
               "text": "Return to live",
-              "x": 830,
+              "x": 778,
               "y": 0,
               "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 836,
+              "y": 0,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -12351,7 +15439,7 @@
             },
             {
               "text": "Previous",
-              "x": 248,
+              "x": 474,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -12361,7 +15449,7 @@
             },
             {
               "text": "Play",
-              "x": 296,
+              "x": 522,
               "y": 362,
               "width": 300,
               "height": 48,
@@ -12371,7 +15459,7 @@
             },
             {
               "text": "Next",
-              "x": 596,
+              "x": 822,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -12444,7 +15532,7 @@
             },
             {
               "text": "Continue playing from here",
-              "x": 292,
+              "x": 240,
               "y": 0,
               "width": 54,
               "height": 48,
@@ -12454,9 +15542,19 @@
             },
             {
               "text": "Return to live",
-              "x": 350,
+              "x": 298,
               "y": 0,
               "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 356,
+              "y": 0,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -12530,7 +15628,7 @@
             },
             {
               "text": "Continue playing from here",
-              "x": 772,
+              "x": 720,
               "y": 0,
               "width": 54,
               "height": 48,
@@ -12540,9 +15638,19 @@
             },
             {
               "text": "Return to live",
-              "x": 830,
+              "x": 778,
               "y": 0,
               "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
+              "x": 836,
+              "y": 0,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -12560,7 +15668,7 @@
             },
             {
               "text": "Previous",
-              "x": 248,
+              "x": 474,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -12570,7 +15678,7 @@
             },
             {
               "text": "Pause",
-              "x": 296,
+              "x": 522,
               "y": 362,
               "width": 300,
               "height": 48,
@@ -12580,7 +15688,7 @@
             },
             {
               "text": "Next",
-              "x": 596,
+              "x": 822,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -12653,7 +15761,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -12663,6 +15771,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -12829,7 +15947,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -12839,6 +15957,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -12909,7 +16037,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -12919,7 +16047,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -12929,7 +16057,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -12939,7 +16067,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -12949,7 +16077,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -13019,7 +16147,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13029,7 +16157,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13039,7 +16167,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13049,7 +16177,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13059,7 +16187,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13079,7 +16207,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -13162,7 +16290,7 @@
             },
             {
               "text": "Main 1",
-              "x": 242,
+              "x": 190,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -13172,6 +16300,16 @@
             },
             {
               "text": "History",
+              "x": 252,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 304,
               "y": 0,
               "width": 48,
@@ -13321,7 +16459,7 @@
               "inViewport": true
             },
             {
-              "text": "Chat",
+              "text": "Game actions",
               "x": 163,
               "y": 126,
               "width": 234,
@@ -13331,19 +16469,9 @@
               "inViewport": true
             },
             {
-              "text": "Game actions",
-              "x": 163,
-              "y": 174,
-              "width": 234,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Close menu",
               "x": 163,
-              "y": 222,
+              "y": 174,
               "width": 234,
               "height": 48,
               "minimumWidth": 48,
@@ -13378,7 +16506,7 @@
             },
             {
               "text": "Main 1",
-              "x": 722,
+              "x": 670,
               "y": 0,
               "width": 58,
               "height": 48,
@@ -13388,6 +16516,16 @@
             },
             {
               "text": "History",
+              "x": 732,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game chat, unread messages",
               "x": 784,
               "y": 0,
               "width": 48,
@@ -13458,7 +16596,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -13468,7 +16606,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -13478,7 +16616,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -13488,7 +16626,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -13498,7 +16636,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 117,
               "width": 48,
               "height": 48,
@@ -13568,7 +16706,7 @@
             },
             {
               "text": "\u2014",
-              "x": 63,
+              "x": 64,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13578,7 +16716,7 @@
             },
             {
               "text": "\u2014",
-              "x": 114,
+              "x": 116,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13588,7 +16726,7 @@
             },
             {
               "text": "\u2014",
-              "x": 165,
+              "x": 168,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13598,7 +16736,7 @@
             },
             {
               "text": "\u2014",
-              "x": 216,
+              "x": 220,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13608,7 +16746,7 @@
             },
             {
               "text": "0",
-              "x": 267,
+              "x": 272,
               "y": 303,
               "width": 48,
               "height": 48,
@@ -13628,7 +16766,7 @@
             },
             {
               "text": "Actions",
-              "x": 413,
+              "x": 762,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -13657,7 +16795,7 @@
               "inViewport": true
             },
             {
-              "text": "Chat",
+              "text": "Game actions",
               "x": 643,
               "y": 126,
               "width": 234,
@@ -13667,19 +16805,9 @@
               "inViewport": true
             },
             {
-              "text": "Game actions",
-              "x": 643,
-              "y": 174,
-              "width": 234,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Close menu",
               "x": 643,
-              "y": 222,
+              "y": 174,
               "width": 234,
               "height": 48,
               "minimumWidth": 48,

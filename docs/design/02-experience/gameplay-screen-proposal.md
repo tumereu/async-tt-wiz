@@ -121,9 +121,14 @@ must explain their actual eligibility; the shortcut does not bypass Undo checks.
 - Put the owner's Hand below the darker land band in initial framing, hovering
   immediately above the fixed bottom controls. It is an expandable row/fan and
   stays screen-fixed when the board pans/zooms; it is not another battlefield row.
+  **D-297 landscape supersession:** put own Hand on the bottom quick-action row
+  itself to save vertical space. Keep compact gaps and left/right panning when
+  either Hand overflows, preserving the common card size and access to both ends.
 - The draft places the opponent's covered Hand at the top outer edge as a
   **proposal**, not a separately confirmed fixed-top requirement. Ordinary hidden
   face/inspection rules still apply; no routine name leaks through backs.
+  D-297 trials its landscape placement **in the existing top control row**, not
+  over/reserving battlefield area. That exact opponent placement remains a proposal.
 - Use central temporary combat; Stack is central in portrait and between player
   info in the landscape left sidebar (D-296). Combat has blockers
   above attackers; projection entry leaves real battlefield sources in place.
@@ -136,6 +141,10 @@ must explain their actual eligibility; the shortcut does not bypass Undo checks.
   Only combat has faint vertical paired-slot dividers. Reveals sit between each
   player's Library and battlefield. G04–G06 add context/owner and token/ping/reveal
   examples; all previous gesture/disclosure/source rules persist.
+  D-297 minimizes each combat pair's width to fit its wider card side plus tiny
+  margins and shows one-card-width new-pair drop targets before/between/after
+  active pairs (one when open/empty). Targets are UI affordances, not retained
+  empty semantic pairs; D-138 cleanup/insertion still governs.
 - Life grouped with each participant's special zones, mode square opening an
   explicit Normal/Select/Ping chooser, and compact phase control at top left are
   **draft presentation choices**. The existing phase-tap tracking picker remains;
@@ -167,6 +176,11 @@ Historical viewing replaces the live action chrome:
 - **D-296:** icons retain originating-player color, not affected-card owner color.
   Faint vertical dividers separate different effective playback groups; they do
   not change grouping or add a separator between every event.
+- **D-297:** fix the selection square at the timeline viewport's exact center.
+  Slide the path underneath during scrub/group stepping/playback. First/last events
+  stay centered with the unused half empty; do not clamp toward an edge, invent
+  nodes or continue the path line into that half. Resize/fallback preserves and
+  recenters the actual selected boundary. H04/H05 picture both endpoints.
 - Swipe/drag the timeline horizontally to change that exact event. Board changes
   animate as the user drags rather than updating only after release.
 - **D-291:** touching/dragging the timeline during playback pauses first, then
@@ -224,6 +238,18 @@ than supply continuation intent. A failed/no-change first action must
 not create an empty fork or pretend the continuation succeeded.
 
 ## 7. Continuation checklist and existing contract anchors
+
+**D-297 direct controls:** player counters beneath libraries are evenly spread
+circles, retaining portrait row conditions. Chat has a separate button/unread
+bubble and opens a panel; local viewing is not a shared read receipt. Card Actions
+has grouped square icon-only buttons with direct corner/counter +/−/Set and inline
+owner choices, no category submenus. The owner's follow-up accepts a dialog with a
+persistent title-corner current-state card preview, superseding their initial
+floating/non-dialog preference. Outside/native Back/X dismiss; repeated field
+edits retain the dialog as already agreed. Value editors/necessary target selection
+complete chosen actions without adding category menus. Preview/availability follow
+captured scope, prediction/reconciliation and existing disclosure rules. See the
+primary board contract and G04/G06/G09/G10.
 
 Review the gameplay extension alongside the original pilot:
 

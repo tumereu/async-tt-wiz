@@ -1494,6 +1494,18 @@ Selection, branch stubs and author/type details remain accessible without relyin
 solely on color; selecting a node must not replace its author color with a generic
 selected tint.
 
+**D-297 center anchoring:** the exact selected event remains at the horizontal
+center of the timeline viewport. Its selection square is screen-fixed there;
+translate/window the path underneath it during exact-event scrubbing, grouped
+Previous/Next and playback. Do not clamp the selected node toward an edge near
+either endpoint: at the first event the left half is empty, and at the last event
+the right half is empty. Draw no invented nodes or continuing path line in that
+unused half. An only-event path centers that one event with both sides empty.
+Rotation/resizing, group reflow and normal deleted-cursor fallback recenter the
+actual resulting selected boundary; they do not alter its identity to fill space.
+Retain every event, author/type/group/branch information and accessible navigation.
+This is personal presentation, not shared activation, Undo or a history cap.
+
 The owner has specified the playback/timeline behavior, not its final geometry,
 animation speed, automatic-versus-manual preference default or accessibility
 layout. These details remain for the appropriate later design work. Every

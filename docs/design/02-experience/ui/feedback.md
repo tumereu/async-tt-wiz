@@ -163,3 +163,25 @@ F01–F47 remain unless explicitly superseded above. New G07/G08/G08b show the
 player menu and positive/negative drag-preview endpoints; these are inert
 documentation, not implemented gestures. A uniform zoom may require board panning
 in landscape; do not quietly restore area-specific shrinking to fit screenshots.
+
+## Round 6 — 2026-10-21 — D-297
+
+| ID | Persistent owner direction | Scope / supersession |
+| --- | --- | --- |
+| F58 | Put the ATW logo on the login screen too. | A01 retains the same centered bounded card in both orientations; short height scrolls. Existing hat artwork remains provisional. |
+| F59 | Search-results headings are small, label-like, not another screen/section title. | All already-in-scope searches; retains F48's same-panel field/results. |
+| F60 | Show readiness for each lobby player with colored status icons; Ready uses a green checkmark. | Keep a distinct non-ready/pending icon and accessible/text status. Invitation status is not readiness or online presence. |
+| F61 | Reduce gaps between Hand cards and allow left/right panning when they do not fit. | Both hands; one table card scale persists. Pan is local navigation, never a card move or implicit disclosure. |
+| F62 | In landscape put own Hand on the quick-actions row to save vertical space. Try opponent Hand somewhere that does not take battlefield space. | Supersedes landscape hovering-over-field geometry. This round trials covered opponent Hand in the existing top control row; that precise opponent placement is a proposal, not a final owner choice. Portrait own-Hand placement persists. |
+| F63 | Combat pairs use the minimum width needed for their cards plus tiny margins; an empty insertion slot is one-card width. Always show empty drop slots next to active pairs so a drag can create a new pair. | Show insertion targets before/between/after active pairs, or one when combat is open and empty. These are UI targets, **not retained empty semantic pairs**: D-138's fully-empty-pair removal still applies. Wider sides determine pair width; no equal-width stretching or per-area card shrinking. |
+| F64 | Player counters beneath libraries are circles, evenly distributed across the whole row, not left-aligned squares. | Retains all F53 portrait visibility/value/menu rules. |
+| F65 | Keep the selected timeline event exactly centered; its selection square stays still while the path slides. At either endpoint the unused half stays empty. | Exact-event scrub, grouped transport and playback use the same anchoring. Do not clamp the cursor toward an edge, fabricate events or extend a path line into the empty half. H04/H05 show endpoints. |
+| F66 | Add a separate game-chat button, opening a panel, with an unread bubble. | Direct entry, not hidden in overflow. Bubble represents personal unread state, not a shared read receipt/presence signal. G09 shows the panel. |
+| F67 | Card actions are immediately available as grouped **square icon-only buttons**, no action-category submenus; e.g. corner/P/T and counters have direct +, − and Set. | Set is the owner's correction of the truncated “seg”. Accessible action names, current values, applicability and captured target scope remain. A value editor or target-picking interaction required to complete an action is not a category submenu. Owner choices are inline, replacing G06's separate chooser. |
+| F68 | A card-action **dialog is acceptable**, with the card visibly showing its current state in a title corner because some actions keep it open. Respect outside-tap and native Back dismissal. | Latest follow-up supersedes the same-round initial preference for floating non-dialog buttons; do not treat dialog geometry as irrevocably finalized. G04/G06 trial a persistent preview with scrollable direct actions. Existing repeated-edit retention and successful Graveyard-move dismissal remain; no universal dismissal or new confirmation. |
+
+F01–F57 persist except the specific presentation supersessions above. G06 is now
+the retained action dialog after an owner/corner/counter edit, not a second-level
+owner chooser; earlier source editions remain in Git. G09, G10 and H04/H05 add
+chat, overflowing hands and endpoint examples. These are local inert mockups,
+not implemented interaction handlers, cloud edits or a stage/gate transition.

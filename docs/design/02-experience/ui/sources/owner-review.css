@@ -150,6 +150,11 @@ button[data-icon="arrow_back"], .top button[aria-label="Back to games"],
 .review-exit::before { margin: 0 !important; }
 .top-bar:has(.review-exit) .top-bar-left { flex: 1; min-width: 0; }
 .game-details { font-size: 13px; color: #61736d; margin: 4px 0 12px; }
+/* D-297: subordinate search labels and per-player readiness, not presence. */
+.search-results-label { font-size: 12px; font-weight: 500; color: #61736d; margin: 0; }
+.readiness { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; }
+.readiness::before { content: 'hourglass_empty'; font: 22px/1 'Review Symbols'; color: #a16d18; }
+.readiness[data-ready="true"]::before { content: 'check_circle'; color: #237963; }
 @media (orientation: landscape) {
   .bottom-bar.portrait-only:has(>button:nth-child(2)) { display: none !important; }
   body.review-authenticated:not(.review-gameplay) { padding-left: 220px !important; }

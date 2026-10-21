@@ -35,6 +35,12 @@ does not authorize application work in the real project.
    Only this run's report/check outputs, state and approved test-only paths may
    change in these roles. Direct edits are scoped accordingly and the final Git
    diff is checked too; do not bypass that boundary with shell/scripts.
+   Check-only validation scripts/fixtures may be retained alongside this run's
+   output: list their exact paths in that check's optional `supportPaths` array.
+   Each must be under `docs/agent/implementation-runs/<runId>-...` or `<runId>/...`,
+   included in `changedPaths` when changed, and committed byte-for-byte. This is
+   not permission to change runtime/build inputs, older reports or import these
+   helpers into the application. Unlisted helpers are rejected at handoff.
 4. Run applicable checks and retain their actual output. A diagnostic reproducing
     a review finding may fail; mark it `diagnostic`. Required validation must pass
     for a successful unit. No skipped/red required check may be labeled passing.

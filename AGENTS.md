@@ -45,6 +45,14 @@
   supplies run/time budgets when launching; do not start another loop alongside
   one already running. Qualify actual build/device commands in I01 under the
   existing permissions, retain unavailable-resource blockers and all release gates.
+  **Supervised unattended run — D-306:** the owner selects 3,000 sessions and a
+  1,209,600-second per-session timeout, with a blocking controller call and no tool
+  timeout. After a controller exit, inspect completion; if unfinished, diagnose,
+  repair, validate/save/push, recover the owned handoff and restart rather than
+  returning a recoverable halt to the sleeping owner. Adjust documented dependencies/
+  child plans around evidenced forbidden/external work so all safe feasible scope
+  continues; retain the original unmet obligations. Exact model, one writer, scoped
+  grants, independent reviews, truthful tests/release gates and explicit stop remain.
 - **Keep UI review refreshable and feedback cumulative.** After any UI-document
   edit batch, rebuild and publish a new HTML edition of the **full** review document
   at the exact existing URL: `https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html`.

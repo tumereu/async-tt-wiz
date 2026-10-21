@@ -1205,6 +1205,76 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(loop.Halt, "Product changes forbidden"):
             runner.run(1, 30)
 
+    def planning_with_support(self, context, state, report):
+        if context["selection"]["target"] != "F1" or state["tasks"][0].get("children"):
+            return
+        state["tasks"][0].update(status="in-progress", children=["F1a"])
+        state["tasks"].append({"id": "F1a", "batch": "B1", "status": "pending", "dependsOn": [],
+                               "outcome": "Concrete fixture child", "checks": ["fixture check"]})
+        path = context["report"].replace(".json", "-planning-check.py")
+        self.fixture.write(path, "# Read-only planning validation, not application source\nassert 2 + 3 == 5\n")
+        report["checks"][0]["supportPaths"] = [path]
+        report["changedPaths"].append(path)
+
+    def test_planning_check_helper_does_not_halt_fresh_child_continuation(self):
+        runner, client = self.runner(issue=False)
+        client.transform = self.planning_with_support
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["implement"] * 4 + ["review", "complete"])
+        self.assertFalse((runner.journal / "active.json").exists())
+
+    def test_planning_unlisted_helper_is_still_rejected(self):
+        runner, client = self.runner(issue=False)
+        def unlisted(context, state, report):
+            self.planning_with_support(context, state, report)
+            report["checks"][0].pop("supportPaths")
+        client.transform = unlisted
+        with self.assertRaisesRegex(loop.Halt, "Product changes forbidden"):
+            runner.run(1, 30)
+
+    def test_check_support_cannot_whitelist_runtime_or_old_report(self):
+        for path in ["runtime.py", "build.gradle.kts", loop.PROMPT,
+                     f"{loop.REPORTS}/older-run-check.py",
+                     f"{loop.REPORTS}/current-checks/../../../runtime.py"]:
+            with self.subTest(path=path):
+                runner, client = self.runner(issue=False)
+                report = {"runId": "current", "checks": [{"supportPaths": [path]}]}
+                with self.assertRaisesRegex(loop.Halt, "Check support must be owned"):
+                    runner.check_support_paths(report)
+
+    def test_check_support_schema_and_missing_file_are_rejected(self):
+        runner, client = self.runner(issue=False)
+        path = f"{loop.REPORTS}/current-check.py"
+        for support in [path, [None], [path, path]]:
+            with self.subTest(support=support):
+                with self.assertRaisesRegex(loop.Halt, "unique path list"):
+                    runner.check_support_paths({"runId": "current", "checks": [{"supportPaths": support}]})
+        with self.assertRaisesRegex(loop.Halt, "Missing check support"):
+            runner.check_support_paths({"runId": "current", "checks": [{"supportPaths": [path]}]})
+
+    def test_check_support_symlink_cannot_escape_run_namespace(self):
+        runner, client = self.runner(issue=False)
+        path = f"{loop.REPORTS}/current-check.py"
+        destination = self.fixture.root / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.symlink_to(self.fixture.root / "probe.txt")
+        with self.assertRaisesRegex(loop.Halt, "Check support must be owned"):
+            runner.check_support_paths({"runId": "current", "checks": [{"supportPaths": [path]}]})
+
+    def test_check_support_must_be_committed_byte_for_byte(self):
+        runner, client = self.runner(issue=False)
+        client.transform = self.planning_with_support
+        execute = client.execute
+        def tamper(*args):
+            result = execute(*args)
+            helper = next((self.fixture.root / loop.REPORTS).glob("*-planning-check.py"))
+            helper.write_text("# Unsaved check helper change\n")
+            return result
+        client.execute = tamper
+        with self.assertRaisesRegex(loop.Halt, "not committed byte-for-byte"):
+            runner.run(1, 30)
+        self.assertTrue((runner.journal / "active.json").exists())
+
     def test_gate_pass_by_wrong_task_is_refused(self):
         state = self.fixture.state()
         state["externalReleaseGates"] = [{"id": "measurement", "status": "unverified", "authority": "task", "task": "F2"}]

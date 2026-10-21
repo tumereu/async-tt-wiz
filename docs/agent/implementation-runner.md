@@ -183,6 +183,30 @@ acquisition, broad destructive cleanup or unrelated work. Keep raw logs private.
 
 ## Records and recovery
 
+### Supervised planning-helper recovery — D-306, 2026-10-21
+
+Run `20261021T182623Z-26bd32d9` saved/pushed a valid I01c planning split, but the
+controller rejected its run-owned Python validation helper as product source.
+Checks now have optional `supportPaths`: exact check-only helper/fixture paths
+under the current run's `-...` or `/...` namespace. They must exist and be saved
+byte-for-byte; runtime/build files, older reports, traversal/symlink escapes and
+unlisted helpers remain forbidden in planning/review/verify roles. This is not
+a blanket report-directory allow or permission to import helpers into runtime.
+
+**91 deterministic runner tests pass**, including planning-helper → fresh child →
+group review → completion, plus rejection cases and unsaved-helper detection.
+The previous report receives only an explicit `supportPaths` declaration; its
+original evidence, state/split and private halted journal remain preserved. See
+[recovery evidence](loop-recovery-2026-10-21.md).
+
+The owner now selects 3,000 sessions / 1,209,600 seconds per session and a blocking
+shell invocation with no tool timeout. Under D-306, the supervising session inspects
+each controller exit and repairs/revalidates/saves/recovers/restarts when unfinished,
+rather than returning a recoverable halt. The controller itself still fails closed:
+no automatic fence deletion, blind implementation rerun or relaxed success checks.
+Future context must retain this supervision assignment, not mistake a failed
+controller invocation for completion of the owner's request.
+
 ### Autonomous repair qualification — D-305, 2026-10-21
 
 The owner explicitly prefers autonomous troubleshooting, including whole/multiple

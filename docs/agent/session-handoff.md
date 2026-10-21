@@ -16,6 +16,18 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current authorization — D-304
 
+**Active supervision — D-306:** the owner is going to bed and explicitly requests
+the planning-helper fix followed by blocking driver runs with 3,000 sessions and
+1,209,600 seconds per session, no shell-tool timeout. After every exit, check real
+completion; if unfinished, autonomously repair/test/save/push/recover and restart.
+Only done, still implementing or quota exhaustion is the intended overnight state,
+not a recoverable controller halt. Preserve this assignment across compaction.
+Adjust recorded plans/dependencies around forbidden/external operations to finish
+all feasible scope without dropping blocked obligations or waiving tests/reviews/
+release gates. See [authorization](implementation-authorization.md#supervised-unattended-execution--d-306)
+and [planning recovery](loop-recovery-2026-10-21.md). The helper fix has 91 passing
+runner regressions; I01c1 is next. No competing driver may be started.
+
 **Current execution clarification — D-305:** the owner explicitly requests best-
 effort autonomous completion along the spec, including whole/multiple fresh
 troubleshooting sessions and necessary infrastructure/orchestration repairs.

@@ -71,3 +71,23 @@ exercise/qualification as unverified. Do not abandon the feature, silently omit
 behavior, invent a pass or stop remaining implementable work. The goal is all
 feasible implementation done, not merely encountering the first external gate.
 Explicit owner stop requests and chosen session/time budgets still govern execution.
+
+## Supervised unattended execution — D-306
+
+The owner explicitly requests repair of the planning-validation halt, then repeated
+blocking driver invocations with **3,000 sessions and 1,209,600 seconds per session**
+(two weeks), with no shell-tool timeout. When an invocation exits, the supervising
+session checks the actual completion criteria, repairs recoverable failures and
+restarts without an owner checkpoint. The requested overnight outcomes are finished,
+still implementing, or exhausted provider quota—not an unattended recoverable halt.
+
+This authorizes necessary technical/controller repairs and evidence-backed plan/
+dependency adjustments to finish as much approved work as possible outside a
+forbidden operation. Preserve the blocked obligation, implement the real configurable
+interfaces and available local/synthetic checks, and continue safe independent work.
+It does not authorize prohibited production/paid/secret operations, model fallback,
+test bypasses, discarded work, fabricated completion or waived release gates.
+The driver still validates every handoff; the supervisor repairs failed boundaries
+outside the exited unit, acknowledges only a safe handoff, then starts one driver.
+An explicit later owner stop still takes precedence. The large timeout is a ceiling,
+not a reason for a unit to idle or postpone ordinary bounded checkpoints.

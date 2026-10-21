@@ -631,12 +631,29 @@ class Runner:
         outputs = {report_relative} | {c["evidence"] for c in report.get("checks", [])}
         require(all(p == report_relative or p.startswith(prefix + "-") or p.startswith(prefix + "/") for p in outputs),
                 "Review/planning evidence must be owned by this run, not runtime/build input")
-        allowed = {self.state_relative} | outputs
+        allowed = {self.state_relative} | outputs | self.check_support_paths(report)
         patterns = state.get("runner", {}).get("reviewTestPaths", [])
         for path in actual - allowed:
             require(not planning and not splitting_review and choice["mode"] in {"review", "verify"} and
                      any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns),
                     f"Product changes forbidden in {choice['mode']}/planning unit: {path}")
+
+    def check_support_paths(self, report):
+        """Explicit check-only sidecars, never a blanket allow for the report directory."""
+        prefix = f"{REPORTS}/{report['runId']}"
+        paths = set()
+        for check in report.get("checks", []):
+            support = check.get("supportPaths", [])
+            require(isinstance(support, list) and all(isinstance(p, str) for p in support) and
+                    len(support) == len(set(support)), "Check supportPaths must be a unique path list")
+            for path in support:
+                resolved = repo_path(self.root, path)
+                require(str(resolved.relative_to(self.root)) == path and
+                        (path.startswith(prefix + "-") or path.startswith(prefix + "/")),
+                        "Check support must be owned by this run, not runtime/build input")
+                require(resolved.is_file(), "Missing check support file")
+                paths.add(path)
+        return paths
 
     def troubleshooting_progress(self, before, choice, report, actual, report_relative):
         checkpoint = troubleshooting(report)
@@ -800,7 +817,8 @@ class Runner:
                 repo_path(self.root, path)
             self.role_paths(state, choice, report, actual, report_relative)
             self.troubleshooting_progress(state, choice, report, actual, report_relative)
-            for path in {report_relative, self.state_relative} | {c["evidence"] for c in report.get("checks", [])}:
+            for path in ({report_relative, self.state_relative} |
+                         {c["evidence"] for c in report.get("checks", [])} | self.check_support_paths(report)):
                 self.committed_file(path, finish)
             self.git("diff", "--check", start, finish)
             for batch in after["batches"]:

@@ -213,6 +213,16 @@ report. Every resolved gate retains its authority/evidence record.
 
 ## Runner lifecycle and stop rules
 
+**Current supervised run — D-306:** the owner selected 3,000 sessions and a
+two-week (1,209,600-second) per-session ceiling, invoked with no shell-tool timeout
+as a blocking call. A controller validation failure is a boundary to diagnose and
+repair, not the end of the supervising agent's assignment. After each exit,
+inspect actual completion, repair/validate/save/push any recoverable problem,
+reconcile the retained owned run and restart. Do not bypass validation or blindly
+replay implementation. Continue feasible independent work around evidenced external/
+forbidden steps with documented plan/dependency adjustments and retained obligations.
+See [authorization](implementation-authorization.md#supervised-unattended-execution--d-306).
+
 The [Python driver](../../scripts/implementation-loop.py) implements this contract;
 see [operations/qualification](implementation-runner.md). OpenCode V2.1.1 CLI help
 and the V2 API were checked: create a fresh top-level session, then attach the

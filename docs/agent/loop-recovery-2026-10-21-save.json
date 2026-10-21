@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "scripts/test-save.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "66de9b2adae0b744e0fded5e2cd47159294afe3e4aa6a8f830ebfdded67b4ac5",
+  "output": "......\n----------------------------------------------------------------------\nRan 6 tests in 0.423s\n\nOK\n"
+}

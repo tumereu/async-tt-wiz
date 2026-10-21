@@ -20,6 +20,7 @@
     {
       "kind": "required",
       "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T182623Z-26bd32d9-planning-check.json -- python3 docs/agent/implementation-runs/20261021T182623Z-26bd32d9-planning-check.py",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T182623Z-26bd32d9-planning-check.py"],
       "exitCode": 0,
       "evidence": "docs/agent/implementation-runs/20261021T182623Z-26bd32d9-planning-check.json"
     }

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import ast,json,re,subprocess; from pathlib import Path; from urllib.parse import unquote,urlsplit; root=Path.cwd(); errors=[]; count=0\nfor path in [root/\"AGENTS.md\",*sorted((root/\"docs\").rglob(\"*.md\"))]:\n for raw in re.findall(r\"\\]\\(([^\\s)]+)(?:\\s+[^)]*)?\\)\",path.read_text()):\n  url=urlsplit(raw.strip(\"<>\"))\n  if url.scheme or url.netloc or not url.path or url.path.startswith(\"/\"): continue\n  target=(path.parent/unquote(url.path)).resolve(); count+=1\n  if not target.exists(): errors.append(f\"{path.relative_to(root)}: {raw}\")\nfor path in [\"scripts/implementation-loop.py\",\"scripts/test-implementation-loop.py\",\"docs/agent/loop-recovery-2026-10-21-audit.py\"]: ast.parse(Path(path).read_text(),filename=path)\nfor path in [\"docs/agent/implementation-state.json\",\"docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json\",*map(str,Path(\"docs/agent\").glob(\"loop-recovery-2026-10-21-*.json\"))]: json.loads(Path(path).read_text())\nsubprocess.run([\"git\",\"diff\",\"--check\"],check=True)\nassert not errors,\"\\n\".join(errors)\nprint(f\"PASS {count} local Markdown links; Python AST; JSON syntax; Git whitespace\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "d7eb5b129536e36659418b05ca252d0f7923c106a2afb45ccb1f326c114f0d5a",
+  "output": "PASS 807 local Markdown links; Python AST; JSON syntax; Git whitespace\n"
+}

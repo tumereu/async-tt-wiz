@@ -89,3 +89,30 @@ Confirmed owner direction, including the clarification answers in this session:
 - F01–F10 and D-291 remain in force except for these explicit supersessions.
   This round uses local inert derivatives; no cloud edit, application work,
   stage transition or passed UI gate is claimed.
+
+## Round 3 — 2026-10-21 — D-294
+
+| ID | Persistent owner direction | Applies to / explicit supersession |
+| --- | --- | --- |
+| F23 | Games require a name at creation; offer procedural fantasy/wizarding **adjective + thing** suggestions, e.g. **Azure Spark**, **Crackling Mist**. | New-game creation; proposed composition prefills an editable suggestion and offers reroll. Final Create/Invite, not opening the naming form, creates the game. No rename feature inferred. |
+| F24 | Store a game's creation date and display it in its details beside state text. Use the game name as its title. | Browser/invitation details and lobby; game names replace opponent-only primary labels. Opponent identity remains metadata, without With/Game with filler. |
+| F25 | **No app Back/home arrows anywhere**, including lobby and gameplay. | Supersedes F03's original Back allowance and F11's authentication-only scope. Android native Back and contextual exit/close actions remain, not replacement pseudo-home arrows. |
+| F26 | On titled screens put hamburger and title on the **same row**. Import/editor **Exit without saving** belongs at that row's far right. Titles must remain visible in landscape too. | Compact content-control row, not restoration of a dedicated app-brand/title bar. Scroll content below the row; explicit exit is not Save. |
+| F27 | Related button pairs should fill the row with equal **50/50** widths rather than occupying an arbitrary ~70%. | Save/Edit, Accept/Decline, dialog pairs and other paired actions where appropriate. Do not distort icon-only gameplay controls or force unrelated controls into pairs. |
+| F28 | Dialog close X goes in the **top-right** corner, never left. | All pictured dialogs, including full-card inspection. |
+| F29 | Cover selection uses the selection border, **no checkbox/checkmark** as a second selection signal. Deck-deletion explanation need only say deletion cannot be undone. | D05/D06; selected semantics remain accessible. Supersedes D06's longer copy-isolation/no-trash explanation, not copy-isolation behavior. Active-game deletion still needs its distinct both-player warning (F17). |
+| F30 | Lobby title is the game name; Cancel is at the **top-right of its title row**. Reinvite goes **inside the opponent slot**, not the bottom. No Back arrow or leaving-lobby explanation beneath Ready. | L01/L02/L05/L06. Ready/Withdraw Ready remain bottom actions; leaving still preserves Ready. |
+| F31 | Deck selection has no per-row Select button. Use a selection border and **one bottom confirmation**. | L03; row selection is personal draft state. Confirm alone selects/replaces the prepared copy and clears own Ready. Supersedes immediate per-row publication/return. |
+| F32 | Preparation one/all drag affordances should each use about **half the old width** and a single symbol. Prefer **1 / ∞** over a separate grip if necessary. | L04: 24 px-wide markers replace 48 px-wide grip+count controls, freeing card-name space. This is an explicit compact-handle exception to the earlier per-control geometry draft; ordinary buttons remain 48 px. Native accessible one/all actions still required; no overlapping invented hit regions. |
+| F33 | Remove the obsolete **empty gameplay placeholder mockup** now that gameplay is in scope. | Remove G00 from the current manifest/HTML/PDF, retain raw/history provenance outside the current packet. U01 must show a real table background, not another empty placeholder. |
+| F34 | The compact **1 / ∞** controls also act as **tap buttons**, moving one/all copies to the other board; they are not drag-only. | Follow-up in the same round. Keep drag as well; one completed gesture must never produce both a tap transfer and a drag transfer. Compact sizing/scope from F32 persist. |
+| F35 | Show the latest transfer as fixed, unframed text, e.g. **1× Meadow Sentinel → Sideboard**, fading over about **1–2 seconds**. No other element moves when the text appears/disappears. | Preparation feedback reserves its space even when faded; a new transfer replaces/restarts the latest message. Local visual feedback is not a new shared log or proof of server acceptance. |
+| F36 | When tapping removes the last copies from a row, **quickly fade that disappearing row out and slide following rows upward into its space**. Keep transitions short but visible for clarity. | Another same-round follow-up. This intentional transfer-driven row movement is distinct from F35's feedback text, which must never shift surrounding layout. Animation does not delay requests or preserve fake game state. |
+
+F34–F36 are subsequent owner feedback before this batch was saved; they supersede
+any drag-only reading of F20/F32, not their one/all scope or drag support.
+All F01–F22 persist except the specific supersessions above. Round 2's remaining
+copy-audit suggestions are still suggestions unless this round explicitly selects
+them. Generated-name prefilling/reroll geometry and exact date formatting are
+review compositions/technical details, not claims of owner-selected final art or
+an authorization to implement the application or advance a gate.

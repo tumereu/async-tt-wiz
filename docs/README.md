@@ -24,8 +24,9 @@ HTML/PDF review editions: the original non-gameplay pilot (D-290) and the
 [gameplay-screen extension](design/02-experience/gameplay-screen-proposal.md) (D-291).
 The [cumulative UI feedback record](design/02-experience/ui/feedback.md) preserves
 D-292's fullscreen/branding/navigation and D-293's compact icons, contextual game/
-deck actions, drag preparation and art inspection, plus the required same-URL full
-HTML publication workflow. The packet separately lists proposed copy deletions.
+deck actions, drag preparation and art inspection; D-294 adds named/date-stamped
+games, globally no app Back arrows, shared title rows and refined selection. The
+same-URL full HTML publication workflow persists. Remaining copy cuts are proposals.
 This authorizes these design artifacts, not application implementation, a passed
 review/UI gate or approval of the proposed layouts.
 

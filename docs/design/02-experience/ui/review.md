@@ -16,7 +16,7 @@ Review editions: [PDF download](review.pdf) · [Markdown source](review.md).
 **Cumulative owner direction:** [feedback and explicit supersessions](feedback.md).
 Later rounds retain earlier decisions unless the owner explicitly changes them.
 This full document is republished at the same browser-refresh URL after changes.
-The D-292/D-293 cumulative revisions below are confirmed direction;
+The D-292–D-294 cumulative revisions below are confirmed direction;
 remaining geometry/style proposals are not silently approved by this round.
 
 Both **portrait and landscape are required** (D-290). Each screen below has a
@@ -28,8 +28,8 @@ design at the short, wide viewport—not a rotated or stretched portrait image.
 The packet covers account entry, navigation, games/invitations, contacts, saved
 decks, import and lobby preparation, plus the **D-291 gameplay extension**:
 live table, fixed Hand, central Stack/combat, paused/running history, armed
-historical continuation and the explicit Redo route. G00 and U01 retain the
-original pilot's empty board for provenance, not as the current gameplay design.
+historical continuation and the explicit Redo route. D-294 removes obsolete G00
+from the current packet and replaces U01's empty backdrop with a real table.
 Reveal trays, full card/zone menus, gameplay-specific inspectors, chat and result
 ending overlays still need visual state completion; D08 adds a deck-context
 inspection reference and P04 adds the separate active-delete confirmation.
@@ -38,7 +38,8 @@ inspection reference and P04 adds the separate active-delete confirmation.
 
 - **Icon + text button (D-293 default):** a meaningful icon with a short action
   label, such as “Ready” or “Accept.” A leading icon is not an unlabeled icon button.
-- **Icon button:** Back arrow or password-visibility eye. The proposed normal
+- **Icon button:** contextual Close/Exit or password-visibility eye; no app Back/home
+  arrows. The proposed normal
   target is at least 48 × 48 logical pixels, with an accessible name.
 - **Label/status:** descriptive text such as “Ready,” “Invitation pending,” or a
   card count. A checkmark complements text rather than replacing it with color.
@@ -55,14 +56,20 @@ inspection reference and P04 adds the separate active-delete confirmation.
   still need their own later visual checks.
 
 **Fullscreen (D-292):** no system status/navigation strip or dedicated app-title
-bar. Necessary hamburger, Back, phase/history and other actions remain compact
+bar. Necessary hamburger, contextual exit, phase/history and other actions remain compact
 in-screen controls, not branding chrome. Ordinary labels, game-state feedback and
 errors are not forbidden “status bars.” Review targets remain roughly 16 px outer
 margins, 12 px gaps and 48 px controls, without reserving fake system-bar space.
 Native cutouts, temporary OS bar reveal, keyboard and accessibility still need
 safe placement/verification; these are not implemented Android claims.
-**D-293 authentication exception:** no top Back arrow on A01–A04. In-form navigation
-and Android native Back suffice. Necessary authenticated Back still exists.
+**D-294:** no app Back/home arrow **anywhere**, superseding the authentication-only
+rule. “Back” below always means Android native Back, not an app arrow. Titled
+screens share one hamburger/title row (landscape persistent navigation replaces
+hamburger); titles never disappear in landscape. Import/editor **Exit without
+saving** is at its far right. Dialog X is top-right. Related button pairs fill
+their row equally, 50/50. Compact preparation **1 / ∞** markers are 24 px wide,
+an explicit exception to the earlier 48 px-wide handle draft, with native accessible
+alternatives and no overlapping invented touch regions; ordinary buttons stay 48 px.
 **Button density:** almost always show an appropriate icon, plus text when there
 is space. Tight gameplay actions use icon-only controls with accessible names;
 mode/phase and numerical game-state values must remain identifiable. Top-level
@@ -88,7 +95,7 @@ Hamburger navigation (persistent on landscape non-gameplay screens)
    │       └─ Setup → choose/prepare deck → Ready
    └─ Logout (fixed footer outside scroll area) → signed-out entry
 Games browser → Accept invitation → same lobby
-              └─ New game → Contacts → Invite → waiting lobby
+              └─ New game → Contacts → Invite → name game → Create & invite → lobby
 Lobby → both Ready → G01 live table
 Game-row long press → setup Cancel / active Delete → extra active-delete confirmation
 Deck Edit → Import decklist → Overwrite (default) / additive Merge → resolve → save
@@ -356,9 +363,11 @@ or working navigation. The surrounding screenshots apply the same shared shell.
 :::
 :::
 
-**Layout (D-292):** one Games list contains in-play and setup/lobby states;
+**Layout (D-292/D-294):** one Games list contains in-play and setup/lobby states;
 Invitations follows it, not before or as a separate left-hand first column.
-Accept/Decline and New game use icons + labels. Game names omit “With”/“Game with”;
+Accept/Decline and New game use icons + labels. The **required game name** is the
+primary label; opponent identity is metadata. Creation date appears beside state
+in the details. No “With”/“Game with” prefix;
 Open is just a right chevron. Necessary lifecycle
 status labels distinguish rows without inventing a structural Lobbies category.
 The same order applies in landscape, beside persistent navigation; lists scroll.
@@ -375,6 +384,36 @@ would show “No current games” with New game, not a finished-game archive.
 
 **Basis:** D-188, D-195, D-208, D-209, D-214, D-287, D-292. Empty/loading states are not
 separate mockups yet; no unread/read, presence or result statistics are implied.
+:::
+
+::: {.screen-section}
+## P05 — Name and create a game
+
+::: {.screen-pair}
+::: {.portrait}
+![P05 portrait — required editable fantasy game name and suggestion reroll](images/create-game-portrait.png)
+:::
+::: {.landscape}
+![P05 landscape — naming before atomic creation and first invitation](images/create-game-landscape.png)
+:::
+:::
+
+**Confirmed (D-294):** name every newly created game, offering procedural fantasy/
+wizarding **adjective + thing** suggestions: Azure Spark, Crackling Mist, Silver
+Ember. The pictured composition prefills an editable suggestion and offers a
+shuffle/reroll icon. Accepting a nonblank generated name is sufficient; forced
+typing is not required. Empty/whitespace-only input blocks creation. This state
+follows selecting an added contact and pressing Invite; **Create & invite** alone
+creates the named game and its first invitation atomically. Cancel/close/native
+Back and reroll create nothing. Typing is optional additional interaction cost.
+
+The server assigns the persistent game's creation instant on acceptance. Display
+its date beside state in details and the name as the game/lobby/table title;
+opponent identity remains available. The date/name survive acceptance, decline/
+reinvite, starts and returned-lobby/fresh-play cycles, and synchronize across
+participants/devices. Retry keeps original name/time/IDs, never generates a fresh
+game. Names are labels, not unique identities. Local draft suggestions are not
+gameplay RNG/history. No rename UI, archive or new expiry rule is inferred.
 :::
 
 ::: {.screen-section}
@@ -439,9 +478,11 @@ search results remain separate. No email addresses or online-status dots.
 
 **Interaction:** Search produces explicit username matches; Add contact saves a
 contact directly with no friend-request approval. A newly saved contact gets
-Invite in the contact list. Invite creates a game plus its first invitation and
-opens L01. There is no extra confirmation/selection wizard or automatic recipient
-acceptance. No results uses an inline “No matching usernames” notice, not a
+Invite in the contact list. D-294 Invite opens **P05 naming**, not an unnamed game.
+Create & invite then creates one game plus first invitation and opens its lobby;
+this required naming step supersedes the old immediate-create route, without an
+additional confirm-the-confirmation or automatic recipient acceptance.
+No results uses an inline “No matching usernames” notice, not a
 missing-user substitution. Removing contacts is not invented by this pilot.
 
 **Basis:** D-195, D-196, D-197, D-218. Exact search matching is not settled by
@@ -491,6 +532,8 @@ press opens D08 full inspection. The small visible art has a full-size touch tar
 Mainboard/Sideboard tabs choose the read-only saved section, not in-game zones.
 The capture shows **Edit expanded** with Rename, Choose cover, Import decklist
 and Delete saved deck, all icon + label. This is not a quantity editor/card builder.
+Title/hamburger, Edit and the right-corner Exit without saving share a row (D-294).
+Exit discards unfinished input only; it does not undo already accepted metadata.
 
 **Interaction:** proposed Rename opens a small name-field dialog with Save name
 and Cancel; it cannot change card quantities. Choose cover opens D05. **Edit →
@@ -519,6 +562,8 @@ pictured; naming/duplicate policies are not inferred from the example.
 identifies the unresolved line. Review import is unavailable while entries are
 unresolved. Landscape uses an input/issues split; input and feedback must both
 remain reachable rather than squeezing the text area into a one-line field.
+The title is visible in **both orientations**, aligned with hamburger; Exit without
+saving is at the far right. The action pair fills its row equally (D-294).
 
 **Interaction:** accept ordinary quantity/name lists, common optional printing
 suffixes and supported mainboard/sideboard separators. Correct the pasted text
@@ -548,6 +593,8 @@ D04 uses a separate complete sample, not the computed count of this short list.
 a Deck name field. This **new-import** route has no Save-new/Replace selector or
 existing-deck picker. Save deck and Edit pasted list use icons + labels.
 Cover selection is optional later metadata, not a forced extra import step.
+The title/exit row stays above scrolling content in portrait and landscape; the
+Save/Edit pair fills its panel 50/50. Exit discards the unsaved import, never saves.
 
 **Interaction:** Save deck creates a distinct saved entry. Existing-deck updates
 instead start at D02 Edit → D07 Import decklist, with Overwrite/Merge toggle.
@@ -646,7 +693,8 @@ zoom/large-text and gameplay-specific states still need their own visual checks.
 :::
 
 **Layout:** card-name tiles are selectable thumbnails, not card-edit controls.
-The selected tile has an outline/check plus text. Use selected card confirms the
+The selected tile has a **border only**, no additional checkbox/checkmark (D-294);
+native selected semantics and its card name remain. **Use cover** confirms the
 metadata choice; Cancel/Back leaves it unchanged. Landscape uses the short width
 efficiently while allowing the grid to scroll.
 
@@ -674,6 +722,9 @@ Cover fallback after a later re-import is not decided by these example tiles.
 **Layout:** a bounded modal over the collection, with Keep deck and Delete saved
 deck as text buttons. The destructive button is distinguished by wording as well
 as styling. Background rows are not interactive while the modal is open.
+**D-294:** close X is top-right, actions are equal-width, and the explanation is
+only **“Deletion cannot be undone.”** The longer copy-isolation/no-trash paragraphs
+are removed from the dialog, not from the behavior contract.
 
 **Interaction:** Keep deck/Back cancels this dialog without deleting anything.
 Delete saved deck requests collection deletion and returns to D01 after success.
@@ -703,6 +754,10 @@ deck, even though riley has not accepted. D-293 now pictures the retained **decl
 state with Reinvite inside this same lobby. The pending variant omits Reinvite
 and says Invitation pending; it is not a separate game. Cancel game is separate from Back.
 Random is an illustrative selected value, not an approved universal default.
+**D-294 layout:** game name **Crackling Mist** is the title; state/creation date
+appear beneath. Hamburger shares the title row and Cancel is its top-right control.
+Reinvite is **inside riley's opponent slot**, not the footer. Ready alone fills the
+bottom; there is no leaving-lobby helper. No Back/home arrow.
 
 **Interaction:** Change deck opens L03; Prepare deck opens L04. Ready can persist
 before acceptance. The opponent's later acceptance opens this same lobby without
@@ -729,6 +784,8 @@ and its game; merely leaving the screen does neither. No host Start or expiry.
 explicit status with text/checkmark, not permission to start for them. Own Ready
 is disabled with the visible reason “Select your deck.” Starter offers either
 participant or Random; it is not a pre-start reroll.
+Game-name title, creation date beside state, title-row Cancel and helper-free
+bottom Ready follow L01/D-294. The visible disabled-Ready reason is retained.
 
 **Interaction:** Accepting P01 did not select a deck, Ready or immediately start.
 Select an existing saved deck through L03; no legality or size check is added.
@@ -752,13 +809,18 @@ must move to the actual active game rather than reopening the lobby.
 :::
 :::
 
-**Layout:** saved deck name, cover fallback and descriptive counts accompany each
-Select text action. Import deck is a secondary escape when the collection lacks
-the desired deck, not a required detour for normal selection.
+**Layout (D-294):** named deck rows with cover/counts use a **selection border**,
+no per-row Select buttons or checkboxes. The image shows a personal row selection
+already made, not an automatic first-deck default. One **Use selected deck**
+confirmation is fixed at the bottom beside bottom Import (equal widths).
 
-**Interaction:** Select creates/replaces this game's prepared copy and returns
-directly to its lobby. It clears own Ready without affecting the opponent's.
-It does not edit the saved source, auto-ready or require another Send/confirmation.
+**Interaction:** highlighting rows is personal draft UI; no prepared-copy request
+or Ready clearing occurs yet. **Use selected deck** submits the chosen copy and
+returns to lobby; no valid chosen source means confirmation is unavailable.
+Acceptance clears own Ready without affecting the opponent's.
+It does not edit the saved source, auto-ready or require another Send/confirmation
+after this bottom confirmation. A stale/deleted source or started round fails
+normally, not a substitute deck or a new lobby.
 Deleting/editing the source later leaves this copy intact. Back cancels the picker
 without changing selection. An empty collection uses the same Import route;
 there is no automatic blank deck or silent substitute.
@@ -778,25 +840,67 @@ there is no automatic blank deck or silent substitute.
 :::
 :::
 
-**Layout (D-293):** Mainboard and Sideboard are separate drop-target panels.
-Every quantity/art/name row has **two separate drag handles**: grip + **1** for one
-copy, grip + **∞** for all copies. These are drag origins, not Move buttons or a
-select-row-then-transfer step. Portrait stacks the panels; landscape uses columns;
-long content scrolls without shrinking the 48 px targets. Exact handle art is provisional.
+**Layout (D-293/D-294 follow-ups):** Mainboard and Sideboard are separate panels.
+Every quantity/art/name row has **two compact 24 px-wide tap buttons/drag origins**: **1** for
+one copy and **∞** for all copies. D-294 removes the separate grip, prioritizing
+scope and card-name space. Tap moves directly to the other section; drag remains
+available. No select-row-then-Move-button bar. Portrait stacks panels; landscape uses columns;
+long content scrolls. Ordinary buttons stay 48 px; the explicitly compact one/all
+controls are an explicit exception with accessible alternatives, not overlapping
+invisible targets. A **40 px plain-text feedback slot is always reserved** below
+the title. The picture shows the latest move and resulting 59/16 counts.
 
-**Interaction:** drag the appropriate handle to the other panel in either direction,
-without one-for-one or legal-size enforcement. All captures the row's concrete
-copies at drag start, not later arrivals. Cancel/outside drop sends nothing; a
-successful drop emits ordinary per-card preparation requests, not per-frame writes
+**Interaction:** tap **1 / ∞** to move one/all copies to the other section, or drag
+that same control to it. A recognized drag suppresses tap; control input must not
+also open the inspector. Bind copies/identity at gesture start, not a changing row
+index; all excludes later arrivals. No one-for-one/size enforcement. Cancel/outside
+drop sends nothing. Transfers emit ordinary per-card preparation requests, not per-frame writes
 or a new atomic bulk transaction. Show actual partial outcomes under normal guards.
-Native accessibility provides equivalent one/all actions without persistent Move
-buttons. Press the thumbnail/row instead to inspect, never to transfer. Completed transfers
+Native accessibility provides equivalent one/all actions. Press the thumbnail/row
+instead to inspect; the small count controls transfer. Completed transfers
 automatically synchronize, clear only own Ready and leave the saved deck alone.
 No Save preparation/Done-to-send is required. Back simply returns to the lobby.
 On entering actual play, no Sideboard view/edit/move path exists. The shown
 handle glyphs/drag feedback remain visual proposals, not a change to transfer scope.
 
+**Latest-move feedback (F35):** e.g. **1× Meadow Sentinel → Sideboard**, fading over
+about **1–2 seconds** (1.5 s proposed). New moves replace/restart the message.
+Opacity changes never collapse/insert its space or move any headers/lists/buttons.
+Show the actually displayed transfer promptly under normal provisional application;
+it is not a server receipt. Correct partial/rejected outcomes normally, never
+delay input for acknowledgement/animation or claim a move that did not occur.
+
+**Disappearing rows (F36):** when a tap removes the last displayed copies, quickly
+fade out that row while following rows slide upward into its space. A ~150–220 ms
+combined transition is a timing proposal, not an exact approved interval. This
+intentional transfer-driven list reflow is distinct from the fixed feedback slot.
+Quantity-only changes retain their row. A fading visual ghost is not counted or
+actionable game state; requests/count updates never wait for it. Rapid transfers/
+reconciliation retarget current drawn geometry, never another row sliding under a
+captured finger. Native reduced-motion/accessibility must retain clear identity/
+feedback. These inert snapshots do **not** demonstrate an implemented animation.
+
 **Basis:** D-189, D-191, D-202, D-203, D-259.
+:::
+
+::: {.screen-section}
+## L04b — Latest-transfer text faded, layout unchanged
+
+::: {.screen-pair}
+::: {.portrait}
+![L04b portrait — same preparation state with the feedback text faded](images/prepare-deck-faded-portrait.png)
+:::
+::: {.landscape}
+![L04b landscape — fixed feedback slot retains identical list geometry](images/prepare-deck-faded-landscape.png)
+:::
+:::
+
+**Same preparation state as L04:** only the feedback opacity changes. The slot,
+title, lists and controls keep exactly the same geometry. Captures freeze visible/
+faded endpoints for review; the native app must fade over ~1–2 s. This is not a new
+transfer, delayed publication or empty spacer added only after a tap. The separate
+short disappearing-row transition is specified in L04, not functioning in this
+static document. No extra app route or tap is required to reach this state.
 :::
 
 ::: {.screen-section}
@@ -814,12 +918,14 @@ handle glyphs/drag feedback remain visual proposals, not a change to transfer sc
 **Layout:** own Ready is a textual status/checkmark. Withdraw Ready is an explicit
 action; Change deck/Prepare deck remain discoverable. No host Start button or
 both-online indicator. Cancel game remains separate and applies only before start.
+**D-294:** game-name title, creation-date/state details and upper-right Cancel;
+Withdraw Ready fills the bottom, with no explanation about leaving below it.
 
 **Interaction:** Ready persists after leaving/disconnection; it is not a liveness
 lease. The second accepted Ready starts once, even while the first player is away.
 Start shuffles both Libraries, sets life to 20, resolves a selected Random starter
 and begins turn 1 at Untap, with **no automatic opening draw**. The extended packet
-then uses G01 (G00 is the original placeholder). On returning after an accepted game ending, restore last prepared
+then uses G01. On returning after an accepted game ending, restore last prepared
 decks, clear both Ready and use this lobby structure in its not-ready state;
 both must ready again. Back alone never withdraws Ready or cancels the game.
 
@@ -854,45 +960,19 @@ reviewable UI proposal, not approval of an extra gameplay-ending confirmation.
 :::
 
 ::: {.screen-section}
-## G00 — Gameplay intentionally omitted
-
-::: {.screen-pair}
-::: {.portrait}
-![G00 portrait — empty gameplay placeholder](images/gameplay-placeholder-portrait.png)
-:::
-::: {.landscape}
-![G00 landscape — empty gameplay placeholder](images/gameplay-placeholder-landscape.png)
-:::
-:::
-
-**Layout:** only a shell, Back and a clearly labeled empty content area. This
-gives the non-gameplay navigation a destination and demonstrates two orientations.
-It does not settle how much space the real board, hand, history or controls get.
-
-**Interaction:** the original non-gameplay pilot terminated active-game Open and
-automatic start transitions here; the D-291 extension now uses G01. Start remains automatic on both Ready;
-there is no Start control here. Back returns to current games, not a shared game
-Undo, game cancellation or result suggestion. No Sideboard is shown during play.
-
-**Scope:** this placeholder is retained only for the original pilot's provenance.
-The live/history/combat/Stack direction is now pictured below; full card/reveal/
-inspection/chat/result overlays and expanded branch navigation remain unpictured.
-:::
-
-::: {.screen-section}
 ## U01 — Reconnecting and downloaded read-only review
 
 ::: {.screen-pair}
 ::: {.portrait}
-![U01 portrait — reconnecting modal over an empty game area](images/reconnecting-portrait.png)
+![U01 portrait — reconnecting modal over the actual table layout](images/reconnecting-portrait.png)
 :::
 ::: {.landscape}
 ![U01 landscape — reconnecting and read-only navigation](images/reconnecting-landscape.png)
 :::
 :::
 
-**Layout:** Reconnecting is a status dialog over the same deliberately empty
-area. Review downloaded data and Back to games are text navigation actions.
+**Layout (D-294):** Reconnecting is a status dialog over a **real table**, not the
+old empty pilot area. Review downloaded data and Games are equal-width icon/text actions.
 This proposes a clear way out of the blocking dialog without enabling mutations.
 
 **Interaction:** shared actions stay blocked while disconnected, including Undo,
@@ -904,8 +984,8 @@ instead syncs server state and may lose uncommitted local work. Unknown outcome
 is not rejection; the UI must not invite duplicate submission as a fresh action.
 
 **Basis:** D-182, D-215, D-216, D-241, D-246, D-252, D-278. The exact dialog escape
-and wording are UI proposals. This original capture still omits the board;
-the same blocking/read-only rule applies over the new gameplay layouts.
+and wording are UI proposals. The table backdrop is a local inert derivative,
+not functioning offline gameplay or a passed reconnect/accessibility test.
 :::
 
 ::: {.screen-section}
@@ -1125,7 +1205,9 @@ enabled/disabled color proves the complete eligibility computation.
 
 # Copy audit — suggested further deletions
 
-**All 34 pictured states, both orientations, audited this round.** This table is
+**All 35 current pictured states, both orientations, audited.** Round 2's table
+is retained cumulatively; D-294 dispositions below mark selected/superseded items
+without turning all earlier suggestions into approvals. This table is
 owner-review advice, **not a new approval list for already confirmed outcomes**.
 “Suggest” items are deliberately **not all removed** from the mockups yet. Existing
 F06/F13/F15 and the confirmed route changes already remove the obvious superseded
@@ -1139,7 +1221,8 @@ in the specification notes. No blanket deletion of labels, errors or lifecycle s
 | A03 | No further helper paragraph to remove. | Neutral submitted reset outcome avoids account-existence disclosure; it is necessary feedback, not instruction. |
 | A04 | No further explanation to remove. | New password label, eye, submit and Sign in route; invalid-link outcomes still required. |
 | N01 / N02 | No additional text deletion suggested after F09/F13. | Logo, destinations, fixed Logout and compact meaningful game statuses. No icon tutorial. |
-| P01 / P03 | Shorten “Active game” to “In play”; remove “pending” next to an Invitations count when all shown invites are pending. | Opponent names, actual declined/setup/play state and Accept/Decline labels. P03 Dismiss is an action, not instruction. |
+| P01 / P03 | Round 2 suggested “Active game” → “In play” and omitting “pending” beside the invitation count. D-294 now shows In play and named games; count wording suggestion otherwise persists. | Required game name, opponent metadata, state/date and Accept/Decline. P03 uses top-right X to dismiss. |
+| P05 | No extra naming tutorial paragraph on the screen. | Required Game name, recipient, reroll and Create & invite; nonblank generated names can be accepted. |
 | P04 | **Do not delete** the short both-players/no-restore warning. | Essential scope information before a newly added destructive shared action. |
 | P02 | Delete “Invite creates a waiting game lobby.” Consider deleting redundant “Find player” heading above Search usernames. | Search field label, result/contact headings and empty/error feedback. |
 | D01 | Delete duplicated right-side “60 / 15” pills when the same main/side counts are already beside the deck name. | One labeled count pair, deck name/cover and bottom Import. |
@@ -1149,14 +1232,14 @@ in the specification notes. No blanket deletion of labels, errors or lifecycle s
 | D07 | No paragraph explaining Overwrite/Merge on the screen. None is pictured. | Deck target, mode labels/selection, Deck list label and validation. Semantic help remains available non-permanently/accessibly. |
 | D08 | No instructional text to delete. | Card name/art/text and Close; do not remove card content as if it were UI filler. |
 | D05 | Delete “Choose one card from this deck to display as its cover artwork” and “Selected for Training deck. Only updates cover artwork; does not edit deck cards.” Remove “[ Grayscale art ]” placeholder captions from eventual real-art cells. | Deck identity, selection mark, card names, preview and confirmation. The bracketed text is mockup provenance, not app copy. |
-| D06 | Delete “Tap row for details” behind the modal and duplicated deck-count pills. Shorten the no-trash warning to “Cannot be restored.” | Keep concise selected-copy survival scope in this destructive dialog, unlike a permanent banner on every details screen. |
+| D06 | Round 2 suggested shortening no-trash/copy scope. **D-294 selects “Deletion cannot be undone” only**; the longer dialog explanations are removed. Background “Tap row…”/duplicate-count suggestions persist. | Deck identity, destructive label, right-corner X and equal action pair; copy isolation remains in behavior notes, not dialog copy. |
 | L01 | Delete “Leaving this screen keeps the lobby”; remove parenthetical “(Inviter)”, “(Opponent)” and “(Example)” where identity/state already conveys them. | Opponent identity, actual decline/pending state, selected deck/counts, starter/Ready/Reinvite. No presence pulse should imply online status. |
 | L02 | Delete “Accepting the invitation did not ready you. Choose your deck to proceed” and redundant “Select a saved deck” below No deck selected. Remove redundant starter captions “You first / Opponent / 50 / 50”. | Choose deck and a concise disabled-Ready reason. The false “deck … locked for this match” claim is corrected now, not preserved as a policy or pending suggestion. |
-| L03 | No explanatory paragraphs to remove. | Deck name/counts, Select, bottom Import and Back. |
-| L04 | Old “Any … size”, selected-row target notes and automatic-sync banner are absent in the new drag composition. No new drag tutorial paragraph suggested. | Mainboard/Sideboard and counts; distinct 1/all handle markers, art/name/quantity. |
+| L03 | No explanatory paragraphs to remove. D-294 supersedes per-row Select with bordered draft selection and one bottom confirmation. | Deck name/counts, bottom Import/Use selected deck and contextual Close/native Back; no app arrow. |
+| L04 / L04b | Old size/selected-row/sync helpers are absent. No tap/drag tutorial paragraph. F35's fixed fading result is **necessary action feedback**, not explanatory clutter. | Mainboard/Sideboard/counts, tappable/draggable 1/∞, art/name/quantity and latest actual move in reserved space. F36 list reflow is caused by transfer, never by text fade. |
 | L05 | Delete “riley has joined the lobby and is selecting their deck” and the full footer “Your Ready stays set … both players are ready.” Shorten “You are ready. Waiting for riley to ready up” to “Waiting for riley”. Remove redundant starter captions. | Own Ready/check, opponent Not ready, Withdraw Ready and setup controls. |
 | L06 | Delete “Leaving the lobby normally does not cancel it” plus the background leaving-lobby helper. | Dialog must still say it removes the unstarted game and pending invitation. Keep/Cancel names stay explicit. |
-| G00 | Replace multiple pilot-only explanatory lines with one “Gameplay omitted — historical pilot” label, or move provenance outside the phone frame. | This is intentionally historical, not an app onboarding screen. Do not pretend it is the current live board. |
+| Retired G00 | Round 2 suggested shrinking/moving pilot explanations. **D-294 removes the whole obsolete mockup from the current review**. | Raw source/older captures remain provenance outside the current packet, not an empty gameplay design. |
 | U01 | Delete duplicate “Connection lost” under Reconnecting and “Previously sent actions will recover automatically”. | Keep concise read-only/disconnected restriction and actual recovery/escape actions; never claim an unknown request failed. |
 | G01 / G02 | Delete “Fixed above controls”, “covered” after covered Hand, “outer / 1 row” and “inner / 2 rows”; they explain the diagram, not state. | Hand counts/identity, phase, selection count, life, zone counts, Stack/combat roles and projection distinction. Undo/hold tutorial is already visually replaced by F15's icon; Redo remains explicit in G03/accessibility. |
 | H01 / H02 | Delete “Read-only at event”, “Drag: exact event” / “Drag to pause + scrub” and the same row-count diagram labels. | Paused/Playing, exact selected boundary/branch context, transport state and distinct Continue/Return actions. Timeline gesture behavior stays in notes, not permanent helper text. |
@@ -1177,14 +1260,14 @@ dismissal are additional interaction cost, not hidden zero-cost steps.
 | --- | --- | --- |
 | Main menu → existing active game | Games → Open: **2 taps**, or a visible landscape navigation game row: **1 tap**. | Portrait drawer → game: **2 taps**; list scrolling if needed. |
 | Main menu → accept a visible invite | Games → Accept: **2 taps**, arriving in the same lobby, not Ready. | Invitations follows Games; scrolling if needed. |
-| Main menu → invite a saved contact | Contacts → Invite: **2 taps**, arriving in waiting lobby. | Contact-list scrolling if needed. |
-| Main menu → search, add and invite | Contacts → Search field → Search → Add contact → Invite: **5 taps**. | Type username; keyboard/scroll cost may add taps. |
+| Main menu → invite a saved contact | Contacts → Invite → Create & invite: **3 taps**, accepting the suggested nonblank name and arriving in lobby. | Custom name/reroll adds work; contact-list scrolling if needed. |
+| Main menu → search, add and invite | Contacts → Search field → Search → Add contact → Invite → Create & invite: **6 taps**. | Type username; optional custom game name/reroll and keyboard/scroll add cost. |
 | Main menu → save a new imported list | Manage decks → Import → list field → Review import → name field → Save deck: **6 taps**. | Paste/type list and name; correction/keyboard/scroll cost. |
-| Accepted lobby without a deck → Ready | Choose deck → Select → Ready: **3 taps**. | Deck-list scrolling if needed. No legality/size confirmation. |
-| Preparation open → transfer one/all copies | Drag one/all handle → other panel: **1 drag**. | Scrolling/auto-scroll may be needed; native accessibility equivalent. No Move button or Send step. |
+| Accepted lobby without a deck → Ready | Choose deck → highlight row → Use selected deck → Ready: **4 taps**. | Row highlight is personal; only bottom confirmation changes preparation. No legality/size confirmation. |
+| Preparation open → transfer one/all copies | Tap **1 / ∞**: **1 tap**, or drag the control to the other panel: **1 drag**. | One gesture sends once; fixed fading latest-move feedback. Emptied rows quickly fade/collapse and following rows slide up; no Send or acknowledgement wait. |
 | Existing deck → update card list | Edit → Import decklist → list field → Review import → Save deck: **5 taps**. | Paste/type; default Overwrite, optional Merge toggle adds 1 tap. No target picker. |
 | Games row → delete active game | Long press → Delete game → confirm Delete game: **1 hold + 2 taps**. | Confirmation explicitly says both players; dismissing sends nothing. |
-| Ready lobby → leave without withdrawing | Back: **1 tap**. | No cancellation or publication prompt. |
+| Ready lobby → leave without withdrawing | Android native Back: **1 system action**. | No app Back/home arrow, cancellation or publication prompt. Hamburger destination is an alternative. |
 | Saved-deck details → delete collection entry | Delete saved deck → confirm deletion: **2 taps**. | Copies selected in games survive. |
 | Live → exact history → armed continuation | History → drag timeline → Continue playing from here: **2 taps + 1 drag**. | If playback is running, dragging itself pauses before scrubbing; no separate Pause tap. First gameplay mutation is additional and alone creates/activates continuation. |
 | Live → eligible Redo | Hold Undo: **1 hold**, or overflow → Redo: **2 taps**. | No earlier Undo emitted; hold timing/native accessibility still need validation. |
@@ -1196,13 +1279,14 @@ with a keyboard; the later large-text/keyboard review must count that cost too.
 
 # Coverage and limits
 
-**Pictured:** 32 primary screen/state drafts (27 original Stitch-derived states,
-some locally recomposed, plus N02/P03/P04/D07/D08) and two scrolled continuations,
-all in both orientations: **68 captures**. These include the shared navigation,
+**Pictured:** 32 primary screen/state drafts (26 original Stitch-derived states,
+some locally recomposed, plus N02/P03/P04/P05/D07/D08), two scrolled continuations
+and L04b's faded-feedback continuation, all in both orientations: **70 captures**.
+These include the shared navigation,
 inline sign-in error, submitted reset request, unresolved import, two import save
 modes in contextual D07 (Overwrite selected), collection-deletion modal, declined
 inviter lobby with Reinvite, game context/active-delete confirmation, full card
-inspection, no-own-deck
+inspection, mandatory named creation, no-own-deck
 lobby, preparation, accepted Ready, cancellation modal and reconnect dialog,
 plus six gameplay states: live, populated Stack/combat, paused exact history,
 running playback, armed continuation and explicit Redo menu.
@@ -1253,6 +1337,18 @@ cloud exports are retained as provenance. P03/P04/D07/D08 are four new local sta
 not Stitch generations. The full-screen copy audit above distinguishes suggested
 future deletions from this round's confirmed removals. All earlier feedback persists
 except explicitly recorded supersessions. No new cloud or application work claimed.
+
+**D-294 owner revision:** named games with procedural suggestions and persistent
+creation dates; no app Back/home arrows; shared title/hamburger/exit or Cancel row;
+equal button pairs; right-corner dialog close; border-only cover choice and shorter
+deck-deletion warning; opponent-slot Reinvite; draft deck selection plus bottom
+confirmation; narrow **1 / ∞** markers. P05 replaces the retired G00 in current
+coverage. Follow-ups add L04b: **35 states / 70 captures**. U01 uses a real table. Prior local
+sources and retired G00 raw/capture provenance are retained, not embedded as
+current screens. F23–F36 record explicit supersessions, including direct 1/all
+tap transfer, fixed fading result text and short fading/sliding row removal; earlier feedback and
+unselected copy suggestions continue. This remains inert documentation, not app
+implementation, a new cloud generation, final UI approval or a passed gate.
 
 See [generation briefs](generation-briefs.md) and [source manifest](manifest.json).
 The exported HTML is design material with executable interactions removed, not

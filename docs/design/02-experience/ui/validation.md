@@ -3,7 +3,7 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
-**Current edition: D-293 cumulative owner-feedback revision**, documented below. The original
+**Current edition: D-294 cumulative owner-feedback revision**, documented below. The original
 pilot/gameplay counts and cloud checks in earlier sections are historical.
 
 - The original pilot has **21 distinct Stitch-generated responsive sources**,
@@ -201,3 +201,59 @@ a service worker is a possible explanation.
   proxying the document service, preserving both original port-443 routes. Direct
   host self-connection still fails; remote/phone refresh is not independently
   verified here. No new URL, public hosting, route change or cloud edit.
+
+## Named games and title-row iteration — D-294
+
+- Appended F23–F36, retaining F01–F22 with explicit supersessions. Required game
+  naming, fantasy adjective + thing suggestions and creation dates now have primary
+  contract/model/protocol/storage/summaries and future T-681–T-683 coverage. P05
+  pictures editable suggested **Crackling Mist** and reroll before final creation.
+  Accepted name/server time persist across retries, reinvite and incarnations;
+  no rename, unique-name constraint or gameplay-RNG linkage is invented.
+- Removed G00 from active manifest/review/HTML/PDF; retained its raw/local/capture
+  provenance under `retiredScreens`, not as a current screen. Added P05 instead:
+  **32 primary states + two scroll continuations + one faded-feedback continuation
+  = 35 states / 70 captures** after the same-round preparation follow-ups.
+  U01 now shows a real read-only table under reconnect, not another empty pilot.
+  L01/L02/L03/L05/L06/U01 are new local inert derivatives; old sources remain
+  historical provenance. No cloud edit or application implementation is claimed.
+- Every active source applies no app Back/home arrows. Titles/hamburger share a
+  row; import/editor Exit without saving and lobby Cancel are upper-right. Game
+  names replace opponent-only titles, with opponent metadata and state/date details.
+  Pairs fill equally; close X is upper-right, including inspector/navigation close.
+  Cover has no visible checkboxes; concise Use cover avoids wrapped filler labels.
+  Deck-delete body says only Deletion cannot be undone. Reinvite is in opponent slot;
+  Ready has no leaving helper. L03 uses bordered personal selection and bottom
+  confirmation; one/all controls use **24 px-wide 1 / ∞**, freeing name space.
+  Follow-ups make them direct tap buttons as well as drag origins. L04 shows the
+  latest actual displayed move in a reserved 40 px plain-text slot; L04b freezes
+  the faded endpoint with identical header/list/control geometry. The capture
+  check verifies opacity-only change does not shift layout. ~1–2 s visual fade and
+  quick disappearing-row fade/following-row slide are explicit native requirements,
+  not implemented animations in the inert snapshots. T-684 covers rapid taps,
+  drag/tap arbitration, identity, feedback, row reflow and reconciliation.
+- All 35 states passed offline recapture in both declared viewports: inert bodies,
+  no scripts/remote dependencies, loaded local fonts and no horizontal page overflow.
+  Ordinary audited button/input targets remain at least 48 × 48 and visible or in
+  scrolling content. Compact one/all buttons are an **explicit D-294 width exception**
+  audited at 24 × 48, not a claim that all targets meet 48 px; accessible alternatives and
+  eventual real touch/gesture qualification remain required.
+- Added static checks for global arrow absence, title/hamburger and right-exit
+  alignment/visibility in both orientations, named/date-stamped rows/lobbies,
+  Cancel/Reinvite placement, absent leaving helper, bottom picker confirmation,
+  24 px markers, no cover checkbox, concise deletion copy, required naming/reroll,
+  real-table reconnect, right-corner dialog X and equal-width action pairs. A first
+  context-menu close-width overflow and duplicate portrait cover footer in landscape
+  were repaired, not bypassed. Final captures and enlarged key screens plus full
+  both-orientation contact sheets were inspected; short-height content still scrolls.
+- Full HTML/PDF rebuilt with **70 embedded captures / 45 PDF pages**, all current
+  screen IDs, image sizes/decodes and phone-width HTML validated. Repository relative
+  Markdown links, JSON/Python syntax and whitespace checks apply before saving.
+  Copy-audit suggestions remain cumulative, with selected/superseded D-294 items
+  marked rather than silently treating all earlier proposals as approved.
+- Same-URL document service serves replacement HTML/PDF in place; served bytes
+  are compared with the rebuilt files and new P05/table images sampled. Tailscale
+  remains tailnet-only port 8443 → loopback document service, original port-443
+  routes untouched. Direct host self-connection still fails, so remote phone access
+  is not independently verified. No new URL, public host, route changes, app tests
+  or passed UI/review gate.

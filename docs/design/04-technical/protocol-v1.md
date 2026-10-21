@@ -271,6 +271,17 @@ serialize on that deck; delete never becomes upsert. Initial game+invitation cre
 is one transaction; subsequent existing-game work enters the game dispatcher.
 Notification registration is an absolute session+installation-bound upsert/delete.
 
+**D-294 creation metadata:** `POST /invitations` for create+first-invite includes
+the required nonblank `gameName` with recipient and stable request ID. Validate
+the text under ordinary input/resource bounds; no name-uniqueness lookup or
+generation endpoint. The transaction assigns immutable server UTC `createdAt` to
+the persistent game and retains it with the original outcome. Authorized game/
+invitation summaries and replica lifecycle metadata carry `gameName`/`createdAt`,
+including first acceptance/recovery. Reinvite, start and returned-lobby/fresh-play
+transitions preserve them. Display the local-calendar date of that instant beside
+state; date formatting is not a new identity. Creation retries reuse the original
+accepted name/time/IDs; suggestion rerolls are local pre-request UI, not game RNG.
+
 Card definitions are small metadata submissions, not artwork or a full catalog.
 Use one account-scoped `POST /definitions` with the complete JSON definition set
 and normal HTTP request handling (D-289). Networking libraries handle transport

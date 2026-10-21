@@ -50,7 +50,10 @@ The general rules are:
   Landscape non-gameplay keeps navigation visible; gameplay does not. Logout is
   fixed outside navigation's scrolling list, not directly in main-menu content.
   No main-menu notification-settings shortcut or redundant explanatory subtitles.
-  Necessary in-screen navigation/gameplay controls remain. Search by username and
+  D-294 removes app Back/home arrows everywhere; Android native Back remains.
+  Titled screens share one title/hamburger row; import/editor Exit without saving
+  and lobby Cancel sit at its top-right. Related button pairs fill rows equally;
+  dialog close is top-right. Search by username and
   save contacts without mutual friend-request approval.
 - Register with username, email and password; log in with email/password and
   reset forgotten passwords by email. Other users see your username, not your email.
@@ -72,12 +75,19 @@ The general rules are:
   of personal device state are not settled by this decision.
 - Games (formerly Play) combines in-play/setup games in one list, with Invitations
   afterward; lobbies are game states, not a separate category (D-292).
-  D-293 uses bare opponent names and right-chevron Open; reinvite is inside the
-  existing lobby. Long press offers setup Cancel game or active Delete game.
+  D-294 uses required game names as primary labels, opponent metadata and creation
+  date beside state; right-chevron Open remains. Reinvite is inside the opponent
+  slot in the existing lobby. Long press offers setup Cancel or active Delete.
   Active Delete has an extra confirmation and removes the shared game for **both**
   players, without a result, reusable lobby or restore. Native accessibility offers
   the same actions. Server ordering and captured-incarnation safeguards apply.
-- Invite an added user to a game. For you, it is already an open lobby: select/
+- Choose an added contact, name the new game, then Create & invite. Name is required;
+  offer fantasy/wizarding adjective + thing suggestions such as Azure Spark or
+  Crackling Mist, editable before creation. Blank names cannot create; cancelling
+  or generating suggestions creates nothing. Server creation date/name persist
+  through reinvite/start/returned lobby and synchronize to both players/devices.
+  Retries retain original name/date/game ID. No rename or name uniqueness is inferred.
+  For you, the accepted create+invite is already an open lobby: select/
   prepare your deck and ready while waiting. Cancel game also cancels the pending
   invite. The recipient can Accept or Decline in Play; accepting opens the same
   lobby for them, not active play or an automatic Ready. Declining leaves your
@@ -97,6 +107,8 @@ The general rules are:
   retaining untouched cards; both modes require complete resolution and atomic save.
   Changing a saved deck does not change copies already selected in lobbies/games.
   Deck rows put small card art after quantity; press it or the row for full inspection.
+  Cover choice uses its border, not an extra checkbox; saved-deck deletion needs
+  only “Deletion cannot be undone” in the dialog. Selected-copy isolation persists.
 - Delete a saved deck to remove it from your collection. **Both editing and
   deleting saved decks preserve already selected lobby/game copies** (D-221),
   including their game-local preparation and active play. There is no trash/restore
@@ -104,6 +116,8 @@ The general rules are:
   remain UI/privacy/service work.
 - A game begins in a lobby. Players choose decks and manage their mainboards/
   sideboards there, then each presses Ready. Once both are ready, the game starts.
+  D-294's deck picker highlights a personal draft row with a border and uses one
+  bottom confirmation; no per-row Select buttons or Ready clearing on highlighting.
   Starting automatically shuffles both Libraries and gives each player 20 life;
   no starting-life setting is required. Life can still be edited during play.
   Choose the starter in the lobby: either player or Random. D-274 resolves Random
@@ -113,8 +127,13 @@ The general rules are:
   Initially in the lobby, mainboard is in Library, sideboard in a separate
   Sideboard area, and all other card areas are empty. Freely move cards between
   mainboard and sideboard there, without legality, size or one-for-one restrictions.
-  Use separate one-copy/all-copies drag handles, not visible Move buttons (D-293);
-  completed drops synchronize through the existing per-card requests. Native
+  Use compact **1 / ∞** tap buttons that also support drag (D-293/D-294): tap moves
+  one/all captured copies to the other section; a drag must not also emit a tap.
+  Show latest transfer as plain text in reserved space, fading over ~1–2 s without
+  shifting layout. A row losing its last copies quickly fades and following rows
+  slide up; that real list change is separate from the fixed feedback slot.
+  Requests/displayed quantities do not wait for animation. Transfers synchronize
+  through existing per-card requests. Native
   accessibility has equivalent actions. Cancelled drags send nothing.
   **Sideboard is lobby-only: it cannot be browsed or used during the game.**
   Start with the prepared mainboard;

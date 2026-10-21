@@ -92,8 +92,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">sam<small>Invitation declined</small></button>
+      <button class="navigation-child navigation-game">Azure Spark<small>morgan · In play · 21 Oct 2026</small></button>
+      <button class="navigation-child navigation-game">Silver Ember<small>sam · Invitation declined · 20 Oct 2026</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
   <div class="app-shell">
@@ -116,6 +116,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         <h1 class="top-bar-title">Import deck</h1>
       </div>
       <div class="draft-badge" aria-label="Screen identifier">Draft D03</div>
+      <button class="review-exit" data-icon="close" aria-label="Exit without saving"></button>
     </div>
 
     <!-- Main Content Area: Responsive Grid / Stack -->
@@ -144,7 +145,7 @@ Sideboard
           <p class="error-guidance">Correct the pasted text; nothing has been saved.</p>
         </div>
 
-        <div class="actions-group">
+        <div class="actions-group action-pair">
           <!-- Primary CTA: Visibly disabled -->
           <button type="button" class="btn btn-primary-disabled" data-icon="fact_check" disabled="" aria-disabled="true" title="Resolve card name errors before importing">
             Review import

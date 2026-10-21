@@ -115,7 +115,7 @@ must explain their actual eligibility; the shortcut does not bypass Undo checks.
 Historical viewing replaces the live action chrome:
 
 - **No gameplay actions or gameplay-edit controls** while browsing history.
-- Fixed bottom row: **Back/Previous** on the left, **Play/Pause** in the center,
+- Fixed bottom row: **Previous group** on the left, **Play/Pause** in the center,
   **Next** on the right. These are review/playback controls, not shared Undo/Redo.
 - Immediately above that row, a **left-to-right timeline** shows the current
   event-tree path being reviewed. It is not a full expanded tree diagram.

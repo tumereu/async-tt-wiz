@@ -11,11 +11,17 @@ button.icon-only { width: 48px; padding: 0; }
 button.icon-only::before { margin: 0; }
 .screen-controls { min-height: 48px; padding: 0 8px 0 56px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .screen-controls .end { margin-left: auto; }
+.screen-controls h1 { font-size: 20px; line-height: 1.2; margin: 0; flex: 1; min-width: 0; }
+.screen-controls { min-height: 56px; }
 main { min-height: 0; flex: 1; overflow-y: auto; padding: 12px 16px; }
 h1 { font-size: 22px; margin-bottom: 12px; }
 h2 { font-size: 17px; margin-bottom: 8px; }
 .panel { background: white; border: 1px solid #c5d0ca; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.actions:has(>button:nth-child(2):last-child) { flex-wrap: nowrap; width: 100%; }
+.actions:has(>button:nth-child(2):last-child) > button { flex: 1 1 0; width: 0; min-width: 48px; padding: 8px; }
+.actions:has(>button:nth-child(4):last-child) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.actions:has(>button:nth-child(4):last-child) > button { min-width: 0; padding: 8px; }
 .muted { color: #61736d; font-size: 13px; }
 .list-row { min-height: 60px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e0e7e3; }
 .list-row .name { flex: 1; min-width: 0; }
@@ -24,12 +30,19 @@ h2 { font-size: 17px; margin-bottom: 8px; }
 .art-button img { width: 22px; height: 30px; border-radius: 2px; }
 .tabs, .segmented { display: flex; gap: 4px; margin: 8px 0; }
 .tabs button, .segmented button { flex: 1; }
+.segmented button { padding: 6px; font-size: 14px; }
+.segmented button[data-icon]::before { font-size: 20px; margin-right: 4px; }
 .selected { background: #e1f1ea; border-color: #086e65; font-weight: 700; }
 .columns { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
-.drag-handle { display: inline-flex; width: 48px; height: 48px; align-items: center;
+.drag-handle { display: inline-flex; width: 24px; height: 48px; align-items: center;
   justify-content: center; border: 1px solid #c5d0ca; border-radius: 5px; flex-shrink: 0; cursor: grab; }
-.drag-handle::before { content: 'drag_indicator'; font: 22px/1 'Review Symbols'; }
-.drag-handle sup { font-size: 12px; font-weight: 700; }
+.drag-handle::before { content: none; }
+.drag-handle sup { font-size: 18px; font-weight: 700; }
+.transfer-control { min-width: 24px; width: 24px; padding: 0; }
+.transfer-feedback { height: 40px; min-height: 40px; flex-shrink: 0; margin: 0;
+  padding: 0 16px; display: flex; align-items: center; overflow: hidden;
+  font-size: 14px; color: #365c53; }
+/* Captures freeze visible/faded endpoints; native UI fades over about 1–2 s. */
 label { display: block; margin-bottom: 6px; font-weight: 600; }
 input, textarea { width: 100%; min-height: 48px; padding: 10px; border: 1px solid #adbbb4; border-radius: 5px; background: white; }
 textarea { min-height: 180px; resize: none; font-family: monospace; }
@@ -38,15 +51,27 @@ textarea { min-height: 180px; resize: none; font-family: monospace; }
 .fixed-bottom button { width: 100%; }
 .scrim { position: fixed; inset: 0; z-index: 40; background: #243b3555; display: flex;
   align-items: center; justify-content: center; padding: 16px; }
-.dialog { background: white; padding: 20px; border-radius: 10px; width: 100%; max-width: 380px;
+.dialog { position: relative; background: white; padding: 20px; border-radius: 10px; width: 100%; max-width: 380px;
   max-height: calc(100dvh - 32px); overflow-y: auto; box-shadow: 0 8px 30px #243b3530; }
 .context-menu { max-width: 280px; padding: 8px; }
-.context-menu button { width: 100%; justify-content: flex-start; border: 0; }
+.context-menu > button { width: 100%; justify-content: flex-start; border: 0; }
 .context-menu h2 { padding: 8px; }
 .full-card { max-width: 240px; margin: 8px auto; padding: 12px; border: 6px solid #365c53;
   border-radius: 12px; background: #e8efdf; }
 .full-card img { width: 100%; max-height: 240px; object-fit: cover; margin: 8px 0; }
 .inspector-dialog { max-width: 360px; }
+.dialog > button[aria-label="Close inspector"] { display: flex; margin-left: auto; }
+.dialog-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.dialog-heading h1, .dialog-heading h2 { flex: 1; margin: 0; }
+.dialog-heading button { margin-left: auto; }
+.deck-choice { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 82px;
+  padding: 12px; margin-bottom: 12px; border: 1px solid #bacbc3; border-radius: 8px; background: white; }
+.deck-choice[aria-checked="true"] { border: 2px solid #086e65; }
+.deck-choice img { width: 36px; height: 48px; }
+.deck-choice .name { flex: 1; }
+.name-input { display: flex; gap: 8px; }
+.lobby-footer { flex-shrink: 0; padding: 8px 16px; }
+.lobby-footer > button { width: 100%; }
 @media (orientation: landscape) {
   .screen-controls { padding-left: 8px; }
   .columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }

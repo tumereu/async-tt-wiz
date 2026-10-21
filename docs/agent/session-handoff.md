@@ -14,7 +14,41 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-293 (retains D-292)
+## Current UI feedback iteration — D-294
+
+Read cumulative F01–F36 before UI edits. Current full packet remains at the exact
+port-8443 review.html URL, rebuilt in place with PDF after every batch. Preserve
+earlier decisions except explicit supersessions; do not implement or pass a gate.
+
+Selected in Round 3: games require names; offer fantasy/wizarding adjective + thing
+suggestions (Azure Spark / Crackling Mist). P05 proposes editable prefill/reroll;
+final Create & invite creates one game+first invitation with the chosen name.
+Server creation date/name belong to the persistent game, survive later incarnations
+and retries, and appear beside state/in game titles across devices. No rename or
+unique-name feature inferred. Protocol/storage/contracts and T-681–T-684 align.
+
+No app Back/home arrows anywhere (native Back remains). Titles/hamburger share a
+row; import/editor Exit without saving and lobby Cancel are upper-right. Related
+pairs fill 50/50; dialog X upper-right. Border-only cover selection; deck-deletion
+copy only says cannot be undone. Lobby uses game title/date, Reinvite in opponent
+slot, no leaving helper under Ready. Deck picker highlights a personal draft and
+confirms once at bottom (no per-row Select/request/Ready clearing). Narrow 24 px
+**1 / ∞** controls prioritize name space, explicitly superseding 48 px-wide
+grip+count prototypes; ordinary buttons and accessible alternatives remain. Follow-ups
+make them direct one/all tap buttons **as well as** drag origins, with no double
+dispatch. Latest actual displayed move is plain text in a reserved fixed slot,
+fading over ~1–2 s without layout shift. A tap emptying a row quickly fades it and
+slides following rows up, independent of feedback layout. Requests/prediction never
+wait for animation; preserve captured identities and normal reconciliation.
+
+P05 replaces retired G00; L04b adds a faded-feedback snapshot:
+**32 primary states + three continuations / 70 captures**.
+U01 now has a real table backdrop. Retired/local/raw sources are provenance outside
+current review, not app implementation or new cloud edits. Earlier copy suggestions
+remain suggestions except selected D-294 removals/supersessions. Always rebuild
+the full packet, verify served bytes and save/push the completed documentation batch.
+
+## Previous UI feedback iteration — D-293 (retains D-292)
 
 Round 2 F11–F22 is in [cumulative feedback](../design/02-experience/ui/feedback.md).
 No authentication top Back; in-form/native Back suffice. Provisional ATW hat logo

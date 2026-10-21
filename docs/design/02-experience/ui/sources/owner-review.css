@@ -1,4 +1,4 @@
-/* Cumulative D-292/D-293 owner corrections. Inert design artifacts, not application CSS. */
+/* Cumulative D-292–D-294 corrections. Inert design artifacts, not application CSS. */
 @font-face { font-family: 'Review Symbols'; font-style: normal; font-weight: 100 700;
   src: url('assets/3ae08513a06396b0258c.woff2') format('woff2'); }
 button[data-icon]::before, a[data-icon]::before,
@@ -40,8 +40,7 @@ html, body { box-sizing: border-box; }
   background: transparent !important; border: 0 !important; box-shadow: none !important;
   flex-shrink: 0; gap: 4px !important;
 }
-.top-bar h1, .top-app-bar h1, .app-bar h1, .top-bar .app-title-group,
-.top-bar-titles, .app-bar .app-title-group, .draft-badge, .badge-draft,
+.draft-badge, .badge-draft,
 .top-bar-badge, .top .title small { display: none !important; }
 .top .title { display: none; }
 .top .history-button, .top .top-live { margin-left: auto; }
@@ -113,7 +112,46 @@ html, body { box-sizing: border-box; }
 .review-password .main-scroll-container { display: flex; padding: 16px; overflow-y: auto; }
 .review-password .landscape-pane-right { display: block; width: 100%; }
 .review-password .form-card { padding: 20px; }
+/* D-294: compact title/control rows, not dedicated app-brand bars. */
+.review-authenticated .top-bar h1, .review-authenticated .top-app-bar h1,
+.review-authenticated .app-bar h1 { display: block !important; font-size: 20px !important;
+  line-height: 1.2; margin: 0; min-width: 0; }
+.review-authenticated .top-bar .app-title-group,
+.review-authenticated .top-bar-titles { display: flex !important; flex: 1; min-width: 0; }
+.review-authenticated .top-bar-titles { flex-direction: column; }
+.review-authenticated .top-bar button:has(.material-symbols-outlined),
+.review-authenticated .app-bar button:has(.material-symbols-outlined),
+.review-authenticated .top-app-bar button:has(.material-symbols-outlined) { flex-shrink: 0; }
+button[data-icon="arrow_back"], .top button[aria-label="Back to games"],
+.top-bar button[aria-label="Back"], .top-bar button[aria-label="Go back"],
+.top-bar button[aria-label="Navigate back"], .top-bar button[aria-label="Back to previous screen"],
+.app-bar button[aria-label="Back to lobby"], .top-bar button[aria-label="Back to main menu"],
+.top-app-bar button[aria-label="Back"] { display: none !important; }
+.review-authenticated :is(.top,.top-bar,.top-app-bar,.app-bar) button[aria-label^="Back"],
+.review-authenticated :is(.top,.top-bar,.top-app-bar,.app-bar) button[aria-label="Go back"],
+.review-authenticated :is(.top,.top-bar,.top-app-bar,.app-bar) button[aria-label="Navigate back"] { display: none !important; }
+.review-gameplay .top .title { display: block; flex: 1; min-width: 0; font-size: 13px; }
+.review-gameplay .top:has(.top-continue) .title { max-width: 160px; }
+.action-pair, .dialog-actions, .item-actions:has(>button:nth-child(2)),
+.landscape-actions, .bottom-bar:has(>button:nth-child(2)), .action-links-row {
+  display: flex !important; flex-direction: row !important; gap: 8px; width: 100%; }
+.action-pair > button, .dialog-actions > button, .item-actions:has(>button:nth-child(2)) > button,
+.landscape-actions > button, .bottom-bar:has(>button:nth-child(2)) > button,
+.action-links-row > button { flex: 1 1 0 !important; width: 0 !important; min-width: 48px !important;
+  height: auto !important; min-height: 48px; padding: 8px !important; }
+.landscape-actions > div:empty { display: none; }
+.dialog-close-btn { margin-left: auto !important; }
+.review-navigation .navigation-close { width: 48px !important; margin-left: auto;
+  padding: 0; justify-content: center; }
+.card-tile .selection-indicator { display: none !important; }
+.card-tile.selected { border-width: 2px; }
+.review-exit { margin-left: auto; min-width: 48px; width: 48px; height: 48px;
+  border: 0; background: transparent; color: #243b35; }
+.review-exit::before { margin: 0 !important; }
+.top-bar:has(.review-exit) .top-bar-left { flex: 1; min-width: 0; }
+.game-details { font-size: 13px; color: #61736d; margin: 4px 0 12px; }
 @media (orientation: landscape) {
+  .bottom-bar.portrait-only:has(>button:nth-child(2)) { display: none !important; }
   body.review-authenticated:not(.review-gameplay) { padding-left: 220px !important; }
   .review-authenticated:not(.review-gameplay) .review-navigation { display: flex; width: 220px; }
   .review-authenticated:not(.review-gameplay) .review-hamburger,

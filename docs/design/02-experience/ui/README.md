@@ -3,10 +3,11 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension and cumulative D-292/D-293 revisions, with both orientations: 32 primary
-  drafts plus two scrolled continuations, 68 captures total. N02 shows navigation;
+  extension and cumulative D-292–D-294 revisions, with both orientations: 32 primary
+  drafts plus two scroll and one faded-feedback continuation, 70 captures total.
+  N02 shows navigation;
   P03/P04 show context/deletion, D07 contextual import and D08 full inspection.
-  G00 remains the original placeholder;
+  P05 adds named creation. G00 is retired provenance, not a current screen;
   G01–G03 and H01–H03 add the live/history table and controls.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
   clarified interactions and remaining geometry proposals.
@@ -19,7 +20,7 @@ These are specification artifacts, not application code or an approved final UI.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - **[Cumulative feedback](feedback.md):** preserve every owner decision across
-  rounds unless explicitly superseded; read before regeneration. F01–F22 apply;
+  rounds unless explicitly superseded; read before regeneration. F01–F36 apply;
   the packet's full-screen copy audit lists further deletion suggestions, not
   silently approved removals. Raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
@@ -88,6 +89,16 @@ and bare game names, chevrons/no list Reinvite, art-after-quantity, one/all hand
 Overwrite default/no generic replacement selector and the shared-deletion warning.
 The full-screen copy audit remains a set of suggestions, not a capture assertion
 that every suggested deletion has already been approved or applied.
+
+D-294 checks reject app Back/home arrows globally, misaligned title/hamburger or
+missing import/editor title/exit, missing state/date/game-name details, misplaced
+lobby Cancel/Reinvite, leaving-Ready copy, per-row Select, wide preparation handles,
+cover checkbox, long deck-delete explanations, missing name/reroll and empty U01.
+G00 is excluded from the active manifest; provenance remains in `retiredScreens`.
+Ordinary buttons remain at least 48 px; the explicitly selected 24 px-wide **1 / ∞**
+tap buttons/drag origins are a separate geometry exception with accessible alternatives.
+L04/L04b freeze visible/faded result-text endpoints and check unchanged layout;
+actual short row fade/slide and ~1–2 s text fade remain native interaction requirements.
 
 ## Private review hosting
 

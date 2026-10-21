@@ -17,6 +17,20 @@ contextual default Overwrite/additive Merge; one/all drag handles; art inspectio
 Further copy-audit deletions are suggestions, not approved removals. New and
 recomposed local states are recorded in the manifest; no new cloud edit is claimed.
 
+**D-294 current revisions:** required named creation with fantasy adjective + thing
+suggestions and persistent server creation dates; no app Back/home arrows anywhere;
+hamburger/title on one row, import/editor unsaved-exit and lobby Cancel upper-right;
+equal button pairs; dialog X right; border-only cover and cannot-undo deck deletion;
+opponent-slot Reinvite and no leaving-Ready helper; draft deck highlight + bottom
+confirmation; narrow **1 / ∞** markers. Remove G00 from current review and put a
+real table beneath U01. F23–F33 supersede conflicting historical prompts below.
+
+**Same-round F34–F36:** 1/∞ also tap-move one/all to the other section, retaining
+drag with no double dispatch. Reserve fixed plain-text latest-move feedback,
+fading ~1–2 s without shifting layout. When a row empties, quickly fade it and
+slide following rows up; do not confuse actual transfer reflow with feedback
+layout changes. L04/L04b freeze visible/faded text endpoints, not app interactions.
+
 ## Common prompt
 
 ```text

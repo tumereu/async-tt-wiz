@@ -110,7 +110,8 @@ responsibilities below remain proposed unless separately confirmed.
 
 **Confirmed fullscreen/presentation — D-292:** no dedicated app-title bar,
 Android status bar or permanent system-navigation strip; keep necessary hamburger,
-Back and gameplay phase/history controls compact in the screen. Do not reserve
+gameplay phase/history controls compact in the screen. D-294 removes all app
+Back/home arrows, keeping native Android Back. Do not reserve
 mock OS-bar space. Safe cutout placement and transient OS/accessibility/keyboard
 behavior still apply. App name is **Async Tabletop Wizards**, subtitle
 **Specialized tabletop simulator for asynchronous wizardry**. Sign-in uses the
@@ -126,7 +127,7 @@ Back suffice); provisional ATW logo above main-menu options. Type-matching icons
 on indented navigation/Logout and matching main-menu destinations; top-level
 categories remain text. Buttons normally use icon + label, or accessible icon-only
 actions in the tight gameplay area; state values are not removed. Game rows have
-bare opponent names and a right-chevron Open; long press/accessibility opens
+required game names (D-294), opponent/date/state details and a right-chevron Open; long press/accessibility opens
 Cancel for setup or Delete for active play. Active deletion needs the extra
 both-players/no-restore confirmation and server lifecycle rules in the primary
 contract. Reinvite belongs inside the lobby. Deck import is a bottom action;
@@ -135,6 +136,29 @@ Deck rows have small art after quantity and full inspection on press. Preparatio
 uses distinct one/all drag handles, with equivalent native accessibility actions,
 not persistent Move buttons. These are requirements for later native verification,
 not a claim the inert captures implement gestures or accessibility.
+
+**D-294 title/selection refinements:** hamburger shares a row with the visible title,
+also in landscape (persistent navigation still replaces it on non-gameplay screens).
+Import/editor Exit without saving and lobby Cancel sit at the row's far right;
+lobby title is the game name and Reinvite belongs in the opponent slot. No Ready
+leaving helper. Dialog close X is top-right; related button pairs fill 50/50.
+Cover selection has a border, no checkbox; deck deletion says only it cannot be
+undone. Deck picker uses personal border selection and one bottom confirmation,
+not per-row Select. Preparation **1 / ∞** markers are 24 px wide, an explicit compact
+drag-target exception with native accessible equivalents, not overlapping invisible
+targets or permission to shrink ordinary 48 px buttons. The current review retires
+G00 and shows a real table under U01; historical raw artifacts remain provenance.
+New creation requires a name with fantasy adjective + thing suggestions; the
+server's creation date is shown beside state and survives later incarnations.
+
+**D-294 follow-ups:** the compact **1 / ∞** affordances are tappable buttons as
+well as drag origins, with gesture arbitration preventing double transfers. A
+reserved plain-text slot shows the latest actual displayed move and fades over
+about 1–2 s without shifting content; new moves replace/restart it. When a tap
+empties a row, quickly fade that row and slide the following rows upward. That
+intentional list reflow is not feedback-driven layout movement. Preserve captured
+targets through animation, immediate request/prediction and honest reconciliation;
+native accessibility/reduced-motion equivalents remain required.
 
 D-191 additionally confirms that changing your deck/mainboard/sideboard clears
 your own Ready, and lobby deck changes do not modify the saved deck.

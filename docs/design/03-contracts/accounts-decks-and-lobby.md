@@ -15,8 +15,9 @@
   Contextual screens such as import/preparation are not global menu destinations.
   Logout is pinned to the navigation's bottom, outside its scrolling list.
   Landscape non-gameplay screens always show this navigation; gameplay in either
-  orientation and portrait non-gameplay use the hamburger drawer. Necessary Back,
-  hamburger and gameplay controls remain available without dedicated title bars.
+  orientation and portrait non-gameplay use the hamburger drawer. D-294 removes
+  all app Back/home arrows; native Android Back remains. Hamburger and gameplay
+  controls remain available without dedicated app-brand bars.
 - Users can **search by username and save users as contacts**, without a separate
   friend request or mutual approval (D-196). D-292 selects **Contacts** as the
   destination name. Contact removal and exact search behavior remain separate.
@@ -29,14 +30,16 @@
 
 ### Compact presentation and contextual actions — D-293
 
-- Authentication screens have no top Back arrow; in-form links and Android native
-  Back provide navigation. Keep their necessary labels, errors and outcomes.
+- **D-294 supersedes the authentication-only scope:** no app Back/home arrow on
+  any screen. In-form/contextual exit/close links and Android native Back provide
+  navigation. Keep necessary labels, errors and outcomes.
 - Main-menu options have an **ATW** logo above them (wizard-hat motif is provisional).
   Use matching destination icons across the menu and indented navigation entries;
   Logout has its own icon. Top-level Menu/Games remain text. Button actions normally
   have meaningful icons plus text where space permits; tight gameplay controls use
   icons with accessible names. Preserve meaningful state values, not instructional filler.
-- Game-list rows show the opponent name without “With”/“Game with”, lifecycle status,
+- D-294 game-list rows use the **game name**, with opponent identity and creation
+  date beside lifecycle state in their details, without “With”/“Game with” filler,
   and a right chevron to open. Reinvite is inside the exact existing lobby, not on
   the browser row. Long press a game row (including navigation) opens contextual
   Cancel game for setup or Delete game for active play. Native accessibility exposes
@@ -48,6 +51,57 @@
   presentation, without changing deck state. Artwork is lazy; name/text fallback
   and inspection remain usable if images are missing. Deck inspection grants no
   permission to inspect an opponent's covered in-game face.
+
+### Title rows, contextual exits and compact selection — D-294
+
+- Titled screens place hamburger and title on one compact content-control row;
+  landscape keeps the title. Landscape persistent navigation replaces the hamburger
+  as before. Import/deck editor Exit without saving is at the row's top-right;
+  leaving an unsaved import never saves it or publishes unresolved changes.
+  Previously accepted metadata edits and auto-synced preparation are not rolled
+  back by leaving: the exit discards only unfinished UI input, not server requests.
+- Related button pairs fill their available row equally (50/50); compact gameplay
+  controls and unrelated actions are not stretched into arbitrary pairs. Dialog
+  close X is top-right. Cover selection uses a selection border, no extra checkbox;
+  retain selected accessibility semantics. Saved-deck deletion copy is simply
+  “Deletion cannot be undone”; selected-copy isolation still holds.
+- Lobby title is its **game name**, details show state and creation date. Cancel
+  game is top-right on that title row; Reinvite is inside the opponent's slot.
+  Ready/Withdraw Ready remain bottom actions, with no leaving-lobby helper text.
+- Deck picker rows select a personal draft using a border, without per-row Select
+  buttons. **One bottom confirmation** submits the chosen prepared-copy selection
+  and returns to lobby. Selecting/highlighting rows alone does not clear Ready or
+  issue a request. Native Back/close leaves current preparation/Ready unchanged;
+  confirmation uses existing preparation-round/source guards and copy isolation.
+- One/all preparation markers are about **24 px wide each**, prioritizing **1 / ∞**
+  over a separate grip. Drag semantics remain D-293. This explicit compact-handle
+  exception replaces the 48 px-wide handle draft, not ordinary 48 px buttons or
+  native accessible one/all alternatives. Do not invent overlapping hit targets.
+- **Follow-up: these are tap buttons as well as drag origins.** Tap **1** to move
+  one captured copy to the other section; tap **∞** for all captured row copies.
+  A recognized drag suppresses the tap activation, so release cannot send a second
+  transfer. Bind card/copy identities, not a row index that may move under the finger.
+  Existing preparation-round, per-card requests, partial outcomes and own-Ready
+  rules apply to both input routes; no Save/Send step is added.
+- Reserve a fixed-height **plain-text latest-transfer slot**, even while empty or
+  invisible: e.g. **1× Meadow Sentinel → Sideboard**. Show the actual displayed
+  transfer promptly, fading visually over about **1–2 seconds** (1.5 s is a timing
+  proposal). A new transfer replaces/restarts the latest message. Never insert/
+  remove layout space on feedback appearance/fade. Feedback is personal UI, not a
+  shared history/log entry or a server-acceptance receipt. Normal provisional
+  application remains immediate; reconcile partial/rejected outcomes honestly,
+  without waiting for acknowledgement or claiming all copies moved if they did not.
+- **Disappearing-row transition:** when a tap makes displayed quantity zero, quickly
+  fade out that outgoing row and slide subsequent rows up into its vacated space.
+  A roughly 150–220 ms combined transition is a technical timing proposal, not an
+  exact owner-selected duration. This actual list reflow is intentional; it must
+  not be triggered by feedback text appearing/fading. Rows retaining copies stay
+  present with updated quantities. Presentation may retain a fading visual ghost,
+  not an actionable/counted source row or extra game state. Requests/count updates
+  never wait for animation. Retarget rapid transfers/reconciliation from current
+  drawn positions instead of queuing stale animations; never redirect a tap to a
+  different row sliding under the finger. Native reduced-motion/accessibility
+  behavior must preserve understandable transfer feedback and action identity.
 
 Registration/login/recovery and session continuity are confirmed below. These
 do not revoke D-182's downloaded read-only offline access; exact interaction
@@ -185,7 +239,8 @@ cursors, settings or all cached downloads from this account-data decision.
 
 ## Inviting a player and the waiting lobby — D-195/D-208
 
-1. Choose an **added user** to invite to a game.
+1. Choose an **added user** to invite, then name the new game under D-294 below.
+   Confirm Create & invite to create the game and first invitation together.
 2. **For the inviter, the invitation is already an open game lobby (D-208).**
    They can select/prepare their deck and press Ready while waiting for acceptance.
    They do not need a separate outgoing-invitation cancellation action:
@@ -220,6 +275,31 @@ processes first, subsequent cancellation removes that game and its pending invit
 from current listings. Both orders leave no current game/invitation, with no revival
 or replacement. This does not require physical erasure of recovery/control records.
 Retrying creation recovers its original IDs/outcome, not a new game after cancellation.
+
+### Required game name and creation date — D-294
+
+**Confirmed:** name each game when creating it. Offer random procedural
+**adjective + thing** suggestions themed around fantasy/wizardry, such as **Azure
+Spark** or **Crackling Mist**. A proposed compact form prefills an editable suggestion
+and offers a reroll icon; the user may accept it or type a name. A name containing
+only whitespace is not valid. Opening/cancelling the form or rerolling a suggestion
+does not create a game/invitation. The final create request binds the chosen name,
+recipient and original request ID; retries never regenerate/rename the game.
+
+The server records the creation instant once when the persistent game and first
+invitation are accepted. Display its date beside state text in details, using the
+game name as the browser/navigation/lobby/table title and retaining the opponent
+as metadata. Creation date belongs to the persistent game, not each play incarnation:
+acceptance, reinvite, Ready/start and result-return/fresh start preserve name/date.
+They synchronize to the recipient and other own devices. Names are labels, never
+identities or ordering keys; the stable game ID distinguishes repeated suggestions
+or matching names, without inventing a uniqueness constraint or collision suffix.
+
+Name suggestions are personal pre-creation UI randomness, not gameplay random
+events, shared history or a reason to invoke Shuffle/seed protocols. Server creation
+time is not the device's draft timestamp and retry cannot move it. Do not infer a
+post-creation rename UI, name-generation service, age expiry or archive. Exact word
+lists/date formatting are presentation/technical detail, not unresolved game policy.
 
 ## Confirmed deck-management scope — D-189
 
@@ -558,15 +638,16 @@ Cancel game, not a prohibition of this separately confirmed Delete game action.
   **sideboard in a separate Sideboard area**; all other card areas start empty.
   Players can prepare the mainboard/sideboard there under D-189/D-191.
 - **Freely move cards between mainboard and sideboard in the lobby (D-203).**
-  **D-293 selects drag transfer:** each quantity/name row has separate **one-copy**
-  and **all-copies** handles, with direction determined by the other section's drop
-  target. Capture the concrete source entries/copies at drag start; “all” is the
+  **D-293/D-294 select direct one/all transfer controls:** tap to the other section
+  or drag to its drop target. Capture concrete source entries/copies at gesture
+  start; “all” is the
   captured row's copies, not subsequently arriving copies. A cancelled drag or drop
   outside the other section sends nothing. On release, submit the existing per-card
   move requests under ordinary preparation/Ready/lifecycle guards, not per-frame
   edits or an invented atomic bulk transaction. Partial failures show actual state;
   do not substitute copies, retry with new intent or require Save/Send. Provide
-  equivalent native accessibility actions without persistent on-screen Move buttons.
+  equivalent native accessibility actions; the compact count buttons replace the
+  old select-row/Move-button bar, not the direct tap route.
   Allow either direction without enforcing format legality, board-size limits or
   one-for-one exchanges. This changes only the game's prepared deck and clears
   the editing player's Ready under D-191; it does not change the saved deck or

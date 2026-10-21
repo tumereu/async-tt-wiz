@@ -452,8 +452,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">sam<small>Invitation declined</small></button>
+      <button class="navigation-child navigation-game">Azure Spark<small>morgan · In play · 21 Oct 2026</small></button>
+      <button class="navigation-child navigation-game">Silver Ember<small>sam · Invitation declined · 20 Oct 2026</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
 
@@ -473,7 +473,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="icon-button" aria-label="Back to previous screen">
         <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
       </button>
-      <h1 class="top-title">Play</h1>
+      <h1 class="top-title">Games</h1>
     </div>
     <div class="top-bar-right">
       <button class="btn-text-primary" data-icon="add">New game</button>
@@ -496,20 +496,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
           <!-- Row: Game with morgan, Active game, Open text button, no score or presence -->
           <article class="item-row">
             <div class="item-info">
-              <span class="item-primary">morgan</span>
-              <span class="item-secondary">Active game</span>
+              <span class="item-primary">Azure Spark</span>
+              <span class="item-secondary">morgan</span>
+              <span class="item-secondary game-state-details">In play · Created <time datetime="2026-10-21T10:15:00Z">21 Oct 2026</time></span>
             </div>
             <div class="item-actions">
-              <button class="open-chevron" data-icon="chevron_right" aria-label="Open game with morgan"></button>
+              <button class="open-chevron" data-icon="chevron_right" aria-label="Open Azure Spark"></button>
             </div>
           </article>
           <article class="item-row">
             <div class="item-info">
-              <span class="item-primary">sam</span>
-              <span class="item-secondary">Invitation declined</span>
+              <span class="item-primary">Silver Ember</span>
+              <span class="item-secondary">sam</span>
+              <span class="item-secondary game-state-details">Invitation declined · Created <time datetime="2026-10-20T14:25:00Z">20 Oct 2026</time></span>
             </div>
             <div class="item-actions">
-              <button class="open-chevron" data-icon="chevron_right" aria-label="Open lobby with sam"></button>
+              <button class="open-chevron" data-icon="chevron_right" aria-label="Open Silver Ember"></button>
             </div>
           </article>
         </div>
@@ -521,7 +523,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <div class="section-card">
         <div class="section-header"><h2 class="section-title">Invitations</h2><span class="section-count">1 pending</span></div>
         <article class="item-row">
-          <div class="item-info"><span class="item-primary">From riley</span></div>
+          <div class="item-info"><span class="item-primary">Crackling Mist</span><span class="item-secondary">riley</span><span class="item-secondary game-state-details">Invitation pending · Created <time datetime="2026-10-20T14:25:00Z">20 Oct 2026</time></span></div>
           <div class="item-actions"><button class="btn-contained-teal" data-icon="check">Accept</button><button class="btn-text-danger" data-icon="close">Decline</button></div>
         </article>
       </div>

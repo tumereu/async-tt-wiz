@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "py_compile",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-check.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "output": ""
+}

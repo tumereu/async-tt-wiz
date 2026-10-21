@@ -1,0 +1,112 @@
+{
+  "runId": "20261021T202050Z-3bc861e9",
+  "sessionID": "ses_e9fe056d1ffepD46ldFYqmFkTj",
+  "startCommit": "8a0ed2e597aab68836e7f0ac65931aa0a458627d",
+  "mode": "implement",
+  "target": "I01c",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Completed I01c combined database/service/image qualification after all children, without product/build changes. The documented clean/cache-disabled strictly locked JVM21 image build, all 34 server/database and six shared JVM tests, independent byte-identical PostgreSQL/Flyway/jOOQ generation and two complete four-scenario native amd64 image suites pass. Tested installed JARs/generated bindings match the image payload. Actual explicit fresh/retained migration, invalid-schema refusal without auto-migration, detail-free separate HTTP health, configuration/file-secret/redaction, dedicated writer takeover, epoch fencing/concurrency, DB outage/revalidation/reload and bounded SIGTERM/retained restart pass together. Repeated image DB-blackhole exit is 10.407s; installed-process maximum 10.054s, both below 30s. Exact identities, JUnit XML, dependency provenance, coverage accounting and owned cleanup retained; unrelated resources preserved. Only I01c advances. Future workers, I01 storage/Compose/device/combined qualification, independent B1 review, full product/arm64 acceptance and external release gates remain open.",
+  "selectionReason": "Actual clean master/worktree/startCommit matched THIS RUN; D-304 explicitly authorizes this application scope. Findings are empty and no B1 group review is due before I01-I04. I01c1, I01c2 (including both children) and I01c3 are implemented, so their still-open parent I01c is the earliest eligible combined qualification before remaining foundation work. No other task/batch/review/finding/gate advances; no new session, loop, deployment, publication, paid resource or authorization/model/runner/permission change.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/preflight.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-server-image.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/clean-image-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:jvmTest :protocol:jvmTest :server:test :server:verifyJooqGeneration verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/service-regressions.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 tests/server/image_lifecycle.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/image-lifecycle.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-server-dependencies.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/dependency-provenance.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/coverage-validation.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 tests/server/image_lifecycle.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/repeated-image-lifecycle.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-server-foundation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/server-artifacts.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m py_compile docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/python-validation.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py --final",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/final-cleanup.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py"]
+    },
+    {
+      "kind": "required",
+      "command": "git diff --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/whitespace.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-validation.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/clean-image-build.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/coverage-validation.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/dependency-provenance.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/final-cleanup.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/image-lifecycle.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/inventory.py",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/preflight.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/python-validation.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/repeated-image-lifecycle.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/results.md",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/scope.md",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/server-artifacts.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/service-regressions.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-check.py",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/unit-validation.json",
+    "docs/agent/implementation-runs/20261021T202050Z-3bc861e9/whitespace.json",
+    "docs/agent/implementation-state.json",
+    "server/README.md"
+  ]
+}

@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -90,9 +90,12 @@
     {
       "id": "I01c",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
       "children": ["I01c1", "I01c2", "I01c3"],
       "planningRecord": "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json",
+      "buildNotes": "server/README.md",
+      "qualification": "Combined I01c1/I01c2/I01c3 foundation qualified without product/build changes: documented clean/cache-disabled strictly locked JVM21 image build regenerates real migrated PostgreSQL17/Flyway/jOOQ, all 34 server/database and six shared JVM tests plus independent byte-identical jOOQ generation pass, and the tested installed runtime JARs match the image payload. Two complete four-scenario native amd64 image suites pass explicit fresh/retained migration, unsupported/invalid-schema refusal without auto-migration, separate detail-free HTTP health, file-secret/configuration/redaction, dedicated single-writer takeover, DB outage/reacquisition/schema revalidation/epoch reload, bounded PID1 SIGTERM and same-container/retained-DB restart. Repeated DB-blackhole image shutdown is 10.407s; installed-process maximum is 10.054s, both below 30s. Lower-layer epoch shared-lock fencing, observed replacement commit/rollback waits, concurrency, admission/drain and rollback regressions pass. Exact image/base/PostgreSQL/runtime/generated-source identities, actual JUnit XML, dependency/license provenance, complete coverage accounting and owned-resource cleanup retained; original unrelated inventory preserved. Only ownership scheduler/singleton reload exists, not future account/game/inbox/outbox/mail/push workers. This closes I01c only; I01 storage/Compose/device/combined qualification, full product/arm64 acceptance, independent B1 review and all external release gates remain open.",
       "dependsOn": ["I01a"],
       "outcome": "Implement the minimal real Spring Boot/PostgreSQL17 foundation with explicit Flyway migration command, jOOQ generation against disposable migrated PostgreSQL, configuration/secret-file inputs, database-backed single-writer ownership and live/ready health contracts. Build a digest-pinned application image and establish Testcontainers-owned integration isolation; do not implement account, durable gameplay inbox or production orchestration ahead of their tasks.",
       "checks": [

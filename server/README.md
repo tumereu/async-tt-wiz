@@ -410,3 +410,20 @@ legal/version inventory, JUnit XML, original networking/cache diagnostics and ow
 cleanup are retained. The repeated image's DB-blackhole SIGTERM exits in 10.374s
 (under 30s). No image is published/deployed. I01c/I01 parent qualification, B1 review,
 normal app/Compose/device/product/arm64 acceptance and release gates remain open.
+
+The [I01c combined qualification](../docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json)
+closes the database/service/image foundation parent after all three children.
+The documented clean, cache-disabled, strictly locked image build and complete
+34-test server/database suite plus six shared JVM tests pass, including independent
+byte-identical jOOQ regeneration. The tested installed runtime JARs match the actual
+image payload. Two complete four-scenario native amd64 image suites qualify the
+same explicit migrate/service interfaces, schema refusal, configuration/redaction,
+health, writer loss/takeover/reacquisition and retained restart together. The
+repeated image's DB-blackhole SIGTERM exits in 10.407s; the installed-process maximum
+is 10.054s (both below 30s). Exact identities, actual JUnit XML, dependency provenance,
+coverage accounting and owned cleanup are retained; pre-existing unrelated resources
+are unchanged. No product/build inputs were changed in this parent unit. This is
+implementation qualification, not independent B1 review or full acceptance:
+I01's SQLDelight/Compose/device/combined qualification, full product/arm64 checks
+and external release gates remain open. Future account/game/inbox/outbox/mail/push
+workers remain unimplemented and must join readiness/recovery/shutdown when added.

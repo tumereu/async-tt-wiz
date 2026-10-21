@@ -64,9 +64,11 @@ class ServiceProcessTest {
         val process = launch(inputs, "migrate", log)
         try {
             assertTrue(process.waitFor(30, TimeUnit.SECONDS), "Explicit migration did not finish")
+            // Retain safe process diagnostics even when the exit assertion fails.
+            // JUnit removes this test's temporary directory after the test.
+            redactedOutput(log, inputs)
             assertEquals(0, process.exitValue())
             assertTrue(Files.readString(log).contains("Migration successful"))
-            redactedOutput(log, inputs)
         } finally { if (process.isAlive) process.destroyForcibly().waitFor() }
     }
 

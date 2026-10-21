@@ -7,11 +7,17 @@ PostgreSQL17 and the [synthetic HTTP/art/SMTP adapters](adapters/README.md).
 No alternate backend/APK, account/game/action injection or production deployment
 is supplied. This Gradle module intentionally has no product-module dependency.
 
-**I01e2 combined qualification:** clean locked real-image builds, fresh provision,
-bounded readiness, retained restart, explicit independent-scenario reset,
-simultaneous Testcontainers isolation, redacted capture and exact cleanup pass;
-see the [integration record](../docs/agent/implementation-runs/20261021T223211Z-d5a50a9e.json).
-**Still pending:** I01e/I01 combined qualification;
+**I01e combined qualification:** the adapter and Compose children pass together
+from fresh locked real-image builds: bounded readiness, retained restart,
+repeated independent-scenario reset/failure recovery, private administration,
+simultaneous Testcontainers isolation, redacted capture and exact cleanup. See the
+[parent record](../docs/agent/implementation-runs/20261021T233041Z-1b76a4c6.json)
+and earlier [I01e2 integration](../docs/agent/implementation-runs/20261021T223211Z-d5a50a9e.json).
+All 37 service/six shared tests, 18 controller/11 adapter/21 fixture-ledger tests,
+the network-isolated adapter image suite and complete Compose lifecycle pass.
+A separate real Testcontainers transaction survived 2,254 probes across resets;
+both cleanup directions preserve the other owner and unrelated resources.
+**Still pending:** I01 combined qualification;
 I01f Android/remote-ADB/Appium and actual storage instrumentation; later normal-UI
 account/game journeys and independent B1 review. These host checks do not pass a
 full T-551/T-630/T-662 scenario, any F01–F88 UI outcome or a release gate.
@@ -56,6 +62,16 @@ Compose/Testcontainers qualifications pass after this change. Failed experiments
 and their actual XML remain in the integration record; this does not establish a
 general Docker/WSL root cause or qualify a remote daemon. No product/runtime/build
 input or dependency was changed by this repair.
+
+The parent qualification retained one further **unexplained** failure: the real
+migration subprocess returned exit 1 in a service test after database startup.
+The original log was lost with JUnit's temporary directory. The test now retains
+redacted migration output **before** asserting its exit code, on failure as well
+as success; no retry or weaker assertion was added. All seven process tests and
+the subsequent complete 37-test service suite pass, as do the Compose suites.
+This does not establish a root cause or prove the earlier startup issue fixed;
+the failed output/XML remains diagnostic in the parent record. If it recurs, use
+the newly retained process output to investigate before accepting a handoff.
 
 Qualified here: Docker **29.8.2**, Compose **v5.6.0**, Linux/WSL2 **amd64**,
 PostgreSQL **17.11**, actual Spring/JVM21 server and Python **3.13.16** adapter

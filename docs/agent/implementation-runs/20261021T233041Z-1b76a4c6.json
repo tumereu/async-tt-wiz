@@ -1,0 +1,93 @@
+{
+  "runId": "20261021T233041Z-1b76a4c6",
+  "sessionID": "ses_e9f32838cffeKVb4xvm77Tqmh5",
+  "startCommit": "0bfe353006e27624594c87ba870ad3ffad746783",
+  "mode": "implement",
+  "target": "I01e",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Completed I01e parent adapter/Compose qualification from fresh clean locked real-image builds. Readiness/explicit migration, retained restarts, repeated dirty resets and failure barriers, private administration/egress isolation, 144 provider hashes and exact cleanup pass. Separate Testcontainers transaction/sentinel survives 2254 probes; both cleanup directions preserve the other owner and unrelated resources. All 37 service/six shared, 18 controller/11 adapter/21 fixture-ledger and network-none adapter-image tests pass with no skips. Retained one unexplained initial migration-process failure and original XML; added test-only redacted log retention before assertions, without retry or weakening. I01e only closes; I01/I01f, B1 review, normal product journeys and external gates remain open.",
+  "selectionReason": "The actual clean master checkout matched startCommit. D-304 explicitly authorizes application implementation; active state records the exact high model and unchanged permissions. There are no findings and no due group review because B1 is incomplete. Both I01e children and inherited dependencies are implemented, so their parent combined qualification is the earliest eligible task before dependent I01f and I01 final qualification. No discrepancy or independent-lane adjustment was required. This is implementation qualification, not an independent B1 review.",
+  "checks": [
+    {"kind": "required", "command": "python3 docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py baseline", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-baseline.json", "supportPaths": ["docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py"]},
+    {"kind": "required", "command": "python3 scripts/build-server-image.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-server-image.json"},
+    {"kind": "required", "command": "python3 scripts/build-synthetic-adapters.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-adapter-image.json"},
+    {"kind": "diagnostic", "command": "python3 docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py checks", "exitCode": 1, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-check-sequence.json", "supportPaths": ["docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py"]},
+    {"kind": "diagnostic", "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:jvmTest :protocol:jvmTest :server:test verifyModuleBoundaries --rerun-tasks", "exitCode": 1, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-service-regressions.json"},
+    {"kind": "diagnostic", "command": "python3 docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py diagnostic-retain", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-diagnostic-retention.json", "supportPaths": ["docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py"]},
+    {"kind": "diagnostic", "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :server:test --tests org.asyncttwiz.server.ServiceProcessTest --rerun-tasks", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-migration-diagnostic.json"},
+    {"kind": "required", "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:jvmTest :protocol:jvmTest :server:test verifyModuleBoundaries --rerun-tasks", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-service-final.json"},
+    {"kind": "required", "command": "python3 -m unittest discover -s tests -p test_e2e_environment.py -v", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-controller-tests.json"},
+    {"kind": "required", "command": "python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-adapter-tests.json"},
+    {"kind": "required", "command": "python3 -m unittest discover -s tests -p test_foundation_data.py -v", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-foundation-tests.json"},
+    {"kind": "required", "command": "python3 scripts/check-synthetic-adapters-image.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-adapter-image-tests.json"},
+    {"kind": "required", "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :server:composeIsolationTest --rerun-tasks", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-isolation.json"},
+    {"kind": "required", "command": "python3 scripts/check-e2e-environment.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-lifecycle.json"},
+    {"kind": "required", "command": "python3 scripts/check-synthetic-catalogs.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-fixtures.json"},
+    {"kind": "required", "command": "python3 scripts/coverage-ledger.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-coverage.json"},
+    {"kind": "required", "command": "python3 docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py remaining", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-remaining-sequence.json", "supportPaths": ["docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py"]},
+    {"kind": "required", "command": "python3 docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py final", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-final.json", "supportPaths": ["docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py"]},
+    {"kind": "required", "command": "python3 docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-boundary-check.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-boundary-check.json", "supportPaths": ["docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-boundary-check.py"]}
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "e2e/README.md",
+    "server/src/test/kotlin/org/asyncttwiz/server/ServiceProcessTest.kt",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-qualification.py",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-boundary-check.py",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-boundary-check.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-adapter-image-tests.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-adapter-image.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-adapter-tests.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-baseline.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-check-sequence.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-controller-tests.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-coverage.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-diagnostic-junit.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-diagnostic-retention.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-final.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-fixtures.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-foundation-tests.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-inventory.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-isolation.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-junit.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-lifecycle.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-migration-diagnostic.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-remaining-sequence.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-server-image.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-service-final.json",
+    "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6-service-regressions.json"
+  ],
+  "traceability": {
+    "directScenarioPortions": ["T-551", "T-630", "T-662"],
+    "architectureConstraintPortions": ["P-001", "P-056", "P-065", "P-066", "P-067", "T-421", "T-625", "T-626", "T-629", "T-659"],
+    "sources": [
+      "docs/agent/implementation-plan.md: I01/B1 parent qualification and grouped review boundary",
+      "docs/design/04-technical/test-architecture.md: Recommended full-stack scenario system; independent Compose/Testcontainers ownership and device endpoint handoff",
+      "docs/design/05-verification/e2e-strategy.md: Real system boundary; initialization exception; isolation/reset lifecycle; synthetic dynamic catalog",
+      "docs/design/04-technical/runtime-and-verification-profile.md: Real image, explicit migration, health/writer and shutdown/restart",
+      "e2e/README.md and e2e/adapters/README.md: exact host commands, supported local topology, isolation and future-worker obligations"
+    ],
+    "accounting": "Unchanged source-pinned 875-item P-001-P-072/T-001-T-715/F01-F88 ledger validates with dispositions/supersession provenance intact. These are host-foundation assertion/constraint portions, not any whole product scenario executed-pass. All F01-F88 normal-UI obligations and final both-orientation D-303 comparison remain with later tasks/B8. Android reachability, fresh app data, normal launcher/storage/Appium are I01f; auth/reset sender I02-I04; real client downloader/import I05-I06. No UI-document edit or publication applies."
+  },
+  "qualification": [
+    "Verified all four implemented child/descendant reports' check evidence and support helpers byte-for-byte against the starting Git commit, including required exit0 and original diagnostics. Fresh clean no-build-cache strictly locked server and pinned synthetic-adapter builds retain exact image/base/platform/input/runtime-library/generated-schema identities; no registry publication/deployment.",
+    "Combined real-image Compose and adapter qualification proves fresh explicit migration/schema/writer readiness, bounded nonzero setup/reset failure with no dirty handoff, retained backend/database/adapter/all restarts, repeated independent-scenario baseline resets, terminated observed old PostgreSQL/SMTP DATA connections without late repopulation, source/mail default/empty baseline and exact owner/process/volume replacement. All 144 ordinary provider objects/catalog/gzip/checksum/art hashes and configured art URLs pass. Private administration is token-protected and outside the two public forwarders; client admin/reset/health routes return404, actual service namespaces block external IP/DNS egress. No user/game/action initialization endpoint exists.",
+    "A continuously queried independently owned real Testcontainers PostgreSQL transaction/sentinel survives 2254 probes across reset and induced failure/recovery. Compose cleanup leaves that DB/connection/data intact; separate Testcontainers startup/migration/cleanup leaves live Compose IDs/readiness intact. Captures precede exact cleanup; named containers/networks/volumes/forwarders/ports/secrets are removed and original unrelated resource inventory matches after each successful phase and at the final boundary.",
+    "All 37 server/database and six shared tests pass without skips, including migration, ownership/fencing, concurrency, DB loss and actual service/SIGTERM checks; lossless passing XML retained. Eighteen controller, eleven host adapter, 21 fixture/ledger tests, eleven adapter-image tests in a nonroot read-only network-none image and standalone lifecycle pass. Actual adapter PID1 SIGTERM is0.155s; retained deliveries/source versions and repeated resets pass. No runtime/build/lock/fixture input changed.",
+    "Only runtime-adjacent edit is approved-path test-only ServiceProcessTest logging: safe migration output is checked/retained before the exit assertion rather than after it, so a nonzero process no longer loses all diagnostics with JUnit temp cleanup. No process retry, exit change, assertion removal or silent red check. README and state record exact evidence and limitations; only selected parent I01e advances."
+  ],
+  "diagnostics": [
+    "Initial complete service suite failed one of37 tests: explicit migration subprocess exited1 in the two-process takeover scenario at ServiceProcessTest.kt:67, after the Testcontainers startup JDBC probe succeeded. Original process output was unavailable because the preexisting test asserted the exit before retaining its temp log. Original command output, failing XML and halted sequence output are retained unchanged. No product defect/root cause is established by the available evidence; the earlier Docker/WSL startup diagnosis is not asserted as fact for this occurrence.",
+    "Inspected actual command, file-secret/configuration path, Flyway no-retry migration, test helper startup/publication and child diagnostics. Added safe failure log retention only. A focused actual seven-process diagnostic suite and subsequent entire37-service/six-shared run pass, followed by full concurrent Compose and standalone lifecycle qualification. This demonstrates passing final checks, NOT a claimed root-cause repair or proof that intermittent host-path failures are impossible. Any recurrence must be investigated using the newly retained logs rather than ignored/retried into a pass."
+  ],
+  "limitations": [
+    "I01e implemented only, not independently reviewed. I01 combined qualification, I01f actual normal-APK Android/storage instrumentation/remote-ADB/Appium and B1 account journeys/review remain pending. No full T-551/T-630/T-662 or F01-F88 acceptance claim.",
+    "Only current writer-ownership scheduler/singleton reload is implemented. Future account/game/inbox/outbox/mail-sender/push workers must extend readiness, retained recovery, baseline/reset/quiescence/capture before their scenarios; no fabricated absent-worker qualification.",
+    "Qualified local Docker29.8.2/Compose5.6.0 Linux/WSL amd64 only. Loopback public/source origins remain candidates for I01f device routing, not Android reachability evidence. Remote daemons, arm64/current/tablet/physical-phone and signed-upgrade measurements remain unverified in their owning tasks. All external gate inventory/status/authority is unchanged.",
+    "Local build/image caches and private redacted diagnostic directories may remain; all owned active services/resources are removed. No subagents/other loop, paid resources, production configuration/data, deployment or permission/runner/authorization change. Every referenced evidence/support file is committed byte-for-byte."
+  ]
+}

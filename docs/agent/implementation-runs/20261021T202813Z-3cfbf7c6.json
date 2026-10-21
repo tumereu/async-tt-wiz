@@ -1,0 +1,101 @@
+{
+  "runId": "20261021T202813Z-3cfbf7c6",
+  "sessionID": "ses_e9fd99207ffeb7lXJYWYZpkWZ1",
+  "startCommit": "6fd2397a8b4300cea9cf9ec55d797c87bf44aeb6",
+  "mode": "implement",
+  "target": "I01d",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split of I01d into two pending B1 children: real generated SQLDelight storage/repository/forward-migration foundation qualified with file-backed host SQLite; Android production driver, non-destructive lifecycle/backup handling, normal-APK wiring and focused instrumentation assembly. I01d stays in-progress with its original outcome/checks for later combined qualification. Device-driver execution remains I01f after adapter qualification; no dependency cycle or per-child independent review. No runtime/build/UI/runner inputs changed and no application behavior, device check or release gate is claimed passed.",
+  "selectionReason": "The actual clean master checkout matches the supplied startCommit, is active/authorized under D-304 and has no findings or due capability reviews. I01a/I01b/I01c and the server descendants are implemented; I01d depends on I01a and is the earliest eligible implementation task. Its actual module is still an empty Android adapter with no SQLDelight/plugin/schema/driver/repository or storage tests. The selected outcome spans independently testable generated storage/migration and Android driver/lifecycle/backup boundaries. A pre-coding split bounds dependency/tool qualification and failure-preserving SQLite checks separately from Android callbacks and normal-app integration, retaining the whole original parent obligation rather than skipping to I01e or claiming a partial storage implementation complete.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-coverage-check.json -- python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-coverage-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-planning-check.json -- python3 docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-planning-check.py",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-planning-check.py"],
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-planning-check.json"
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json",
+    "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-planning-check.py",
+    "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-planning-check.json",
+    "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-coverage-check.json"
+  ],
+  "planning": {
+    "children": {
+      "I01d1": "Minimal generated SQLDelight schema/query/repository and failure-preserving open/migration boundary; real file-backed host SQLite fresh/atomicity/rollback/reopen/retained-upgrade/failure tests; qualified locked dependency/license provenance.",
+      "I01d2": "Production Android SQLDelight driver and non-destructive callbacks, off-main normal-app wiring/failure handling, private backup/device-transfer exclusions and focused actual-driver instrumentation APK assembly, with execution explicitly deferred to I01f."
+    },
+    "dependencies": "I01d1 depends on implemented I01a; I01d2 depends on I01d1. Neither depends on the open parent or on I01f. I01d retains its original I01a dependency and full outcome/checks; a later fresh parent unit qualifies the combined host/storage/Android assembly interfaces after both children. I01f still depends on completed I01d and supplies actual Android-driver instrumentation execution after adapter qualification. I01e and I02-I36 remain unchanged. The outer I01 parent still checks all six original foundation children before I02.",
+    "reviewBoundary": "Both children inherit B1. Independent B1 review remains after I01-I04 and descendants, never after these children. No existing review scopes/coverage/commit, findings, authorization, runner, model, permissions or external gates change.",
+    "coverage": [
+      "Fresh SQLDelight create/generated queries, real SQLite repository transactions, atomic accepted records/cursor, rollback/reopen and retained populated older-schema forward migration are implemented and host-tested in I01d1; its exact production repository/open contract is reused by I01d2.",
+      "I01d1 tests migration failure after prior statements, future/invalid schema refusal, old DB/version/data preservation and no writable repository on failure. I01d2 qualifies the actual Android callback/error-handler and initialization wiring, adds equivalent device-driver assertions and compiles them. The pending I01f executes those assertions, so host-driver success is never represented as Android execution.",
+      "Accepted replica, refetchable/derived cache and personal saved-state categories stay distinct. No persisted outgoing requests, predictions, unreported exposures, fabricated local authority, recursive full-game blob or full-tree coverage claim is introduced. Domain/generated persistence types remain separated.",
+      "Normal scaffold integration, off-UI database work, explicit non-destructive failure presentation and Android cloud/adb/device-transfer exclusion of private state belong to I01d2. Token/Keystore/auth/logout/callback-fence behavior remains I02/I03; downloader staging I05; actual gameplay replica/prediction and complete-tree transfer I14/I26; signed upgrade/mixed-version support I35.",
+      "The unchanged I01d parent closes only after both children and combined qualification. Compiling instrumentation satisfies the selected assembly obligation, not the separately retained I01f device-execution obligation. No account/gameplay journey, full product scenario or external gate can pass from this planning record."
+    ],
+    "sourceIds": {
+      "directScenarioPortions": ["T-662"],
+      "architectureConstraintPortions": ["P-059", "P-060", "P-063", "P-065", "T-632", "T-647", "T-649", "T-657"],
+      "feedback": "No F-specific UI behavior is implemented or redesigned by this split. All F01-F88 obligations and the eventual complete both-orientation mock review stay assigned to existing feature/B8 tasks. No UI document edit/publication occurs.",
+      "accounting": "T-662's existing I01 ownership covers only the storage foundation interfaces here; full runtime/Compose/durable inbox/outbox and signed process-replacement assertions remain assigned to I01/I13/I35. T-632's full signed Android upgrade scenario stays I35. P-059/P-060/P-063/P-065 and T-647/T-649/T-657 constrain authority, API support, accepted state, volatile restart and private backup handling without pulling their later owning capabilities forward. No ledger assertion or scenario is marked executed."
+    },
+    "contractSections": [
+      "docs/agent/implementation-plan.md: Work-unit and dependency rules; B1 I01; I35 compatibility qualification",
+      "docs/agent/implementation-loop.md: Implement; Durable records; planning-only children and coherent B1 review",
+      "docs/design/04-technical/storage-architecture.md: Client storage responsibilities; Migration boundaries",
+      "docs/design/04-technical/storage-mechanics.md: Client persistence and crash matrix — D-278",
+      "docs/design/04-technical/client-architecture.md: Proposed module boundaries; State and lifecycle constraints; off-UI database work",
+      "docs/design/04-technical/sync-and-storage.md: 6.6 Snapshots and replay; corruption never automatically clears all storage",
+      "docs/design/04-technical/android-distribution-and-compatibility.md: Application-side completion; failed/interrupted retained SQLDelight migrations",
+      "docs/design/04-technical/runtime-and-verification-profile.md: Runtime and packaging; API29/SDK36/JVM boundary, pinned dependencies and non-destructive failure",
+      "docs/design/04-technical/test-architecture.md: SQLDelight retained-format and signed-upgrade checks (full device upgrade remains I35)"
+    ],
+    "limitations": [
+      "Only planning/state-transition and complete coverage-accounting validation runs here. No SQLDelight dependency, schema, generated query, SQLite file, Android driver or APK was implemented/built/executed in this unit.",
+      "The implementing children must qualify actual compatible SQLDelight/plugin/host/Android driver versions and retained-schema fixtures with real builds; this plan deliberately does not guess patch versions, schema payload encodings or introduce another platform module.",
+      "No subagent, session, loop, paid resource, device or deployment was started. The planning helper imports only pure driver functions and never constructs/launches a controller.",
+      "All release gates remain unverified and unchanged. Actual Android storage-driver execution is I01f, complete supported-device/signed-upgrade qualification I35 and reference physical-phone performance I33; no unavailable measurement is waived."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-workflow.md",
+    "docs/agent/implementation-permissions.json",
+    "docs/agent/foundation-build.md",
+    "docs/agent/coverage/README.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/03-contracts/product.md",
+    "docs/design/04-technical/storage-architecture.md",
+    "docs/design/04-technical/storage-mechanics.md",
+    "docs/design/04-technical/client-architecture.md",
+    "docs/design/04-technical/sync-and-storage.md",
+    "docs/design/04-technical/android-distribution-and-compatibility.md",
+    "docs/design/04-technical/runtime-and-verification-profile.md",
+    "docs/design/04-technical/test-architecture.md",
+    "docs/design/05-verification/acceptance.md",
+    "client-storage/build.gradle.kts",
+    "client-storage/README.md",
+    "androidApp/build.gradle.kts",
+    "androidApp/src/main/AndroidManifest.xml",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+    "gradle/libs.versions.toml"
+  ]
+}

@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -187,13 +187,39 @@
     {
       "id": "I01d",
       "batch": "B1",
-      "status": "pending",
+      "status": "in-progress",
+      "children": ["I01d1", "I01d2"],
+      "planningRecord": "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json",
       "dependsOn": ["I01a"],
       "outcome": "Implement the minimal SQLDelight SQLite schema/driver/repository and forward migration path in :client-storage, wired into the normal Android scaffold. Keep accepted replica, disposable cache and personal-state categories distinct from volatile request/prediction memory; no crash-durable outgoing/exposure journal or fabricated authoritative local game.",
       "checks": [
         "Run generated SQLDelight query/driver tests for fresh create, transaction rollback, reopen and retained older-schema forward migration, preserving stored records/cursors without destructive fallback.",
         "Exercise migration failure/incompatible schema handling and verify the old database remains recoverable and writes stop; no wipe/reinstall to turn failure into success.",
         "Assemble the normal Android storage wiring and focused storage instrumentation APK; verify generated persistence types stay outside shared semantics. Execute device-driver instrumentation in I01f after adapter qualification, not as a hidden prerequisite that creates a dependency cycle; later auth/account-isolation/full-tree behavior remains pending."
+      ]
+    },
+    {
+      "id": "I01d1",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a"],
+      "outcome": "Establish :client-storage's minimal real SQLDelight schema, generated queries and driver-neutral repository/open-migration boundary, qualified on real file-backed SQLite through a host-test driver. Keep accepted records plus accepted cursor transactional and logically separate from refetchable public/derived caches and personal saved state. Implement a real non-destructive forward migration from a retained older foundation schema and explicit incompatible/failed-open handling that preserves the prior database and exposes no writable repository on failure. Qualify compatible pinned SQLDelight/SQLite dependencies and strict locks; generated types remain adapter-internal. This is a storage foundation, not account authentication/isolation, complete game-tree storage/synchronization, an authoritative local game or an outgoing/prediction/exposure journal.",
+      "checks": [
+        "Run generated SQLDelight query/repository tests against real temporary file-backed SQLite: fresh create, accepted-record/cursor atomic commit and transaction rollback, close/reopen retaining exact records/cursors, and separate cache eviction/personal-state persistence without deleting accepted records. Do not substitute mocked queries or an in-memory map for SQLite.",
+        "Retain and validate an older schema fixture; execute the actual generated forward migration on populated records/cursors/personal state and prove preservation across reopen. Exercise failure after an earlier migration statement, unsupported newer schema and invalid schema/open paths; retain old data/version, stop writes and return explicit recoverable failure without wipe, destructive fallback or automatic corruption deletion. Use the same migration/repository boundary intended for Android, while recording platform callback/error-handler qualification as I01d2.",
+        "Qualify the selected SQLDelight plugin/runtime and host SQLite driver with actual JVM21/Android-Java17/API29-compatible builds, pinned versions/license provenance and intentionally refreshed dependency locks. Run focused host tests under approved client-storage/src/test paths plus shared tests/module-boundary checks; keep generated persistence types out of :core/:protocol and publish exact reproducible commands. Android platform-driver/runtime execution remains I01d2/I01f, not a host-test pass."
+      ]
+    },
+    {
+      "id": "I01d2",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01d1"],
+      "outcome": "Implement the Android SQLDelight driver and non-destructive open/migration handling around I01d1's repository, then wire it into the normal scaffold APK without a test-only launcher or fabricated game/account records. Keep database work off the UI thread and expose a safe explicit storage-open failure instead of crashing, wiping or continuing writes. Exclude private database/personal state and future credentials from Android backup/device transfer. Add focused instrumentation using the actual Android driver and compile it into the normal app's instrumentation APK; device execution is deliberately I01f after adapter qualification, not this child's completion prerequisite. No auth/account callback fences, catalog downloader or full-tree synchronization is claimed implemented.",
+      "checks": [
+        "Assemble the normal Android app and its focused storage instrumentation APK with approved androidApp/src/androidTest paths. Instrumentation must exercise the production driver/repository for fresh create, commit/rollback, reopen, populated retained-schema forward migration, and failed/interrupted migration or incompatible schema: old data/version stays recoverable, failure is explicit and no writable handle/destructive error callback is allowed. Prepare actual assertions, never count compilation as device execution.",
+        "Check the normal launcher/application storage initialization, close/reopen/resource ownership and failure presentation; no database work on the main/UI thread, test-only activity, production test-action endpoint, fake login or seeded local game. Validate private DB/draft/credential backup and device-transfer exclusions against merged APK resources/manifests, preserving ordinary public-cache separation. Full account/logout/isolation behavior remains I02/I03.",
+        "Rerun I01d1 host migration/repository and shared regressions, module-boundary checks, Android lint and normal debug/instrumentation assembly with ordinary strict locks; retain exact commands and dependency/API29 compatibility evidence. Document the exact focused connected-instrumentation command for I01f and its pending device obligations, keeping I01f dependent on completed I01d and never creating a reverse device prerequisite."
       ]
     },
     {

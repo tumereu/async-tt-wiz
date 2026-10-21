@@ -16,6 +16,17 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current preparation — D-300–D-302
 
+**Latest adversarial readiness review:** read
+[IR-01–IR-07](implementation-loop-review-2026-10-21.md) before activation. The 25
+existing runner tests pass, but five additional disposable-fixture probes reproduce
+false retry exhaustion on untouched findings, a failed-verification retry carousel,
+self-verification acceptance, uncommitted check evidence and wrong-worktree recovery.
+Two task-summary risks concern deletion consent wording and explicit persistent-Link
+ownership. These are open review findings; no driver/plan repair, product activation
+or owner decision was made. The review also separates expected hardware/permissions/
+external-release stops from defects. Earlier qualification below remains historical
+evidence, not a claim these new cases pass.
+
 The owner wants an outer loop launching a fresh agent for one implement/review/
 fix/targeted-verification unit, then validate/commit/push/exit before the next.
 Review coherent groups, not every task; focus on observable usability,

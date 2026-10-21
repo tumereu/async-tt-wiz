@@ -21,6 +21,9 @@ support continuity and traceability; they are not another competing specificatio
   [one-unit agent prompt](implementation-agent.md): executable serial driver,
   pinned `openai/gpt-6.1-sol#high`, explicit session permissions, budgets,
   reports, stop/recovery and isolated qualification; no product activation.
+- [Loop readiness review — 2026-10-21](implementation-loop-review-2026-10-21.md):
+  five reproduced driver counterexamples, task-summary risks and expected external
+  activation/release blockers; open findings, not repairs or application approval.
 - [Local E2E environment qualification](e2e-environment-smoke-2026-10-21.md): measured
   Kotlin/JUnit/Appium/Windows-emulator/Docker smoke results, retained evidence and
   limitations; not product acceptance or implementation authorization.

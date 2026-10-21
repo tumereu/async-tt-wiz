@@ -179,7 +179,13 @@ App start never treats an old provisional cache as a committed board.
 
 No automatic age expiry of required current-game history, definitions, references,
 control data or deduplication/outcomes. Sync patches/activity hints/checkpoints are
-separate bounded caches. No R1 in-app deletion/export/archive feature is added.
+separate bounded caches. D-283 itself adds no account-erasure/export/archive UI.
+**D-293 separately adds explicit active shared-game deletion:** atomically retain
+a deleted lifecycle tombstone and original command outcome while removing both
+players' listing/read/write access. This is access/lifecycle removal, not automatic
+age expiry or authority to purge dedup records, backups or referenced shared data.
+Late baseline installs and callbacks are fenced by the known deleted lifecycle;
+on learning deletion, clients invalidate that game's replica/read-only route.
 Erasure/legal basis, timing, backup expiry and operator requests are owned by the
 separate operations repository. Do not promise legal compliance or indefinite
 retention of every finished session. Hard deletion needs a dependency-aware plan:

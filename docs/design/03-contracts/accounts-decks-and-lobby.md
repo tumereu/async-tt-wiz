@@ -27,6 +27,28 @@
   enters the exact existing lobby under the rules below. D-292 changes presentation,
   not invitation/Ready/reinvite/cancellation behavior or archive scope.
 
+### Compact presentation and contextual actions — D-293
+
+- Authentication screens have no top Back arrow; in-form links and Android native
+  Back provide navigation. Keep their necessary labels, errors and outcomes.
+- Main-menu options have an **ATW** logo above them (wizard-hat motif is provisional).
+  Use matching destination icons across the menu and indented navigation entries;
+  Logout has its own icon. Top-level Menu/Games remain text. Button actions normally
+  have meaningful icons plus text where space permits; tight gameplay controls use
+  icons with accessible names. Preserve meaningful state values, not instructional filler.
+- Game-list rows show the opponent name without “With”/“Game with”, lifecycle status,
+  and a right chevron to open. Reinvite is inside the exact existing lobby, not on
+  the browser row. Long press a game row (including navigation) opens contextual
+  Cancel game for setup or Delete game for active play. Native accessibility exposes
+  equivalent explicit actions; a hold must not also open the row or issue deletion.
+- New Import deck is a bottom action in collection/picker. Existing-deck updates
+  use **Edit → Import decklist** and the contextual Overwrite/Merge rules below.
+- Deck-list rows place a small art thumbnail immediately after quantity. Press the
+  thumbnail or row to open full card/art inspection using the gameplay-inspector
+  presentation, without changing deck state. Artwork is lazy; name/text fallback
+  and inspection remain usable if images are missing. Deck inspection grants no
+  permission to inspect an opponent's covered in-game face.
+
 Registration/login/recovery and session continuity are confirmed below. These
 do not revoke D-182's downloaded read-only offline access; exact interaction
 between a reauthentication-required state and offline access remains open.
@@ -220,10 +242,20 @@ format-legality validation or automated sideboarding rules.
 - Save **named decks**, and allow **naming/renaming** a deck.
 - Select **one of that deck's cards as its cover art**. This is saved-deck
   presentation metadata, not a card edit, face change or additional game object.
-- Re-import offers **Replace** an existing saved deck or **Save as new**. Replace
-  updates the chosen saved deck; Save as new creates a separate saved deck rather
-  than overwriting the original. D-198's unresolved-error rule applies before
-  either save; an invalid re-import must not replace a valid saved list.
+- **D-293 supersedes the generic Replace / Save as new selector.** Import deck
+  from the collection/picker creates a new saved entry. Updating an existing deck
+  requires opening that deck, then **Edit → Import decklist**, with **Overwrite /
+  Merge** toggle defaulting to **Overwrite** on a new invocation. The target is
+  that deck, not an arbitrary existing-deck selector on the new-import form.
+- **Overwrite** installs the fully resolved imported mainboard and sideboard.
+  **Merge adds quantities** for matching resolved card entries within each section,
+  retains untouched entries, and adds new entries. Existing 4 + imported 2 = 6.
+  Mainboard/Sideboard stay separate; a mainboard-only overwrite empties the sideboard,
+  while a mainboard-only merge preserves it. Matching uses the import's resolved
+  entry/printing identity, not artwork availability or a guessed name match.
+  D-198 applies to both modes: any unresolved/ambiguous entry blocks the entire save.
+  Invalid/failed import never partially changes a saved deck. The mode and target
+  remain bound to the original save request; retry cannot add Merge quantities twice.
 - **Already selected lobby/game copies remain unchanged when the saved deck
   changes.** A selected deck is game-local preparation, not a live reference whose
   card list updates behind a player's back. This complements D-191: lobby edits
@@ -232,7 +264,7 @@ format-legality validation or automated sideboarding rules.
 
 Exact naming/default/duplicate-name rules, default cover selection,
 cover fallback when its card is removed by re-import or imagery is unavailable,
-and metadata retention across Replace/Save as new remain open. No full manual
+  and metadata retention across contextual import remain open. No full manual
 card-list editor, art upload/cropping tool or saved-deck version-history feature
 is approved by these controls.
 
@@ -393,6 +425,43 @@ Start action or require online presence from both participants.
   accepted lobby cancels the game is rejected. Its other invitation-lifecycle
   recommendations were not approved by this correction.
 
+## Explicit active-game deletion — D-293
+
+**Confirmed:** either participant can long press an active game, choose **Delete
+game**, then confirm in an **extra dialog**. This removes the **shared game for
+both players**, not just the actor's listing. The dialog names the opponent and
+warns about removal for both players and no restore; Keep game/native Back dismisses
+without sending a deletion. Setup still uses Cancel game under D-206/D-207.
+
+Derived consequences of that selected scope and D-259 authority:
+
+- Deletion is an explicit connected server lifecycle request, serialized with
+  ordinary work for that game. It is not a gameplay mutation, Undo target, result
+  suggestion/acceptance, score result or automatic return to a reusable lobby.
+  Neither opponent consent nor a new deletion-vote feature is required.
+- Bind the captured game ID and active incarnation; a stale confirmation after
+  return to lobby or another start must fail normally, not delete a different
+  incarnation or silently become lobby cancellation. No global-head guard is added.
+- At successful processing, remove both current-game/navigation entries and any
+  invitation; stop access to its table, history/branches and lobby. Open clients
+  leave the deleted context for Games on learning the accepted lifecycle state.
+  Previously processed actions remain ordered before deletion; later mutations,
+  Ready, reinvite, result acceptance and new reads cannot revive it. A request
+  ordered before deletion may finish, but cannot restore access afterward.
+- Preserve the original request ID and normal uncertain-outcome/dedup recovery.
+  A retry recovers the same deletion, never a new game or second destructive action.
+  Already-deleted contexts do not trigger replacement creation. Report failure or
+  unknown outcome honestly, not successful deletion on a timeout.
+- No trash/restore, finished-session archive, gameplay Undo or physical-erasure
+  guarantee is added. Required tombstone/outcome records follow existing retention;
+  backup/legal erasure remains the external operator's responsibility. On receipt,
+  invalidate the game's local replica/read-only access; this is not a promise to
+  remotely erase knowledge or reach a disconnected device before it reconnects.
+
+This adds a destructive removal path beside, **not in place of**, D-211's normal
+cooperative result ending. Older unstarted-only cancellation statements still govern
+Cancel game, not a prohibition of this separately confirmed Delete game action.
+
 ## Result suggestion, acceptance, and return to lobby — D-211
 
 - **Suggest your win, your loss, or a draw.** The suggestion communicates a proposed
@@ -489,10 +558,20 @@ Start action or require online presence from both participants.
   **sideboard in a separate Sideboard area**; all other card areas start empty.
   Players can prepare the mainboard/sideboard there under D-189/D-191.
 - **Freely move cards between mainboard and sideboard in the lobby (D-203).**
+  **D-293 selects drag transfer:** each quantity/name row has separate **one-copy**
+  and **all-copies** handles, with direction determined by the other section's drop
+  target. Capture the concrete source entries/copies at drag start; “all” is the
+  captured row's copies, not subsequently arriving copies. A cancelled drag or drop
+  outside the other section sends nothing. On release, submit the existing per-card
+  move requests under ordinary preparation/Ready/lifecycle guards, not per-frame
+  edits or an invented atomic bulk transaction. Partial failures show actual state;
+  do not substitute copies, retry with new intent or require Save/Send. Provide
+  equivalent native accessibility actions without persistent on-screen Move buttons.
   Allow either direction without enforcing format legality, board-size limits or
   one-for-one exchanges. This changes only the game's prepared deck and clears
   the editing player's Ready under D-191; it does not change the saved deck or
-  grant access to Sideboard during play. Exact controls belong to later UI design.
+  grant access to Sideboard during play. Exact handle glyphs/drop feedback remain
+  UI design; the one/all drag interaction is selected by D-293.
 - When play starts, use the prepared mainboard as the Library, with the automatic
   shuffle from D-200 and no automatic opening draw (D-192).
 - **Sideboard is not available at all during the game.** Do not expose an in-game

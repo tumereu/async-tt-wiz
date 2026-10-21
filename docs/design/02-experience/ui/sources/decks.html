@@ -199,8 +199,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">With sam<small>Invitation declined</small></button>
+      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">sam<small>Invitation declined</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
 
@@ -230,12 +230,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
 
     <!-- Primary Action & Sync Notice Area (Portrait: stacked top; Landscape: reflowed to compact left panel) -->
     <section class="action-panel shrink-0 mb-3 space-y-3">
-      <!-- Prominent Import Deck Button with Paste Icon -->
-      <button type="button" class="w-full min-h-[48px] bg-tealPrimary hover:bg-tealHover active:bg-[#0d665f] text-white rounded-lg px-4 py-3 flex items-center justify-center gap-2.5 font-medium text-[16px] transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-tealPrimary">
-        <span class="material-symbols-outlined text-[20px]">content_paste</span>
-        <span>Import deck</span>
-      </button>
-
       <!-- Descriptive Section Header -->
       <div class="flex items-center justify-between pt-1 px-0.5">
         <h2 class="text-[13px] font-semibold text-textMuted tracking-wider uppercase">Saved lists (3)</h2>
@@ -323,6 +317,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
 
       </div>
     </div>
+    <div class="bottom-import"><button type="button" data-icon="content_paste" class="w-full min-h-[48px] bg-tealPrimary text-white rounded-lg px-4 py-3 flex items-center justify-center font-medium">Import deck</button></div>
   </main>
 
 

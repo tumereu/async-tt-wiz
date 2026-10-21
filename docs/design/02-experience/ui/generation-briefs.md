@@ -9,6 +9,14 @@ helpers, Menu/Games navigation and combined games-before-invitations browser.
 Those confirmed changes supersede conflicting bars/copy/navigation below. D-292
 is locally revised inert design material, not an additional cloud-generation claim.
 
+**D-293 additionally supersedes** authentication top Back, icon-sparse buttons,
+“With” game-list prefixes, list Reinvite, top Import, generic save-new/replace
+selection and preparation Move buttons. Apply F11–F22 and the current review notes:
+ATW logo; matching icons; active shared deletion with extra confirmation;
+contextual default Overwrite/additive Merge; one/all drag handles; art inspection.
+Further copy-audit deletions are suggestions, not approved removals. New and
+recomposed local states are recorded in the manifest; no new cloud edit is claimed.
+
 ## Common prompt
 
 ```text

@@ -1,4 +1,35 @@
-/* Cumulative D-292 owner corrections. Inert design artifacts, not application CSS. */
+/* Cumulative D-292/D-293 owner corrections. Inert design artifacts, not application CSS. */
+@font-face { font-family: 'Review Symbols'; font-style: normal; font-weight: 100 700;
+  src: url('assets/3ae08513a06396b0258c.woff2') format('woff2'); }
+button[data-icon]::before, a[data-icon]::before,
+.navigation-child::before, .navigation-footer button::before {
+  font: 24px/1 'Review Symbols'; font-feature-settings: 'liga';
+  content: attr(data-icon); display: inline-block; flex-shrink: 0;
+  vertical-align: middle; margin-right: 8px; }
+.navigation-child:not(.navigation-game)::before { content: 'style'; }
+.navigation-child:not(.navigation-game) + .navigation-child:not(.navigation-game)::before { content: 'group'; }
+.navigation-game::before { content: 'swords'; float: left; margin-top: 5px; }
+.navigation-game:has(small:not(:empty))::before { content: 'swords'; }
+.navigation-game[data-state="setup"]::before { content: 'hourglass_empty'; }
+.navigation-footer button::before { content: 'logout'; }
+.dest-icon-container .material-symbols-outlined { font-family: 'Review Symbols' !important; }
+.review-home .dest-card[data-icon] { display: flex; align-items: center; }
+.review-home .destinations-group { gap: 12px; }
+.atw-logo { width: 140px; height: 116px; display: block; margin: 0 auto 12px; flex-shrink: 0; }
+body:not(.review-authenticated) .top-bar,
+body:not(.review-authenticated) .top-app-bar { display: none !important; }
+.bottom-import { flex-shrink: 0; padding: 8px 0; margin-top: auto; }
+.bottom-import > button { width: 100%; }
+.status-pulse-dot { display: none; }
+.background-screen .bg-import-button { order: 99; margin-top: auto; flex-shrink: 0; }
+.navigation-game:has(small) { position: relative; }
+.navigation-game small { margin-left: 32px; }
+.navigation-game:has(small)::after { content: 'chevron_right'; font: 20px/1 'Review Symbols';
+  position: absolute; right: 2px; top: 14px; }
+.review-games .item-row:has(.open-chevron) { flex-direction: row; align-items: center; }
+.review-games .item-row:has(.open-chevron) .item-info { flex: 1; }
+.review-games .open-chevron { width: 48px; padding: 0; border: 0; background: none; }
+.review-games .open-chevron::before { margin: 0; }
 html, body { box-sizing: border-box; }
 .status-bar, .status-bar-inset, .status, .safe-inset-bottom, .bottom-safe-inset,
 .safe-area-bottom, .bottom-safe-area, .safe-area, .safe-inset, .safe,

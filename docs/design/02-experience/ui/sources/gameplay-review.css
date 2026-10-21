@@ -111,6 +111,35 @@ button { min-width: 48px; min-height: 48px; padding: 4px 10px; border: 1px solid
 .menu h2 { margin: 4px 8px; font-size: 12px; color: #61736d; }
 .menu button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; justify-content: start; }
 .menu p { font-size: 11px; padding: 0 8px; color: #61736d; }
+/* D-293: tight table controls are icons; retained DOM labels name the actions.
+   Phase/mode/zone counts are state values, not expendable helper copy. */
+.history-button, .undo, .quick button, .mode, .transport button,
+.top-live, .top-continue, .continue-row button, .intent button,
+.zones button, .zone-label { font-size: 0 !important; }
+.undo small, .mode small { font-size: 0; }
+.history-button::before, .undo::before, .quick button::before, .mode::before,
+.transport button::before, .top-live::before, .top-continue::before,
+.continue-row button::before, .intent button::before, .zones button::before,
+.zone-label::before { font: 24px/1 'Review Symbols'; content: 'apps'; }
+.history-button::before { content: 'history'; }
+.undo::before { content: 'undo'; }
+.mode::before { content: 'touch_app'; }
+.review-gameplay:has(.combat) .mode::before { content: 'select_all'; }
+.review-gameplay:has(.combat) .mode::after { content: '2 ▾'; font: 12px/1 system-ui; }
+.mode:has(small)::after { content: '▾'; font: 12px/1 system-ui; }
+.quick:has(button:nth-child(2)) button:first-child::before { content: 'swords'; }
+.quick:has(button:nth-child(2)) button:nth-child(2)::before { content: 'shield'; }
+.transport button:first-child::before { content: 'skip_previous'; }
+.transport button:nth-child(2)::before { content: 'play_arrow'; }
+.transport button:last-child::before { content: 'skip_next'; }
+body:has(.timeline-label) .transport .primary[data-playback="running"]::before { content: 'pause'; }
+.top-live::before, .continue-row button:last-child::before, .intent button:last-child::before { content: 'live_tv'; }
+.top-continue::before, .continue-row button:first-child::before { content: 'call_split'; }
+.intent button:first-of-type::before { content: 'close'; }
+.zones button:first-child::before, .zone-label:first-child::before { content: 'style'; }
+.zones button:nth-child(2)::before, .zone-label:nth-child(2)::before { content: 'inventory_2'; }
+.zones button:nth-child(3)::before, .zone-label:nth-child(3)::before { content: 'block'; }
+.phase:not(.readonly)::before { content: 'flag'; font: 16px/1 'Review Symbols'; margin-right: 3px; }
 @media (min-width: 700px) and (max-height: 500px) {
   .status { height: 16px; padding-block: 0; }
   .opponent-hand { height: 24px; }

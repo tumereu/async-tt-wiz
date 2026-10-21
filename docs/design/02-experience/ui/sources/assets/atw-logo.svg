@@ -1,0 +1,9 @@
+<!-- Provisional local review artwork: ATW wizard-hat motif, not final brand approval. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 130" role="img" aria-label="ATW wizard hat">
+  <path d="M38 88 77 8 95 30 102 83" fill="#365c53" stroke="#243b35" stroke-width="3" stroke-linejoin="round"/>
+  <path d="m77 8 4 39 14-17" fill="#63877a"/>
+  <path d="m49 68 51-5 5 19-65 9Z" fill="#d8b76a"/>
+  <ellipse cx="80" cy="89" rx="64" ry="14" fill="#365c53" stroke="#243b35" stroke-width="3"/>
+  <path d="m70 47 3-8 3 8 8 3-8 3-3 8-3-8-8-3Z" fill="#f3dc9c"/>
+  <text x="80" y="125" text-anchor="middle" fill="#243b35" font-family="sans-serif" font-size="28" font-weight="800" letter-spacing="6">ATW</text>
+</svg>

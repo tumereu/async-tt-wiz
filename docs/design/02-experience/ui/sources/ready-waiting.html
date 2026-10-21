@@ -374,8 +374,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">With riley<small>Preparing · you are Ready</small></button>
+      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">riley<small>Preparing · you are Ready</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
 
@@ -429,8 +429,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         </div>
 
         <div class="actions-row">
-          <button class="text-link-btn" type="button">Change deck</button>
-          <button class="text-link-btn" type="button">Prepare deck</button>
+              <button class="text-link-btn" type="button" data-icon="style">Change deck</button>
+              <button class="text-link-btn" type="button" data-icon="tune">Prepare deck</button>
         </div>
       </section>
 
@@ -479,11 +479,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
   <!-- Sticky footer controls -->
   <footer class="footer-actions">
     <div class="footer-actions-inner">
-      <button class="btn-primary-action" type="button">Withdraw Ready</button>
+      <button class="btn-primary-action" type="button" data-icon="undo">Withdraw Ready</button>
       <div class="helper-text">
         Your Ready stays set when you leave. The game starts automatically when both players are ready.
       </div>
-      <button class="btn-cancel-game" type="button">Cancel game</button>
+      <button class="btn-cancel-game" type="button" data-icon="cancel">Cancel game</button>
     </div>
   </footer>
 

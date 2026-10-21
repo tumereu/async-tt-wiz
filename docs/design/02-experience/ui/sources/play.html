@@ -452,8 +452,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">With sam<small>Invitation declined</small></button>
+      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">sam<small>Invitation declined</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
 
@@ -476,7 +476,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <h1 class="top-title">Play</h1>
     </div>
     <div class="top-bar-right">
-      <button class="btn-text-primary">New game</button>
+      <button class="btn-text-primary" data-icon="add">New game</button>
     </div>
   </nav>
 
@@ -496,21 +496,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
           <!-- Row: Game with morgan, Active game, Open text button, no score or presence -->
           <article class="item-row">
             <div class="item-info">
-              <span class="item-primary">Game with morgan</span>
+              <span class="item-primary">morgan</span>
               <span class="item-secondary">Active game</span>
             </div>
             <div class="item-actions">
-              <button class="btn-text">Open</button>
+              <button class="open-chevron" data-icon="chevron_right" aria-label="Open game with morgan"></button>
             </div>
           </article>
           <article class="item-row">
             <div class="item-info">
-              <span class="item-primary">With sam</span>
+              <span class="item-primary">sam</span>
               <span class="item-secondary">Invitation declined</span>
             </div>
             <div class="item-actions">
-              <button class="btn-text">Reinvite</button>
-              <button class="btn-text">Open</button>
+              <button class="open-chevron" data-icon="chevron_right" aria-label="Open lobby with sam"></button>
             </div>
           </article>
         </div>
@@ -523,7 +522,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         <div class="section-header"><h2 class="section-title">Invitations</h2><span class="section-count">1 pending</span></div>
         <article class="item-row">
           <div class="item-info"><span class="item-primary">From riley</span></div>
-          <div class="item-actions"><button class="btn-contained-teal">Accept</button><button class="btn-text-danger">Decline</button></div>
+          <div class="item-actions"><button class="btn-contained-teal" data-icon="check">Accept</button><button class="btn-text-danger" data-icon="close">Decline</button></div>
         </article>
       </div>
     </section>

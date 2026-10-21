@@ -1,0 +1,2 @@
+# Generated PDF documents are binary, never line-oriented text diffs/merges.
+*.pdf binary

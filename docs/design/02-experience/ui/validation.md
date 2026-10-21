@@ -3,7 +3,7 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
-**Current edition: D-292 owner-feedback revision**, documented below. The original
+**Current edition: D-293 cumulative owner-feedback revision**, documented below. The original
 pilot/gameplay counts and cloud checks in earlier sections are historical.
 
 - The original pilot has **21 distinct Stitch-generated responsive sources**,
@@ -150,3 +150,54 @@ a service worker is a possible explanation.
 - Local Markdown-link, Python syntax and whitespace checks apply before saving.
   These are documentation tooling/artifact checks, not application implementation
   or a passed UI/review gate.
+
+## Cumulative compact-UI iteration — D-293
+
+- Appended F11–F22 without replacing F01–F10. Recorded the owner's follow-up
+  answers: active-game Delete needs an extra confirmation and removes the shared
+  game for **both players**; Merge **adds quantities**, separately per section.
+  Primary contracts, protocol/storage notes, summaries and future T-677–T-680
+  verification agree; this is not an implementation or lifecycle-test result.
+- Auth mockups have no top Back. Added provisional locally authored ATW hat logo,
+  matching navigation/menu/Logout icons and action icons; tight gameplay actions
+  use icons while preserving phase/selection/count state. Game names omit With;
+  Open is a right chevron. L01 now shows retained decline/preparation with Reinvite
+  inside the lobby. Collection/picker Import is at the bottom, including the
+  dimmed collection behind D06. Corrected L02's false locked-deck claim.
+- Added local inert P03/P04/D07/D08 for long-press context, extra active-delete
+  confirmation, contextual default Overwrite/additive Merge and full card/art
+  inspection. Replaced the pictured D02/D04/L04 compositions with local revised
+  sources; earlier local derivatives/raw Stitch exports remain as provenance.
+  Thumbnail art is synthetic local SVG, not downloaded card art or final styling.
+  Preparation shows two distinct one/all drag handles per row, not Move buttons.
+- **32 primary states + two scroll continuations = 34 states / 68 captures**.
+  All recaptured offline at both declared sizes: inert bodies, no executable
+  scripts, no remote assets, loaded local fonts, no horizontal page overflow;
+  audited button/input targets are at least 48 × 48 and visible or in scrolling
+  content. Added D-293 checks for navigation icons/categories/prefixes, auth chrome,
+  logo, chevrons/reinvite placement, thumbnail order, dual handles, import default/
+  absence of the generic replacement selector and both-player deletion warning.
+  These checks cannot prove native gestures, every icon's semantics or TalkBack.
+- Inspected both full orientation contact sheets and enlarged menu/navigation,
+  games, decline/reinvite, collection/picker, contextual import, deck inspection,
+  preparation and gameplay. Short-height forms and D02/D07 content can scroll;
+  not every action is visible in the initial landscape capture. Full-art content
+  remains scrollable rather than shrinking its targets to fit.
+- Audited every pictured state/orientation for unnecessary copy. The full packet
+  has a screen-by-screen **suggested further deletion** table, retaining essential
+  labels/errors/state/destructive scope. Those proposals have not all been applied
+  or silently marked approved. Confirmed obsolete routes/copy are identified as
+  already replaced. This does not remove specification explanations.
+- Rebuilt full HTML/PDF: **68 embedded captures / 43 PDF pages**; all declared IDs,
+  image dimensions/decodes and phone-width HTML passed. PDF has no near-blank text
+  pages. Repository relative-file Markdown links, JSON, Python syntax and whitespace
+  pass. No Android application or executable gameplay/accessibility tests were run.
+- The first staged save check misclassified compressed PDF content for whitespace
+  checking. Added the standard repository `*.pdf binary` attribute (no whitespace
+  rule/hook suppression or save-script change), then reran the normal checks/save.
+- Published in place at the **same** `https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html`.
+  The document service's HTML/PDF and sampled new images/logo return HTTP 200 and
+  match rebuilt repository bytes. Tailscale still reports tailnet-only port 8443
+  proxying the document service, preserving both original port-443 routes. Direct
+  host self-connection still fails; remote/phone refresh is not independently
+  verified here. No new URL, public hosting, route change or cloud edit.

@@ -121,6 +121,21 @@ Landscape non-gameplay shows persistent Menu/Games navigation; portrait and all
 gameplay use its hamburger drawer. See the primary navigation contract and
 [cumulative UI feedback](../02-experience/ui/feedback.md).
 
+**D-293 refinements:** no top Back on authentication screens (in-form links/native
+Back suffice); provisional ATW logo above main-menu options. Type-matching icons
+on indented navigation/Logout and matching main-menu destinations; top-level
+categories remain text. Buttons normally use icon + label, or accessible icon-only
+actions in the tight gameplay area; state values are not removed. Game rows have
+bare opponent names and a right-chevron Open; long press/accessibility opens
+Cancel for setup or Delete for active play. Active deletion needs the extra
+both-players/no-restore confirmation and server lifecycle rules in the primary
+contract. Reinvite belongs inside the lobby. Deck import is a bottom action;
+existing-deck Edit → Import decklist defaults to Overwrite, with additive Merge.
+Deck rows have small art after quantity and full inspection on press. Preparation
+uses distinct one/all drag handles, with equivalent native accessibility actions,
+not persistent Move buttons. These are requirements for later native verification,
+not a claim the inert captures implement gestures or accessibility.
+
 D-191 additionally confirms that changing your deck/mainboard/sideboard clears
 your own Ready, and lobby deck changes do not modify the saved deck.
 
@@ -143,7 +158,7 @@ timing and transfer of personal device state remain open; see the
 | Main menu / shared navigation | Main-menu content: Games, Manage decks, Contacts, no redundant subtitles or notification-settings/direct Logout links. Shared navigation: clickable Menu/Games categories, indented destinations/current games and non-scrolling bottom Logout (D-292). Username search/add saves contacts without mutual approval (D-196). |
 | Games (formerly Play) | One current Games list including in-play and setup/lobby states, followed by Invitations (D-292), with recipient Accept/Decline and same-lobby entry on Accept (D-190/D-195). Finished-session history archives/review are optional future work, not R1 (D-214). Catch-up state, pending work and branch-change presentation remain proposed. |
 | Game lobby/invite | Invite/accept into lobby (D-195), prepare mainboard in Library and sideboard in separate Sideboard, other card areas initially empty (D-202). Select either player or Random as starter (D-201), both press Ready (D-189/D-190). Start shuffles Libraries and initializes life 20 without a required starting-life setting or automatic draw (D-200); begin turn 1 at Untap (D-108). Sideboard is unavailable during play, including browser/move paths (D-202). Remaining setup/lifecycle details are open. |
-| Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename decks, choose a cover from their cards, and re-import with Replace/Save as new (D-199). Delete saved decks from the collection; both editing/deleting leave selected lobby/game copies unchanged (D-221). D-241 excludes fuller deck editing/export and deleted-deck trash/restore. Approved-import/metadata, confirmation presentation, server retention and concurrent-race contracts need completion. |
+| Deck management | Import common MTG text; flag unresolved names, preserve input and block saving until resolved (D-189/D-198). Name/rename and choose a cover (D-199). D-293 replaces generic Replace/Save as new with bottom new-import and contextual Edit → Import decklist, default Overwrite / additive Merge. Art thumbnails after quantities open full inspection. Editing/deleting preserves selected lobby/game copies (D-221). No full deck builder/export or trash/restore (D-241). |
 | Table | Shared board, MTG tracking/Untap/Draw variants, manual phase/step choice, turn player/number, and one-tap End turn beside Next step (D-96–D-107). No priority or number editor. D-109 uses manual steps for extra turns with approximate counting, no dedicated action/scheduler. Tracking edits shared state, not review; exact geometry/setup remain open. |
 | Card/object inspector | D-252: own-area hold shows real faces without an event; opponent-area hold respects hidden presentation. Context Inspect other side logs viewing without flipping; Flip is a separate shared edit. Accessible controls follow the same disclosure rules. |
 | Zone browser / pile actions | Pile tap opens contents and pile context actions together. Contents use card-type category columns with name search/filtering and hold inspection (D-50). Explicit View/Reveal is shared/logged: View shows faces to its actor and backs to the other participant; Reveal shows faces to both. Full-library contents hide overall order; explicit top/bottom-N displays preserve source order rather than type-grouping. Grouping/filtering never reorder stored contents; exact columns and covered opponent layout remain open. |

@@ -72,6 +72,11 @@ The general rules are:
   of personal device state are not settled by this decision.
 - Games (formerly Play) combines in-play/setup games in one list, with Invitations
   afterward; lobbies are game states, not a separate category (D-292).
+  D-293 uses bare opponent names and right-chevron Open; reinvite is inside the
+  existing lobby. Long press offers setup Cancel game or active Delete game.
+  Active Delete has an extra confirmation and removes the shared game for **both**
+  players, without a result, reusable lobby or restore. Native accessibility offers
+  the same actions. Server ordering and captured-incarnation safeguards apply.
 - Invite an added user to a game. For you, it is already an open lobby: select/
   prepare your deck and ready while waiting. Cancel game also cancels the pending
   invite. The recipient can Accept or Decline in Play; accepting opens the same
@@ -86,8 +91,12 @@ The general rules are:
   Unknown/ambiguous cards are flagged without substitution. Keep the original
   text for correction; all import errors must be resolved before saving.
 - Name/rename saved decks and choose one of a deck's cards as its cover art.
-  Re-import can Replace an existing deck or Save as new. Changing a saved deck
-  does not change copies already selected in lobbies or games.
+  New Import deck is at the bottom of the collection/picker and creates a new deck.
+  Existing-deck updates use **Edit → Import decklist**, **Overwrite / Merge** toggle
+  defaulting to Overwrite (D-293). Merge adds quantities within each section,
+  retaining untouched cards; both modes require complete resolution and atomic save.
+  Changing a saved deck does not change copies already selected in lobbies/games.
+  Deck rows put small card art after quantity; press it or the row for full inspection.
 - Delete a saved deck to remove it from your collection. **Both editing and
   deleting saved decks preserve already selected lobby/game copies** (D-221),
   including their game-local preparation and active play. There is no trash/restore
@@ -104,6 +113,9 @@ The general rules are:
   Initially in the lobby, mainboard is in Library, sideboard in a separate
   Sideboard area, and all other card areas are empty. Freely move cards between
   mainboard and sideboard there, without legality, size or one-for-one restrictions.
+  Use separate one-copy/all-copies drag handles, not visible Move buttons (D-293);
+  completed drops synchronize through the existing per-card requests. Native
+  accessibility has equivalent actions. Cancelled drags send nothing.
   **Sideboard is lobby-only: it cannot be browsed or used during the game.**
   Start with the prepared mainboard;
   do not add the remaining sideboard cards to Library or delete the saved sideboard.

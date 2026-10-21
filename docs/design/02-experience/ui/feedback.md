@@ -55,3 +55,37 @@ replace N01's utility links and old navigation placement. F10 replaces P01's
 three-section/invitations-first composition. All D-291 gameplay direction above
 and unmodified interaction contracts remain in force. Source/capture revisions
 in this round are local inert design derivatives; no new cloud revision is implied.
+
+## Round 2 — 2026-10-21 — D-293
+
+Confirmed owner direction, including the clarification answers in this session:
+
+| ID | Persistent decision | Applies to |
+| --- | --- | --- |
+| F11 | No top Back arrow on signed-out authentication screens. In-form navigation links and Android native Back suffice. | A01–A04; narrows F03's earlier general allowance for Back. |
+| F12 | Put a game logo containing **ATW** above the main-menu options. A wizard hat is a suggested motif, not final approved artwork. | N01/N02; keep F09's uncluttered destinations. |
+| F13 | Omit “With”/“Game with” from game-list names. Assume UI proficiency; avoid instructional filler. | Hamburger game rows and Games browser. Keep meaningful lifecycle status. |
+| F14 | Give every indented navigation entry and fixed Logout a type-matching icon. Top-level Menu/Games remain text. Main-menu destinations use the same corresponding icons. | All authenticated screens; icons must actually render, not leak font ligature names. |
+| F15 | Buttons almost always have a meaningful icon, with text when room permits. Space-constrained gameplay actions use icons only, retaining accessible names. | Global visual convention; does not remove state values, field labels or errors. |
+| F16 | Game rows use a right chevron to open. Reinvite lives inside the existing lobby, not on the list. Long press opens a context menu: Cancel game for setup; Delete game for active play. | Games browser and navigation game entries. Explicit accessibility actions offer the same route. |
+| F17 | Active-game Delete requires an extra confirmation dialog. Owner explicitly confirms it removes the **shared game for both players**, not a personal hide. | Either participant may request deletion; separate from cooperative result acceptance. See primary lifecycle contract for derived ordering/recovery safeguards. |
+| F18 | Import deck is at the bottom, not the top. New import creates a new deck. Updating an existing deck goes through **Edit → Import decklist**, with **Overwrite / Merge** toggle, default **Overwrite**. | Collection, lobby picker and contextual import. Supersedes D-199's old save-new/replace selector on the generic import form. |
+| F19 | Merge **adds quantities** to existing entries within each section; keep Mainboard/Sideboard separate. | Explicit clarification: 4 existing + 2 imported = 6; untouched entries remain. Atomic validation and selected-copy isolation persist. |
+| F20 | Lobby mainboard/sideboard transfer is drag, not an on-screen Move button. Each row has two distinct drag handles: one copy and all copies. | L04, both directions. Native accessibility equivalent must not require a precision drag. |
+| F21 | Show a small card-art thumbnail immediately after quantity in the deck inspector/list. Press it (or the row) to view full art using the gameplay-inspection presentation. | Saved/prepared deck lists and resolved import previews; lazy artwork/text fallback persists. |
+| F22 | Audit **all** pictured screens for unnecessary explanation text and suggest deletions to the owner. | The packet's copy-audit table records proposals separately; do not silently apply all suggestions as approved removals. |
+
+### Explicit supersessions and boundaries
+
+- F11 supersedes only the authentication top-Back allowance; authenticated Back
+  controls and native Back behavior remain.
+- F16/F17 add active shared-game deletion; this is not a unilateral win/loss,
+  return-to-lobby, archive, trash, history Undo or permanent backup-erasure promise.
+  They supersede any current wording implying that only unstarted games can be
+  removed. Ordinary result suggestion/acceptance remains available and unchanged.
+- F18/F19 replace generic target selection and the old Re-import route; no full
+  card builder or individual quantity editor is added. F20 replaces L04's
+  select-row/Move-1 buttons and their two-tap budget.
+- F01–F10 and D-291 remain in force except for these explicit supersessions.
+  This round uses local inert derivatives; no cloud edit, application work,
+  stage transition or passed UI gate is claimed.

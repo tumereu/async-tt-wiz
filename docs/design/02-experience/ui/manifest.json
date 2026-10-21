@@ -1,12 +1,12 @@
 {
   "generated": "2026-10-21",
-  "status": "UI review pilot with gameplay extension D-291 and confirmed owner revisions D-292",
+  "status": "UI review pilot with gameplay extension D-291 and cumulative owner revisions D-292/D-293",
   "currentFeedback": "feedback.md",
   "ownerRevision": {
-    "decision": "D-292",
-    "scope": "All captured local derivatives: fullscreen shell; cumulative owner feedback; A01 single card; reset-copy cleanup; authenticated Menu/Games navigation with fixed Logout; combined games/setup list before invitations.",
+    "decision": "D-293 (retains D-292)",
+    "scope": "Cumulative F01\u2013F22: auth navigation; provisional ATW logo; matching icons; compact games/long-press and confirmed shared deletion; contextual Overwrite/Merge import; drag preparation; art inspection; full-screen copy audit proposals.",
     "provenance": "Local inert design revisions, not a new Stitch/cloud edit. Historical per-screen briefs and raw original/revision sources below describe the earlier generation, not current requirements; feedback.md and review.md take precedence.",
-    "newLocalSource": "N02 open navigation; all other sources revise retained derivatives in place."
+    "newLocalSource": "N02 retained; D02/D04/L04 use new local recompositions with earlier derivatives preserved. P03/P04/D07/D08 add four local states, not cloud generations."
   },
   "stitchProject": "6617750535460836476",
   "viewports": {
@@ -21,6 +21,732 @@
   },
   "screens": [
     {
+      "id": "P03",
+      "slug": "game-context",
+      "title": "Game context menu",
+      "source": "sources/game-context.html",
+      "derivation": "D-293 local inert long-press state, not Stitch generation.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to menu",
+              "x": 56,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "New game",
+              "x": 266,
+              "y": 0,
+              "width": 138,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Open game with morgan",
+              "x": 335,
+              "y": 121,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Open lobby with sam",
+              "x": 335,
+              "y": 181,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete game",
+              "x": 74,
+              "y": 422,
+              "width": 264,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Dismiss",
+              "x": 74,
+              "y": 470,
+              "width": 264,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to menu",
+              "x": 228,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "New game",
+              "x": 746,
+              "y": 0,
+              "width": 138,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Open game with morgan",
+              "x": 815,
+              "y": 121,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Open lobby with sam",
+              "x": 815,
+              "y": 181,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete game",
+              "x": 314,
+              "y": 182,
+              "width": 264,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Dismiss",
+              "x": 314,
+              "y": 230,
+              "width": 264,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "P04",
+      "slug": "delete-game",
+      "title": "Delete active shared game",
+      "source": "sources/delete-game.html",
+      "derivation": "D-293 local inert active deletion confirmation, not Stitch generation.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to menu",
+              "x": 56,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Keep game",
+              "x": 36,
+              "y": 470,
+              "width": 142,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete game",
+              "x": 186,
+              "y": 470,
+              "width": 155,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to menu",
+              "x": 228,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Keep game",
+              "x": 276,
+              "y": 230,
+              "width": 142,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete game",
+              "x": 426,
+              "y": 230,
+              "width": 155,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D07",
+      "slug": "import-edit",
+      "title": "Contextual deck import",
+      "source": "sources/import-edit.html",
+      "derivation": "D-293 local inert Edit \u2192 Import decklist, default Overwrite; additive Merge.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to deck editing",
+              "x": 56,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Overwrite",
+              "x": 29,
+              "y": 148,
+              "width": 175,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Merge",
+              "x": 208,
+              "y": 148,
+              "width": 175,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Review import",
+              "x": 29,
+              "y": 433,
+              "width": 166,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel",
+              "x": 203,
+              "y": 433,
+              "width": 109,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to deck editing",
+              "x": 228,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Overwrite",
+              "x": 249,
+              "y": 148,
+              "width": 305,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Merge",
+              "x": 558,
+              "y": 148,
+              "width": 305,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Review import",
+              "x": 249,
+              "y": 433,
+              "width": 166,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Cancel",
+              "x": 423,
+              "y": 433,
+              "width": 109,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D08",
+      "slug": "deck-art",
+      "title": "Full card inspection",
+      "source": "sources/deck-art.html",
+      "derivation": "D-293 local inert deck inspector; synthetic art, not provider artwork.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to decks",
+              "x": 56,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Meadow Sentinel",
+              "x": 59,
+              "y": 121,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close inspector",
+              "x": 46,
+              "y": 228,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "Menu",
+              "x": 8,
+              "y": 8,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Manage decks",
+              "x": 8,
+              "y": 56,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Contacts",
+              "x": 8,
+              "y": 104,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Games",
+              "x": 8,
+              "y": 152,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "morgan\nIn play",
+              "x": 8,
+              "y": 200,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "sam\nInvitation declined",
+              "x": 8,
+              "y": 255,
+              "width": 203,
+              "height": 55,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Logout",
+              "x": 8,
+              "y": 356,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to decks",
+              "x": 228,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Meadow Sentinel",
+              "x": 279,
+              "y": 121,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close inspector",
+              "x": 186,
+              "y": 36,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "N02",
       "slug": "navigation-open",
       "title": "Open navigation",
@@ -31,7 +757,12 @@
         "portrait": {
           "documentWidth": 412,
           "viewportWidth": 412,
-          "fonts": [],
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
           "controls": [
             {
               "text": "\u2630",
@@ -88,7 +819,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 248,
               "width": 263,
@@ -97,7 +828,7 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nWaiting for acceptance",
+              "text": "riley\nWaiting for acceptance",
               "x": 8,
               "y": 303,
               "width": 263,
@@ -106,7 +837,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 358,
               "width": 263,
@@ -126,7 +857,7 @@
             {
               "text": "Games",
               "x": 16,
-              "y": 350,
+              "y": 420,
               "width": 380,
               "height": 72,
               "scrollAncestor": false,
@@ -135,7 +866,7 @@
             {
               "text": "Manage decks",
               "x": 16,
-              "y": 434,
+              "y": 504,
               "width": 380,
               "height": 72,
               "scrollAncestor": false,
@@ -144,7 +875,7 @@
             {
               "text": "Contacts",
               "x": 16,
-              "y": 518,
+              "y": 588,
               "width": 380,
               "height": 72,
               "scrollAncestor": false,
@@ -155,7 +886,12 @@
         "landscape": {
           "documentWidth": 892,
           "viewportWidth": 892,
-          "fonts": [],
+          "fonts": [
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
           "controls": [
             {
               "text": "Menu",
@@ -194,7 +930,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -203,18 +939,18 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nWaiting for acceptance",
+              "text": "riley\nWaiting for acceptance",
               "x": 8,
               "y": 255,
               "width": 203,
-              "height": 55,
+              "height": 71,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
-              "y": 310,
+              "y": 326,
               "width": 203,
               "height": 55,
               "scrollAncestor": true,
@@ -232,7 +968,7 @@
             {
               "text": "Games",
               "x": 286,
-              "y": 86,
+              "y": 156,
               "width": 540,
               "height": 72,
               "scrollAncestor": false,
@@ -241,7 +977,7 @@
             {
               "text": "Manage decks",
               "x": 286,
-              "y": 170,
+              "y": 240,
               "width": 540,
               "height": 72,
               "scrollAncestor": false,
@@ -250,7 +986,7 @@
             {
               "text": "Contacts",
               "x": 286,
-              "y": 254,
+              "y": 324,
               "width": 540,
               "height": 72,
               "scrollAncestor": false,
@@ -286,6 +1022,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -328,18 +1068,18 @@
             },
             {
               "text": "Create account",
-              "x": 147,
+              "x": 131,
               "y": 595,
-              "width": 118,
+              "width": 150,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Forgot password?",
-              "x": 138,
+              "x": 122,
               "y": 647,
-              "width": 136,
+              "width": 168,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -352,6 +1092,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -394,18 +1138,18 @@
             },
             {
               "text": "Create account",
-              "x": 391,
+              "x": 375,
               "y": 435,
-              "width": 110,
+              "width": 142,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
             },
             {
               "text": "Forgot password?",
-              "x": 382,
+              "x": 366,
               "y": 487,
-              "width": 128,
+              "width": 160,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
@@ -446,22 +1190,17 @@
             {
               "family": "Roboto",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Choose a username",
               "x": 33,
-              "y": 180,
+              "y": 132,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -470,7 +1209,7 @@
             {
               "text": "name@domain.com",
               "x": 33,
-              "y": 293,
+              "y": 245,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -479,7 +1218,7 @@
             {
               "text": "Enter password",
               "x": 33,
-              "y": 406,
+              "y": 358,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -488,7 +1227,7 @@
             {
               "text": "visibility",
               "x": 329,
-              "y": 406,
+              "y": 358,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -497,7 +1236,7 @@
             {
               "text": "Create account",
               "x": 33,
-              "y": 474,
+              "y": 426,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -505,9 +1244,9 @@
             },
             {
               "text": "Sign in",
-              "x": 265,
-              "y": 542,
-              "width": 58,
+              "x": 249,
+              "y": 494,
+              "width": 90,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -529,22 +1268,21 @@
             {
               "family": "Roboto",
               "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Choose a username",
               "x": 331,
-              "y": 99,
+              "y": 51,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -553,7 +1291,7 @@
             {
               "text": "name@domain.com",
               "x": 331,
-              "y": 204,
+              "y": 156,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -562,7 +1300,7 @@
             {
               "text": "Enter password",
               "x": 331,
-              "y": 309,
+              "y": 261,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -571,7 +1309,7 @@
             {
               "text": "visibility",
               "x": 811,
-              "y": 309,
+              "y": 261,
               "width": 48,
               "height": 48,
               "scrollAncestor": true,
@@ -580,17 +1318,17 @@
             {
               "text": "Create account",
               "x": 331,
-              "y": 373,
+              "y": 325,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
-              "inViewport": false
+              "inViewport": true
             },
             {
               "text": "Sign in",
-              "x": 655,
-              "y": 437,
-              "width": 58,
+              "x": 639,
+              "y": 389,
+              "width": 90,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
@@ -631,22 +1369,17 @@
             {
               "family": "Roboto",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Choose a username",
               "x": 33,
-              "y": 180,
+              "y": 132,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -655,7 +1388,7 @@
             {
               "text": "name@domain.com",
               "x": 33,
-              "y": 293,
+              "y": 245,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -664,7 +1397,7 @@
             {
               "text": "Enter password",
               "x": 33,
-              "y": 406,
+              "y": 358,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -673,7 +1406,7 @@
             {
               "text": "visibility",
               "x": 329,
-              "y": 406,
+              "y": 358,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -682,7 +1415,7 @@
             {
               "text": "Create account",
               "x": 33,
-              "y": 474,
+              "y": 426,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -690,9 +1423,9 @@
             },
             {
               "text": "Sign in",
-              "x": 265,
-              "y": 542,
-              "width": 58,
+              "x": 249,
+              "y": 494,
+              "width": 90,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -714,22 +1447,17 @@
             {
               "family": "Roboto",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Choose a username",
               "x": 331,
-              "y": -37,
+              "y": -85,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -738,7 +1466,7 @@
             {
               "text": "name@domain.com",
               "x": 331,
-              "y": 68,
+              "y": 20,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -747,7 +1475,7 @@
             {
               "text": "Enter password",
               "x": 331,
-              "y": 173,
+              "y": 125,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -756,7 +1484,7 @@
             {
               "text": "visibility",
               "x": 811,
-              "y": 173,
+              "y": 125,
               "width": 48,
               "height": 48,
               "scrollAncestor": true,
@@ -765,7 +1493,7 @@
             {
               "text": "Create account",
               "x": 331,
-              "y": 237,
+              "y": 189,
               "width": 530,
               "height": 48,
               "scrollAncestor": true,
@@ -773,9 +1501,9 @@
             },
             {
               "text": "Sign in",
-              "x": 655,
-              "y": 301,
-              "width": 58,
+              "x": 639,
+              "y": 253,
+              "width": 90,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
@@ -822,22 +1550,17 @@
             {
               "family": "Roboto",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "INPUT",
               "x": 33,
-              "y": 377,
+              "y": 353,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -846,7 +1569,7 @@
             {
               "text": "Send reset link",
               "x": 33,
-              "y": 439,
+              "y": 415,
               "width": 346,
               "height": 48,
               "scrollAncestor": false,
@@ -854,9 +1577,9 @@
             },
             {
               "text": "Back to sign in",
-              "x": 141,
-              "y": 583,
-              "width": 130,
+              "x": 125,
+              "y": 559,
+              "width": 162,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -882,22 +1605,17 @@
             {
               "family": "Roboto",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "INPUT",
               "x": 428,
-              "y": 133,
+              "y": 109,
               "width": 411,
               "height": 48,
               "scrollAncestor": false,
@@ -906,7 +1624,7 @@
             {
               "text": "Send reset link",
               "x": 428,
-              "y": 191,
+              "y": 167,
               "width": 411,
               "height": 48,
               "scrollAncestor": false,
@@ -914,9 +1632,9 @@
             },
             {
               "text": "Back to sign in",
-              "x": 568,
-              "y": 301,
-              "width": 130,
+              "x": 552,
+              "y": 277,
+              "width": 162,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -953,22 +1671,17 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Enter new password",
               "x": 37,
-              "y": 381,
+              "y": 357,
               "width": 338,
               "height": 48,
               "scrollAncestor": false,
@@ -977,7 +1690,7 @@
             {
               "text": "visibility",
               "x": 327,
-              "y": 381,
+              "y": 357,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -986,7 +1699,7 @@
             {
               "text": "Change password",
               "x": 37,
-              "y": 449,
+              "y": 425,
               "width": 338,
               "height": 48,
               "scrollAncestor": false,
@@ -994,9 +1707,9 @@
             },
             {
               "text": "Back to sign in",
-              "x": 141,
-              "y": 538,
-              "width": 130,
+              "x": 125,
+              "y": 514,
+              "width": 162,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1010,22 +1723,17 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
             {
-              "text": "arrow_back",
-              "x": 8,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Enter new password",
               "x": 293,
-              "y": 141,
+              "y": 117,
               "width": 306,
               "height": 48,
               "scrollAncestor": false,
@@ -1034,7 +1742,7 @@
             {
               "text": "visibility",
               "x": 551,
-              "y": 141,
+              "y": 117,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -1043,7 +1751,7 @@
             {
               "text": "Change password",
               "x": 293,
-              "y": 209,
+              "y": 185,
               "width": 306,
               "height": 48,
               "scrollAncestor": false,
@@ -1051,9 +1759,9 @@
             },
             {
               "text": "Back to sign in",
-              "x": 381,
-              "y": 298,
-              "width": 130,
+              "x": 365,
+              "y": 274,
+              "width": 162,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1090,6 +1798,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -1105,7 +1817,7 @@
             {
               "text": "swords\nGames\nchevron_right",
               "x": 16,
-              "y": 341,
+              "y": 411,
               "width": 380,
               "height": 78,
               "scrollAncestor": false,
@@ -1114,7 +1826,7 @@
             {
               "text": "style\nManage decks\nchevron_right",
               "x": 16,
-              "y": 431,
+              "y": 501,
               "width": 380,
               "height": 78,
               "scrollAncestor": false,
@@ -1123,7 +1835,7 @@
             {
               "text": "group\nContacts\nchevron_right",
               "x": 16,
-              "y": 521,
+              "y": 591,
               "width": 380,
               "height": 78,
               "scrollAncestor": false,
@@ -1141,6 +1853,10 @@
             },
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -1182,7 +1898,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -1191,18 +1907,18 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nWaiting for acceptance",
+              "text": "riley\nWaiting for acceptance",
               "x": 8,
               "y": 255,
               "width": 203,
-              "height": 55,
+              "height": 71,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
-              "y": 310,
+              "y": 326,
               "width": 203,
               "height": 55,
               "scrollAncestor": true,
@@ -1220,7 +1936,7 @@
             {
               "text": "swords\nGames\nchevron_right",
               "x": 286,
-              "y": 108,
+              "y": 174,
               "width": 536,
               "height": 60,
               "scrollAncestor": false,
@@ -1229,7 +1945,7 @@
             {
               "text": "style\nManage decks\nchevron_right",
               "x": 286,
-              "y": 176,
+              "y": 246,
               "width": 536,
               "height": 60,
               "scrollAncestor": false,
@@ -1238,7 +1954,7 @@
             {
               "text": "group\nContacts\nchevron_right",
               "x": 286,
-              "y": 244,
+              "y": 318,
               "width": 536,
               "height": 60,
               "scrollAncestor": false,
@@ -1284,6 +2000,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -1307,36 +2027,27 @@
             },
             {
               "text": "New game",
-              "x": 296,
+              "x": 264,
               "y": 0,
-              "width": 108,
+              "width": 140,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Open",
-              "x": 46,
-              "y": 189,
-              "width": 64,
+              "text": "Open game with morgan",
+              "x": 318,
+              "y": 140,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Reinvite",
-              "x": 46,
-              "y": 327,
-              "width": 81,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Open",
-              "x": 135,
-              "y": 327,
-              "width": 64,
+              "text": "Open lobby with sam",
+              "x": 318,
+              "y": 230,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1344,17 +2055,17 @@
             {
               "text": "Accept",
               "x": 46,
-              "y": 530,
-              "width": 86,
+              "y": 432,
+              "width": 118,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Decline",
-              "x": 140,
-              "y": 530,
-              "width": 77,
+              "x": 172,
+              "y": 432,
+              "width": 109,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1379,6 +2090,10 @@
             },
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -1420,7 +2135,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -1429,7 +2144,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -1457,36 +2172,27 @@
             },
             {
               "text": "New game",
-              "x": 789,
+              "x": 757,
               "y": 0,
-              "width": 95,
+              "width": 127,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Open",
-              "x": 262,
-              "y": 177,
-              "width": 54,
+              "text": "Open game with morgan",
+              "x": 798,
+              "y": 128,
+              "width": 48,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
-              "text": "Reinvite",
-              "x": 262,
-              "y": 315,
-              "width": 69,
-              "height": 48,
-              "scrollAncestor": true,
-              "inViewport": true
-            },
-            {
-              "text": "Open",
-              "x": 339,
-              "y": 315,
-              "width": 54,
+              "text": "Open lobby with sam",
+              "x": 798,
+              "y": 218,
+              "width": 48,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
@@ -1494,17 +2200,17 @@
             {
               "text": "Accept",
               "x": 262,
-              "y": 502,
-              "width": 67,
+              "y": 404,
+              "width": 99,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
             },
             {
               "text": "Decline",
-              "x": 337,
-              "y": 502,
-              "width": 65,
+              "x": 369,
+              "y": 404,
+              "width": 97,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": false
@@ -1537,6 +2243,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -1562,43 +2272,43 @@
               "text": "Enter exact username",
               "x": 33,
               "y": 133,
-              "width": 254,
+              "width": 222,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Search",
-              "x": 295,
+              "x": 263,
               "y": 133,
-              "width": 84,
+              "width": 116,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Add contact",
-              "x": 255,
+              "x": 223,
               "y": 270,
-              "width": 111,
+              "width": 143,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Invite",
-              "x": 299,
+              "x": 267,
               "y": 438,
-              "width": 67,
+              "width": 99,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Invite",
-              "x": 299,
+              "x": 267,
               "y": 512,
-              "width": 67,
+              "width": 99,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1611,6 +2321,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -1652,7 +2366,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -1661,7 +2375,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -1691,43 +2405,43 @@
               "text": "Enter exact username",
               "x": 249,
               "y": 121,
-              "width": 192,
+              "width": 160,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Search",
-              "x": 449,
+              "x": 417,
               "y": 121,
-              "width": 84,
+              "width": 116,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Add contact",
-              "x": 411,
+              "x": 379,
               "y": 240,
-              "width": 111,
+              "width": 143,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Invite",
-              "x": 781,
+              "x": 749,
               "y": 128,
-              "width": 67,
+              "width": 99,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Invite",
-              "x": 781,
+              "x": 749,
               "y": 198,
-              "width": 67,
+              "width": 99,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1760,6 +2474,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -1782,9 +2500,9 @@
               "inViewport": true
             },
             {
-              "text": "content_paste\nImport deck",
+              "text": "Import deck",
               "x": 16,
-              "y": 64,
+              "y": 820,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -1798,6 +2516,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -1839,7 +2561,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -1848,7 +2570,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -1875,9 +2597,9 @@
               "inViewport": true
             },
             {
-              "text": "content_paste\nImport deck",
+              "text": "Import deck",
               "x": 236,
-              "y": 56,
+              "y": 344,
               "width": 640,
               "height": 48,
               "scrollAncestor": false,
@@ -1893,7 +2615,7 @@
       "title": "Saved deck details",
       "brief": "Read-only saved deck detail for Training deck. Back arrow and title Deck details. Labeled deck name text with adjacent Rename text action; abstract card-cover tile and Choose cover button. Explicit Re-import button and secondary Delete saved deck button. Mainboard 60 / Sideboard 15 tabs display quantity/name rows (synthetic names: 4 Meadow Sentinel, 4 Ember Adept, 22 Training Land) with no +/- quantity editors or Add card action. Helper: Editing or deleting this saved deck will not change copies already chosen in games. Portrait metadata above scrolling list; landscape metadata/actions left and read-only list right. No undo/trash/version history controls.",
       "stitchScreen": "projects/6617750535460836476/screens/b0de91ed6eba4d9db232c786e0f6edf5",
-      "source": "sources/deck-detail.html",
+      "source": "sources/deck-detail-revised.html",
       "originalSource": "sources/deck-detail.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -1909,19 +2631,7 @@
           "viewportWidth": 412,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -1936,7 +2646,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to decks",
               "x": 56,
               "y": 0,
               "width": 48,
@@ -1945,55 +2655,127 @@
               "inViewport": true
             },
             {
+              "text": "Edit",
+              "x": 317,
+              "y": 0,
+              "width": 87,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Mainboard \u00b7 60",
+              "x": 29,
+              "y": 124,
+              "width": 175,
+              "height": 60,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Sideboard \u00b7 15",
+              "x": 208,
+              "y": 124,
+              "width": 175,
+              "height": 60,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Meadow Sentinel",
+              "x": 59,
+              "y": 197,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 59,
+              "y": 257,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Aegis Ward",
+              "x": 59,
+              "y": 317,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Solar Flare",
+              "x": 59,
+              "y": 377,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Frontline Scout",
+              "x": 59,
+              "y": 437,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Rift Catalyst",
+              "x": 59,
+              "y": 497,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 59,
+              "y": 557,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
               "text": "Rename",
-              "x": 305,
-              "y": 79,
-              "width": 74,
+              "x": 29,
+              "y": 686,
+              "width": 120,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Choose cover",
-              "x": 89,
-              "y": 159,
-              "width": 99,
+              "x": 157,
+              "y": 686,
+              "width": 160,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Re-import",
-              "x": 16,
-              "y": 234,
-              "width": 186,
+              "text": "Import decklist",
+              "x": 29,
+              "y": 742,
+              "width": 170,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Delete saved deck",
-              "x": 210,
-              "y": 234,
-              "width": 186,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Mainboard\n60",
-              "x": 16,
-              "y": 357,
-              "width": 190,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Sideboard\n15",
-              "x": 206,
-              "y": 357,
-              "width": 190,
+              "x": 29,
+              "y": 798,
+              "width": 197,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -2005,19 +2787,7 @@
           "viewportWidth": 892,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -2059,7 +2829,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -2068,7 +2838,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -2086,7 +2856,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to decks",
               "x": 228,
               "y": 0,
               "width": 48,
@@ -2095,58 +2865,130 @@
               "inViewport": true
             },
             {
-              "text": "Rename",
-              "x": 408,
-              "y": 65,
-              "width": 70,
+              "text": "Edit",
+              "x": 797,
+              "y": 0,
+              "width": 87,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
+            },
+            {
+              "text": "Mainboard \u00b7 60",
+              "x": 249,
+              "y": 124,
+              "width": 305,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Sideboard \u00b7 15",
+              "x": 558,
+              "y": 124,
+              "width": 305,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Meadow Sentinel",
+              "x": 279,
+              "y": 185,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 279,
+              "y": 245,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Aegis Ward",
+              "x": 279,
+              "y": 305,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Solar Flare",
+              "x": 279,
+              "y": 365,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Inspect Frontline Scout",
+              "x": 279,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Inspect Rift Catalyst",
+              "x": 279,
+              "y": 485,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 279,
+              "y": 545,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Rename",
+              "x": 249,
+              "y": 674,
+              "width": 120,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
             },
             {
               "text": "Choose cover",
-              "x": 295,
-              "y": 141,
-              "width": 93,
+              "x": 377,
+              "y": 674,
+              "width": 160,
               "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
+              "scrollAncestor": true,
+              "inViewport": false
             },
             {
-              "text": "Re-import",
-              "x": 232,
-              "y": 208,
-              "width": 126,
+              "text": "Import decklist",
+              "x": 544,
+              "y": 674,
+              "width": 170,
               "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
+              "scrollAncestor": true,
+              "inViewport": false
             },
             {
               "text": "Delete saved deck",
-              "x": 366,
-              "y": 208,
-              "width": 126,
+              "x": 249,
+              "y": 730,
+              "width": 197,
               "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Mainboard\n60",
-              "x": 516,
-              "y": 54,
-              "width": 182,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Sideboard\n15",
-              "x": 698,
-              "y": 54,
-              "width": 182,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
+              "scrollAncestor": true,
+              "inViewport": false
             }
           ]
         }
@@ -2175,6 +3017,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -2224,6 +3070,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -2264,7 +3114,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -2273,7 +3123,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -2327,7 +3177,7 @@
       "title": "Resolved import and save choice",
       "brief": "Import review after all names resolve. Back arrow and title Review import. Summary Resolved: 60 mainboard / 15 sideboard. Labeled Deck name field Training deck. Compact read-only list of synthetic card names. Two explicit save modes: Save as new selected; Replace saved deck unselected with existing deck picker Training deck. One primary Save deck text button, secondary Edit pasted list. Helper: Existing game copies stay unchanged. Both save routes require a completely resolved list. No format-legality approval, art download requirement, manual quantity edits, extra Send/Upload or forced cover-picking step. Portrait summary then modes; landscape list left and name/save mode panel right.",
       "stitchScreen": "projects/6617750535460836476/screens/c96084ada26341f1887e5acb57f2e322",
-      "source": "sources/import-save.html",
+      "source": "sources/import-save-revised.html",
       "originalSource": "sources/import-save.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -2346,19 +3196,7 @@
           "viewportWidth": 412,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -2373,7 +3211,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to pasted list",
               "x": 56,
               "y": 0,
               "width": 48,
@@ -2382,31 +3220,76 @@
               "inViewport": true
             },
             {
-              "text": "INPUT",
-              "x": 31,
-              "y": 498,
-              "width": 350,
+              "text": "Inspect Meadow Sentinel",
+              "x": 59,
+              "y": 153,
+              "width": 48,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 59,
+              "y": 213,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Aegis Ward",
+              "x": 59,
+              "y": 273,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 59,
+              "y": 333,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Quiet Grove",
+              "x": 59,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 29,
+              "y": 568,
+              "width": 354,
+              "height": 48,
+              "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Save deck",
-              "x": 47,
-              "y": 882,
-              "width": 318,
+              "x": 29,
+              "y": 628,
+              "width": 135,
               "height": 48,
-              "scrollAncestor": true,
-              "inViewport": false
+              "scrollAncestor": false,
+              "inViewport": true
             },
             {
               "text": "Edit pasted list",
-              "x": 47,
-              "y": 940,
-              "width": 318,
+              "x": 172,
+              "y": 628,
+              "width": 170,
               "height": 48,
-              "scrollAncestor": true,
-              "inViewport": false
+              "scrollAncestor": false,
+              "inViewport": true
             }
           ]
         },
@@ -2415,19 +3298,7 @@
           "viewportWidth": 892,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -2469,7 +3340,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -2478,7 +3349,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -2496,7 +3367,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to pasted list",
               "x": 228,
               "y": 0,
               "width": 48,
@@ -2505,31 +3376,76 @@
               "inViewport": true
             },
             {
+              "text": "Inspect Meadow Sentinel",
+              "x": 279,
+              "y": 153,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 279,
+              "y": 213,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Aegis Ward",
+              "x": 279,
+              "y": 273,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 279,
+              "y": 333,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Quiet Grove",
+              "x": 279,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
               "text": "INPUT",
-              "x": 554,
-              "y": 178,
-              "width": 305,
+              "x": 575,
+              "y": 155,
+              "width": 288,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Save deck",
-              "x": 554,
-              "y": 503,
-              "width": 148,
+              "x": 575,
+              "y": 215,
+              "width": 135,
               "height": 48,
               "scrollAncestor": true,
-              "inViewport": false
+              "inViewport": true
             },
             {
               "text": "Edit pasted list",
-              "x": 711,
-              "y": 503,
-              "width": 148,
+              "x": 575,
+              "y": 271,
+              "width": 170,
               "height": 48,
               "scrollAncestor": true,
-              "inViewport": false
+              "inViewport": true
             }
           ]
         }
@@ -2541,7 +3457,7 @@
       "title": "Resolved import and save choice \u2014 lower scroll position",
       "brief": "Same Stitch source, scrolled to expose lower actions; no new screen generation or product behavior.",
       "stitchScreen": "projects/6617750535460836476/screens/c96084ada26341f1887e5acb57f2e322",
-      "source": "sources/import-save.html",
+      "source": "sources/import-save-revised.html",
       "originalSource": "sources/import-save.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -2560,19 +3476,7 @@
           "viewportWidth": 412,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -2587,7 +3491,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to pasted list",
               "x": 56,
               "y": 0,
               "width": 48,
@@ -2596,30 +3500,75 @@
               "inViewport": true
             },
             {
-              "text": "INPUT",
-              "x": 31,
-              "y": 359,
-              "width": 350,
+              "text": "Inspect Meadow Sentinel",
+              "x": 59,
+              "y": 153,
+              "width": 48,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 59,
+              "y": 213,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Aegis Ward",
+              "x": 59,
+              "y": 273,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 59,
+              "y": 333,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Quiet Grove",
+              "x": 59,
+              "y": 425,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 29,
+              "y": 568,
+              "width": 354,
+              "height": 48,
+              "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Save deck",
-              "x": 47,
-              "y": 743,
-              "width": 318,
+              "x": 29,
+              "y": 628,
+              "width": 135,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Edit pasted list",
-              "x": 47,
-              "y": 801,
-              "width": 318,
+              "x": 172,
+              "y": 628,
+              "width": 170,
               "height": 48,
-              "scrollAncestor": true,
+              "scrollAncestor": false,
               "inViewport": true
             }
           ]
@@ -2629,19 +3578,7 @@
           "viewportWidth": 892,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -2683,7 +3620,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -2692,7 +3629,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -2710,7 +3647,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to pasted list",
               "x": 228,
               "y": 0,
               "width": 48,
@@ -2719,28 +3656,73 @@
               "inViewport": true
             },
             {
+              "text": "Inspect Meadow Sentinel",
+              "x": 279,
+              "y": 49,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 279,
+              "y": 109,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Aegis Ward",
+              "x": 279,
+              "y": 169,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 279,
+              "y": 229,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Quiet Grove",
+              "x": 279,
+              "y": 321,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
               "text": "INPUT",
-              "x": 554,
-              "y": 18,
-              "width": 305,
+              "x": 575,
+              "y": 51,
+              "width": 288,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Save deck",
-              "x": 554,
-              "y": 343,
-              "width": 148,
+              "x": 575,
+              "y": 111,
+              "width": 135,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Edit pasted list",
-              "x": 711,
-              "y": 343,
-              "width": 148,
+              "x": 575,
+              "y": 167,
+              "width": 170,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
@@ -2774,6 +3756,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -2823,6 +3809,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -2863,7 +3853,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -2872,7 +3862,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -2960,6 +3950,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -2984,7 +3978,7 @@
             {
               "text": "folder_open\nImport deck",
               "x": 16,
-              "y": 64,
+              "y": 824,
               "width": 380,
               "height": 48,
               "scrollAncestor": false,
@@ -3042,6 +4036,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -3082,7 +4080,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -3091,7 +4089,7 @@
               "inViewport": true
             },
             {
-              "text": "With sam\nInvitation declined",
+              "text": "sam\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -3120,7 +4118,7 @@
             {
               "text": "folder_open\nImport deck",
               "x": 236,
-              "y": 64,
+              "y": 347,
               "width": 640,
               "height": 48,
               "scrollAncestor": true,
@@ -3181,6 +4179,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -3206,16 +4208,16 @@
               "text": "Change deck",
               "x": 33,
               "y": 235,
-              "width": 95,
+              "width": 127,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Prepare deck",
-              "x": 144,
+              "x": 176,
               "y": 235,
-              "width": 96,
+              "width": 128,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3250,6 +4252,15 @@
             {
               "text": "Ready",
               "x": 16,
+              "y": 691,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Reinvite",
+              "x": 16,
               "y": 747,
               "width": 380,
               "height": 48,
@@ -3273,6 +4284,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -3314,7 +4329,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -3323,7 +4338,7 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nWaiting for acceptance",
+              "text": "riley\nInvitation declined",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -3353,16 +4368,16 @@
               "text": "Change deck",
               "x": 249,
               "y": 203,
-              "width": 89,
+              "width": 121,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Prepare deck",
-              "x": 350,
+              "x": 382,
               "y": 203,
-              "width": 90,
+              "width": 122,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3404,10 +4419,19 @@
               "inViewport": true
             },
             {
-              "text": "Cancel game",
-              "x": 780,
+              "text": "Reinvite",
+              "x": 563,
               "y": 336,
-              "width": 96,
+              "width": 99,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 748,
+              "y": 336,
+              "width": 128,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3455,6 +4479,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -3478,9 +4506,9 @@
             },
             {
               "text": "Choose deck",
-              "x": 245,
+              "x": 213,
               "y": 219,
-              "width": 121,
+              "width": 153,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3524,6 +4552,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -3564,7 +4596,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -3573,7 +4605,7 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nPreparing",
+              "text": "riley\nPreparing",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -3601,10 +4633,10 @@
             },
             {
               "text": "Choose deck",
-              "x": 403,
-              "y": 175,
-              "width": 121,
-              "height": 48,
+              "x": 378,
+              "y": 180,
+              "width": 146,
+              "height": 58,
               "scrollAncestor": false,
               "inViewport": true
             },
@@ -3612,16 +4644,16 @@
               "text": "Ready",
               "x": 496,
               "y": 352,
-              "width": 258,
+              "width": 221,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Cancel game",
-              "x": 764,
+              "x": 727,
               "y": 352,
-              "width": 112,
+              "width": 149,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3660,7 +4692,15 @@
               "status": "loaded"
             },
             {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -3684,37 +4724,37 @@
               "inViewport": true
             },
             {
-              "text": "folder_open\nImport deck",
-              "x": 280,
-              "y": 68,
-              "width": 114,
+              "text": "Select",
+              "x": 271,
+              "y": 112,
+              "width": 108,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Select",
-              "x": 303,
-              "y": 140,
-              "width": 76,
+              "x": 271,
+              "y": 204,
+              "width": 108,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Select",
-              "x": 303,
-              "y": 233,
-              "width": 76,
+              "x": 271,
+              "y": 297,
+              "width": 108,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Select",
-              "x": 303,
-              "y": 325,
-              "width": 76,
+              "text": "Import deck",
+              "x": 0,
+              "y": 836,
+              "width": 412,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3734,7 +4774,15 @@
               "status": "loaded"
             },
             {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -3776,7 +4824,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -3785,7 +4833,7 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nPreparing",
+              "text": "riley\nPreparing",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -3812,37 +4860,37 @@
               "inViewport": true
             },
             {
-              "text": "folder_open\nImport deck",
-              "x": 774,
-              "y": 58,
-              "width": 102,
+              "text": "Select",
+              "x": 766,
+              "y": 101,
+              "width": 97,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Select",
-              "x": 798,
-              "y": 130,
-              "width": 65,
+              "x": 766,
+              "y": 182,
+              "width": 97,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Select",
-              "x": 798,
-              "y": 211,
-              "width": 65,
+              "x": 766,
+              "y": 264,
+              "width": 97,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Select",
-              "x": 798,
-              "y": 292,
-              "width": 65,
+              "text": "Import deck",
+              "x": 220,
+              "y": 356,
+              "width": 672,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3857,7 +4905,7 @@
       "title": "Lobby mainboard and sideboard preparation",
       "brief": "Lobby deck preparation. Back arrow and title Prepare deck; subtitle Game copy \u2014 Training deck. Separate labeled Mainboard / Library (60) and Sideboard (15) lists. Synthetic quantity/name rows. Select one Meadow Sentinel row on Mainboard; explicit Move 1 to sideboard text button. On Sideboard show selected Ember Adept row with Move 1 to mainboard button. These are direct per-card quantity-one moves, not saved deck quantity editors. Small note Changes sync automatically and clear only your Ready. No Save preparation / Done to send / one-for-one restriction / deck size legality / live-game Sideboard. Back returns to lobby without cancelling or undoing changes. Portrait two stacked panels with vertical scroll; landscape two equal independently scrollable columns. Minimum 48 px action targets.",
       "stitchScreen": "projects/6617750535460836476/screens/d10bf344b8c047a78b3b7a550ad4e905",
-      "source": "sources/prepare-deck.html",
+      "source": "sources/prepare-deck-revised.html",
       "originalSource": "sources/prepare-deck.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -3877,19 +4925,7 @@
           "viewportWidth": 412,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -3904,7 +4940,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to lobby",
               "x": 56,
               "y": 0,
               "width": 48,
@@ -3913,19 +4949,46 @@
               "inViewport": true
             },
             {
-              "text": "Move 1 to sideboard",
-              "x": 209,
-              "y": 167,
-              "width": 170,
+              "text": "Inspect Meadow Sentinel",
+              "x": 59,
+              "y": 153,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Move 1 to mainboard",
-              "x": 204,
-              "y": 588,
-              "width": 175,
+              "text": "Inspect Aegis Ward",
+              "x": 59,
+              "y": 213,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 59,
+              "y": 273,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 59,
+              "y": 415,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Quiet Grove",
+              "x": 59,
+              "y": 475,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -3937,19 +5000,7 @@
           "viewportWidth": 892,
           "fonts": [
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -3991,7 +5042,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -4000,7 +5051,7 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nPreparing",
+              "text": "riley\nPreparing",
               "x": 8,
               "y": 255,
               "width": 203,
@@ -4018,7 +5069,7 @@
               "inViewport": true
             },
             {
-              "text": "arrow_back",
+              "text": "Back to lobby",
               "x": 228,
               "y": 0,
               "width": 48,
@@ -4027,19 +5078,46 @@
               "inViewport": true
             },
             {
-              "text": "Move 1 to sideboard",
-              "x": 361,
-              "y": 185,
-              "width": 170,
+              "text": "Inspect Meadow Sentinel",
+              "x": 279,
+              "y": 153,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Move 1 to mainboard",
-              "x": 684,
-              "y": 167,
-              "width": 175,
+              "text": "Inspect Aegis Ward",
+              "x": 279,
+              "y": 213,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Training Land",
+              "x": 279,
+              "y": 273,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Ember Adept",
+              "x": 605,
+              "y": 153,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect Quiet Grove",
+              "x": 605,
+              "y": 213,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4084,6 +5162,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -4109,16 +5191,16 @@
               "text": "Change deck",
               "x": 33,
               "y": 257,
-              "width": 95,
+              "width": 127,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Prepare deck",
-              "x": 144,
+              "x": 176,
               "y": 257,
-              "width": 96,
+              "width": 128,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4134,9 +5216,9 @@
             },
             {
               "text": "Cancel game",
-              "x": 151,
+              "x": 135,
               "y": 832,
-              "width": 110,
+              "width": 142,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4161,6 +5243,10 @@
             },
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -4202,7 +5288,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -4211,11 +5297,11 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nPreparing \u00b7 you are Ready",
+              "text": "riley\nPreparing \u00b7 you are Ready",
               "x": 8,
               "y": 255,
               "width": 203,
-              "height": 55,
+              "height": 71,
               "scrollAncestor": false,
               "inViewport": true
             },
@@ -4241,34 +5327,34 @@
               "text": "Change deck",
               "x": 245,
               "y": 208,
-              "width": 89,
+              "width": 121,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Prepare deck",
-              "x": 350,
+              "x": 382,
               "y": 208,
-              "width": 90,
+              "width": 122,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Withdraw Ready",
-              "x": 649,
+              "x": 585,
               "y": 358,
-              "width": 115,
+              "width": 147,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Cancel game",
-              "x": 776,
+              "x": 744,
               "y": 358,
-              "width": 104,
+              "width": 136,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4313,6 +5399,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -4338,16 +5428,16 @@
               "text": "Change deck",
               "x": 33,
               "y": 222,
-              "width": 83,
+              "width": 115,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Prepare deck",
-              "x": 132,
+              "x": 164,
               "y": 222,
-              "width": 83,
+              "width": 115,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4363,9 +5453,9 @@
             },
             {
               "text": "Cancel game",
-              "x": 146,
+              "x": 130,
               "y": 801,
-              "width": 120,
+              "width": 152,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4418,6 +5508,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -4458,7 +5552,7 @@
               "inViewport": true
             },
             {
-              "text": "With morgan\nIn play",
+              "text": "morgan\nIn play",
               "x": 8,
               "y": 200,
               "width": 203,
@@ -4467,11 +5561,11 @@
               "inViewport": true
             },
             {
-              "text": "With riley\nWaiting for acceptance",
+              "text": "riley\nWaiting for acceptance",
               "x": 8,
               "y": 255,
               "width": 203,
-              "height": 55,
+              "height": 71,
               "scrollAncestor": false,
               "inViewport": true
             },
@@ -4497,23 +5591,23 @@
               "text": "Change deck",
               "x": 253,
               "y": 207,
-              "width": 83,
+              "width": 115,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Prepare deck",
-              "x": 352,
+              "x": 384,
               "y": 207,
-              "width": 83,
+              "width": 115,
               "height": 48,
               "scrollAncestor": true,
               "inViewport": true
             },
             {
               "text": "Ready",
-              "x": 256,
+              "x": 240,
               "y": 356,
               "width": 240,
               "height": 48,
@@ -4522,9 +5616,9 @@
             },
             {
               "text": "Cancel game",
-              "x": 512,
+              "x": 496,
               "y": 356,
-              "width": 120,
+              "width": 152,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4679,6 +5773,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -4742,6 +5840,10 @@
             },
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -4818,6 +5920,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -4833,7 +5939,7 @@
             {
               "text": "arrow_back",
               "x": 56,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4844,15 +5950,15 @@
               "x": 108,
               "y": 0,
               "width": 58,
-              "height": 48,
+              "height": 49,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "History",
-              "x": 281,
-              "y": 0,
-              "width": 71,
+              "x": 304,
+              "y": 1,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4860,7 +5966,7 @@
             {
               "text": "more_vert",
               "x": 356,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4869,7 +5975,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 342,
+              "y": 343,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4878,7 +5984,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 342,
+              "y": 343,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4887,7 +5993,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 342,
+              "y": 343,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4896,7 +6002,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 397,
+              "y": 398,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4905,7 +6011,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 397,
+              "y": 398,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4914,7 +6020,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 397,
+              "y": 398,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -4924,16 +6030,16 @@
               "text": "Undo\nhold: Redo",
               "x": 10,
               "y": 840,
-              "width": 73,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Actions",
-              "x": 174,
+              "x": 173,
               "y": 840,
-              "width": 72,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4956,6 +6062,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -4971,7 +6081,7 @@
             {
               "text": "arrow_back",
               "x": 56,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -4982,15 +6092,15 @@
               "x": 108,
               "y": 0,
               "width": 58,
-              "height": 48,
+              "height": 49,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "History",
-              "x": 761,
-              "y": 0,
-              "width": 71,
+              "x": 784,
+              "y": 1,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -4998,7 +6108,7 @@
             {
               "text": "more_vert",
               "x": 836,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -5007,7 +6117,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5016,7 +6126,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5025,7 +6135,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5062,16 +6172,16 @@
               "text": "Undo\nhold: Redo",
               "x": 10,
               "y": 362,
-              "width": 73,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Actions",
-              "x": 414,
+              "x": 413,
               "y": 362,
-              "width": 72,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5129,152 +6239,9 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
-            }
-          ],
-          "controls": [
-            {
-              "text": "\u2630",
-              "x": 4,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
             },
             {
-              "text": "arrow_back",
-              "x": 56,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Declare atk\nphase",
-              "x": 108,
-              "y": 0,
-              "width": 58,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "History",
-              "x": 281,
-              "y": 0,
-              "width": 71,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "more_vert",
-              "x": 356,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
-              "x": 109,
-              "y": 284,
-              "width": 94,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Graveyard\n2",
-              "x": 207,
-              "y": 284,
-              "width": 94,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 306,
-              "y": 284,
-              "width": 94,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
-              "x": 109,
-              "y": 339,
-              "width": 94,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Graveyard\n2",
-              "x": 207,
-              "y": 339,
-              "width": 94,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 306,
-              "y": 339,
-              "width": 94,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Undo\nhold: Redo",
-              "x": 10,
-              "y": 840,
-              "width": 73,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Declare + tap",
-              "x": 98,
-              "y": 840,
-              "width": 114,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Without tap",
-              "x": 218,
-              "y": 840,
-              "width": 103,
-              "height": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Select \u00b7 2\nmode \u25be",
-              "x": 336,
-              "y": 839,
-              "width": 66,
-              "height": 50,
-              "scrollAncestor": false,
-              "inViewport": true
-            }
-          ]
-        },
-        "landscape": {
-          "documentWidth": 892,
-          "viewportWidth": 892,
-          "fonts": [
-            {
-              "family": "Material Symbols Outlined",
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -5291,7 +6258,7 @@
             {
               "text": "arrow_back",
               "x": 56,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -5302,15 +6269,166 @@
               "x": 108,
               "y": 0,
               "width": 58,
-              "height": 48,
+              "height": 49,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "History",
-              "x": 761,
+              "x": 304,
+              "y": 1,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "more_vert",
+              "x": 356,
+              "y": 1,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 284,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 284,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 284,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 109,
+              "y": 339,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 207,
+              "y": 339,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 306,
+              "y": 339,
+              "width": 94,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo\nhold: Redo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare + tap",
+              "x": 146,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Without tap",
+              "x": 200,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select \u00b7 2\nmode \u25be",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
               "y": 0,
-              "width": 71,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "arrow_back",
+              "x": 56,
+              "y": 1,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Declare atk\nphase",
+              "x": 108,
+              "y": 0,
+              "width": 58,
+              "height": 49,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 784,
+              "y": 1,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5318,7 +6436,7 @@
             {
               "text": "more_vert",
               "x": 836,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -5327,7 +6445,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5336,7 +6454,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5345,7 +6463,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -5382,25 +6500,25 @@
               "text": "Undo\nhold: Redo",
               "x": 10,
               "y": 362,
-              "width": 73,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Declare + tap",
-              "x": 338,
+              "x": 386,
               "y": 362,
-              "width": 114,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Without tap",
-              "x": 458,
+              "x": 440,
               "y": 362,
-              "width": 103,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5408,9 +6526,9 @@
             {
               "text": "Select \u00b7 2\nmode \u25be",
               "x": 816,
-              "y": 361,
+              "y": 362,
               "width": 66,
-              "height": 50,
+              "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             }
@@ -5458,6 +6576,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -5492,16 +6614,16 @@
               "text": "Continue playing from here",
               "x": 10,
               "y": 714,
-              "width": 223,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Back to live",
-              "x": 295,
+              "x": 354,
               "y": 714,
-              "width": 107,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5510,25 +6632,25 @@
               "text": "Previous",
               "x": 10,
               "y": 840,
-              "width": 86,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Play",
-              "x": 194,
+              "x": 182,
               "y": 840,
-              "width": 53,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Next",
-              "x": 346,
+              "x": 354,
               "y": 840,
-              "width": 56,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5541,6 +6663,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -5565,18 +6691,18 @@
             },
             {
               "text": "Back to live",
-              "x": 498,
+              "x": 732,
               "y": 0,
-              "width": 107,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Continue playing from here",
-              "x": 609,
+              "x": 784,
               "y": 0,
-              "width": 223,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5594,25 +6720,25 @@
               "text": "Previous",
               "x": 10,
               "y": 362,
-              "width": 86,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Play",
-              "x": 434,
+              "x": 422,
               "y": 362,
-              "width": 53,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Next",
-              "x": 826,
+              "x": 834,
               "y": 362,
-              "width": 56,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5661,6 +6787,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -5695,16 +6825,16 @@
               "text": "Continue playing from here",
               "x": 10,
               "y": 714,
-              "width": 223,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Back to live",
-              "x": 295,
+              "x": 354,
               "y": 714,
-              "width": 107,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5713,25 +6843,25 @@
               "text": "Previous",
               "x": 10,
               "y": 840,
-              "width": 86,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Pause",
-              "x": 188,
+              "x": 182,
               "y": 840,
-              "width": 66,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Next",
-              "x": 346,
+              "x": 354,
               "y": 840,
-              "width": 56,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5744,6 +6874,10 @@
           "fonts": [
             {
               "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
               "status": "loaded"
             }
           ],
@@ -5768,18 +6902,18 @@
             },
             {
               "text": "Back to live",
-              "x": 498,
+              "x": 732,
               "y": 0,
-              "width": 107,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Continue playing from here",
-              "x": 609,
+              "x": 784,
               "y": 0,
-              "width": 223,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5797,25 +6931,25 @@
               "text": "Previous",
               "x": 10,
               "y": 362,
-              "width": 86,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Pause",
-              "x": 428,
+              "x": 422,
               "y": 362,
-              "width": 66,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Next",
-              "x": 826,
+              "x": 834,
               "y": 362,
-              "width": 56,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5864,6 +6998,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -5879,7 +7017,7 @@
             {
               "text": "arrow_back",
               "x": 56,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -5890,15 +7028,15 @@
               "x": 108,
               "y": 0,
               "width": 58,
-              "height": 48,
+              "height": 49,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "History",
-              "x": 281,
-              "y": 0,
-              "width": 71,
+              "x": 304,
+              "y": 1,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5906,7 +7044,7 @@
             {
               "text": "more_vert",
               "x": 356,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -5914,18 +7052,18 @@
             },
             {
               "text": "Cancel",
-              "x": 211,
-              "y": 48,
-              "width": 69,
+              "x": 265,
+              "y": 49,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Return to live",
-              "x": 284,
-              "y": 48,
-              "width": 120,
+              "x": 356,
+              "y": 49,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -5933,7 +7071,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 366,
+              "y": 367,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -5942,7 +7080,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 366,
+              "y": 367,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -5951,7 +7089,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 366,
+              "y": 367,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -5960,7 +7098,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 421,
+              "y": 422,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -5969,7 +7107,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 421,
+              "y": 422,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -5978,7 +7116,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 421,
+              "y": 422,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -5988,16 +7126,16 @@
               "text": "Undo\nhold: Redo",
               "x": 10,
               "y": 840,
-              "width": 73,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Actions at A",
-              "x": 158,
+              "x": 173,
               "y": 840,
-              "width": 104,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6020,6 +7158,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -6035,7 +7177,7 @@
             {
               "text": "arrow_back",
               "x": 56,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -6046,15 +7188,15 @@
               "x": 108,
               "y": 0,
               "width": 58,
-              "height": 48,
+              "height": 49,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "History",
-              "x": 761,
-              "y": 0,
-              "width": 71,
+              "x": 784,
+              "y": 1,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6062,7 +7204,7 @@
             {
               "text": "more_vert",
               "x": 836,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -6070,18 +7212,18 @@
             },
             {
               "text": "Cancel",
-              "x": 458,
-              "y": 48,
-              "width": 69,
+              "x": 505,
+              "y": 49,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Return to live",
-              "x": 764,
-              "y": 48,
-              "width": 120,
+              "x": 836,
+              "y": 49,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6089,7 +7231,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 147,
+              "y": 148,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -6098,7 +7240,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 147,
+              "y": 148,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -6107,7 +7249,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 147,
+              "y": 148,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -6144,16 +7286,16 @@
               "text": "Undo\nhold: Redo",
               "x": 10,
               "y": 362,
-              "width": 73,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Actions at A",
-              "x": 398,
+              "x": 413,
               "y": 362,
-              "width": 104,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6211,6 +7353,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -6226,7 +7372,7 @@
             {
               "text": "arrow_back",
               "x": 56,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -6237,15 +7383,15 @@
               "x": 108,
               "y": 0,
               "width": 58,
-              "height": 48,
+              "height": 49,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "History",
-              "x": 281,
-              "y": 0,
-              "width": 71,
+              "x": 304,
+              "y": 1,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6253,7 +7399,7 @@
             {
               "text": "more_vert",
               "x": 356,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -6262,7 +7408,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 342,
+              "y": 343,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -6271,7 +7417,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 342,
+              "y": 343,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -6280,7 +7426,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 342,
+              "y": 343,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -6289,7 +7435,7 @@
             {
               "text": "Library\n50",
               "x": 109,
-              "y": 397,
+              "y": 398,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -6298,7 +7444,7 @@
             {
               "text": "Graveyard\n2",
               "x": 207,
-              "y": 397,
+              "y": 398,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -6307,7 +7453,7 @@
             {
               "text": "Exile\n0",
               "x": 306,
-              "y": 397,
+              "y": 398,
               "width": 94,
               "height": 48,
               "scrollAncestor": false,
@@ -6317,16 +7463,16 @@
               "text": "Undo\nhold: Redo",
               "x": 10,
               "y": 840,
-              "width": 73,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Actions",
-              "x": 174,
+              "x": 173,
               "y": 840,
-              "width": 72,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6385,6 +7531,10 @@
             {
               "family": "Material Symbols Outlined",
               "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
             }
           ],
           "controls": [
@@ -6400,7 +7550,7 @@
             {
               "text": "arrow_back",
               "x": 56,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -6411,15 +7561,15 @@
               "x": 108,
               "y": 0,
               "width": 58,
-              "height": 48,
+              "height": 49,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "History",
-              "x": 761,
-              "y": 0,
-              "width": 71,
+              "x": 784,
+              "y": 1,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6427,7 +7577,7 @@
             {
               "text": "more_vert",
               "x": 836,
-              "y": 0,
+              "y": 1,
               "width": 48,
               "height": 48,
               "scrollAncestor": false,
@@ -6436,7 +7586,7 @@
             {
               "text": "Library\n50",
               "x": 12,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -6445,7 +7595,7 @@
             {
               "text": "Graveyard\n2",
               "x": 69,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -6454,7 +7604,7 @@
             {
               "text": "Exile\n0",
               "x": 126,
-              "y": 99,
+              "y": 100,
               "width": 54,
               "height": 48,
               "scrollAncestor": false,
@@ -6491,16 +7641,16 @@
               "text": "Undo\nhold: Redo",
               "x": 10,
               "y": 362,
-              "width": 73,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Actions",
-              "x": 414,
+              "x": 413,
               "y": 362,
-              "width": 72,
+              "width": 48,
               "height": 48,
               "scrollAncestor": false,
               "inViewport": true

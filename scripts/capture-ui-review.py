@@ -17,8 +17,8 @@ VIEWPORTS = {'portrait': (412, 892), 'landscape': (892, 412)}
 
 
 async def validate_owner_revision(page, screen, orientation):
-    """Regression checks for the confirmed D-292 static review presentation."""
-    issues = await page.evaluate('''({id, orientation}) => {
+    """Regression checks for cumulative D-292/D-293 static presentation."""
+    issues = await page.evaluate(r'''({id, orientation}) => {
         const issues = [];
         const visible = e => !!(e && e.getBoundingClientRect().width && e.getBoundingClientRect().height);
         const bars = '.status-bar,.status-bar-inset,.status,.safe-inset-bottom,.bottom-safe-inset,' +
@@ -31,6 +31,16 @@ async def validate_owner_revision(page, screen, orientation):
             else {
                 const categories = [...nav.querySelectorAll('.navigation-category')].map(e=>e.textContent.trim());
                 if (categories.join('|') !== 'Menu|Games') issues.push('Wrong top-level categories');
+                if ([...nav.querySelectorAll('.navigation-category')].some(e=>
+                    !['none','normal'].includes(getComputedStyle(e,'::before').content)))
+                    issues.push('Icons added to text-only top-level navigation');
+                for (const e of nav.querySelectorAll('.navigation-child,.navigation-footer button')) {
+                    const icon = getComputedStyle(e,'::before');
+                    if (['none','normal','""'].includes(icon.content) || !icon.fontFamily.includes('Review Symbols'))
+                        issues.push('Missing matching navigation icon');
+                }
+                if ([...nav.querySelectorAll('.navigation-game')].some(e=>/^(With|Game with)\b/i.test(e.textContent.trim())))
+                    issues.push('Redundant game-name prefix');
                 const menuChildren = [...nav.querySelectorAll('.navigation-child:not(.navigation-game)')].map(e=>e.textContent.trim());
                 if (menuChildren.join('|') !== 'Manage decks|Contacts') issues.push('Wrong Menu subitems');
                 const persistent = orientation === 'landscape' && !document.body.classList.contains('review-gameplay');
@@ -62,15 +72,38 @@ async def validate_owner_revision(page, screen, orientation):
         }
         if (['A03','A04'].includes(id) && /sessions|signed in|sign in again/i.test(document.body.innerText))
             issues.push('Reset-session explanatory copy returned');
+        if (id.startsWith('A') && [...document.querySelectorAll('.top-bar,.top-app-bar')].some(visible))
+            issues.push('Authentication top Back/chrome returned');
         if (id === 'N01') {
             const content = document.querySelector('main').innerText;
             if (/Logout|notification|two.player|Import and organise|Find players by username/i.test(content))
                 issues.push('Main-menu utility/subtitle clutter returned');
+            const logo = document.querySelector('.atw-logo');
+            if (!visible(logo) || !logo.complete || !logo.naturalWidth) issues.push('Missing ATW logo');
         }
         if (id === 'P01') {
             const sections = [...document.querySelectorAll('main .section-title')].map(e=>e.textContent.trim());
             if (sections.join('|') !== 'Games|Invitations') issues.push('Browser split/order regressed');
+            if (document.querySelector('main').innerText.includes('Reinvite')) issues.push('Reinvite outside lobby');
+            if (document.querySelectorAll('.open-chevron').length !== 2) issues.push('Missing right-chevron game Open');
         }
+        if (['D02','D04','D04b','L04'].includes(id)) {
+            for (const row of document.querySelectorAll('.list-row')) {
+                if (!row.querySelector('.qty + .art-button')) issues.push('Art not immediately after quantity');
+                if (id === 'L04' && row.querySelectorAll('.drag-handle').length !== 2)
+                    issues.push('Missing distinct one/all drag handles');
+            }
+            if (id === 'L04' && /Move 1|Save preparation/.test(document.querySelector('main').innerText))
+                issues.push('Preparation Move/Send buttons returned');
+        }
+        if (id === 'D07') {
+            const selected = document.querySelector('.segmented [aria-pressed="true"]');
+            if (!selected || selected.textContent !== 'Overwrite') issues.push('Import default is not Overwrite');
+        }
+        if (['D04','D04b'].includes(id) && /Replace saved deck|Save as new/.test(document.querySelector('main').innerText))
+            issues.push('Generic replacement selector returned');
+        if (id === 'P04' && !/both players/.test(document.querySelector('[role="dialog"]').innerText))
+            issues.push('Missing shared-deletion scope warning');
         return issues;
     }''', {'id': screen['id'], 'orientation': orientation})
     if issues:

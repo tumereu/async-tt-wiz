@@ -106,8 +106,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">With riley<small>Waiting for acceptance</small></button>
+      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">riley<small>Invitation declined</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
 
@@ -133,7 +133,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
   <!-- Waiting Status Subheader -->
   <div class="waiting-banner" role="status" aria-live="polite">
     <span class="status-pulse-dot" aria-hidden="true"></span>
-    <span class="waiting-banner-text">Waiting for riley to accept</span>
+    <span class="waiting-banner-text">riley declined</span>
   </div>
 
   <!-- Main Viewport (Fluid responsive shell with portrait stack & landscape grid reflow) -->
@@ -154,8 +154,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         </div>
 
         <div class="action-links-row">
-          <button type="button" class="text-action-btn">Change deck</button>
-          <button type="button" class="text-action-btn">Prepare deck</button>
+          <button type="button" class="text-action-btn" data-icon="style">Change deck</button>
+          <button type="button" class="text-action-btn" data-icon="tune">Prepare deck</button>
         </div>
       </section>
     </div>
@@ -171,7 +171,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
 
         <div class="opponent-status-tag">
           <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
-          <span>Invitation pending</span>
+          <span>Invitation declined</span>
         </div>
       </section>
 
@@ -201,10 +201,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
   <footer class="app-footer">
     <div class="footer-actions">
       <!-- Primary enabled Ready button -->
-      <button type="button" class="btn-primary">Ready</button>
+      <button type="button" class="btn-primary" data-icon="check">Ready</button>
 
       <!-- Secondary text action -->
-      <button type="button" class="btn-cancel-game">Cancel game</button>
+      <button type="button" class="btn-cancel-game" data-icon="send" style="color:#086e65">Reinvite</button>
+      <button type="button" class="btn-cancel-game" data-icon="cancel">Cancel game</button>
     </div>
 
     <!-- Explanatory note -->

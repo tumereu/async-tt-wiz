@@ -373,8 +373,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">With riley<small>Preparing</small></button>
+      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">riley<small>Preparing</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
   <div class="app-viewport">
@@ -406,10 +406,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
           <header class="section-header">
             <span class="section-title">Saved decks (3)</span>
-            <button class="text-action-btn" type="button" aria-label="Import deck to collection">
-              <span class="material-symbols-outlined">folder_open</span>
-              <span>Import deck</span>
-            </button>
           </header>
 
           <!-- List of Saved Decks -->
@@ -428,7 +424,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
                   </div>
                 </div>
               </div>
-              <button class="select-btn" type="button" aria-label="Select Training deck for this game">
+              <button class="select-btn" data-icon="check" type="button" aria-label="Select Training deck for this game">
                 Select
               </button>
             </article>
@@ -447,7 +443,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
                   </div>
                 </div>
               </div>
-              <button class="select-btn" type="button" aria-label="Select Woodland practice for this game">
+              <button class="select-btn" data-icon="check" type="button" aria-label="Select Woodland practice for this game">
                 Select
               </button>
             </article>
@@ -466,7 +462,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
                   </div>
                 </div>
               </div>
-              <button class="select-btn" type="button" aria-label="Select Starter list for this game">
+              <button class="select-btn" data-icon="check" type="button" aria-label="Select Starter list for this game">
                 Select
               </button>
             </article>
@@ -474,6 +470,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
         </div>
       </div>
     </main>
+    <div class="bottom-import"><button class="text-action-btn" type="button" data-icon="content_paste" aria-label="Import deck to collection">Import deck</button></div>
 
     <!-- Bottom Safe Inset (16px) -->
     <footer class="safe-inset" aria-hidden="true">

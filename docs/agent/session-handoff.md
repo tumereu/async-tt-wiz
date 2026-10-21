@@ -14,7 +14,35 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-292
+## Current UI feedback iteration — D-293 (retains D-292)
+
+Round 2 F11–F22 is in [cumulative feedback](../design/02-experience/ui/feedback.md).
+No authentication top Back; in-form/native Back suffice. Provisional ATW hat logo
+above menu options. Matching icons on indented navigation/Logout/main destinations;
+icon-plus-text buttons generally, icon-only tight gameplay controls with named
+actions and meaningful state values. Bare game names/right-chevron Open; Reinvite
+inside lobby. Long press/accessibility context offers setup Cancel or active Delete.
+Owner clarification: active deletion needs an **extra confirmation** and removes
+the **shared game for both players**, not hide-for-me. Primary lifecycle contract
+and protocol define derived server ordering/incarnation/retry/access safeguards.
+
+Bottom new-import creates a new deck. Existing deck **Edit → Import decklist** has
+Overwrite(default)/Merge toggle; owner confirms Merge **adds quantities per section**.
+Atomic resolution/save, dedup and selected-copy isolation persist. Preparation has
+distinct one/all drag handles, no visible Move buttons; existing per-card requests
+and native accessibility equivalents. Art thumbnail after quantity opens full
+inspection, with lazy/text fallback and normal gameplay disclosure boundaries.
+
+Packet now has **32 primary states + two scroll continuations / 68 captures**.
+P03/P04/D07/D08 are new local inert states; D02/D04/L04 are locally recomposed with
+old derivatives retained. No cloud edit or application implementation is claimed.
+Every pictured state/orientation has a copy-audit disposition in review.md; its
+**suggested** further deletions are not owner-approved removals. Earlier decisions
+persist except explicit supersessions. Full review.html/PDF must be rebuilt and
+published at the same port-8443 URL, never a subset/versioned link. No gate pass or
+general stage transition. T-677–T-680 are future native-app verification, not tests run.
+
+## Previous UI feedback iteration — D-292
 
 Before UI edits, read [cumulative feedback](../design/02-experience/ui/feedback.md).
 All decisions persist unless explicitly changed; append new rounds/supersessions.

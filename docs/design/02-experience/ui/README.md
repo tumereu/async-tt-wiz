@@ -3,8 +3,9 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension and D-292 owner revisions, with both orientations: 28 primary drafts
-  plus two scrolled continuations, 60 captures total. N02 shows shared navigation.
+  extension and cumulative D-292/D-293 revisions, with both orientations: 32 primary
+  drafts plus two scrolled continuations, 68 captures total. N02 shows navigation;
+  P03/P04 show context/deletion, D07 contextual import and D08 full inspection.
   G00 remains the original placeholder;
   G01–G03 and H01–H03 add the live/history table and controls.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
@@ -18,8 +19,9 @@ These are specification artifacts, not application code or an approved final UI.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - **[Cumulative feedback](feedback.md):** preserve every owner decision across
-  rounds unless explicitly superseded; read before regeneration. D-292 corrects
-  all local derivatives; raw Stitch sources/older prompts remain provenance only.
+  rounds unless explicitly superseded; read before regeneration. F01–F22 apply;
+  the packet's full-screen copy audit lists further deletion suggestions, not
+  silently approved removals. Raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
   the phone-friendly reading edition; the PDF is the fixed-layout review edition.
 
@@ -80,6 +82,12 @@ visibility, scrolling Logout, a split/off-center login card, restored reset-sess
 copy, main-menu utility/subtitle clutter, wrong browser section order and undersized
 or offscreen unscrollable controls. These are static artifact regressions, not a
 proof that every earlier feedback decision or future native state is verified.
+
+D-293 checks additionally cover auth top-Back removal, ATW logo, navigation icons
+and bare game names, chevrons/no list Reinvite, art-after-quantity, one/all handles,
+Overwrite default/no generic replacement selector and the shared-deletion warning.
+The full-screen copy audit remains a set of suggestions, not a capture assertion
+that every suggested deletion has already been approved or applied.
 
 ## Private review hosting
 

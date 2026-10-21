@@ -241,7 +241,26 @@ creates a game. Accept/Decline/cancel/Ready/preparation and start/end transition
 use that persistent game's serialized command domain. If cancellation wins first,
 discard reinvitation as missing/cancelled; if it wins afterward, the game and its
 invitation leave current listings together. No revival/replacement (D-287).
-Deck updates are absolute approved import/metadata operations, not an editor API.
+Deck updates are approved import/metadata operations, not a card-builder API.
+Under D-293, create-import uses `POST /decks`; contextual import through
+`PUT /decks/{id}` binds `overwrite` (default) or `merge`, complete resolved entries
+and the exact existing target to the original request. Serialize at that saved
+deck: overwrite installs the supplied sections; merge adds quantities to the
+execution-state entries per section, leaving untouched entries. Atomic effects +
+deduplicated outcome prevent retry from adding twice; missing/deleted targets
+never become upsert. Metadata/copy-isolation rules remain unchanged.
+
+**D-293 active deletion** is an ordered `deleteGame` socket lifecycle command,
+not a competing HTTP write. Bind game ID, active incarnation and stable request ID;
+authorize either participant and require that incarnation still be active. Apply
+the primary contract's both-player removal/access invalidation atomically with its
+outcome and lifecycle publication. Retain a tombstone/outcome so reconnect/result
+lookup can establish deletion without exposing inaccessible board data or creating
+a replacement. Prior authorized/admitted work may complete in normal order; work
+processed after deletion fails applicability. Stale deletion after result acceptance
+or a fresh incarnation fails; it never converts to setup cancellation. Baseline/
+definition/history access cannot install or reopen a known deleted game. Local
+confirmation is UI intent capture, not opponent consent or a server dialog protocol.
 
 HTTP business-data mutations bind request/account/kind/scope/canonical intent and
 atomically store the final non-secret outcome with their effects. Concurrent/repeated

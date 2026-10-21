@@ -371,8 +371,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
       <button class="navigation-category">Menu</button>
       <button class="navigation-child">Manage decks</button><button class="navigation-child">Contacts</button>
       <button class="navigation-category">Games</button>
-      <button class="navigation-child navigation-game">With morgan<small>In play</small></button>
-      <button class="navigation-child navigation-game">With riley<small>Preparing</small></button>
+      <button class="navigation-child navigation-game">morgan<small>In play</small></button>
+      <button class="navigation-child navigation-game">riley<small>Preparing</small></button>
     </div><div class="navigation-footer"><button>Logout</button></div>
   </aside>
 
@@ -427,7 +427,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
               <span class="deck-state-label">No deck selected</span>
               <span class="deck-sub-label">Select a saved deck</span>
             </div>
-            <button class="btn btn-secondary" type="button">
+            <button class="btn btn-secondary" type="button" data-icon="style">
               Choose deck
             </button>
           </div>
@@ -449,7 +449,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
               </div>
             </div>
             <div style="font-size:13px; color:#64748b; line-height: 1.4;">
-              Opponent deck chosen and locked for this match.
+              Deck selected.
             </div>
           </section>
 
@@ -497,11 +497,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-heig
 
       <div class="footer-btn-container">
         <!-- Disabled Ready button until deck selected -->
-        <button class="btn btn-primary" type="button" disabled="" aria-disabled="true">
+        <button class="btn btn-primary" type="button" data-icon="check" disabled="" aria-disabled="true">
           Ready
         </button>
         <!-- Separate Cancel game action -->
-        <button class="btn-text-danger" type="button">
+        <button class="btn-text-danger" type="button" data-icon="cancel">
           Cancel game
         </button>
       </div>

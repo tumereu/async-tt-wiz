@@ -29,7 +29,10 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     implementation(libs.postgresql)
-    implementation(libs.jooq)
+    implementation(libs.jooq) { version { strictly(libs.versions.jooq.get()) } }
+    implementation(platform(libs.spring.boot.bom))
+    implementation(libs.spring.boot)
+    implementation(libs.spring.boot.tomcat)
     add(schemaTools.implementationConfigurationName, libs.flyway.core)
     add(schemaTools.implementationConfigurationName, libs.flyway.postgresql)
     add(schemaTools.implementationConfigurationName, libs.postgresql)
@@ -41,7 +44,7 @@ dependencies {
     testRuntimeOnly(libs.junit.launcher)
 }
 
-application { mainClass.set("org.asyncttwiz.server.database.MigrationCommand") }
+application { mainClass.set("org.asyncttwiz.server.ServiceCommand") }
 
 val generateJooq = tasks.register<JavaExec>("generateJooq") {
     group = "code generation"
@@ -70,7 +73,7 @@ tasks.register<JavaExec>("migrate") {
     group = "database"
     description = "Explicit forward-only migration using DB_URL, DB_USER and DB_PASSWORD_FILE"
     classpath = sourceSets.main.get().runtimeClasspath
-    mainClass.set(application.mainClass)
+    mainClass.set("org.asyncttwiz.server.database.MigrationCommand")
     args("migrate")
 }
 

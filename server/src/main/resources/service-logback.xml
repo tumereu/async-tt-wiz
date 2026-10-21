@@ -1,0 +1,4 @@
+<configuration>
+    <!-- Raw library failures may contain database inputs. Emit fixed service messages instead. -->
+    <root level="OFF"/>
+</configuration>

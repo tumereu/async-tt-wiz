@@ -37,12 +37,25 @@ for group, artifact, key in [
     ("org.postgresql", "postgresql", "postgresql"),
     ("org.testcontainers", "testcontainers-postgresql", "testcontainers"),
     ("org.testcontainers", "testcontainers", "testcontainers"),
+    ("org.springframework.boot", "spring-boot", "spring-boot"),
+    ("org.springframework.boot", "spring-boot-starter-tomcat", "spring-boot"),
 ]:
     version = VERSIONS[key]
     url, licenses = pom_licenses(group, artifact, version)
     assert all(any(allowed in (name + " " + link).lower() for allowed in ("apache", "mit", "bsd"))
                for name, link in licenses), (url, licenses)
     print(f"{group}:{artifact}:{version}\n  license source: {url}\n  licenses: {licenses}")
+
+# Retain provenance for the actual locked web/logging stack, not just its parent BOM.
+for coordinate in ("org.springframework:spring-core", "org.apache.tomcat.embed:tomcat-embed-core",
+                   "ch.qos.logback:logback-classic", "org.slf4j:slf4j-api"):
+    entries = [line.split("=", 1)[0] for line in Path("server/gradle.lockfile").read_text().splitlines()
+               if line.startswith(coordinate + ":") and "runtimeClasspath" in line.split("=", 1)[1].split(",")]
+    assert len(entries) == 1
+    url, licenses = pom_licenses(*entries[0].split(":"))
+    assert all(any(allowed in (name + " " + link).lower() for allowed in ("apache", "mit", "bsd", "eclipse", "lgpl"))
+               for name, link in licenses), (url, licenses)
+    print(f"Actual locked runtime {entries[0]}\n  license source: {url}\n  licenses: {licenses}")
 
 properties = Path("server/database-images.properties").read_text().splitlines()
 image = next(line.split("=", 1)[1] for line in properties if line.startswith("postgres="))

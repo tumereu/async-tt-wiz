@@ -6,7 +6,7 @@ public final class OwnershipFailure extends RuntimeException {
 
     private final Reason reason;
 
-    OwnershipFailure(Reason reason) {
+    public OwnershipFailure(Reason reason) {
         super("Database ownership: " + reason.name(), null, false, true);
         this.reason = reason;
     }

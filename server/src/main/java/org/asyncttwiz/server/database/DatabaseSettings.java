@@ -29,8 +29,12 @@ public final class DatabaseSettings {
 
     public static DatabaseSettings fromEnvironment(Map<String, String> environment) throws IOException {
         String secretPath = required(environment, "DB_PASSWORD_FILE");
+        var path = Path.of(secretPath);
+        if (!Files.isRegularFile(path) || !Files.isReadable(path) || Files.size(path) > 65536) {
+            throw new IOException("Invalid database secret file");
+        }
         // A final LF/CRLF from mounted text-secret files is not part of the password.
-        String password = Files.readString(Path.of(secretPath)).replaceFirst("\\r?\\n$", "");
+        String password = Files.readString(path).replaceFirst("\\r?\\n$", "");
         return new DatabaseSettings(required(environment, "DB_URL"), required(environment, "DB_USER"), password);
     }
 

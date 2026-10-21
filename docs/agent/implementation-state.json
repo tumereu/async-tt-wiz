@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -150,7 +150,10 @@
     {
       "id": "I01c2b",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json",
+      "buildNotes": "server/README.md",
+      "qualification": "Real installed Spring Boot4.1.1/JVM21 service and separate explicit migrate command pass actual HTTP/process qualification against owned PostgreSQL17. Detail-free separate public/health bindings, empty/unversioned/future/checksum refusal without migration, explicit clean/retained migration, two-process writer takeover, real DB outage/recovery, recovery schema revalidation/epoch reload, malformed/missing/unreadable/invalid UTF-8 file-secret inputs and safe logs pass. Admission/rollback/recovery and stop-admission-before-drain are tested at the same fenced runtime boundary without product test endpoints. Actual SIGTERM, including paused-DB blackhole, exits below 30 seconds with exact listener rebind, DB session/advisory cleanup and retained-epoch restart. Clean shared/service regression plus jOOQ byte-reproducibility and a repeated 34-test service suite pass without skipped tests; strict Spring/community dependency/license provenance and module boundaries pass while preserving qualified jOOQ3.20.20. Retained diagnostics explain BOM drift, test-only WSL wildcard-to-loopback reservation/alias/relay behavior and the interrupted command; no failures are relabeled passing. Only singleton ownership recovery exists, not future account/game/inbox/outbox/mail/push workers. I01c2/ancestors integration, image I01c3, Compose/device work, full product scenarios, independent B1 review and all release gates remain open.",
       "dependsOn": ["I01c2a"],
       "outcome": "Implement and qualify the real minimal Spring Boot/JVM21 service around I01c2a's ownership/transaction boundary, preserving a separately executable migrate command. Qualify pinned Spring dependencies and strict locks, runtime configuration/file-secret parsing and safe failure/logging, configurable public/health bindings, detail-free live/ready routes and bounded SIGTERM. Gate readiness/admission on reachable supported validated schema and current writer ownership, stop them on loss, and recover only after ownership/schema/foundation reload. Document absent account/game/inbox/outbox/mail/push workers honestly and require future implemented workers to join readiness; do not fabricate product endpoints, workers or production configuration.",
       "checks": [

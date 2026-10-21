@@ -3,10 +3,10 @@
 JVM21 consumer of `:core` and `:protocol`. **I01c1 provides real PostgreSQL17,
 forward-only Flyway migrations, an explicit executable migration command and
 server-only generated jOOQ bindings. I01c2a adds the real database writer
-ownership/epoch-fenced transaction boundary.** This is not a live service: Spring
-Boot, runtime configuration, readiness and health are I01c2b; the application
-image/lifecycle qualification is I01c3. No account/game/inbox/outbox schema or worker
-exists yet. No ready endpoint or worker-recovery behavior is fabricated.
+ownership/epoch-fenced transaction boundary; I01c2b supplies the real Spring Boot
+service, separate public/health listeners, runtime configuration and bounded process
+shutdown/recovery.** The application image/lifecycle qualification remains I01c3.
+No account/game/inbox/outbox schema, product API or durable worker exists yet.
 
 ## Build and test
 
@@ -32,6 +32,12 @@ read-only public POM/license/image-index metadata; it is not a legal release gat
 The qualified versions are Flyway community **13.11.1**, Apache-licensed jOOQ
 **3.20.20** (maintained JVM21 line), PostgreSQL JDBC **42.7.14** and Testcontainers
 **2.0.5**, pinned in the root version catalog and ordinary strict server lock.
+Spring Boot **4.1.1**, Spring Framework **7.0.9**, Tomcat **11.0.24**, SLF4J **2.0.18**
+and Logback **1.5.38** are qualified on JVM21. The Spring BOM is a regular platform,
+not permission to upgrade the already-qualified jOOQ **3.20.20** runtime: its strict
+constraint keeps runtime and generator on the same line. Public POM license evidence
+records Apache-2.0 Spring/Tomcat, MIT SLF4J and dual EPL-2.0/LGPL-2.1-only Logback;
+this is dependency provenance, not completed redistribution notices or legal clearance.
 PostgreSQL **17.11-bookworm** is pinned by immutable multi-platform index digest in
 `database-images.properties`; actual execution here is **amd64 only**, not arm64
 or Pi qualification. Intentional lock maintenance uses the root documented
@@ -98,11 +104,99 @@ initialized to 0. Merely having this row confers no writer ownership.
 The explicit migration command must remain separate from service startup, and I01c3
 must package both interfaces in the same image.
 
+## Live service interface — I01c2b
+
+The same installed distribution runs either `server migrate` or `server serve`.
+There is no implicit default command, automatic service-start migration, or alternate
+test application. After the explicit migration above, run against the intended local
+database using file-mounted credentials:
+
+```sh
+DB_URL=jdbc:postgresql://127.0.0.1:5432/your_database \
+DB_USER=your_database_user DB_PASSWORD_FILE=/path/to/mounted/password \
+PUBLIC_BASE_URL=http://127.0.0.1:8080 \
+SERVER_ADDRESS=127.0.0.1 SERVER_PORT=8080 \
+HEALTH_ADDRESS=127.0.0.1 HEALTH_PORT=8081 \
+  server/build/install/server/bin/server serve
+```
+
+`DB_URL`, `DB_USER`, `DB_PASSWORD_FILE` and `PUBLIC_BASE_URL` are required. The latter
+is an absolute HTTP(S) base URL without user info/query/fragment, retained for future
+public link generation; this foundation does not fetch it or implement account links.
+The UTF-8 secret must be a readable regular file, at most 64 KiB, with a nonempty
+password after removing **one** final LF/CRLF; other whitespace/Unicode is preserved.
+Malformed/missing inputs fail promptly with exit 1 and a fixed safe message, never
+raw values, file paths, JDBC/SQL exceptions or Spring configuration dumps.
+
+Listener defaults are `SERVER_ADDRESS=0.0.0.0`, `SERVER_PORT=8080`,
+`HEALTH_ADDRESS=127.0.0.1`, `HEALTH_PORT=8081`. Ports are distinct integers 1–65535;
+both addresses are configurable. For later container tests configure health binding
+explicitly to the owned container network; loopback is the safe local default.
+Each listener is a real, explicitly configured Spring Boot servlet context/Tomcat
+server. No database/Actuator/MVC auto-configuration or general Spring configuration
+channel is enabled. `SPRING_*`, arbitrary external application property files and
+forwarded headers cannot redirect listeners or expose environment/credentials.
+TLS/proxy trust remains external; no production deployment configuration is supplied.
+
+Only the **health listener** serves GET/HEAD `/health/live` and `/health/ready`:
+
+- Live: HTTP 200, `OK\n`, independent of database availability/schema/ownership.
+- Ready: HTTP 200 `OK\n` only after ownership, supported schema validation and
+  singleton reload; otherwise HTTP 503 `Unavailable\n`. Every readiness request
+  probes the dedicated session, not a cached successful poll. All responses are
+  plain text and `Cache-Control: no-store`, without data/configuration detail.
+- All other paths/methods, including both health paths on the **public listener**,
+  return HTTP 404 `Not found\n`. There are no product/test-action endpoints.
+
+`ServiceRuntime` refreshes/retries ownership every 500 ms after the preceding bounded
+attempt finishes. A competitor stays live but unready. DB/lock loss invalidates
+readiness/admission; reacquisition must revalidate schema, advance and reload the
+persisted singleton epoch. Empty/unversioned/future/checksum-invalid schemas stay
+live/unready **and unchanged**, never migrated or repaired. External migration is
+required before recovery can succeed. Runtime/library logging is deliberately quiet
+via fixed `service-logback.xml` and safe fixed command messages; do not enable raw
+JDBC/Flyway/Spring debug logging with real secret inputs.
+
+All future mutating handlers must enter `ServiceRuntime.transaction()` and the
+existing epoch fence, never use an HTTP-ready boolean as authorization to write.
+SIGTERM first stops readiness/admission, allows already-admitted local transactions
+up to 10 seconds to drain, releases ownership and closes both contexts (5-second
+graceful shutdown phases). Actual healthy and database-blackhole process exits are
+tested within the **30-second** contract, along with exact listener rebind/session
+cleanup and restart with retained epoch. Future callbacks remain bounded local DB
+work; no shutdown guarantee is made for arbitrary uninterruptible application code.
+
+**Implemented worker inventory:** only the ownership recovery scheduler/singleton
+reload. There are **no account/game/durable inbox/outbox/mail/push workers** to resume,
+flush or claim healthy. SMTP/MAIL/FCM credentials are not required/parsed before those
+adapters exist. Every future implemented worker must join recovery/readiness and
+shutdown before its command routes are admitted; this foundation does not claim
+future durable recovery. Image-level SIGTERM/restart is still I01c3.
+
+Focused real-process/admission checks (Linux signals, Testcontainers-owned PostgreSQL):
+
+```sh
+./scripts/gradle.sh --no-daemon --console=plain :server:test \
+  --tests org.asyncttwiz.server.ServiceProcessTest \
+  --tests org.asyncttwiz.server.ServiceRuntimeTest \
+  --tests org.asyncttwiz.server.ServiceSettingsTest \
+  --tests org.asyncttwiz.server.SpringStartupTest verifyModuleBoundaries
+```
+
+Process tests use temporary secret files, reserve OS-allocated ports on their eventual
+loopback bind address, and retain safe subprocess output. This WSL host failed
+wildcard-reservation→explicit-loopback rebinding even in minimal JDK NIO; matching
+addresses fixes the fixture. Positive HTTP qualification uses `127.0.0.1`; `127.0.0.2`
+timed out on this host, not an application-wide guarantee of all host network aliases.
+The WSL host relay may accept TCP after the JVM exits: cleanup therefore proves that
+both **exact address/ports can be rebound**, and checks process exit and database
+sessions/locks, rather than mistaking relay behavior for an owned listener.
+
 ## Database ownership boundary — I01c2a
 
-`WriterOwnership` is a server-only closeable component, not a running service or
-HTTP readiness implementation. The future Spring lifecycle must periodically call
-`refresh()`, handle safe `OwnershipFailure` reasons as unready, and use `token()`
+`WriterOwnership` is a server-only closeable component used by `ServiceRuntime`, not
+an independent service. The Spring lifecycle periodically calls
+`refresh()`, handles safe `OwnershipFailure` reasons as unready, and uses `token()`
 to probe existing ownership before reporting readiness. `refresh()` returns empty
 when another instance owns the advisory lock; it does not wait for that owner.
 It never calls migrate, creates history, baselines, cleans or repairs a database.
@@ -137,8 +231,8 @@ work; these defaults are not a scheduler, a whole-request deadline or a guarante
 that arbitrary callback code is interruptible. Close is terminal/idempotent and
 releases the dedicated connection without waiting for application callbacks; a
 restart creates a new manager and epoch. Existing transactions still fence a
-replacement until commit/rollback or their database timeout. Spring process drain
-and actual SIGTERM/30-second qualification remain I01c2b/I01c3.
+replacement until commit/rollback or their database timeout. I01c2b qualifies Spring
+process drain/SIGTERM; image-level qualification remains I01c3.
 
 `WriterOwnershipTest` uses real owned PostgreSQL, test-owned probe tables and
 lower-layer transactions, never product test-action endpoints. It observes actual
@@ -183,4 +277,8 @@ does not close I01c, I01, B1, architecture/device qualification or any release g
 The [I01c2a run](../docs/agent/implementation-runs/20261021T191440Z-b4076baa.json)
 adds ownership/fencing evidence toward T-630/T-662, with the original port-restart
 diagnostics retained. It does not close I01c2, its ancestors or any independent
-review. Spring/HTTP/configuration/process and image checks are explicitly pending.
+review. Its Spring/HTTP/configuration/process obligation is now supplied by
+[I01c2b](../docs/agent/implementation-runs/20261021T192847Z-0d517a87.json), with clean
+and repeated JVM/database/process regression evidence and retained development
+diagnostics. Image, combined parent qualification, independent B1 review, full
+product/device/architecture acceptance and all external release gates remain open.

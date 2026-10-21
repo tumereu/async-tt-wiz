@@ -13,7 +13,7 @@ versions = tomllib.loads(Path("gradle/libs.versions.toml").read_text())["version
 lock = Path("server/gradle.lockfile").read_text()
 for coordinate, key in [("org.flywaydb:flyway-core", "flyway"), ("org.flywaydb:flyway-database-postgresql", "flyway"),
                         ("org.jooq:jooq", "jooq"), ("org.jooq:jooq-codegen", "jooq"),
-                        ("org.postgresql:postgresql", "postgresql"), ("org.testcontainers:testcontainers", "testcontainers")]:
+                         ("org.postgresql:postgresql", "postgresql"), ("org.testcontainers:testcontainers", "testcontainers")]:
     assert f"{coordinate}:{versions[key]}=" in lock
     print("PASS pinned/locked:", coordinate, versions[key])
 
@@ -35,6 +35,14 @@ assert tests >= 10
 ownership = ET.parse("server/build/test-results/test/TEST-org.asyncttwiz.server.database.WriterOwnershipTest.xml").getroot()
 assert int(ownership.attrib["tests"]) >= 12
 print("PASS actual server JVM21 tests without skipped/failing cases:", tests)
+for name, minimum in (("ServiceProcessTest", 7), ("ServiceRuntimeTest", 2), ("SpringStartupTest", 1)):
+    root = ET.parse(f"server/build/test-results/test/TEST-org.asyncttwiz.server.{name}.xml").getroot()
+    assert int(root.attrib["tests"]) >= minimum
+    print("PASS executed Spring HTTP/process/admission checks:", name, root.attrib["tests"])
+for line in lock.splitlines():
+    if line.startswith("org.jooq:jooq:"):
+        assert line.startswith(f"org.jooq:jooq:{versions['jooq']}="), "Spring BOM drifted qualified jOOQ version"
+assert f"org.springframework.boot:spring-boot:{versions['spring-boot']}=" in lock
 
 jar = Path("server/build/libs/server-0.1.0.jar")
 with zipfile.ZipFile(jar) as archive:
@@ -44,6 +52,8 @@ with zipfile.ZipFile(jar) as archive:
     assert "org/asyncttwiz/server/generated/tables/ServiceWriter.class" in classes
     assert "org/asyncttwiz/server/database/MigrationCommand.class" in classes
     assert "org/asyncttwiz/server/database/WriterOwnership.class" in classes
+    assert "org/asyncttwiz/server/ServiceCommand.class" in classes
+    assert "org/asyncttwiz/server/SpringService.class" in classes
     assert not any("/tools/" in name for name in classes), "Code generator leaked into runtime"
 print("PASS real server/generated-field Java21 classfiles; runtime JAR SHA256:", hashlib.sha256(jar.read_bytes()).hexdigest())
 
@@ -60,4 +70,4 @@ for module in ("core", "protocol", "client-storage", "androidApp", "e2e"):
     for path in Path(module, "src").rglob("*.*"):
         if path.suffix in (".kt", ".java"):
             assert "org.asyncttwiz.server.generated" not in path.read_text(), path
-print("PASS generated persistence/ownership stays server-only; no live service/readiness/image or gameplay workers claimed")
+print("PASS generated persistence/ownership/Spring stays server-only; service health/ownership is foundation only, not image/gameplay workers")

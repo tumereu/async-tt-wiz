@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -104,7 +104,10 @@
     {
       "id": "I01c1",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T185205Z-6533f389.json",
+      "buildNotes": "server/README.md",
+      "qualification": "Real PostgreSQL17.11/Flyway13.11.1 foundation and explicit installed migration executable pass clean/retained/idempotent, checksum/future/unversioned refusal, transactional SQL/DDL rollback and secret-file/error-redaction checks. Real jOOQ3.20.20 bindings regenerate byte-identically from independently migrated Testcontainers databases and pass generated-field query/commit/rollback/constraint tests. JVM21 clean shared/server tests, normal APK/instrumentation assembly/lint, strict dependency locks and boundaries pass; ten server tests execute with no skips. PostgreSQL image digest/license provenance and exact owned-container/anonymous-volume cleanup retained. I01c2 service/writer/readiness, I01c3 image, parent integration, B1 review, full acceptance/device/arm64 and release gates remain open.",
       "dependsOn": ["I01a"],
       "outcome": "Establish the minimal real PostgreSQL17/Flyway/jOOQ persistence foundation in :server: versioned SQL for the service-writer singleton/epoch, an explicit executable migration command (not automatic service-start migration), and reproducible jOOQ generation against disposable migrated PostgreSQL. Pin and lock qualified dependencies and PostgreSQL image digest. Keep generated types server-only; no account/game/inbox/outbox schemas ahead of their tasks. Testcontainers owns integration databases, never I01e's later Compose environment.",
       "checks": [

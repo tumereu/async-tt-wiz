@@ -84,3 +84,25 @@ native gesture; T-674/T-675 specify future normal-app verification instead.
   animation-frame churn. The capture helper now accepts optional screen IDs for
   targeted recapture. Newly downloaded fonts unused by the normalized sources
   are not included in the served packet. No cloud credentials enter these files.
+
+## Review-link repair — dedicated private origin
+
+The owner reported that the port-443 `/ui-review` links opened OpenCode instead.
+The loopback document server still returned the correct HTML/PDF, but its logs
+showed no corresponding remote document request. This does not establish an HTTP
+redirect or prove a particular browser bug. Cached same-origin app navigation or
+a service worker is a possible explanation.
+
+- Added **tailnet-only HTTPS port 8443**, proxying `/` to `127.0.0.1:8765`.
+  Different ports are different browser origins, isolating the review from the
+  root OpenCode app without clearing that app's browser data.
+- Serve configuration confirms both original port-443 handlers are unchanged:
+  `/` → `127.0.0.1:49374`, `/ui-review` → `127.0.0.1:8765`. Only the separate
+  port-8443 document listener was added. No Funnel, public hosting, account/OAuth
+  change or Drive upload was performed.
+- Updated `reviewBaseUrl` and rebuilt the packet so PDF link annotations use
+  `https://desktop-b2kalvm.tail27cccc.ts.net:8443/`, not the problematic old path.
+- Loopback HTML/PDF availability and the new Serve configuration are checked.
+  This host still cannot independently verify its own tailnet HTTPS endpoint;
+  **the owner must try the new port-8443 URL from the phone/browser**. Do not
+  describe that device-level check as already successful.

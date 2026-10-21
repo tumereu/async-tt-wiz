@@ -63,16 +63,30 @@ sanity check, not full interaction, accessibility or Android verification.
 
 ## Private review hosting
 
-Serve only this directory through a dedicated Tailscale Serve path, preserving
-unrelated existing routes. Never use Funnel/public hosting for the pilot. The
+Serve only this directory through a dedicated Tailscale Serve HTTPS origin,
+preserving unrelated existing routes. Never use Funnel/public hosting. The
 host must remain running for phone access. Authentication credentials and local
 OAuth helper files are outside the repository and outside this served directory.
 
 On the current review host, the document-only HTTP server is a per-user systemd
 service named `async-tt-wiz-ui-review.service`, bound to `127.0.0.1:8765`.
-Tailscale Serve proxies only `/ui-review` to it; the pre-existing root route is
-unchanged. The server unit/Tailscale configuration are local review-host setup,
+The preferred review URL is now:
+
+**<https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html>**
+
+The PDF is at the same address with `review.pdf` instead of `review.html`.
+Tailscale Serve proxies HTTPS port **8443** at `/` to this document-only service.
+The original port-443 root OpenCode route and legacy `/ui-review` route remain
+unchanged. The owner reported that the old same-origin path opened OpenCode;
+the document service did not receive that navigation. A browser-side navigation/
+cache/service-worker conflict is a hypothesis, not a proven root cause. A separate
+port gives the review its own browser origin without clearing OpenCode data.
+
+The server unit/Tailscale configuration are local review-host setup,
 not application or production-deployment scaffolding. Check availability with
 `systemctl --user status async-tt-wiz-ui-review.service` and
-`tailscale serve status`. Do not use the broad “turn Serve off” command to remove
-this route: it would also affect unrelated routes.
+`tailscale serve status`. The dedicated listener can be removed with
+`tailscale serve --https=8443 off` if no longer wanted; do not use a broad Serve
+reset/off operation that would affect unrelated routes. Phone access still
+requires Tailscale and confirmation from another device; host self-connection
+is unavailable here. Nothing was uploaded to Drive or made public.

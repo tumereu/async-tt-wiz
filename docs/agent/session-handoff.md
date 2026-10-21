@@ -40,6 +40,17 @@ claim that the service's final output is pixel-identical.
 See artifact validation for the rebuilt PDF and private route checks. No code,
 general stage transition, final UI approval or exhaustive state coverage implied.
 
+**Review access repair:** the owner reported that the old `/ui-review` URLs opened
+OpenCode. The document service saw no matching remote request, so browser-side
+same-origin navigation/cache/service-worker interception is suspected, not proven.
+Preferred URL is now `https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html`
+(or `review.pdf`). Added only a tailnet-private HTTPS 8443 → document service
+`127.0.0.1:8765`; original port-443 OpenCode root and legacy review path are intact.
+The manifest/PDF links use the new origin. Local config/files are checked; phone
+access still needs the owner's confirmation. No Drive upload, public hosting or
+OpenCode browser-data clearing was performed. The original path setup below is
+historical, not the preferred current review URL.
+
 ## Original UI pilot — D-290
 
 The owner explicitly requested both portrait and landscape support/mockups and a

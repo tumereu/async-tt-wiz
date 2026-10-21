@@ -1,0 +1,19 @@
+{
+  "collector_number": "3",
+  "id": "ba8f2067-c780-5b4f-9e08-0da896d53f13",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v1/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png",
+    "normal": "http://synthetic-source:8080/prism/v1/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png",
+    "png": "http://synthetic-source:8080/prism/v1/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png",
+    "small": "http://synthetic-source:8080/prism/v1/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Amberglass Chorus",
+  "object": "card",
+  "oracle_id": "c396034e-c5f4-56b8-9f23-dfabeb6b3ba8",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": "Enchantment"
+}

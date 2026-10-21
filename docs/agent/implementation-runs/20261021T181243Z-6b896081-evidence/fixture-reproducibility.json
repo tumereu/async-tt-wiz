@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "scripts/synthetic-catalogs.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "4584550e7146f344d51d6b83e2730c399807e32d675ad247a02e10e53fc35303",
+  "output": "PASS deterministic synthetic fixture bytes/hashes: 149 files, 2 identity-distinct datasets x 2 versions\nPASS generation is stdlib-only, offline and independent of app/backend builds; no product/import/image acceptance claimed\n"
+}

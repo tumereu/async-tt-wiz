@@ -1,0 +1,19 @@
+{
+  "collector_number": "101",
+  "id": "f76be976-d1a3-58fb-9b57-abdf2c982a94",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v1/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png",
+    "normal": "http://synthetic-source:8080/prism/v1/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png",
+    "png": "http://synthetic-source:8080/prism/v1/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png",
+    "small": "http://synthetic-source:8080/prism/v1/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Coppercloud Surveyor",
+  "object": "card",
+  "oracle_id": "26c36e83-7514-5767-a4c2-ba0963cd8364",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpb",
+  "type_line": "Creature"
+}

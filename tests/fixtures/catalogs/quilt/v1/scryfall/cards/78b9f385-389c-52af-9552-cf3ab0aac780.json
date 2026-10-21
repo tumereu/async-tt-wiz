@@ -1,0 +1,19 @@
+{
+  "collector_number": "8",
+  "id": "78b9f385-389c-52af-9552-cf3ab0aac780",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/quilt/v1/art/78b9f385-389c-52af-9552-cf3ab0aac780.png",
+    "normal": "http://synthetic-source:8080/quilt/v1/art/78b9f385-389c-52af-9552-cf3ab0aac780.png",
+    "png": "http://synthetic-source:8080/quilt/v1/art/78b9f385-389c-52af-9552-cf3ab0aac780.png",
+    "small": "http://synthetic-source:8080/quilt/v1/art/78b9f385-389c-52af-9552-cf3ab0aac780.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Thimblecloud Rampart",
+  "object": "card",
+  "oracle_id": "d24c82c7-0c2c-5dfd-881b-d67637d817db",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqa",
+  "type_line": "Battle"
+}

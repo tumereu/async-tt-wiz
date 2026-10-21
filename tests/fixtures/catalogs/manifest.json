@@ -1,0 +1,603 @@
+{
+  "artAlgorithm": "original-mosaic-v1",
+  "datasets": [
+    {
+      "artCases": {
+        "absent-default": {
+          "path": "prism/v1/art/071a6b32-7c2c-543f-b4f9-b354c293fffa.png",
+          "state": "missing"
+        },
+        "ambiguous-name": {
+          "path": "prism/v1/art/5f2959e9-3c10-5585-a765-7ea5d3fe2984.png",
+          "state": "ok"
+        },
+        "artifact": {
+          "path": "prism/v1/art/655da14a-7226-568d-9cd6-3dd4499eae93.png",
+          "state": "ok"
+        },
+        "blank": {
+          "path": "prism/v1/art/e790da07-e562-58d5-9bb0-ad55a056be9a.png",
+          "state": "missing"
+        },
+        "creature": {
+          "path": "prism/v1/art/fd582421-7ff7-5361-82e6-d6ccf51dfd97.png",
+          "state": "ok"
+        },
+        "defense": {
+          "path": "prism/v1/art/16bd9769-8968-5f98-a8ef-98bd1c8f08c9.png",
+          "state": "ok"
+        },
+        "enchantment": {
+          "path": "prism/v1/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png",
+          "state": "ok"
+        },
+        "face-a": {
+          "path": "prism/v1/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png",
+          "state": "ok"
+        },
+        "face-b": {
+          "path": "prism/v1/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png",
+          "state": "ok"
+        },
+        "instant": {
+          "path": "prism/v1/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png",
+          "state": "ok"
+        },
+        "land": {
+          "path": "prism/v1/art/db847923-0576-5c28-ac5d-d82aca981c0e.png",
+          "state": "ok"
+        },
+        "loyalty": {
+          "path": "prism/v1/art/06477f63-9cc3-564a-b902-d9d3fe6ff45e.png",
+          "state": "ok"
+        },
+        "near-name": {
+          "path": "prism/v1/art/937399e9-2016-5a63-a8cb-16faf70f1e15.png",
+          "state": "ok"
+        },
+        "printing": {
+          "path": "prism/v1/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png",
+          "state": "ok"
+        },
+        "punctuated-name": {
+          "path": "prism/v1/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png",
+          "state": "broken"
+        },
+        "sorcery": {
+          "path": "prism/v1/art/05e63a62-475f-5814-a96c-70e8b0d6a2c4.png",
+          "state": "ok"
+        },
+        "token": {
+          "path": "prism/v1/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png",
+          "state": "ok"
+        }
+      },
+      "base": "prism/v1",
+      "catalogSha256": "103efdca17224fab23ef315260b1631cdfdd9a8d622a3359116fba731b829492",
+      "dataset": "prism",
+      "defaultExpectations": {
+        "absent-default": "",
+        "artifact": "",
+        "blank": "",
+        "creature": "2/3",
+        "defense": "6",
+        "face-a": "1/4",
+        "face-b": "4/1",
+        "loyalty": "4",
+        "near-name": "*/*",
+        "punctuated-name": "2/*"
+      },
+      "gzipSha256": "e8c408d95df80794ee50da807aa4afc0f61d024eff17dcb89794088c025b4447",
+      "roles": {
+        "absent-default": "3e7dcb22-f9f6-50f1-8239-004dd57de2e2",
+        "ambiguous-name": "c034cd03-207c-5954-a21d-6dded4bbbade",
+        "artifact": "03fd65c2-9700-5126-91c9-0403e6d76bb1",
+        "blank": "ab1709af-42c9-517e-8035-fe615a10c2aa",
+        "creature": "fa50ab59-8f06-52f5-8ce4-7cdb308a93fd",
+        "defense": "82b40eca-bcbf-5cf0-9760-17ca5da245e0",
+        "enchantment": "226039de-fc43-5a60-b804-a0e1086e1479",
+        "face-a": "4aee8e53-8251-58ac-82a6-e3bebc96c4b1",
+        "face-b": "5f5ec838-d95b-5935-a1ad-ab018b212f8a",
+        "instant": "baf88eee-62a4-5f41-907f-f99ae652a751",
+        "land": "70413631-a22b-52f2-8b0e-b5691682f1d8",
+        "loyalty": "fc2787b7-6ad5-5e3b-a25b-0c64007d255a",
+        "near-name": "b4b1b530-90de-584e-b9c6-b96d4c5f8339",
+        "printing": "6e4bf7fa-acdb-51ac-9f16-a811fd73b134",
+        "punctuated-name": "d92d1241-b1b4-54c6-8121-bb14efbcc388",
+        "sorcery": "5bd63b70-de04-56af-aa3c-b931fd66dfed",
+        "token": "e31fc2e8-7304-5aa5-a5ae-8a99d205bfaa"
+      },
+      "version": 1
+    },
+    {
+      "artCases": {
+        "absent-default": {
+          "path": "prism/v2/art/071a6b32-7c2c-543f-b4f9-b354c293fffa.png",
+          "state": "missing"
+        },
+        "ambiguous-name": {
+          "path": "prism/v2/art/5f2959e9-3c10-5585-a765-7ea5d3fe2984.png",
+          "state": "ok"
+        },
+        "artifact": {
+          "path": "prism/v2/art/655da14a-7226-568d-9cd6-3dd4499eae93.png",
+          "state": "ok"
+        },
+        "blank": {
+          "path": "prism/v2/art/e790da07-e562-58d5-9bb0-ad55a056be9a.png",
+          "state": "missing"
+        },
+        "creature": {
+          "path": "prism/v2/art/fd582421-7ff7-5361-82e6-d6ccf51dfd97.png",
+          "state": "ok"
+        },
+        "defense": {
+          "path": "prism/v2/art/16bd9769-8968-5f98-a8ef-98bd1c8f08c9.png",
+          "state": "ok"
+        },
+        "enchantment": {
+          "path": "prism/v2/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png",
+          "state": "ok"
+        },
+        "face-a": {
+          "path": "prism/v2/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png",
+          "state": "ok"
+        },
+        "face-b": {
+          "path": "prism/v2/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png",
+          "state": "ok"
+        },
+        "instant": {
+          "path": "prism/v2/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png",
+          "state": "ok"
+        },
+        "land": {
+          "path": "prism/v2/art/db847923-0576-5c28-ac5d-d82aca981c0e.png",
+          "state": "ok"
+        },
+        "loyalty": {
+          "path": "prism/v2/art/06477f63-9cc3-564a-b902-d9d3fe6ff45e.png",
+          "state": "ok"
+        },
+        "near-name": {
+          "path": "prism/v2/art/937399e9-2016-5a63-a8cb-16faf70f1e15.png",
+          "state": "ok"
+        },
+        "new-token": {
+          "path": "prism/v2/art/e90f6587-fe9a-59ce-aa1c-38b305059dae.png",
+          "state": "ok"
+        },
+        "printing": {
+          "path": "prism/v2/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png",
+          "state": "ok"
+        },
+        "punctuated-name": {
+          "path": "prism/v2/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png",
+          "state": "broken"
+        },
+        "sorcery": {
+          "path": "prism/v2/art/05e63a62-475f-5814-a96c-70e8b0d6a2c4.png",
+          "state": "ok"
+        },
+        "token": {
+          "path": "prism/v2/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png",
+          "state": "ok"
+        }
+      },
+      "base": "prism/v2",
+      "catalogSha256": "3300eed6f8cb98d912305821d0b5f04025ad2325df1ec4094e93cbd9d9b5bda5",
+      "dataset": "prism",
+      "defaultExpectations": {
+        "absent-default": "",
+        "artifact": "",
+        "blank": "",
+        "creature": "5/3",
+        "defense": "6",
+        "face-a": "1/4",
+        "face-b": "4/1",
+        "loyalty": "4",
+        "near-name": "*/*",
+        "punctuated-name": "2/*"
+      },
+      "gzipSha256": "f26d852b64153fd0818e3dd2f7a560d7b0e40e87613956906638fd686fc4484f",
+      "roles": {
+        "absent-default": "3e7dcb22-f9f6-50f1-8239-004dd57de2e2",
+        "ambiguous-name": "c034cd03-207c-5954-a21d-6dded4bbbade",
+        "artifact": "03fd65c2-9700-5126-91c9-0403e6d76bb1",
+        "blank": "ab1709af-42c9-517e-8035-fe615a10c2aa",
+        "creature": "fa50ab59-8f06-52f5-8ce4-7cdb308a93fd",
+        "defense": "82b40eca-bcbf-5cf0-9760-17ca5da245e0",
+        "enchantment": "226039de-fc43-5a60-b804-a0e1086e1479",
+        "face-a": "4aee8e53-8251-58ac-82a6-e3bebc96c4b1",
+        "face-b": "5f5ec838-d95b-5935-a1ad-ab018b212f8a",
+        "instant": "baf88eee-62a4-5f41-907f-f99ae652a751",
+        "land": "70413631-a22b-52f2-8b0e-b5691682f1d8",
+        "loyalty": "fc2787b7-6ad5-5e3b-a25b-0c64007d255a",
+        "near-name": "b4b1b530-90de-584e-b9c6-b96d4c5f8339",
+        "new-token": "59c6e9e8-d17c-52e4-8aa8-76b5008b1be5",
+        "printing": "6e4bf7fa-acdb-51ac-9f16-a811fd73b134",
+        "punctuated-name": "d92d1241-b1b4-54c6-8121-bb14efbcc388",
+        "sorcery": "5bd63b70-de04-56af-aa3c-b931fd66dfed",
+        "token": "e31fc2e8-7304-5aa5-a5ae-8a99d205bfaa"
+      },
+      "version": 2
+    },
+    {
+      "artCases": {
+        "absent-default": {
+          "path": "quilt/v1/art/f93f1e8a-9023-5b02-a4fe-a2db547f769d.png",
+          "state": "missing"
+        },
+        "ambiguous-name": {
+          "path": "quilt/v1/art/d36f8648-a1b5-5f28-8402-32ec43771aca.png",
+          "state": "ok"
+        },
+        "artifact": {
+          "path": "quilt/v1/art/23d5be28-a59d-5a43-8453-de4c884e9b1e.png",
+          "state": "ok"
+        },
+        "blank": {
+          "path": "quilt/v1/art/22affbcd-c684-50c4-9158-4ccd0026788a.png",
+          "state": "missing"
+        },
+        "creature": {
+          "path": "quilt/v1/art/55c2ec29-539c-543e-bb94-fd8101ddf9e3.png",
+          "state": "ok"
+        },
+        "defense": {
+          "path": "quilt/v1/art/78b9f385-389c-52af-9552-cf3ab0aac780.png",
+          "state": "ok"
+        },
+        "enchantment": {
+          "path": "quilt/v1/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png",
+          "state": "ok"
+        },
+        "face-a": {
+          "path": "quilt/v1/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png",
+          "state": "ok"
+        },
+        "face-b": {
+          "path": "quilt/v1/art/2cea6545-e5cb-548a-895e-f74faa929335.png",
+          "state": "ok"
+        },
+        "instant": {
+          "path": "quilt/v1/art/fceae0f6-799f-5612-be87-bd56e2bd19df.png",
+          "state": "ok"
+        },
+        "land": {
+          "path": "quilt/v1/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png",
+          "state": "ok"
+        },
+        "loyalty": {
+          "path": "quilt/v1/art/745fc071-6068-575d-b062-f67a66139a41.png",
+          "state": "ok"
+        },
+        "near-name": {
+          "path": "quilt/v1/art/7977f7e8-121d-5da7-a620-2ab4fec15dc9.png",
+          "state": "ok"
+        },
+        "printing": {
+          "path": "quilt/v1/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png",
+          "state": "ok"
+        },
+        "punctuated-name": {
+          "path": "quilt/v1/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png",
+          "state": "broken"
+        },
+        "sorcery": {
+          "path": "quilt/v1/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png",
+          "state": "ok"
+        },
+        "token": {
+          "path": "quilt/v1/art/9e3b20fb-1c4c-5f93-af5b-989327b0db8a.png",
+          "state": "ok"
+        }
+      },
+      "base": "quilt/v1",
+      "catalogSha256": "700b4661cdf914cd222c61ee271c24279da88560dba2c65868d9b12092804cd0",
+      "dataset": "quilt",
+      "defaultExpectations": {
+        "absent-default": "",
+        "artifact": "",
+        "blank": "",
+        "creature": "2/3",
+        "defense": "6",
+        "face-a": "1/4",
+        "face-b": "4/1",
+        "loyalty": "4",
+        "near-name": "*/*",
+        "punctuated-name": "2/*"
+      },
+      "gzipSha256": "b1b4c3c88a33a8f8dfef9ce02ec303bd0c80277b925da38fdb297edf44901b12",
+      "roles": {
+        "absent-default": "55363fef-4427-57c9-b2df-2a3312608b40",
+        "ambiguous-name": "8449195c-a04d-58b3-89b5-9b593c4346f2",
+        "artifact": "e6547d0b-ea51-52e3-a8d3-7d9566582e0d",
+        "blank": "eb545c2a-97a4-5962-816f-013c0a3dfca7",
+        "creature": "7bf4b468-2031-52f5-a95c-beeb928b6488",
+        "defense": "99b9ce5d-0c19-587d-8fbb-068e0929bd19",
+        "enchantment": "d64f5b97-b959-5a7e-ba23-cd057a6c010c",
+        "face-a": "f953fe5b-3cd7-5d99-a86c-7acfa77f9623",
+        "face-b": "b2316313-ac59-59e7-9c5a-5eaaec39fbae",
+        "instant": "48905287-7688-5823-be12-967cfea8e3f8",
+        "land": "3bfb94b8-ee9d-54c9-b504-e1de6706227b",
+        "loyalty": "71928031-0a8b-5394-8836-191c6d587fd9",
+        "near-name": "a8ceaed0-93b8-5025-b8bd-02a3ae8ca965",
+        "printing": "758e213a-1300-5d42-a7fd-5280a3980671",
+        "punctuated-name": "1098d2f9-ebc4-5229-a4e3-523a6a37ecda",
+        "sorcery": "708b9769-c360-5650-ae15-f07629aebdf9",
+        "token": "3979f44a-a0fe-547b-b6ad-b78ade2786c2"
+      },
+      "version": 1
+    },
+    {
+      "artCases": {
+        "absent-default": {
+          "path": "quilt/v2/art/f93f1e8a-9023-5b02-a4fe-a2db547f769d.png",
+          "state": "missing"
+        },
+        "ambiguous-name": {
+          "path": "quilt/v2/art/d36f8648-a1b5-5f28-8402-32ec43771aca.png",
+          "state": "ok"
+        },
+        "artifact": {
+          "path": "quilt/v2/art/23d5be28-a59d-5a43-8453-de4c884e9b1e.png",
+          "state": "ok"
+        },
+        "blank": {
+          "path": "quilt/v2/art/22affbcd-c684-50c4-9158-4ccd0026788a.png",
+          "state": "missing"
+        },
+        "creature": {
+          "path": "quilt/v2/art/55c2ec29-539c-543e-bb94-fd8101ddf9e3.png",
+          "state": "ok"
+        },
+        "defense": {
+          "path": "quilt/v2/art/78b9f385-389c-52af-9552-cf3ab0aac780.png",
+          "state": "ok"
+        },
+        "enchantment": {
+          "path": "quilt/v2/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png",
+          "state": "ok"
+        },
+        "face-a": {
+          "path": "quilt/v2/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png",
+          "state": "ok"
+        },
+        "face-b": {
+          "path": "quilt/v2/art/2cea6545-e5cb-548a-895e-f74faa929335.png",
+          "state": "ok"
+        },
+        "instant": {
+          "path": "quilt/v2/art/fceae0f6-799f-5612-be87-bd56e2bd19df.png",
+          "state": "ok"
+        },
+        "land": {
+          "path": "quilt/v2/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png",
+          "state": "ok"
+        },
+        "loyalty": {
+          "path": "quilt/v2/art/745fc071-6068-575d-b062-f67a66139a41.png",
+          "state": "ok"
+        },
+        "near-name": {
+          "path": "quilt/v2/art/7977f7e8-121d-5da7-a620-2ab4fec15dc9.png",
+          "state": "ok"
+        },
+        "new-token": {
+          "path": "quilt/v2/art/67279559-58c5-5b35-bd3b-d6aa4a428bcc.png",
+          "state": "ok"
+        },
+        "printing": {
+          "path": "quilt/v2/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png",
+          "state": "ok"
+        },
+        "punctuated-name": {
+          "path": "quilt/v2/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png",
+          "state": "broken"
+        },
+        "sorcery": {
+          "path": "quilt/v2/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png",
+          "state": "ok"
+        },
+        "token": {
+          "path": "quilt/v2/art/9e3b20fb-1c4c-5f93-af5b-989327b0db8a.png",
+          "state": "ok"
+        }
+      },
+      "base": "quilt/v2",
+      "catalogSha256": "a7b48bcb6c534e5603c7a734101ff20de63c78cf7642f5b1d6187c747cec1cc5",
+      "dataset": "quilt",
+      "defaultExpectations": {
+        "absent-default": "",
+        "artifact": "",
+        "blank": "",
+        "creature": "5/3",
+        "defense": "6",
+        "face-a": "1/4",
+        "face-b": "4/1",
+        "loyalty": "4",
+        "near-name": "*/*",
+        "punctuated-name": "2/*"
+      },
+      "gzipSha256": "73323b78960d9f7f60f424ba3ebfb608bd297ec13389546c51e6c643dba87c46",
+      "roles": {
+        "absent-default": "55363fef-4427-57c9-b2df-2a3312608b40",
+        "ambiguous-name": "8449195c-a04d-58b3-89b5-9b593c4346f2",
+        "artifact": "e6547d0b-ea51-52e3-a8d3-7d9566582e0d",
+        "blank": "eb545c2a-97a4-5962-816f-013c0a3dfca7",
+        "creature": "7bf4b468-2031-52f5-a95c-beeb928b6488",
+        "defense": "99b9ce5d-0c19-587d-8fbb-068e0929bd19",
+        "enchantment": "d64f5b97-b959-5a7e-ba23-cd057a6c010c",
+        "face-a": "f953fe5b-3cd7-5d99-a86c-7acfa77f9623",
+        "face-b": "b2316313-ac59-59e7-9c5a-5eaaec39fbae",
+        "instant": "48905287-7688-5823-be12-967cfea8e3f8",
+        "land": "3bfb94b8-ee9d-54c9-b504-e1de6706227b",
+        "loyalty": "71928031-0a8b-5394-8836-191c6d587fd9",
+        "near-name": "a8ceaed0-93b8-5025-b8bd-02a3ae8ca965",
+        "new-token": "6f0dcc70-78bd-5fc3-8496-fdce239cee3c",
+        "printing": "758e213a-1300-5d42-a7fd-5280a3980671",
+        "punctuated-name": "1098d2f9-ebc4-5229-a4e3-523a6a37ecda",
+        "sorcery": "708b9769-c360-5650-ae15-f07629aebdf9",
+        "token": "3979f44a-a0fe-547b-b6ad-b78ade2786c2"
+      },
+      "version": 2
+    }
+  ],
+  "files": {
+    "prism/v1/AllPrintings.json": "103efdca17224fab23ef315260b1631cdfdd9a8d622a3359116fba731b829492",
+    "prism/v1/AllPrintings.json.gz": "e8c408d95df80794ee50da807aa4afc0f61d024eff17dcb89794088c025b4447",
+    "prism/v1/AllPrintings.json.gz.sha256": "5794d35106b85b9ffec4c6f6154b7cfb2317069e0437b16f6bd1f8d97300024d",
+    "prism/v1/Meta.json": "c96278958b773b50e2612a748749221048ab1f0bef3625cd22ce7dbd7900cf50",
+    "prism/v1/art/05e63a62-475f-5814-a96c-70e8b0d6a2c4.png": "53bdec4313e343bf968b10702094a3ae0035f93c178b6d54038bf47aeef7667c",
+    "prism/v1/art/06477f63-9cc3-564a-b902-d9d3fe6ff45e.png": "6ca351b37fe942b3206c674cbd6cd25a043900edd2ee81290e87205eb27e13f2",
+    "prism/v1/art/16bd9769-8968-5f98-a8ef-98bd1c8f08c9.png": "0707e464bdcb146993210831fd55d341ca787edee9b07e23041449b7aa2289f4",
+    "prism/v1/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png": "00c0d35cc14631c953d19a782d6b4376fd9ff0252ee8ad9d8219a74864171a85",
+    "prism/v1/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png": "f98116c749882a513d08b84d4484ae7a9f21d6acbab755072b1af3c3fec1dce8",
+    "prism/v1/art/5f2959e9-3c10-5585-a765-7ea5d3fe2984.png": "8b1194292b0473314bcba12ba2e38dcd5e664d676de532d2c911da7c7a12a796",
+    "prism/v1/art/655da14a-7226-568d-9cd6-3dd4499eae93.png": "5e381bb6b9ecb42561360ee253e8e43b86697039c26d76acd381c7433c3cafb1",
+    "prism/v1/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png": "4018351b10c251329715a4dca334e487c86858e2f89a06e41f8cb8f096c34f38",
+    "prism/v1/art/937399e9-2016-5a63-a8cb-16faf70f1e15.png": "a597004fc354d0ca53c5f67333008d55c373186f9fdfd423c5f72e008ac52cfd",
+    "prism/v1/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png": "57b03d3c0450b05509cb883476632518a48749093490b3ab6cba0a92620023ce",
+    "prism/v1/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png": "62d5ec7819c9fc81b14a12c85f8aa8cd9ed65230cb1d1674debe8d5f24bf484c",
+    "prism/v1/art/db847923-0576-5c28-ac5d-d82aca981c0e.png": "768aac080a35f4432573ccdf74c6615dd6794e6005d3e2fa6786f06ae3ead18a",
+    "prism/v1/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png": "ef67592abc39f805980e0cfd08b79f0562b971da2883c65b06db1febcbaeb347",
+    "prism/v1/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png": "88a112a565f99549cbc641ed7ea3ed5844a8c48c75b4f8c5269a32545bad584b",
+    "prism/v1/art/fd582421-7ff7-5361-82e6-d6ccf51dfd97.png": "7ced1ace74d0714c62e965b349798dfcb29c11b9f3d94a1350b78c5616325129",
+    "prism/v1/import-cases.json": "dbc231acf87f23d12b6453823c07801ebf3459d54ea67e0ce8c27001bb39fb50",
+    "prism/v1/scryfall/cards/05e63a62-475f-5814-a96c-70e8b0d6a2c4.json": "4b9d6732fe4b8e74bd9014c0904ef9da7474f772e8d8d0a01f187f6bb01697a4",
+    "prism/v1/scryfall/cards/06477f63-9cc3-564a-b902-d9d3fe6ff45e.json": "61fb6b896deab6c3c033c6d5823e0ef30a15d001456b25de7d9701d1387078ba",
+    "prism/v1/scryfall/cards/071a6b32-7c2c-543f-b4f9-b354c293fffa.json": "c98209d5a71a49d45cbb2618914081e26af8ba3fc91391d6846e70721a64d218",
+    "prism/v1/scryfall/cards/16bd9769-8968-5f98-a8ef-98bd1c8f08c9.json": "753be4998a4a01f95ae291802ce95d5714e56e1055582d0aac9447d7c6cc56a3",
+    "prism/v1/scryfall/cards/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.json": "ed1ca71bda89e01f0f5bd5094d33cab8cb102fc1e8ad8a38bcf76885e8e20747",
+    "prism/v1/scryfall/cards/275bb196-95e1-5cb8-b6c9-6290243cf658.json": "afe85e85f008c596a053a11954bb15118501ee9147bd9d3ceb0d56732144df7b",
+    "prism/v1/scryfall/cards/5f2959e9-3c10-5585-a765-7ea5d3fe2984.json": "05382ede52aff4bb769923dcbad06e0d85e6d23ebfcea4158bbbfc99d1746a46",
+    "prism/v1/scryfall/cards/655da14a-7226-568d-9cd6-3dd4499eae93.json": "8ea5b06f6b01e75fa1792ab3dbc4f4cd215a27f7ca9ee12b3129df29f4de0ea8",
+    "prism/v1/scryfall/cards/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.json": "1de48a92dc16c7a1e7821d5a2ff09581fcc1b442b5577a62cafea568f843900c",
+    "prism/v1/scryfall/cards/937399e9-2016-5a63-a8cb-16faf70f1e15.json": "4e58b85fb81d4d65f40376db86451521136c7a633d7de9f347c90b4f920d049f",
+    "prism/v1/scryfall/cards/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.json": "d82dc2b66022c00b1b554f65c939c5a3eef90508e2e240a901e75715cd09076b",
+    "prism/v1/scryfall/cards/ba8f2067-c780-5b4f-9e08-0da896d53f13.json": "2728c40ef474a11bed2c56f63c142eff727923d91b4a60affb25f18e5beb4144",
+    "prism/v1/scryfall/cards/db847923-0576-5c28-ac5d-d82aca981c0e.json": "02165b2b9cc359e4898e9d69dce2fa3a4d75002d7e7f908b86faa5ecd6103d88",
+    "prism/v1/scryfall/cards/e790da07-e562-58d5-9bb0-ad55a056be9a.json": "0a606d904ee18d743fef0dbd0dda393bcff18810aaeebcd7203d8f30ce79c908",
+    "prism/v1/scryfall/cards/f76be976-d1a3-58fb-9b57-abdf2c982a94.json": "bd9649966680ae6c0ac02fe37e7f42a327c3598fe3b52c29b1099c4388accb50",
+    "prism/v1/scryfall/cards/fd582421-7ff7-5361-82e6-d6ccf51dfd97.json": "f3e827390d28d073de455219cdbc787d4e05be7c993a770be78c9e7bf2a2743a",
+    "prism/v2/AllPrintings.json": "3300eed6f8cb98d912305821d0b5f04025ad2325df1ec4094e93cbd9d9b5bda5",
+    "prism/v2/AllPrintings.json.gz": "f26d852b64153fd0818e3dd2f7a560d7b0e40e87613956906638fd686fc4484f",
+    "prism/v2/AllPrintings.json.gz.sha256": "77bd5337b7a7440e901f581d59e7d602e4edc623400d015906deaa0160a5a311",
+    "prism/v2/Meta.json": "6f6eb7b948c9b4a5449f24d789d4e751354c62790ada684e1051bffe9fc590a8",
+    "prism/v2/art/05e63a62-475f-5814-a96c-70e8b0d6a2c4.png": "53bdec4313e343bf968b10702094a3ae0035f93c178b6d54038bf47aeef7667c",
+    "prism/v2/art/06477f63-9cc3-564a-b902-d9d3fe6ff45e.png": "6ca351b37fe942b3206c674cbd6cd25a043900edd2ee81290e87205eb27e13f2",
+    "prism/v2/art/16bd9769-8968-5f98-a8ef-98bd1c8f08c9.png": "0707e464bdcb146993210831fd55d341ca787edee9b07e23041449b7aa2289f4",
+    "prism/v2/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png": "00c0d35cc14631c953d19a782d6b4376fd9ff0252ee8ad9d8219a74864171a85",
+    "prism/v2/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png": "f98116c749882a513d08b84d4484ae7a9f21d6acbab755072b1af3c3fec1dce8",
+    "prism/v2/art/5f2959e9-3c10-5585-a765-7ea5d3fe2984.png": "8b1194292b0473314bcba12ba2e38dcd5e664d676de532d2c911da7c7a12a796",
+    "prism/v2/art/655da14a-7226-568d-9cd6-3dd4499eae93.png": "5e381bb6b9ecb42561360ee253e8e43b86697039c26d76acd381c7433c3cafb1",
+    "prism/v2/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png": "4018351b10c251329715a4dca334e487c86858e2f89a06e41f8cb8f096c34f38",
+    "prism/v2/art/937399e9-2016-5a63-a8cb-16faf70f1e15.png": "a597004fc354d0ca53c5f67333008d55c373186f9fdfd423c5f72e008ac52cfd",
+    "prism/v2/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png": "57b03d3c0450b05509cb883476632518a48749093490b3ab6cba0a92620023ce",
+    "prism/v2/art/ba8f2067-c780-5b4f-9e08-0da896d53f13.png": "62d5ec7819c9fc81b14a12c85f8aa8cd9ed65230cb1d1674debe8d5f24bf484c",
+    "prism/v2/art/db847923-0576-5c28-ac5d-d82aca981c0e.png": "768aac080a35f4432573ccdf74c6615dd6794e6005d3e2fa6786f06ae3ead18a",
+    "prism/v2/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png": "ef67592abc39f805980e0cfd08b79f0562b971da2883c65b06db1febcbaeb347",
+    "prism/v2/art/e90f6587-fe9a-59ce-aa1c-38b305059dae.png": "42463736abf33d497939509946366afe03dc663d94e18234d8b31c6d825b153d",
+    "prism/v2/art/f76be976-d1a3-58fb-9b57-abdf2c982a94.png": "88a112a565f99549cbc641ed7ea3ed5844a8c48c75b4f8c5269a32545bad584b",
+    "prism/v2/art/fd582421-7ff7-5361-82e6-d6ccf51dfd97.png": "312119cfd587bc0f32d88c524969674a290a4782ff9247f947f68695a9ed6147",
+    "prism/v2/import-cases.json": "dbc231acf87f23d12b6453823c07801ebf3459d54ea67e0ce8c27001bb39fb50",
+    "prism/v2/scryfall/cards/05e63a62-475f-5814-a96c-70e8b0d6a2c4.json": "f42dc94744299d652c2cad691fc981895b5412d116f64b3db3e50400b781ae94",
+    "prism/v2/scryfall/cards/06477f63-9cc3-564a-b902-d9d3fe6ff45e.json": "70912f62715a60eb29e4bd2cf6be16295d2c023b34f1c161ea349b7d04b22e8d",
+    "prism/v2/scryfall/cards/071a6b32-7c2c-543f-b4f9-b354c293fffa.json": "7108ae5a7d24134a7cb0f8dab2b17e7946ddf51b7825d33069b4b3aa7071d46c",
+    "prism/v2/scryfall/cards/16bd9769-8968-5f98-a8ef-98bd1c8f08c9.json": "c7fa0642c000a7557a66a7ff434458b35eb2a754b1b471b05ba2be9b0bc217e8",
+    "prism/v2/scryfall/cards/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.json": "d4ab1a5cfc364f34041d60d4efd3a73e2e54b5433fb716876652c14e032507f9",
+    "prism/v2/scryfall/cards/275bb196-95e1-5cb8-b6c9-6290243cf658.json": "98dc262f02ca64e8d3c5a44d9fb9a7853a59fb708b673fa0f7ccc16c67b1b430",
+    "prism/v2/scryfall/cards/5f2959e9-3c10-5585-a765-7ea5d3fe2984.json": "978a054fafce0101d24ae271fd73ade8b3d5509c9d0626dbe3594f326747ced3",
+    "prism/v2/scryfall/cards/655da14a-7226-568d-9cd6-3dd4499eae93.json": "2cc3ac795f5a31734b80c5ef83dd850278ff7368b5929ec821e541ab474e1eb9",
+    "prism/v2/scryfall/cards/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.json": "4ea7b56a254a9c58cb900a27a1de71ea758bb5d46a98f01cf781b7319e6e1147",
+    "prism/v2/scryfall/cards/937399e9-2016-5a63-a8cb-16faf70f1e15.json": "62c2e5f84b9f2455d945cd73bbad16492875597077fedb511eaa4b0b0685cf75",
+    "prism/v2/scryfall/cards/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.json": "af7a0f5b15720861123fc5b32c4db93baeda8f2dde15c0b17c7346aa3f31368c",
+    "prism/v2/scryfall/cards/ba8f2067-c780-5b4f-9e08-0da896d53f13.json": "2db1d4f9854e65e29322141e4535492f6e871d581d5e9f4814d3f5c7fdc9a2ee",
+    "prism/v2/scryfall/cards/db847923-0576-5c28-ac5d-d82aca981c0e.json": "4647779cbeb3d361c80c2bfb1adaeadf9c827338ec25f69ba13b23eb18c22d71",
+    "prism/v2/scryfall/cards/e790da07-e562-58d5-9bb0-ad55a056be9a.json": "92fc899e324b40638aed8036bedad1ccdc4abeeba7a1544935c41aaf228de53e",
+    "prism/v2/scryfall/cards/e90f6587-fe9a-59ce-aa1c-38b305059dae.json": "787798ff54e99222758d0b78dd05ce1ee14cba1b8bc0dc8745f575ce629cca0e",
+    "prism/v2/scryfall/cards/f76be976-d1a3-58fb-9b57-abdf2c982a94.json": "6f9fe05207128e2fb7c2e2ffa9779ee2642a56f296b35e1d32e05170fc622379",
+    "prism/v2/scryfall/cards/fd582421-7ff7-5361-82e6-d6ccf51dfd97.json": "f9732a2c139ede8d3d3fccf9247980edb9b85ae3642f444b1ec016a77bf877d2",
+    "quilt/v1/AllPrintings.json": "700b4661cdf914cd222c61ee271c24279da88560dba2c65868d9b12092804cd0",
+    "quilt/v1/AllPrintings.json.gz": "b1b4c3c88a33a8f8dfef9ce02ec303bd0c80277b925da38fdb297edf44901b12",
+    "quilt/v1/AllPrintings.json.gz.sha256": "74081b8a01a6c86fe38b628ee0708caa468a0a1dd2f69b02e6292ed25c89d519",
+    "quilt/v1/Meta.json": "c96278958b773b50e2612a748749221048ab1f0bef3625cd22ce7dbd7900cf50",
+    "quilt/v1/art/23d5be28-a59d-5a43-8453-de4c884e9b1e.png": "e530f8d92fb8bcbaaadedd335b5415c9bd2e3c4a46630ca8ee9dcd0ba1f3fa59",
+    "quilt/v1/art/2cea6545-e5cb-548a-895e-f74faa929335.png": "76381631182d1a656de2dfb5086d5d49a25681b4860e60dc1a0c8bdacfcd053b",
+    "quilt/v1/art/55c2ec29-539c-543e-bb94-fd8101ddf9e3.png": "85caab295427bcb95db1c9a484024f741cd53d14277db91cdbe530b17bfb5fb9",
+    "quilt/v1/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png": "2d2e7497af6175611abd0e45ed913c2e71c4e4342d8e1f3452a98c1403ba1d21",
+    "quilt/v1/art/745fc071-6068-575d-b062-f67a66139a41.png": "c156bb3dff78b4f51097cd9648e80e74c62191f6d7c6d0790140d8e956dc551c",
+    "quilt/v1/art/78b9f385-389c-52af-9552-cf3ab0aac780.png": "4d11b1568dca9d6cca5039937910e63cc7f6db2696b934a62033ba0d210cb814",
+    "quilt/v1/art/7977f7e8-121d-5da7-a620-2ab4fec15dc9.png": "4e952bca61ff64d7466af82032299a2bcf454053e5c726c7b3712c2132706451",
+    "quilt/v1/art/9e3b20fb-1c4c-5f93-af5b-989327b0db8a.png": "947dc08224425412b186553562e528924f60d65f315946bd34930c73bca29981",
+    "quilt/v1/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png": "1361d8e0b0f50a34eb290dc025eaf84414536f336d5744f9bb771b1fa9b0785f",
+    "quilt/v1/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png": "57b03d3c0450b05509cb883476632518a48749093490b3ab6cba0a92620023ce",
+    "quilt/v1/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png": "3a166f82e1752edc3d4761f93e05555a3cb6c05110ad09330e28f9b421f854c5",
+    "quilt/v1/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png": "6bc3f3d673b14e23a5ff3bcdd87ef77620ee7618c1bdd38d919ae4fcd5550d49",
+    "quilt/v1/art/d36f8648-a1b5-5f28-8402-32ec43771aca.png": "0a80651f7ae2f8016c722c23304fc51d41268e23bdb885d097ad7f8ebdabab9d",
+    "quilt/v1/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png": "542e0efbe237d6cdb41be0feb4c2cb8bc717a1f4457c36b073efdfaed55fad17",
+    "quilt/v1/art/fceae0f6-799f-5612-be87-bd56e2bd19df.png": "f01533f0a82ac20a29bd6df9602ab305fa8333012e3b7ad2e436dfe145468442",
+    "quilt/v1/import-cases.json": "e7ac0343925c1e0f2a5555c5648b36307bbbaeee29f021fd6959b63fded3fb31",
+    "quilt/v1/scryfall/cards/22affbcd-c684-50c4-9158-4ccd0026788a.json": "2445cf34d4a948945d14331b15232bda3c71abdf6df023fb80e17aa58c0c6abd",
+    "quilt/v1/scryfall/cards/23d5be28-a59d-5a43-8453-de4c884e9b1e.json": "ea0fe50cd2a6096ab17253a172b5d044fdfa19d763fcee220fe4d31156edbe34",
+    "quilt/v1/scryfall/cards/55c2ec29-539c-543e-bb94-fd8101ddf9e3.json": "1e64d673daad823539c7e4842e674c169a7e609edc9c1a9d9e033b205a2052f3",
+    "quilt/v1/scryfall/cards/563b7164-a4bf-5a2c-a438-e51a060e2666.json": "1aa4ef6d007a63e9d995e6a361289b22ca6fd15fe8e8a78962a2d10dc02b5354",
+    "quilt/v1/scryfall/cards/745fc071-6068-575d-b062-f67a66139a41.json": "36fb714fc097f3c05b7ca8880e1db5f21e4b116fbdc46a65d163a2092063a679",
+    "quilt/v1/scryfall/cards/78b9f385-389c-52af-9552-cf3ab0aac780.json": "7211ed04e25b86196f21c47020e56a7117cc1b6f91c82a3025bdbed64688c718",
+    "quilt/v1/scryfall/cards/7977f7e8-121d-5da7-a620-2ab4fec15dc9.json": "4dbd2c2ebf005ed942ec84a745a6615df5a9b577635516c2d819b3aaa2ba84ef",
+    "quilt/v1/scryfall/cards/9e3b20fb-1c4c-5f93-af5b-989327b0db8a.json": "c8cffb1f6daaf509f44d7881c1dadec913960411d572d7e478780c411e41832b",
+    "quilt/v1/scryfall/cards/a69712c4-1fc7-5e7d-8713-f6f266a30a79.json": "ad8f7ed716c90d6c8e65442b79855f860661071c2ffed89def2b2157dce27e79",
+    "quilt/v1/scryfall/cards/acb11104-8bc6-5555-94b5-a532aa87cd6e.json": "ba7f71ac28093cc56c3d2fcce83c120e99f4d40c45eb137c403c63b02068d72f",
+    "quilt/v1/scryfall/cards/bce221c7-d0fe-516b-86dd-d93a796a2080.json": "546d527c7d8ce11a16ee91718fe416996c9dad8936a4bec4723fa51861df2995",
+    "quilt/v1/scryfall/cards/c9f67d58-a00f-5ab0-a9ba-648122f02428.json": "738fcdf9bde2f79b118616fce7534e98d91c43a3210a223566bc631a5c760488",
+    "quilt/v1/scryfall/cards/d36f8648-a1b5-5f28-8402-32ec43771aca.json": "8c04bb8c1fd315eca24769dc5d67e7aa175b89d1c53fbbb2cb99d5e07ee5a5a9",
+    "quilt/v1/scryfall/cards/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.json": "2ed592d47481c0293d2d078baf37960f390423bb2a584401aac6da076b56127b",
+    "quilt/v1/scryfall/cards/f93f1e8a-9023-5b02-a4fe-a2db547f769d.json": "5a35e1783d1ccb2b21f7733234e4ac795492f05166585012727c1159f15d16a8",
+    "quilt/v1/scryfall/cards/fceae0f6-799f-5612-be87-bd56e2bd19df.json": "aa97d169db02dfbe45dd2cdad4c1f57455885c960cfa515de1eddecdd76a0450",
+    "quilt/v2/AllPrintings.json": "a7b48bcb6c534e5603c7a734101ff20de63c78cf7642f5b1d6187c747cec1cc5",
+    "quilt/v2/AllPrintings.json.gz": "73323b78960d9f7f60f424ba3ebfb608bd297ec13389546c51e6c643dba87c46",
+    "quilt/v2/AllPrintings.json.gz.sha256": "69cc40cb867bc3b4eed3fa5d879fc462281ee8e34f9ac34836b63a2ef8bb5f97",
+    "quilt/v2/Meta.json": "6f6eb7b948c9b4a5449f24d789d4e751354c62790ada684e1051bffe9fc590a8",
+    "quilt/v2/art/23d5be28-a59d-5a43-8453-de4c884e9b1e.png": "e530f8d92fb8bcbaaadedd335b5415c9bd2e3c4a46630ca8ee9dcd0ba1f3fa59",
+    "quilt/v2/art/2cea6545-e5cb-548a-895e-f74faa929335.png": "76381631182d1a656de2dfb5086d5d49a25681b4860e60dc1a0c8bdacfcd053b",
+    "quilt/v2/art/55c2ec29-539c-543e-bb94-fd8101ddf9e3.png": "e22ded433386de6b504db4bfd28578ddbf9abf56b6cd61b60fccfde836b0e5d9",
+    "quilt/v2/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png": "2d2e7497af6175611abd0e45ed913c2e71c4e4342d8e1f3452a98c1403ba1d21",
+    "quilt/v2/art/67279559-58c5-5b35-bd3b-d6aa4a428bcc.png": "a12d16f971faf26f234decdebd88d322967816bf23cb92c315931406d26d3aaa",
+    "quilt/v2/art/745fc071-6068-575d-b062-f67a66139a41.png": "c156bb3dff78b4f51097cd9648e80e74c62191f6d7c6d0790140d8e956dc551c",
+    "quilt/v2/art/78b9f385-389c-52af-9552-cf3ab0aac780.png": "4d11b1568dca9d6cca5039937910e63cc7f6db2696b934a62033ba0d210cb814",
+    "quilt/v2/art/7977f7e8-121d-5da7-a620-2ab4fec15dc9.png": "4e952bca61ff64d7466af82032299a2bcf454053e5c726c7b3712c2132706451",
+    "quilt/v2/art/9e3b20fb-1c4c-5f93-af5b-989327b0db8a.png": "947dc08224425412b186553562e528924f60d65f315946bd34930c73bca29981",
+    "quilt/v2/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png": "1361d8e0b0f50a34eb290dc025eaf84414536f336d5744f9bb771b1fa9b0785f",
+    "quilt/v2/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png": "57b03d3c0450b05509cb883476632518a48749093490b3ab6cba0a92620023ce",
+    "quilt/v2/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png": "3a166f82e1752edc3d4761f93e05555a3cb6c05110ad09330e28f9b421f854c5",
+    "quilt/v2/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png": "6bc3f3d673b14e23a5ff3bcdd87ef77620ee7618c1bdd38d919ae4fcd5550d49",
+    "quilt/v2/art/d36f8648-a1b5-5f28-8402-32ec43771aca.png": "0a80651f7ae2f8016c722c23304fc51d41268e23bdb885d097ad7f8ebdabab9d",
+    "quilt/v2/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png": "542e0efbe237d6cdb41be0feb4c2cb8bc717a1f4457c36b073efdfaed55fad17",
+    "quilt/v2/art/fceae0f6-799f-5612-be87-bd56e2bd19df.png": "f01533f0a82ac20a29bd6df9602ab305fa8333012e3b7ad2e436dfe145468442",
+    "quilt/v2/import-cases.json": "e7ac0343925c1e0f2a5555c5648b36307bbbaeee29f021fd6959b63fded3fb31",
+    "quilt/v2/scryfall/cards/22affbcd-c684-50c4-9158-4ccd0026788a.json": "528a36f6efd473de314e040cc51b1126893d5148221c68d64370892383508e15",
+    "quilt/v2/scryfall/cards/23d5be28-a59d-5a43-8453-de4c884e9b1e.json": "264e9e4ebb8d7ccb89329b07e1dbc6f2d273b545c5bbfbbf7a1ee5862bb754e5",
+    "quilt/v2/scryfall/cards/55c2ec29-539c-543e-bb94-fd8101ddf9e3.json": "f9b43ca66f24008030e876694eb8b72f70b83dfc6ec281f55bef2d81fd82433c",
+    "quilt/v2/scryfall/cards/563b7164-a4bf-5a2c-a438-e51a060e2666.json": "1ee1ef2c952fb82561509fbc60394780485d8d420897fae718461f682e154e59",
+    "quilt/v2/scryfall/cards/67279559-58c5-5b35-bd3b-d6aa4a428bcc.json": "21baeece230f59a254229fa5a30b11bb629748b7b740e0ab72b32c81e8fa0fa2",
+    "quilt/v2/scryfall/cards/745fc071-6068-575d-b062-f67a66139a41.json": "af37590964cc84f9b191603bb0d3706a251e49b5824e7cc4ff85fb95f8d5e42d",
+    "quilt/v2/scryfall/cards/78b9f385-389c-52af-9552-cf3ab0aac780.json": "25c1bdb0740cb8f99178d248b260f7c7f5133b00c67ca2027b1890090656f9ec",
+    "quilt/v2/scryfall/cards/7977f7e8-121d-5da7-a620-2ab4fec15dc9.json": "3a46eb0b10a9feb5b246d7fd3ac2068250f341d53cd504852bfc2e3b9e46ef2a",
+    "quilt/v2/scryfall/cards/9e3b20fb-1c4c-5f93-af5b-989327b0db8a.json": "0c0f32d0a97dd88e1b98b9731c8d0233b78e78bb8fed6b9c308c91e1c53df415",
+    "quilt/v2/scryfall/cards/a69712c4-1fc7-5e7d-8713-f6f266a30a79.json": "38bb59a6fb29c5814b06a0e01adfcdc6a967c7f85b0ba2b9261b944afd42eb5d",
+    "quilt/v2/scryfall/cards/acb11104-8bc6-5555-94b5-a532aa87cd6e.json": "b4dda9a37ce5c7180ae94a9acbb352d1551156d567c2bbfd3045798ea3693677",
+    "quilt/v2/scryfall/cards/bce221c7-d0fe-516b-86dd-d93a796a2080.json": "f9ab174b0e2b4f00cb6b154c91225adb52513cd234b97d20366da346177bb018",
+    "quilt/v2/scryfall/cards/c9f67d58-a00f-5ab0-a9ba-648122f02428.json": "4c99772c0160f8bfc224acf13054ce271814725eb0d525fb05b058d60c6b885b",
+    "quilt/v2/scryfall/cards/d36f8648-a1b5-5f28-8402-32ec43771aca.json": "945d367a7d13ae3f79a61564ca5302e32891f3f391b974fe20f6672c64447db3",
+    "quilt/v2/scryfall/cards/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.json": "29ac2a841c7e78f5899f33b6fe3f864bb714e75d75d2ba36de57fcdfb9af88d2",
+    "quilt/v2/scryfall/cards/f93f1e8a-9023-5b02-a4fe-a2db547f769d.json": "545c3bb33569ddaeb3e8e6d9bab589aadd69a0f6a563348f5c123edd6c3e9965",
+    "quilt/v2/scryfall/cards/fceae0f6-799f-5612-be87-bd56e2bd19df.json": "e2e38bff02041205fa56b3fe3f2dc36d3fea62624c42d500e81f72ad07b4174c"
+  },
+  "fixtureVersion": "1",
+  "formatVersion": 1,
+  "generator": "scripts/synthetic-catalogs.py",
+  "license": "CC0-1.0",
+  "origin": "http://synthetic-source:8080",
+  "provenance": "All names, descriptive text and abstract RGB tile artwork were created for this repository; no copied card layout, logo or provider content."
+}

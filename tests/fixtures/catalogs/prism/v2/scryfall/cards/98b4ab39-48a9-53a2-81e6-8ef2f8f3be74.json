@@ -1,0 +1,19 @@
+{
+  "collector_number": "11",
+  "id": "98b4ab39-48a9-53a2-81e6-8ef2f8f3be74",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v2/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png",
+    "normal": "http://synthetic-source:8080/prism/v2/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png",
+    "png": "http://synthetic-source:8080/prism/v2/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png",
+    "small": "http://synthetic-source:8080/prism/v2/art/98b4ab39-48a9-53a2-81e6-8ef2f8f3be74.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Coppercloud Echo!",
+  "object": "card",
+  "oracle_id": "34591628-7088-5cbc-9578-4a318939813d",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": "Creature"
+}

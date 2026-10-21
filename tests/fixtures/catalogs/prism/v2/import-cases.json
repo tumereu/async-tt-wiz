@@ -1,0 +1,55 @@
+[
+  {
+    "expected": "resolved",
+    "id": "plain",
+    "mainQuantity": 6,
+    "sideQuantity": 0,
+    "text": "4 Coppercloud Surveyor (ZPA) 1\n2 Quiet Lattice Bolt\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "sections",
+    "mainQuantity": 4,
+    "sideQuantity": 2,
+    "text": "Deck\n4 Coppercloud Surveyor (ZPA) 1\n\nSideboard\n2 Velvet Prism Engine (ZPA) 2\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "sb-prefix",
+    "mainQuantity": 4,
+    "sideQuantity": 2,
+    "text": "4 Coppercloud Surveyor (ZPA) 1\nSB: 2 Velvet Prism Engine (ZPA) 2\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "blank-separator",
+    "mainQuantity": 4,
+    "sideQuantity": 2,
+    "text": "4 Coppercloud Surveyor (ZPA) 1\n\n2 Velvet Prism Engine (ZPA) 2\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "explicit-printing",
+    "printing": "6e4bf7fa-acdb-51ac-9f16-a811fd73b134",
+    "text": "1 Coppercloud Surveyor (ZPB) 101\n"
+  },
+  {
+    "expected": "unknown",
+    "id": "unknown",
+    "text": "1 Uncatalogued prism Object\n"
+  },
+  {
+    "candidates": [
+      "b4b1b530-90de-584e-b9c6-b96d4c5f8339",
+      "c034cd03-207c-5954-a21d-6dded4bbbade"
+    ],
+    "expected": "ambiguous",
+    "id": "ambiguous-name",
+    "text": "1 Coppercloud Echo\n"
+  },
+  {
+    "expected": "unresolved-printing",
+    "id": "missing-printing",
+    "text": "1 Coppercloud Surveyor (ZPA) 999\n"
+  }
+]

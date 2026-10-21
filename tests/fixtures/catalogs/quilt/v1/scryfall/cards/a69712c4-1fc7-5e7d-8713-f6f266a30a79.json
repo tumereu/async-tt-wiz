@@ -1,0 +1,19 @@
+{
+  "collector_number": "101",
+  "id": "a69712c4-1fc7-5e7d-8713-f6f266a30a79",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/quilt/v1/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png",
+    "normal": "http://synthetic-source:8080/quilt/v1/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png",
+    "png": "http://synthetic-source:8080/quilt/v1/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png",
+    "small": "http://synthetic-source:8080/quilt/v1/art/a69712c4-1fc7-5e7d-8713-f6f266a30a79.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Silverquilt Wayfinder",
+  "object": "card",
+  "oracle_id": "78afe88b-d070-5949-bc53-4c7705636002",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqb",
+  "type_line": "Creature"
+}

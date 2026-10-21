@@ -1,0 +1,19 @@
+{
+  "collector_number": "T1",
+  "id": "275bb196-95e1-5cb8-b6c9-6290243cf658",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v2/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png",
+    "normal": "http://synthetic-source:8080/prism/v2/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png",
+    "png": "http://synthetic-source:8080/prism/v2/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png",
+    "small": "http://synthetic-source:8080/prism/v2/art/275bb196-95e1-5cb8-b6c9-6290243cf658.png"
+  },
+  "lang": "en",
+  "layout": "token",
+  "name": "Prismseed Mote",
+  "object": "card",
+  "oracle_id": "3e7542ea-3b7f-50dd-9c19-52e419d62cfd",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": "Creature"
+}

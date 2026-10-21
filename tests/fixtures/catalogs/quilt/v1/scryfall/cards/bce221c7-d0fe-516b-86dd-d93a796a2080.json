@@ -1,0 +1,43 @@
+{
+  "card_faces": [
+    {
+      "image_uris": {
+        "large": "http://synthetic-source:8080/quilt/v1/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png",
+        "normal": "http://synthetic-source:8080/quilt/v1/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png",
+        "png": "http://synthetic-source:8080/quilt/v1/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png",
+        "small": "http://synthetic-source:8080/quilt/v1/art/bce221c7-d0fe-516b-86dd-d93a796a2080.png"
+      },
+      "name": "Dawnstitch Frame",
+      "object": "card_face",
+      "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+      "power": "1",
+      "toughness": "4",
+      "type_line": "Creature"
+    },
+    {
+      "image_uris": {
+        "large": "http://synthetic-source:8080/quilt/v1/art/2cea6545-e5cb-548a-895e-f74faa929335.png",
+        "normal": "http://synthetic-source:8080/quilt/v1/art/2cea6545-e5cb-548a-895e-f74faa929335.png",
+        "png": "http://synthetic-source:8080/quilt/v1/art/2cea6545-e5cb-548a-895e-f74faa929335.png",
+        "small": "http://synthetic-source:8080/quilt/v1/art/2cea6545-e5cb-548a-895e-f74faa929335.png"
+      },
+      "name": "Duskstitch Cloth",
+      "object": "card_face",
+      "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+      "power": "4",
+      "toughness": "1",
+      "type_line": "Creature"
+    }
+  ],
+  "collector_number": "12",
+  "id": "bce221c7-d0fe-516b-86dd-d93a796a2080",
+  "image_status": "highres_scan",
+  "lang": "en",
+  "layout": "transform",
+  "name": "Dawnstitch Frame // Duskstitch Cloth",
+  "object": "card",
+  "oracle_id": "b19a08d8-78ce-514e-8ba9-e0030da81670",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqa",
+  "type_line": "Creature"
+}

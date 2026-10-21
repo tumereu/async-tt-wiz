@@ -1,0 +1,816 @@
+{
+  "data": {
+    "ZQA": {
+      "baseSetSize": 13,
+      "cards": [
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "55c2ec29-539c-543e-bb94-fd8101ddf9e3",
+            "scryfallOracleId": "78afe88b-d070-5949-bc53-4c7705636002"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Silverquilt Wayfinder",
+          "number": "1",
+          "power": "5",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic survey text, revision 2.",
+          "toughness": "3",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "7bf4b468-2031-52f5-a95c-beeb928b6488"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "23d5be28-a59d-5a43-8453-de4c884e9b1e",
+            "scryfallOracleId": "704246a0-f591-5f28-9999-ec37195a3c7a"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Indigo Spindle Array",
+          "number": "2",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Artifact",
+          "types": [
+            "Artifact"
+          ],
+          "uuid": "e6547d0b-ea51-52e3-a8d3-7d9566582e0d"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "563b7164-a4bf-5a2c-a438-e51a060e2666",
+            "scryfallOracleId": "53ad0f92-c882-5883-8f16-85fcdc8f39c8"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Soft Horizon Weft",
+          "number": "3",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Enchantment",
+          "types": [
+            "Enchantment"
+          ],
+          "uuid": "d64f5b97-b959-5a7e-ba23-cd057a6c010c"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "fceae0f6-799f-5612-be87-bd56e2bd19df",
+            "scryfallOracleId": "c4aada9d-080e-527f-8762-735f65756801"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Hushed Bobbin Spark",
+          "number": "4",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Instant",
+          "types": [
+            "Instant"
+          ],
+          "uuid": "48905287-7688-5823-be12-967cfea8e3f8"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "c9f67d58-a00f-5ab0-a9ba-648122f02428",
+            "scryfallOracleId": "1a5f57f7-0220-515b-b44c-ecd6faac8266"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Unfurled Ribbon Path",
+          "number": "5",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Sorcery",
+          "types": [
+            "Sorcery"
+          ],
+          "uuid": "708b9769-c360-5650-ae15-f07629aebdf9"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "ea71594b-cedb-53d8-b478-0ccf2c1c7cdf",
+            "scryfallOracleId": "fee2a109-a4e1-5a1b-8f39-b208a3feae9a"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Woven Pebble Reach",
+          "number": "6",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Land",
+          "types": [
+            "Land"
+          ],
+          "uuid": "3bfb94b8-ee9d-54c9-b504-e1de6706227b"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "745fc071-6068-575d-b062-f67a66139a41",
+            "scryfallOracleId": "8cafb948-47e1-563d-9c49-8ff34a70f50b"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "loyalty": "4",
+          "manaValue": 0.0,
+          "name": "Patchwork Emissary",
+          "number": "7",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Planeswalker",
+          "types": [
+            "Planeswalker"
+          ],
+          "uuid": "71928031-0a8b-5394-8836-191c6d587fd9"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "defense": "6",
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "78b9f385-389c-52af-9552-cf3ab0aac780",
+            "scryfallOracleId": "d24c82c7-0c2c-5dfd-881b-d67637d817db"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Thimblecloud Rampart",
+          "number": "8",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Battle",
+          "types": [
+            "Battle"
+          ],
+          "uuid": "99b9ce5d-0c19-587d-8fbb-068e0929bd19"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "f93f1e8a-9023-5b02-a4fe-a2db547f769d",
+            "scryfallOracleId": "b49ea581-10e7-53f4-b677-cccc8acda1ae"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Buttonstar Map",
+          "number": "9",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "",
+          "types": [],
+          "uuid": "55363fef-4427-57c9-b2df-2a3312608b40"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "7977f7e8-121d-5da7-a620-2ab4fec15dc9",
+            "scryfallOracleId": "4b68c5cb-0c46-5d45-861e-65fdb814ac1b"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Silverquilt Ripple",
+          "number": "10",
+          "power": "*",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "*",
+          "type": "Artifact Creature",
+          "types": [
+            "Artifact",
+            "Creature"
+          ],
+          "uuid": "a8ceaed0-93b8-5025-b8bd-02a3ae8ca965"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "acb11104-8bc6-5555-94b5-a532aa87cd6e",
+            "scryfallOracleId": "a6c6d2e1-38f5-58c3-853d-979392474ec6"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Silverquilt Ripple!",
+          "number": "11",
+          "power": "2",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "*",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "1098d2f9-ebc4-5229-a4e3-523a6a37ecda"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "d36f8648-a1b5-5f28-8402-32ec43771aca",
+            "scryfallOracleId": "7d31881e-131b-5459-9354-f9f67c207572"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Silverquilt Ripple",
+          "number": "13",
+          "power": "7",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "2",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "8449195c-a04d-58b3-89b5-9b593c4346f2"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "faceName": "Dawnstitch Frame",
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "bce221c7-d0fe-516b-86dd-d93a796a2080",
+            "scryfallOracleId": "b19a08d8-78ce-514e-8ba9-e0030da81670"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "transform",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Dawnstitch Frame // Duskstitch Cloth",
+          "number": "12",
+          "otherFaceIds": [
+            "b2316313-ac59-59e7-9c5a-5eaaec39fbae"
+          ],
+          "power": "1",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "side": "a",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "4",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "f953fe5b-3cd7-5d99-a86c-7acfa77f9623"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "faceName": "Duskstitch Cloth",
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "bce221c7-d0fe-516b-86dd-d93a796a2080",
+            "scryfallOracleId": "b19a08d8-78ce-514e-8ba9-e0030da81670"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "transform",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Dawnstitch Frame // Duskstitch Cloth",
+          "number": "12",
+          "otherFaceIds": [
+            "f953fe5b-3cd7-5d99-a86c-7acfa77f9623"
+          ],
+          "power": "4",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "side": "b",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "1",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "b2316313-ac59-59e7-9c5a-5eaaec39fbae"
+        }
+      ],
+      "code": "ZQA",
+      "isOnlineOnly": false,
+      "name": "Original quilt synthetic edition 1",
+      "releaseDate": "2026-10-01",
+      "tokens": [
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "9e3b20fb-1c4c-5f93-af5b-989327b0db8a",
+            "scryfallOracleId": "19a2303c-c719-50a3-8c26-ac473b4988ca"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "token",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Quiltgrain Wisp",
+          "number": "T1",
+          "power": "1",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "1",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "3979f44a-a0fe-547b-b6ad-b78ade2786c2"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "22affbcd-c684-50c4-9158-4ccd0026788a",
+            "scryfallOracleId": "40bb0deb-36f0-520e-8c14-db79c3a508bd"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "token",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Blank",
+          "number": "T2",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "",
+          "types": [],
+          "uuid": "eb545c2a-97a4-5962-816f-013c0a3dfca7"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "67279559-58c5-5b35-bd3b-d6aa4a428bcc",
+            "scryfallOracleId": "055ac0a9-7bb5-509b-a23d-865e892c6ec0"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "token",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Quiltgrain Arrival",
+          "number": "T3",
+          "power": "3",
+          "printings": [
+            "ZQA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "2",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "6f0dcc70-78bd-5fc3-8496-fdce239cee3c"
+        }
+      ],
+      "totalSetSize": 13,
+      "type": "expansion"
+    },
+    "ZQB": {
+      "baseSetSize": 1,
+      "cards": [
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "a69712c4-1fc7-5e7d-8713-f6f266a30a79",
+            "scryfallOracleId": "78afe88b-d070-5949-bc53-4c7705636002"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Silverquilt Wayfinder",
+          "number": "101",
+          "power": "2",
+          "printings": [
+            "ZQB"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZQB",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "3",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "758e213a-1300-5d42-a7fd-5280a3980671"
+        }
+      ],
+      "code": "ZQB",
+      "isOnlineOnly": false,
+      "name": "Original quilt synthetic edition 2",
+      "releaseDate": "2026-10-01",
+      "tokens": [],
+      "totalSetSize": 1,
+      "type": "expansion"
+    }
+  },
+  "meta": {
+    "date": "2026-10-12",
+    "version": "5.2.2"
+  }
+}

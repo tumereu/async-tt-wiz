@@ -1,0 +1,43 @@
+{
+  "card_faces": [
+    {
+      "image_uris": {
+        "large": "http://synthetic-source:8080/prism/v1/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png",
+        "normal": "http://synthetic-source:8080/prism/v1/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png",
+        "png": "http://synthetic-source:8080/prism/v1/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png",
+        "small": "http://synthetic-source:8080/prism/v1/art/2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a.png"
+      },
+      "name": "Dayglass Loom",
+      "object": "card_face",
+      "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+      "power": "1",
+      "toughness": "4",
+      "type_line": "Creature"
+    },
+    {
+      "image_uris": {
+        "large": "http://synthetic-source:8080/prism/v1/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png",
+        "normal": "http://synthetic-source:8080/prism/v1/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png",
+        "png": "http://synthetic-source:8080/prism/v1/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png",
+        "small": "http://synthetic-source:8080/prism/v1/art/db9e5f89-e38a-5dd0-8e47-37960f1ae380.png"
+      },
+      "name": "Nightglass Weave",
+      "object": "card_face",
+      "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+      "power": "4",
+      "toughness": "1",
+      "type_line": "Creature"
+    }
+  ],
+  "collector_number": "12",
+  "id": "2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a",
+  "image_status": "highres_scan",
+  "lang": "en",
+  "layout": "transform",
+  "name": "Dayglass Loom // Nightglass Weave",
+  "object": "card",
+  "oracle_id": "f9ad7828-71db-50ca-b96b-32dce319c752",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": "Creature"
+}

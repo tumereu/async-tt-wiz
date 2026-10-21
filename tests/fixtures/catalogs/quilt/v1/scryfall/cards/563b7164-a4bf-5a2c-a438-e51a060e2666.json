@@ -1,0 +1,19 @@
+{
+  "collector_number": "3",
+  "id": "563b7164-a4bf-5a2c-a438-e51a060e2666",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/quilt/v1/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png",
+    "normal": "http://synthetic-source:8080/quilt/v1/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png",
+    "png": "http://synthetic-source:8080/quilt/v1/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png",
+    "small": "http://synthetic-source:8080/quilt/v1/art/563b7164-a4bf-5a2c-a438-e51a060e2666.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Soft Horizon Weft",
+  "object": "card",
+  "oracle_id": "53ad0f92-c882-5883-8f16-85fcdc8f39c8",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqa",
+  "type_line": "Enchantment"
+}

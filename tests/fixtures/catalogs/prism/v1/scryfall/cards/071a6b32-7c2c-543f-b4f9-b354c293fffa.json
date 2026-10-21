@@ -1,0 +1,19 @@
+{
+  "collector_number": "9",
+  "id": "071a6b32-7c2c-543f-b4f9-b354c293fffa",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v1/art/071a6b32-7c2c-543f-b4f9-b354c293fffa.png",
+    "normal": "http://synthetic-source:8080/prism/v1/art/071a6b32-7c2c-543f-b4f9-b354c293fffa.png",
+    "png": "http://synthetic-source:8080/prism/v1/art/071a6b32-7c2c-543f-b4f9-b354c293fffa.png",
+    "small": "http://synthetic-source:8080/prism/v1/art/071a6b32-7c2c-543f-b4f9-b354c293fffa.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Feltwing Atlas",
+  "object": "card",
+  "oracle_id": "2416a0fc-9c20-529b-88f8-ed985f692804",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": ""
+}

@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -74,7 +74,11 @@
     {
       "id": "I01b",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T181243Z-6b896081.json",
+      "coverageLedger": "docs/agent/coverage/ledger.json",
+      "syntheticFixtureManifest": "tests/fixtures/catalogs/manifest.json",
+      "qualification": "875 primary P/T/F definitions have source-pinned task/check/partial-assertion accounting, explicit dispositions and supersession provenance; no product scenario is claimed executed. Two identity-distinct original catalogs each have two versions, normal provider-shaped records/face-art metadata, deterministic UUIDs/hashes/PNG art and failure/import cases. Fixture/ledger validators and mutation regressions pass. Real hosting/downloader/import/image/Android journeys remain I01e/I01f/I05/I06 and later tasks; I01 parent/B1 review and release gates remain open.",
       "dependsOn": [],
       "outcome": "Create machine-checkable task-to-source coverage accounting for every P-001-P-072, T-001-T-715 and F01-F88, with current, superseded, conditional, phase-only or excluded dispositions, source-backed rationale and owning implementation/check dependencies. Add stable versioned synthetic catalogs and original art, including a second identity-distinct dataset, for later normal downloader/import/image tests; no licensed data or production provider calls.",
       "checks": [

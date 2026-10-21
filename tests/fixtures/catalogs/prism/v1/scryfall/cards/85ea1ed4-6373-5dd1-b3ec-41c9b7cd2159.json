@@ -1,0 +1,19 @@
+{
+  "collector_number": "4",
+  "id": "85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v1/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png",
+    "normal": "http://synthetic-source:8080/prism/v1/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png",
+    "png": "http://synthetic-source:8080/prism/v1/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png",
+    "small": "http://synthetic-source:8080/prism/v1/art/85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Quiet Lattice Bolt",
+  "object": "card",
+  "oracle_id": "4e33749b-066a-54b5-bc16-eba1796341e2",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": "Instant"
+}

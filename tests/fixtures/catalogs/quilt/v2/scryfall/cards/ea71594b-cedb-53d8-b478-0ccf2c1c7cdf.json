@@ -1,0 +1,19 @@
+{
+  "collector_number": "6",
+  "id": "ea71594b-cedb-53d8-b478-0ccf2c1c7cdf",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/quilt/v2/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png",
+    "normal": "http://synthetic-source:8080/quilt/v2/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png",
+    "png": "http://synthetic-source:8080/quilt/v2/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png",
+    "small": "http://synthetic-source:8080/quilt/v2/art/ea71594b-cedb-53d8-b478-0ccf2c1c7cdf.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Woven Pebble Reach",
+  "object": "card",
+  "oracle_id": "fee2a109-a4e1-5a1b-8f39-b208a3feae9a",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqa",
+  "type_line": "Land"
+}

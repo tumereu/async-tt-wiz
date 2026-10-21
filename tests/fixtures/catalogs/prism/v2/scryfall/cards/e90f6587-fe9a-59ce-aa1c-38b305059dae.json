@@ -1,0 +1,19 @@
+{
+  "collector_number": "T3",
+  "id": "e90f6587-fe9a-59ce-aa1c-38b305059dae",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v2/art/e90f6587-fe9a-59ce-aa1c-38b305059dae.png",
+    "normal": "http://synthetic-source:8080/prism/v2/art/e90f6587-fe9a-59ce-aa1c-38b305059dae.png",
+    "png": "http://synthetic-source:8080/prism/v2/art/e90f6587-fe9a-59ce-aa1c-38b305059dae.png",
+    "small": "http://synthetic-source:8080/prism/v2/art/e90f6587-fe9a-59ce-aa1c-38b305059dae.png"
+  },
+  "lang": "en",
+  "layout": "token",
+  "name": "Prismseed Visitor",
+  "object": "card",
+  "oracle_id": "783bd850-ae89-5dae-9471-2ccb0c20d56d",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": "Creature"
+}

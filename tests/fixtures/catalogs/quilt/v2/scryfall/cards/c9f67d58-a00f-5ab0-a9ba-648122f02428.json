@@ -1,0 +1,19 @@
+{
+  "collector_number": "5",
+  "id": "c9f67d58-a00f-5ab0-a9ba-648122f02428",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/quilt/v2/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png",
+    "normal": "http://synthetic-source:8080/quilt/v2/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png",
+    "png": "http://synthetic-source:8080/quilt/v2/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png",
+    "small": "http://synthetic-source:8080/quilt/v2/art/c9f67d58-a00f-5ab0-a9ba-648122f02428.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Unfurled Ribbon Path",
+  "object": "card",
+  "oracle_id": "1a5f57f7-0220-515b-b44c-ecd6faac8266",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqa",
+  "type_line": "Sorcery"
+}

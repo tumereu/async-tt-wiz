@@ -1,0 +1,19 @@
+{
+  "collector_number": "6",
+  "id": "db847923-0576-5c28-ac5d-d82aca981c0e",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v1/art/db847923-0576-5c28-ac5d-d82aca981c0e.png",
+    "normal": "http://synthetic-source:8080/prism/v1/art/db847923-0576-5c28-ac5d-d82aca981c0e.png",
+    "png": "http://synthetic-source:8080/prism/v1/art/db847923-0576-5c28-ac5d-d82aca981c0e.png",
+    "small": "http://synthetic-source:8080/prism/v1/art/db847923-0576-5c28-ac5d-d82aca981c0e.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Mauve Window Expanse",
+  "object": "card",
+  "oracle_id": "52e57bf8-cc9b-5542-8532-45ba2ab23d45",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": "Land"
+}

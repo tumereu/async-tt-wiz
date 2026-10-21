@@ -1,0 +1,19 @@
+{
+  "collector_number": "11",
+  "id": "acb11104-8bc6-5555-94b5-a532aa87cd6e",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/quilt/v1/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png",
+    "normal": "http://synthetic-source:8080/quilt/v1/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png",
+    "png": "http://synthetic-source:8080/quilt/v1/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png",
+    "small": "http://synthetic-source:8080/quilt/v1/art/acb11104-8bc6-5555-94b5-a532aa87cd6e.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Silverquilt Ripple!",
+  "object": "card",
+  "oracle_id": "a6c6d2e1-38f5-58c3-853d-979392474ec6",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqa",
+  "type_line": "Creature"
+}

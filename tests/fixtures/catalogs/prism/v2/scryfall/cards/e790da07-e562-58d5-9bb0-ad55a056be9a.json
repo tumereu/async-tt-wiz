@@ -1,0 +1,19 @@
+{
+  "collector_number": "T2",
+  "id": "e790da07-e562-58d5-9bb0-ad55a056be9a",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/prism/v2/art/e790da07-e562-58d5-9bb0-ad55a056be9a.png",
+    "normal": "http://synthetic-source:8080/prism/v2/art/e790da07-e562-58d5-9bb0-ad55a056be9a.png",
+    "png": "http://synthetic-source:8080/prism/v2/art/e790da07-e562-58d5-9bb0-ad55a056be9a.png",
+    "small": "http://synthetic-source:8080/prism/v2/art/e790da07-e562-58d5-9bb0-ad55a056be9a.png"
+  },
+  "lang": "en",
+  "layout": "token",
+  "name": "Blank",
+  "object": "card",
+  "oracle_id": "5a731722-e9dc-5613-ac0f-db283fcc4bf5",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zpa",
+  "type_line": ""
+}

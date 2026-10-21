@@ -1,0 +1,19 @@
+{
+  "collector_number": "7",
+  "id": "745fc071-6068-575d-b062-f67a66139a41",
+  "image_status": "highres_scan",
+  "image_uris": {
+    "large": "http://synthetic-source:8080/quilt/v2/art/745fc071-6068-575d-b062-f67a66139a41.png",
+    "normal": "http://synthetic-source:8080/quilt/v2/art/745fc071-6068-575d-b062-f67a66139a41.png",
+    "png": "http://synthetic-source:8080/quilt/v2/art/745fc071-6068-575d-b062-f67a66139a41.png",
+    "small": "http://synthetic-source:8080/quilt/v2/art/745fc071-6068-575d-b062-f67a66139a41.png"
+  },
+  "lang": "en",
+  "layout": "normal",
+  "name": "Patchwork Emissary",
+  "object": "card",
+  "oracle_id": "8cafb948-47e1-563d-9c49-8ff34a70f50b",
+  "oracle_text": "Original synthetic descriptive text. No executable behavior.",
+  "set": "zqa",
+  "type_line": "Planeswalker"
+}

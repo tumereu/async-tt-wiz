@@ -1,0 +1,55 @@
+[
+  {
+    "expected": "resolved",
+    "id": "plain",
+    "mainQuantity": 6,
+    "sideQuantity": 0,
+    "text": "4 Silverquilt Wayfinder (ZQA) 1\n2 Hushed Bobbin Spark\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "sections",
+    "mainQuantity": 4,
+    "sideQuantity": 2,
+    "text": "Deck\n4 Silverquilt Wayfinder (ZQA) 1\n\nSideboard\n2 Indigo Spindle Array (ZQA) 2\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "sb-prefix",
+    "mainQuantity": 4,
+    "sideQuantity": 2,
+    "text": "4 Silverquilt Wayfinder (ZQA) 1\nSB: 2 Indigo Spindle Array (ZQA) 2\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "blank-separator",
+    "mainQuantity": 4,
+    "sideQuantity": 2,
+    "text": "4 Silverquilt Wayfinder (ZQA) 1\n\n2 Indigo Spindle Array (ZQA) 2\n"
+  },
+  {
+    "expected": "resolved",
+    "id": "explicit-printing",
+    "printing": "758e213a-1300-5d42-a7fd-5280a3980671",
+    "text": "1 Silverquilt Wayfinder (ZQB) 101\n"
+  },
+  {
+    "expected": "unknown",
+    "id": "unknown",
+    "text": "1 Uncatalogued quilt Object\n"
+  },
+  {
+    "candidates": [
+      "a8ceaed0-93b8-5025-b8bd-02a3ae8ca965",
+      "8449195c-a04d-58b3-89b5-9b593c4346f2"
+    ],
+    "expected": "ambiguous",
+    "id": "ambiguous-name",
+    "text": "1 Silverquilt Ripple\n"
+  },
+  {
+    "expected": "unresolved-printing",
+    "id": "missing-printing",
+    "text": "1 Silverquilt Wayfinder (ZQA) 999\n"
+  }
+]

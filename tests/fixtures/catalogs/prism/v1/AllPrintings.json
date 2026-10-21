@@ -1,0 +1,772 @@
+{
+  "data": {
+    "ZPA": {
+      "baseSetSize": 13,
+      "cards": [
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "fd582421-7ff7-5361-82e6-d6ccf51dfd97",
+            "scryfallOracleId": "26c36e83-7514-5767-a4c2-ba0963cd8364"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Coppercloud Surveyor",
+          "number": "1",
+          "power": "2",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic survey text, revision 1.",
+          "toughness": "3",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "fa50ab59-8f06-52f5-8ce4-7cdb308a93fd"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "655da14a-7226-568d-9cd6-3dd4499eae93",
+            "scryfallOracleId": "1b05c47c-d3db-5b6d-a9e2-043ea53201c9"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Velvet Prism Engine",
+          "number": "2",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Artifact",
+          "types": [
+            "Artifact"
+          ],
+          "uuid": "03fd65c2-9700-5126-91c9-0403e6d76bb1"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "ba8f2067-c780-5b4f-9e08-0da896d53f13",
+            "scryfallOracleId": "c396034e-c5f4-56b8-9f23-dfabeb6b3ba8"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Amberglass Chorus",
+          "number": "3",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Enchantment",
+          "types": [
+            "Enchantment"
+          ],
+          "uuid": "226039de-fc43-5a60-b804-a0e1086e1479"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159",
+            "scryfallOracleId": "4e33749b-066a-54b5-bc16-eba1796341e2"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Quiet Lattice Bolt",
+          "number": "4",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Instant",
+          "types": [
+            "Instant"
+          ],
+          "uuid": "baf88eee-62a4-5f41-907f-f99ae652a751"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "05e63a62-475f-5814-a96c-70e8b0d6a2c4",
+            "scryfallOracleId": "bf680e07-987f-57d1-b777-6033f879fcfa"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Folded Lantern Road",
+          "number": "5",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Sorcery",
+          "types": [
+            "Sorcery"
+          ],
+          "uuid": "5bd63b70-de04-56af-aa3c-b931fd66dfed"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "db847923-0576-5c28-ac5d-d82aca981c0e",
+            "scryfallOracleId": "52e57bf8-cc9b-5542-8532-45ba2ab23d45"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Mauve Window Expanse",
+          "number": "6",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Land",
+          "types": [
+            "Land"
+          ],
+          "uuid": "70413631-a22b-52f2-8b0e-b5691682f1d8"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "06477f63-9cc3-564a-b902-d9d3fe6ff45e",
+            "scryfallOracleId": "32d1ed18-fc9f-5c08-8629-c3370cd6bb7f"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "loyalty": "4",
+          "manaValue": 0.0,
+          "name": "Threadglass Envoy",
+          "number": "7",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Planeswalker",
+          "types": [
+            "Planeswalker"
+          ],
+          "uuid": "fc2787b7-6ad5-5e3b-a25b-0c64007d255a"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "defense": "6",
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "16bd9769-8968-5f98-a8ef-98bd1c8f08c9",
+            "scryfallOracleId": "387cefc6-49b2-5e74-a621-f1f53d06141e"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Prismgate Bulwark",
+          "number": "8",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "Battle",
+          "types": [
+            "Battle"
+          ],
+          "uuid": "82b40eca-bcbf-5cf0-9760-17ca5da245e0"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "071a6b32-7c2c-543f-b4f9-b354c293fffa",
+            "scryfallOracleId": "2416a0fc-9c20-529b-88f8-ed985f692804"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Feltwing Atlas",
+          "number": "9",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "",
+          "types": [],
+          "uuid": "3e7dcb22-f9f6-50f1-8239-004dd57de2e2"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "937399e9-2016-5a63-a8cb-16faf70f1e15",
+            "scryfallOracleId": "cf275210-bff8-56b4-92f0-4555d8c38f25"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Coppercloud Echo",
+          "number": "10",
+          "power": "*",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "*",
+          "type": "Artifact Creature",
+          "types": [
+            "Artifact",
+            "Creature"
+          ],
+          "uuid": "b4b1b530-90de-584e-b9c6-b96d4c5f8339"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "98b4ab39-48a9-53a2-81e6-8ef2f8f3be74",
+            "scryfallOracleId": "34591628-7088-5cbc-9578-4a318939813d"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Coppercloud Echo!",
+          "number": "11",
+          "power": "2",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "*",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "d92d1241-b1b4-54c6-8121-bb14efbcc388"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "5f2959e9-3c10-5585-a765-7ea5d3fe2984",
+            "scryfallOracleId": "569025e1-2941-5127-9b69-9f7fdf0f25b4"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Coppercloud Echo",
+          "number": "13",
+          "power": "7",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "2",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "c034cd03-207c-5954-a21d-6dded4bbbade"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "faceName": "Dayglass Loom",
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a",
+            "scryfallOracleId": "f9ad7828-71db-50ca-b96b-32dce319c752"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "transform",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Dayglass Loom // Nightglass Weave",
+          "number": "12",
+          "otherFaceIds": [
+            "5f5ec838-d95b-5935-a1ad-ab018b212f8a"
+          ],
+          "power": "1",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "side": "a",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "4",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "4aee8e53-8251-58ac-82a6-e3bebc96c4b1"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "faceName": "Nightglass Weave",
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a",
+            "scryfallOracleId": "f9ad7828-71db-50ca-b96b-32dce319c752"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "transform",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Dayglass Loom // Nightglass Weave",
+          "number": "12",
+          "otherFaceIds": [
+            "4aee8e53-8251-58ac-82a6-e3bebc96c4b1"
+          ],
+          "power": "4",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "side": "b",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "1",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "5f5ec838-d95b-5935-a1ad-ab018b212f8a"
+        }
+      ],
+      "code": "ZPA",
+      "isOnlineOnly": false,
+      "name": "Original prism synthetic edition 1",
+      "releaseDate": "2026-10-01",
+      "tokens": [
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "275bb196-95e1-5cb8-b6c9-6290243cf658",
+            "scryfallOracleId": "3e7542ea-3b7f-50dd-9c19-52e419d62cfd"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "token",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Prismseed Mote",
+          "number": "T1",
+          "power": "1",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "1",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "e31fc2e8-7304-5aa5-a5ae-8a99d205bfaa"
+        },
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "e790da07-e562-58d5-9bb0-ad55a056be9a",
+            "scryfallOracleId": "5a731722-e9dc-5613-ac0f-db283fcc4bf5"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "token",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Blank",
+          "number": "T2",
+          "printings": [
+            "ZPA"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPA",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "type": "",
+          "types": [],
+          "uuid": "ab1709af-42c9-517e-8035-fe615a10c2aa"
+        }
+      ],
+      "totalSetSize": 13,
+      "type": "expansion"
+    },
+    "ZPB": {
+      "baseSetSize": 1,
+      "cards": [
+        {
+          "artist": "Original synthetic mosaic generator",
+          "availability": [
+            "paper"
+          ],
+          "borderColor": "black",
+          "colorIdentity": [],
+          "colors": [],
+          "convertedManaCost": 0.0,
+          "finishes": [
+            "nonfoil"
+          ],
+          "frameVersion": "2015",
+          "hasFoil": false,
+          "hasNonFoil": true,
+          "identifiers": {
+            "scryfallId": "f76be976-d1a3-58fb-9b57-abdf2c982a94",
+            "scryfallOracleId": "26c36e83-7514-5767-a4c2-ba0963cd8364"
+          },
+          "isOnlineOnly": false,
+          "language": "English",
+          "layout": "normal",
+          "legalities": {},
+          "manaValue": 0.0,
+          "name": "Coppercloud Surveyor",
+          "number": "101",
+          "power": "2",
+          "printings": [
+            "ZPB"
+          ],
+          "purchaseUrls": {},
+          "rarity": "common",
+          "rulings": [],
+          "setCode": "ZPB",
+          "subtypes": [],
+          "supertypes": [],
+          "text": "Original synthetic descriptive text. No executable behavior.",
+          "toughness": "3",
+          "type": "Creature",
+          "types": [
+            "Creature"
+          ],
+          "uuid": "6e4bf7fa-acdb-51ac-9f16-a811fd73b134"
+        }
+      ],
+      "code": "ZPB",
+      "isOnlineOnly": false,
+      "name": "Original prism synthetic edition 2",
+      "releaseDate": "2026-10-01",
+      "tokens": [],
+      "totalSetSize": 1,
+      "type": "expansion"
+    }
+  },
+  "meta": {
+    "date": "2026-10-11",
+    "version": "5.2.2"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "ade241825c2a930dae38c2c1f705536ff2913196569684c1c9f6186e5678bc92",
+  "output": "PASS D-304/exact baseline/master, selected I01e1 completion and pure driver state/transition validation; I01e2 next\nPASS all unrelated tasks, parents, reviews, findings, model/permissions/authorization and external release gates unchanged\nPASS exact owned paths; Python syntax and new documentation local links\nPASS retained exact check output/exit/hash accounting, original-source/fixture integrity, final image inputs and whitespace\nPASS no product scenario/Android/Compose/independent-review/release claim; initial failed test remains diagnostic with exact owned cleanup\n"
+}

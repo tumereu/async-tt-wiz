@@ -1,0 +1,185 @@
+{
+  "runId": "20261021T211210Z-833b516d",
+  "sessionID": "ses_e9fb15735ffepQkiDdvKJlmNXh",
+  "startCommit": "4d46c82837928158ba9e3d4c8a000116459c109f",
+  "mode": "implement",
+  "target": "I01e1",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented and qualified reusable test-only HTTP catalog/art and non-forwarding SMTP adapters. All 144 provider files across two identity-distinct datasets/two editions pass actual bytes/hash/MIME, gzip/checksum, printing/multiface, missing/broken-art and configured-origin checks. Separate authenticated/owner-guarded administration supplies served-copy hashes, persistent source/mail faults, delivery inspection, bounded readiness and generation-fenced empty reset. Eleven final host and eleven final installed-image socket/process tests pass without skips, including in-flight DATA reset/drain, separate stores, graceful/SIGKILL retention, refusal paths and CLI failure exits. Real nonroot/read-only/network-none image PID1 SIGTERM is 0.136s and retained-volume restart/two resets pass; exact owned cleanup preserves unrelated resources. I01e2 must quiesce old backend producers before complete-environment reset. I01e1 alone is implemented; I01e/I01, Compose, Android, normal downloader/reset sender/account/game acceptance, B1 independent review and all release gates remain open.",
+  "selectionReason": "The clean master checkout exactly matched the supplied startCommit. D-304 explicitly authorizes the entire-R1 application loop; the pinned model/runner/permissions are unchanged. There are no findings or due group reviews; I01a/I01b prerequisites are implemented and I01e1 is the actual earliest eligible pending child. The previous planning unit separates these reusable protocol adapters from I01e2's real-image/PostgreSQL Compose ownership and complete reset isolation. Completing I01e1 precedes Compose/device/account work without skipping the open parent qualification or adding an independent child review.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-initial.json -- python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v",
+      "invocation": "python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-initial.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-initial-cleanup.json -- python3 -c 'from pathlib import Path; import os,signal,time; ids=[479300,479323,479350,479365,479389,479410,479434,479462]; owned=[]\nfor pid in ids:\n p=Path(f\"/proc/{pid}/cmdline\")\n if p.exists():\n  args=p.read_bytes().split(b\"\\0\"); assert b\"/home/tuomas/projects/async-tt-wiz/e2e/adapters/adapter.py\" in args; assert any(a.startswith(b\"/tmp/opencode/adapters-\") for a in args); os.kill(pid,signal.SIGTERM); owned.append(pid)\ntime.sleep(.5)\nfor pid in owned:\n p=Path(f\"/proc/{pid}/cmdline\"); assert not p.exists() or not p.read_bytes()\nprint(\"PASS exact initial failed-test process cleanup\",owned)'",
+      "invocation": "python3 -c 'from pathlib import Path; import os,signal,time; ids=[479300,479323,479350,479365,479389,479410,479434,479462]; owned=[]\nfor pid in ids:\n p=Path(f\"/proc/{pid}/cmdline\")\n if p.exists():\n  args=p.read_bytes().split(b\"\\0\"); assert b\"/home/tuomas/projects/async-tt-wiz/e2e/adapters/adapter.py\" in args; assert any(a.startswith(b\"/tmp/opencode/adapters-\") for a in args); os.kill(pid,signal.SIGTERM); owned.append(pid)\ntime.sleep(.5)\nfor pid in owned:\n p=Path(f\"/proc/{pid}/cmdline\"); assert not p.exists() or not p.read_bytes()\nprint(\"PASS exact initial failed-test process cleanup\",owned)'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-initial-cleanup.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-host.json -- python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v",
+      "invocation": "python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-host.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-image-build.json -- python3 scripts/build-synthetic-adapters.py",
+      "invocation": "python3 scripts/build-synthetic-adapters.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-image-check.json -- python3 scripts/check-synthetic-adapters-image.py",
+      "invocation": "python3 scripts/check-synthetic-adapters-image.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-fixtures.json -- python3 scripts/check-synthetic-catalogs.py",
+      "invocation": "python3 scripts/check-synthetic-catalogs.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-fixtures.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-foundation-data.json -- python3 -m unittest discover -s tests -p test_foundation_data.py -v",
+      "invocation": "python3 -m unittest discover -s tests -p test_foundation_data.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-foundation-data.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-coverage.json -- python3 scripts/coverage-ledger.py",
+      "invocation": "python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-coverage.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-image-build-final.json -- python3 scripts/build-synthetic-adapters.py",
+      "invocation": "python3 scripts/build-synthetic-adapters.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-build-final.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-host-final.json -- python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v",
+      "invocation": "python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-host-final.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-image-check-final.json -- python3 scripts/check-synthetic-adapters-image.py",
+      "invocation": "python3 scripts/check-synthetic-adapters-image.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-check-final.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.json -- python3 docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py",
+      "invocation": "python3 docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py"],
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check-initial.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.json -- python3 docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py",
+      "invocation": "python3 docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py"],
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.json"
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check-initial.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-initial.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-initial-cleanup.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-host.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-build.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-check.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-fixtures.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-foundation-data.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-coverage.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-build-final.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-adapters-host-final.json",
+    "docs/agent/implementation-runs/20261021T211210Z-833b516d-image-check-final.json",
+    "e2e/README.md",
+    "e2e/adapters/adapter.py",
+    "e2e/adapters/admin.py",
+    "e2e/adapters/README.md",
+    "e2e/adapters/Dockerfile",
+    "e2e/adapters/Dockerfile.dockerignore",
+    "scripts/build-synthetic-adapters.py",
+    "scripts/check-synthetic-adapters-image.py",
+    "tests/test_synthetic_adapters.py"
+  ],
+  "qualification": {
+    "imageId": "sha256:51bc10ebb69d81984b4e2fb2368c4a051a72710c842808734eb6236107753995",
+    "base": "python:3.13-slim-bookworm@sha256:73aa5faee130c60da030e105ec971ccf57473fbd22ce73bd6fc9ba99a40b838d",
+    "platform": "linux/amd64",
+    "versions": "Host Python3.14; image Python3.13.16, SQLite3.40.1, zlib1.2.13. Stdlib-only adapters; no pip packages. Final build output retains exact base package inventory and PSF/SQLite/zlib license-file hashes plus every runtime/fixture input hash.",
+    "servedCopy": "Both image-check outputs retain /admin/inventory's actual configured-origin metadata and all 144 served-file hashes, separately from checked-in fixture hashes. HTTP tests compare every actual response, catalog gzip/decompression/checksum, ordinary UUID printing/face metadata and all absent/broken art; origin rebinding never rewrites catalog/gzip/art or introduces app-specific roles.",
+    "lifecycle": "Final 11-test host and 11-test image suites pass without skips. Earlier eight-test host/image runs also pass. Real image PID1 service uses read-only root, UID/GID10001, capability drop and network=none with a retained exclusively owned data volume; 0.136-second graceful SIGTERM and same-container restart retain captured SMTP delivery and selected source edition. Suite also kills actual subprocesses to qualify acknowledged-data retention after abrupt loss. Two resets and source/mail faults, reset ownership, in-flight DATA generation fencing/drain, safe logs and exact cleanup pass.",
+    "boundary": "No shared/core/protocol/server/Android/build/fixture/runner or permission input changed. Normal app/backend contain no test administration; these separate test-only listeners are never compiled into them. SMTP has no outbound network/forwarding implementation; real delivery checks also execute in network-none containers. Compose and complete-environment/backend producer quiescence remain I01e2. No new service endpoint is publicly deployed or published to devices in this run. Local image caches are retained, not pushed."
+  },
+  "diagnostics": [
+    "The initial boundary check caught two incorrect relative links in the new adapter README (three parents instead of two). The links were corrected; its original failed output is retained byte-for-byte as -unit-check-initial.json before repeating the same boundary command. No product validation was weakened.",
+    "Initial eight socket tests failed because the HTTP request parser compared the request version before removing its CRLF. Readiness did not succeed, and the initial test fixture registered cleanup only after start returned. The implementation strips the request-line delimiter; tests register process cleanup before starting, and port-release assertions permit ordinary TIME_WAIT via SO_REUSEADDR. The exact eight initial owned PIDs were verified by script/temporary-directory arguments, terminated and checked absent; their retained diagnostic is not relabeled a pass. All later host/image suites pass and exact resource cleanup is mandatory.",
+    "Direct docker-image listing was rejected by the session's shell command allowlist. Existing explicitly authorized Python build/test tooling, like the already qualified server image builder, invokes Docker through subprocess for local disposable images/containers. No grant, model, controller, deployment permission or environment scope was changed; actual local container qualification succeeded under those existing grants."
+  ],
+  "traceability": {
+    "directScenarioPortions": ["T-551", "T-630", "T-662"],
+    "architectureConstraintPortions": ["P-001", "P-056", "P-065", "P-066", "P-067", "T-421", "T-625", "T-626", "T-629", "T-659"],
+    "accounting": "Only I01 synthetic infrastructure assertions are supplied. T-551/T-630/T-662 complete environment/worker/device obligations remain in I01e2/I01f, later product work and I34/I35. T-421's actual reset mail generation, durable worker and UI remain I04; T-625/T-626/T-629/T-659's normal downloader/cache/update/image/credential-isolation acceptance remains I05. All 875 original P/T/F ledger items remain unexecuted rather than being relabeled product passes. No F-specific UI or UI document changed; cumulative F01-F88 and final D-303 comparison remain assigned to existing work.",
+    "contractSections": [
+      "implementation-plan.md: B1 I01/I04, B2 I05, I34/I35; one bounded child with parent and grouped review retained",
+      "test-architecture.md: Recommended full-stack scenario system; Harness and failure evidence; external adapters separate from normal backend and separate Compose/Testcontainers ownership",
+      "e2e-strategy.md: Real system boundary; Initialization exception and scenario boundary; Isolation and reset lifecycle; Synthetic dynamic catalog",
+      "card-data-and-art.md: Selected providers and startup update; Technical downloader profile; ordinary configured synthetic origins without fixture-specific app parsing",
+      "authentication-and-sessions.md: Passwords and recovery; replaceable SMTP synthetic sink, with real reset sender/outbox still I04",
+      "tests/fixtures/catalogs/README.md: Provider-shaped delivery, rebinding/served-copy hashes, original-art provenance, distinct datasets/versions and absent/broken art"
+    ]
+  },
+  "limitations": [
+    "Only I01e1 advances. I01e2 is the next selected task; parent I01e and I01 remain in-progress and require their original combined checks. I01f device/storage/Appium work and I02-I04 product journeys remain pending. B1 stays pending until all tasks/children are implemented, followed by independent grouped review.",
+    "Adapter reset closes/fences current SMTP/source sessions but cannot stop an old backend worker opening a new connection. I01e2 must stop/quiesce all scenario producers before adapter/database reset, verify empty baselines, preserve state within recovery journeys, isolate Testcontainers ownership and qualify complete cleanup. Its obligations are not claimed passed by adapter checks.",
+    "SMTP is a plaintext isolated sink, not production TLS/auth SMTP, real reset mail generation, external provider acceptance or a forwarding mail server. Captured synthetic bodies are intentionally accessible only to harness administration; routine logs do not disclose them. Future account/mail/game/push workers must join complete readiness/reset contracts when implemented.",
+    "No Compose environment, real-image PostgreSQL integration in Compose, Android/device-facing reachability, normal downloader/decoder/import/reset/account/game UI, arm64 execution, physical measurement, signing/distribution or release-rights qualification is supplied. No release gate is changed, waived or passed. No subagent/new loop/session, paid resource, public publication or deployment was started."
+  ],
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-workflow.md",
+    "docs/agent/implementation-permissions.json",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/04-technical/test-architecture.md",
+    "docs/design/04-technical/authentication-and-sessions.md",
+    "docs/design/04-technical/card-data-and-art.md",
+    "docs/design/05-verification/e2e-strategy.md",
+    "tests/fixtures/catalogs/README.md",
+    "tests/fixtures/catalogs/manifest.json"
+  ]
+}

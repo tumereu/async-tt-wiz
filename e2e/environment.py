@@ -1,7 +1,8 @@
 """One explicitly owned synthetic Compose instance; Linux local Docker only.
 
 Fresh provision never reuses a directory or resource. Restart never resets data.
-No reset/initialization/action API is supplied here. Only public backend and
+Explicit reset replaces only this instance's quiesced stores. No action API.
+Only public backend and
 source listeners get loopback forwarding; all container networks are internal.
 """
 import argparse
@@ -290,8 +291,10 @@ def deadline(check, timeout):
             time.sleep(.2)
 
 
-def wait(value, timeout):
+def wait(value, timeout, *, completing_reset=False):
     invalidate(value)
+    require(completing_reset or not (Path(value["directory"]) / "reset-pending.json").exists(),
+            "Incomplete reset; explicitly reset before requesting a handoff")
 
     def check():
         resources = owned(value)
@@ -414,12 +417,7 @@ def provision(directory, backend_port, source_port, timeout):
                 require(inspect(kind, value["project"] + "-" + suffix) is None, "Existing resource refused")
         compose(value, "config", "--quiet")
         try:
-            compose(value, "up", "-d", "--no-build", "--pull", "never", "database")
-            deadline(lambda: database(value, "SELECT 1"), timeout)
-            compose(value, "up", "--no-build", "--pull", "never", "--exit-code-from", "adapter-init", "adapter-init")
-            compose(value, "up", "--no-build", "--pull", "never", "--exit-code-from", "migrate", "migrate")
-            require(database(value, "SELECT epoch FROM service_writer WHERE singleton") == "0", "Nonfresh database")
-            compose(value, "up", "-d", "--no-build", "--pull", "never", "adapters", "backend")
+            fresh_services(value, timeout)
             # Release reservations only immediately before inheriting/rebinding.
             backend.close()
             source.close()
@@ -432,8 +430,81 @@ def provision(directory, backend_port, source_port, timeout):
             raise
 
 
+def fresh_services(value, timeout):
+    compose(value, "up", "-d", "--no-build", "--pull", "never", "database")
+    deadline(lambda: database(value, "SELECT 1"), timeout)
+    compose(value, "up", "--no-build", "--pull", "never", "--exit-code-from", "adapter-init", "adapter-init")
+    compose(value, "up", "--no-build", "--pull", "never", "--exit-code-from", "migrate", "migrate")
+    require(database(value, "SELECT epoch FROM service_writer WHERE singleton") == "0", "Nonfresh database")
+    compose(value, "up", "-d", "--no-build", "--pull", "never", "adapters", "backend")
+
+
+def empty_baseline(value):
+    # Deliberately explicit implemented-store inventory. New migrations/workers
+    # must extend this qualification, never silently escape the reset contract.
+    require(database(value, "SELECT string_agg(tablename,',' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'")
+            == "flyway_schema_history,service_writer", "Unexpected baseline tables")
+    require(database(value, "SELECT version FROM flyway_schema_history WHERE success") == "1", "Unexpected migration baseline")
+    require(database(value, "SELECT count(*) FROM service_writer WHERE singleton AND epoch > 0") == "1", "Missing baseline writer")
+    state = admin(value, "/admin/state")
+    require(state["instance"] == value["project"] and state["versions"] == {"prism": 1, "quilt": 1} and
+            state["generation"] == 0 and state["messageCount"] == 0 and
+            state["sourceFault"] == state["mailFault"] == "ok", "Nonempty adapter baseline")
+    require(admin(value, "/admin/messages") == [], "Retained baseline deliveries")
+    return {"tables": ["flyway_schema_history", "service_writer"], "migration": "1",
+            "versions": state["versions"], "messageCount": 0, "faults": "ok"}
+
+
+def remove_runtime(value):
+    resources = owned(value)  # Check every owner/shared-volume guard before stopping.
+    old_ids = {s: c["Id"] for s, c in resources.items()}
+    stop_relay(value)
+    compose(value, "--profile", "setup", "stop", "--timeout", "30")
+    for info in owned(value).values():
+        require(not info["State"]["Running"] and info["State"]["Pid"] == 0, "Old producer still running")
+    # Remove processes and namespaces before deleting any stores. A connected old
+    # DB/SMTP socket belongs to one of these dead namespaces, not the new baseline.
+    compose(value, "--profile", "setup", "down", "--timeout", "30")
+    require(not owned(value), "Old containers remain")
+    for identity in old_ids.values():
+        require(inspect("container", identity) is None, "Old producer identity remains")
+    require(inspect("network", value["project"] + "-scenario") is None, "Old namespace remains")
+    for suffix in ("database", "adapters"):
+        name = value["project"] + "-" + suffix
+        if inspect("volume", name):
+            require(not docker("ps", "-aq", "--filter", "volume=" + name), "Old store still connected")
+            docker("volume", "rm", name)
+        require(inspect("volume", name) is None, "Old store remains")
+    return old_ids
+
+
+def reset(value, timeout):
+    invalidate(value)
+    owned(value)
+    directory = Path(value["directory"])
+    pending = directory / "reset-pending.json"
+    write_json(pending, {"instance": value["project"], "phase": "quiescing"})
+    try:
+        capture(value)  # Preserve the failed/dirty scenario before its explicit reset.
+        old_ids = remove_runtime(value)
+        write_json(pending, {"instance": value["project"], "phase": "rebuilding", "removedContainers": old_ids})
+        fresh_services(value, timeout)
+        baseline = deadline(lambda: empty_baseline(value), timeout)
+        ready = wait(value, timeout, completing_reset=True)
+        write_json(directory / "reset-completed.json", {"instance": value["project"], "removedContainers": old_ids,
+                   "baseline": baseline, "checkedAtUnix": ready["checkedAtUnix"]})
+        pending.unlink()
+        return ready
+    except BaseException:
+        invalidate(value)
+        stop_relay(value)
+        capture(value)
+        raise
+
+
 def restart(value, service, timeout):
     invalidate(value)
+    require(not (Path(value["directory"]) / "reset-pending.json").exists(), "Incomplete reset; restart is not repair")
     owned(value)
     stop_relay(value)
     targets = [service] if service != "all" else ["backend", "adapters", "database"]
@@ -448,8 +519,7 @@ def cleanup(value):
     invalidate(value)
     owned(value)  # Refuse all ambiguous/shared resources BEFORE any shutdown.
     capture(value)  # Failure evidence precedes deletion, even on an unready system.
-    stop_relay(value)
-    compose(value, "--profile", "setup", "down", "--volumes", "--timeout", "30")
+    remove_runtime(value)
     require(not owned(value), "Owned containers remain after cleanup")
     for kind, suffixes in (("volume", ("database", "adapters")), ("network", ("scenario",))):
         for suffix in suffixes:
@@ -473,6 +543,7 @@ def main(argv=None):
     provision_parser.add_argument("--backend-port", type=int, default=0)
     provision_parser.add_argument("--source-port", type=int, default=0)
     commands.add_parser("wait")
+    commands.add_parser("reset")
     restart_parser = commands.add_parser("restart")
     restart_parser.add_argument("--service", choices=["all", "backend", "database", "adapters"], default="all")
     commands.add_parser("capture")
@@ -493,6 +564,8 @@ def main(argv=None):
                     result = wait(value, args.timeout)
                 elif args.operation == "restart":
                     result = restart(value, args.service, args.timeout)
+                elif args.operation == "reset":
+                    result = reset(value, args.timeout)
                 elif args.operation == "capture":
                     result = {"capture": str(capture(value))}
                 else:

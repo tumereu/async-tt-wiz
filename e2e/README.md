@@ -7,9 +7,9 @@ PostgreSQL17 and the [synthetic HTTP/art/SMTP adapters](adapters/README.md).
 No alternate backend/APK, account/game/action injection or production deployment
 is supplied. This Gradle module intentionally has no product-module dependency.
 
-**I01e2a:** fresh provision, bounded readiness, retained restart, redacted capture
-and exact cleanup. **Still pending:** I01e2b reusable independent-scenario reset
-and simultaneous Testcontainers isolation; I01e2/I01e combined qualification;
+**I01e2a/I01e2b:** fresh provision, bounded readiness, retained restart, explicit
+independent-scenario reset, simultaneous Testcontainers isolation, redacted capture
+and exact cleanup. **Still pending:** I01e2/I01e combined qualification;
 I01f Android/remote-ADB/Appium and actual storage instrumentation; later normal-UI
 account/game journeys and independent B1 review. These host checks do not pass a
 full T-551/T-630/T-662 scenario, any F01–F88 UI outcome or a release gate.
@@ -24,6 +24,7 @@ python3 scripts/build-server-image.py
 python3 scripts/build-synthetic-adapters.py
 python3 -m unittest discover -s tests -p test_e2e_environment.py -v
 python3 scripts/check-e2e-environment.py
+./scripts/gradle.sh --no-daemon --console=plain :server:composeIsolationTest --rerun-tasks
 python3 -m unittest discover -s tests -p test_synthetic_adapters.py -v
 python3 scripts/check-synthetic-catalogs.py
 python3 -m unittest discover -s tests -p test_foundation_data.py -v
@@ -36,6 +37,11 @@ adapter-input hashes. PostgreSQL uses the immutable digest in
 [`server/database-images.properties`](../server/database-images.properties).
 No new runtime dependencies/licenses are introduced by this stdlib controller.
 The [server](../server/README.md) and adapter records own base/dependency provenance.
+`:server:composeIsolationTest` is an explicit image-dependent host check, separate
+from ordinary `:server:test`; neither builds its own alternate application. It runs
+the reset checker while continuously querying a separate real Testcontainers
+PostgreSQL connection/transaction, exercises cleanup in both ownership directions
+and verifies unchanged unrelated resource inventories. No new library dependency.
 
 Qualified here: Docker **29.8.2**, Compose **v5.6.0**, Linux/WSL2 **amd64**,
 PostgreSQL **17.11**, actual Spring/JVM21 server and Python **3.13.16** adapter
@@ -59,6 +65,8 @@ python3 scripts/e2e-environment.py --directory "$INSTANCE" restart --service ada
 python3 scripts/e2e-environment.py --directory "$INSTANCE" restart --service all
 python3 scripts/e2e-environment.py --directory "$INSTANCE" wait
 python3 scripts/e2e-environment.py --directory "$INSTANCE" capture
+python3 scripts/e2e-environment.py --directory "$INSTANCE" reset
+python3 scripts/e2e-environment.py --directory "$INSTANCE" wait
 python3 scripts/e2e-environment.py --directory "$INSTANCE" cleanup
 ```
 
@@ -92,9 +100,48 @@ rows/epochs, chosen source editions/faults and exact captured deliveries. Backen
 or database restart reacquires ownership; adapter-only restart does not reset
 the backend epoch. The controller refreshes its live forwarder if Docker changes
 private IPs even with unchanged container IDs. No state is cleared at an
-in-scenario recovery checkpoint. Until I01e2b implements reusable reset, each
-independent scenario must clean up and provision a **new** instance, and I01f must
-separately ensure fresh Android app data between independent tests.
+in-scenario recovery checkpoint.
+
+## Independent-scenario reset (host only)
+
+Before **every independent scenario**, explicitly `reset` an existing owned
+instance (or `provision` a new one), require exit 0, and require fresh `wait` before
+handing the endpoints to the scenario. Reset is intentionally destructive only
+within that exact synthetic instance. It keeps its project/configuration, immutable
+images, synthetic fixtures, file secrets and two allocated port numbers, not prior
+accounts/data/deliveries. It does not adopt foreign resources or revive a cleaned
+instance. No reset route is added to the app/backend/public source API.
+
+The controller captures the old scenario, removes its ready handoff/forwarder,
+stops **all** implemented producer/setup containers, verifies stopped PIDs, removes
+their exact container IDs and network namespaces, then verifies no old volume
+users remain before deleting the two owned mutable volumes. It recreates them,
+runs the same image's explicit migration, starts normal services and checks the
+implemented empty baseline before publishing a new handoff. This replaces whole
+stores rather than truncating known tables while workers can repopulate them.
+Real tests hold PostgreSQL and SMTP DATA connections across reset and prove they
+terminate without late writes/delivery into the new stores.
+
+Current baseline: normal Flyway V1 history and service-writer singleton with newly
+acquired epoch, no infrastructure probe or product records; source **prism v1 and
+quilt v1**, zero captured deliveries and default `ok` source/mail controls. Fixtures
+are the pinned immutable image data. The exact current store/schema inventory is
+checked, not a claim that future account/game/outbox workers already exist. Those
+features must extend baseline/readiness/reset checks as they are implemented.
+
+`reset-pending.json` records an incomplete reset. A failed rebuilding reset exits
+nonzero, retains redacted diagnostics and issues **no ready handoff or public forwarder**;
+`wait` and `restart` refuse to bless it. Repair the diagnosed configuration/tool
+failure, then explicitly retry `reset` (or collect evidence and `cleanup`). Do not
+remove the marker or ignore setup failure. Successful reset writes
+`reset-completed.json` with removed process identities and checked baseline, then
+clears the pending marker. A stale completed record is not readiness evidence.
+Ownership/target refusal happens before shutdown: it invalidates the old handoff
+but leaves the refused scenario's resources untouched, never issuing a new one.
+
+I01f must separately ensure **fresh Android app data** between independent tests;
+this host reset never touches devices, ADB mappings or Appium. Preserve both host
+and device data at all in-scenario recovery/restart checkpoints.
 
 ## Network and device handoff
 
@@ -146,8 +193,8 @@ Only the writer-ownership scheduler/singleton reload exists in the backend.
 There are **no account/game/inbox/outbox/mail-sender/push workers** to certify.
 Future implemented workers/stores must join readiness, retained recovery,
 quiescence/reset and safe capture before their routes/scenarios are admitted.
-I01e2b must stop and verify all old producers/connections before replacing mutable
-stores, not merely clear the mailbox while a sender can repopulate it. Keep
+Reset stops and verifies old implemented producers/connections before replacing
+mutable stores, not merely clearing the mailbox while a sender can repopulate it. Keep
 Testcontainers integration databases separately owned; never point both owners at
 this Compose environment. Any later pre-scenario initialization stays limited to
 validated users/saved decks, never game/lifecycle/history/action state. Gameplay

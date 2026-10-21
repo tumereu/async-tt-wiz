@@ -78,6 +78,20 @@ tasks.register<JavaExec>("migrate") {
 }
 
 tasks.test {
+    exclude("**/ComposeIsolationTest.class")
+}
+
+// Image-dependent host qualification is explicit, not a hidden prerequisite for
+// ordinary server integration tests or building the image it needs to exercise.
+tasks.register<Test>("composeIsolationTest") {
+    group = "verification"
+    description = "Qualify owned Compose reset alongside an independent live Testcontainers database"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    include("**/ComposeIsolationTest.class")
+}
+
+tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     systemProperty("asyncttwiz.postgresImage", postgresImage)
     // Launch the real installed executable, not a second test-only migration CLI.

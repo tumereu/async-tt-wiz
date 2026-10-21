@@ -132,6 +132,69 @@ class EnvironmentUnitTests(unittest.TestCase):
                     e.wait({"directory": name}, 0)
             self.assertFalse((Path(name) / "ready.json").exists())
 
+    def test_incomplete_reset_cannot_be_blessed_by_wait_or_restart(self):
+        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as name:
+            path = Path(name)
+            (path / "reset-pending.json").write_text("unfinished")
+            for operation in (lambda: e.wait({"directory": name}, 0),
+                              lambda: e.restart({"directory": name}, "all", 0)):
+                (path / "ready.json").write_text("old success")
+                with patch.object(e, "owned") as owned, patch.object(e, "compose") as compose:
+                    with self.assertRaises(e.Refusal):
+                        operation()
+                    owned.assert_not_called()
+                    compose.assert_not_called()
+                self.assertFalse((path / "ready.json").exists())
+
+    def test_reset_failure_never_leaves_handoff_and_records_retry_obligation(self):
+        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as name:
+            path = Path(name)
+            value = {"directory": name, "project": "test"}
+            (path / "ready.json").write_text("old success")
+            with patch.object(e, "owned"), patch.object(e, "capture") as capture, \
+                    patch.object(e, "stop_relay") as stop, \
+                    patch.object(e, "remove_runtime", side_effect=e.Refusal("stop failed")), \
+                    patch.object(e, "fresh_services") as fresh:
+                with self.assertRaises(e.Refusal):
+                    e.reset(value, 0)
+                fresh.assert_not_called()
+                self.assertEqual(capture.call_count, 2)
+                stop.assert_called_once_with(value)
+            self.assertTrue((path / "reset-pending.json").exists())
+            self.assertFalse((path / "ready.json").exists())
+
+    def test_old_producer_must_be_dead_before_any_store_removal(self):
+        value = {"project": "test"}
+        active = {"backend": {"Id": "old", "State": {"Running": True, "Pid": 123}}}
+        with patch.object(e, "owned", return_value=active), patch.object(e, "stop_relay"), \
+                patch.object(e, "compose") as compose, patch.object(e, "docker") as docker:
+            with self.assertRaises(e.Refusal):
+                e.remove_runtime(value)
+            self.assertEqual(compose.call_args_list[0].args[1:], ("--profile", "setup", "stop", "--timeout", "30"))
+            self.assertEqual(compose.call_count, 1)  # no down or volume deletion
+            docker.assert_not_called()
+
+    def test_reset_capture_failure_keeps_pending_barrier_without_deleting_stores(self):
+        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as name:
+            with patch.object(e, "owned"), patch.object(e, "capture", side_effect=e.Refusal("capture failed")), \
+                    patch.object(e, "stop_relay"), patch.object(e, "remove_runtime") as remove:
+                with self.assertRaises(e.Refusal):
+                    e.reset({"directory": name, "project": "test"}, 0)
+                remove.assert_not_called()
+            self.assertTrue((Path(name) / "reset-pending.json").exists())
+            self.assertFalse((Path(name) / "ready.json").exists())
+
+    def test_foreign_reset_target_is_refused_before_capture_or_shutdown(self):
+        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as name:
+            (Path(name) / "ready.json").write_text("old success")
+            with patch.object(e, "owned", side_effect=e.Refusal("foreign")), \
+                    patch.object(e, "capture") as capture, patch.object(e, "remove_runtime") as remove:
+                with self.assertRaises(e.Refusal):
+                    e.reset({"directory": name}, 0)
+                capture.assert_not_called()
+                remove.assert_not_called()
+            self.assertFalse((Path(name) / "ready.json").exists())
+
     def test_socket_reservation_rejects_collision(self):
         with e.reserve() as first:
             with self.assertRaises(OSError):

@@ -1,0 +1,76 @@
+{
+  "services": {
+    "database": {
+      "image": "$POSTGRES_IMAGE",
+      "container_name": "$PROJECT-database",
+      "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"},
+      "environment": {"POSTGRES_DB": "atw", "POSTGRES_USER": "atw", "POSTGRES_PASSWORD_FILE": "/run/secrets/db-password"},
+      "volumes": ["database:/var/lib/postgresql/data", "$DIRECTORY/db-password:/run/secrets/db-password:ro"],
+      "networks": ["scenario"],
+      "read_only": true,
+      "tmpfs": ["/tmp", "/var/run/postgresql"],
+      "stop_grace_period": "30s",
+      "restart": "no"
+    },
+    "adapter-init": {
+      "image": "$ADAPTER_IMAGE",
+      "container_name": "$PROJECT-adapter-init",
+      "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"},
+      "profiles": ["setup"],
+      "network_mode": "none",
+      "user": "0:0",
+      "entrypoint": ["python3", "-c", "import os; os.chown('/data',10001,10001); os.chmod('/data',0o700)"],
+      "volumes": ["adapters:/data"],
+      "read_only": true,
+      "restart": "no"
+    },
+    "adapters": {
+      "image": "$ADAPTER_IMAGE",
+      "container_name": "$PROJECT-adapters",
+      "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"},
+      "command": ["--origin", "$SOURCE_ORIGIN", "--instance", "$PROJECT", "--state-dir", "/data", "--token-file", "/run/secrets/harness-token", "--bind", "0.0.0.0", "--admin-bind", "0.0.0.0", "--smtp-bind", "0.0.0.0"],
+      "volumes": ["adapters:/data", "$DIRECTORY/harness-token:/run/secrets/harness-token:ro"],
+      "networks": ["scenario"],
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "stop_grace_period": "10s",
+      "restart": "no"
+    },
+    "migrate": {
+      "image": "$SERVER_IMAGE",
+      "container_name": "$PROJECT-migrate",
+      "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"},
+      "profiles": ["setup"],
+      "command": ["migrate"],
+      "environment": {"DB_URL": "jdbc:postgresql://database:5432/atw", "DB_USER": "atw", "DB_PASSWORD_FILE": "/run/secrets/db-password"},
+      "volumes": ["$DIRECTORY/db-password:/run/secrets/db-password:ro"],
+      "networks": ["scenario"],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "no"
+    },
+    "backend": {
+      "image": "$SERVER_IMAGE",
+      "container_name": "$PROJECT-backend",
+      "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"},
+      "command": ["serve"],
+      "environment": {"DB_URL": "jdbc:postgresql://database:5432/atw", "DB_USER": "atw", "DB_PASSWORD_FILE": "/run/secrets/db-password", "PUBLIC_BASE_URL": "$BACKEND_ORIGIN", "SERVER_ADDRESS": "0.0.0.0", "SERVER_PORT": "8080", "HEALTH_ADDRESS": "0.0.0.0", "HEALTH_PORT": "8081"},
+      "volumes": ["$DIRECTORY/db-password:/run/secrets/db-password:ro"],
+      "networks": ["scenario"],
+      "read_only": true,
+      "tmpfs": ["/tmp"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "stop_grace_period": "30s",
+      "restart": "no"
+    }
+  },
+  "networks": {"scenario": {"name": "$PROJECT-scenario", "internal": true, "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"}}},
+  "volumes": {
+    "database": {"name": "$PROJECT-database", "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"}},
+    "adapters": {"name": "$PROJECT-adapters", "labels": {"org.asyncttwiz.e2e-owner": "$OWNER"}}
+  }
+}

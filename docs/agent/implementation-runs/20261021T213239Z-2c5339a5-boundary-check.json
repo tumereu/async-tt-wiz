@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261021T213239Z-2c5339a5-boundary-check.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "d74d8e8127a11aa14f64a6629b292c82d03f43390372562edd950ec0b54fb3b7",
+  "output": "PASS only selected child implemented; original parent/next-child/group review/findings/model/permissions/authorization/release gates preserved\nPASS exact owned changed-path set, UTF-8 text/newline/whitespace and README relative links\nPASS exact final runtime input hashes, retained command-output hashes/exit classifications; 13 controller, 11 adapter and 21 fixture/ledger tests, no skips\nPASS host infrastructure only; reset/Testcontainers isolation/I01f/parents/B1/release obligations remain open\n"
+}

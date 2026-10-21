@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_e2e_environment.py",
+    "-v"
+  ],
+  "exitCode": 0,
+  "outputSha256": "b95f81914c988c3e06b5fa6b5cb4e17b4ffedf8b88bfbacb62d7fa8693048aaa",
+  "output": "test_capture_redacts_both_file_secrets (test_e2e_environment.EnvironmentUnitTests.test_capture_redacts_both_file_secrets) ... ok\ntest_controller_lock_is_exclusive (test_e2e_environment.EnvironmentUnitTests.test_controller_lock_is_exclusive) ... ok\ntest_deadline_never_converts_failure_to_success (test_e2e_environment.EnvironmentUnitTests.test_deadline_never_converts_failure_to_success) ... ok\ntest_failed_wait_invalidates_prior_handoff (test_e2e_environment.EnvironmentUnitTests.test_failed_wait_invalidates_prior_handoff) ... ok\ntest_inspection_accepts_docker_lowercase_missing_volume_only (test_e2e_environment.EnvironmentUnitTests.test_inspection_accepts_docker_lowercase_missing_volume_only) ... ok\ntest_instance_target_is_narrow_and_symlinks_refused (test_e2e_environment.EnvironmentUnitTests.test_instance_target_is_narrow_and_symlinks_refused) ... ok\ntest_owned_refuses_foreign_before_any_destructive_command (test_e2e_environment.EnvironmentUnitTests.test_owned_refuses_foreign_before_any_destructive_command) ... ok\ntest_private_manifest_snapshot_and_secret_changes_refused (test_e2e_environment.EnvironmentUnitTests.test_private_manifest_snapshot_and_secret_changes_refused) ... ok\ntest_real_relay_only_forwards_supplied_ports_and_stops (test_e2e_environment.EnvironmentUnitTests.test_real_relay_only_forwards_supplied_ports_and_stops) ... ok\ntest_remote_daemon_is_refused_without_any_mutation (test_e2e_environment.EnvironmentUnitTests.test_remote_daemon_is_refused_without_any_mutation) ... ok\ntest_socket_reservation_rejects_collision (test_e2e_environment.EnvironmentUnitTests.test_socket_reservation_rejects_collision) ... ok\ntest_topology_has_only_internal_routes_and_explicit_migration (test_e2e_environment.EnvironmentUnitTests.test_topology_has_only_internal_routes_and_explicit_migration) ... ok\ntest_unowned_or_changed_relay_identity_is_not_signaled (test_e2e_environment.EnvironmentUnitTests.test_unowned_or_changed_relay_identity_is_not_signaled) ... ok\n\n----------------------------------------------------------------------\nRan 13 tests in 0.112s\n\nOK\n"
+}

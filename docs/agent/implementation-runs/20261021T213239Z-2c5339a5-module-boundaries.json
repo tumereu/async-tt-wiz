@@ -1,0 +1,11 @@
+{
+  "command": [
+    "./scripts/gradle.sh",
+    "--no-daemon",
+    "--console=plain",
+    "verifyModuleBoundaries"
+  ],
+  "exitCode": 0,
+  "outputSha256": "816b3f63ac00e84f18640ad0fa13db09c43a75fba616470ef5e03d981f7c9521",
+  "output": "Picked up JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true\nTo honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.\nDaemon will be stopped at the end of the build \n\n> Configure project :core\nWARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.\nAdd android.sync.suppressAgpWarnings=GENERIC to the gradle.properties file to suppress this warning.\n\n> Configure project :protocol\nWARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.\nAdd android.sync.suppressAgpWarnings=GENERIC to the gradle.properties file to suppress this warning.\n\n> Task :verifyModuleBoundaries\nPASS :androidApp -> [:client-storage, :core, :protocol]\nPASS :client-storage -> [:core]\nPASS :core -> []\nPASS :e2e -> []\nPASS :protocol -> [:core]\nPASS :server -> [:core, :protocol]\nPASS :core jvmRuntimeClasspath contains only Kotlin/annotations: [org.jetbrains.kotlin:kotlin-stdlib:2.4.21, org.jetbrains:annotations:13.0]\nPASS :core androidRuntimeClasspath contains only Kotlin/annotations: [org.jetbrains.kotlin:kotlin-stdlib:2.4.21, org.jetbrains:annotations:13.0]\nPASS semantic source imports contain no generated database/UI/server types\nPASS normal Android runtime has no mandatory GMS/Firebase dependency\n\nBUILD SUCCESSFUL in 8s\n1 actionable task: 1 executed\n"
+}

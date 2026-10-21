@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>L05 — Lobby with own Ready accepted (Async Table)</title>
+  <!-- Google Fonts: Inter and Material Symbols Outlined -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-page: #f8fafc;
+      --surface: #ffffff;
+      --border-color: #e2e8f0;
+      --border-subtle: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-subtle: #94a3b8;
+      --teal-primary: #00796b;
+      --teal-hover: #00695c;
+      --teal-light: #e6f4f1;
+      --teal-border: #80cbc4;
+      --status-ready-bg: #ecfdf5;
+      --status-ready-text: #047857;
+      --status-ready-border: #a7f3d0;
+      --status-pending-bg: #f1f5f9;
+      --status-pending-text: #475569;
+      --status-pending-border: #cbd5e1;
+      --danger: #dc2626;
+      --radius: 8px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    /* Minimal Android status area: 24px */
+    .status-bar {
+      height: 24px;
+      min-height: 24px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748b;
+      background-color: var(--surface);
+      border-bottom: 1px solid var(--border-color);
+      z-index: 10;
+    }
+    .status-bar-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-bar-icons .material-symbols-outlined {
+      font-size: 14px;
+    }
+
+    /* Top bar: 56px */
+    .top-bar {
+      height: 56px;
+      min-height: 56px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--surface);
+      border-bottom: 1px solid var(--border-color);
+      z-index: 10;
+    }
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .icon-btn {
+      width: 48px;
+      height: 48px;
+      margin-left: -8px;
+      background: transparent;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-main);
+      border-radius: var(--radius);
+    }
+    .icon-btn:hover {
+      background-color: var(--bg-page);
+    }
+    .icon-btn .material-symbols-outlined {
+      font-size: 24px;
+    }
+    .screen-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+    .draft-badge {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-subtle);
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Status indicator strip */
+    .banner-strip {
+      padding: 10px 16px;
+      background-color: var(--teal-light);
+      border-bottom: 1px solid var(--teal-border);
+      font-size: 13.5px;
+      color: #004d40;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .banner-strip .material-symbols-outlined {
+      font-size: 18px;
+      color: var(--teal-primary);
+    }
+
+    /* Main Scrollable Canvas Area */
+    .viewport-content {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panels-container {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Cards / Structural Panels */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .card-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+    .user-tag {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Pill Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1;
+      height: 28px;
+      box-sizing: border-box;
+    }
+    .badge-ready {
+      background-color: var(--status-ready-bg);
+      color: var(--status-ready-text);
+      border: 1px solid var(--status-ready-border);
+    }
+    .badge-ready .material-symbols-outlined {
+      font-size: 16px;
+    }
+    .badge-pending {
+      background-color: var(--status-pending-bg);
+      color: var(--status-pending-text);
+      border: 1px solid var(--status-pending-border);
+    }
+    .badge-pending .material-symbols-outlined {
+      font-size: 16px;
+    }
+
+    /* Deck Details Box inside Card */
+    .deck-subpanel {
+      background-color: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .deck-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .deck-counts {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Text Button Action Row */
+    .actions-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 2px;
+      flex-wrap: wrap;
+    }
+    .text-link-btn {
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--teal-primary);
+      text-decoration: underline;
+      cursor: pointer;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 4px;
+    }
+    .text-link-btn:hover {
+      color: var(--teal-hover);
+    }
+
+    /* Segmented Selection Grid for Starting Player */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .segment-option {
+      border: 1px solid var(--border-color);
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 52px;
+      user-select: none;
+    }
+    .segment-option.active {
+      border: 2px solid var(--teal-primary);
+      background: #f0fdfa;
+    }
+    .segment-primary-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .segment-option.active .segment-primary-text {
+      color: var(--teal-primary);
+    }
+    .segment-secondary-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Bottom Sticky Controls */
+    .footer-actions {
+      background: var(--surface);
+      border-top: 1px solid var(--border-color);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .footer-actions-inner {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn-primary-action {
+      width: 100%;
+      height: 48px;
+      background-color: var(--surface);
+      color: var(--teal-primary);
+      border: 2px solid var(--teal-primary);
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+    }
+    .btn-primary-action:hover {
+      background-color: var(--teal-light);
+    }
+
+    .helper-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.4;
+      max-width: 520px;
+    }
+
+    .btn-cancel-game {
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--danger);
+      cursor: pointer;
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 12px;
+    }
+    .btn-cancel-game:hover {
+      text-decoration: underline;
+    }
+
+    /* Safe inset area: 16px */
+    .safe-inset-bottom {
+      height: 16px;
+      min-height: 16px;
+      width: 100%;
+      background: var(--surface);
+    }
+
+    /* ========================================================= */
+    /* RESPONSIVE LANDSCAPE REFLOW (width >= 700px AND height <= 500px) */
+    /* Compact two-column split, bounded scroll, footer in viewport */
+    /* ========================================================= */
+    @media (min-width: 700px) and (max-height: 500px) {
+      .status-bar {
+        height: 20px;
+        min-height: 20px;
+        font-size: 11px;
+      }
+      .top-bar {
+        height: 44px;
+        min-height: 44px;
+        padding: 0 12px;
+      }
+      .screen-title {
+        font-size: 18px;
+      }
+      .icon-btn {
+        width: 40px;
+        height: 40px;
+      }
+      .icon-btn .material-symbols-outlined {
+        font-size: 20px;
+      }
+      .banner-strip {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      .banner-strip .material-symbols-outlined {
+        font-size: 16px;
+      }
+
+      .viewport-content {
+        overflow: hidden;
+      }
+
+      .panels-container {
+        max-width: 100%;
+        height: 100%;
+        padding: 8px 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        overflow-y: auto;
+      }
+
+      .card {
+        padding: 10px 12px;
+        gap: 8px;
+      }
+      .user-tag {
+        font-size: 15px;
+      }
+      .card-label {
+        font-size: 11px;
+      }
+      .badge {
+        height: 24px;
+        font-size: 12px;
+        padding: 2px 8px;
+      }
+      .deck-subpanel {
+        padding: 8px 10px;
+        gap: 2px;
+      }
+      .deck-title {
+        font-size: 14px;
+      }
+      .deck-counts {
+        font-size: 12px;
+      }
+      .text-link-btn {
+        font-size: 13px;
+        min-height: 30px;
+      }
+      .options-grid {
+        gap: 6px;
+      }
+      .segment-option {
+        min-height: 42px;
+        padding: 6px 4px;
+      }
+      .segment-primary-text {
+        font-size: 13px;
+      }
+      .segment-secondary-text {
+        font-size: 11px;
+      }
+
+      .footer-actions {
+        padding: 6px 12px;
+        gap: 4px;
+      }
+      .footer-actions-inner {
+        max-width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      .footer-actions-inner .btn-primary-action {
+        width: auto;
+        min-width: 160px;
+        height: 38px;
+        font-size: 14px;
+        order: 2;
+      }
+      .footer-actions-inner .helper-text {
+        text-align: left;
+        font-size: 12px;
+        order: 1;
+        flex: 1;
+      }
+      .footer-actions-inner .btn-cancel-game {
+        min-height: 38px;
+        font-size: 13px;
+        order: 3;
+      }
+      .safe-inset-bottom {
+        height: 6px;
+        min-height: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Minimal status area (24px) -->
+  <div class="status-bar">
+    <span>10:30</span>
+    <div class="status-bar-icons">
+      <span class="material-symbols-outlined">signal_cellular_alt</span>
+      <span class="material-symbols-outlined">wifi</span>
+      <span class="material-symbols-outlined">battery_full</span>
+    </div>
+  </div>
+
+  <!-- Top bar (56px) -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <button class="icon-btn" aria-label="Back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h1 class="screen-title">Lobby with riley</h1>
+    </div>
+    <span class="draft-badge">Draft L05</span>
+  </header>
+
+  <!-- Status banner strip -->
+  <div class="banner-strip">
+    <span class="material-symbols-outlined">check_circle</span>
+    <span>You are ready. Waiting for riley to ready up.</span>
+  </div>
+
+  <!-- Bounded viewport content area -->
+  <main class="viewport-content">
+    <div class="panels-container">
+
+      <!-- LEFT / TOP PANEL: Own Setup (alex) -->
+      <section class="card" aria-labelledby="own-setup-title">
+        <div class="card-header-row">
+          <div>
+            <div class="card-label">Your setup (you)</div>
+            <div id="own-setup-title" class="user-tag">alex</div>
+          </div>
+          <span class="badge badge-ready">
+            <span class="material-symbols-outlined">check_circle</span>
+            Ready
+          </span>
+        </div>
+
+        <div class="deck-subpanel">
+          <div class="deck-title">Training deck</div>
+          <div class="deck-counts">60 mainboard &bull; 15 sideboard</div>
+        </div>
+
+        <div class="actions-row">
+          <button class="text-link-btn" type="button">Change deck</button>
+          <button class="text-link-btn" type="button">Prepare deck</button>
+        </div>
+      </section>
+
+      <!-- RIGHT / BOTTOM PANEL GROUP: Opponent & Starting Player -->
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <!-- Opponent Status (riley) -->
+        <section class="card" aria-labelledby="opponent-setup-title">
+          <div class="card-header-row">
+            <div>
+              <div class="card-label">Opponent</div>
+              <div id="opponent-setup-title" class="user-tag">riley</div>
+            </div>
+            <span class="badge badge-pending">
+              <span class="material-symbols-outlined">schedule</span>
+              Not ready
+            </span>
+          </div>
+          <div style="font-size: 13.5px; color: var(--text-muted);">
+            riley has joined the lobby and is selecting their deck.
+          </div>
+        </section>
+
+        <!-- Starting Player Selection -->
+        <section class="card" aria-labelledby="starting-player-title">
+          <div class="card-label" id="starting-player-title">Starting player</div>
+          <div class="options-grid" role="radiogroup" aria-label="Starting player choices">
+            <div class="segment-option" role="radio" aria-checked="false" tabindex="0">
+              <div class="segment-primary-text">alex</div>
+              <div class="segment-secondary-text">You first</div>
+            </div>
+            <div class="segment-option" role="radio" aria-checked="false" tabindex="0">
+              <div class="segment-primary-text">riley</div>
+              <div class="segment-secondary-text">Opponent</div>
+            </div>
+            <div class="segment-option active" role="radio" aria-checked="true" tabindex="0">
+              <div class="segment-primary-text">Random</div>
+              <div class="segment-secondary-text">50 / 50</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Sticky footer controls -->
+  <footer class="footer-actions">
+    <div class="footer-actions-inner">
+      <button class="btn-primary-action" type="button">Withdraw Ready</button>
+      <div class="helper-text">
+        Your Ready stays set when you leave. The game starts automatically when both players are ready.
+      </div>
+      <button class="btn-cancel-game" type="button">Cancel game</button>
+    </div>
+  </footer>
+
+  <!-- Minimal safe inset (16px) -->
+  <div class="safe-inset-bottom"></div>
+
+</body>
+</html>

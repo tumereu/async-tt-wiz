@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>L03 — Choose deck (Async Table)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    /* Reset & Base Setup */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-canvas: #f8fafc;
+      --bg-surface: #ffffff;
+      --border-color: #cbd5e1;
+      --border-subtle: #e2e8f0;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --teal-primary: #0f766e;
+      --teal-primary-hover: #115e59;
+      --teal-subtle: #f0fdfa;
+      --teal-border: #99f6e4;
+      --status-bar-h: 24px;
+      --app-bar-h: 56px;
+      --safe-bottom: 16px;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Screen container fitting viewport shell */
+    .app-viewport {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      background-color: var(--bg-canvas);
+    }
+
+    /* Minimal Android Status Area (24px) */
+    .status-bar {
+      height: var(--status-bar-h);
+      min-height: var(--status-bar-h);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background-color: var(--bg-canvas);
+      border-bottom: 1px solid var(--border-subtle);
+      user-select: none;
+    }
+
+    .status-bar-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-bar-icons .material-symbols-outlined {
+      font-size: 15px;
+      color: var(--text-secondary);
+    }
+
+    /* Top App Bar (56px) */
+    .app-bar {
+      height: var(--app-bar-h);
+      min-height: var(--app-bar-h);
+      padding: 0 8px 0 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      gap: 8px;
+    }
+
+    .app-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+      background: none;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .icon-btn:hover {
+      background-color: #f1f5f9;
+    }
+
+    .screen-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .draft-badge {
+      font-size: 13px;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    /* Content Area - Scrollable */
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Guidance & Notice Box */
+    .info-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .info-card-header {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .helper-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .sub-notice {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Section Header with Import Deck Text Action */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 2px 0 2px;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .text-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: var(--teal-primary);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 8px 6px;
+      min-height: 48px;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .text-action-btn:hover {
+      color: var(--teal-primary-hover);
+    }
+
+    .text-action-btn .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    /* Deck List Grid Container */
+    .deck-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Deck Row / Card */
+    .deck-item-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      transition: border-color 0.15s ease;
+    }
+
+    .deck-item-card:hover {
+      border-color: #94a3b8;
+    }
+
+    .deck-item-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Abstract cover block (grayscale placeholder with simple glyph) */
+    .cover-block {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+      background-color: #f1f5f9;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .cover-code {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      line-height: 1;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    .cover-block .material-symbols-outlined {
+      font-size: 20px;
+      color: var(--text-secondary);
+    }
+
+    .deck-details {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .deck-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .deck-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .deck-counts-pill {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background-color: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    /* Primary Action Select Button */
+    .select-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 88px;
+      height: 48px;
+      min-height: 48px;
+      padding: 0 16px;
+      background-color: var(--teal-primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      user-select: none;
+      transition: background-color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .select-btn:hover {
+      background-color: var(--teal-primary-hover);
+    }
+
+    .select-btn:active {
+      transform: translateY(1px);
+    }
+
+    /* Bottom Safe Area / Inset */
+    .safe-inset {
+      height: var(--safe-bottom);
+      min-height: var(--safe-bottom);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--bg-canvas);
+    }
+
+    .home-indicator-pill {
+      width: 72px;
+      height: 4px;
+      background-color: #cbd5e1;
+      border-radius: 2px;
+    }
+
+    /* Landscape reflow panel structure wrapper */
+    .landscape-panels-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+
+    /* -------------------------------------------------------------
+       CRITICAL RESPONSIVE REFLOW FOR LANDSCAPE
+       Rule: width >= 700px AND height <= 500px (e.g. 892x412 landscape)
+       Also handles generic landscape tablets/screens gracefully
+       ------------------------------------------------------------- */
+    @media (min-width: 700px) and (max-height: 500px) {
+      :root {
+        --app-bar-h: 48px;
+        --status-bar-h: 20px;
+        --safe-bottom: 8px;
+      }
+
+      .status-bar {
+        font-size: 12px;
+      }
+
+      .screen-title {
+        font-size: 20px;
+      }
+
+      .icon-btn {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+      }
+
+      .content-area {
+        padding: 10px 16px;
+        gap: 8px;
+      }
+
+      /* Reflow into compact side-by-side layout */
+      .landscape-panels-wrapper {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 16px;
+        align-items: start;
+        height: 100%;
+      }
+
+      .info-card {
+        padding: 12px 14px;
+        height: fit-content;
+      }
+
+      .info-card .helper-text {
+        font-size: 13px;
+      }
+
+      .section-header {
+        padding: 0 0 4px 0;
+      }
+
+      .text-action-btn {
+        min-height: 40px;
+        padding: 4px 0;
+      }
+
+      /* 2-column grid of deck rows in landscape right panel */
+      .deck-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .deck-item-card {
+        padding: 10px 12px;
+        gap: 10px;
+      }
+
+      .cover-block {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        min-height: 42px;
+      }
+
+      .deck-name {
+        font-size: 15px;
+      }
+
+      .select-btn {
+        min-width: 76px;
+        height: 44px;
+        min-height: 44px;
+        padding: 0 12px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-viewport">
+    <!-- Android Minimal Status Area (24px) -->
+    <header class="status-bar" aria-label="System status">
+      <span class="status-time">10:30</span>
+      <div class="status-bar-icons">
+        <span class="material-symbols-outlined" title="Signal">signal_cellular_4_bar</span>
+        <span class="material-symbols-outlined" title="Wi-Fi">wifi</span>
+        <span class="material-symbols-outlined" title="Battery">battery_full</span>
+      </div>
+    </header>
+
+    <!-- App Top Bar (56px) -->
+    <nav class="app-bar" aria-label="Screen navigation">
+      <div class="app-bar-left">
+        <button class="icon-btn" aria-label="Back to lobby" title="Back to lobby">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 class="screen-title">Choose deck</h1>
+      </div>
+      <span class="draft-badge">Draft L03</span>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+      <div class="landscape-panels-wrapper">
+        <!-- Left Panel / Guidance Card in Landscape, Top Card in Portrait -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <section class="info-card" aria-label="Deck selection behavior">
+            <span class="info-card-header">Game-local copy</span>
+            <p class="helper-text">
+              Selecting makes a copy for this game. Saved decks stay unchanged.
+            </p>
+            <p class="sub-notice">
+              Choice returns immediately to lobby and clears your Ready status.
+            </p>
+          </section>
+        </div>
+
+        <!-- Right Panel in Landscape / Follow-on Content in Portrait -->
+        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+          <header class="section-header">
+            <span class="section-title">Saved decks (3)</span>
+            <button class="text-action-btn" type="button" aria-label="Import deck to collection">
+              <span class="material-symbols-outlined">folder_open</span>
+              <span>Import deck</span>
+            </button>
+          </header>
+
+          <!-- List of Saved Decks -->
+          <div class="deck-list" role="list" aria-label="Saved decks list">
+            <!-- Deck 1: Training deck -->
+            <article class="deck-item-card" role="listitem">
+              <div class="deck-item-left">
+                <div class="cover-block" aria-hidden="true">
+                  <span class="material-symbols-outlined">style</span>
+                  <span class="cover-code">TRN</span>
+                </div>
+                <div class="deck-details">
+                  <h2 class="deck-name">Training deck</h2>
+                  <div class="deck-meta">
+                    <span class="deck-counts-pill">60 main / 15 side</span>
+                  </div>
+                </div>
+              </div>
+              <button class="select-btn" type="button" aria-label="Select Training deck for this game">
+                Select
+              </button>
+            </article>
+
+            <!-- Deck 2: Woodland practice -->
+            <article class="deck-item-card" role="listitem">
+              <div class="deck-item-left">
+                <div class="cover-block" aria-hidden="true">
+                  <span class="material-symbols-outlined">park</span>
+                  <span class="cover-code">WDL</span>
+                </div>
+                <div class="deck-details">
+                  <h2 class="deck-name">Woodland practice</h2>
+                  <div class="deck-meta">
+                    <span class="deck-counts-pill">60 main / 15 side</span>
+                  </div>
+                </div>
+              </div>
+              <button class="select-btn" type="button" aria-label="Select Woodland practice for this game">
+                Select
+              </button>
+            </article>
+
+            <!-- Deck 3: Starter list -->
+            <article class="deck-item-card" role="listitem">
+              <div class="deck-item-left">
+                <div class="cover-block" aria-hidden="true">
+                  <span class="material-symbols-outlined">auto_stories</span>
+                  <span class="cover-code">STR</span>
+                </div>
+                <div class="deck-details">
+                  <h2 class="deck-name">Starter list</h2>
+                  <div class="deck-meta">
+                    <span class="deck-counts-pill">60 main / 15 side</span>
+                  </div>
+                </div>
+              </div>
+              <button class="select-btn" type="button" aria-label="Select Starter list for this game">
+                Select
+              </button>
+            </article>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Safe Inset (16px) -->
+    <footer class="safe-inset" aria-hidden="true">
+      <div class="home-indicator-pill"></div>
+    </footer>
+  </div>
+</body>
+</html>

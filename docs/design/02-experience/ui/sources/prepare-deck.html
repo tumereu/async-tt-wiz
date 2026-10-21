@@ -1,0 +1,576 @@
+<!-- STATIC UI REVIEW MOCKUP: Stitch export, locally frozen styles/fonts; not app implementation. -->
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>L04 — Lobby mainboard and sideboard preparation (Async Table)</title>
+
+
+
+<style type="text/css">/* cyrillic-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/01f94d674db55952c358.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/481dd0c01e6bbb129fd1.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/ec7769b0898139962764.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/97fbf7bd0b4579e63239.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* math */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/7cb4281a0ccc84cc1861.woff2") format('woff2');
+  unicode-range: U+0302-0303, U+0305, U+0307-0308, U+0310, U+0312, U+0315, U+031A, U+0326-0327, U+032C, U+032F-0330, U+0332-0333, U+0338, U+033A, U+0346, U+034D, U+0391-03A1, U+03A3-03A9, U+03B1-03C9, U+03D1, U+03D5-03D6, U+03F0-03F1, U+03F4-03F5, U+2016-2017, U+2034-2038, U+203C, U+2040, U+2043, U+2047, U+2050, U+2057, U+205F, U+2070-2071, U+2074-209F, U+20D0-20DC, U+20E1, U+20E5-20EF, U+2100-2112, U+2114-2115, U+2117-2121, U+2123-214F, U+2190, U+2192, U+2194-21AE, U+21B0-21E5, U+21F1-21F2, U+21F4-2211, U+2213-2214, U+2216-22FF, U+2308-230B, U+2310, U+2319, U+231C-2321, U+2336-237A, U+237C, U+2395, U+239B-23B7, U+23D0, U+23DC-23E1, U+2474-2475, U+25AF, U+25B3, U+25B7, U+25BD, U+25C1, U+25CA, U+25CC, U+25FB, U+266D-266F, U+27C0-27FF, U+2900-2AFF, U+2B0E-2B11, U+2B30-2B4C, U+2BFE, U+3030, U+FF5B, U+FF5D, U+1D400-1D7FF, U+1EE00-1EEFF;
+}
+/* symbols */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/2addf2d86d7a5778653b.woff2") format('woff2');
+  unicode-range: U+0001-000C, U+000E-001F, U+007F-009F, U+20DD-20E0, U+20E2-20E4, U+2150-218F, U+2190, U+2192, U+2194-2199, U+21AF, U+21E6-21F0, U+21F3, U+2218-2219, U+2299, U+22C4-22C6, U+2300-243F, U+2440-244A, U+2460-24FF, U+25A0-27BF, U+2800-28FF, U+2921-2922, U+2981, U+29BF, U+29EB, U+2B00-2BFF, U+4DC0-4DFF, U+FFF9-FFFB, U+10140-1018E, U+10190-1019C, U+101A0, U+101D0-101FD, U+102E0-102FB, U+10E60-10E7E, U+1D2C0-1D2D3, U+1D2E0-1D37F, U+1F000-1F0FF, U+1F100-1F1AE, U+1F1E6-1F1FF, U+1F30D-1F30F, U+1F315, U+1F31C, U+1F31E, U+1F320-1F32C, U+1F336, U+1F378, U+1F37D, U+1F382, U+1F393-1F39F, U+1F3A7-1F3A8, U+1F3AC-1F3AF, U+1F3C2, U+1F3C4-1F3C6, U+1F3CA-1F3CE, U+1F3D4-1F3E0, U+1F3ED, U+1F3F1-1F3F3, U+1F3F5-1F3F7, U+1F408, U+1F415, U+1F41F, U+1F426, U+1F43F, U+1F441-1F442, U+1F444, U+1F446-1F449, U+1F44C-1F44E, U+1F453, U+1F46A, U+1F47D, U+1F4A3, U+1F4B0, U+1F4B3, U+1F4B9, U+1F4BB, U+1F4BF, U+1F4C8-1F4CB, U+1F4D6, U+1F4DA, U+1F4DF, U+1F4E3-1F4E6, U+1F4EA-1F4ED, U+1F4F7, U+1F4F9-1F4FB, U+1F4FD-1F4FE, U+1F503, U+1F507-1F50B, U+1F50D, U+1F512-1F513, U+1F53E-1F54A, U+1F54F-1F5FA, U+1F610, U+1F650-1F67F, U+1F687, U+1F68D, U+1F691, U+1F694, U+1F698, U+1F6AD, U+1F6B2, U+1F6B9-1F6BA, U+1F6BC, U+1F6C6-1F6CF, U+1F6D3-1F6D7, U+1F6E0-1F6EA, U+1F6F0-1F6F3, U+1F6F7-1F6FC, U+1F700-1F80B, U+1F810-1F847, U+1F850-1F859, U+1F860-1F887, U+1F890-1F8AD, U+1F8B0-1F8BB, U+1F8C0-1F8C1, U+1F8D0-1F8D8, U+1F900-1F90B, U+1F93B, U+1F946, U+1F984, U+1F996, U+1F9E9, U+1FA00-1FA6F, U+1FA70-1FA7C, U+1FA80-1FAC6, U+1FAC8, U+1FACC-1FADD, U+1FADF-1FAEB, U+1FAEF-1FAFA, U+1FB00-1FBFF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/0b60bbe04e9c479444b3.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/cedb374b05a35034cf96.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/1404ca348bd75ef836f4.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/01f94d674db55952c358.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/481dd0c01e6bbb129fd1.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/ec7769b0898139962764.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/97fbf7bd0b4579e63239.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* math */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/7cb4281a0ccc84cc1861.woff2") format('woff2');
+  unicode-range: U+0302-0303, U+0305, U+0307-0308, U+0310, U+0312, U+0315, U+031A, U+0326-0327, U+032C, U+032F-0330, U+0332-0333, U+0338, U+033A, U+0346, U+034D, U+0391-03A1, U+03A3-03A9, U+03B1-03C9, U+03D1, U+03D5-03D6, U+03F0-03F1, U+03F4-03F5, U+2016-2017, U+2034-2038, U+203C, U+2040, U+2043, U+2047, U+2050, U+2057, U+205F, U+2070-2071, U+2074-209F, U+20D0-20DC, U+20E1, U+20E5-20EF, U+2100-2112, U+2114-2115, U+2117-2121, U+2123-214F, U+2190, U+2192, U+2194-21AE, U+21B0-21E5, U+21F1-21F2, U+21F4-2211, U+2213-2214, U+2216-22FF, U+2308-230B, U+2310, U+2319, U+231C-2321, U+2336-237A, U+237C, U+2395, U+239B-23B7, U+23D0, U+23DC-23E1, U+2474-2475, U+25AF, U+25B3, U+25B7, U+25BD, U+25C1, U+25CA, U+25CC, U+25FB, U+266D-266F, U+27C0-27FF, U+2900-2AFF, U+2B0E-2B11, U+2B30-2B4C, U+2BFE, U+3030, U+FF5B, U+FF5D, U+1D400-1D7FF, U+1EE00-1EEFF;
+}
+/* symbols */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/2addf2d86d7a5778653b.woff2") format('woff2');
+  unicode-range: U+0001-000C, U+000E-001F, U+007F-009F, U+20DD-20E0, U+20E2-20E4, U+2150-218F, U+2190, U+2192, U+2194-2199, U+21AF, U+21E6-21F0, U+21F3, U+2218-2219, U+2299, U+22C4-22C6, U+2300-243F, U+2440-244A, U+2460-24FF, U+25A0-27BF, U+2800-28FF, U+2921-2922, U+2981, U+29BF, U+29EB, U+2B00-2BFF, U+4DC0-4DFF, U+FFF9-FFFB, U+10140-1018E, U+10190-1019C, U+101A0, U+101D0-101FD, U+102E0-102FB, U+10E60-10E7E, U+1D2C0-1D2D3, U+1D2E0-1D37F, U+1F000-1F0FF, U+1F100-1F1AE, U+1F1E6-1F1FF, U+1F30D-1F30F, U+1F315, U+1F31C, U+1F31E, U+1F320-1F32C, U+1F336, U+1F378, U+1F37D, U+1F382, U+1F393-1F39F, U+1F3A7-1F3A8, U+1F3AC-1F3AF, U+1F3C2, U+1F3C4-1F3C6, U+1F3CA-1F3CE, U+1F3D4-1F3E0, U+1F3ED, U+1F3F1-1F3F3, U+1F3F5-1F3F7, U+1F408, U+1F415, U+1F41F, U+1F426, U+1F43F, U+1F441-1F442, U+1F444, U+1F446-1F449, U+1F44C-1F44E, U+1F453, U+1F46A, U+1F47D, U+1F4A3, U+1F4B0, U+1F4B3, U+1F4B9, U+1F4BB, U+1F4BF, U+1F4C8-1F4CB, U+1F4D6, U+1F4DA, U+1F4DF, U+1F4E3-1F4E6, U+1F4EA-1F4ED, U+1F4F7, U+1F4F9-1F4FB, U+1F4FD-1F4FE, U+1F503, U+1F507-1F50B, U+1F50D, U+1F512-1F513, U+1F53E-1F54A, U+1F54F-1F5FA, U+1F610, U+1F650-1F67F, U+1F687, U+1F68D, U+1F691, U+1F694, U+1F698, U+1F6AD, U+1F6B2, U+1F6B9-1F6BA, U+1F6BC, U+1F6C6-1F6CF, U+1F6D3-1F6D7, U+1F6E0-1F6EA, U+1F6F0-1F6F3, U+1F6F7-1F6FC, U+1F700-1F80B, U+1F810-1F847, U+1F850-1F859, U+1F860-1F887, U+1F890-1F8AD, U+1F8B0-1F8BB, U+1F8C0-1F8C1, U+1F8D0-1F8D8, U+1F900-1F90B, U+1F93B, U+1F946, U+1F984, U+1F996, U+1F9E9, U+1FA00-1FA6F, U+1FA70-1FA7C, U+1FA80-1FAC6, U+1FAC8, U+1FACC-1FADD, U+1FADF-1FAEB, U+1FAEF-1FAFA, U+1FB00-1FBFF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/0b60bbe04e9c479444b3.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/cedb374b05a35034cf96.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/1404ca348bd75ef836f4.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/01f94d674db55952c358.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/481dd0c01e6bbb129fd1.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/ec7769b0898139962764.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/97fbf7bd0b4579e63239.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* math */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/7cb4281a0ccc84cc1861.woff2") format('woff2');
+  unicode-range: U+0302-0303, U+0305, U+0307-0308, U+0310, U+0312, U+0315, U+031A, U+0326-0327, U+032C, U+032F-0330, U+0332-0333, U+0338, U+033A, U+0346, U+034D, U+0391-03A1, U+03A3-03A9, U+03B1-03C9, U+03D1, U+03D5-03D6, U+03F0-03F1, U+03F4-03F5, U+2016-2017, U+2034-2038, U+203C, U+2040, U+2043, U+2047, U+2050, U+2057, U+205F, U+2070-2071, U+2074-209F, U+20D0-20DC, U+20E1, U+20E5-20EF, U+2100-2112, U+2114-2115, U+2117-2121, U+2123-214F, U+2190, U+2192, U+2194-21AE, U+21B0-21E5, U+21F1-21F2, U+21F4-2211, U+2213-2214, U+2216-22FF, U+2308-230B, U+2310, U+2319, U+231C-2321, U+2336-237A, U+237C, U+2395, U+239B-23B7, U+23D0, U+23DC-23E1, U+2474-2475, U+25AF, U+25B3, U+25B7, U+25BD, U+25C1, U+25CA, U+25CC, U+25FB, U+266D-266F, U+27C0-27FF, U+2900-2AFF, U+2B0E-2B11, U+2B30-2B4C, U+2BFE, U+3030, U+FF5B, U+FF5D, U+1D400-1D7FF, U+1EE00-1EEFF;
+}
+/* symbols */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/2addf2d86d7a5778653b.woff2") format('woff2');
+  unicode-range: U+0001-000C, U+000E-001F, U+007F-009F, U+20DD-20E0, U+20E2-20E4, U+2150-218F, U+2190, U+2192, U+2194-2199, U+21AF, U+21E6-21F0, U+21F3, U+2218-2219, U+2299, U+22C4-22C6, U+2300-243F, U+2440-244A, U+2460-24FF, U+25A0-27BF, U+2800-28FF, U+2921-2922, U+2981, U+29BF, U+29EB, U+2B00-2BFF, U+4DC0-4DFF, U+FFF9-FFFB, U+10140-1018E, U+10190-1019C, U+101A0, U+101D0-101FD, U+102E0-102FB, U+10E60-10E7E, U+1D2C0-1D2D3, U+1D2E0-1D37F, U+1F000-1F0FF, U+1F100-1F1AE, U+1F1E6-1F1FF, U+1F30D-1F30F, U+1F315, U+1F31C, U+1F31E, U+1F320-1F32C, U+1F336, U+1F378, U+1F37D, U+1F382, U+1F393-1F39F, U+1F3A7-1F3A8, U+1F3AC-1F3AF, U+1F3C2, U+1F3C4-1F3C6, U+1F3CA-1F3CE, U+1F3D4-1F3E0, U+1F3ED, U+1F3F1-1F3F3, U+1F3F5-1F3F7, U+1F408, U+1F415, U+1F41F, U+1F426, U+1F43F, U+1F441-1F442, U+1F444, U+1F446-1F449, U+1F44C-1F44E, U+1F453, U+1F46A, U+1F47D, U+1F4A3, U+1F4B0, U+1F4B3, U+1F4B9, U+1F4BB, U+1F4BF, U+1F4C8-1F4CB, U+1F4D6, U+1F4DA, U+1F4DF, U+1F4E3-1F4E6, U+1F4EA-1F4ED, U+1F4F7, U+1F4F9-1F4FB, U+1F4FD-1F4FE, U+1F503, U+1F507-1F50B, U+1F50D, U+1F512-1F513, U+1F53E-1F54A, U+1F54F-1F5FA, U+1F610, U+1F650-1F67F, U+1F687, U+1F68D, U+1F691, U+1F694, U+1F698, U+1F6AD, U+1F6B2, U+1F6B9-1F6BA, U+1F6BC, U+1F6C6-1F6CF, U+1F6D3-1F6D7, U+1F6E0-1F6EA, U+1F6F0-1F6F3, U+1F6F7-1F6FC, U+1F700-1F80B, U+1F810-1F847, U+1F850-1F859, U+1F860-1F887, U+1F890-1F8AD, U+1F8B0-1F8BB, U+1F8C0-1F8C1, U+1F8D0-1F8D8, U+1F900-1F90B, U+1F93B, U+1F946, U+1F984, U+1F996, U+1F9E9, U+1FA00-1FA6F, U+1FA70-1FA7C, U+1FA80-1FAC6, U+1FAC8, U+1FACC-1FADD, U+1FADF-1FAEB, U+1FAEF-1FAFA, U+1FB00-1FBFF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/0b60bbe04e9c479444b3.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/cedb374b05a35034cf96.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("assets/1404ca348bd75ef836f4.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* fallback */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 400;
+  src: url("assets/0cc7fa1e4cecd746bb53.woff2") format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+*, ::before, ::after { box-sizing: border-box; margin: 0px; padding: 0px; }
+:root { --bg-page: #f8fafc; --bg-surface: #ffffff; --bg-selected: #e6f4f1; --border-color: #cbd5e1; --border-selected: #0f766e; --text-primary: #0f172a; --text-secondary: #475569; --text-muted: #64748b; --teal-primary: #0f766e; --teal-hover: #115e59; --teal-light: #f0fdfa; --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+html, body { width: 100%; height: 100dvh; overflow: hidden; background-color: var(--bg-page); font-family: var(--font-family); color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+.app-shell { display: flex; flex-direction: column; width: 100%; height: 100dvh; max-width: 100%; margin: 0px auto; background-color: var(--bg-page); position: relative; }
+.status-bar { height: 24px; min-height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0px 16px; font-size: 13px; font-weight: 500; color: var(--text-secondary); background-color: var(--bg-page); user-select: none; }
+.status-bar-icons { display: flex; align-items: center; gap: 6px; }
+.status-bar-icons .material-symbols-outlined { font-size: 14px; line-height: 1; }
+.top-bar { height: 56px; min-height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0px 16px; background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); z-index: 10; }
+.top-bar-left { display: flex; align-items: center; gap: 12px; min-width: 0px; }
+.icon-button { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: transparent; border-radius: 8px; color: var(--text-primary); cursor: pointer; flex-shrink: 0; }
+.icon-button:hover { background-color: rgb(241, 245, 249); }
+.top-bar-titles { display: flex; flex-direction: column; justify-content: center; min-width: 0px; }
+.top-bar-title { font-size: 22px; font-weight: 700; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-bar-subtitle { font-size: 13px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-badge { font-size: 13px; color: var(--text-muted); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 4px; background: var(--bg-surface); flex-shrink: 0; }
+.sync-note { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background-color: rgb(241, 245, 249); border-bottom: 1px solid var(--border-color); font-size: 13px; color: var(--text-secondary); line-height: 1.4; flex-shrink: 0; }
+.sync-note .material-symbols-outlined { font-size: 18px; color: var(--text-muted); flex-shrink: 0; }
+.content-area { flex: 1 1 0%; min-height: 0px; display: flex; flex-direction: column; padding: 16px; gap: 16px; overflow-y: auto; }
+.deck-panel { background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; min-height: min-content; flex-shrink: 0; overflow: hidden; }
+.panel-header { padding: 12px 16px; background-color: rgb(248, 250, 252); border-bottom: 1px solid var(--border-color); display: flex; align-items: baseline; justify-content: space-between; }
+.panel-title { font-size: 16px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.panel-count { font-size: 14px; font-weight: 500; color: var(--teal-primary); background-color: rgb(204, 251, 241); padding: 2px 8px; border-radius: 12px; }
+.panel-hint { font-size: 13px; color: var(--text-muted); }
+.card-list { display: flex; flex-direction: column; }
+.card-row-wrapper { border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; }
+.card-row-wrapper:last-child { border-bottom-width: medium; border-bottom-style: none; border-bottom-color: currentcolor; }
+.card-row { min-height: 48px; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; user-select: none; background-color: var(--bg-surface); transition: background-color 0.15s; }
+.card-row:hover { background-color: rgb(248, 250, 252); }
+.card-row.is-selected { background-color: var(--bg-selected); }
+.card-info { display: flex; align-items: baseline; gap: 12px; min-width: 0px; flex: 1 1 0%; }
+.card-qty { font-size: 15px; font-weight: 700; color: var(--teal-primary); min-width: 18px; text-align: right; }
+.card-name { font-size: 15px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-type { font-size: 13px; color: var(--text-muted); margin-left: auto; flex-shrink: 0; }
+.selection-indicator { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; }
+.selection-indicator .material-symbols-outlined { font-size: 20px; color: var(--teal-primary); }
+.card-action-bar { display: flex; align-items: center; justify-content: flex-end; padding: 8px 16px; background-color: rgb(240, 253, 250); border-top: 1px dashed rgb(153, 246, 228); gap: 12px; }
+.action-note { font-size: 13px; color: var(--teal-primary); margin-right: auto; }
+.text-button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; min-width: 48px; padding: 0px 16px; background-color: var(--teal-primary); color: rgb(255, 255, 255); border: 1px solid var(--teal-primary); border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap; transition: background-color 0.15s, border-color 0.15s; }
+.text-button:hover { background-color: var(--teal-hover); border-color: var(--teal-hover); }
+.text-button-outline { background-color: transparent; color: var(--teal-primary); border: 1px solid var(--teal-primary); }
+.text-button-outline:hover { background-color: rgb(230, 244, 241); }
+.bottom-inset { height: 16px; min-height: 16px; flex-shrink: 0; background-color: var(--bg-page); }
+@media screen and (min-width: 700px) and (max-height: 500px), screen and (min-width: 700px) {
+  .sync-note { padding: 6px 16px; }
+  .content-area { flex-direction: row; gap: 16px; overflow-y: hidden; align-items: stretch; }
+  .deck-panel { flex: 1 1 50%; min-width: 0px; height: 100%; overflow-y: auto; }
+  .panel-header { position: sticky; top: 0px; z-index: 2; }
+  .bottom-inset { height: 8px; min-height: 8px; }
+}
+@media screen and (min-width: 700px) and (max-height: 500px) {
+  .top-bar { height: 48px; min-height: 48px; }
+  .top-bar-title { font-size: 20px; }
+  .status-bar { display: none; }
+}</style><style type="text/css">
+/* Review normalization: touch targets must not shrink in landscape. */
+button, a[href], [role="button"] { min-width:48px !important; min-height:48px !important; }
+a[href] { display:inline-flex; align-items:center; justify-content:center; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
+/* Sources are inert visual mockups, not a functional application. */
+@media (min-width:700px) and (max-height:500px) {
+  .status-bar { display:flex; }
+  .top-bar { height:56px; min-height:56px; }
+}
+</style></head>
+<body inert="">
+  <div class="app-shell">
+
+    <!-- Android Minimal Status Area (24px) -->
+    <div class="status-bar" aria-hidden="true">
+      <span>10:30</span>
+      <div class="status-bar-icons">
+        <span class="material-symbols-outlined">signal_cellular_alt</span>
+        <span class="material-symbols-outlined">wifi</span>
+        <span class="material-symbols-outlined">battery_full</span>
+      </div>
+    </div>
+
+    <!-- Top Bar (56px) -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="icon-button" aria-label="Back to lobby" title="Back to lobby">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <div class="top-bar-titles">
+          <h1 class="top-bar-title">Prepare deck</h1>
+          <p class="top-bar-subtitle">Game copy — Training deck</p>
+        </div>
+      </div>
+      <span class="draft-badge">Draft L04</span>
+    </header>
+
+    <!-- Auto-Sync Notice Banner -->
+    <div class="sync-note" role="status">
+      <span class="material-symbols-outlined">sync</span>
+      <span>Changes sync automatically and clear only your Ready status.</span>
+    </div>
+
+    <!-- Main Content Container (Reflows into 2 equal columns on landscape) -->
+    <main class="content-area">
+
+      <!-- Panel 1: Mainboard / Library -->
+      <section class="deck-panel" aria-label="Mainboard">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>Mainboard / Library</span>
+            <span class="panel-count">60</span>
+          </div>
+          <span class="panel-hint">Any mainboard size</span>
+        </div>
+
+        <div class="card-list" role="list">
+
+          <!-- Selected Card Row with Move Action Button -->
+          <div class="card-row-wrapper">
+            <div class="card-row is-selected" role="listitem" tabindex="0" aria-label="Meadow Sentinel, 4 copies, selected">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Meadow Sentinel</span>
+                <span class="card-type">Creature</span>
+              </div>
+              <div class="selection-indicator">
+                <span class="material-symbols-outlined">check_circle</span>
+              </div>
+            </div>
+            <!-- Explicit Move Button Target >= 48px -->
+            <div class="card-action-bar">
+              <span class="action-note">1 of 4 targeted</span>
+              <button class="text-button" type="button">
+                Move 1 to sideboard
+              </button>
+            </div>
+          </div>
+
+          <!-- Unselected Rows -->
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Aegis Ward, 4 copies">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Aegis Ward</span>
+                <span class="card-type">Instant</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Solar Flare, 4 copies">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Solar Flare</span>
+                <span class="card-type">Sorcery</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Frontline Scout, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Frontline Scout</span>
+                <span class="card-type">Creature</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Rift Catalyst, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Rift Catalyst</span>
+                <span class="card-type">Artifact</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Training Land, 22 copies">
+              <div class="card-info">
+                <span class="card-qty">22</span>
+                <span class="card-name">Training Land</span>
+                <span class="card-type">Basic Land</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Panel 2: Sideboard -->
+      <section class="deck-panel" aria-label="Sideboard">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>Sideboard</span>
+            <span class="panel-count">15</span>
+          </div>
+          <span class="panel-hint">Any sideboard size</span>
+        </div>
+
+        <div class="card-list" role="list">
+
+          <!-- Selected Card Row on Sideboard with Move Action Button -->
+          <div class="card-row-wrapper">
+            <div class="card-row is-selected" role="listitem" tabindex="0" aria-label="Ember Adept, 2 copies, selected">
+              <div class="card-info">
+                <span class="card-qty">2</span>
+                <span class="card-name">Ember Adept</span>
+                <span class="card-type">Creature</span>
+              </div>
+              <div class="selection-indicator">
+                <span class="material-symbols-outlined">check_circle</span>
+              </div>
+            </div>
+            <!-- Explicit Move Button Target >= 48px -->
+            <div class="card-action-bar">
+              <span class="action-note">1 of 2 targeted</span>
+              <button class="text-button" type="button">
+                Move 1 to mainboard
+              </button>
+            </div>
+          </div>
+
+          <!-- Unselected Sideboard Rows -->
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Quiet Grove, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Quiet Grove</span>
+                <span class="card-type">Land</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Stone Guide, 4 copies">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Stone Guide</span>
+                <span class="card-type">Creature</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="River Warden, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">River Warden</span>
+                <span class="card-type">Creature</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Arcane Ward, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Arcane Ward</span>
+                <span class="card-type">Instant</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Safe Inset (16px) -->
+    <div class="bottom-inset" aria-hidden="true"></div>
+
+  </div>
+
+
+</body></html>

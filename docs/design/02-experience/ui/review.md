@@ -1,0 +1,780 @@
+---
+title: "Async Table — non-gameplay UI pilot"
+date: "2026-10-21"
+lang: en
+---
+
+# Review scope
+
+**Draft for owner review. Structure matters; style is provisional.** This is the
+first Stitch-based trial of the UI documentation process, not an approved final
+interface or a working Android app. “Async Table” is a working mockup title only.
+
+Review editions: [PDF download](review.pdf) · [Markdown source](review.md).
+
+Both **portrait and landscape are required** (D-290). Each screen below has a
+412 × 892 portrait capture and an 892 × 412 landscape capture. These are logical
+pixel/dp-like design viewports, not physical screen pixels or a promise about
+every Android device. The landscape image is a real rendering of the responsive
+design at the short, wide viewport—not a rotated or stretched portrait image.
+
+The pilot covers account entry, navigation, games/invitations, contacts, saved
+decks, import and lobby preparation. Gameplay, history, combat, reveal, card
+menus, communication and end-of-play overlays are **not designed here**. G00 and
+U01 contain deliberately empty gameplay areas; their rectangles do not settle
+the eventual board layout.
+
+## Reading the mockups
+
+- **Text button:** a labeled action such as “Ready” or “Accept.” A leading icon
+  does not turn it into an unlabeled icon button.
+- **Icon button:** Back arrow or password-visibility eye. The proposed normal
+  target is at least 48 × 48 logical pixels, with an accessible name.
+- **Label/status:** descriptive text such as “Ready,” “Invitation pending,” or a
+  card count. A checkmark complements text rather than replacing it with color.
+- **Field:** an explicitly labeled text input, search input or multiline pasted
+  list. Password contents are not silently trimmed or normalized.
+- **Thumbnail:** an abstract placeholder with a card-name fallback. No production
+  card artwork was requested for this pilot.
+- **Muted action:** unavailable, with a visible reason. It is not a future feature
+  hidden behind a paywall or an instruction to bypass a failed requirement.
+- **Scroll:** long lists and forms scroll within their content panel. Main actions
+  must remain reachable in both orientations; an initial viewport is not the
+  entire possible list. On-screen keyboard, large-text and split-screen variants
+  still need their own later visual checks.
+
+Typical draft dimensions: 24 px system-status allowance, 56 px app bar, 16 px
+outer margins, 12 px gaps, 48 px controls and a 16 px bottom safe-area allowance.
+These are review targets, not measured native Android implementation claims.
+Different operating-system insets will change the usable area.
+
+**Important:** these are static mockups. Their behavior is specified in the notes,
+not demonstrated by functioning buttons. An incidental label/decoration in a
+generated image does not authorize a feature that contradicts those notes.
+
+## Navigation overview
+
+```text
+Sign in ↔ Create account
+   └─ Forgot password → email link → New password → Sign in
+Main menu
+   ├─ Play → Accept invitation → same lobby
+   │       ├─ New game → Contacts → Invite → waiting lobby
+   │       ├─ Open lobby → choose/prepare deck → Ready
+   │       └─ Open active game → gameplay placeholder
+   ├─ Manage decks → deck details → rename / cover / re-import / delete
+   │              └─ Import → resolve all entries → save new or replace
+   ├─ Contacts → username search → Add contact → Invite
+   ├─ Android notification settings → operating-system settings
+   └─ Logout → signed-out entry
+Lobby → both Ready → gameplay placeholder
+```
+
+Back leaves a screen; it is not a game cancellation, Ready withdrawal, gameplay
+Undo or publication step. Rotation preserves the current screen and surviving
+in-process input/selection; it does not repeat a request or submit an unfinished
+form. Saved decks, contacts and games synchronize across devices, but unfinished
+forms and personal navigation are not automatically cross-device shared state.
+
+## Layout choices being proposed
+
+The following are **UI proposals**, not new behavior approvals: a distinct
+Contacts destination, its “Invite” placement, list/grid arrangements, bounded
+authentication forms, two-column landscape panels, import review/save routing,
+cover-selection confirmation, destructive-action dialogs and the read-only
+reconnect escape. “Random” is selected in the example lobby state; these images
+do not choose a universal initial starter default or retention policy.
+
+Existing rules are applied without asking for approval again: no guest/social
+login, contact approval, full saved-deck builder, score archive, host Start,
+extra Send, online-presence requirement, automatic opening draw, in-game
+Sideboard or in-app notification mute controls.
+
+## Source of behavior
+
+The primary repository source is
+`docs/design/03-contracts/accounts-decks-and-lobby.md`. The Android experience
+contract and technical notification profile add platform/recovery constraints.
+These source references are repository documents, not extra pages required to
+read the hosted packet. Decision references below identify already agreed
+behavior; the particular control geometry remains proposed.
+
+## Suggested review
+
+Refer to a screen ID and orientation, for example “L04 landscape: make the
+sideboard narrower.” Review the hierarchy, approximate space allocation,
+icon-versus-text choices, visibility of actions and the state transitions.
+Colors, fonts, borders and the working name can be ignored for this pilot.
+
+::: {.screen-section}
+## A01 — Sign in
+
+::: {.screen-pair}
+::: {.portrait}
+![A01 portrait — sign-in form with example error](images/sign-in-portrait.png)
+:::
+::: {.landscape}
+![A01 landscape — intro and form side by side](images/sign-in-landscape.png)
+:::
+:::
+
+**Layout:** portrait gives the form a bounded central column; landscape moves
+the modest app intro beside the form instead of enlarging the fields. Email and
+Password are text fields; the eye is an icon button. Sign in, Create account and
+Forgot password are labeled actions. The image deliberately includes an example
+credential error; a clean initial form omits that message.
+
+**Interaction:** Sign in submits credentials. Failure keeps inputs available for
+correction; success opens the main menu or resumes the same-account return
+context. A valid existing login skips this screen across ordinary restarts and
+inactivity. No guest entry, alternate social provider or routine session expiry.
+Password visibility is personal UI only. Back does not sign another device out.
+
+**Basis:** D-188, D-197, D-217, D-249, D-268, D-289.
+:::
+
+::: {.screen-section}
+## A02 — Create account
+
+::: {.screen-pair}
+::: {.portrait}
+![A02 portrait — labeled registration fields](images/register-portrait.png)
+:::
+::: {.landscape}
+![A02 landscape — compact registration layout](images/register-landscape.png)
+:::
+:::
+
+**Layout:** Username, Email and Password are fields. The password eye is an icon;
+Create account and Sign in are text actions. Landscape uses the width for an
+intro/form split and allows the form panel to scroll, not smaller touch targets.
+
+**Interaction:** registration uses these three credentials; username is public
+player identity while email is private. Invalid input/network failure stays on
+this form with a specific inline explanation and preserved editable input.
+The proposed successful route returns to A01 with a success notice and known
+email populated; it does not invent an email-verification gate. No confirmation
+password, social login or profile editor is required by this draft. Password
+whitespace/Unicode handling stays consistent with sign-in and reset.
+
+**Basis:** D-197, D-249; success navigation and exact feedback are UI proposals.
+:::
+
+::: {.screen-section}
+## A02b — Registration: lower form
+
+::: {.screen-pair}
+::: {.portrait}
+![A02b portrait — registration form, no scrolling needed](images/register-scrolled-portrait.png)
+:::
+::: {.landscape}
+![A02b landscape — form scrolled to Create account and Sign in](images/register-scrolled-landscape.png)
+:::
+:::
+
+**Same screen, different scroll position:** the short landscape form panel is
+scrolled to its bottom to expose Create account and the Sign in link at full
+touch size. The portrait form fits already, so that capture is unchanged. This
+is not a separate registration step, new server state or submission. It makes
+the landscape scrolling cost visible rather than hiding it in the tap budget.
+:::
+
+::: {.screen-section}
+## A03 — Password reset email
+
+::: {.screen-pair}
+::: {.portrait}
+![A03 portrait — reset request submitted](images/reset-email-portrait.png)
+:::
+::: {.landscape}
+![A03 landscape — reset request submitted](images/reset-email-landscape.png)
+:::
+:::
+
+**Layout:** one Email field, Send reset link text button, neutral submitted-state
+notice and Back to sign in. The initial state uses the same structure without
+the submitted notice. The sample email is synthetic, not account data.
+
+**Interaction:** request an email reset link without revealing whether that
+address is registered. A delivery/request failure keeps the address editable and
+shows a retryable inline error; it does not claim the password changed. Merely
+requesting or opening a reset link does not revoke sessions. The successful
+email-link flow continues at A04, not an invented six-digit-code screen.
+
+**Basis:** D-197, D-279; neutral response follows the authentication profile.
+:::
+
+::: {.screen-section}
+## A04 — Set a new password
+
+::: {.screen-pair}
+::: {.portrait}
+![A04 portrait — valid password-reset link](images/new-password-portrait.png)
+:::
+::: {.landscape}
+![A04 landscape — valid password-reset link](images/new-password-landscape.png)
+:::
+:::
+
+**Layout:** New password is a field; its eye is an icon button. Change password
+is a text button. The valid reset-link state is shown. Email and username are
+not additional editable account settings here.
+
+**Interaction:** successful reset changes the password and revokes existing
+sessions for new requests, then returns to Sign in with a success notice. An
+expired/invalid/already-used link instead shows a non-actionable error and a
+Request another link route to A03; it does not submit a reset or revoke sessions.
+Do not silently trim password contents. Already-authorized/in-flight requests
+may still finish normally; the UI must not promise recall of those operations.
+
+**Basis:** D-197, D-249, D-279, D-289. Alternate link/error state is described here
+but not separately pictured in this pilot.
+:::
+
+::: {.screen-section}
+## N01 — Main menu
+
+::: {.screen-pair}
+::: {.portrait}
+![N01 portrait — main destinations and Logout](images/home-portrait.png)
+:::
+::: {.landscape}
+![N01 landscape — compact main-menu layout](images/home-landscape.png)
+:::
+:::
+
+**Layout:** Play, Manage decks and Contacts are large icon-plus-text destinations.
+Android notification settings is a smaller text link to OS settings, not a new
+in-app preferences suite. Logout is separately labeled. “alex” is an example
+username, not the authenticated service account used to produce these designs.
+
+**Interaction:** Play opens P01; Manage decks opens D01; Contacts opens P02.
+Logout immediately clears this device's login and private downloads, returning
+to A01 without deleting server games/decks or logging out independent devices.
+Remote revocation is best effort. This proposed layout does not add a routine
+logout confirmation or expose account-email data in shared player lists.
+
+**Basis:** D-188, D-196, D-218, D-220, D-241, D-282, D-289.
+:::
+
+::: {.screen-section}
+## P01 — Games and invitations
+
+::: {.screen-pair}
+::: {.portrait}
+![P01 portrait — invitations, games and retained lobby](images/play-portrait.png)
+:::
+::: {.landscape}
+![P01 landscape — invitations beside games and lobbies](images/play-landscape.png)
+:::
+:::
+
+**Layout:** explicitly separated invitation, active-game and lobby sections.
+Accept/Decline, Open, Open lobby, Reinvite and New game are text actions; status
+labels are not action buttons. Landscape gives lists separate columns.
+
+**Interaction:** Accept enters the exact existing lobby as L02, without Ready or
+an immediate start. Decline retains the inviter's lobby/preparation/Ready.
+Reinvite addresses that lobby, not a replacement game. Invitations do not expire
+automatically; cancelling a game removes its invitation and current listing.
+Open active game reaches G00 in this pilot. New game opens P02. An empty list
+would show “No current games” with New game, not a finished-game archive.
+
+**Basis:** D-188, D-195, D-208, D-209, D-214, D-287. Empty/loading states are not
+separate mockups yet; no unread/read, presence or result statistics are implied.
+:::
+
+::: {.screen-section}
+## P02 — Contacts and new game
+
+::: {.screen-pair}
+::: {.portrait}
+![P02 portrait — saved contacts and username search](images/contacts-portrait.png)
+:::
+::: {.landscape}
+![P02 landscape — search results beside saved contacts](images/contacts-landscape.png)
+:::
+:::
+
+**Layout:** Search usernames is a field; search magnifier is a supporting icon.
+Search, Add contact and Invite are labeled text actions. Saved contacts and
+search results remain separate. No email addresses or online-status dots.
+
+**Interaction:** Search produces explicit username matches; Add contact saves a
+contact directly with no friend-request approval. A newly saved contact gets
+Invite in the contact list. Invite creates a game plus its first invitation and
+opens L01. There is no extra confirmation/selection wizard or automatic recipient
+acceptance. No results uses an inline “No matching usernames” notice, not a
+missing-user substitution. Removing contacts is not invented by this pilot.
+
+**Basis:** D-195, D-196, D-197, D-218. Exact search matching is not settled by
+these example names or the placement of the Search button.
+:::
+
+::: {.screen-section}
+## D01 — Saved decks
+
+::: {.screen-pair}
+::: {.portrait}
+![D01 portrait — named saved decks and Import](images/decks-portrait.png)
+:::
+::: {.landscape}
+![D01 landscape — deck collection layout](images/decks-landscape.png)
+:::
+:::
+
+**Layout:** named deck rows/cards use cover placeholders and descriptive
+mainboard/sideboard counts. Import deck is a labeled text action with a supporting
+icon. Opening a deck goes to D02. An empty collection keeps Import deck visible.
+
+**Interaction:** collection names/lists/covers synchronize between the account's
+devices. Saved card-list changes happen through import, not individual quantity
+editors or a deck-builder search. No Export, legality badge, restore bin,
+win-rate statistics or gameplay Undo for collection deletion. Missing artwork
+uses the deck/card text fallback and does not prevent import or deck selection.
+
+**Basis:** D-189, D-198, D-199, D-218, D-221, D-241, D-271.
+:::
+
+::: {.screen-section}
+## D02 — Saved deck details
+
+::: {.screen-pair}
+::: {.portrait}
+![D02 portrait — metadata actions and read-only card list](images/deck-detail-portrait.png)
+:::
+::: {.landscape}
+![D02 landscape — metadata beside read-only card list](images/deck-detail-landscape.png)
+:::
+:::
+
+**Layout:** Name/Rename and cover/Choose cover are metadata controls. Re-import
+and Delete saved deck are text actions. Mainboard/Sideboard tabs only choose
+which read-only saved list is displayed; they are not in-game zone controls.
+Landscape puts metadata beside that list.
+
+**Interaction:** proposed Rename opens a small name-field dialog with Save name
+and Cancel; it cannot change card quantities. Choose cover opens D05. Re-import
+opens D03 with this saved deck as a replacement candidate. Delete opens D06.
+Saving or deleting this collection entry never rewrites copies already selected
+in a lobby/game. Card names and counts in the mockup are illustrative synthetic
+data, not a real valid import or a required deck-size rule.
+
+**Basis:** D-189, D-199, D-221. Rename's edit state is described but not separately
+pictured; naming/duplicate policies are not inferred from the example.
+:::
+
+::: {.screen-section}
+## D03 — Import with unresolved names
+
+::: {.screen-pair}
+::: {.portrait}
+![D03 portrait — preserved pasted list and blocking line error](images/import-errors-portrait.png)
+:::
+::: {.landscape}
+![D03 landscape — pasted text beside resolution issues](images/import-errors-landscape.png)
+:::
+:::
+
+**Layout:** Deck list is a multiline text field, not a card builder. The error
+identifies the unresolved line. Review import is unavailable while entries are
+unresolved. Landscape uses an input/issues split; input and feedback must both
+remain reachable rather than squeezing the text area into a one-line field.
+
+**Interaction:** accept ordinary quantity/name lists, common optional printing
+suffixes and supported mainboard/sideboard separators. Correct the pasted text
+or retry lookup; never silently choose an ambiguous card or save a partial list.
+Nothing replaces a saved deck on lookup/transport failure. When all entries
+resolve, Review import advances to D04. Art downloading and obtaining the newest
+entire catalog are not save prerequisites. No separate Send/definition-upload UI.
+
+**Basis:** D-198, D-271, D-289. The misspelled synthetic entry deliberately models
+an error; these fake card names do not claim compatibility with a live catalog.
+D04 uses a separate complete sample, not the computed count of this short list.
+:::
+
+::: {.screen-section}
+## D04 — Resolved import and save choice
+
+::: {.screen-pair}
+::: {.portrait}
+![D04 portrait — resolved import with save-new or replace choice](images/import-save-portrait.png)
+:::
+::: {.landscape}
+![D04 landscape — resolved list beside save controls](images/import-save-landscape.png)
+:::
+:::
+
+**Layout:** resolved counts and a read-only preview accompany a Deck name field.
+Save as new / Replace saved deck is an explicit mode choice; replacement identifies
+the target collection entry. Save deck and Edit pasted list are text actions.
+Cover selection is optional later metadata, not a forced extra import step.
+
+**Interaction:** Save as new creates a distinct saved entry; Replace changes the
+selected saved entry only. Neither changes a lobby/game's selected copy. Save
+requires fully resolved definitions and atomic server acceptance; failure retains
+the previous valid saved deck and editable input. Success returns to D02 (or the
+calling lobby deck picker when import was launched there). This ordinary form
+save is not a gameplay Send gate or proof of format legality.
+
+**Basis:** D-198, D-199, D-221, D-271, D-289. The two-step input/review presentation
+is proposed and can be simplified during owner review.
+:::
+
+::: {.screen-section}
+## D04b — Import review: save controls
+
+::: {.screen-pair}
+::: {.portrait}
+![D04b portrait — import review scrolled to save actions](images/import-save-scrolled-portrait.png)
+:::
+::: {.landscape}
+![D04b landscape — right-hand save panel scrolled to its actions](images/import-save-scrolled-landscape.png)
+:::
+:::
+
+**Same screen, different scroll position:** expose the bottom of D04, including
+Save deck and Edit pasted list. Long content scrolls; no target shrinks to fit.
+The selected Save as new example still applies. Choosing Replace instead uses
+the existing-deck selector on this same form, not an additional Send/upload step.
+This extra view is a UI-review continuation, not another mandatory route screen.
+:::
+
+::: {.screen-section}
+## D05 — Choose a deck cover
+
+::: {.screen-pair}
+::: {.portrait}
+![D05 portrait — cover choice restricted to this deck](images/choose-cover-portrait.png)
+:::
+::: {.landscape}
+![D05 landscape — cover grid with selection preview](images/choose-cover-landscape.png)
+:::
+:::
+
+**Layout:** card-name tiles are selectable thumbnails, not card-edit controls.
+The selected tile has an outline/check plus text. Use selected card confirms the
+metadata choice; Cancel/Back leaves it unchanged. Landscape uses the short width
+efficiently while allowing the grid to scroll.
+
+**Interaction:** select one card already in this deck as its cover. No image
+upload, crop tool, outside-catalog cover choice or mutation of that card. Text
+fallback remains available while art is absent. The small selection/confirmation
+step is a reviewable UI proposal, not a new game-action confirmation requirement.
+Cover fallback after a later re-import is not decided by these example tiles.
+
+**Basis:** D-199, D-271.
+:::
+
+::: {.screen-section}
+## D06 — Delete a saved deck
+
+::: {.screen-pair}
+::: {.portrait}
+![D06 portrait — delete confirmation over deck collection](images/delete-deck-portrait.png)
+:::
+::: {.landscape}
+![D06 landscape — bounded delete confirmation](images/delete-deck-landscape.png)
+:::
+:::
+
+**Layout:** a bounded modal over the collection, with Keep deck and Delete saved
+deck as text buttons. The destructive button is distinguished by wording as well
+as styling. Background rows are not interactive while the modal is open.
+
+**Interaction:** Keep deck/Back cancels this dialog without deleting anything.
+Delete saved deck requests collection deletion and returns to D01 after success.
+Selected game/lobby copies survive. No trash folder, gameplay Undo or misleading
+“Undo deletion” snackbar is offered. A failed deletion reports its actual failure
+without optimistically claiming permanent success. This one destructive-data
+confirmation is a proposal, not a universal confirm-every-action policy.
+
+**Basis:** D-221, D-241; exact confirmation presentation is UI design work.
+:::
+
+::: {.screen-section}
+## L01 — Lobby awaiting invitation acceptance
+
+::: {.screen-pair}
+::: {.portrait}
+![L01 portrait — inviter can prepare and Ready while waiting](images/waiting-invite-portrait.png)
+:::
+::: {.landscape}
+![L01 landscape — own preparation beside invitation status](images/waiting-invite-landscape.png)
+:::
+:::
+
+**Layout:** own deck/preparation, recipient invitation status, starter choice and
+Ready are distinct. Ready is enabled because this example has an own selected
+deck, even though riley has not accepted. Cancel game is separate from Back.
+Random is an illustrative selected value, not an approved universal default.
+
+**Interaction:** Change deck opens L03; Prepare deck opens L04. Ready can persist
+before acceptance. The opponent's later acceptance opens this same lobby without
+resetting the inviter's preparation or Ready. Decline retains it and permits
+Reinvite through the existing-lobby path. Cancel game removes this pending invite
+and its game; merely leaving the screen does neither. No host Start or expiry.
+
+**Basis:** D-195, D-201, D-204–D-209, D-287.
+:::
+
+::: {.screen-section}
+## L02 — Accepted lobby before own deck selection
+
+::: {.screen-pair}
+::: {.portrait}
+![L02 portrait — choose own deck before Ready](images/lobby-select-deck-portrait.png)
+:::
+::: {.landscape}
+![L02 landscape — own preparation and opponent Ready](images/lobby-select-deck-landscape.png)
+:::
+:::
+
+**Layout:** Choose deck is the own-side primary action. Opponent Ready is an
+explicit status with text/checkmark, not permission to start for them. Own Ready
+is disabled with the visible reason “Select your deck.” Starter offers either
+participant or Random; it is not a pre-start reroll.
+
+**Interaction:** Accepting P01 did not select a deck, Ready or immediately start.
+Select an existing saved deck through L03; no legality or size check is added.
+After selection, Prepare deck and enabled Ready use L01/L05's layout with accepted
+opponent status. Changes to own deck/preparation/starter clear only the changing
+player's Ready. Late lobby edits after the game starts fail normally; the screen
+must move to the actual active game rather than reopening the lobby.
+
+**Basis:** D-190, D-191, D-195, D-201, D-204, D-205, D-274.
+:::
+
+::: {.screen-section}
+## L03 — Select a game-local deck copy
+
+::: {.screen-pair}
+::: {.portrait}
+![L03 portrait — saved deck choices for this game](images/choose-lobby-deck-portrait.png)
+:::
+::: {.landscape}
+![L03 landscape — deck-selection grid](images/choose-lobby-deck-landscape.png)
+:::
+:::
+
+**Layout:** saved deck name, cover fallback and descriptive counts accompany each
+Select text action. Import deck is a secondary escape when the collection lacks
+the desired deck, not a required detour for normal selection.
+
+**Interaction:** Select creates/replaces this game's prepared copy and returns
+directly to its lobby. It clears own Ready without affecting the opponent's.
+It does not edit the saved source, auto-ready or require another Send/confirmation.
+Deleting/editing the source later leaves this copy intact. Back cancels the picker
+without changing selection. An empty collection uses the same Import route;
+there is no automatic blank deck or silent substitute.
+
+**Basis:** D-189, D-191, D-199, D-205, D-221.
+:::
+
+::: {.screen-section}
+## L04 — Prepare mainboard and sideboard
+
+::: {.screen-pair}
+::: {.portrait}
+![L04 portrait — lobby-only mainboard and sideboard panels](images/prepare-deck-portrait.png)
+:::
+::: {.landscape}
+![L04 landscape — preparation lists side by side](images/prepare-deck-landscape.png)
+:::
+:::
+
+**Layout:** Mainboard / Library and Sideboard are separate labeled list panels.
+Selected rows and explicit Move 1 text actions provide discoverable transfer
+controls without depending on drag precision. Landscape uses equal independently
+scrollable columns; portrait stacks them. Quantity/name rows summarize copies,
+not saved-deck editing privileges.
+
+**Interaction:** choose a row and transfer one copy in either direction; repeat
+as desired, with no one-for-one or legal-size enforcement. Completed transfers
+automatically synchronize, clear only own Ready and leave the saved deck alone.
+No Save preparation/Done-to-send is required. Back simply returns to the lobby.
+On entering actual play, no Sideboard view/edit/move path exists. The shown
+per-copy list controls are proposals, not a finalized drag/drop or bulk design.
+
+**Basis:** D-189, D-191, D-202, D-203, D-259.
+:::
+
+::: {.screen-section}
+## L05 — Own Ready accepted
+
+::: {.screen-pair}
+::: {.portrait}
+![L05 portrait — own Ready and waiting for the opponent](images/ready-waiting-portrait.png)
+:::
+::: {.landscape}
+![L05 landscape — Ready status and setup controls](images/ready-waiting-landscape.png)
+:::
+:::
+
+**Layout:** own Ready is a textual status/checkmark. Withdraw Ready is an explicit
+action; Change deck/Prepare deck remain discoverable. No host Start button or
+both-online indicator. Cancel game remains separate and applies only before start.
+
+**Interaction:** Ready persists after leaving/disconnection; it is not a liveness
+lease. The second accepted Ready starts once, even while the first player is away.
+Start shuffles both Libraries, sets life to 20, resolves a selected Random starter
+and begins turn 1 at Untap, with **no automatic opening draw**. The pilot then
+shows G00. On returning after an accepted game ending, restore last prepared
+decks, clear both Ready and use this lobby structure in its not-ready state;
+both must ready again. Back alone never withdraws Ready or cancels the game.
+
+**Basis:** D-190, D-200, D-204, D-205, D-213, D-274.
+:::
+
+::: {.screen-section}
+## L06 — Cancel an unstarted game
+
+::: {.screen-pair}
+::: {.portrait}
+![L06 portrait — explicit lobby-cancellation dialog](images/cancel-lobby-portrait.png)
+:::
+::: {.landscape}
+![L06 landscape — bounded lobby-cancellation dialog](images/cancel-lobby-landscape.png)
+:::
+:::
+
+**Layout:** proposed confirmation with Keep game / Cancel game text buttons. The
+dimmed background is a lobby, not a live game. Back/close keeps the game.
+
+**Interaction:** either participant can request cancellation before start without
+the other player's approval. It removes the current listing and pending invite;
+there is no trash/restore UI. Leaving the screen is different and preserves the
+lobby/Ready. If start already won the normal server ordering race, do not cancel
+or reset that started play; show the current game. Reinvitation must not revive
+a cancelled lobby. This dialog is not the gameplay result-suggestion/acceptance
+flow, which is intentionally excluded from the pilot.
+
+**Basis:** D-205–D-209, D-241, D-287. The extra cancellation confirmation is a
+reviewable UI proposal, not approval of an extra gameplay-ending confirmation.
+:::
+
+::: {.screen-section}
+## G00 — Gameplay intentionally omitted
+
+::: {.screen-pair}
+::: {.portrait}
+![G00 portrait — empty gameplay placeholder](images/gameplay-placeholder-portrait.png)
+:::
+::: {.landscape}
+![G00 landscape — empty gameplay placeholder](images/gameplay-placeholder-landscape.png)
+:::
+:::
+
+**Layout:** only a shell, Back and a clearly labeled empty content area. This
+gives the non-gameplay navigation a destination and demonstrates two orientations.
+It does not settle how much space the real board, hand, history or controls get.
+
+**Interaction:** active-game Open and lobby Start transitions terminate at this
+placeholder for the pilot. The real app's start remains automatic on both Ready;
+there is no Start control here. Back returns to current games, not a shared game
+Undo, game cancellation or result suggestion. No Sideboard is shown during play.
+
+**Scope:** live/historic/playback views, card menus, selection, dragging, combat,
+Stack, reveal, inspectors, history tree, chat and result coordination require a
+later gameplay design batch with the owner's verbal guidance.
+:::
+
+::: {.screen-section}
+## U01 — Reconnecting and downloaded read-only review
+
+::: {.screen-pair}
+::: {.portrait}
+![U01 portrait — reconnecting modal over an empty game area](images/reconnecting-portrait.png)
+:::
+::: {.landscape}
+![U01 landscape — reconnecting and read-only navigation](images/reconnecting-landscape.png)
+:::
+:::
+
+**Layout:** Reconnecting is a status dialog over the same deliberately empty
+area. Review downloaded data and Back to games are text navigation actions.
+This proposes a clear way out of the blocking dialog without enabling mutations.
+
+**Interaction:** shared actions stay blocked while disconnected, including Undo,
+Ready, branch activation and new inspection requiring exposure logging. Downloaded
+read-only navigation remains available. This does not create offline actions or
+a manual-resend/recovery-center workflow. Same-process reconnect automatically
+recovers actual already-sent outcomes with original identities. Process restart
+instead syncs server state and may lose uncommitted local work. Unknown outcome
+is not rejection; the UI must not invite duplicate submission as a fresh action.
+
+**Basis:** D-182, D-215, D-216, D-241, D-246, D-252, D-278. The exact dialog escape
+and wording are UI proposals; the gameplay contents remain undesigned.
+:::
+
+# Whole-journey interaction budgets
+
+These are draft counts for the proposed route, not measured Android tests. A
+“tap” means one explicit activation; typing/pasting, scrolling and keyboard
+dismissal are additional interaction cost, not hidden zero-cost steps.
+
+| Starting state → goal | Proposed route and explicit activations | Additional work |
+| --- | --- | --- |
+| Main menu → existing active game | Play → Open: **2 taps**. | List scrolling if needed. |
+| Main menu → accept a visible invite | Play → Accept: **2 taps**, arriving in the same lobby, not Ready. | Scrolling if needed. |
+| Main menu → invite a saved contact | Contacts → Invite: **2 taps**, arriving in waiting lobby. | Contact-list scrolling if needed. |
+| Main menu → search, add and invite | Contacts → Search field → Search → Add contact → Invite: **5 taps**. | Type username; keyboard/scroll cost may add taps. |
+| Main menu → save a new imported list | Manage decks → Import → list field → Review import → name field → Save deck: **6 taps**. | Paste/type list and name; correction/keyboard/scroll cost. |
+| Accepted lobby without a deck → Ready | Choose deck → Select → Ready: **3 taps**. | Deck-list scrolling if needed. No legality/size confirmation. |
+| Preparation open → transfer one copy | Select row → Move 1: **2 taps**. | List scrolling if needed; repeated moves must not add a Send step. |
+| Ready lobby → leave without withdrawing | Back: **1 tap**. | No cancellation or publication prompt. |
+| Saved-deck details → delete collection entry | Delete saved deck → confirm deletion: **2 taps**. | Copies selected in games survive. |
+
+The import review split, cover confirmation and cancellation dialog are intentional
+pilot proposals whose interaction cost should be reviewed, not silently declared
+optimal. Reaching a visible button may require scrolling in short landscape or
+with a keyboard; the later large-text/keyboard review must count that cost too.
+
+# Coverage and limits
+
+**Pictured:** 21 primary screen/state drafts and two scrolled continuations, all
+in both orientations: **46 captures**. These include an
+inline sign-in error, submitted reset request, unresolved import, two import save
+modes in one state, collection-deletion modal, waiting invitation, no-own-deck
+lobby, preparation, accepted Ready, cancellation modal and reconnect dialog.
+
+**Described but not separately pictured:** clean authentication forms, network
+and field errors, invalid reset link, empty/loading/search-no-results lists,
+rename editor, import lookup-in-progress/save failure, replacing-mode selection,
+returned-lobby not-ready state and successful reconnect. These still need visual
+state completion before claiming that every non-gameplay state is designed.
+
+**Not claimed:** final visual style, full keyboard/large-text/tablet/foldable
+coverage, touch/accessibility usability validation, live Android behavior,
+exhaustive state/concurrency testing or a passed UI/review gate. Platform
+notification permission dialogs/settings belong to Android; this pilot includes
+their entry point, not fabricated custom mute/settings screens.
+
+Behavior and UI discrepancies found during review are documentation/design work,
+not permission to add features or start application implementation.
+
+# Provenance and review artifacts
+
+The layouts were requested from Google Stitch in the private design project
+**6617750535460836476** on 2026-10-21. Static HTML exports, generation briefs and
+the screen manifest are retained with this packet. Each responsive source is
+captured at both fixed viewports; no portrait screenshot is stretched to make a
+landscape image. Review captures, not Stitch's default large canvas preview,
+are the images embedded here.
+
+See [generation briefs](generation-briefs.md) and [source manifest](manifest.json).
+The exported HTML is design material with executable interactions removed, not
+production frontend/application scaffolding. Any documented normalization or
+repair of generated presentation is recorded in the manifest/build notes rather
+than silently attributed to Stitch.
+
+Review repairs included removing Stitch-invented 60/15-card size restrictions
+from lobby/preparation wording, describing definition resolution rather than
+catalog authenticity, restoring a clipped landscape Back target and widening a
+landscape reset form that had accidentally retained its portrait width limit.
+The minimum-target normalization also makes some short landscape panels scroll;
+it must not be mistaken for a completed native accessibility review.
+
+The [UI draft index](README.md) explains rebuild and private hosting. HTML and
+PDF are compiled from this same Markdown and use the same embedded image files.
+Review progress is not a separate source of game behavior.

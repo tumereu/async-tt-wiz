@@ -1,0 +1,119 @@
+<!-- STATIC UI REVIEW MOCKUP: Stitch export, locally frozen styles/fonts; not app implementation. -->
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>G00 — Gameplay intentionally omitted (Async Table)</title>
+  <!-- Material Symbols Outlined -->
+
+
+<style type="text/css">/* fallback */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 400;
+  src: url("assets/0cc7fa1e4cecd746bb53.woff2") format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+*, ::before, ::after { box-sizing: border-box; margin: 0px; padding: 0px; }
+:root { --bg-canvas: #f8fafc; --bg-surface: #ffffff; --border-color: #cbd5e1; --border-subtle: #e2e8f0; --text-main: #0f172a; --text-muted: #64748b; --text-subtle: #94a3b8; --primary-teal: #0f766e; --primary-teal-hover: #115e59; --radius: 8px; --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+html, body { width: 100%; height: 100dvh; overflow: hidden; background-color: var(--bg-canvas); color: var(--text-main); font-family: var(--font-family); -webkit-font-smoothing: antialiased; line-height: 1.4; }
+.app-frame { display: flex; flex-direction: column; width: 100%; height: 100dvh; max-width: 100%; background-color: var(--bg-canvas); }
+.status-bar-inset { height: 24px; min-height: 24px; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0px 16px; font-size: 13px; font-weight: 500; color: var(--text-muted); background-color: var(--bg-canvas); user-select: none; }
+.status-icons { display: flex; align-items: center; gap: 6px; }
+.status-icons .material-symbols-outlined { font-size: 15px; line-height: 1; color: var(--text-muted); }
+.top-bar { height: 56px; min-height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0px 8px; background-color: var(--bg-canvas); border-bottom: 1px solid var(--border-subtle); }
+.top-bar-left { display: flex; align-items: center; gap: 8px; min-width: 0px; }
+.icon-button { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; min-width: 48px; min-height: 48px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: transparent; color: var(--text-main); border-radius: var(--radius); cursor: pointer; }
+.icon-button:active { background-color: var(--border-subtle); }
+.top-bar-title { font-size: 22px; font-weight: 600; color: var(--text-main); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-bar-badge { display: inline-flex; align-items: center; padding: 2px 8px; font-size: 13px; font-weight: 500; color: var(--text-muted); background: rgb(241, 245, 249); border: 1px solid var(--border-subtle); border-radius: 4px; margin-right: 8px; flex-shrink: 0; }
+.screen-content { flex: 1 1 0%; display: flex; flex-direction: column; padding: 16px; gap: 12px; min-height: 0px; overflow: hidden; }
+.orientation-meta { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-muted); padding: 0px 4px; flex-shrink: 0; }
+.orientation-badge { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.orientation-badge::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: var(--primary-teal); }
+.omitted-gameplay-container { flex: 1 1 0%; width: 100%; min-height: 0px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background-color: rgb(255, 255, 255); border: 1.5px dashed var(--border-color); border-radius: var(--radius); padding: 24px 20px; box-shadow: rgba(241, 245, 249, 0.6) 0px 0px 0px 1px inset; }
+.omitted-title { font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; max-width: 360px; }
+.omitted-caption { font-size: 13px; color: var(--text-muted); max-width: 360px; line-height: 1.45; }
+.bottom-safe-inset { height: 16px; min-height: 16px; width: 100%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background-color: var(--bg-canvas); }
+.android-nav-indicator { width: 72px; height: 4px; background-color: rgb(203, 213, 225); border-radius: 2px; }
+@media (min-width: 700px) and (max-height: 500px) {
+  .status-bar-inset { height: 20px; min-height: 20px; font-size: 12px; padding: 0px 16px; }
+  .top-bar { height: 48px; min-height: 48px; padding: 0px 8px; }
+  .top-bar-title { font-size: 20px; }
+  .icon-button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  .screen-content { padding: 10px 16px; gap: 8px; }
+  .orientation-meta { font-size: 12px; padding: 0px 2px; }
+  .omitted-gameplay-container { padding: 12px 24px; }
+  .omitted-title { font-size: 15px; margin-bottom: 4px; max-width: 600px; }
+  .omitted-caption { font-size: 13px; max-width: 600px; }
+  .bottom-safe-inset { height: 10px; min-height: 10px; }
+  .android-nav-indicator { width: 96px; height: 3px; }
+}</style><style type="text/css">
+/* Review normalization: touch targets must not shrink in landscape. */
+button, a[href], [role="button"] { min-width:48px !important; min-height:48px !important; }
+a[href] { display:inline-flex; align-items:center; justify-content:center; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
+/* Sources are inert visual mockups, not a functional application. */
+</style></head>
+<body inert="">
+  <div class="app-frame">
+    <!-- Minimal Android Status Area (24px) -->
+    <header class="status-bar-inset" aria-label="System status">
+      <span class="status-time">10:30</span>
+      <div class="status-icons">
+        <span class="material-symbols-outlined" aria-hidden="true">signal_cellular_alt</span>
+        <span class="material-symbols-outlined" aria-hidden="true">wifi</span>
+        <span class="material-symbols-outlined" aria-hidden="true">battery_full</span>
+      </div>
+    </header>
+
+    <!-- Top Action Bar (56px) -->
+    <nav class="top-bar" aria-label="Screen header">
+      <div class="top-bar-left">
+        <button class="icon-button" aria-label="Back to lobbies and games" type="button">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 class="top-bar-title">Game with riley</h1>
+      </div>
+      <div class="top-bar-badge">Draft G00</div>
+    </nav>
+
+    <!-- Main Screen Content Area -->
+    <main class="screen-content">
+      <!-- Orientation label outside the rectangle -->
+      <div class="orientation-meta">
+        <span class="orientation-badge">Active Viewport • Portrait / Landscape Responsive</span>
+        <span>Async Table</span>
+      </div>
+
+      <!-- Large Empty Light-Gray Outlined Rectangle -->
+      <section class="omitted-gameplay-container" aria-label="Gameplay placeholder">
+        <h2 class="omitted-title">Gameplay area intentionally omitted from this pilot</h2>
+        <p class="omitted-caption">Portrait and landscape gameplay layouts will be designed separately.</p>
+      </section>
+    </main>
+
+    <!-- Bottom Safe Inset Area (16px) -->
+    <footer class="bottom-safe-inset" aria-hidden="true">
+      <div class="android-nav-indicator"></div>
+    </footer>
+  </div>
+
+
+</body></html>

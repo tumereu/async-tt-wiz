@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D04 — Resolved import and save choice (Async Table)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-canvas: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --border-color: #cbd5e1;
+      --border-focus: #0f766e;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-helper: #475569;
+      --teal-primary: #0f766e;
+      --teal-primary-hover: #115e59;
+      --teal-surface-tint: #f0fdfa;
+      --radius: 8px;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* Minimal App Container fitting 100dvh exactly */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100dvh;
+      background-color: var(--bg-canvas);
+      overflow: hidden;
+    }
+
+    /* Minimal Android status area 24px */
+    .status-bar {
+      height: 24px;
+      padding: 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background-color: var(--bg-canvas);
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .status-bar-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .status-bar-icons .material-symbols-outlined {
+      font-size: 14px;
+    }
+
+    /* Standard Android top bar 56px */
+    .top-bar {
+      height: 56px;
+      padding: 0 8px 0 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--bg-surface);
+      flex-shrink: 0;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .icon-btn {
+      width: 48px;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+
+    .top-bar-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .draft-badge {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-subtle);
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Main viewport layout (Portrait default) */
+    .screen-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 16px;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Summary block */
+    .summary-banner {
+      background-color: var(--teal-surface-tint);
+      border: 1px solid #99f6e4;
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .summary-banner .material-symbols-outlined {
+      color: var(--teal-primary);
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .summary-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: #134e4a;
+    }
+
+    .summary-sub {
+      font-size: 13px;
+      color: var(--teal-primary);
+      margin-top: 1px;
+    }
+
+    /* Cards / panels */
+    .ui-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-header-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .text-input, .select-input {
+      height: 48px;
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 0 12px;
+      font-size: 15px;
+      color: var(--text-main);
+      background-color: var(--bg-surface);
+      font-family: inherit;
+    }
+
+    .text-input:focus, .select-input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    /* Radio save modes */
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .radio-card {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+      background: var(--bg-surface);
+    }
+
+    .radio-card.active {
+      border-color: var(--teal-primary);
+      background-color: var(--teal-surface-tint);
+    }
+
+    .radio-indicator {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border-color);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .radio-card.active .radio-indicator {
+      border-color: var(--teal-primary);
+    }
+
+    .radio-indicator-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--teal-primary);
+      display: none;
+    }
+
+    .radio-card.active .radio-indicator-dot {
+      display: block;
+    }
+
+    .radio-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .radio-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .radio-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .nested-selector {
+      margin-top: 8px;
+    }
+
+    /* Card list panel */
+    .decklist-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .decklist-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-subtle);
+      border-radius: 7px 7px 0 0;
+    }
+
+    .decklist-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-count {
+      font-size: 12px;
+      font-weight: 500;
+      background: #e2e8f0;
+      color: var(--text-helper);
+      padding: 2px 7px;
+      border-radius: 12px;
+    }
+
+    .card-list-scroll {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .card-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 14px;
+    }
+
+    .card-row:last-child {
+      border-bottom: none;
+    }
+
+    .card-name-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-qty {
+      font-weight: 700;
+      color: var(--teal-primary);
+      width: 18px;
+      text-align: right;
+    }
+
+    .card-name {
+      color: var(--text-main);
+    }
+
+    .card-type {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .section-divider {
+      background: var(--bg-subtle);
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 1px solid #e2e8f0;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    /* Helper note */
+    .helper-text {
+      font-size: 13px;
+      color: var(--text-helper);
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      line-height: 1.4;
+      padding: 0 4px;
+    }
+
+    .helper-text .material-symbols-outlined {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Action bar */
+    .action-bar {
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      height: 48px;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid transparent;
+      padding: 0 16px;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background-color: var(--teal-primary);
+      color: #ffffff;
+      border-color: var(--teal-primary);
+    }
+
+    .btn-primary:active {
+      background-color: var(--teal-primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: var(--text-main);
+      border-color: var(--border-color);
+    }
+
+    .btn-secondary:active {
+      background-color: var(--bg-subtle);
+    }
+
+    /* Bottom safe inset area 16px */
+    .safe-inset {
+      height: 16px;
+      background-color: var(--bg-surface);
+      flex-shrink: 0;
+    }
+
+    /* =========================================================
+       LANDSCAPE VIEWPORT OPTIMIZATION
+       CRITICAL: At width >= 700px AND height <= 500px reflow into
+       compact side-by-side panels with reduced vertical whitespace
+       and independent scrolling.
+       ========================================================= */
+    @media (min-width: 700px) and (max-height: 500px) {
+      .top-bar {
+        height: 44px;
+        padding: 0 8px;
+      }
+
+      .top-bar-title {
+        font-size: 18px;
+      }
+
+      .icon-btn {
+        width: 40px;
+        height: 40px;
+      }
+
+      .screen-content {
+        max-width: 100%;
+        padding: 10px 16px;
+        gap: 12px;
+        display: grid;
+        grid-template-columns: 1.05fr 1.2fr;
+        grid-template-rows: auto 1fr;
+        overflow: hidden;
+        height: calc(100dvh - 24px - 44px);
+      }
+
+      .summary-banner {
+        grid-column: 1 / -1;
+        padding: 6px 12px;
+        font-size: 13px;
+        gap: 8px;
+      }
+
+      .summary-banner .material-symbols-outlined {
+        font-size: 18px;
+      }
+
+      .summary-text {
+        font-size: 13px;
+      }
+
+      .summary-sub {
+        font-size: 12px;
+        display: inline;
+        margin-left: 6px;
+      }
+
+      /* Left side: bounded scrollable card list */
+      .landscape-col-left {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+      }
+
+      .decklist-panel {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .decklist-header {
+        padding: 8px 12px;
+      }
+
+      .card-list-scroll {
+        max-height: none;
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      .card-row {
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+
+      /* Right side: Form, save mode radio options and buttons */
+      .landscape-col-right {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: 4px;
+        gap: 10px;
+      }
+
+      .ui-panel {
+        padding: 10px 12px;
+        gap: 8px;
+      }
+
+      .form-group {
+        gap: 4px;
+      }
+
+      .text-input, .select-input {
+        height: 40px;
+        font-size: 14px;
+      }
+
+      .radio-group {
+        gap: 6px;
+      }
+
+      .radio-card {
+        padding: 8px 10px;
+        gap: 8px;
+      }
+
+      .radio-title {
+        font-size: 14px;
+      }
+
+      .radio-desc {
+        font-size: 12px;
+      }
+
+      .helper-text {
+        font-size: 12px;
+        line-height: 1.3;
+      }
+
+      .action-bar {
+        padding: 8px 0 0 0;
+        border-top: none;
+        background: transparent;
+        flex-direction: row;
+        gap: 8px;
+      }
+
+      .btn {
+        height: 40px;
+        font-size: 14px;
+        flex: 1;
+      }
+
+      .safe-inset {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-shell">
+    <!-- Minimal Android status area 24px -->
+    <div class="status-bar" aria-label="System status">
+      <span>10:30</span>
+      <div class="status-bar-icons">
+        <span class="material-symbols-outlined">signal_cellular_alt</span>
+        <span class="material-symbols-outlined">wifi</span>
+        <span class="material-symbols-outlined">battery_std</span>
+      </div>
+    </div>
+
+    <!-- Android Top Bar 56px -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="icon-btn" aria-label="Back">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 class="top-bar-title">Review import</h1>
+      </div>
+      <div class="draft-badge">Draft D04</div>
+    </header>
+
+    <!-- Main Viewport Area -->
+    <main class="screen-content">
+
+      <!-- Summary Banner -->
+      <section class="summary-banner" aria-label="Import resolution summary">
+        <span class="material-symbols-outlined">check_circle</span>
+        <div>
+          <div class="summary-text">Resolved: 60 mainboard / 15 sideboard</div>
+          <div class="summary-sub">All card names successfully verified against catalog</div>
+        </div>
+      </section>
+
+      <!-- Landscape Left Column / Portrait First Section: Deck List -->
+      <div class="landscape-col-left">
+        <section class="decklist-panel" aria-label="Resolved card list">
+          <div class="decklist-header">
+            <span class="decklist-title">Resolved cards</span>
+            <span class="badge-count">75 Total</span>
+          </div>
+
+          <div class="card-list-scroll">
+            <div class="section-divider">Mainboard (60)</div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">4</span>
+                <span class="card-name">Meadow Sentinel</span>
+              </div>
+              <span class="card-type">Creature</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">4</span>
+                <span class="card-name">Ember Adept</span>
+              </div>
+              <span class="card-type">Creature</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">4</span>
+                <span class="card-name">Aegis Ward</span>
+              </div>
+              <span class="card-type">Instant</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">4</span>
+                <span class="card-name">Solar Flare</span>
+              </div>
+              <span class="card-type">Sorcery</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">3</span>
+                <span class="card-name">Frontline Scout</span>
+              </div>
+              <span class="card-type">Creature</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">3</span>
+                <span class="card-name">Rift Catalyst</span>
+              </div>
+              <span class="card-type">Artifact</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">16</span>
+                <span class="card-name">Plains</span>
+              </div>
+              <span class="card-type">Basic Land</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">22</span>
+                <span class="card-name">Training Land</span>
+              </div>
+              <span class="card-type">Basic Land</span>
+            </div>
+
+            <div class="section-divider">Sideboard (15)</div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">3</span>
+                <span class="card-name">Cinder Burst</span>
+              </div>
+              <span class="card-type">Instant</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">4</span>
+                <span class="card-name">Prismatic Aegis</span>
+              </div>
+              <span class="card-type">Enchantment</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">4</span>
+                <span class="card-name">Nullify Shard</span>
+              </div>
+              <span class="card-type">Artifact</span>
+            </div>
+            <div class="card-row">
+              <div class="card-name-group">
+                <span class="card-qty">4</span>
+                <span class="card-name">Sentry Vanguard</span>
+              </div>
+              <span class="card-type">Creature</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Landscape Right Column / Portrait Second Section: Name & Save Mode Configuration -->
+      <div class="landscape-col-right">
+        <section class="ui-panel" aria-label="Deck naming and save choices">
+          <div class="panel-header-label">Save options</div>
+
+          <!-- Labeled Deck Name Field -->
+          <div class="form-group">
+            <label class="form-label" for="deckName">Deck name</label>
+            <input type="text" id="deckName" class="text-input" value="Training deck" autocomplete="off" />
+          </div>
+
+          <!-- Two Explicit Save Modes -->
+          <div class="form-group">
+            <span class="form-label">Save mode</span>
+            <div class="radio-group" role="radiogroup" aria-label="Save mode choice">
+
+              <!-- Mode 1: Save as new (selected) -->
+              <label class="radio-card active">
+                <div class="radio-indicator">
+                  <div class="radio-indicator-dot"></div>
+                </div>
+                <div class="radio-body">
+                  <span class="radio-title">Save as new</span>
+                  <span class="radio-desc">Creates an independent saved deck with this name</span>
+                </div>
+              </label>
+
+              <!-- Mode 2: Replace saved deck (unselected) -->
+              <label class="radio-card">
+                <div class="radio-indicator">
+                  <div class="radio-indicator-dot"></div>
+                </div>
+                <div class="radio-body">
+                  <span class="radio-title">Replace saved deck</span>
+                  <span class="radio-desc">Overwrites the card list of an existing deck</span>
+
+                  <div class="nested-selector">
+                    <select class="select-input" aria-label="Existing deck to replace" disabled>
+                      <option selected>Training deck (60 / 15)</option>
+                      <option>Woodland practice (60 / 15)</option>
+                      <option>Starter list (60 / 15)</option>
+                    </select>
+                  </div>
+                </div>
+              </label>
+
+            </div>
+          </div>
+
+          <!-- Non-destructive helper text -->
+          <div class="helper-text">
+            <span class="material-symbols-outlined">info</span>
+            <span>Existing game copies stay unchanged. Both save routes require a completely resolved list.</span>
+          </div>
+
+          <!-- Action Buttons in Right Panel for Landscape reflow -->
+          <div class="action-bar">
+            <button type="button" class="btn btn-primary">Save deck</button>
+            <button type="button" class="btn btn-secondary">Edit pasted list</button>
+          </div>
+        </section>
+      </div>
+
+    </main>
+
+    <!-- Bottom safe inset area 16px -->
+    <div class="safe-inset"></div>
+  </div>
+
+</body>
+</html>

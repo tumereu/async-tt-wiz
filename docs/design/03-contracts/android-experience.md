@@ -1,8 +1,11 @@
 # 5. Android experience
 
 Status: proposed interaction architecture except confirmed requirements noted
-below, including D-177's resume/playback and bottom timeline behavior. Annotated
-wireframes, exact layouts and visual design remain open. D-273 selects Android
+below, including D-177's resume/playback and bottom timeline behavior. D-290
+authorizes a limited [non-gameplay UI pilot](../02-experience/ui/README.md) with
+portrait and landscape drafts and compiled review documents. Its layouts remain
+proposed; gameplay/final visual design and the full UI gate remain incomplete.
+D-273 selects Android
 10+ (API 29), signed APK distribution and manual updates as specified below.
 
 Confirmed card gestures and proposed drag/pile/intent details are defined in
@@ -18,7 +21,8 @@ D-112–D-114 additionally require combat/Stack projections, visual attacker/blo
 grouping (D-139), and contextual Stack actions. Their behavior is being specified in
 [the primary contract](combat-stack-and-projections.md). D-115 reserves new
 UI drafts, final layouts, and concrete control choices for delivery stage 3;
-current work is stage 1 behavior specification.
+D-290 now explicitly permits the limited non-gameplay pilot, without approving
+its proposals, passing the full UI gate or authorizing application code.
 
 D-116–D-118 separate combat-area creation/declaration/tapping, add phase-appropriate
 multiselect declaration combinations, blocker-to-attacker drops/blank slots, and
@@ -573,8 +577,10 @@ Required proposals for approval:
 - Scalable text; adequate contrast; minimum platform-recommended touch targets.
 - No color-only meaning, gesture-only commands, or time-limited-only recovery.
 - Reduced-motion option and readable non-animated change summaries.
-- Portrait-first phone layout; landscape, tablets, foldables, split-screen, and
-  large text must preserve access to every operation.
+- **Portrait and landscape are both required (D-290)**, with separate mockup
+  captures of both, not a portrait-only design stretched sideways. Tablets,
+  foldables, split-screen and large text must preserve access to every operation;
+  the pilot does not claim these additional variants have been validated.
 - Rotation/backgrounding with a living process preserves state; sign-in refresh
   retains same-account in-memory work. D-278 process termination may lose outgoing
   work and unreported exposure; saved accepted data/UI drafts remain separately

@@ -16,6 +16,14 @@ You should not need decision logs or an agent handoff to understand the app.
 These are **levels of explanation**, not implementation stages. Reading farther
 down should add precision, not introduce a new usability model.
 
+### UI review pilot
+
+The owner has authorized a limited **[non-gameplay UI pilot](design/02-experience/ui/README.md)**
+using Stitch, with portrait and landscape mockups, interaction notes and compiled
+HTML/PDF review editions (D-290). Gameplay remains an explicit placeholder.
+This authorizes these design artifacts, not application implementation, a passed
+review/UI gate or approval of the proposed layouts.
+
 ## Separate agent records
 
 [Agent records](agent/README.md) contain decision history, session handoffs,
@@ -57,7 +65,8 @@ Do not silently promote a proposal to an approved requirement during coding.
 **Documentation only. The architecture review has been discussed and its agreed
 simplifications/repairs applied (D-285–D-289), following the D-278–D-284 technical
 batch. This does not certify every defect absent or pass the review/UI gates.
-No application implementation or stage transition is authorized.** See
+No application implementation or general stage transition is authorized; the
+limited UI pilot above is separately authorized.** See
 [review disposition](design/02-experience/gaps.md#architecture-review-disposition--d-285d-288).
 The [follow-up disposition](design/02-experience/gaps.md#follow-up-architecture-review-disposition--d-289)
 records the simpler UUID, authorization and ordinary HTTP definition-submission rules.

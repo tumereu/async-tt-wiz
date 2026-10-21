@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Capture the inert UI design sources offline, without contacting Stitch."""
+
+import asyncio
+import json
+import os
+from pathlib import Path
+import shutil
+
+from playwright.async_api import async_playwright
+
+
+ROOT = Path(__file__).resolve().parents[1]
+UI = ROOT / 'docs/design/02-experience/ui'
+VIEWPORTS = {'portrait': (412, 892), 'landscape': (892, 412)}
+
+
+async def main():
+    manifest = json.loads((UI / 'manifest.json').read_text())
+    chrome = os.environ.get('CHROME_PATH') or shutil.which('google-chrome') or shutil.which('chromium')
+    if not chrome:
+        raise SystemExit('Install Google Chrome/Chromium first.')
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(executable_path=chrome)
+        for screen in manifest['screens']:
+            context = await browser.new_context()
+            blocked = []
+
+            async def block(route):
+                blocked.append(route.request.url)
+                await route.abort()
+
+            await context.route('http://**/*', block)
+            await context.route('https://**/*', block)
+            for orientation, (width, height) in VIEWPORTS.items():
+                page = await context.new_page()
+                await page.set_viewport_size({'width': width, 'height': height})
+                await page.goto((UI / screen['source']).as_uri(), wait_until='networkidle')
+                await page.evaluate('document.fonts.ready')
+                if screen.get('captureScroll') == 'bottom':
+                    await page.evaluate('''() => {
+                        document.querySelectorAll('*').forEach(e=>{
+                            if(['auto','scroll'].includes(getComputedStyle(e).overflowY)) {
+                                e.scrollTop=e.scrollHeight;
+                            }
+                        });
+                    }''')
+                state = await page.evaluate('''() => ({
+                    inert: document.body.inert,
+                    scripts: document.scripts.length,
+                    width: document.documentElement.scrollWidth,
+                    fonts: [...document.fonts].filter(f=>f.status==='error').map(f=>f.family)
+                })''')
+                if not state['inert'] or state['scripts'] or state['width'] > width or state['fonts']:
+                    raise ValueError(f"{screen['id']} {orientation}: {state}")
+                audit = await page.evaluate('''() => ({
+                    documentWidth:document.documentElement.scrollWidth,viewportWidth:innerWidth,
+                    fonts:[...document.fonts].filter(f=>f.status==='loaded').map(f=>({family:f.family,status:f.status})),
+                    controls:[...document.querySelectorAll('button,input:not([type="hidden"]),a[href],[role="button"]')]
+                    .filter(e=>{const c=getComputedStyle(e),r=e.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&r.width&&r.height;})
+                    .map(e=>{
+                        const r=e.getBoundingClientRect();let scrollAncestor=false;
+                        for(let p=e.parentElement;p;p=p.parentElement){
+                            const c=getComputedStyle(p);
+                            if(['auto','scroll'].includes(c.overflowY)&&p.scrollHeight>p.clientHeight)scrollAncestor=true;
+                        }
+                        return {text:(e.innerText||e.getAttribute('aria-label')||e.getAttribute('placeholder')||e.tagName).trim().slice(0,120),
+                            x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height),
+                            scrollAncestor,inViewport:r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth};
+                    })
+                })''')
+                screen.setdefault('audit', {})[orientation] = audit
+                await page.screenshot(path=str(UI / f"images/{screen['slug']}-{orientation}.png"))
+                await page.close()
+            if blocked:
+                raise ValueError(f"{screen['id']}: unexpected remote assets: {blocked}")
+            await context.close()
+            print(f"Captured {screen['id']} in both orientations.")
+        await browser.close()
+    (UI / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Async Table — A01 Sign in</title>
+  <!-- Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <style>
+    /* CSS Reset & Variables */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #F8F9FA;
+      --surface: #FFFFFF;
+      --border: #D1D5DB;
+      --border-focus: #0D766E;
+      --text-main: #1F2937;
+      --text-muted: #6B7280;
+      --text-error: #B91C1C;
+      --primary-teal: #0F766E;
+      --primary-teal-hover: #115E59;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* Overall Android App Shell fitting 100dvh */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg);
+    }
+
+    /* Android Status Area - 24px */
+    .status-bar {
+      height: 24px;
+      min-height: 24px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-bottom: 1px solid #E5E7EB;
+      background: var(--bg);
+      user-select: none;
+    }
+
+    .status-bar .icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-bar .icons span {
+      font-size: 14px;
+    }
+
+    /* App Top Bar - 56px */
+    .top-bar {
+      height: 56px;
+      min-height: 56px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background-color: var(--surface);
+    }
+
+    .top-bar-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+    }
+
+    .top-bar-badge {
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Scrollable Content Container */
+    .content-viewport {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Layout structure */
+    .screen-layout {
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* Intro / Branding Section */
+    .intro-panel {
+      width: 100%;
+      max-width: 380px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .app-heading {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .app-subheading {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Form Panel Card */
+    .form-panel {
+      width: 100%;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px 20px;
+    }
+
+    .form-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .text-input {
+      width: 100%;
+      height: 48px; /* Touch target >= 48px */
+      padding: 0 14px;
+      font-size: 16px;
+      color: var(--text-main);
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.15s ease;
+      font-family: inherit;
+    }
+
+    .text-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .input-wrapper.has-action .text-input {
+      padding-right: 48px;
+    }
+
+    .input-action-btn {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .input-action-btn:focus {
+      outline: none;
+      color: var(--primary-teal);
+    }
+
+    .input-action-btn .material-symbols-outlined {
+      font-size: 22px;
+    }
+
+    /* Inline Validation Error */
+    .error-notice {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: -6px;
+      margin-bottom: 16px;
+      color: var(--text-error);
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .error-notice .material-symbols-outlined {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Primary Action Button */
+    .primary-btn {
+      width: 100%;
+      height: 48px; /* Touch target >= 48px */
+      background-color: var(--primary-teal);
+      color: #FFFFFF;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 8px;
+      transition: background-color 0.15s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .primary-btn:hover {
+      background-color: var(--primary-teal-hover);
+    }
+
+    /* Secondary Navigation Links */
+    .secondary-links {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #E5E7EB;
+    }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--primary-teal);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 4px 8px;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      font-family: inherit;
+    }
+
+    .link-btn:hover {
+      color: var(--primary-teal-hover);
+    }
+
+    /* Android Bottom Safe Inset - 16px */
+    .bottom-safe-inset {
+      height: 16px;
+      min-height: 16px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg);
+    }
+
+    .android-nav-pill {
+      width: 72px;
+      height: 4px;
+      background-color: #D1D5DB;
+      border-radius: 2px;
+    }
+
+    /* CRITICAL RESPONSIVE REFLOW FOR LANDSCAPE: width >= 700px AND height <= 500px */
+    @media (min-width: 700px) and (max-height: 500px) {
+      .top-bar {
+        height: 44px;
+        min-height: 44px;
+      }
+      .top-bar-title {
+        font-size: 18px;
+      }
+      .screen-layout {
+        flex-direction: row;
+        align-items: stretch;
+        justify-content: center;
+        gap: 20px;
+        padding: 12px 24px;
+      }
+
+      .intro-panel {
+        flex: 1;
+        max-width: 320px;
+        margin-bottom: 0;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 12px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+
+      .app-heading {
+        font-size: 22px;
+        margin-bottom: 6px;
+      }
+
+      .app-subheading {
+        font-size: 14px;
+      }
+
+      .form-panel {
+        flex: 1.2;
+        max-width: 440px;
+        padding: 14px 18px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow-y: auto;
+      }
+
+      .form-title {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .form-group {
+        margin-bottom: 10px;
+        gap: 4px;
+      }
+
+      .form-label {
+        font-size: 13px;
+      }
+
+      .text-input {
+        height: 44px;
+        font-size: 15px;
+      }
+
+      .input-action-btn {
+        height: 44px;
+        width: 44px;
+      }
+
+      .error-notice {
+        margin-top: -4px;
+        margin-bottom: 10px;
+        font-size: 13px;
+      }
+
+      .primary-btn {
+        height: 44px;
+        margin-top: 4px;
+        font-size: 15px;
+      }
+
+      .secondary-links {
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 12px;
+        padding-top: 10px;
+      }
+
+      .link-btn {
+        font-size: 14px;
+        min-height: 28px;
+        padding: 2px 4px;
+      }
+
+      .bottom-safe-inset {
+        height: 12px;
+        min-height: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Android Status Area (24px) -->
+    <div class="status-bar" aria-hidden="true">
+      <span>10:30</span>
+      <div class="icons">
+        <span class="material-symbols-outlined">wifi</span>
+        <span class="material-symbols-outlined">signal_cellular_4_bar</span>
+        <span class="material-symbols-outlined">battery_full</span>
+      </div>
+    </div>
+
+    <!-- Top App Bar (56px) -->
+    <header class="top-bar">
+      <h1 class="top-bar-title">Async Table</h1>
+      <span class="top-bar-badge">Draft A01</span>
+    </header>
+
+    <!-- Scrollable Content Viewport -->
+    <main class="content-viewport">
+      <div class="screen-layout">
+        <!-- Intro & App Info Panel (Left on Landscape, Top on Portrait) -->
+        <section class="intro-panel" aria-labelledby="app-brand-title">
+          <h2 id="app-brand-title" class="app-heading">Async Table</h2>
+          <p class="app-subheading">Turn-based asynchronous tabletop gaming for two players.</p>
+        </section>
+
+        <!-- Sign-in Form Panel (Right on Landscape, Centered on Portrait) -->
+        <section class="form-panel" aria-labelledby="form-heading">
+          <h2 id="form-heading" class="form-title">Sign in</h2>
+
+          <form onsubmit="return false;" novalidate>
+            <!-- Email Field -->
+            <div class="form-group">
+              <label for="email" class="form-label">Email</label>
+              <div class="input-wrapper">
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  class="text-input"
+                  placeholder="name@example.com"
+                  value="player1@tabletop.local"
+                  autocomplete="email"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Password Field with Visibility Toggle Button -->
+            <div class="form-group">
+              <label for="password" class="form-label">Password</label>
+              <div class="input-wrapper has-action">
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  class="text-input"
+                  placeholder="Enter your password"
+                  value="••••••••••••"
+                  autocomplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  class="input-action-btn"
+                  aria-label="Toggle password visibility"
+                  title="Toggle password visibility"
+                >
+                  <span class="material-symbols-outlined">visibility</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Inline Example Error Below Password -->
+            <div class="error-notice" role="alert">
+              <span class="material-symbols-outlined">error</span>
+              <span>Email or password not recognised.</span>
+            </div>
+
+            <!-- Primary Action Button -->
+            <button type="submit" class="primary-btn">
+              Sign in
+            </button>
+
+            <!-- Secondary Text Navigation Links -->
+            <div class="secondary-links">
+              <button type="button" class="link-btn">Create account</button>
+              <button type="button" class="link-btn">Forgot password?</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+
+    <!-- Bottom Safe Inset (16px) -->
+    <footer class="bottom-safe-inset" aria-hidden="true">
+      <div class="android-nav-pill"></div>
+    </footer>
+  </div>
+</body>
+</html>

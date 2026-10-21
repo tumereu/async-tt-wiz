@@ -1,0 +1,485 @@
+<!-- STATIC UI REVIEW MOCKUP: Stitch export, locally frozen styles/fonts; not app implementation. -->
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>L05 — Lobby with own Ready accepted (Async Table)</title>
+  <!-- Google Fonts: Inter and Material Symbols Outlined -->
+
+
+
+
+
+<style type="text/css">/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/ca157063339ac4ad418f.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/71d5ee93cc1e9f1d520a.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/6e9e020a25f9b56d418f.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/1be3448e292fbf05ffe1.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/5c66f9e07e90c6d4ac49.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/34b9c504cab7a73e37b7.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/3100e775e8616cd2611b.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/ca157063339ac4ad418f.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/71d5ee93cc1e9f1d520a.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/6e9e020a25f9b56d418f.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/1be3448e292fbf05ffe1.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/5c66f9e07e90c6d4ac49.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/34b9c504cab7a73e37b7.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/3100e775e8616cd2611b.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/ca157063339ac4ad418f.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/71d5ee93cc1e9f1d520a.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/6e9e020a25f9b56d418f.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/1be3448e292fbf05ffe1.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/5c66f9e07e90c6d4ac49.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/34b9c504cab7a73e37b7.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/3100e775e8616cd2611b.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/ca157063339ac4ad418f.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/71d5ee93cc1e9f1d520a.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/6e9e020a25f9b56d418f.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/1be3448e292fbf05ffe1.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/5c66f9e07e90c6d4ac49.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/34b9c504cab7a73e37b7.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/3100e775e8616cd2611b.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* fallback */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  src: url("assets/3ae08513a06396b0258c.woff2") format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; margin: 0px; padding: 0px; -webkit-tap-highlight-color: transparent; }
+:root { --bg-page: #f8fafc; --surface: #ffffff; --border-color: #e2e8f0; --border-subtle: #cbd5e1; --text-main: #0f172a; --text-muted: #64748b; --text-subtle: #94a3b8; --teal-primary: #00796b; --teal-hover: #00695c; --teal-light: #e6f4f1; --teal-border: #80cbc4; --status-ready-bg: #ecfdf5; --status-ready-text: #047857; --status-ready-border: #a7f3d0; --status-pending-bg: #f1f5f9; --status-pending-text: #475569; --status-pending-border: #cbd5e1; --danger: #dc2626; --radius: 8px; }
+body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-page); color: var(--text-main); width: 100%; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; font-size: 15px; line-height: 1.4; }
+.status-bar { height: 24px; min-height: 24px; padding: 0px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 500; color: rgb(100, 116, 139); background-color: var(--surface); border-bottom: 1px solid var(--border-color); z-index: 10; }
+.status-bar-icons { display: flex; align-items: center; gap: 6px; }
+.status-bar-icons .material-symbols-outlined { font-size: 14px; }
+.top-bar { height: 56px; min-height: 56px; padding: 0px 16px; display: flex; align-items: center; justify-content: space-between; background-color: var(--surface); border-bottom: 1px solid var(--border-color); z-index: 10; }
+.top-bar-left { display: flex; align-items: center; gap: 12px; }
+.icon-btn { width: 48px; height: 48px; margin-left: -8px; background: transparent; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); border-radius: var(--radius); }
+.icon-btn:hover { background-color: var(--bg-page); }
+.icon-btn .material-symbols-outlined { font-size: 24px; }
+.screen-title { font-size: 20px; font-weight: 600; color: var(--text-main); letter-spacing: -0.01em; }
+.draft-badge { font-size: 12px; font-weight: 500; color: var(--text-subtle); background: rgb(241, 245, 249); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border-color); }
+.banner-strip { padding: 10px 16px; background-color: var(--teal-light); border-bottom: 1px solid var(--teal-border); font-size: 13.5px; color: rgb(0, 77, 64); display: flex; align-items: center; gap: 8px; }
+.banner-strip .material-symbols-outlined { font-size: 18px; color: var(--teal-primary); }
+.viewport-content { flex: 1 1 0%; width: 100%; overflow: hidden auto; display: flex; flex-direction: column; }
+.panels-container { width: 100%; max-width: 640px; margin: 0px auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.card-header-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.user-tag { font-size: 17px; font-weight: 700; color: var(--text-main); }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 9999px; font-size: 13px; font-weight: 600; line-height: 1; height: 28px; box-sizing: border-box; }
+.badge-ready { background-color: var(--status-ready-bg); color: var(--status-ready-text); border: 1px solid var(--status-ready-border); }
+.badge-ready .material-symbols-outlined { font-size: 16px; }
+.badge-pending { background-color: var(--status-pending-bg); color: var(--status-pending-text); border: 1px solid var(--status-pending-border); }
+.badge-pending .material-symbols-outlined { font-size: 16px; }
+.deck-subpanel { background-color: rgb(248, 250, 252); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.deck-title { font-size: 15px; font-weight: 600; color: var(--text-main); }
+.deck-counts { font-size: 13px; color: var(--text-muted); }
+.actions-row { display: flex; align-items: center; gap: 16px; margin-top: 2px; flex-wrap: wrap; }
+.text-link-btn { background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; font-size: 14px; font-weight: 600; color: var(--teal-primary); text-decoration: underline; cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; padding: 0px 4px; }
+.text-link-btn:hover { color: var(--teal-hover); }
+.options-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.segment-option { border: 1px solid var(--border-color); background: var(--surface); border-radius: var(--radius); padding: 10px 6px; text-align: center; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 52px; user-select: none; }
+.segment-option.active { border: 2px solid var(--teal-primary); background: rgb(240, 253, 250); }
+.segment-primary-text { font-size: 14px; font-weight: 600; color: var(--text-main); }
+.segment-option.active .segment-primary-text { color: var(--teal-primary); }
+.segment-secondary-text { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.footer-actions { background: var(--surface); border-top: 1px solid var(--border-color); padding: 12px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 10; }
+.footer-actions-inner { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.btn-primary-action { width: 100%; height: 48px; background-color: var(--surface); color: var(--teal-primary); border: 2px solid var(--teal-primary); border-radius: var(--radius); font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; cursor: pointer; letter-spacing: 0.01em; }
+.btn-primary-action:hover { background-color: var(--teal-light); }
+.helper-text { font-size: 13px; color: var(--text-muted); text-align: center; line-height: 1.4; max-width: 520px; }
+.btn-cancel-game { background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; font-size: 14px; font-weight: 600; color: var(--danger); cursor: pointer; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 4px 12px; }
+.btn-cancel-game:hover { text-decoration: underline; }
+.safe-inset-bottom { height: 16px; min-height: 16px; width: 100%; background: var(--surface); }
+@media (min-width: 700px) and (max-height: 500px) {
+  .status-bar { height: 20px; min-height: 20px; font-size: 11px; }
+  .top-bar { height: 44px; min-height: 44px; padding: 0px 12px; }
+  .screen-title { font-size: 18px; }
+  .icon-btn { width: 40px; height: 40px; }
+  .icon-btn .material-symbols-outlined { font-size: 20px; }
+  .banner-strip { padding: 6px 12px; font-size: 12px; }
+  .banner-strip .material-symbols-outlined { font-size: 16px; }
+  .viewport-content { overflow: hidden; }
+  .panels-container { max-width: 100%; height: 100%; padding: 8px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; overflow-y: auto; }
+  .card { padding: 10px 12px; gap: 8px; }
+  .user-tag { font-size: 15px; }
+  .card-label { font-size: 11px; }
+  .badge { height: 24px; font-size: 12px; padding: 2px 8px; }
+  .deck-subpanel { padding: 8px 10px; gap: 2px; }
+  .deck-title { font-size: 14px; }
+  .deck-counts { font-size: 12px; }
+  .text-link-btn { font-size: 13px; min-height: 30px; }
+  .options-grid { gap: 6px; }
+  .segment-option { min-height: 42px; padding: 6px 4px; }
+  .segment-primary-text { font-size: 13px; }
+  .segment-secondary-text { font-size: 11px; }
+  .footer-actions { padding: 6px 12px; gap: 4px; }
+  .footer-actions-inner { max-width: 100%; flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
+  .footer-actions-inner .btn-primary-action { width: auto; min-width: 160px; height: 38px; font-size: 14px; order: 2; }
+  .footer-actions-inner .helper-text { text-align: left; font-size: 12px; order: 1; flex: 1 1 0%; }
+  .footer-actions-inner .btn-cancel-game { min-height: 38px; font-size: 13px; order: 3; }
+  .safe-inset-bottom { height: 6px; min-height: 6px; }
+}</style><style type="text/css">
+/* Review normalization: touch targets must not shrink in landscape. */
+button, a[href], [role="button"] { min-width:48px !important; min-height:48px !important; }
+a[href] { display:inline-flex; align-items:center; justify-content:center; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
+/* Sources are inert visual mockups, not a functional application. */
+</style></head>
+<body inert="">
+
+  <!-- Minimal status area (24px) -->
+  <div class="status-bar">
+    <span>10:30</span>
+    <div class="status-bar-icons">
+      <span class="material-symbols-outlined">signal_cellular_alt</span>
+      <span class="material-symbols-outlined">wifi</span>
+      <span class="material-symbols-outlined">battery_full</span>
+    </div>
+  </div>
+
+  <!-- Top bar (56px) -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <button class="icon-btn" aria-label="Back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h1 class="screen-title">Lobby with riley</h1>
+    </div>
+    <span class="draft-badge">Draft L05</span>
+  </header>
+
+  <!-- Status banner strip -->
+  <div class="banner-strip">
+    <span class="material-symbols-outlined">check_circle</span>
+    <span>You are ready. Waiting for riley to ready up.</span>
+  </div>
+
+  <!-- Bounded viewport content area -->
+  <main class="viewport-content">
+    <div class="panels-container">
+
+      <!-- LEFT / TOP PANEL: Own Setup (alex) -->
+      <section class="card" aria-labelledby="own-setup-title">
+        <div class="card-header-row">
+          <div>
+            <div class="card-label">Your setup (you)</div>
+            <div id="own-setup-title" class="user-tag">alex</div>
+          </div>
+          <span class="badge badge-ready">
+            <span class="material-symbols-outlined">check_circle</span>
+            Ready
+          </span>
+        </div>
+
+        <div class="deck-subpanel">
+          <div class="deck-title">Training deck</div>
+          <div class="deck-counts">60 mainboard • 15 sideboard</div>
+        </div>
+
+        <div class="actions-row">
+          <button class="text-link-btn" type="button">Change deck</button>
+          <button class="text-link-btn" type="button">Prepare deck</button>
+        </div>
+      </section>
+
+      <!-- RIGHT / BOTTOM PANEL GROUP: Opponent & Starting Player -->
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <!-- Opponent Status (riley) -->
+        <section class="card" aria-labelledby="opponent-setup-title">
+          <div class="card-header-row">
+            <div>
+              <div class="card-label">Opponent</div>
+              <div id="opponent-setup-title" class="user-tag">riley</div>
+            </div>
+            <span class="badge badge-pending">
+              <span class="material-symbols-outlined">schedule</span>
+              Not ready
+            </span>
+          </div>
+          <div style="font-size: 13.5px; color: var(--text-muted);">
+            riley has joined the lobby and is selecting their deck.
+          </div>
+        </section>
+
+        <!-- Starting Player Selection -->
+        <section class="card" aria-labelledby="starting-player-title">
+          <div class="card-label" id="starting-player-title">Starting player</div>
+          <div class="options-grid" role="radiogroup" aria-label="Starting player choices">
+            <div class="segment-option" role="radio" aria-checked="false" tabindex="0">
+              <div class="segment-primary-text">alex</div>
+              <div class="segment-secondary-text">You first</div>
+            </div>
+            <div class="segment-option" role="radio" aria-checked="false" tabindex="0">
+              <div class="segment-primary-text">riley</div>
+              <div class="segment-secondary-text">Opponent</div>
+            </div>
+            <div class="segment-option active" role="radio" aria-checked="true" tabindex="0">
+              <div class="segment-primary-text">Random</div>
+              <div class="segment-secondary-text">50 / 50</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Sticky footer controls -->
+  <footer class="footer-actions">
+    <div class="footer-actions-inner">
+      <button class="btn-primary-action" type="button">Withdraw Ready</button>
+      <div class="helper-text">
+        Your Ready stays set when you leave. The game starts automatically when both players are ready.
+      </div>
+      <button class="btn-cancel-game" type="button">Cancel game</button>
+    </div>
+  </footer>
+
+  <!-- Minimal safe inset (16px) -->
+  <div class="safe-inset-bottom"></div>
+
+
+
+</body></html>

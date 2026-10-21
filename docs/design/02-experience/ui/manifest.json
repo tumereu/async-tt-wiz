@@ -1,0 +1,3432 @@
+{
+  "generated": "2026-10-21",
+  "status": "proposed UI pilot",
+  "stitchProject": "6617750535460836476",
+  "viewports": {
+    "portrait": [
+      412,
+      892
+    ],
+    "landscape": [
+      892,
+      412
+    ]
+  },
+  "screens": [
+    {
+      "id": "A01",
+      "slug": "sign-in",
+      "title": "Sign in",
+      "brief": "Signed-out entry. App title Async Table. Email and Password explicitly labeled text fields; password has an eye icon button. Primary text button Sign in. Secondary text links Create account and Forgot password?. No guest entry, Google/social login, remember-me checkbox or user data behind this screen. One small inline example error below password: Email or password not recognised. Two-pane landscape: modest intro/app-name left; compact form right. Portrait form centered with generous margins. Do not show a software keyboard in this state.",
+      "stitchScreen": "projects/6617750535460836476/screens/567f11bac3a749208ddedc7c98c62b9f",
+      "source": "sources/sign-in.html",
+      "originalSource": "sources/sign-in.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 1,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Reduced landscape form whitespace, without shrinking 48px controls, to expose secondary actions."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "name@example.com",
+              "x": 37,
+              "y": 368,
+              "width": 338,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter your password",
+              "x": 37,
+              "y": 454,
+              "width": 338,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 327,
+              "y": 454,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Sign in",
+              "x": 37,
+              "y": 544,
+              "width": 338,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Create account",
+              "x": 147,
+              "y": 629,
+              "width": 118,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Forgot password?",
+              "x": 138,
+              "y": 689,
+              "width": 136,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "name@example.com",
+              "x": 413,
+              "y": 131,
+              "width": 406,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter your password",
+              "x": 413,
+              "y": 202,
+              "width": 406,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 771,
+              "y": 202,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Sign in",
+              "x": 413,
+              "y": 275,
+              "width": 406,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Create account",
+              "x": 413,
+              "y": 332,
+              "width": 103,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Forgot password?",
+              "x": 699,
+              "y": 332,
+              "width": 120,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "A02",
+      "slug": "register",
+      "title": "Create account",
+      "brief": "Registration form. Back arrow icon plus title Create account. Labeled Username, Email, Password fields, a password visibility eye icon and primary Create account text button; existing-account Sign in text link. Brief helper: Your username is visible to players. Your email stays private. No email-verification gate, social login, terms-checkbox invention or password-confirmation field. Landscape use compact two-column intro/form, preserving 48 px targets; form body can scroll vertically.",
+      "stitchScreen": "projects/6617750535460836476/screens/5d88dbd012ca498391d3b45bdf4a41d7",
+      "source": "sources/register.html",
+      "originalSource": "sources/register.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose a username",
+              "x": 33,
+              "y": 239,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "name@domain.com",
+              "x": 33,
+              "y": 352,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter password",
+              "x": 33,
+              "y": 465,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 329,
+              "y": 465,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Create account",
+              "x": 33,
+              "y": 533,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Sign in",
+              "x": 265,
+              "y": 601,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose a username",
+              "x": 331,
+              "y": 119,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "name@domain.com",
+              "x": 331,
+              "y": 224,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Enter password",
+              "x": 331,
+              "y": 329,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 811,
+              "y": 329,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Create account",
+              "x": 331,
+              "y": 393,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Sign in",
+              "x": 655,
+              "y": 457,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "A02b",
+      "slug": "register-scrolled",
+      "title": "Create account \u2014 lower scroll position",
+      "brief": "Same Stitch source, scrolled to expose lower actions; no new screen generation or product behavior.",
+      "stitchScreen": "projects/6617750535460836476/screens/5d88dbd012ca498391d3b45bdf4a41d7",
+      "source": "sources/register.html",
+      "originalSource": "sources/register.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose a username",
+              "x": 33,
+              "y": 239,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "name@domain.com",
+              "x": 33,
+              "y": 352,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter password",
+              "x": 33,
+              "y": 465,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 329,
+              "y": 465,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Create account",
+              "x": 33,
+              "y": 533,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Sign in",
+              "x": 265,
+              "y": 601,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose a username",
+              "x": 331,
+              "y": -17,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "name@domain.com",
+              "x": 331,
+              "y": 88,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Enter password",
+              "x": 331,
+              "y": 193,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 811,
+              "y": 193,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Create account",
+              "x": 331,
+              "y": 257,
+              "width": 530,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Sign in",
+              "x": 655,
+              "y": 321,
+              "width": 58,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivedFrom": "A02",
+      "captureScroll": "bottom"
+    },
+    {
+      "id": "A03",
+      "slug": "reset-email",
+      "title": "Password reset email",
+      "brief": "Password reset request AFTER submission. Back arrow icon; title Reset password. Labeled Email field containing alex@example.test. Primary Send reset link button and inline neutral success box: If this email has an account, a reset link is on its way. Secondary Back to sign in. Small explanatory line: Existing sessions stay signed in until the password is changed. Do not claim that merely sending an email logs devices out. Centered bounded form in portrait; narrow explanatory left column and form right in landscape.",
+      "stitchScreen": "projects/6617750535460836476/screens/e627cabb93d347c4ae0f3223c3697f82",
+      "source": "sources/reset-email.html",
+      "originalSource": "sources/reset-email.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 33,
+              "y": 377,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Send reset link",
+              "x": 33,
+              "y": 439,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to sign in",
+              "x": 141,
+              "y": 648,
+              "width": 130,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 24,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 428,
+              "y": 116,
+              "width": 411,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Send reset link",
+              "x": 428,
+              "y": 174,
+              "width": 411,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Back to sign in",
+              "x": 568,
+              "y": 326,
+              "width": 130,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "A04",
+      "slug": "new-password",
+      "title": "Set a new password",
+      "brief": "Valid email-reset link landing form. Back arrow and title New password. One labeled New password input with eye icon. Primary Change password button. Small helper: Changing your password signs out existing sessions. Back to sign in text action. No email field, extra account controls, verification or mandatory confirmation dialog. Portrait compact form; two-pane landscape. This screen is app UI, not an email mockup.",
+      "stitchScreen": "projects/6617750535460836476/screens/1e9f8fdd0a94471db78f7b5a58e1856a",
+      "source": "sources/new-password.html",
+      "originalSource": "sources/new-password.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 2,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Landscape wrapper widened to 820px so a later Tailwind utility cannot retain the 400px portrait limit.",
+          "Changed connected-devices wording to all existing sessions for successful password reset."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter new password",
+              "x": 33,
+              "y": 197,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 331,
+              "y": 197,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change password",
+              "x": 33,
+              "y": 265,
+              "width": 346,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to sign in",
+              "x": 141,
+              "y": 391,
+              "width": 130,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter new password",
+              "x": 431,
+              "y": 128,
+              "width": 408,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "visibility",
+              "x": 791,
+              "y": 128,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change password",
+              "x": 431,
+              "y": 196,
+              "width": 408,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to sign in",
+              "x": 570,
+              "y": 323,
+              "width": 130,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "N01",
+      "slug": "home",
+      "title": "Main menu",
+      "brief": "Authenticated main menu for illustrative username alex. Top bar app name Async Table; text Signed in as alex. Three clear large icon-plus-text destinations: Play with subtitle Current games and invitations; Manage decks with subtitle Import and organise saved lists; Contacts with subtitle Find players by username. Smaller text action Android notification settings, and visibly separate Logout text action. No avatar editor, win statistics, social feed, settings suite, presence or unread-message count. In portrait use stacked destination rows/cards; landscape compact navigation panel left and destination cards right, no giant empty hero.",
+      "stitchScreen": "projects/6617750535460836476/screens/e3acc3cb129541ed99065a57e9cfc552",
+      "source": "sources/home.html",
+      "originalSource": "sources/home.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "notifications\nAndroid notification settings",
+              "x": 16,
+              "y": 181,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "logout\nLogout",
+              "x": 16,
+              "y": 239,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "swords\nPlay\nCurrent games and invitations\nchevron_right",
+              "x": 16,
+              "y": 303,
+              "width": 380,
+              "height": 78,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "style\nManage decks\nImport and organise saved lists\nchevron_right",
+              "x": 16,
+              "y": 393,
+              "width": 380,
+              "height": 78,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "group\nContacts\nFind players by username\nchevron_right",
+              "x": 16,
+              "y": 483,
+              "width": 380,
+              "height": 78,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "notifications\nAndroid notification settings",
+              "x": 16,
+              "y": 290,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "logout\nLogout",
+              "x": 16,
+              "y": 342,
+              "width": 263,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "swords\nPlay\nCurrent games and invitations\nchevron_right",
+              "x": 312,
+              "y": 80,
+              "width": 560,
+              "height": 62,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "style\nManage decks\nImport and organise saved lists\nchevron_right",
+              "x": 312,
+              "y": 150,
+              "width": 560,
+              "height": 62,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "group\nContacts\nFind players by username\nchevron_right",
+              "x": 312,
+              "y": 219,
+              "width": 560,
+              "height": 62,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "P01",
+      "slug": "play",
+      "title": "Games and invitations",
+      "brief": "Play list. Back arrow and title Play; top-right New game text button. Show three clearly labeled sections. Invitations: row From riley with Accept and Decline text buttons, no expiry. Current games: row Game with morgan, Active game, Open text button, no score or presence. Lobbies: row With sam, Invitation declined, Reinvite text button and Open lobby action. Landscape two scrollable columns Invitations / Current games and lobbies. Portrait stacked sections. Do not use Finished games, win history, online dots, turn ownership or unread badges. Accept opens the same lobby; never label Accept and start.",
+      "stitchScreen": "projects/6617750535460836476/screens/79b9efa8fe2a4cefb24bc6cf5392c76f",
+      "source": "sources/play.html",
+      "originalSource": "sources/play.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "New game",
+              "x": 288,
+              "y": 28,
+              "width": 108,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Accept",
+              "x": 48,
+              "y": 229,
+              "width": 86,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decline",
+              "x": 142,
+              "y": 229,
+              "width": 77,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Open",
+              "x": 48,
+              "y": 461,
+              "width": 64,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Reinvite",
+              "x": 48,
+              "y": 694,
+              "width": 81,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Open lobby",
+              "x": 137,
+              "y": 694,
+              "width": 102,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "New game",
+              "x": 781,
+              "y": 20,
+              "width": 95,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Accept",
+              "x": 42,
+              "y": 197,
+              "width": 67,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Decline",
+              "x": 117,
+              "y": 197,
+              "width": 65,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Open",
+              "x": 480,
+              "y": 197,
+              "width": 54,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Reinvite",
+              "x": 480,
+              "y": 397,
+              "width": 69,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Open lobby",
+              "x": 557,
+              "y": 397,
+              "width": 89,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "P02",
+      "slug": "contacts",
+      "title": "Contacts and new game",
+      "brief": "Contacts screen used by New game as well as main menu. Back arrow icon and title Contacts. Labeled Search usernames input with search icon and text Search button. Saved contacts list riley and morgan, each row with Invite text button. Separate Search results example sam with Add contact button, never Friend request or Accept friend. Only usernames, no emails, online/presence dots, removal controls or social permissions. Helper: Adding a contact needs no approval. Invite creates a waiting game lobby. Landscape search/results panel left, saved contacts right; portrait one vertical scrollable list. No extra selection-confirmation step before Invite.",
+      "stitchScreen": "projects/6617750535460836476/screens/e4c425585b2842d6bf99b631f77bd1d5",
+      "source": "sources/contacts.html",
+      "originalSource": "sources/contacts.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter exact username",
+              "x": 33,
+              "y": 187,
+              "width": 254,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Search",
+              "x": 295,
+              "y": 187,
+              "width": 84,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Add contact",
+              "x": 255,
+              "y": 324,
+              "width": 111,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Invite",
+              "x": 299,
+              "y": 492,
+              "width": 67,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Invite",
+              "x": 299,
+              "y": 566,
+              "width": 67,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 24,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Enter exact username",
+              "x": 29,
+              "y": 167,
+              "width": 302,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Search",
+              "x": 339,
+              "y": 167,
+              "width": 84,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Add contact",
+              "x": 301,
+              "y": 286,
+              "width": 111,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Invite",
+              "x": 781,
+              "y": 152,
+              "width": 67,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Invite",
+              "x": 781,
+              "y": 222,
+              "width": 67,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D01",
+      "slug": "decks",
+      "title": "Saved decks",
+      "brief": "Manage decks screen. Back arrow and title Manage decks; prominent Import deck text button with paste icon. Three saved deck rows with abstract monochrome cover placeholders, names Training deck, Woodland practice, Starter list and mainboard/sideboard counts e.g. 60 / 15. Opening a row goes to read-only deck details. Small notice: Saved decks sync across your devices. No full deckbuilder, individual quantity edit, card search-to-add, format legality badge, Export, trash folder or win rates. Portrait stacked rows; landscape restrained two-column deck grid. Counts are descriptive, not legality.",
+      "stitchScreen": "projects/6617750535460836476/screens/47e4cea4b391416f9e8967f575c352c3",
+      "source": "sources/decks.html",
+      "originalSource": "sources/decks.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 2,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "content_paste\nImport deck",
+              "x": 16,
+              "y": 96,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "content_paste\nImport deck",
+              "x": 16,
+              "y": 76,
+              "width": 847,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D02",
+      "slug": "deck-detail",
+      "title": "Saved deck details",
+      "brief": "Read-only saved deck detail for Training deck. Back arrow and title Deck details. Labeled deck name text with adjacent Rename text action; abstract card-cover tile and Choose cover button. Explicit Re-import button and secondary Delete saved deck button. Mainboard 60 / Sideboard 15 tabs display quantity/name rows (synthetic names: 4 Meadow Sentinel, 4 Ember Adept, 22 Training Land) with no +/- quantity editors or Add card action. Helper: Editing or deleting this saved deck will not change copies already chosen in games. Portrait metadata above scrolling list; landscape metadata/actions left and read-only list right. No undo/trash/version history controls.",
+      "stitchScreen": "projects/6617750535460836476/screens/b0de91ed6eba4d9db232c786e0f6edf5",
+      "source": "sources/deck-detail.html",
+      "originalSource": "sources/deck-detail.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Rename",
+              "x": 305,
+              "y": 111,
+              "width": 74,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose cover",
+              "x": 89,
+              "y": 191,
+              "width": 99,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Re-import",
+              "x": 16,
+              "y": 266,
+              "width": 186,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete saved deck",
+              "x": 210,
+              "y": 266,
+              "width": 186,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Mainboard\n60",
+              "x": 16,
+              "y": 389,
+              "width": 190,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Sideboard\n15",
+              "x": 206,
+              "y": 389,
+              "width": 190,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 12,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Rename",
+              "x": 276,
+              "y": 97,
+              "width": 70,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose cover",
+              "x": 75,
+              "y": 173,
+              "width": 93,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Re-import",
+              "x": 12,
+              "y": 240,
+              "width": 170,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete saved deck",
+              "x": 190,
+              "y": 240,
+              "width": 170,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Mainboard\n60",
+              "x": 384,
+              "y": 86,
+              "width": 248,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Sideboard\n15",
+              "x": 632,
+              "y": 86,
+              "width": 248,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D03",
+      "slug": "import-errors",
+      "title": "Import with unresolved names",
+      "brief": "Import deck screen in ERROR state. Back arrow and title Import deck. Multiline text area labeled Deck list showing exactly: Deck / 4 Meadow Sentinel / 4 Unknownn Card / 22 Training Land / Sideboard / 2 Ember Adept. These are synthetic illustrative catalog entries. Error box: Line 3: Unknownn Card could not be resolved. Correct the pasted text; nothing has been saved. Primary Review import visibly disabled; text Retry lookup optionally available as secondary, not mandatory catalog refresh. Keep full input visible/editable. No partial save, silent substitution, format rules, manual card-add editor or Upload step. Portrait textarea above error; landscape textarea left, issues/actions right. The text area must not push the error/action completely off viewport.",
+      "stitchScreen": "projects/6617750535460836476/screens/423d52ce7d134ffea66ab8e203dac71d",
+      "source": "sources/import-errors.html",
+      "originalSource": "sources/import-errors.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Review import",
+              "x": 16,
+              "y": 756,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Retry lookup",
+              "x": 16,
+              "y": 812,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 24,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Review import",
+              "x": 517,
+              "y": 346,
+              "width": 173,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Retry lookup",
+              "x": 701,
+              "y": 346,
+              "width": 173,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D04",
+      "slug": "import-save",
+      "title": "Resolved import and save choice",
+      "brief": "Import review after all names resolve. Back arrow and title Review import. Summary Resolved: 60 mainboard / 15 sideboard. Labeled Deck name field Training deck. Compact read-only list of synthetic card names. Two explicit save modes: Save as new selected; Replace saved deck unselected with existing deck picker Training deck. One primary Save deck text button, secondary Edit pasted list. Helper: Existing game copies stay unchanged. Both save routes require a completely resolved list. No format-legality approval, art download requirement, manual quantity edits, extra Send/Upload or forced cover-picking step. Portrait summary then modes; landscape list left and name/save mode panel right.",
+      "stitchScreen": "projects/6617750535460836476/screens/c96084ada26341f1887e5acb57f2e322",
+      "source": "sources/import-save.html",
+      "originalSource": "sources/import-save.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Replaced catalog-verification wording with resolved-definition wording; no official authenticity/legality check."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 31,
+              "y": 530,
+              "width": 350,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Save deck",
+              "x": 47,
+              "y": 914,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Edit pasted list",
+              "x": 47,
+              "y": 972,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 22,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 437,
+              "y": 198,
+              "width": 422,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Save deck",
+              "x": 437,
+              "y": 507,
+              "width": 207,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Edit pasted list",
+              "x": 652,
+              "y": 507,
+              "width": 207,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D04b",
+      "slug": "import-save-scrolled",
+      "title": "Resolved import and save choice \u2014 lower scroll position",
+      "brief": "Same Stitch source, scrolled to expose lower actions; no new screen generation or product behavior.",
+      "stitchScreen": "projects/6617750535460836476/screens/c96084ada26341f1887e5acb57f2e322",
+      "source": "sources/import-save.html",
+      "originalSource": "sources/import-save.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Replaced catalog-verification wording with resolved-definition wording; no official authenticity/legality check."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 31,
+              "y": 343,
+              "width": 350,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Save deck",
+              "x": 47,
+              "y": 727,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Edit pasted list",
+              "x": 47,
+              "y": 785,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 22,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "INPUT",
+              "x": 437,
+              "y": 35,
+              "width": 422,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Save deck",
+              "x": 437,
+              "y": 344,
+              "width": 207,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Edit pasted list",
+              "x": 652,
+              "y": 344,
+              "width": 207,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            }
+          ]
+        }
+      },
+      "derivedFrom": "D04",
+      "captureScroll": "bottom"
+    },
+    {
+      "id": "D05",
+      "slug": "choose-cover",
+      "title": "Choose a deck cover",
+      "brief": "Cover selection for Training deck. Back arrow and title Choose cover. Helper Choose one card from this deck. Grid of six simple grayscale mock card thumbnails with readable synthetic card names Meadow Sentinel, Ember Adept, Training Land, River Warden, Stone Guide, Quiet Grove. One tile outlined and checkmarked as selected. Primary Use selected card button, secondary Cancel. Do not fetch real artwork, use generated artwork, offer upload/crop, select outside the deck, or imply cover changes edit cards. Portrait 2-column grid, landscape grid left plus small preview/action panel right. Visible text fallback if art is not loaded.",
+      "stitchScreen": "projects/6617750535460836476/screens/057514baab794f899e667dc3552f616b",
+      "source": "sources/choose-cover.html",
+      "originalSource": "sources/choose-cover.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 1,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Use selected card",
+              "x": 16,
+              "y": 760,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel",
+              "x": 16,
+              "y": 816,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Use selected card",
+              "x": 588,
+              "y": 288,
+              "width": 288,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel",
+              "x": 588,
+              "y": 344,
+              "width": 288,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "D06",
+      "slug": "delete-deck",
+      "title": "Delete saved deck confirmation",
+      "brief": "Modal confirmation over a dimmed Manage decks screen, showing Training deck behind it. Dialog title Delete saved deck? Body: Training deck will leave your saved collection. Copies already selected in lobbies and games stay unchanged. This cannot be restored from a trash folder. Two explicit text buttons Keep deck (secondary) and Delete saved deck (destructive). Standard close/back cancels without deletion. No Undo restoration or impact on active game. Portrait centered dialog max width 360 px; landscape centered dialog about 440 px wide, enough room for body and 48 px actions. No gameplay board visible.",
+      "stitchScreen": "projects/6617750535460836476/screens/37b09a45922e43c282c77d0838b260f0",
+      "source": "sources/delete-deck.html",
+      "originalSource": "sources/delete-deck.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "folder_open\nImport deck",
+              "x": 16,
+              "y": 96,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "close",
+              "x": 327,
+              "y": 240,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete saved deck",
+              "x": 47,
+              "y": 537,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Keep deck",
+              "x": 47,
+              "y": 595,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 20,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "folder_open\nImport deck",
+              "x": 16,
+              "y": 84,
+              "width": 860,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "close",
+              "x": 645,
+              "y": 72,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Delete saved deck",
+              "x": 452,
+              "y": 286,
+              "width": 235,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Keep deck",
+              "x": 205,
+              "y": 286,
+              "width": 235,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "L01",
+      "slug": "waiting-invite",
+      "title": "Lobby awaiting invitation acceptance",
+      "brief": "Inviter's waiting lobby. Back arrow and title Lobby with riley. Status Waiting for riley to accept. Opponent panel riley / Invitation pending. Own panel alex / Training deck selected / Mainboard 60 / Sideboard 15; Change deck and Prepare deck text actions. Starting player choice three buttons alex / riley / Random with Random selected as EXAMPLE not fixed product default. Ready primary enabled because own deck selected, even before opponent accepts. Separate Cancel game text action; helper Leaving this screen keeps the lobby. No host Start, expiry countdown, acceptance on behalf of opponent, life editor or auto draw. Portrait panels stacked; landscape own preparation left, opponent/status/starter right, action footer.",
+      "stitchScreen": "projects/6617750535460836476/screens/c3ed2a9d8d1849aa914a2c1c9a766fb3",
+      "source": "sources/waiting-invite.html",
+      "originalSource": "sources/waiting-invite.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change deck",
+              "x": 33,
+              "y": 267,
+              "width": 95,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Prepare deck",
+              "x": 144,
+              "y": 267,
+              "width": 96,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "alex\n(You)",
+              "x": 33,
+              "y": 477,
+              "width": 110,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "riley\n(Opponent)",
+              "x": 151,
+              "y": 477,
+              "width": 110,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Random\n(Example)",
+              "x": 269,
+              "y": 477,
+              "width": 110,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ready",
+              "x": 16,
+              "y": 731,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 16,
+              "y": 787,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 12,
+              "y": 22,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change deck",
+              "x": 29,
+              "y": 223,
+              "width": 89,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Prepare deck",
+              "x": 130,
+              "y": 223,
+              "width": 90,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "alex\n(You)",
+              "x": 495,
+              "y": 236,
+              "width": 117,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "riley\n(Opponent)",
+              "x": 620,
+              "y": 236,
+              "width": 117,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Random\n(Example)",
+              "x": 746,
+              "y": 236,
+              "width": 117,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ready",
+              "x": 46,
+              "y": 326,
+              "width": 240,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 750,
+              "y": 326,
+              "width": 96,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "L02",
+      "slug": "lobby-select-deck",
+      "title": "Accepted lobby before own deck selection",
+      "brief": "Accepted lobby for recipient alex with riley. Back arrow and title Lobby with riley. Own panel alex / No deck selected, large Choose deck text button. Opponent riley / Ready with check icon and text (not color alone). Starting player options alex / riley / Random, Random selected only illustrative. Own Ready button disabled with explicit helper Select your deck to get ready. Separate Cancel game text action. Helper Accepting the invitation did not ready you. No opponent-deck-size validation, host Start, cancel by leaving, online requirement or auto card draw. Portrait stack; landscape own prep area left, opponent/setup right with visible footer.",
+      "stitchScreen": "projects/6617750535460836476/screens/60af81b471e7481e958ecb984820d306",
+      "source": "sources/lobby-select-deck.html",
+      "originalSource": "sources/lobby-select-deck.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Replaced invented 60-card deck-selection requirement with Select a saved deck."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose deck",
+              "x": 245,
+              "y": 251,
+              "width": 121,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ready",
+              "x": 16,
+              "y": 772,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 16,
+              "y": 820,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 12,
+              "y": 22,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Choose deck",
+              "x": 293,
+              "y": 195,
+              "width": 121,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ready",
+              "x": 496,
+              "y": 352,
+              "width": 258,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 764,
+              "y": 352,
+              "width": 112,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "L03",
+      "slug": "choose-lobby-deck",
+      "title": "Select a game-local deck copy",
+      "brief": "Choose deck screen opened from lobby. Back arrow and title Choose deck. List saved Training deck, Woodland practice, Starter list with abstract cover blocks and mainboard/sideboard counts; each row has explicit Select text button. Helper Selecting makes a copy for this game. Saved decks stay unchanged. Small Import deck text action if collection needs one; do not force import if existing list. No format-legality checks, deck size gate, extra Send confirmation or automatic Ready. Portrait rows; landscape two-column grid of rows. Choice immediately returns to lobby with selected copy and clears only own Ready.",
+      "stitchScreen": "projects/6617750535460836476/screens/ce67ed8de6754611813d0cf9a2dc1772",
+      "source": "sources/choose-lobby-deck.html",
+      "originalSource": "sources/choose-lobby-deck.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "folder_open\nImport deck",
+              "x": 280,
+              "y": 247,
+              "width": 114,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select",
+              "x": 303,
+              "y": 319,
+              "width": 76,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select",
+              "x": 303,
+              "y": 412,
+              "width": 76,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select",
+              "x": 303,
+              "y": 505,
+              "width": 76,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "folder_open\nImport deck",
+              "x": 774,
+              "y": 78,
+              "width": 102,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select",
+              "x": 510,
+              "y": 150,
+              "width": 65,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select",
+              "x": 802,
+              "y": 150,
+              "width": 65,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Select",
+              "x": 510,
+              "y": 231,
+              "width": 65,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "L04",
+      "slug": "prepare-deck",
+      "title": "Lobby mainboard and sideboard preparation",
+      "brief": "Lobby deck preparation. Back arrow and title Prepare deck; subtitle Game copy \u2014 Training deck. Separate labeled Mainboard / Library (60) and Sideboard (15) lists. Synthetic quantity/name rows. Select one Meadow Sentinel row on Mainboard; explicit Move 1 to sideboard text button. On Sideboard show selected Ember Adept row with Move 1 to mainboard button. These are direct per-card quantity-one moves, not saved deck quantity editors. Small note Changes sync automatically and clear only your Ready. No Save preparation / Done to send / one-for-one restriction / deck size legality / live-game Sideboard. Back returns to lobby without cancelling or undoing changes. Portrait two stacked panels with vertical scroll; landscape two equal independently scrollable columns. Minimum 48 px action targets.",
+      "stitchScreen": "projects/6617750535460836476/screens/d10bf344b8c047a78b3b7a550ad4e905",
+      "source": "sources/prepare-deck.html",
+      "originalSource": "sources/prepare-deck.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports",
+        "reviewRepairs": [
+          "Replaced invented minimum 60 / maximum 15 restrictions with unrestricted mainboard/sideboard wording.",
+          "Restored landscape status bar and 56px header to contain the 48px Back target."
+        ]
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move 1 to sideboard",
+              "x": 209,
+              "y": 256,
+              "width": 170,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Move 1 to mainboard",
+              "x": 204,
+              "y": 677,
+              "width": 175,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move 1 to sideboard",
+              "x": 251,
+              "y": 230,
+              "width": 170,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Move 1 to mainboard",
+              "x": 684,
+              "y": 230,
+              "width": 175,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "L05",
+      "slug": "ready-waiting",
+      "title": "Lobby with own Ready accepted",
+      "brief": "Lobby with riley after own Ready accepted. Back arrow and title Lobby with riley. Own alex / Ready with check icon and text; Training deck / 60 mainboard / 15 sideboard; Change deck and Prepare deck still available. Opponent riley / Not ready. Starting player choices alex / riley / Random, Random selected illustrative. Primary Withdraw Ready text button. Helper Your Ready stays set when you leave. The game starts automatically when both players are ready. Separate Cancel game text action. No host Start button, both-online gate, auto opening draw, timer, stats or read receipt. Portrait stacked panels; landscape own prep left, opponent/setup right; keep footer controls in viewport.",
+      "stitchScreen": "projects/6617750535460836476/screens/764c019d19ce4b30b2400c7cfaca1dd0",
+      "source": "sources/ready-waiting.html",
+      "originalSource": "sources/ready-waiting.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change deck",
+              "x": 33,
+              "y": 289,
+              "width": 95,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Prepare deck",
+              "x": 144,
+              "y": 289,
+              "width": 96,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Withdraw Ready",
+              "x": 16,
+              "y": 712,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 151,
+              "y": 816,
+              "width": 110,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Inter",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 4,
+              "y": 18,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change deck",
+              "x": 25,
+              "y": 224,
+              "width": 89,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Prepare deck",
+              "x": 130,
+              "y": 224,
+              "width": 90,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Withdraw Ready",
+              "x": 597,
+              "y": 352,
+              "width": 115,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 776,
+              "y": 352,
+              "width": 104,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "L06",
+      "slug": "cancel-lobby",
+      "title": "Cancel unstarted game confirmation",
+      "brief": "Modal proposal over dimmed waiting lobby with riley. Dialog title Cancel this game? Body: This removes the unstarted game and its pending invitation from current games. Leaving the lobby normally does not cancel it. Text buttons Keep game and Cancel game, latter destructive. No opponent approval, restore/trash, cancelled-game archive, unilateral ending of started play or delete player data. Standard Back/close keeps game. Portrait centered dialog max width 360 px, landscape about 460 px; 48 px button targets. Background shows only non-gameplay lobby, no board.",
+      "stitchScreen": "projects/6617750535460836476/screens/9782079ac9a24052a1f900486c6ff8f6",
+      "source": "sources/cancel-lobby.html",
+      "originalSource": "sources/cancel-lobby.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change deck",
+              "x": 33,
+              "y": 254,
+              "width": 83,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Prepare deck",
+              "x": 132,
+              "y": 254,
+              "width": 83,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ready",
+              "x": 16,
+              "y": 725,
+              "width": 380,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 146,
+              "y": 785,
+              "width": 120,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "close",
+              "x": 329,
+              "y": 316,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 47,
+              "y": 526,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Keep game",
+              "x": 47,
+              "y": 584,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 24,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change deck",
+              "x": 79,
+              "y": 231,
+              "width": 83,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Prepare deck",
+              "x": 178,
+              "y": 231,
+              "width": 83,
+              "height": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Ready",
+              "x": 146,
+              "y": 340,
+              "width": 240,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 402,
+              "y": 340,
+              "width": 120,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "close",
+              "x": 621,
+              "y": 123,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Cancel game",
+              "x": 452,
+              "y": 289,
+              "width": 205,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Keep game",
+              "x": 235,
+              "y": 289,
+              "width": 207,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "G00",
+      "slug": "gameplay-placeholder",
+      "title": "Gameplay intentionally omitted",
+      "brief": "Placeholder ONLY, not a gameplay UI design. Back arrow icon and title Game with riley. Most screen is a large empty light-gray outlined rectangle with centered text Gameplay area intentionally omitted from this pilot. Small caption Portrait and landscape gameplay layouts will be designed separately. No cards, zones, hands, life counters, timeline, combat, Stack, action controls, chat, gameplay sideboard or implied final board geometry. Portrait rectangle fills available tall area; landscape rectangle fills available wide area. Keep orientation label outside the rectangle in small text.",
+      "stitchScreen": "projects/6617750535460836476/screens/c4ea8603a53240c388b83e082bf0dc86",
+      "source": "sources/gameplay-placeholder.html",
+      "originalSource": "sources/gameplay-placeholder.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 8,
+              "y": 20,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "U01",
+      "slug": "reconnecting",
+      "title": "Reconnecting and downloaded read-only review",
+      "brief": "Game shell with EMPTY gray gameplay placeholder only, all board design omitted. Header Game with riley. Centered modal titled Reconnecting\u2026 with simple status icon and text Game actions are unavailable while disconnected. Previously sent actions will recover automatically. Text button Review downloaded data and secondary Back to games. Small read-only label on background. Review action closes modal into read-only navigation; it does NOT enable actions, Ready, Undo, activation or new hidden-information inspection, and it does not manually resend unknown requests. No cards, game controls or actual board geometry. Portrait and landscape adapt dialog max width 360/460 px and retain 48 px actions. This is proposed presentation of the existing offline behavior, not a new recovery center.",
+      "stitchScreen": "projects/6617750535460836476/screens/1e53772e5d914cbca7c7051da7eb9d5c",
+      "source": "sources/reconnecting.html",
+      "originalSource": "sources/reconnecting.stitch.html.txt",
+      "normalization": {
+        "executableScriptsRemoved": 0,
+        "externalArtworkReplacedByPlaceholder": 0,
+        "turnBasedMarketingPhraseCorrected": 0,
+        "minimumTouchTargets": "48px; fields excluding checkbox/radio and icon/text actions",
+        "assets": "font/CSS frozen locally; capture blocks all HTTP(S) requests",
+        "whitespace": "trailing whitespace removed from source exports"
+      },
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Review downloaded data",
+              "x": 47,
+              "y": 510,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to games",
+              "x": 47,
+              "y": 568,
+              "width": 318,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Roboto",
+              "status": "loaded"
+            },
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "arrow_back",
+              "x": 16,
+              "y": 24,
+              "width": 48,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Review downloaded data",
+              "x": 237,
+              "y": 276,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to games",
+              "x": 452,
+              "y": 276,
+              "width": 203,
+              "height": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "provenanceNote": "21 Stitch-generated responsive sources; 23 review states including two scrolled continuations; 46 viewport captures.",
+  "reviewBaseUrl": "https://desktop-b2kalvm.tail27cccc.ts.net/ui-review/"
+}

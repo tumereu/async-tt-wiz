@@ -1,0 +1,155 @@
+<!-- STATIC UI REVIEW MOCKUP: Stitch export, locally frozen styles/fonts; not app implementation. -->
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>D03 — Import with unresolved names (Async Table)</title>
+  <!-- Material Symbols Outlined -->
+
+
+<style type="text/css">/* fallback */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 400;
+  src: url("assets/0cc7fa1e4cecd746bb53.woff2") format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+*, ::before, ::after { box-sizing: border-box; margin: 0px; padding: 0px; }
+:root { --bg-canvas: #f8faf9; --surface-card: #ffffff; --border-subtle: #d1d5db; --border-error: #ef4444; --text-main: #111827; --text-muted: #4b5563; --text-disabled: #9ca3af; --primary-teal: #0f766e; --primary-teal-disabled: #99f6e4; --bg-teal-disabled: #e6f4f2; --text-teal-disabled: #5eead4; --error-bg: #fef2f2; --error-text: #991b1b; --error-border: #fca5a5; --status-bar-h: 24px; --top-bar-h: 56px; --safe-bottom-h: 16px; }
+html, body { width: 100%; height: 100dvh; overflow: hidden; background-color: var(--bg-canvas); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--text-main); font-size: 15px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+.app-shell { display: flex; flex-direction: column; width: 100%; height: 100dvh; overflow: hidden; background-color: var(--bg-canvas); }
+.status-bar { height: var(--status-bar-h); min-height: var(--status-bar-h); padding: 0px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--text-muted); user-select: none; background-color: var(--bg-canvas); border-bottom: 1px solid rgba(0, 0, 0, 0.03); }
+.status-bar-icons { display: flex; align-items: center; gap: 6px; }
+.status-bar-icons .material-symbols-outlined { font-size: 15px; line-height: 1; }
+.top-bar { height: var(--top-bar-h); min-height: var(--top-bar-h); padding: 0px 8px 0px 4px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); background-color: var(--bg-canvas); z-index: 10; }
+.top-bar-left { display: flex; align-items: center; gap: 4px; min-width: 0px; }
+.icon-btn { min-width: 48px; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; color: var(--text-main); cursor: pointer; border-radius: 8px; }
+.icon-btn:active { background-color: rgba(0, 0, 0, 0.06); }
+.top-bar-title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-badge { font-size: 13px; color: var(--text-muted); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 2px 8px; background-color: rgb(255, 255, 255); font-weight: 400; }
+.main-content { flex: 1 1 auto; min-height: 0px; overflow: hidden auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.panel-input { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 180px; }
+.field-label { font-size: 15px; font-weight: 600; color: var(--text-main); }
+.textarea-wrapper { position: relative; flex: 1 1 auto; display: flex; min-height: 160px; }
+.deck-textarea { width: 100%; height: 100%; min-height: 160px; padding: 12px; font-family: inherit; font-size: 15px; line-height: 1.5; color: var(--text-main); background-color: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: 8px; resize: none; outline: none; white-space: pre; }
+.deck-textarea:focus { border-color: var(--primary-teal); }
+.panel-feedback-actions { display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
+.error-card { background-color: var(--error-bg); border: 1px solid var(--error-border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.error-header { display: flex; align-items: center; gap: 6px; color: var(--error-text); font-weight: 600; font-size: 15px; }
+.error-header .material-symbols-outlined { font-size: 18px; line-height: 1; color: var(--error-text); }
+.error-message { font-size: 14px; color: var(--error-text); line-height: 1.4; }
+.error-guidance { font-size: 13px; color: rgb(127, 29, 29); margin-top: 2px; }
+.actions-group { display: flex; flex-direction: column; gap: 8px; }
+.btn { width: 100%; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; border: 1px solid transparent; padding: 0px 16px; text-align: center; user-select: none; text-decoration: none; }
+.btn-primary-disabled { background-color: rgb(203, 213, 225); color: rgb(100, 116, 139); border-color: rgb(203, 213, 225); cursor: not-allowed; opacity: 0.85; }
+.btn-secondary { background-color: transparent; color: var(--primary-teal); border: 1px solid var(--border-subtle); font-weight: 500; }
+.btn-secondary:hover { background-color: rgba(15, 118, 110, 0.05); border-color: var(--primary-teal); }
+.btn-secondary:active { background-color: rgba(15, 118, 110, 0.1); }
+.safe-inset-bottom { height: var(--safe-bottom-h); min-height: var(--safe-bottom-h); width: 100%; background-color: var(--bg-canvas); flex-shrink: 0; }
+@media (min-width: 700px) and (max-height: 500px) {
+  .top-bar { height: 48px; min-height: 48px; }
+  .top-bar-title { font-size: 20px; }
+  .icon-btn { min-width: 44px; min-height: 44px; }
+  .main-content { padding: 10px 16px; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px; overflow: hidden; }
+  .panel-input { min-height: 0px; height: 100%; overflow: hidden; margin-bottom: 0px; }
+  .textarea-wrapper { min-height: 0px; height: 100%; }
+  .deck-textarea { height: 100%; min-height: 0px; padding: 8px 10px; font-size: 14px; line-height: 1.4; }
+  .panel-feedback-actions { display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 0px; overflow-y: auto; padding-right: 2px; }
+  .error-card { padding: 10px 12px; gap: 3px; }
+  .error-header { font-size: 14px; }
+  .error-message { font-size: 13px; }
+  .error-guidance { font-size: 12px; }
+  .actions-group { display: flex; flex-direction: row; gap: 10px; margin-top: 8px; }
+  .btn { min-height: 44px; font-size: 14px; flex: 1 1 0%; }
+  .safe-inset-bottom { height: 8px; min-height: 8px; }
+}</style><style type="text/css">
+/* Review normalization: touch targets must not shrink in landscape. */
+button, a[href], [role="button"] { min-width:48px !important; min-height:48px !important; }
+a[href] { display:inline-flex; align-items:center; justify-content:center; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height:48px !important; }
+/* Sources are inert visual mockups, not a functional application. */
+</style></head>
+<body inert="">
+  <div class="app-shell">
+    <!-- Android Minimal Status Bar (24px) -->
+    <header class="status-bar" aria-label="System status">
+      <span class="status-time">10:30</span>
+      <div class="status-bar-icons" aria-hidden="true">
+        <span class="material-symbols-outlined">signal_cellular_alt</span>
+        <span class="material-symbols-outlined">wifi</span>
+        <span class="material-symbols-outlined">battery_full</span>
+      </div>
+    </header>
+
+    <!-- Top App Bar (56px) -->
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="icon-btn" type="button" aria-label="Navigate back">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 class="top-bar-title">Import deck</h1>
+      </div>
+      <div class="draft-badge" aria-label="Screen identifier">Draft D03</div>
+    </div>
+
+    <!-- Main Content Area: Responsive Grid / Stack -->
+    <main class="main-content">
+      <!-- Left / Top: Deck list textarea panel -->
+      <section class="panel-input" aria-label="Deck list input">
+        <label for="deck-input" class="field-label">Deck list</label>
+        <div class="textarea-wrapper">
+          <textarea id="deck-input" class="deck-textarea" spellcheck="false" aria-describedby="import-error-desc">Deck
+4 Meadow Sentinel
+4 Unknownn Card
+22 Training Land
+Sideboard
+2 Ember Adept</textarea>
+        </div>
+      </section>
+
+      <!-- Right / Bottom: Error card & CTAs -->
+      <section class="panel-feedback-actions" aria-label="Import validation status and actions">
+        <div class="error-card" role="alert" id="import-error-desc">
+          <div class="error-header">
+            <span class="material-symbols-outlined" aria-hidden="true">error</span>
+            <span>Unresolved card name</span>
+          </div>
+          <p class="error-message">Line 3: <strong>Unknownn Card</strong> could not be resolved.</p>
+          <p class="error-guidance">Correct the pasted text; nothing has been saved.</p>
+        </div>
+
+        <div class="actions-group">
+          <!-- Primary CTA: Visibly disabled -->
+          <button type="button" class="btn btn-primary-disabled" disabled="" aria-disabled="true" title="Resolve card name errors before importing">
+            Review import
+          </button>
+          <!-- Secondary text action -->
+          <button type="button" class="btn btn-secondary">
+            Retry lookup
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Safe Inset (16px) -->
+    <div class="safe-inset-bottom" aria-hidden="true"></div>
+  </div>
+
+
+</body></html>

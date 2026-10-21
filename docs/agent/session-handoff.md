@@ -1,6 +1,6 @@
 # 14. Session handoff — resume behavior specification
 
-Updated 2026-10-20. This is continuation context, not a new source of requirements.
+Updated 2026-10-21. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
 
@@ -13,6 +13,33 @@ Run applicable checks, inspect staged changes and exclude unrelated work. With
 no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
+
+## Current UI pilot — D-290
+
+The owner explicitly requested both portrait and landscape support/mockups and a
+Stitch-based **non-gameplay** pilot, with gameplay omitted or empty. The
+[UI draft index](../design/02-experience/ui/README.md) links the Markdown packet,
+embedded captures, source/provenance and compiled HTML/PDF review editions.
+Exact layouts are proposals, not approved behavior; the gameplay and full UI gates
+remain incomplete. Do not interpret the older blanket “no UI work” wording below
+as a ban on this specifically authorized pilot, or this pilot as implementation
+authorization/a passed general stage gate.
+
+Google Cloud CLI is permanently installed per-user at
+`~/.local/opt/google-cloud-sdk`, exposed through `~/.local/bin`. The owner completed
+Google OAuth and approved creating `async-tt-wiz-ui-20261021` and enabling Stitch,
+without attaching billing or paid resources. Private Stitch design project:
+`6617750535460836476`. Authentication material stays outside the repository and
+outside hosted review content. Preserve the existing root Tailscale Serve route;
+use a separate path for this packet, never Funnel/public hosting.
+
+The packet has 21 primary drafts, two scrolled continuations, 46 captures and a
+27-page PDF. Local user service `async-tt-wiz-ui-review.service` serves only the
+UI review directory at `127.0.0.1:8765`; Tailscale proxies `/ui-review` to it,
+preserving the root `127.0.0.1:49374` route. The loopback files and route config
+were checked; this host cannot self-connect to its tailnet HTTPS endpoint, so
+phone/other-peer access still needs the owner's check. See the packet's artifact
+validation note. No public hosting or claim of full UI/device/state coverage.
 
 ## Latest follow-up review simplifications — D-289
 

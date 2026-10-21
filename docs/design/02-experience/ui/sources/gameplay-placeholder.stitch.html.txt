@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>G00 — Gameplay intentionally omitted (Async Table)</title>
+  <!-- Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    /* CSS Reset & Variables */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-canvas: #f8fafc;
+      --bg-surface: #ffffff;
+      --border-color: #cbd5e1;
+      --border-subtle: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-subtle: #94a3b8;
+      --primary-teal: #0f766e;
+      --primary-teal-hover: #115e59;
+      --radius: 8px;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.4;
+    }
+
+    /* Overall Application Frame */
+    .app-frame {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100dvh;
+      max-width: 100%;
+      background-color: var(--bg-canvas);
+    }
+
+    /* Android Status Bar Inset Area */
+    .status-bar-inset {
+      height: 24px;
+      min-height: 24px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background-color: var(--bg-canvas);
+      user-select: none;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-icons .material-symbols-outlined {
+      font-size: 15px;
+      line-height: 1;
+      color: var(--text-muted);
+    }
+
+    /* Top Action Bar (56px) */
+    .top-bar {
+      height: 56px;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 8px;
+      background-color: var(--bg-canvas);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+      border: none;
+      background: transparent;
+      color: var(--text-main);
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+
+    .icon-button:active {
+      background-color: var(--border-subtle);
+    }
+
+    .top-bar-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-bar-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: #f1f5f9;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Main Content Area */
+    .screen-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Orientation Label Outside the Rectangle */
+    .orientation-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+
+    .orientation-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+    }
+
+    .orientation-badge::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--primary-teal);
+    }
+
+    /* Large Empty Light-Gray Outlined Rectangle */
+    .omitted-gameplay-container {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background-color: #ffffff;
+      border: 1.5px dashed var(--border-color);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      box-shadow: inset 0 0 0 1px rgba(241, 245, 249, 0.6);
+    }
+
+    .omitted-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      max-width: 360px;
+    }
+
+    .omitted-caption {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 360px;
+      line-height: 1.45;
+    }
+
+    /* Bottom Safe Inset Area (16px) */
+    .bottom-safe-inset {
+      height: 16px;
+      min-height: 16px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background-color: var(--bg-canvas);
+    }
+
+    .android-nav-indicator {
+      width: 72px;
+      height: 4px;
+      background-color: #cbd5e1;
+      border-radius: 2px;
+    }
+
+    /* RESPONSIVE LANDSCAPE REFLOW
+       Constraint: At width >= 700px AND height <= 500px, deliberately reflow into compact
+       side-by-side panels, reduced vertical whitespace, bounded independently scrollable content.
+    */
+    @media (min-width: 700px) and (max-height: 500px) {
+      .status-bar-inset {
+        height: 20px;
+        min-height: 20px;
+        font-size: 12px;
+        padding: 0 16px;
+      }
+
+      .top-bar {
+        height: 48px;
+        min-height: 48px;
+        padding: 0 8px;
+      }
+
+      .top-bar-title {
+        font-size: 20px;
+      }
+
+      .icon-button {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+      }
+
+      .screen-content {
+        padding: 10px 16px;
+        gap: 8px;
+      }
+
+      .orientation-meta {
+        font-size: 12px;
+        padding: 0 2px;
+      }
+
+      .omitted-gameplay-container {
+        padding: 12px 24px;
+      }
+
+      .omitted-title {
+        font-size: 15px;
+        margin-bottom: 4px;
+        max-width: 600px;
+      }
+
+      .omitted-caption {
+        font-size: 13px;
+        max-width: 600px;
+      }
+
+      .bottom-safe-inset {
+        height: 10px;
+        min-height: 10px;
+      }
+
+      .android-nav-indicator {
+        width: 96px;
+        height: 3px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <!-- Minimal Android Status Area (24px) -->
+    <header class="status-bar-inset" aria-label="System status">
+      <span class="status-time">10:30</span>
+      <div class="status-icons">
+        <span class="material-symbols-outlined" aria-hidden="true">signal_cellular_alt</span>
+        <span class="material-symbols-outlined" aria-hidden="true">wifi</span>
+        <span class="material-symbols-outlined" aria-hidden="true">battery_full</span>
+      </div>
+    </header>
+
+    <!-- Top Action Bar (56px) -->
+    <nav class="top-bar" aria-label="Screen header">
+      <div class="top-bar-left">
+        <button class="icon-button" aria-label="Back to lobbies and games" type="button">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 class="top-bar-title">Game with riley</h1>
+      </div>
+      <div class="top-bar-badge">Draft G00</div>
+    </nav>
+
+    <!-- Main Screen Content Area -->
+    <main class="screen-content">
+      <!-- Orientation label outside the rectangle -->
+      <div class="orientation-meta">
+        <span class="orientation-badge">Active Viewport • Portrait / Landscape Responsive</span>
+        <span>Async Table</span>
+      </div>
+
+      <!-- Large Empty Light-Gray Outlined Rectangle -->
+      <section class="omitted-gameplay-container" aria-label="Gameplay placeholder">
+        <h2 class="omitted-title">Gameplay area intentionally omitted from this pilot</h2>
+        <p class="omitted-caption">Portrait and landscape gameplay layouts will be designed separately.</p>
+      </section>
+    </main>
+
+    <!-- Bottom Safe Inset Area (16px) -->
+    <footer class="bottom-safe-inset" aria-hidden="true">
+      <div class="android-nav-indicator"></div>
+    </footer>
+  </div>
+</body>
+</html>

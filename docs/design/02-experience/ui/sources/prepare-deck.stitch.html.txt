@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>L04 — Lobby mainboard and sideboard preparation (Async Table)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    /* CSS Reset & Design Tokens */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-selected: #e6f4f1;
+      --border-color: #cbd5e1;
+      --border-selected: #0f766e;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --teal-primary: #0f766e;
+      --teal-hover: #115e59;
+      --teal-light: #f0fdfa;
+      --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg-page);
+      font-family: var(--font-family);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* App Shell Container */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100dvh;
+      max-width: 100%;
+      margin: 0 auto;
+      background-color: var(--bg-page);
+      position: relative;
+    }
+
+    /* Minimal Android Status Bar (24px) */
+    .status-bar {
+      height: 24px;
+      min-height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background-color: var(--bg-page);
+      user-select: none;
+    }
+
+    .status-bar-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-bar-icons .material-symbols-outlined {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    /* Top App Bar (56px) */
+    .top-bar {
+      height: 56px;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      z-index: 10;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      color: var(--text-primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .icon-button:hover {
+      background-color: #f1f5f9;
+    }
+
+    .top-bar-titles {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .top-bar-title {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-bar-subtitle {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .draft-badge {
+      font-size: 13px;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: var(--bg-surface);
+      flex-shrink: 0;
+    }
+
+    /* Informational Notice Banner */
+    .sync-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background-color: #f1f5f9;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      flex-shrink: 0;
+    }
+
+    .sync-note .material-symbols-outlined {
+      font-size: 18px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* Main Content Area */
+    .content-area {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 16px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Deck Column/Panel */
+    .deck-panel {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      min-height: min-content;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      background-color: #f8fafc;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-count {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--teal-primary);
+      background-color: #ccfbf1;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .panel-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Card Item List */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-row-wrapper {
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-row-wrapper:last-child {
+      border-bottom: none;
+    }
+
+    .card-row {
+      min-height: 48px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+      background-color: var(--bg-surface);
+      transition: background-color 0.15s ease;
+    }
+
+    .card-row:hover {
+      background-color: #f8fafc;
+    }
+
+    .card-row.is-selected {
+      background-color: var(--bg-selected);
+    }
+
+    .card-info {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .card-qty {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--teal-primary);
+      min-width: 18px;
+      text-align: right;
+    }
+
+    .card-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-type {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .selection-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .selection-indicator .material-symbols-outlined {
+      font-size: 20px;
+      color: var(--teal-primary);
+    }
+
+    /* Card Action Toolbar (appears when selected) */
+    .card-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 8px 16px;
+      background-color: #f0fdfa;
+      border-top: 1px dashed #99f6e4;
+      gap: 12px;
+    }
+
+    .action-note {
+      font-size: 13px;
+      color: var(--teal-primary);
+      margin-right: auto;
+    }
+
+    /* Text Button with minimum 48px touch target */
+    .text-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      min-width: 48px;
+      padding: 0 16px;
+      background-color: var(--teal-primary);
+      color: #ffffff;
+      border: 1px solid var(--teal-primary);
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .text-button:hover {
+      background-color: var(--teal-hover);
+      border-color: var(--teal-hover);
+    }
+
+    .text-button-outline {
+      background-color: transparent;
+      color: var(--teal-primary);
+      border: 1px solid var(--teal-primary);
+    }
+
+    .text-button-outline:hover {
+      background-color: #e6f4f1;
+    }
+
+    /* Bottom Safe Inset Area (16px) */
+    .bottom-inset {
+      height: 16px;
+      min-height: 16px;
+      flex-shrink: 0;
+      background-color: var(--bg-page);
+    }
+
+    /* =========================================================
+       CRITICAL RESPONSIVE REQUIREMENT:
+       Landscape Viewport Reflow: width >= 700px AND height <= 500px
+       Also supports standard tablet/desktop preview gracefully
+       ========================================================= */
+    @media screen and (min-width: 700px) and (max-height: 500px), screen and (min-width: 700px) {
+      .sync-note {
+        padding: 6px 16px;
+      }
+
+      .content-area {
+        flex-direction: row;
+        gap: 16px;
+        overflow-y: hidden; /* Stop whole-page scrolling */
+        align-items: stretch;
+      }
+
+      .deck-panel {
+        flex: 1 1 50%;
+        min-width: 0;
+        height: 100%;
+        overflow-y: auto; /* Independent column scrolling */
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .panel-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+
+      .bottom-inset {
+        height: 8px;
+        min-height: 8px;
+      }
+    }
+
+    @media screen and (min-width: 700px) and (max-height: 500px) {
+      .top-bar {
+        height: 48px;
+        min-height: 48px;
+      }
+
+      .top-bar-title {
+        font-size: 20px;
+      }
+
+      .status-bar {
+        display: none; /* Hide simulated status bar in ultra-compact landscape */
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Android Minimal Status Area (24px) -->
+    <div class="status-bar" aria-hidden="true">
+      <span>10:30</span>
+      <div class="status-bar-icons">
+        <span class="material-symbols-outlined">signal_cellular_alt</span>
+        <span class="material-symbols-outlined">wifi</span>
+        <span class="material-symbols-outlined">battery_full</span>
+      </div>
+    </div>
+
+    <!-- Top Bar (56px) -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="icon-button" aria-label="Back to lobby" title="Back to lobby">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <div class="top-bar-titles">
+          <h1 class="top-bar-title">Prepare deck</h1>
+          <p class="top-bar-subtitle">Game copy — Training deck</p>
+        </div>
+      </div>
+      <span class="draft-badge">Draft L04</span>
+    </header>
+
+    <!-- Auto-Sync Notice Banner -->
+    <div class="sync-note" role="status">
+      <span class="material-symbols-outlined">sync</span>
+      <span>Changes sync automatically and clear only your Ready status.</span>
+    </div>
+
+    <!-- Main Content Container (Reflows into 2 equal columns on landscape) -->
+    <main class="content-area">
+
+      <!-- Panel 1: Mainboard / Library -->
+      <section class="deck-panel" aria-label="Mainboard">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>Mainboard / Library</span>
+            <span class="panel-count">60</span>
+          </div>
+          <span class="panel-hint">Min 60 cards</span>
+        </div>
+
+        <div class="card-list" role="list">
+
+          <!-- Selected Card Row with Move Action Button -->
+          <div class="card-row-wrapper">
+            <div class="card-row is-selected" role="listitem" tabindex="0" aria-label="Meadow Sentinel, 4 copies, selected">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Meadow Sentinel</span>
+                <span class="card-type">Creature</span>
+              </div>
+              <div class="selection-indicator">
+                <span class="material-symbols-outlined">check_circle</span>
+              </div>
+            </div>
+            <!-- Explicit Move Button Target >= 48px -->
+            <div class="card-action-bar">
+              <span class="action-note">1 of 4 targeted</span>
+              <button class="text-button" type="button">
+                Move 1 to sideboard
+              </button>
+            </div>
+          </div>
+
+          <!-- Unselected Rows -->
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Aegis Ward, 4 copies">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Aegis Ward</span>
+                <span class="card-type">Instant</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Solar Flare, 4 copies">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Solar Flare</span>
+                <span class="card-type">Sorcery</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Frontline Scout, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Frontline Scout</span>
+                <span class="card-type">Creature</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Rift Catalyst, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Rift Catalyst</span>
+                <span class="card-type">Artifact</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Training Land, 22 copies">
+              <div class="card-info">
+                <span class="card-qty">22</span>
+                <span class="card-name">Training Land</span>
+                <span class="card-type">Basic Land</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Panel 2: Sideboard -->
+      <section class="deck-panel" aria-label="Sideboard">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>Sideboard</span>
+            <span class="panel-count">15</span>
+          </div>
+          <span class="panel-hint">Up to 15 cards</span>
+        </div>
+
+        <div class="card-list" role="list">
+
+          <!-- Selected Card Row on Sideboard with Move Action Button -->
+          <div class="card-row-wrapper">
+            <div class="card-row is-selected" role="listitem" tabindex="0" aria-label="Ember Adept, 2 copies, selected">
+              <div class="card-info">
+                <span class="card-qty">2</span>
+                <span class="card-name">Ember Adept</span>
+                <span class="card-type">Creature</span>
+              </div>
+              <div class="selection-indicator">
+                <span class="material-symbols-outlined">check_circle</span>
+              </div>
+            </div>
+            <!-- Explicit Move Button Target >= 48px -->
+            <div class="card-action-bar">
+              <span class="action-note">1 of 2 targeted</span>
+              <button class="text-button" type="button">
+                Move 1 to mainboard
+              </button>
+            </div>
+          </div>
+
+          <!-- Unselected Sideboard Rows -->
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Quiet Grove, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Quiet Grove</span>
+                <span class="card-type">Land</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Stone Guide, 4 copies">
+              <div class="card-info">
+                <span class="card-qty">4</span>
+                <span class="card-name">Stone Guide</span>
+                <span class="card-type">Creature</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="River Warden, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">River Warden</span>
+                <span class="card-type">Creature</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-row-wrapper">
+            <div class="card-row" role="listitem" tabindex="0" aria-label="Arcane Ward, 3 copies">
+              <div class="card-info">
+                <span class="card-qty">3</span>
+                <span class="card-name">Arcane Ward</span>
+                <span class="card-type">Instant</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Safe Inset (16px) -->
+    <div class="bottom-inset" aria-hidden="true"></div>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D06 — Delete saved deck confirmation (Async Table)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    --bg-page: #f8fafc;
+    --border-gray: #e2e8f0;
+    --border-darker: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --teal-primary: #0f766e;
+    --teal-hover: #115e59;
+    --teal-light: #f0fdfa;
+    --danger-red: #b91c1c;
+    --danger-bg-subtle: #fef2f2;
+    --danger-border: #fecaca;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Structural Android Phone Container: fits 100dvh */
+  .android-root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
+    position: relative;
+    background-color: var(--bg-page);
+    overflow: hidden;
+  }
+
+  /* Status Bar */
+  .status-bar {
+    height: 24px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background-color: var(--bg-page);
+    border-bottom: 1px solid var(--border-gray);
+    flex-shrink: 0;
+    user-select: none;
+    z-index: 10;
+  }
+
+  .status-icons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-icons .material-symbols-outlined {
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  /* Top Bar 56px */
+  .top-bar {
+    height: 56px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--border-gray);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  .top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .icon-button {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 8px;
+  }
+
+  .top-bar-title {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--text-primary);
+  }
+
+  .draft-badge {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border: 1px solid var(--border-gray);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background-color: #f1f5f9;
+  }
+
+  /* Background view (Dimmed Manage Decks Screen) */
+  .background-screen {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0.25;
+    pointer-events: none;
+    user-select: none;
+    filter: blur(0.5px);
+  }
+
+  .bg-import-button {
+    height: 48px;
+    background-color: var(--teal-primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .bg-sync-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 10px 14px;
+    background-color: #ffffff;
+    border: 1px solid var(--border-gray);
+    border-radius: 8px;
+  }
+
+  .bg-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 2px 0;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  .bg-deck-card {
+    background-color: #ffffff;
+    border: 1px solid var(--border-gray);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .bg-deck-card.highlighted {
+    border-color: #94a3b8;
+    background-color: #ffffff;
+  }
+
+  .bg-deck-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .bg-deck-icon {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border-gray);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8fafc;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .bg-deck-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .bg-deck-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .bg-deck-counts {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .bg-pill {
+    padding: 4px 8px;
+    background-color: #f1f5f9;
+    border: 1px solid var(--border-gray);
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  /* Modal Scrim Overlay */
+  .modal-scrim {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 50;
+  }
+
+  /* Modal Dialog Card */
+  .modal-dialog {
+    background-color: #ffffff;
+    border: 1px solid var(--border-darker);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalAppear 0.15s ease-out;
+  }
+
+  @keyframes modalAppear {
+    from {
+      opacity: 0.7;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Dialog Header */
+  .dialog-header {
+    padding: 20px 20px 12px 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .dialog-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .dialog-eyebrow {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--danger-red);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .dialog-title {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--text-primary);
+  }
+
+  .dialog-close-btn {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    margin: -10px -10px -10px 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .dialog-close-btn:hover {
+    background-color: #f1f5f9;
+    color: var(--text-primary);
+  }
+
+  /* Dialog Body Content */
+  .dialog-body {
+    padding: 0 20px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    max-height: calc(100dvh - 200px);
+  }
+
+  .dialog-deck-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background-color: #f8fafc;
+    border: 1px solid var(--border-gray);
+    border-radius: 6px;
+  }
+
+  .dialog-deck-badge-icon {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-gray);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .dialog-deck-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .dialog-deck-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .dialog-text {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .dialog-warning-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background-color: var(--danger-bg-subtle);
+    border: 1px solid var(--danger-border);
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--danger-red);
+  }
+
+  .dialog-warning-callout .material-symbols-outlined {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* Dialog Actions (touch targets >= 48px) */
+  .dialog-actions {
+    padding: 16px 20px 20px 20px;
+    background-color: #ffffff;
+    border-top: 1px solid var(--border-gray);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn {
+    height: 48px;
+    min-height: 48px;
+    padding: 0 16px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.1s ease, border-color 0.1s ease;
+    user-select: none;
+    width: 100%;
+  }
+
+  /* Destructive text button */
+  .btn-destructive {
+    background-color: var(--danger-red);
+    color: #ffffff;
+    border: 1px solid var(--danger-red);
+  }
+
+  .btn-destructive:hover {
+    background-color: #991b1b;
+    border-color: #991b1b;
+  }
+
+  /* Keep deck (secondary text button) */
+  .btn-secondary {
+    background-color: #ffffff;
+    color: var(--text-primary);
+    border: 1px solid var(--border-darker);
+  }
+
+  .btn-secondary:hover {
+    background-color: #f1f5f9;
+  }
+
+  /* Safe Area Inset Indicator */
+  .safe-inset-bottom {
+    height: 16px;
+    flex-shrink: 0;
+    background-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .home-pill {
+    width: 72px;
+    height: 4px;
+    background-color: #cbd5e1;
+    border-radius: 2px;
+  }
+
+  /* =========================================================================
+     RESPONSIVE LANDSCAPE REFLOW (width >= 700px AND height <= 500px)
+     Also covers compact landscape viewports like 892 x 412
+     ========================================================================= */
+  @media (min-width: 700px) and (max-height: 500px) {
+    .status-bar {
+      height: 20px;
+      font-size: 12px;
+      padding: 0 20px;
+    }
+
+    .top-bar {
+      height: 48px;
+      padding: 0 20px;
+    }
+
+    .icon-button {
+      width: 44px;
+      height: 44px;
+    }
+
+    .top-bar-title {
+      font-size: 18px;
+    }
+
+    .modal-scrim {
+      padding: 10px 24px;
+    }
+
+    /* Landscape centered dialog: about 440px - 520px wide, compact side-by-side or stacked layout */
+    .modal-dialog {
+      max-width: 480px;
+      max-height: calc(100dvh - 20px);
+    }
+
+    .dialog-header {
+      padding: 12px 18px 8px 18px;
+    }
+
+    .dialog-title {
+      font-size: 20px;
+    }
+
+    .dialog-close-btn {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      margin: -6px -6px -6px 0;
+    }
+
+    .dialog-body {
+      padding: 0 18px 10px 18px;
+      gap: 8px;
+      max-height: calc(100dvh - 130px);
+    }
+
+    .dialog-text {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .dialog-deck-badge {
+      padding: 6px 10px;
+    }
+
+    .dialog-warning-callout {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .dialog-actions {
+      padding: 10px 18px 12px 18px;
+      flex-direction: row-reverse;
+      gap: 12px;
+    }
+
+    .btn {
+      height: 44px;
+      min-height: 44px;
+      flex: 1;
+      font-size: 14px;
+    }
+
+    .safe-inset-bottom {
+      height: 8px;
+    }
+  }
+
+  /* Optional: wider landscape side-by-side dialog layout if screen permits */
+  @media (min-width: 760px) and (max-height: 500px) {
+    .modal-dialog {
+      max-width: 520px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="android-root">
+  <!-- Minimal Android Status Area (24px) -->
+  <header class="status-bar" aria-label="System status">
+    <span>10:30</span>
+    <div class="status-icons">
+      <span class="material-symbols-outlined" title="Network status">signal_cellular_alt</span>
+      <span class="material-symbols-outlined" title="Wi-Fi">wifi</span>
+      <span class="material-symbols-outlined" title="Battery">battery_full</span>
+    </div>
+  </header>
+
+  <!-- Top Bar 56px (Manage decks) -->
+  <nav class="top-bar" aria-label="Screen header">
+    <div class="top-bar-left">
+      <button class="icon-button" aria-label="Navigate back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h1 class="top-bar-title">Manage decks</h1>
+    </div>
+    <span class="draft-badge">Draft D06</span>
+  </nav>
+
+  <!-- Dimmed Background Content (Showing Manage Decks with Training deck) -->
+  <main class="background-screen" aria-hidden="true" tabindex="-1">
+    <button class="bg-import-button" tabindex="-1">
+      <span class="material-symbols-outlined">folder_open</span>
+      <span>Import deck</span>
+    </button>
+
+    <div class="bg-sync-notice">
+      <span class="material-symbols-outlined" style="font-size: 18px;">sync</span>
+      <span>Saved decks sync across your devices.</span>
+    </div>
+
+    <div class="bg-section-header">
+      <span>Saved lists (3)</span>
+      <span>Tap row for details</span>
+    </div>
+
+    <!-- Training Deck Item (Highlighted behind modal) -->
+    <div class="bg-deck-card highlighted">
+      <div class="bg-deck-info">
+        <div class="bg-deck-icon">
+          <span class="material-symbols-outlined" style="font-size: 18px;">style</span>
+          <span>TRN</span>
+        </div>
+        <div>
+          <div class="bg-deck-title">Training deck</div>
+          <div class="bg-deck-sub">60 main / 15 side</div>
+        </div>
+      </div>
+      <div class="bg-deck-counts">
+        <span class="bg-pill">60 / 15</span>
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #94a3b8;">chevron_right</span>
+      </div>
+    </div>
+
+    <!-- Woodland practice -->
+    <div class="bg-deck-card">
+      <div class="bg-deck-info">
+        <div class="bg-deck-icon">
+          <span class="material-symbols-outlined" style="font-size: 18px;">nature</span>
+          <span>WDL</span>
+        </div>
+        <div>
+          <div class="bg-deck-title">Woodland practice</div>
+          <div class="bg-deck-sub">60 main / 15 side</div>
+        </div>
+      </div>
+      <div class="bg-deck-counts">
+        <span class="bg-pill">60 / 15</span>
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #94a3b8;">chevron_right</span>
+      </div>
+    </div>
+
+    <!-- Starter list -->
+    <div class="bg-deck-card">
+      <div class="bg-deck-info">
+        <div class="bg-deck-icon">
+          <span class="material-symbols-outlined" style="font-size: 18px;">auto_stories</span>
+          <span>STR</span>
+        </div>
+        <div>
+          <div class="bg-deck-title">Starter list</div>
+          <div class="bg-deck-sub">60 main / 15 side</div>
+        </div>
+      </div>
+      <div class="bg-deck-counts">
+        <span class="bg-pill">60 / 15</span>
+        <span class="material-symbols-outlined" style="font-size: 20px; color: #94a3b8;">chevron_right</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Confirmation Over Dimmed Screen -->
+  <div class="modal-scrim" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-desc">
+    <section class="modal-dialog">
+      <!-- Dialog Header -->
+      <header class="dialog-header">
+        <div class="dialog-header-text">
+          <span class="dialog-eyebrow">Confirm deletion</span>
+          <h2 id="dialog-title" class="dialog-title">Delete saved deck?</h2>
+        </div>
+        <button class="dialog-close-btn" aria-label="Cancel and close dialog">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </header>
+
+      <!-- Dialog Body Content -->
+      <div id="dialog-desc" class="dialog-body">
+        <div class="dialog-deck-badge">
+          <div class="dialog-deck-badge-icon">TRN</div>
+          <div>
+            <div class="dialog-deck-name">Training deck</div>
+            <div class="dialog-deck-meta">60 main &bull; 15 sideboard</div>
+          </div>
+        </div>
+
+        <p class="dialog-text">
+          <strong>Training deck</strong> will leave your saved collection. Copies already selected in lobbies and games stay unchanged.
+        </p>
+
+        <div class="dialog-warning-callout">
+          <span class="material-symbols-outlined">error_outline</span>
+          <span>This cannot be restored from a trash folder.</span>
+        </div>
+      </div>
+
+      <!-- Explicit text buttons (Keep deck & Delete saved deck) -->
+      <footer class="dialog-actions">
+        <button class="btn btn-destructive" type="button">
+          Delete saved deck
+        </button>
+        <button class="btn btn-secondary" type="button">
+          Keep deck
+        </button>
+      </footer>
+    </section>
+  </div>
+
+  <!-- Bottom Safe Inset Indicator (16px) -->
+  <footer class="safe-inset-bottom" aria-hidden="true">
+    <div class="home-pill"></div>
+  </footer>
+</div>
+
+</body>
+</html>

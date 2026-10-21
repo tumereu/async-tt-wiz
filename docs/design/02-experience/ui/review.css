@@ -1,0 +1,55 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #17202a; background: #f4f6f8; }
+* { box-sizing: border-box; }
+body { max-width: 1120px; margin: 0 auto; padding: 32px 24px 80px; line-height: 1.55; background: white; }
+h1, h2, h3 { line-height: 1.2; }
+h1 { font-size: 2.2rem; }
+h2 { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #d5dce2; }
+a { color: #006e73; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+td, th { text-align: left; border: 1px solid #d5dce2; padding: 8px; vertical-align: top; }
+th { background: #edf1f3; }
+blockquote { margin: 20px 0; padding: 8px 16px; border-left: 4px solid #4a7377; background: #eef5f5; }
+code { overflow-wrap: anywhere; }
+pre { white-space: pre-wrap; padding: 12px; background: #f1f3f5; }
+img { display: block; max-width: 100%; height: auto; border: 1px solid #b9c1c9; border-radius: 4px; }
+figure { margin: 0; }
+figcaption { font-size: .85rem; color: #4b5563; margin-top: 6px; }
+.screen-pair { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.5fr); gap: 24px; align-items: start; margin: 20px 0; }
+.portrait img { width: 260px; max-width: 100%; }
+.landscape img { width: 100%; }
+.screen-section { margin-top: 3rem; }
+.screen-section h2 { margin-top: 0; }
+#TOC { background: #f4f6f8; padding: 16px 24px; border-radius: 8px; }
+#TOC ul { padding-left: 1.2rem; }
+@media (max-width: 640px) {
+  body { padding: 20px 16px 64px; }
+  h1 { font-size: 1.8rem; }
+  .screen-pair { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .portrait img { width: 300px; margin-inline: auto; }
+  table { font-size: .78rem; }
+  td, th { padding: 5px; }
+}
+@media print {
+  @page { size: A4; margin: 14mm; }
+  :root, body { background: white; font-size: 9pt; }
+  body { max-width: none; padding: 0; line-height: 1.35; }
+  h1 { font-size: 24pt; }
+  h2 { font-size: 16pt; margin-top: 14pt; padding-top: 7pt; }
+  h3 { font-size: 11pt; }
+  a { color: #17202a; text-decoration: none; }
+  #TOC { font-size: 8pt; }
+  #TOC ul { columns: 2; }
+  #TOC ul ul { columns: 1; }
+  .screen-section { break-before: page; margin-top: 0; }
+  .screen-pair { display: grid; grid-template-columns: 53mm 113mm; gap: 9mm; margin: 9pt 0; break-inside: avoid; }
+  .portrait img { width: 53mm; }
+  .landscape img { width: 113mm; }
+  figcaption { font-size: 8pt; }
+  table { font-size: 8pt; }
+  td, th { padding: 4pt; }
+  h2, h3 { break-after: avoid; }
+  p, li { orphans: 3; widows: 3; }
+  p { margin: 6pt 0; }
+  ul { margin-top: 5pt; margin-bottom: 5pt; }
+  #whole-journey-interaction-budgets { break-before: page; }
+}

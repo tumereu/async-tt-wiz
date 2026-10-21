@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>L06 — Cancel unstarted game confirmation (Async Table)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+      height: 100dvh;
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 24px;
+      line-height: 1;
+      display: inline-block;
+    }
+
+    /* Minimal Android status bar */
+    .status-bar {
+      height: 24px;
+      padding: 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 500;
+      background: #f8fafc;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .status-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .status-icons .material-symbols-outlined {
+      font-size: 15px;
+    }
+
+    /* Top App Bar */
+    .top-bar {
+      height: 56px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #e2e8f0;
+      background: #ffffff;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      width: 48px;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #1e293b;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    .screen-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+    }
+
+    .draft-badge {
+      font-size: 13px;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    /* Background Lobby Layout (dimmed) */
+    .lobby-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .lobby-status-banner {
+      padding: 10px 16px;
+      background: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 14px;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #0d9488;
+    }
+
+    .lobby-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .card-panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-label {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+    }
+
+    .panel-user {
+      font-size: 16px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .deck-subcard {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .deck-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: #0f172a;
+    }
+
+    .deck-meta {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 16px;
+    }
+
+    .text-link {
+      font-size: 14px;
+      font-weight: 500;
+      color: #0f766e;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      cursor: pointer;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .starting-player-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.2fr;
+      gap: 8px;
+    }
+
+    .radio-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+      background: #ffffff;
+    }
+
+    .radio-card.active {
+      border-color: #0f766e;
+      background: #f0fdfa;
+    }
+
+    .radio-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0f766e;
+    }
+
+    .radio-card-sub {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .lobby-footer {
+      padding: 16px;
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .btn-lobby-ready {
+      width: 100%;
+      max-width: 400px;
+      height: 48px;
+      background: #0f766e;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+    }
+
+    .btn-lobby-cancel {
+      font-size: 15px;
+      font-weight: 500;
+      color: #b91c1c;
+      background: none;
+      border: none;
+      height: 48px;
+      padding: 0 16px;
+    }
+
+    /* Modal Backdrop Layer */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
+    }
+
+    /* Modal Dialog */
+    .modal-dialog {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .dialog-header {
+      padding: 18px 20px 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .dialog-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.25;
+    }
+
+    .dialog-close-btn {
+      width: 48px;
+      height: 48px;
+      margin-right: -12px;
+      margin-top: -8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    .dialog-close-btn:focus-visible,
+    .dialog-close-btn:hover {
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .dialog-body {
+      padding: 0 20px 20px 20px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: #334155;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .warning-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+      color: #991b1b;
+      line-height: 1.4;
+    }
+
+    .warning-box .material-symbols-outlined {
+      color: #b91c1c;
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .dialog-actions {
+      padding: 12px 20px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-top: 1px solid #f1f5f9;
+      background: #fafafa;
+    }
+
+    .btn-destructive {
+      width: 100%;
+      min-height: 48px;
+      background: #b91c1c;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-destructive:hover,
+    .btn-destructive:focus-visible {
+      background: #991b1b;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      min-height: 48px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 15px;
+      font-weight: 500;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+    }
+
+    .btn-secondary:hover,
+    .btn-secondary:focus-visible {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+
+    /* Android bottom safe inset indicator */
+    .bottom-safe-inset {
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+
+    .home-indicator {
+      width: 72px;
+      height: 4px;
+      background: #cbd5e1;
+      border-radius: 2px;
+    }
+
+    /* CRITICAL RESPONSIVE REFLOW FOR LANDSCAPE VIEWPORT */
+    /* width >= 700px AND height <= 500px */
+    @media (min-width: 700px) and (max-height: 500px) {
+      .top-bar {
+        height: 48px;
+      }
+
+      .screen-title {
+        font-size: 20px;
+      }
+
+      .lobby-status-banner {
+        padding: 6px 16px;
+        font-size: 13px;
+      }
+
+      .lobby-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 10px 16px;
+      }
+
+      .lobby-footer {
+        padding: 8px 16px;
+        flex-direction: row;
+        justify-content: center;
+        gap: 16px;
+      }
+
+      .btn-lobby-ready {
+        max-width: 240px;
+        height: 40px;
+      }
+
+      .btn-lobby-cancel {
+        height: 40px;
+      }
+
+      /* Landscape modal reflow: wider (approx 460px), reduced vertical whitespace, horizontal action buttons */
+      .modal-dialog {
+        max-width: 460px;
+        max-height: calc(100dvh - 32px);
+      }
+
+      .dialog-header {
+        padding: 12px 18px 8px 18px;
+      }
+
+      .dialog-title {
+        font-size: 20px;
+      }
+
+      .dialog-close-btn {
+        width: 44px;
+        height: 44px;
+      }
+
+      .dialog-body {
+        padding: 0 18px 12px 18px;
+        gap: 8px;
+        font-size: 14px;
+        overflow-y: auto;
+      }
+
+      .warning-box {
+        padding: 8px 10px;
+        font-size: 12.5px;
+      }
+
+      .warning-box .material-symbols-outlined {
+        font-size: 18px;
+      }
+
+      .dialog-actions {
+        padding: 10px 18px 12px 18px;
+        flex-direction: row-reverse;
+        justify-content: flex-start;
+        gap: 10px;
+      }
+
+      .btn-destructive,
+      .btn-secondary {
+        width: auto;
+        flex: 1;
+        min-height: 48px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Android Minimal Status Bar (24px) -->
+  <div class="status-bar">
+    <span>10:30</span>
+    <div class="status-icons">
+      <span class="material-symbols-outlined">signal_cellular_alt</span>
+      <span class="material-symbols-outlined">wifi</span>
+      <span class="material-symbols-outlined">battery_full</span>
+    </div>
+  </div>
+
+  <!-- Top App Bar (56px) -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <button class="icon-btn" aria-label="Back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h1 class="screen-title">Lobby with riley</h1>
+    </div>
+    <span class="draft-badge">Draft L06</span>
+  </header>
+
+  <!-- Main View Area (Lobby behind modal) -->
+  <div class="lobby-container">
+
+    <!-- Under-bar status banner -->
+    <div class="lobby-status-banner">
+      <div class="status-dot"></div>
+      <span>Waiting for riley to accept</span>
+    </div>
+
+    <!-- Lobby Content -->
+    <main class="lobby-content">
+      <!-- Your setup panel -->
+      <section class="card-panel">
+        <div class="panel-header">
+          <span class="panel-label">Your Deck (Inviter)</span>
+          <span class="panel-user">@alex</span>
+        </div>
+        <div class="deck-subcard">
+          <div>
+            <div class="deck-title">Training deck selected</div>
+            <div class="deck-meta">Mainboard 60 • Sideboard 15</div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="text-link">Change deck</button>
+          <button class="text-link">Prepare deck</button>
+        </div>
+      </section>
+
+      <!-- Opponent panel -->
+      <section class="card-panel">
+        <div class="panel-header">
+          <span class="panel-label">Opponent</span>
+          <span class="panel-user">@riley</span>
+        </div>
+        <div class="deck-subcard">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-outlined" style="font-size: 18px; color: #64748b;">schedule</span>
+            <span class="deck-meta" style="font-size: 14px;">Invitation pending</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Starting Player Selection -->
+      <section class="card-panel">
+        <div class="panel-label">Starting Player</div>
+        <div class="starting-player-grid">
+          <div class="radio-card">
+            <div class="radio-card-title" style="color: #1e293b;">alex</div>
+            <div class="radio-card-sub">(You)</div>
+          </div>
+          <div class="radio-card">
+            <div class="radio-card-title" style="color: #1e293b;">riley</div>
+            <div class="radio-card-sub">(Opponent)</div>
+          </div>
+          <div class="radio-card active">
+            <div class="radio-card-title">Random</div>
+            <div class="radio-card-sub">(50 / 50)</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Lobby Footer -->
+    <footer class="lobby-footer">
+      <button class="btn-lobby-ready">Ready</button>
+      <button class="btn-lobby-cancel">Cancel game</button>
+      <span style="font-size: 13px; color: #64748b;">Leaving this screen keeps the lobby.</span>
+    </footer>
+
+    <!-- Modal Dialog Overlay (L06 Proposal) -->
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dialog-title-l06">
+      <div class="modal-dialog">
+        <!-- Dialog Header -->
+        <div class="dialog-header">
+          <h2 id="dialog-title-l06" class="dialog-title">Cancel this game?</h2>
+          <button class="dialog-close-btn" aria-label="Keep game and close dialog">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <!-- Dialog Body -->
+        <div class="dialog-body">
+          <p>
+            This removes the unstarted game and its pending invitation from current games.
+          </p>
+
+          <div class="warning-box">
+            <span class="material-symbols-outlined">info</span>
+            <span>Leaving the lobby normally does not cancel it.</span>
+          </div>
+        </div>
+
+        <!-- Dialog Action Buttons (Text buttons with >=48px targets) -->
+        <div class="dialog-actions">
+          <button class="btn-destructive">Cancel game</button>
+          <button class="btn-secondary">Keep game</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Android Bottom Safe Inset (16px) -->
+  <div class="bottom-safe-inset">
+    <div class="home-indicator"></div>
+  </div>
+
+</body>
+</html>

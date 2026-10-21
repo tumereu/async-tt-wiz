@@ -48,3 +48,26 @@ the separate operations repository. Rights/attribution, signing/distribution,
 reference-device performance and external operator-readiness gates remain
 unverified until their actual evidence/authority is recorded. Software implemented,
 software verified and externally releasable remain distinct outcomes.
+
+## Autonomous execution clarification — D-305
+
+The owner further instructs agents to do their best to complete the specified
+vision/path autonomously, repairing infrastructure/orchestration along the way.
+Whole or multiple fresh sessions spent troubleshooting are preferable to leaving
+an unattended run halted on an ordinary technical problem. The first failed
+command/save is not a reason to stop. See the
+[checkpoint/repair contract](implementation-agent.md#autonomous-troubleshooting-and-orchestration-repairs--d-305).
+
+Implement/fix sessions may make necessary evidenced driver/prompt repairs with
+runner regression tests; this does not authorize expanding permission grants,
+changing the model, hiding failures or removing reviews/release gates. This
+explicitly supersedes the former blanket active-unit driver/prompt edit ban.
+
+If a feature would otherwise need credentials, production access, paid resources,
+rights, signing keys or unavailable hardware, implement it to the best possible
+extent **without** crossing that boundary. Complete real interfaces/configuration
+and all available synthetic/local tests; retain only the unavailable external
+exercise/qualification as unverified. Do not abandon the feature, silently omit
+behavior, invent a pass or stop remaining implementable work. The goal is all
+feasible implementation done, not merely encountering the first external gate.
+Explicit owner stop requests and chosen session/time budgets still govern execution.

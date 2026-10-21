@@ -187,7 +187,8 @@ unreported advancement of unrelated tasks or reviews. A critical finding discove
 inside an implementation unit is explicitly reported and prioritized normally.
 An early critical fix's clean verification returns an incomplete batch to pending;
 a complete batch with missing review coverage becomes ready-for-review, not reviewed.
-Each implementation boundary needs a completed outcome, evidenced blocker or real
+Each implementation boundary needs a completed outcome, D-305 evidence-backed
+troubleshooting checkpoint, evidenced blocker or real
 planning-only child split; changing notes on an in-progress task is not progress.
 A blocked selection may save explained planning/unblocking that makes independent
 approved work runnable, but must exit before that work starts in a fresh unit.
@@ -243,11 +244,12 @@ Required behavior for that wrapper:
 6. Confirm save/push before another agent. A failed push may be retried as the
    **same save operation** without repeating implementation; unresolved failure
    stops the runner. Do not launch another agent to blindly redo failed work.
-7. Continue after validated progress. Stop on completion, no runnable independent
-   work (including an owner/environment decision blocking all eligible work),
-   unsafe workspace, unresolved required-check/tooling/save failure at the unit
-   boundary, a permission prompt requiring the owner, or repeated no progress. Bounded transient tool
-   retries are acceptable with evidence; no automatic semantic retry/reroll.
+7. Continue after validated progress. D-305 below requires autonomous repair and
+   best-effort implementation inside external constraints, not halting at the first
+   permission/resource/build/save problem. Stop on completed work, explicit stop or
+   operator budgets. A genuinely unsafe/unresolved handoff cannot be accepted as
+   progress: preserve it for recovery rather than bypassing checks. Missing external
+   qualification must never prevent remaining feasible implementation work.
 
 The driver uses one active agent and no automatic failed-unit reruns; stop if a supposedly
 successful run advances no task/finding/evidence; stop if the same finding remains
@@ -264,6 +266,48 @@ unlimited default or billing-cap claim. Keep logs local and redact credentials/p
 Normal red/green development and repairing a failed check inside the selected
 unit are expected; the stop rule applies when the agent exits with the failure
 unresolved, not to the first failing test while developing its fix.
+
+### Autonomous infrastructure troubleshooting — D-305
+
+The owner's unattended-implementation objective takes precedence over historical
+"report any save failure and exit" wording. Make a serious autonomous effort to
+repair recoverable build, dependency, local test infrastructure, staging/save and
+orchestration defects. Spending a whole session or several fresh sessions on a
+credible repair is preferable to returning the problem to the owner at the first
+red command. Follow the specified product vision; no speculative product expansion.
+
+An implement/fix session may save a bounded `troubleshooting` checkpoint using the
+[unit schema](implementation-agent.md#autonomous-troubleshooting-and-orchestration-repairs--d-305).
+Keep unfinished tasks/findings unfinished; retain distinct experiments/repairs,
+fresh output, current diagnosis and concrete next steps. Passing checkpoint checks
+do not satisfy still-failing/pending whole-feature checks. The next fresh session
+continues the same work within the operator budgets. Identical replayed evidence
+and note-only churn are rejected; infrastructure checkpoints do not consume the
+two-attempt product-fix guard. Planning-only splits remain a separate mechanism.
+
+Necessary driver/prompt repairs are allowed in implement/fix roles with explicit
+`orchestrationRepair` provenance, passing regression evidence and an independently
+executed runner fixture suite. Permission grants, authorization and the model remain
+unchanged. A saved driver repair replaces the idle controller process with the
+remaining budgets instead of starting a parallel driver. Reviewers/verifiers still
+cannot repair runtime/build/controller changes and certify those changes themselves.
+
+Repair and retry the **same save** after ordinary Git/script/line-ending failures;
+this does not repeat implementation or bypass a check. Do not erase fences or accept
+dirty/unpushed handoffs to simulate progress. Diagnose and repair before escalating;
+checkpoint before timeout. Explicit stop requests and operator budgets still apply.
+
+Existing development/testing/tooling grants cover routine work. New paid resources,
+credentials, unrelated private data or production operations are not implied grants.
+If a feature encounters those boundaries, implement it as fully as possible within
+them: real adapters, configuration/secret inputs, synthetic local integration tests
+and clear external prerequisites, not a fake implementation or silent omission.
+Missing rights, signing keys, production access or reference hardware is not a
+reason to abandon that feature or halt other work. Defer only the genuinely external
+exercise/qualification, retain it visibly unverified, and continue all available
+coding/tests/reviews. The objective is to finish all feasible implementation work,
+not to stop merely because release readiness cannot yet be demonstrated. No claim
+that an unperformed check passed, or that unavailable prerequisites were satisfied.
 
 ## Autonomy and boundaries
 

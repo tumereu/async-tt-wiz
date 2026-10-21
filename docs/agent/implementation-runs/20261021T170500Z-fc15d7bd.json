@@ -1,0 +1,297 @@
+{
+  "runId": "20261021T170500Z-fc15d7bd",
+  "sessionID": "ses_ea0939f94ffenvOVX8Q3f5Tts7",
+  "startCommit": "c43f76a73ce581ea679cbe893d6572b66504f2ad",
+  "mode": "implement",
+  "target": "I01a",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Owner-requested manual recovery of the original failed save: declare the generated Windows wrapper's text/EOL handling, retain strict Git whitespace checks with actionable failure guidance, rerun the clean build/artifact and save/runner regression checks, and complete I01a's preserved handoff. D-305 additionally clarifies autonomous troubleshooting and permits evidenced fresh-session checkpoints/scoped tested orchestration repairs, preserving grants/model/review/save integrity and external qualification truthfulness. The original failed save remains diagnostic evidence; saveRecovery distinguishes this owner-authorized preparation from the original agent outcome. Only I01a is implemented; I01, device acceptance, B1 review and every release gate remain open. No implementation loop was launched by recovery.",
+  "selectionReason": "The clean master checkout matched the supplied startCommit and D-304 explicitly authorizes this real-project application scope. State is active/authorized, there are no findings or completed capabilities needing review, and I01a is the earliest dependency-ready child of the previously planned I01 split. Its wrapper/module/tool qualification precedes the dependent server, storage and device children. Independent traceability/fixture child I01b remains pending for a fresh unit; no other task or review was advanced.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "/tmp/opencode/i01a-gradle-9.7.0/gradle-9.7.0/bin/gradle -p /tmp/opencode/i01a-gradle-9.7.0/bootstrap --no-daemon wrapper --gradle-version 9.7.0 --distribution-type bin --gradle-distribution-sha256-sum 84fbba45c7f4c64abc77460e1c00f541e9f960e3c7ed2538f1ede19eacd873ae",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/wrapper-bootstrap.json",
+      "explanation": "Executed by an inline Python bootstrap after downloading and checking the official distribution SHA256; the same bootstrap independently checked the generated wrapper JAR against Gradle's published checksum. Its retained transcript contains both expected/actual digests. No smoke-fixture wrapper was copied."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --write-locks clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest > docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-initial.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-initial.json",
+      "explanation": "Newest Compose BOM required compile SDK37. Selected and subsequently qualified SDK36-compatible BOM2026.06.01 instead; SDK29/36 baseline was not changed. Original output is losslessly JSON-encoded, not discarded."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --write-locks clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest resolveAndLockAll > docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-locks.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-locks.json",
+      "explanation": "Raw Android configuration file resolution is ambiguous without AGP typed artifact views. Lock maintenance was corrected to traverse complete dependency graphs and reject every unresolved dependency; real APK/lint tasks still resolve/build actual artifacts."
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --write-locks clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest resolveAndLockAll > docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-locks-final.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-locks-final.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/clean-build.json -- ./scripts/gradle.sh --no-daemon --console=plain clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/clean-build.json",
+      "explanation": "Initial boundary validator counted AGP's instrumentation app-under-test self-dependency as an external edge. It now explicitly allows self-dependency only in test configurations and checks the exact remaining graph. No product dependency was removed to force a pass."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/environment.json -- python3 scripts/inventory-environment.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/environment.json",
+      "explanation": "Initial read-only inventory; final inventory below additionally probes Appium PATH availability. Missing resources are not runtime passes."
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/clean-build-final.json -- ./scripts/gradle.sh --no-daemon --console=plain clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/clean-build-final.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/plugin-locks.json -- ./scripts/gradle.sh --no-daemon --console=plain --write-locks resolveAndLockAll",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/plugin-locks.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/artifacts.json -- python3 scripts/check-foundation.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/artifacts.json",
+      "explanation": "Artifact validator initially expected the older aapt badging label sdkVersion, but installed aapt2 emits minSdkVersion. Corrected that exact label while keeping required minimum29/target36 unchanged; reruns below pass."
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/wrapper-version.json -- ./gradlew --version",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/wrapper-version.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/artifacts-final.json -- python3 scripts/check-foundation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/artifacts-final.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/dependency-licenses.json -- python3 scripts/check-foundation-licenses.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/dependency-licenses.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/environment-final.json -- python3 scripts/inventory-environment.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/environment-final.json",
+      "explanation": "Required inventory completed, not a claim that every probed resource is available or qualified. No devices/ADB servers/containers were started; existing unrelated ADB5037 was preserved."
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/qualified-clean-build.json -- ./scripts/gradle.sh --no-daemon --console=plain clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/qualified-clean-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/offline-clean-build.json -- ./scripts/gradle.sh --no-daemon --offline --console=plain clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/offline-clean-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/qualified-artifacts.json -- python3 scripts/check-foundation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/qualified-artifacts.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/unit-validation.json -- python3 docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-validate.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/unit-validation.json",
+      "explanation": "Pre-save check only. It passed against the then-clean index and implemented task status; it did not test Git's staged CRLF whitespace handling. After save failure, only failure metadata/evidence changed, and this old output is preserved rather than relabeled as validation of the failed boundary."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/save-whitespace-diagnostic.json -- git diff --cached --check",
+      "exitCode": 2,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/save-whitespace-diagnostic.json",
+      "explanation": "Original RED save diagnostic, preserved unchanged. The original save returned2 before git commit/git push; the outer Python subprocess check returned1. Subsequently resolved by the owner-requested manual recovery recorded below; this is not a passing required check."
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-save-tests.json -- python3 scripts/test-save.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-save-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-runner-tests.json -- python3 scripts/test-implementation-loop.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-runner-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-clean-build.json -- ./scripts/gradle.sh --no-daemon --offline --console=plain clean :core:jvmTest :protocol:jvmTest :server:test :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-clean-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-artifacts.json -- python3 scripts/check-foundation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-artifacts.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-licenses.json -- python3 scripts/check-foundation-licenses.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-licenses.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-validation.json -- python3 docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-recover-validate.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-validation.json"
+    }
+  ],
+  "changedPaths": [
+    "AGENTS.md",
+    "docs/agent/implementation-agent.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/implementation-permissions.json",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-runner.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/decisions.md",
+    "scripts/implementation-loop.py",
+    "scripts/test-implementation-loop.py",
+    ".gitattributes",
+    "scripts/save.sh",
+    "scripts/test-save.py",
+    "docs/agent/save-recovery-2026-10-21.md",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-recover-validate.py",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-save-tests.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-runner-tests.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-clean-build.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-artifacts.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-licenses.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/recovery-validation.json",
+    ".gitignore",
+    "README.md",
+    "androidApp/build.gradle.kts",
+    "androidApp/gradle.lockfile",
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/StartupTest.kt",
+    "androidApp/src/main/AndroidManifest.xml",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+    "build.gradle.kts",
+    "buildscript-gradle.lockfile",
+    "client-storage/README.md",
+    "client-storage/build.gradle.kts",
+    "client-storage/gradle.lockfile",
+    "core/build.gradle.kts",
+    "core/gradle.lockfile",
+    "core/src/commonMain/kotlin/org/asyncttwiz/core/EntityId.kt",
+    "core/src/commonTest/kotlin/org/asyncttwiz/core/EntityIdTest.kt",
+    "core/src/jvmTest/kotlin/org/asyncttwiz/core/JvmRuntimeTest.kt",
+    "docs/agent/foundation-build.md",
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-validate.py",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/artifacts-final.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/artifacts.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-initial.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-locks-final.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/build-locks.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/clean-build-final.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/clean-build.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/dependency-licenses.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/environment-final.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/environment.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/offline-clean-build.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/plugin-locks.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/qualified-artifacts.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/qualified-clean-build.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/save-whitespace-diagnostic.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/unit-validation.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/wrapper-bootstrap.json",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/wrapper-version.json",
+    "e2e/README.md",
+    "e2e/build.gradle.kts",
+    "e2e/gradle.lockfile",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/HostRuntimeTest.kt",
+    "gradle.properties",
+    "gradle/libs.versions.toml",
+    "gradle/wrapper/gradle-wrapper.jar",
+    "gradle/wrapper/gradle-wrapper.properties",
+    "gradlew",
+    "gradlew.bat",
+    "protocol/build.gradle.kts",
+    "protocol/gradle.lockfile",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ScalarCodecs.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ScalarCodecsTest.kt",
+    "scripts/capture-check.py",
+    "scripts/check-foundation-licenses.py",
+    "scripts/check-foundation.py",
+    "scripts/gradle.sh",
+    "scripts/inventory-environment.py",
+    "server/README.md",
+    "server/build.gradle.kts",
+    "server/gradle.lockfile",
+    "server/src/test/kotlin/org/asyncttwiz/server/SharedBoundaryTest.kt",
+    "settings-gradle.lockfile",
+    "settings.gradle.kts"
+  ],
+  "traceability": {
+    "requirements": ["P-001", "P-013", "P-031", "P-059", "P-060"],
+    "scenarioPortions": ["T-631", "T-654", "T-661"],
+    "feedbackPortions": ["F03", "F04"],
+    "implementedAssertions": "Native Android scaffold/build; dependency-free shared semantics and shared scalar codec consumers; minSdk29/compile-target36 manifest, lint and signature compatibility; JVM21 versus Android JVM17 bytecode; canonical lowercase UUID scalar validation and lossless decimal revision strings, rejecting wrong scalar types/negative/overflow/noncanonical numbers. Exact normal-APK startup title test compiles, but it was not run on a device.",
+    "remainingAssertions": "No full P/T/F item is declared end-to-end satisfied. T-631 actual install/login/gameplay and phone/tablet/non-GMS matrix remain I01f/I02-I04/I35; T-654 object-key/default/canonical hashing, UUID byte ordering, geometry and checkpoint behavior remain later protocol/game tasks; T-661 physical/performance/ARM64 matrix remains I33/I35. F03/F04 are scaffold source choices, not visual/gesture or mock-comparison acceptance. F01/F02 UI-document publication/provenance obligations were not triggered: no UI document changed. Full ID coverage ledger remains I01b.",
+    "contracts": [
+      "docs/agent/implementation-plan.md: B1 I01 and dependency/work-unit rules",
+      "docs/design/04-technical/runtime-and-verification-profile.md: Runtime and packaging; Verification matrix and initial budgets",
+      "docs/design/04-technical/client-architecture.md: Proposed module boundaries",
+      "docs/design/04-technical/protocol-v1.md: Types and canonical representation (UUID/revision scalar portion)",
+      "docs/design/03-contracts/product.md: P-001/P-013/P-031/P-059/P-060",
+      "docs/design/05-verification/acceptance.md: T-631/T-654/T-661 (partial foundation assertions only)",
+      "docs/design/02-experience/ui/feedback.md: F03/F04 (initial branding/fullscreen reference only)"
+    ]
+  },
+  "evidenceFormat": "All command transcripts are retained losslessly inside JSON output strings (or base64), with SHA256 of the original decoded bytes. The first four transcripts were initially captured as plain text, then reversibly encoded; their former .txt files are not substituted external evidence. The original save failed without commit/push. The owner-requested manual recovery includes the preserved 64 implementation paths plus explicitly listed save repair, recovery records and fresh evidence. Original outputs remain unchanged; recovery-* outputs are fresh executions. APK binaries/build caches remain ignored; original and recovery artifact evidence embeds hashes, manifests, signer checks, lint text and executed JUnit XML. No global Git whitespace configuration was changed.",
+  "saveRecovery": {
+    "originalOutcome": "failed",
+    "authorization": "Owner explicitly requested fixing the save operation and saving the preserved implementation work before restarting the driver.",
+    "record": "docs/agent/save-recovery-2026-10-21.md",
+    "scope": "Manual save recovery and owner-authorized D-305 autonomous-troubleshooting preparation; not a new pinned-driver implementation session, independent review or loop launch. Original session identity/startCommit and failed-save evidence retained. D-305 permits controlled driver/prompt repairs and checkpoints, with only the corresponding two edit denies removed outside an active unit; state model/authorization/runner configuration, other permissions and every review/release status remain unchanged. Only I01a is completed after fresh passing checks."
+  },
+  "saveFailure": {
+    "operation": "./scripts/save.sh with the exact first 63 owned paths listed before the post-failure save-whitespace-diagnostic.json addition",
+    "stage": "mandatory git diff --cached --check",
+    "exitCode": 2,
+    "commitCreated": false,
+    "pushAttempted": false,
+    "evidence": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-evidence/save-whitespace-diagnostic.json",
+    "cause": "Official generated Windows batch wrapper uses CRLF. The repository's Git whitespace settings treat each CR as trailing whitespace. The Python pre-save whitespace scan used splitlines(), which hid CRs and therefore missed this. Neither wrapper line endings nor whitespace settings were altered after the failed save. The driver must stop and preserve this workspace, not accept the earlier progress-shaped staged report."
+  },
+  "limitations": [
+    "Normal application is a branded Compose scaffold, not implemented account/gameplay UI, backend or storage. No alternate test application, fake ready service, API-controlled opponent or local authoritative game was added.",
+    "API29 non-GMS Windows image/three AVD definitions and usable WHPX measured, not booted/installed here. Device startup/instrumentation and the remote ADB/Appium adapter remain I01f. Appium command is absent from current PATH; the historical isolated installation must be located and qualified there.",
+    "No current-Android/tablet image, attached physical phone or ARM64 Docker builder is available in measured inventory. I33/I35 resource limitations and all external release gates remain unchanged; no waiver or emulator frame measurement substituted.",
+    "Only local debug signing verified, not release/upgrade/mixed-client signing. Direct artifact license declarations are not complete distribution notices or provider/art rights clearance.",
+    "Lint has zero errors and four retained warnings: newer compile/target SDK37 (agreed baseline remains36), Android12+ data extraction rules (private-data backup exclusion must be qualified when accounts/storage exist), and missing final launcher icon. No lint baseline/suppression bypass was added. KMP host tests intentionally disabled; common tests execute on JVM21 and actual app instrumentation source uses approved androidTest paths.",
+    "The original implementation changed Root README's obsolete specification-only status to match D-304 and the actual foundation; it did not change controller/authorization controls. Subsequent owner-authorized D-305 preparation explicitly updates AGENTS/authorization/process instructions, driver, prompt, permission profile and regression tests as listed in saveRecovery; no review obligation, model, state authorization or release gate was waived.",
+    "No subagent, additional loop, deployment, paid resource, device or container service was started. The existing unrelated ADB5037 server was inspected and preserved. I01b is the next recorded child but is not executed by this unit."
+  ]
+}

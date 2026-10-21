@@ -16,6 +16,21 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current authorization — D-304
 
+**Current execution clarification — D-305:** the owner explicitly requests best-
+effort autonomous completion along the spec, including whole/multiple fresh
+troubleshooting sessions and necessary infrastructure/orchestration repairs.
+Do not halt at the first build/tool/save failure or abandon a feature because
+external credentials, rights, signing/hardware or production access are unavailable.
+Implement everything possible within the grants, test locally/synthetically and
+retain only truly external qualification as unverified. The
+[unit contract](implementation-agent.md#autonomous-troubleshooting-and-orchestration-repairs--d-305)
+now supports evidence-backed checkpoints and scoped driver/prompt repairs; grants,
+model, save/push integrity, independent reviews and release truthfulness remain.
+85 runner and six save regressions pass; this change did not launch a live loop.
+I01a's preserved work is revalidated in the
+[save recovery](save-recovery-2026-10-21.md); I01b remains next, I01/B1 and release
+gates open. Historical paragraphs below describe their original checkpoints.
+
 The owner tried the driver, saw “implementation not authorized,” and explicitly
 authorized it. [D-304's durable record](implementation-authorization.md) now backs
 `active/authorized` state and stage 4 implementation of the agreed whole R1. Earlier

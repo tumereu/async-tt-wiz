@@ -29,6 +29,18 @@
   [loop driver](scripts/implementation-loop.py); D-304 authorizes its application scope.
   Every driver role must use **`openai/gpt-6.1-sol#high`**, checked against session
   metadata with no fallback. See [driver operations](docs/agent/implementation-runner.md).
+  **Autonomous troubleshooting — D-305:** the owner prefers spending development
+  quota on solving problems, including whole/further fresh sessions, to halting
+  unattended work on recoverable build, dependency, test-tool, save or orchestration
+  errors. Diagnose, repair, test and continue toward the specifications; the first
+  failed command is not a blocker. Use evidence-backed troubleshooting checkpoints
+  for longer repairs, not metadata churn or false completion. Scoped driver/prompt
+  repairs are allowed with reported provenance and passing runner regressions;
+  do not expand permission grants, change the model/authorization, weaken checks,
+  discard work, or bypass review/release obligations. Reviewers/verifiers still
+  hand repairs to a fresh fixing session instead of certifying their own changes.
+  Missing release rights/signing/operator readiness or physical hardware blocks
+  only the corresponding release/measurement claim, not other implementation work.
   The application state is `active/authorized` with D-304 recorded. The operator
   supplies run/time budgets when launching; do not start another loop alongside
   one already running. Qualify actual build/device commands in I01 under the
@@ -89,5 +101,7 @@
   uses already-staged changes; inspect them first. Do not spend time composing
   commit messages during this project phase.
 - Run the applicable documentation checks before saving. Do not include unrelated
-  staged changes. If a check, commit or push fails, report the blocker; never force
-  push, bypass hooks or discard changes to make it succeed.
+  staged changes. If a check, commit or push fails, diagnose and repair the cause
+  within the authorized scope and retry the same save after validation. Escalate
+  only a genuinely unresolved boundary after troubleshooting; never force push,
+  bypass hooks or discard changes to make it succeed.

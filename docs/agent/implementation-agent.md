@@ -19,7 +19,8 @@ does not authorize application work in the real project.
      capability groups. Fix/verify a bounded subset of the supplied finding IDs;
      report only the IDs actually attempted, leaving other findings unchanged.
      A child needs `outcome`, nonempty `checks` and explicit `dependsOn`. At the
-     boundary, implementation must complete its selected outcome, record a blocker
+     boundary, implementation must complete its selected outcome, save an evidenced
+     troubleshooting checkpoint under D-305, record a blocker
      with `blocker` and `blockerEvidence` referencing a retained check output, or
      perform that planning-only split. Repeated `in-progress` notes are not units.
 3. This is a casual cooperative simulator. Review usable behavior and evidenced
@@ -35,11 +36,22 @@ does not authorize application work in the real project.
    change in these roles. Direct edits are scoped accordingly and the final Git
    diff is checked too; do not bypass that boundary with shell/scripts.
 4. Run applicable checks and retain their actual output. A diagnostic reproducing
-   a review finding may fail; mark it `diagnostic`. Required validation must pass
-   for a successful unit. No skipped/red required check may be labeled passing.
+    a review finding may fail; mark it `diagnostic`. Required validation must pass
+    for a successful unit. No skipped/red required check may be labeled passing.
+   **D-305: make your best autonomous effort to deliver the specified vision.**
+   A failed build/tool/install/test/save is a reason to investigate and repair,
+   not to give up or ask the owner to troubleshoot. Spend the available session
+   budget on credible diagnoses, documentation lookup, controlled experiments,
+   compatible dependency/tooling fixes and regression tests. Fix ordinary staging/
+   line-ending/script errors and retry the same save; this is not blindly repeating
+   implementation. A repair may take the whole session or multiple fresh sessions.
+   Use the troubleshooting checkpoint below when the task is not yet complete.
+   Do not invent product behavior or weaken tests just to proceed.
 5. Update task/batch/finding status and append this run's report path to `runs`.
    Leave `activeRun` null at the boundary. Do not change authorization, its owner
-   record, runner configuration, driver, this prompt or permission profile.
+    record, runner configuration or permission profile. D-305 permits a necessary
+    scoped driver/this-prompt repair in implement/fix roles using the explicit
+    orchestration-repair record below; preserve the operating safeguards.
     At the last implemented task set its batch `ready-for-review` unless findings
     require one of the issue-driven statuses below. A clean completed grouped review
     sets `reviewed` and `reviewedCommit` to the exact code commit inspected;
@@ -93,6 +105,58 @@ applicable release gates satisfied; set state mode `complete`. Never manufacture
 completion because a run count or time budget ends. Record unavailable checks and
 genuine blockers honestly; no permission dialog or new owner question is needed
 inside an unattended run—report the blocker instead.
+
+### Autonomous troubleshooting and orchestration repairs — D-305
+
+When investigation/repair takes longer than one implement/fix unit, save real
+progress without claiming the feature or finding is finished. Add:
+
+```json
+"troubleshooting": {
+  "issue": "Concrete build/tooling/infrastructure obstacle",
+  "diagnosis": "Current evidence-backed explanation",
+  "progress": "Repair or distinct experiment/result delivered in this session",
+  "nextSteps": ["Concrete next repair/check for the fresh session"],
+  "evidence": "This run's retained command output"
+}
+```
+
+Set outcome `progress`; leave the selected implementation task `in-progress`, or
+attempted fixing findings `open`, and store the same object plus `record` pointing
+to this report as their `troubleshooting` field. Do not split children in the same
+checkpoint. Save partial source/repairs and diagnostic evidence with passing checks
+for the checkpoint's actual scope. Full-feature checks that still fail remain
+explicit diagnostics/pending obligations, not relabeled passes or completed tests.
+The driver requires run-owned evidence; repeated checkpoints need a new diagnosis/
+tested result/next step **and different actual evidence**, not note churn or the
+same failing output replayed. The next fresh session resumes the same priority.
+These checkpoints consume operator session/time budgets, not product-fix attempts.
+
+Necessary driver/prompt repairs are authorized in implement/fix roles. Add
+`orchestrationRepair: {"reason": "Reproduced orchestration defect and correction",
+"paths": ["scripts/implementation-loop.py"], "evidence": "Passing required regression output"}`
+with exactly the changed driver/prompt paths. Add focused regression coverage and
+run `python3 scripts/test-implementation-loop.py`; the driver reruns that baseline
+suite before accepting its own repair. Preserve the exact high model, budgets,
+stop control, one writer, permission limits, truthful evidence, save/push checks,
+independent reviews/fix verification and release gates. Permission-profile or
+authorization changes are not self-service repairs. A saved driver change is
+loaded by replacing the idle driver process with the remaining run/time budgets;
+no parallel loop is launched. Reviewers/verifiers report required repairs for a
+fresh fixing session rather than repairing and certifying runtime/build changes.
+
+Ordinary authorized local development/testing/tooling repairs do not require owner
+approval. Genuine permission blockers concern actions outside those grants (for
+example paid resources, credentials, unrelated private files or production work).
+External rights, release signing/distribution and operator readiness are **release
+claims only**; unavailable physical hardware blocks its measurement, not other
+coding/tests. Retain the affected obligation and continue safe independent work.
+External constraints are not reasons to abandon features: complete the real
+integration/configuration and available local/synthetic checks, leaving only the
+unavailable external exercise unverified. Continue all remaining feasible work.
+Never accept unsafe unsaved/unpushed state as a completed handoff; repair it.
+Explicit stop and operator budgets still apply. Start preserving a checkpoint
+before the timeout, not after it kills work.
 
 ### Bounded group-review checkpoints
 
@@ -191,8 +255,11 @@ diagnostics; ignored build-directory files alone are not retained evidence. Copy
 redacted text outputs into this run's owned evidence paths before saving. Keep
 large private artifacts outside Git as appropriate, but do not use an incidental
 external/ignored file in place of the required committed check output.
-If validation/save/push fails, leave evidence and report failure; the driver stops
-and preserves the workspace for inspection. No success handoff on a failed save.
+If validation/save/push fails, troubleshoot and repair within the authorized scope,
+then rerun applicable checks and retry the same save. Do not stop at the first
+ordinary failure. If it genuinely cannot reach a safe committed/pushed boundary
+after investigation, preserve evidence/work and report failure; only then does the
+driver halt. No success handoff on an unresolved failed save.
 
 Then **exit**. A short final summary is useful but the driver relies on committed
 report/state, actual upstream confirmation and session metadata—not your last

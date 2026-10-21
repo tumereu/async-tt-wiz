@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-recover-validate.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "b6bc8d1a2e65e13d164f645ccc55362b952e9465a17b2b6f27aed54c836ce498",
+  "output": "PASS only I01a completed; I01b next; review/release/model/authorization state retained\nPASS owner-authorized D-305 controller/prompt edit grants only; all other permissions retained\nPASS exact owned paths and lossless command evidence; original failed save retained as diagnostic\nPASS edited Markdown local links and JSON/TOML/XML/Python/shell syntax\nPASS unchanged Git staged-whitespace check; LF stored wrapper preserves CRLF working file\n"
+}

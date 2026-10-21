@@ -70,7 +70,8 @@ splits, completed leaf scopes with exact reviewed code commits, remaining scopes
 and evidenced blockers. A targeted fix/verification cannot replace missing first
 group review. Keep group boundaries; do not add independent review after each
 implementation child. See the [bounded review schema](implementation-agent.md#bounded-group-review-checkpoints).
-Implementation boundaries must complete an outcome, record an evidenced blocker or
+Implementation boundaries must complete an outcome, save a D-305 evidence-backed
+troubleshooting checkpoint, record an evidenced blocker or
 perform a planning-only split with concrete child `outcome`, `checks` and explicit
 `dependsOn`; repeated `in-progress` metadata updates are not saved work units.
 
@@ -92,7 +93,7 @@ real containerized backend for ordinary account entry/navigation/recovery.
 
 | Task | Implementation and completion outcome |
 | --- | --- |
-| I01 | Establish reproducible Gradle modules, version locks and JVM21/API29→SDK36 clean builds; shared semantic/protocol boundaries, Spring image/config/health and PostgreSQL/Flyway/jOOQ generation; minimal SQLDelight storage/migration path. Add task-to-requirement/test coverage ledger and stable synthetic datasets/art. Provide exact build/unit/integration/E2E commands, isolated Compose and Testcontainers ownership, the measured WSL/Windows device adapter, readiness/reset/evidence/cleanup. Use/qualify the configured test-only review paths for the actual module layout; reviewers/verifiers cannot edit runtime or build inputs, and runner-control changes require separate reviewed preparation outside an active unit. No production orchestration or alternate test app. |
+| I01 | Establish reproducible Gradle modules, version locks and JVM21/API29→SDK36 clean builds; shared semantic/protocol boundaries, Spring image/config/health and PostgreSQL/Flyway/jOOQ generation; minimal SQLDelight storage/migration path. Add task-to-requirement/test coverage ledger and stable synthetic datasets/art. Provide exact build/unit/integration/E2E commands, isolated Compose and Testcontainers ownership, the measured WSL/Windows device adapter, readiness/reset/evidence/cleanup. Use/qualify the configured test-only review paths for the actual module layout; reviewers/verifiers cannot edit runtime or build inputs. D-305 permits evidenced driver/prompt repairs in implement/fix units; permission-grant changes still need outside-unit owner authorization. No production orchestration or alternate test app. |
 | I02 | Implement register/login, persistent revocable tokens/Keystore, ordinary authorization and server account privacy; native A01/A02 forms/errors with consistent whitespace/Unicode passwords. Actual requests/storage, not a fake login or hard-coded user. |
 | I03 | Implement N01/N02 authenticated shell and Menu/Games navigation, fixed Logout, portrait drawer/landscape persistent navigation and native Back/fullscreen/rotation behavior. Restore valid login/context; Logout clears local private work/downloads immediately and fences old-account callbacks. Account-owned data synchronizes, unfinished UI stays personal. |
 | I04 | Complete A03/A04 email reset/deep-link handling and synthetic mailbox adapter; successful reset revokes old sessions for **new** requests, invalid/expired links do not. Run normal-app registration/login/reset/logout/resume journeys through Kotlin/JUnit/Appium, including restart and a second account/device. No special ordering against already-authorized gameplay. |

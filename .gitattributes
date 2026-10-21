@@ -1,2 +1,6 @@
 # Generated PDF documents are binary, never line-oriented text diffs/merges.
 *.pdf binary
+
+# Store the Windows Gradle launcher as LF in Git, but check it out as CRLF.
+# This keeps generated wrappers compatible with the normal whitespace checks.
+gradlew.bat text eol=crlf

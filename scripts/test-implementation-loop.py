@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True  # Qualification must not dirty the checkout with import caches.
@@ -67,6 +68,8 @@ class GitFixture:
         script.parent.mkdir()
         shutil.copy2(ROOT / "scripts/save.sh", script)
         script.chmod(0o755)
+        shutil.copy2(ROOT / "scripts/implementation-loop.py", self.root / "scripts/implementation-loop.py")
+        shutil.copy2(ROOT / "scripts/test-implementation-loop.py", self.root / "scripts/test-implementation-loop.py")
         self.git("add", ".")
         self.git("commit", "-m", "Fixture baseline")
         self.git("push", "-u", "origin", "main")
@@ -846,6 +849,155 @@ class RunnerTests(unittest.TestCase):
         client.transform = churn
         with self.assertRaisesRegex(loop.Halt, "completed outcome|planning-only split"):
             runner.run(1, 30)
+
+    def checkpoint(self, context, state, report, *, result="Identified SDK metadata mismatch"):
+        checkpoint = {"issue": "Build-tool compatibility", "diagnosis": result,
+                      "progress": result, "nextSteps": ["Repair compatibility and rerun clean build"],
+                      "evidence": report["checks"][0]["evidence"]}
+        report["troubleshooting"] = checkpoint
+        report["checks"].append({"kind": "diagnostic", "command": "inspect build-tool metadata",
+                                 "exitCode": 1, "evidence": checkpoint["evidence"]})
+        self.fixture.write(checkpoint["evidence"], result + "\n")
+        if context["selection"]["mode"] == "implement":
+            state["tasks"][0].update(status="in-progress", troubleshooting={**checkpoint, "record": context["report"]})
+        else:
+            for finding in state["findings"]:
+                finding.update(status="open", troubleshooting={**checkpoint, "record": context["report"]})
+            state["batches"][0]["status"] = "changes-requested"
+
+    def test_troubleshooting_continues_in_fresh_session_before_next_task(self):
+        runner, client = self.runner(issue=False)
+        def diagnose(context, state, report):
+            if len(client.calls) == 1:
+                self.checkpoint(context, state, report)
+        client.transform = diagnose
+        self.assertEqual(runner.run(8, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["implement", "implement", "implement", "review", "complete"])
+        self.assertEqual(len(client.sessions), 5)
+
+    def test_multiple_troubleshooting_sessions_can_make_new_diagnostic_progress(self):
+        runner, client = self.runner(issue=False)
+        def diagnose(context, state, report):
+            if len(client.calls) <= 3:
+                self.checkpoint(context, state, report, result=f"Tested distinct hypothesis {len(client.calls)}")
+        client.transform = diagnose
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        self.assertEqual(client.calls[:4], ["implement"] * 4)
+
+    def test_troubleshooting_repeated_evidence_is_rejected(self):
+        runner, client = self.runner(issue=False)
+        client.transform = lambda c, s, r: self.checkpoint(c, s, r)
+        runner.run(1, 30)
+        with self.assertRaisesRegex(loop.Halt, "Repeated troubleshooting"):
+            runner.run(1, 30)
+
+    def test_troubleshooting_cosmetic_diagnosis_cannot_replay_same_output(self):
+        runner, client = self.runner(issue=False)
+        def diagnose(context, state, report):
+            self.checkpoint(context, state, report, result=f"Hypothesis {len(client.calls)}")
+            self.fixture.write(report["troubleshooting"]["evidence"], "unchanged output\n")
+        client.transform = diagnose
+        runner.run(1, 30)
+        with self.assertRaisesRegex(loop.Halt, "replay unchanged evidence"):
+            runner.run(1, 30)
+
+    def test_troubleshooting_needs_concrete_evidence_and_next_steps(self):
+        runner, client = self.runner(issue=False)
+        def incomplete(context, state, report):
+            self.checkpoint(context, state, report)
+            report["troubleshooting"]["nextSteps"] = []
+        client.transform = incomplete
+        with self.assertRaisesRegex(loop.Halt, "Troubleshooting needs"):
+            runner.run(1, 30)
+
+    def test_fix_troubleshooting_does_not_consume_product_fix_attempts(self):
+        self.seed_findings()
+        runner, client = self.runner()
+        def diagnose(context, state, report):
+            if len(client.calls) <= 3:
+                self.checkpoint(context, state, report, result=f"Tooling repair hypothesis {len(client.calls)}")
+        client.transform = diagnose
+        runner.run(3, 30)
+        self.assertEqual(json.loads((runner.journal / "fix-attempts.json").read_text()), {})
+        client.transform = None
+        runner.run(1, 30)
+        self.assertEqual(loop.selection(self.fixture.state())["mode"], "verify")
+
+    def test_troubleshooting_cannot_claim_task_complete(self):
+        runner, client = self.runner(issue=False)
+        def finish(context, state, report):
+            self.checkpoint(context, state, report)
+            state["tasks"][0]["status"] = "implemented"
+        client.transform = finish
+        with self.assertRaisesRegex(loop.Halt, "retain the selected task in progress"):
+            runner.run(1, 30)
+
+    def test_orchestration_repair_needs_reason_paths_and_passing_check(self):
+        runner, client = self.runner(issue=False)
+        def tamper(context, state, report):
+            path = loop.PROMPT
+            self.fixture.write(path, "Changed instructions without repair provenance\n")
+            report["changedPaths"].append(path)
+        client.transform = tamper
+        with self.assertRaisesRegex(loop.Halt, "evidenced scoped orchestration repair"):
+            runner.run(1, 30)
+
+    def test_orchestration_prompt_repair_runs_baseline_regressions(self):
+        runner, client = self.runner(issue=False)
+        def repair(context, state, report):
+            self.fixture.write(loop.PROMPT, "Scoped fixture orchestration correction\n")
+            report["changedPaths"].append(loop.PROMPT)
+            report["orchestrationRepair"] = {"reason": "Reproduced fixture instruction defect",
+                                             "paths": [loop.PROMPT], "evidence": report["checks"][0]["evidence"]}
+        client.transform = repair
+        original = loop.run_command
+        checks = []
+        def checked(command, root, **kwargs):
+            if command == [sys.executable, "scripts/test-implementation-loop.py"]:
+                checks.append(command)
+                return "Controlled passing regression execution"
+            return original(command, root, **kwargs)
+        with patch.object(loop, "run_command", side_effect=checked):
+            runner.run(1, 30)
+        self.assertEqual(len(checks), 1)
+
+    def test_orchestration_repair_cannot_expand_permissions(self):
+        runner, client = self.runner(issue=False)
+        def expand(context, state, report):
+            path = state["runner"]["permissions"]
+            self.fixture.write(path, [{"action": "*", "resource": "*", "effect": "allow"}])
+            report["changedPaths"].append(path)
+            report["orchestrationRepair"] = {"reason": "Not an authorized grant", "paths": [path],
+                                             "evidence": report["checks"][0]["evidence"]}
+        client.transform = expand
+        with self.assertRaisesRegex(loop.Halt, "evidenced scoped orchestration repair"):
+            runner.run(1, 30)
+
+    def test_saved_driver_repair_reexecs_only_remaining_budget(self):
+        runner, client = self.runner(issue=False)
+        path = "scripts/implementation-loop.py"
+        def repair(context, state, report):
+            with (self.fixture.root / path).open("a") as stream:
+                stream.write("\n# Controlled fixture driver correction\n")
+            report["changedPaths"].append(path)
+            report["orchestrationRepair"] = {"reason": "Fixture driver correction", "paths": [path],
+                                             "evidence": report["checks"][0]["evidence"]}
+        client.transform = repair
+        original = loop.run_command
+        def checked(command, root, **kwargs):
+            if command == [sys.executable, "scripts/test-implementation-loop.py"]:
+                return "Controlled passing regression execution"
+            return original(command, root, **kwargs)
+        class Replaced(Exception):
+            pass
+        with patch.object(loop, "run_command", side_effect=checked), patch.object(loop.os, "execv", side_effect=Replaced) as execute:
+            with self.assertRaises(Replaced):
+                runner.run(5, 30)
+        arguments = execute.call_args.args[1]
+        self.assertEqual(arguments[-4:], ["--max-runs", "4", "--timeout-seconds", "30"])
+        self.assertFalse((runner.journal / "active.json").exists())
+        self.assertEqual(self.fixture.git("status", "--porcelain"), "")
+        self.assertEqual(self.fixture.git("rev-parse", "HEAD"), self.fixture.git("rev-parse", "origin/main"))
 
     def test_group_review_can_checkpoint_and_resume(self):
         state = self.fixture.state()

@@ -24,8 +24,6 @@
   { "action": "external_directory", "resource": "*", "effect": "deny" },
   { "action": "external_directory", "resource": "/tmp/opencode/*", "effect": "allow" },
   { "action": "edit", "resource": ".git/*", "effect": "deny" },
-  { "action": "edit", "resource": "scripts/implementation-loop.py", "effect": "deny" },
-  { "action": "edit", "resource": "docs/agent/implementation-agent.md", "effect": "deny" },
   { "action": "edit", "resource": "docs/agent/implementation-permissions.json", "effect": "deny" },
   { "action": "question", "resource": "*", "effect": "deny" },
   { "action": "subagent", "resource": "*", "effect": "deny" }

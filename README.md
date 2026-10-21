@@ -18,16 +18,20 @@ designed card projections, paired combat-slot groups, and contextual quick actio
 These conveniences do not infer casting, targeting, costs, or resolution from
 ordinary moves. Their interactions are being specified case by case.
 
-**Project phase: specification only. There is no application implementation.**
+**Project phase: implementation authorized (D-304); foundation in progress.**
+The initial normal Android scaffold and shared JVM build exist. Account/gameplay,
+real backend and storage capabilities are still pending, not simulated by the
+scaffold. See [build commands and qualification limits](docs/agent/foundation-build.md).
 
-Delivery: **1. behavior specification (current)** → **2. adversarial review and
-refinement** → **3. UI drafts and decisions** → **4+. iterative implementation**.
+Delivery: **1. behavior specification** → **2. adversarial review and
+refinement** → **3. UI drafts and decisions** → **4+. iterative implementation (current)**.
 
 Start with [the product principles](docs/design/01-product/overview.md), then
 [the tiered design index](docs/README.md). The specification is a
 working draft, not a claim that all design decisions have been made. No
-implementation begins until its readiness gates are satisfied and the project
-owner approves it.
+extra behavior is authorized by the build foundation. The current owner
+[authorization](docs/agent/implementation-authorization.md) preserves all review,
+verification and external release gates.
 
 Decision history, worklists and handoffs live separately in
 [agent records](docs/agent/README.md). Resuming agents can use the

@@ -150,16 +150,18 @@ Resolved operator gates likewise need a retained authority/evidence `record`.
 [implementation-permissions.json](implementation-permissions.json) is the explicit
 ordered **per-session** V2 permission profile. It allows repository reads/edits,
 normal inspection, trusted repository/build/test scripts and selected local test
-tools; it denies unlisted operations, questions, subagents and direct edits to
-driver/prompt/profile. External tool file access is restricted except the approved
+tools; it denies unlisted operations, questions, subagents and direct edits to the
+permission profile. D-305 allows evidenced driver/prompt repairs in
+implement/fix roles; external tool file access is restricted except the approved
 scratch area. No `--auto`, global allow-all config, new provider or credential is
 installed. Pending permission requests halt instead of waiting unattended forever.
 
 Before product activation, inspect this profile against I01's actual build/test
 needs and explicitly approve necessary changes. A denied legitimate command is a
 blocker to resolve, not permission for the agent to expand its own grants. The
-profile/driver/prompt and state runner/authorization controls are checked for
-changes after each unit; update these outside an active unit after review.
+permission profile and state runner/authorization controls remain immutable inside
+units. Driver/prompt changes require D-305's scoped repair record and regression
+checks; widening permission grants still requires the owner outside an active unit.
 
 For review/verify, the driver appends a direct-edit deny-all with narrower allows
 for state, **current-run** report/check outputs and `runner.reviewTestPaths` only.
@@ -180,6 +182,44 @@ remain bound by project instructions: no production data/deployment, paid-resour
 acquisition, broad destructive cleanup or unrelated work. Keep raw logs private.
 
 ## Records and recovery
+
+### Autonomous repair qualification — D-305, 2026-10-21
+
+The owner explicitly prefers autonomous troubleshooting, including whole/multiple
+fresh sessions, to unattended halts on recoverable infrastructure errors. Current
+units may diagnose/repair build, local test tooling and save failures instead of
+immediately reporting failure. The
+[unit schema](implementation-agent.md#autonomous-troubleshooting-and-orchestration-repairs--d-305)
+also supports saved `troubleshooting` checkpoints: selected tasks stay in progress,
+fixing findings stay open, and fresh run-owned evidence/diagnosis/next steps retain
+the exact unfinished obligations. Replayed evidence/note churn is rejected. These
+are not feature passes, independent reviews or failed product-fix attempts.
+
+Implement/fix roles may repair the driver/prompt with `orchestrationRepair` reason,
+exact changed paths and retained passing required-check evidence. The current
+driver independently reruns the runner fixture suite before accepting that repair.
+Permission-profile and state model/authorization/grant changes remain forbidden.
+After a saved driver repair the controller replaces its own idle process and
+retains the remaining session/time budgets; no parallel driver or extra unit grant.
+All ordinary save/push, scope, review, truthful-evidence and stop guards still apply.
+
+**85 deterministic runner tests and six save-helper tests pass** for this batch.
+New coverage includes fresh-session troubleshooting continuation, multiple real
+diagnostic advances, unchanged-evidence rejection, incomplete-checkpoint rejection,
+uncompleted-task integrity, fix-attempt accounting, scoped orchestration provenance,
+permission-expansion refusal and saved-driver replacement with remaining budgets.
+The normal I01a offline clean build/JVM tests, APK assembly, lint, artifact/signature
+and license checks also pass again. Exact evidence is in the
+[save recovery record](save-recovery-2026-10-21.md) and its run report. This batch did
+not launch another live model/driver cycle; earlier live qualification below applies
+to its recorded revision, not proof of live execution of these new paths.
+
+Missing external resources must not abandon features or halt remaining feasible
+work: implement real configurable adapters and synthetic local checks without
+violating grants; defer only unavailable external exercises. Rights, release
+signing/distribution, physical-phone measurements and operator readiness stay
+visibly unverified, not fake passes or reasons to skip implementable functionality.
+Only safe handoffs may be accepted; explicit stop and operator budgets still apply.
 
 Committed unit reports/check output go under `docs/agent/implementation-runs/`.
 The exact JSON fields and state updates are in [the agent prompt](implementation-agent.md).

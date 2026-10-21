@@ -101,6 +101,21 @@ def check_reference(report, evidence, *, passing=False):
                c.get("kind") == "required" and c.get("exitCode") == 0) for c in report.get("checks", []))
 
 
+def troubleshooting(report):
+    checkpoint = report.get("troubleshooting")
+    if checkpoint is None:
+        return None
+    require(report.get("mode") in {"implement", "fix"} and report.get("outcome") == "progress" and
+            isinstance(checkpoint, dict) and
+            all(isinstance(checkpoint.get(k), str) and checkpoint[k].strip()
+                for k in ("issue", "diagnosis", "progress", "evidence")) and
+            isinstance(checkpoint.get("nextSteps"), list) and checkpoint["nextSteps"] and
+            all(isinstance(s, str) and s.strip() for s in checkpoint["nextSteps"]) and
+            check_reference(report, checkpoint["evidence"]),
+            "Troubleshooting needs an implementation/fix checkpoint, concrete progress, evidence and next steps")
+    return checkpoint
+
+
 def session_permissions(base, state, choice, state_relative, report_relative, run_id):
     if choice["mode"] in {"implement", "fix"}:
         return base
@@ -225,6 +240,7 @@ def needs_attention(finding):
 def validate_transition(before, after, choice, report):
     """Enforce one role/unit, allowing explicitly explained invalidation and planning."""
     mode, target = choice["mode"], choice["target"]
+    checkpoint = troubleshooting(report)
     old_tasks = {t["id"]: t for t in before["tasks"]}
     new_tasks = {t["id"]: t for t in after["tasks"]}
     old_issues = {f["id"]: f for f in before["findings"]}
@@ -273,6 +289,7 @@ def validate_transition(before, after, choice, report):
     require(new_ids <= descendants and all(new_tasks[i]["status"] == "pending" for i in new_ids),
             "New children must be pending descendants of the selected implementation task")
     if new_ids:
+        require(not checkpoint, "Troubleshooting and planning-only splitting are separate units")
         require(new_tasks[target]["status"] == "in-progress", "Split-only unit must leave parent in progress")
         require(all(isinstance(new_tasks[i].get("outcome"), str) and new_tasks[i]["outcome"].strip() and
                     isinstance(new_tasks[i].get("checks"), list) and new_tasks[i]["checks"] and
@@ -284,8 +301,12 @@ def validate_transition(before, after, choice, report):
         if mode == "implement" and identifier == target:
             require(old["status"] != "implemented", "Cannot reimplement a completed task")
             require(set(old.get("children", [])) <= set(new.get("children", [])), "Agent removed existing children")
-            require(new["status"] in {"implemented", "blocked"} or new_ids,
-                    "Implementation unit needs a completed outcome, evidenced blocker or planning-only split")
+            require(new["status"] in {"implemented", "blocked"} or new_ids or checkpoint,
+                    "Implementation unit needs a completed outcome, evidenced blocker, planning-only split or troubleshooting")
+            if checkpoint:
+                require(new["status"] == "in-progress" and
+                        new.get("troubleshooting") == {**checkpoint, "record": after["runs"][-1]},
+                        "Troubleshooting must retain the selected task in progress with its exact checkpoint")
             if new["status"] == "blocked":
                 require(new.get("blocker") and check_reference(report, new.get("blockerEvidence")),
                         "Blocked implementation needs retained blocker evidence")
@@ -323,6 +344,11 @@ def validate_transition(before, after, choice, report):
                     "Finding disposition needs a rationale")
         if old:
             require(new["batch"] == old["batch"], "Agent reassigned a finding")
+
+    if checkpoint and mode == "fix":
+        require(attempted and all(new_issues[i]["status"] == "open" and
+                new_issues[i].get("troubleshooting") == {**checkpoint, "record": after["runs"][-1]}
+                for i in attempted), "Troubleshooting must retain attempted findings open with their exact checkpoint")
 
     target_batch = new_tasks[target]["batch"] if mode == "implement" else target
     checked = identifiers("reviewedUnitIds")
@@ -406,6 +432,8 @@ def update_attempts(attempts, choice, report, findings):
     unresolved = []
     if choice["mode"] not in {"fix", "verify"}:
         return unresolved
+    if troubleshooting(report):
+        return unresolved  # Evidence-backed infrastructure work is not a failed product fix.
     issues = {f["id"]: f for f in findings}
     for identifier in report["findingIds"]:
         issue = issues[identifier]
@@ -594,7 +622,7 @@ class Runner:
 
     def role_paths(self, state, choice, report, actual, report_relative):
         """Default-deny runtime/build changes outside implement/fix roles."""
-        planning = choice["mode"] == "blocked" or choice["mode"] == "implement" and next(
+        planning = choice["mode"] == "blocked" or not troubleshooting(report) and choice["mode"] == "implement" and next(
             t for t in load(self.state_path)["tasks"] if t["id"] == choice["target"])["status"] == "in-progress"
         splitting_review = choice["mode"] == "review" and not report.get("reviewedUnitIds") and not report.get("blockedReviewUnitIds")
         if choice["mode"] in {"implement", "fix"} and not planning:
@@ -607,8 +635,46 @@ class Runner:
         patterns = state.get("runner", {}).get("reviewTestPaths", [])
         for path in actual - allowed:
             require(not planning and not splitting_review and choice["mode"] in {"review", "verify"} and
-                    any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns),
+                     any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns),
                     f"Product changes forbidden in {choice['mode']}/planning unit: {path}")
+
+    def troubleshooting_progress(self, before, choice, report, actual, report_relative):
+        checkpoint = troubleshooting(report)
+        if not checkpoint:
+            return
+        evidence = checkpoint["evidence"]
+        prefix = f"{REPORTS}/{report['runId']}"
+        require(evidence.startswith(prefix + "-") or evidence.startswith(prefix + "/"),
+                "Troubleshooting evidence must belong to this fresh run")
+        collection = "tasks" if choice["mode"] == "implement" else "findings"
+        ids = {choice["target"]} if collection == "tasks" else set(report["findingIds"])
+        previous = [item.get("troubleshooting") for item in before[collection] if item["id"] in ids]
+        for old in previous:
+            if old:
+                require(any(checkpoint[k] != old.get(k) for k in ("diagnosis", "progress", "nextSteps")),
+                        "Repeated troubleshooting needs a new diagnosis, tested result or next step")
+                require(digest(repo_path(self.root, evidence)) != digest(repo_path(self.root, old["evidence"])),
+                        "Repeated troubleshooting cannot replay unchanged evidence")
+        records = {report_relative, self.state_relative} | {c["evidence"] for c in report["checks"]}
+        require(actual - records or any(c.get("kind") == "diagnostic" and c.get("evidence") == evidence
+                                       for c in report["checks"]),
+                "Troubleshooting must deliver a repair or fresh diagnostic evidence")
+
+    def orchestration_repair(self, protected, choice, report):
+        changed = {path for path, value in protected.items() if digest(Path(path)) != value}
+        if not changed:
+            require(not report.get("orchestrationRepair"), "Orchestration repair reports must name actual control changes")
+            return
+        allowed = {str(repo_path(self.root, PROMPT)), str(self.root / "scripts/implementation-loop.py")}
+        repair = report.get("orchestrationRepair", {})
+        require(choice["mode"] in {"implement", "fix"} and changed <= allowed and
+                isinstance(repair, dict) and isinstance(repair.get("reason"), str) and repair["reason"].strip() and
+                set(repair.get("paths", [])) == {str(Path(p).relative_to(self.root)) for p in changed} and
+                check_reference(report, repair.get("evidence"), passing=True),
+                "Agent changed runner/prompt/permission controls without an evidenced scoped orchestration repair")
+        # Independently execute the repository's baseline regressions, rather than
+        # accepting only the repairer's report about the controller it just edited.
+        run_command([sys.executable, "scripts/test-implementation-loop.py"], self.root, timeout=120)
 
     def safe_git(self):
         require(not self.git("status", "--porcelain=v1", "--untracked-files=all"),
@@ -639,7 +705,7 @@ class Runner:
         permissions = load(permission_path)
         require(isinstance(permissions, list) and permissions, "Explicit session permissions required")
         protected = {str(path): digest(path) for path in [permission_path, repo_path(self.root, PROMPT),
-                                                          Path(__file__).resolve()]}
+                                                          self.root / "scripts/implementation-loop.py"]}
         start = self.git("rev-parse", "HEAD")
         directory = self.journal / run_id
         directory.mkdir()
@@ -673,8 +739,6 @@ class Runner:
             require(after.get("authorization") == state["authorization"] and
                     after.get("authorizationRecord") == state["authorizationRecord"] and
                     after.get("runner") == state["runner"], "Agent changed activation/runner controls")
-            require(all(digest(Path(path)) == value for path, value in protected.items()),
-                    "Agent changed runner/prompt/permission controls; manual review required")
             require(report_path.is_file(), "Agent exited without its durable run report")
             report = load(report_path)
             require(report.get("runId") == run_id and report.get("sessionID") == session and
@@ -682,6 +746,7 @@ class Runner:
             require(report.get("mode") == choice["mode"] and report.get("target") == choice["target"],
                     "Agent skipped the required review/fix/implementation priority")
             require(report.get("summary") and report.get("selectionReason"), "Report needs outcome and selection evidence")
+            self.orchestration_repair(protected, choice, report)
             require(report.get("outcome") in {"progress", "complete", "blocked", "failed"}, "Unknown outcome")
             require(after.get("mode") == state["mode"] or report["outcome"] == "complete",
                     "Agent changed loop activation mode")
@@ -734,6 +799,7 @@ class Runner:
             for path in claimed:
                 repo_path(self.root, path)
             self.role_paths(state, choice, report, actual, report_relative)
+            self.troubleshooting_progress(state, choice, report, actual, report_relative)
             for path in {report_relative, self.state_relative} | {c["evidence"] for c in report.get("checks", [])}:
                 self.committed_file(path, finish)
             self.git("diff", "--check", start, finish)
@@ -770,7 +836,9 @@ class Runner:
                 raise Halt("Another loop writer holds the repository lock")
             require(not (self.journal / "active.json").exists(),
                     "Interrupted/failed run retained: inspect it and use recover; do not blindly restart")
-            for _ in range(maximum):
+            driver = self.root / "scripts/implementation-loop.py"
+            driver_digest = digest(driver)
+            for index in range(maximum):
                 if (self.journal / "STOP").exists():
                     return {"status": "paused", "reason": "stop requested"}
                 state = self.authorized_state()
@@ -782,6 +850,13 @@ class Runner:
                 print(json.dumps(result), flush=True)
                 if result["status"] in {"complete", "blocked"}:
                     return result
+                if digest(driver) != driver_digest and index + 1 < maximum:
+                    # Replace this idle driver only after the validated save/push
+                    # boundary. The non-inheritable lock closes on exec; no second
+                    # driver/session is started beside the old one. Budgets persist.
+                    os.execv(sys.executable, [sys.executable, str(driver), "--repo", str(self.root),
+                             "--state", self.state_relative, "run", "--max-runs", str(maximum - index - 1),
+                             "--timeout-seconds", str(seconds)])
             return {"status": "paused", "reason": "configured session-count budget reached"}
 
     def recover(self):

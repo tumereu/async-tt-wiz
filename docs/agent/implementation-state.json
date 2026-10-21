@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -58,7 +58,10 @@
     {
       "id": "I01a",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "saveRecoveryRecord": "docs/agent/save-recovery-2026-10-21.md",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json",
+      "buildNotes": "docs/agent/foundation-build.md",
       "dependsOn": [],
       "outcome": "Establish the reproducible Gradle Kotlin DSL wrapper, compatible checked-in version catalog/locks and initial :core, :protocol, :client-storage, :androidApp, :server and :e2e module boundaries. Produce a normal Android scaffold APK at minSdk29/compile-target36 and JVM21 shared/server builds, keeping generated SQL/Compose/Spring types out of semantic objects. Inventory tool/device/signing/architecture availability and qualify bootstrap/build commands under current session permissions; no account/gameplay implementation or alternate test app.",
       "checks": [

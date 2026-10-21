@@ -21,6 +21,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    // One retained fixture shared with host migration verification; never packaged in the app.
+    sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/main/sqldelight/databases")
 }
 
 kotlin { compilerOptions.jvmTarget.set(JvmTarget.JVM_17) }

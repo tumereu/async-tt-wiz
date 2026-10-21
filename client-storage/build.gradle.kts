@@ -36,6 +36,7 @@ sqldelight {
 dependencies {
     implementation(project(":core"))
     implementation(libs.sqldelight.runtime)
+    implementation(libs.sqldelight.android.driver)
     testImplementation(libs.sqldelight.sqlite.driver)
     testRuntimeOnly(libs.sqlite.jdbc)
     testImplementation(platform(libs.junit.bom))

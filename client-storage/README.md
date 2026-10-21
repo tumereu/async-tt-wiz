@@ -1,4 +1,4 @@
-# Client storage foundation — I01d1/I01d2
+# Client storage foundation — I01d
 
 Real SQLDelight-generated SQLite schema/queries and a blocking, driver-neutral
 repository. Host tests use **temporary file-backed SQLite**, not mocked queries.
@@ -6,7 +6,8 @@ The normal `:androidApp` now initializes the production Android driver off-main,
 with safe failure presentation and backup/device-transfer exclusions (I01d2).
 Android build/artifact qualification is **not runtime qualification**: actual
 Android-driver instrumentation execution remains **I01f**, after device-adapter
-qualification. I01d parent combined qualification and B1 independent review remain open.
+qualification. I01d combined host/build qualification is complete; B1 independent
+review remains open.
 
 ## Boundaries
 
@@ -149,7 +150,7 @@ build's **JVM21** with JUnit6. They include generated-query atomicity/rollback,
 close/reopen, exact cursor/text retention, scope/category separation, concurrent
 local-base writers and coherent snapshot reads, populated retained migrations and
 non-destructive failures. APK assembly/lint and packaged-resource checks verify
-build/API interfaces only; no Android driver/device test has executed in I01d2.
+build/API interfaces only; no Android driver/device test has executed in I01d.
 
 The normal app's approved `androidApp/src/androidTest` instrumentation contains
 14 compiled tests across `StorageDriverTest`, `StorageViewModelTest`
@@ -179,6 +180,26 @@ owned-device/port cleanup. Compilation is not a pass for those tests; controller
 and launcher resource/failure assertions remain unexecuted until then. No reverse
 I01d→I01f dependency is introduced. Full crash-during-upgrade, signed install
 replacement and the supported-device matrix remain I35; all release gates stay open.
+
+## Combined qualification — I01d
+
+The [parent qualification record](../docs/agent/implementation-runs/20261021T210246Z-d1993a37.json)
+retains clean cache-disabled strictly locked builds of both children together,
+all 16 real file-backed storage tests plus six shared regressions with no skips,
+generated retained-schema migration verification, and normal/test APK assembly,
+lint, signatures, packaged backup exclusions and module-boundary evidence.
+Independent clean SQLDelight generation is compared with the prior child build.
+This qualifies the minimal schema/repository, non-destructive forward migration
+and Android wiring/build interfaces, without changing production inputs or
+claiming that compiled instrumentation executed. The command above remains the
+reproduction entry point. Accepted replica/cache/personal categories are distinct;
+volatile outgoing requests/predictions/exposures are not persisted.
+
+I01f retains the actual Android-driver/controller/launcher execution obligation;
+I01 retains foundation-wide integration. Account isolation, credentials and Logout
+remain I02/I03, complete tree/sync behavior I14/I26, and signed retained-data
+upgrades/device compatibility I35. No full P-/T-/F-scenario, independent group
+review or external release gate is newly declared passed by this qualification.
 
 Source constraints: storage-architecture.md (client categories/migrations),
 storage-mechanics.md (D-278 client persistence/crash matrix), sync-and-storage.md

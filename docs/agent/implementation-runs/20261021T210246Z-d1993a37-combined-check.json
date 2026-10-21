@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py"
+  ],
+  "exitCode": 1,
+  "outputSha256": "7ae6a126dbec67053772ac1a276430a86fb81a843442d6d2ec40723fd4e6d433",
+  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py\", line 75, in <module>\n    main()\n    ~~~~^^\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py\", line 34, in main\n    assert hashes == json.loads(line[len(marker):])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+}

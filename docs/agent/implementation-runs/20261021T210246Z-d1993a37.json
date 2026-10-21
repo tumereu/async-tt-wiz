@@ -1,0 +1,118 @@
+{
+  "runId": "20261021T210246Z-d1993a37",
+  "sessionID": "ses_e9fb9f13dffezfur4NOIZDLoQL",
+  "startCommit": "73b4404cec0aa1f7154aec1d35190ba0c2ff40bc",
+  "mode": "implement",
+  "target": "I01d",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Completed I01d combined qualification of implemented storage children without production/build/lock/fixture/test-source changes. Two clean cache-disabled strictly locked builds execute 16 real file-backed storage and six shared tests without skips; migration verification, both library variants, normal/test APK assembly/signatures, lint, module boundaries, dependency provenance, packaged backup exclusions and complete coverage accounting pass. Generated SQLDelight sources match both variants, the prior child and independent parent builds. Retained old-data rollback/refusal is qualified on host SQLite; 14 Android driver/controller/launcher tests remain compiled NOT executed, explicitly I01f. I01/B1 review, auth/sync/game/signed upgrades and all external release gates remain open.",
+  "selectionReason": "The actual master checkout/index were clean at the supplied starting commit, active/authorized under D-304 with the exact high model recorded and no findings or due group review. Both I01d children are implemented, making their in-progress parent's combined outcome the earliest ready selection before I01e and I01f. Qualify that whole storage boundary now, rather than skipping to Compose/accounts, claiming device execution or introducing a per-child independent review. This is implementation qualification, not B1 independent review.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-clean-build.json -- ./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :client-storage:clean :androidApp:clean :core:clean :protocol:clean :client-storage:testDebugUnitTest :client-storage:verifySqlDelightMigration :client-storage:assembleRelease :core:jvmTest :protocol:jvmTest :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :client-storage:lintDebug :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-clean-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-storage-artifacts.json -- python3 scripts/check-storage-foundation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-storage-artifacts.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-android-artifacts.json -- python3 scripts/check-android-storage.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-android-artifacts.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-coverage.json -- python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-coverage.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-clean-repeat.json -- ./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :client-storage:clean :androidApp:clean :core:clean :protocol:clean :client-storage:testDebugUnitTest :client-storage:verifySqlDelightMigration :client-storage:assembleRelease :core:jvmTest :protocol:jvmTest :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :client-storage:lintDebug :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-clean-repeat.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-storage-repeat.json -- python3 scripts/check-storage-foundation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-storage-repeat.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-android-repeat.json -- python3 scripts/check-android-storage.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-android-repeat.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.json -- python3 docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-pass.json -- python3 docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-pass.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T210246Z-d1993a37-handoff-check.json -- python3 docs/agent/implementation-runs/20261021T210246Z-d1993a37-handoff-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T210246Z-d1993a37-handoff-check.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T210246Z-d1993a37-handoff-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "client-storage/README.md",
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-clean-build.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-storage-artifacts.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-android-artifacts.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-coverage.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-clean-repeat.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-storage-repeat.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-android-repeat.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.py",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-check.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-combined-pass.json",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-handoff-check.py",
+    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-handoff-check.json"
+  ],
+  "traceability": {
+    "scenarioPortions": {"T-662": "Combined foundation retained-format creation/migration/rollback/refusal and normal Android build wiring qualified; actual device execution I01f, full durable gameplay/image/Compose/signed replacement remain their owning tasks."},
+    "architectureConstraintPortions": ["P-059", "P-060", "P-063", "P-065", "T-632", "T-647", "T-649", "T-657"],
+    "sources": [
+      "docs/design/04-technical/storage-architecture.md: Client storage responsibilities; Migration boundaries",
+      "docs/design/04-technical/storage-mechanics.md: Client persistence and crash matrix — D-278",
+      "docs/design/04-technical/sync-and-storage.md: server authority/accepted-base integrity",
+      "docs/design/04-technical/client-architecture.md: semantic/adapter boundary and off-main storage",
+      "docs/design/04-technical/android-distribution-and-compatibility.md: retained non-destructive migration and no outgoing process-memory migration",
+      "docs/design/04-technical/runtime-and-verification-profile.md: JVM21/Java17/API29-SDK36",
+      "docs/design/04-technical/test-architecture.md: actual SQLDelight/normal-app tests"
+    ],
+    "accounting": "The unchanged complete source-pinned 875-item ledger validates all primary P-001-P-072, T-001-T-715 and cumulative F01-F88, preserving dispositions/supersessions and future dependencies. No whole product requirement/scenario is newly marked executed; these are foundation assertion/constraint portions. No UI document or owner layout decision changed. Final D-303 interface comparison remains B8."
+  },
+  "qualification": {
+    "scope": "I01d parent checks the integrated I01d1 repository/migration and I01d2 Android adapter/normal-scaffold interfaces. Child outcomes/statuses and all other tasks/reviews/findings/gates remain unchanged. Runtime/build/lock/fixture/test inputs are unchanged from startCommit; only storage documentation, this run's check helpers/evidence/report and parent state change.",
+    "hostBehavior": "All 16 existing generated-query/file-backed SQLite3.53.4/JVM21 tests run twice with six shared regressions, no skips. Atomic accepted records/cursor rollback includes later real SQL failure, first-cursor publication and removals; cache eviction/personal changes preserve accepted data; snapshot/concurrent local-base checks remain coherent. Populated synthetic v1 fixture preserves exact Unicode and cursor9007199254740993 through generated 1.sqm and reopen/subsequent writes. Both real third-statement errors and injected interruption after ALTERs preserve old bytes/data/schema/version, close and expose no writable handle; retry succeeds. Future/unversioned/malformed/corrupt schemas, invalid payload versions/orphans/non-FK drivers/path/factory errors refuse without wipe. Close/reopen/idempotent-close tests pass.",
+    "buildArtifacts": "Two clean cache-disabled ordinary strict-lock builds assemble both storage variants plus the normal debug/instrumentation APKs at Java17/API29-SDK36. Exact executed JUnit XML, generated hashes, fixture identity, APK hashes/signatures and lint output retained. SQLDelight2.4.1/Xerial3.53.4.0/AndroidX SQLite2.7.1 dependency/POM/license/source provenance rechecked. Generated schema/query hashes agree across both variants, the prior child and independent parent clean builds. Semantic/protocol imports and actual module dependencies do not leak persistence types; normal runtime has no mandatory GMS dependency or host JDBC native library.",
+    "androidInterfaces": "Production AndroidSqliteDriver/raw SQLite bridge, no-helper/no-destructive-handler open, pool foreign keys, noBackup private path, off-main ViewModel open/retry/queued close, retained rotation owner and safe storage/update-required errors are wired into the normal launcher. Artifact checks resolve manifest IDs to exact source-matching legacy/cloud/device-transfer exclusions with missing-domain mutation rejection; no fixture DB in app, exact retained v1 fixture test-only. All 14 approved actual-driver/controller/launcher instrumentation methods are packaged, COMPILED NOT EXECUTED. Host success and APK inspection are not Android runtime or OEM backup proof.",
+    "diagnostic": "The new run-owned comparison helper initially compared a flat hash map with the artifact check's debug/release container. The retained diagnostic shows that harness shape mismatch; corrected it to compare each named variant explicitly. The combined check then passes without touching generated/runtime/build inputs or weakening identity equality.",
+    "resourceOwnership": "Only local Gradle/build outputs and framework-owned temporary file-backed test databases used. No Docker/ADB/AVD/Appium services, other sessions/subagents/loops, deployment or paid resources started; no unrelated resources changed. APK/build files remain ignored, while actual command output/JUnit XML/artifact identities are durably retained here. Retained v1 fixture is unchanged.",
+    "remaining": "I01e Compose is the next eligible unit, not started here. I01f must execute actual Android-driver/controller/normal-launcher tests after adapter/environment qualification, with per-device results/screenshots/hierarchy/cleanup. I01 parent combined foundation, account/auth/logout/callback isolation (I02/I03), accepted sync/full trees (I14/I26), gameplay, signed upgrades/device matrix (I35), independent B1 review and all external release gates remain pending. No authoritative local game or crash-durable outgoing/prediction/exposure journal added."
+  }
+}

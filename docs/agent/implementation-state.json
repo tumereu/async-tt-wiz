@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json", "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json", "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json", "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json", "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json", "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -187,9 +187,12 @@
     {
       "id": "I01d",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
       "children": ["I01d1", "I01d2"],
       "planningRecord": "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json",
+      "buildNotes": "client-storage/README.md",
+      "qualification": "Combined I01d1/I01d2 foundation qualified without changing source, build, locks, fixture or instrumentation inputs. Two clean no-build-cache strictly locked JVM21 builds pass all 16 real file-backed SQLite storage tests plus six shared regressions with no skips, retained SQLDelight migration verification, both library variants, normal API29-SDK36 debug/test APK assembly/signatures, app/library lint and module boundaries. Generated query/schema sources match both variants, the prior child build and independent parent clean builds. Actual JUnit XML, exact APK/fixture/generated identities, qualified dependency/POM/source/license provenance, packaged legacy/cloud/device-transfer exclusions and unchanged 875-item P/T/F coverage accounting retained. Failed/interrupted migration and newer/malformed/corrupt schema tests preserve old data/version/bytes with no writable repository or destructive fallback; accepted records/cursor are atomic and public-cache/personal operations do not remove them. Android raw-driver/off-main normal-launcher wiring and 14 instrumentation tests are packaged/compiled, NOT executed; actual device-driver/controller/launcher qualification remains I01f with unchanged dependencies. No authoritative local game, outgoing/prediction/exposure journal, account/credential/Logout isolation, full-tree/sync/game or signed-upgrade acceptance claimed. I01 combined qualification, independent B1 review, later product tasks and all release gates remain open.",
       "dependsOn": ["I01a"],
       "outcome": "Implement the minimal SQLDelight SQLite schema/driver/repository and forward migration path in :client-storage, wired into the normal Android scaffold. Keep accepted replica, disposable cache and personal-state categories distinct from volatile request/prediction memory; no crash-durable outgoing/exposure journal or fabricated authoritative local game.",
       "checks": [

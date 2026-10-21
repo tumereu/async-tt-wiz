@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261021T223211Z-d5a50a9e-qualification.py",
+    "retain"
+  ],
+  "exitCode": 0,
+  "outputSha256": "2a61e948b086a08c19c57fb1c3acb63218937f223c058f8ce83560e9515502d6",
+  "output": "RETAINED-JUNIT {\"path\": \"docs/agent/implementation-runs/20261021T223211Z-d5a50a9e-regressions-junit.json\", \"sha256\": \"321ec3c574c8f364ce36f19105a65eb5e98d816f2ea133233c2e1ec3dd37d3a7\", \"tests\": 43}\n"
+}

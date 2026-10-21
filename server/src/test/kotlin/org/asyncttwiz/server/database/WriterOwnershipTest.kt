@@ -16,8 +16,8 @@ class WriterOwnershipTest {
         statement.executeQuery(sql).use { rows -> assertTrue(rows.next()); rows.getLong(1) }
     }
     private fun epoch(db: OwnedPostgres) = db.connection().use { it.number("SELECT epoch FROM service_writer") }
-    private fun migrated(retainPortAcrossRestart: Boolean = false): OwnedPostgres =
-        OwnedPostgres(retainPortAcrossRestart).start().also { FoundationMigrations.migrate(it.settings) }
+    private fun migrated(): OwnedPostgres =
+        OwnedPostgres().start().also { FoundationMigrations.migrate(it.settings) }
     private fun acquired(owner: WriterOwnership) = owner.refresh().orElseThrow()
     private fun await(latch: CountDownLatch) { assertTrue(latch.await(8, TimeUnit.SECONDS), "Synchronization timed out") }
 
@@ -235,7 +235,7 @@ class WriterOwnershipTest {
     }
 
     @Test fun `database restart invalidates ownership and requires schema validation reload and new epoch`() {
-        migrated(retainPortAcrossRestart = true).use { db ->
+        migrated().use { db ->
             WriterOwnership(db.settings).use { owner ->
                 val stale = acquired(owner)
                 val id = db.container.containerId
@@ -282,7 +282,7 @@ class WriterOwnershipTest {
     }
 
     @Test fun `unobserved database restart cannot admit under an unchanged old epoch`() {
-        migrated(retainPortAcrossRestart = true).use { db ->
+        migrated().use { db ->
             WriterOwnership(db.settings).use { owner ->
                 val stale = acquired(owner)
                 val id = db.container.containerId

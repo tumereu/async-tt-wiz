@@ -7,9 +7,11 @@ PostgreSQL17 and the [synthetic HTTP/art/SMTP adapters](adapters/README.md).
 No alternate backend/APK, account/game/action injection or production deployment
 is supplied. This Gradle module intentionally has no product-module dependency.
 
-**I01e2a/I01e2b:** fresh provision, bounded readiness, retained restart, explicit
-independent-scenario reset, simultaneous Testcontainers isolation, redacted capture
-and exact cleanup. **Still pending:** I01e2/I01e combined qualification;
+**I01e2 combined qualification:** clean locked real-image builds, fresh provision,
+bounded readiness, retained restart, explicit independent-scenario reset,
+simultaneous Testcontainers isolation, redacted capture and exact cleanup pass;
+see the [integration record](../docs/agent/implementation-runs/20261021T223211Z-d5a50a9e.json).
+**Still pending:** I01e/I01 combined qualification;
 I01f Android/remote-ADB/Appium and actual storage instrumentation; later normal-UI
 account/game journeys and independent B1 review. These host checks do not pass a
 full T-551/T-630/T-662 scenario, any F01–F88 UI outcome or a release gate.
@@ -42,6 +44,18 @@ from ordinary `:server:test`; neither builds its own alternate application. It r
 the reset checker while continuously querying a separate real Testcontainers
 PostgreSQL connection/transaction, exercises cleanup in both ownership directions
 and verifies unchanged unrelated resource inventories. No new library dependency.
+
+The local WSL qualification exposed an intermittent reset on a newly Docker-published
+JDBC connection after PostgreSQL's ready logs; a ten-second retry alone was
+insufficient. The test-only `OwnedPostgres` helper now reserves an OS-selected port
+on **127.0.0.1**, publishes that exact loopback binding and verifies bounded actual
+JDBC startup. Ordinary test operations still fail immediately on connection loss;
+authentication/schema errors are not retried. Thirty fresh startup trials,
+deterministic retry/timeout/error regressions, all 37 service tests and two complete
+Compose/Testcontainers qualifications pass after this change. Failed experiments
+and their actual XML remain in the integration record; this does not establish a
+general Docker/WSL root cause or qualify a remote daemon. No product/runtime/build
+input or dependency was changed by this repair.
 
 Qualified here: Docker **29.8.2**, Compose **v5.6.0**, Linux/WSL2 **amd64**,
 PostgreSQL **17.11**, actual Spring/JVM21 server and Python **3.13.16** adapter

@@ -237,7 +237,7 @@ class ServiceProcessTest {
     }
 
     @Test fun `two actual processes recover database outage and lock takeover without dual ready writers`() {
-        OwnedPostgres(retainPortAcrossRestart = true).start().use { db ->
+        OwnedPostgres().start().use { db ->
             val firstInputs = environment(db)
             migrate(firstInputs)
             Service(firstInputs).use { first ->

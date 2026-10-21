@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261021T223211Z-d5a50a9e-qualification.py",
+    "failed-retain"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e5b12038cf1b3b3475f5a1ca2df4fe430ceec8f427b42831d1ed63a23a83c2ef",
+  "output": "RETAINED-JUNIT {\"path\": \"docs/agent/implementation-runs/20261021T223211Z-d5a50a9e-isolation-diagnostic-junit.json\", \"sha256\": \"57e00c10d61fce3c39e46f726694aca3b91f8b4ac9e72447dc6bc6aab004805c\", \"tests\": 1}\n"
+}

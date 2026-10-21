@@ -91,7 +91,8 @@ card text. Library/Graveyard/Exile controls for both players stay on the left in
 landscape and between participants in portrait. Counts remain visible.
 
 The owner selects a floating own Hand below the land band and above screen-fixed
-bottom controls, independent of board pan/zoom, and central Stack/combat lanes.
+bottom controls, independent of board panning, and central combat. D-296 keeps
+Stack central in portrait but between player info in the landscape left sidebar.
 The opponent's top covered Hand and life grouped with special zones remain draft
 placement proposals. Both orientations must retain usable controls; dense boards
 may need navigation rather than a promise that all cards fit at readable size.
@@ -111,6 +112,72 @@ Life displays as a player-colored square with only its total, no printed names o
 “Life” text; accessible descriptions retain identity/meaning. Card P/T is at its
 bottom-right. Owner-colored borders are distinct from field color and projection
 dash/selection/token/ping signals. See G01–G06 and H01–H03 in the review packet.
+
+### Uniform card scale and pile totals — D-296
+
+All table card representations use one card size at the same zoom: battlefield,
+combat/Stack projections and real cards, Hand/covered Hand, reveals, Library,
+Graveyard and Exile. Do not fit an area by shrinking only its cards or derive card
+size from its row height. Rotation/piles keep the equal horizontal envelope above.
+Pan/scroll/reflow when space runs out; deliberately magnified inspection remains
+separate. Dock/Hand anchors can remain screen-fixed while their card drawings use
+the common scale. Camera movement never changes shared placement or pile order.
+
+Landscape Stack sits between the two player-info blocks in the left sidebar,
+superseding the central landscape Stack. Portrait right-of-libraries Stack remains.
+Use a top-left **circular total-count badge** consistently on Library, Graveyard,
+Exile and Stack when entries are not all displayed. It counts all entries, not
+only hidden ones. Empty/singleton states remain identifiable/accessibly counted;
+no face disclosure, guessed identity, item loss or new membership limit follows.
+The badge and pile are one contents affordance, not precision badge-only targets.
+
+Across already-in-scope contents/token searches, the field, results and loading/
+empty/error feedback belong inside the same card/panel (D-296), not a separate
+results card. Search remains local browsing where already permitted and does not
+silently issue a new logged disclosure or add a new search capability.
+
+### Player values: row, life menu and drag preview — D-296
+
+- Put each player's six-color counter affordances on a row beneath that player's
+  Library/Graveyard/Exile. Landscape keeps the row. In portrait show that player's
+  row only if at least one value is nonempty and not numeric zero. A negative or
+  nonnumeric nonempty value qualifies. Under existing trimming/integer grammar,
+  `0`, `+0`, `-0` and zero with leading zeros do not qualify; absent/empty also do
+  not. This is a presentation predicate, not removal or conversion of stored text.
+  When a row is visible, existing zero values remain visible. Life itself does not
+  participate in the predicate. Each player's row is evaluated independently.
+- Tap the colored life square for the existing participant context menu, now
+  explicitly containing life and all color -1/+1/Set controls. Either participant
+  may edit either player. Hidden portrait rows/absent colors remain accessible
+  here without a new Add/Initialize step. Completed +/- and Set retain the menu
+  as before; field trimming/empty removal and nonnumeric applicability persist.
+- Drag **up to increase / down to decrease** on life or a numeric counter
+  affordance. Bind the addressed participant/field at gesture start. Display a
+  local signed **+N / −N delta**, not a succession of shared edits or a prematurely
+  changed stored value. The two directions can reverse during the same drag.
+  Touch slop and distance-to-integer-step mapping are reviewable geometry/timing
+  details, not per-area arithmetic policies.
+- On a valid release, issue **one relative delta-N request** for that field if N
+  is nonzero. Apply normal provisional prediction immediately then; no extra
+  confirmation and no N separate +1/-1 requests. Server execution applies that
+  delta to its actual current numeric value, so compatible concurrent increments
+  both count. Record actual accepted before/after for normal history/grouping/
+  eligible Undo. Do not send an absolute press-time total or add a previous-value
+  lock. Existing structural/numeric/resource checks still apply.
+- A recognized drag consumes tap, so release does not also open the menu. Cancel,
+  zero-delta release, lost target, or disconnection before release sends no new
+  edit. Sync continues during preview; it cannot retarget the captured field.
+  Same-process uncertainty after an actual release uses original-request recovery,
+  not a new drag invocation. No requests on movement/animation frames or offline
+  action creation. Counter arithmetic remains unavailable for nonnumeric text;
+  absent-counter arithmetic uses D-68's zero starting point without an intermediate
+  stored zero. Existing explicit menu/accessibility equivalents remain usable.
+  A row hiding/reflowing during sync is not loss of its semantic target: retain
+  the captured participant/color, never the control now beneath the finger. Normal
+  release validation still decides an absent/nonnumeric/invalid target outcome.
+- Historical review shows read-only values, not actionable drag/menu edits. Enter
+  explicit play/continuation first. Preview/selection is personal state, distinct
+  from the shared request/prediction created on release.
 
 ### Card/token owner metadata — D-295
 
@@ -991,7 +1058,10 @@ Confirmed counter appearance/lifecycle (D-58):
 2. At most one counter of each color on a single card/player. The proposed
    multiple same-color counters on one target were rejected. Different targets
    may each have their own counter of that color.
-3. Keep numeric counter text `0` visible. A completed edit to empty text removes
+3. Keep numeric counter text `0` visible. **D-296's narrow presentation exception:**
+   a player's entire portrait row hides when all their counters are empty/zero;
+   zero remains stored and available in the life context menu. Card counters and
+   visible player rows still show zero. A completed edit to empty text removes
    the counter; temporary incomplete input does not publish removal by itself.
    D-59 trims text first: whitespace-only completed text removes the counter.
    Whether to offer a separate Remove shortcut remains open.

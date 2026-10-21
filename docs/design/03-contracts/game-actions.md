@@ -87,6 +87,13 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-035 | Stack projections | D-113/D-242 support ability projections from Battlefield, Graveyard and Exile without moving originals. D-134 allows unlimited independent occurrences, including several from one source, each removed/resolved separately. Existing source fields stay live-linked across locations with write-through edits (D-123/D-242); only token disappearance freezes read-only last-live source information, not a replacement card/Clone. Source-card actions cannot edit the frozen copy or nonexistent token. Preserve normal Stack-addition guards; exact entry/order/record mappings need completion. |
 | A-036 | Contextual Stack actions | D-114 requires instant/sorcery card → Graveyard, permanent card → Battlefield, projection → remove projection. Exact category/face/default handling, destination routing, and controls need case-by-case design; no automatic resolution. |
 
+D-296 extends A-010/A-011/A-020 with life-tap context controls and release-only
+relative delta-N drags on life/player-counter affordances. Preview/cancel is local;
+one completed nonzero drag is one ordinary field mutation, not N step requests.
+Current numeric server state governs arithmetic; existing menu controls, absent/
+nonnumeric handling, grouping, Undo and request recovery apply. See the primary
+player-value section in board controls.
+
 D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;

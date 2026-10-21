@@ -31,7 +31,7 @@ fading ~1–2 s without shifting layout. When a row empties, quickly fade it and
 slide following rows up; do not confuse actual transfer reflow with feedback
 layout changes. L04/L04b freeze visible/faded text endpoints, not app interactions.
 
-**D-295 current revisions:** F37–F47 supersede naming-as-screen, duplicate deck-
+**D-295 revisions retained:** F37–F47 supersede naming-as-screen, duplicate deck-
 delete title, offline-review reconnect escape, both-green fields, visible slots/
 separators/area labels, tap-dependent widths, side-by-side Stack entries, printed
 gameplay player names/Life and sparse generic timeline dots. Apply the naming
@@ -42,6 +42,20 @@ unlimited semantic entries, trial combat-between-libraries/faint paired dividers
 reveal placement and dense type-icon nodes. New G04–G06 show card actions, token/
 ping/reveals and owner chooser. These are local inert revisions only; all raw
 prompts below are historical, not permission to restore superseded layouts.
+
+**D-296 current revisions:** F48–F57 put every search/results set in one card,
+landscape Stack between side player info, all table cards at one common zoom,
+author-colored type icons with faint effective-group dividers, top-left circular
+special-pile totals and player counters below zones. Portrait per-player rows hide
+only when all values are empty/zero; life opens life/color-counter actions. Numeric
+up/down drags preview +N/−N locally and commit one relative edit on release, never
+per-frame writes or stale absolute totals. History Play/Pause has text and fills
+portrait transport space, with attached landscape Previous/Next. Holding Play
+while paused invokes the retained top/accessibility continuation route without
+tooltips/tutorials; armed play uses the selected state with no Continuing from
+banner and still creates no fork until a first successful mutation. G07/G08/G08b
+are inert player-menu/positive/negative-preview states. Capture-only templates/
+landscape framing are local documentation, not a new Stitch edit or working app.
 
 ## Common prompt
 

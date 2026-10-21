@@ -3,12 +3,13 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension and cumulative D-292–D-295 revisions, with both orientations: 35 primary
-  drafts plus two scroll and one faded-feedback continuation, 76 captures total.
+  extension and cumulative D-292–D-296 revisions, with both orientations: 37 primary
+  drafts plus four continuations, 82 captures total.
   N02 shows navigation;
   P03/P04 show context/deletion, D07 contextual import and D08 full inspection.
   P05 adds named creation. G00 is retired provenance, not a current screen;
-  G01–G06 and H01–H03 add live/history, context/owner actions and token/ping/reveal examples.
+  G01–G08/G08b and H01–H03 add live/history, contextual actions, token/ping/reveals
+  and life/player-counter menus and signed drag previews.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
   clarified interactions and remaining geometry proposals.
 - `sources/` retains raw Stitch output and inert review derivatives; `images/`
@@ -20,7 +21,7 @@ These are specification artifacts, not application code or an approved final UI.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - **[Cumulative feedback](feedback.md):** preserve every owner decision across
-  rounds unless explicitly superseded; read before regeneration. F01–F47 apply;
+  rounds unless explicitly superseded; read before regeneration. F01–F57 apply;
   the packet's full-screen copy audit lists further deletion suggestions, not
   silently approved removals. Raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
@@ -106,6 +107,14 @@ row-label decorations, portrait Stack position/top+2 rendering and collision-fre
 sample event-type icons. `table-round4.html`/CSS is one shared inert composition;
 the capture helper sets its static `captureVariant` attribute and converts history
 zone controls to readouts. It is not an app renderer or executable gesture demo.
+
+D-296 checks add same-card contact search/results, shared card dimensions at one
+review zoom across areas/orientations, sidebar Stack ordering, top-left circular
+total badges, portrait counter-row visibility, author/group metadata and labeled/
+attached history transport with retained hold/top continuation routes and no banner.
+The source's inert templates are repeated by capture tooling for piles/counter
+rows; landscape Stack placement and camera framing are static composition steps.
+Player menu and +3/−2 preview snapshots are not implemented gesture handling.
 
 ## Private review hosting
 

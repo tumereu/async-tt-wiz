@@ -16,8 +16,71 @@ UI = ROOT / 'docs/design/02-experience/ui'
 VIEWPORTS = {'portrait': (412, 892), 'landscape': (892, 412)}
 
 
+async def compose_table_review(page, screen, orientation):
+    """Materialize inert repeated design markup, never application interactions."""
+    await page.evaluate('''({id, orientation}) => {
+        const active=['G05','G07','G08','G08b','H01','H02'].includes(id);
+        for (const pane of document.querySelectorAll('.zone-person')) {
+            const own=pane.classList.contains('own'), name=own?'alex':'riley';
+            const life=pane.querySelector('.life-square');
+            const button=document.createElement('button');
+            button.className=life.className;
+            button.textContent=life.textContent;
+            button.setAttribute('aria-label',`${name}, life 20; open life and player counter actions`);
+            life.replaceWith(button);
+            if (own && id==='G08') {
+                button.classList.add('is-dragging');
+                button.insertAdjacentHTML('beforeend','<span class="delta-preview" aria-label="Uncommitted life delta, plus 3">+3</span>');
+            }
+            for (const zone of pane.querySelectorAll('.zones button')) {
+                const label=zone.getAttribute('aria-label'), count=Number(zone.querySelector('b').textContent);
+                const library=label.includes('Library'), exile=label.includes('Exile');
+                zone.replaceChildren(document.querySelector('#pile-display-template').content.cloneNode(true));
+                zone.classList.add('pile-control');
+                zone.dataset.zone=library?'library':exile?'exile':'graveyard';
+                zone.querySelector('.pile-total').textContent=count;
+                const pieces=[...zone.querySelectorAll('.piece')];
+                const keep=Math.min(3,count);
+                pieces.slice(0,3-keep).forEach(e=>e.remove());
+                pieces.slice(3-keep).forEach(e=>{
+                    e.classList.add(own?'owner-own':'owner-opponent');
+                    if (library) e.classList.add('covered');
+                    else e.innerHTML='<strong>Guide</strong><span class="art"><span class="icon">shield</span></span>';
+                });
+                if (!count) zone.querySelector('.pile-shell').insertAdjacentHTML('beforeend','<span class="pile-empty icon">block</span>');
+            }
+            pane.append(document.querySelector('#player-counter-row-template').content.cloneNode(true));
+            const row=pane.querySelector('.counter-row');
+            row.querySelectorAll('.counter-chip').forEach(e=>e.setAttribute('aria-label',`${name}, ${e.getAttribute('aria-label')}`));
+            if (own && active) {
+                row.dataset.nonzero='true';
+                const blue=row.querySelector('[data-color="blue"]');
+                blue.textContent='3'; blue.setAttribute('aria-label',`${name}, blue player counter, 3`);
+                if (id==='G08b') {
+                    blue.classList.add('is-dragging');
+                    blue.insertAdjacentHTML('beforeend','<span class="delta-preview" aria-label="Uncommitted blue counter delta, minus 2">−2</span>');
+                }
+            }
+        }
+        if (orientation==='landscape') {
+            const side=document.querySelector('.sidebar');
+            side.insertBefore(document.querySelector('.stack'), side.querySelector('.zone-person.own'));
+            document.querySelectorAll('.reveal-strip').forEach(e=>document.querySelector('.workspace').append(e));
+        }
+        if (['H01','H02'].includes(id)) {
+            document.querySelectorAll('.zones button,button.life-square,.counter-chip').forEach(e=>{
+                const span=document.createElement('span'); span.className=e.className+' zone-readout';
+                if (e.closest('.zones')) span.classList.add('zone-label');
+                span.innerHTML=e.innerHTML; span.setAttribute('aria-label',e.getAttribute('aria-label'));
+                if (e.dataset.zone) span.dataset.zone=e.dataset.zone;
+                e.replaceWith(span);
+            });
+        }
+    }''', {'id': screen['id'], 'orientation': orientation})
+
+
 async def validate_owner_revision(page, screen, orientation):
-    """Regression checks for cumulative D-292–D-295 static presentation."""
+    """Regression checks for cumulative D-292–D-296 static presentation."""
     issues = await page.evaluate(r'''({id, orientation}) => {
         const issues = [];
         const visible = e => !!(e && e.getBoundingClientRect().width && e.getBoundingClientRect().height);
@@ -107,6 +170,9 @@ async def validate_owner_revision(page, screen, orientation):
             if (['L04','L04b'].includes(id) && /Save preparation/.test(document.querySelector('main').innerText))
                 issues.push('Preparation Send step returned');
         }
+        if (id==='P02' && document.querySelector('#username-search-input').closest('.section-card') !==
+            document.querySelector('#search-results-heading').closest('.section-card'))
+            issues.push('Search results separated from search field card');
         if (id === 'D07') {
             const selected = document.querySelector('.segmented [aria-pressed="true"]');
             if (!selected || selected.textContent !== 'Overwrite') issues.push('Import default is not Overwrite');
@@ -177,11 +243,43 @@ async def validate_owner_revision(page, screen, orientation):
             if (/riley|alex|Life\s*\d/.test(document.querySelector('.workspace').innerText))
                 issues.push('Gameplay player-name/Life clutter returned');
             if (id==='G02') {
-                if (document.querySelectorAll('.stack-pile > .piece').length!==3) issues.push('Stack is not top plus two');
+                if (document.querySelectorAll('.stack-pile .piece').length!==3) issues.push('Stack is not top plus two');
                 if (orientation==='portrait') {
                     const stack=document.querySelector('.stack').getBoundingClientRect();
                     const library=document.querySelector('.portrait-dock .zone-person').getBoundingClientRect();
                     if (stack.left<library.right) issues.push('Portrait Stack is not right of libraries');
+                }
+            }
+            const pieces=[...document.querySelectorAll('.piece,.back')].filter(visible);
+            const sizes=pieces.map(e=>{const s=getComputedStyle(e);return [parseFloat(s.width),parseFloat(s.height)];});
+            if (sizes.some(s=>Math.abs(s[0]-40*.7143)>.1 || Math.abs(s[1]-40)>.1))
+                issues.push('Cards do not share one 40px review zoom across all areas/orientations');
+            for (const e of document.querySelectorAll('.zones [data-zone],.stack .pile-control')) {
+                if (!e.querySelector('.pile-total')) {issues.push('Pile total badge missing'); continue;}
+                const badge=e.querySelector('.pile-total'), shell=e.querySelector('.pile-shell')||e;
+                const a=badge.getBoundingClientRect(), b=shell.getBoundingClientRect();
+                if (visible(e) && (Math.abs(a.left-b.left)>1 || Math.abs(a.top-b.top)>1 ||
+                    getComputedStyle(badge).borderRadius!=='50%')) issues.push('Pile count is not a top-left circle');
+            }
+            if (orientation==='landscape') {
+                const side=document.querySelector('.sidebar'), stack=document.querySelector('.stack');
+                const a=side.querySelector('.opponent').getBoundingClientRect(), b=stack.getBoundingClientRect(),
+                    c=side.querySelector('.own').getBoundingClientRect();
+                if (stack.parentElement!==side || b.top<a.bottom-.1 || b.bottom>c.top+.1)
+                    issues.push('Landscape Stack not between player info blocks');
+            } else {
+                for (const row of document.querySelectorAll('.portrait-dock .counter-row'))
+                    if (visible(row)!==(row.dataset.nonzero==='true')) issues.push('Portrait counter-row conditional visibility');
+            }
+            if (id==='H03' && (document.querySelector('.intent') || /Continuing from/.test(document.body.innerText)))
+                issues.push('Continuation banner returned');
+            if (id==='G05' && orientation==='landscape') {
+                const side=document.querySelector('.sidebar').getBoundingClientRect(),
+                    field=document.querySelector('.board').getBoundingClientRect();
+                for (const tray of document.querySelectorAll('.reveal-strip')) {
+                    const r=tray.getBoundingClientRect();
+                    if (r.left<side.right-.1 || r.right>field.left+.1)
+                        issues.push('Landscape reveal not between libraries and field');
                 }
             }
             if (['H01','H02'].includes(id)) {
@@ -193,6 +291,24 @@ async def validate_owner_revision(page, screen, orientation):
                     icons.set(type,icon); reverse.set(icon,type);
                 }
                 if (icons.size<12) issues.push('Insufficient dense event-type examples');
+                const nodes=[...document.querySelectorAll('.event-node')];
+                for (const [i,node] of nodes.entries()) {
+                    if (!['own','opponent'].includes(node.dataset.author)) issues.push('Missing event author color');
+                    if ((node.dataset.groupStart==='true')!==(i>0 && node.dataset.group!==nodes[i-1].dataset.group))
+                        issues.push('Group divider differs from actual group transition');
+                }
+                const main=[...document.querySelectorAll('.playback-main')].find(visible);
+                if (!main || getComputedStyle(main).fontSize==='0px' || !/Play|Pause/.test(main.innerText))
+                    issues.push('History Play/Pause missing visible text');
+                if (!document.querySelector('.paused-label[data-hold-action="continue-from-selected-boundary"]') ||
+                    !visible(document.querySelector('.top [aria-label="Continue playing from here"]')))
+                    issues.push('Missing hold or top-corner continuation route');
+                if (orientation==='landscape') {
+                    const prev=document.querySelector('.previous-group').getBoundingClientRect(),
+                        next=document.querySelector('.next-group').getBoundingClientRect(), center=main.getBoundingClientRect();
+                    if (Math.abs(prev.right-center.left)>1 || Math.abs(center.right-next.left)>1)
+                        issues.push('Landscape transport not attached');
+                }
             }
         }
         if (id==='U01' && (!document.querySelector('.board .piece') || /Empty gameplay placeholder/.test(document.body.innerText)))
@@ -248,19 +364,19 @@ async def main(screen_ids):
                 await page.goto((UI / screen['source']).as_uri(), wait_until='networkidle')
                 if screen.get('captureVariant'):
                     await page.evaluate('(variant)=>document.body.dataset.reviewState=variant', screen['captureVariant'])
+                    await compose_table_review(page, screen, orientation)
                     if screen['id'] == 'G02':
                         await page.evaluate('''() => {
                             document.querySelector('.mode').setAttribute('aria-label','Select mode, 2 selected; choose mode');
                             document.querySelector('.phase.live-only').setAttribute('aria-label','Phase tracking, Declare attackers');
                         }''')
-                    if screen['id'] in {'H01', 'H02'}:
-                        # Static historical variants use non-editable zone readouts.
-                        await page.evaluate('''() => document.querySelectorAll('.zones button').forEach(e=>{
-                            const span=document.createElement('span'); span.className='zone-label';
-                            span.innerHTML=e.innerHTML; span.setAttribute('aria-label',e.getAttribute('aria-label'));
-                            e.replaceWith(span);
-                        })''')
                 await page.evaluate('document.fonts.ready')
+                if screen.get('captureVariant') and orientation == 'landscape':
+                    # A static camera framing, not smaller area-specific cards.
+                    await page.evaluate('''() => {
+                        const board=document.querySelector('.board');
+                        board.scrollTop=(board.scrollHeight-board.clientHeight)/2;
+                    }''')
                 if screen.get('captureFeedback') == 'faded':
                     await page.evaluate('''() => {
                         const anchors=[...document.querySelectorAll('main,.screen-controls,.transfer-feedback,.list-row')];

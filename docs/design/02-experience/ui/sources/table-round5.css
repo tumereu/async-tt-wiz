@@ -1,0 +1,124 @@
+/* D-296 review-only refinements. One table zoom; never fit cards by zone. */
+:root { --card-height: 40px; --unit: var(--card-height); --footprint: 56px; }
+body.review-gameplay .piece { --unit: var(--card-height); font-size: 7px; }
+.participant .card-row { container-type: normal; height: var(--footprint); flex: 0 0 var(--footprint); }
+.participant .card-footprint { height: var(--footprint); }
+.participant { flex: 0 0 calc(var(--footprint) * 3); }
+.participant .band { padding: 0 8px; }
+.piece strong, .piece .pt, .combat .piece strong, .combat .piece .pt,
+.hand .piece strong, .hand .piece .pt { font-size: 7px; }
+.piece .art { display: grid; }
+.piece .art .icon { font-size: 15px; }
+.board { overflow: auto; overscroll-behavior: contain; }
+.workspace { position: relative; }
+.opponent-hand { height: 52px; }
+.back { height: var(--card-height); width: calc(var(--card-height) * .7143); }
+.opponent-hand .back { border: 2px solid var(--opponent); }
+.hand { height: 64px; --unit: var(--card-height); --footprint: 56px; }
+.reveal-strip { --unit: var(--card-height); --footprint: 56px; }
+.middle { grid-template-columns: minmax(0, 1fr) 64px; }
+.portrait-dock .zone-person { min-height: 60px; }
+.zone-person { flex-wrap: wrap; align-content: start; column-gap: 6px; row-gap: 4px; }
+.life-square { padding: 0; border: 0; border-radius: 0; position: relative; }
+.life-square::before { display: none; }
+.zones { gap: 2px; }
+.zones > button, .zones > .zone-label { min-width: 56px; height: 56px; min-height: 56px;
+  padding: 0; border: 0; background: transparent; overflow: visible; }
+.zones > button::before, .zones > .zone-label::before { display: none; }
+.pile-shell { position: relative; display: block; width: 56px; height: 56px; }
+.pile-control { position: relative; display: grid; place-items: center; padding: 0;
+  width: 56px; height: 56px; min-height: 56px; background: transparent; border: 0; }
+.pile-total { position: absolute; left: 0; top: 0; z-index: 5; display: grid;
+  place-items: center; width: 25px; height: 25px; border-radius: 50%; color: white;
+  background: #354f48; border: 2px solid #f6f8f7; font: 700 11px/1 system-ui; }
+.pile-control .piece.covered { background: #59776c; }
+.pile-control .piece.covered::after { content: 'auto_awesome'; font: 17px/1 'Review Symbols'; color: #e6ede8; margin: auto; }
+.pile-empty { color: #8d9d96; font-size: 25px; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%); display: block; }
+.stack { min-height: 56px; }
+.stack-content, .stack-empty { align-items: center; justify-content: center; }
+.combat { height: 112px; --unit: var(--card-height); --footprint: 56px; }
+.combat-slot { height: 112px; }
+.counter-row { display: flex; flex: 0 0 100%; gap: 3px; min-height: 48px; }
+.counter-chip { width: 48px; height: 48px; min-width: 48px; min-height: 48px;
+  padding: 0; border: 1px solid var(--counter-color); border-radius: 4px;
+  background: color-mix(in srgb, var(--counter-color) 10%, white); position: relative;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 16px; }
+.counter-chip::before { content: ''; width: 7px; height: 7px; background: var(--counter-color);
+  border-radius: 50%; position: absolute; left: 4px; top: 4px; }
+.red { --counter-color: #b34850; }
+.blue { --counter-color: #3278b1; }
+.green { --counter-color: #237963; }
+.yellow { --counter-color: #9a8216; }
+.purple { --counter-color: #8451aa; }
+.gray { --counter-color: #687871; }
+.portrait-dock .counter-row[data-nonzero="false"] { display: none; }
+.delta-preview { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+  z-index: 10; min-width: 48px; padding: 8px; border-radius: 6px; background: #243b35;
+  color: white; font: 700 20px/1 system-ui; box-shadow: 0 3px 10px #243b3530; }
+.delta-preview::after { content: ''; position: absolute; left: 50%; top: 100%;
+  border: 5px solid transparent; border-top-color: #243b35; transform: translateX(-50%); }
+.is-dragging { outline: 2px solid #263b35; outline-offset: 2px; }
+.event-node[data-author="own"] { color: var(--own); }
+.event-node[data-author="opponent"] { color: var(--opponent); }
+.event-node[data-group-start="true"] { margin-left: 5px; }
+.event-node[data-group-start="true"]::before { content: ''; position: absolute;
+  left: -4px; top: -5px; height: 34px; border-left: 1px solid #778b7e40; }
+body[data-review-state="H01"] .cursor-x, body[data-review-state="H02"] .cursor-y {
+  outline-color: #354a43; color: var(--own); }
+.transport { justify-content: center; gap: 0; }
+.transport button { border-radius: 0; }
+.transport button:first-child { border-radius: 6px 0 0 6px; }
+.transport button:last-child { border-radius: 0 6px 6px 0; }
+.transport .playback-main { flex: 1; gap: 8px; font-size: 16px !important; }
+.transport .playback-main::before { content: 'play_arrow'; }
+.transport .playback-main[data-playback="running"]::before { content: 'pause'; }
+.transport .previous-group::before { content: 'skip_previous'; }
+.transport .next-group::before { content: 'skip_next'; }
+body.review-gameplay .bottom .quick .ordinary-quick::before { content: 'apps'; }
+body[data-review-state="H03"] .intent { display: none; }
+body[data-review-state="H03"] .participant .visual-pile { visibility: hidden; }
+.player-context { display: none; }
+body[data-review-state="G07"] .player-context { display: flex; }
+.player-value-row { display: grid; grid-template-columns: minmax(60px, 1fr) 28px repeat(3, 54px);
+  gap: 4px; align-items: center; min-height: 52px; border-top: 1px solid #dce4df; }
+.player-value-row button { padding: 3px; font-size: 12px; }
+.player-value-row button::before { font-size: 16px; margin-right: 2px; }
+.value-key { display: flex; align-items: center; gap: 5px; font-size: 13px; }
+.counter-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--counter-color); }
+.player-context .dialog-heading h2 { display: flex; align-items: center; gap: 8px; }
+.player-context .table-dialog { max-width: 400px; }
+@media (min-width: 700px) and (max-height: 500px) {
+  :root { --unit: var(--card-height); --footprint: 56px; }
+  .opponent-hand { position: fixed; top: 48px; right: 8px; width: 220px; z-index: 3;
+    border-radius: 0 0 6px 6px; background: #f0d9daed; }
+  .hand { position: fixed; bottom: 56px; right: 8px; width: 280px; max-width: none;
+    height: 64px; margin: 0; z-index: 3; --unit: var(--card-height); --footprint: 56px; }
+  .sidebar { width: 320px; flex: 0 0 320px; gap: 8px; justify-content: space-between; }
+  .sidebar .zone-person { flex-wrap: wrap; }
+  .sidebar .zone-person .zones { gap: 2px; }
+  .sidebar .zone-person .zones button, .sidebar .zone-person .zone-label { min-width: 56px; }
+  .sidebar .counter-row { flex-wrap: nowrap; }
+  .sidebar .stack { align-self: center; flex: 0 0 56px; height: 56px; width: 100%; }
+  .sidebar .stack-content { display: block !important; }
+  .sidebar .stack .pile-control { margin: auto; }
+  body:not(:is([data-review-state="G02"],[data-review-state="H01"],[data-review-state="H02"])) .sidebar .stack-content { display: none !important; }
+  .middle { min-height: 0; padding: 0; }
+  .combat { width: 100%; height: 112px; --unit: var(--card-height); --footprint: 56px; }
+  body:not([data-review-state="G02"]) .middle { display: none; }
+  .transport { width: min(100%, 420px); margin: 0 auto; }
+  .bottom.historical-only { justify-content: center; }
+  .transport .playback-main { flex: 0 0 300px; }
+  .timeline { height: 54px; }
+  body:is([data-review-state="H01"],[data-review-state="H02"]) .timeline {
+    position: fixed; bottom: 52px; left: 332px; right: 0; z-index: 4; }
+  body:is([data-review-state="H01"],[data-review-state="H02"]) .board { margin-bottom: 54px; }
+  body:is([data-review-state="H01"],[data-review-state="H02"]) .hand { bottom: 110px; }
+  body[data-review-state="G05"] .board { margin-left: 64px; overflow: auto; }
+  body[data-review-state="G05"] .reveal-strip { position: absolute; left: 332px; width: 64px;
+    height: calc(50% - 4px); flex-direction: column; gap: 0; z-index: 2;
+    --unit: var(--card-height); --footprint: 56px; }
+  body[data-review-state="G05"] .reveal-strip.opponent { top: 0; bottom: auto; }
+  body[data-review-state="G05"] .reveal-strip.own { bottom: 0; top: auto; }
+  .player-context .table-dialog { max-width: 540px; }
+}

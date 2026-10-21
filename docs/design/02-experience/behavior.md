@@ -29,7 +29,7 @@ The general rules are:
 
 ## Confirmed behavior
 
-### Current table presentation and ownership — D-295
+### Current table presentation and ownership — D-295/D-296
 
 - Own field is green, opponent field red; no battlefield area labels, visible
   slots or row separators. Logical snapping remains. Cards and ordinary visual
@@ -49,6 +49,25 @@ The general rules are:
   individual boundaries and existing grouped playback remain available. These
   selected directions do not finalize all camera/hit/accessible geometry.
 
+D-296 refines this presentation: one card size at the same zoom everywhere,
+including combat/Hand/reveals/special piles; pan rather than shrinking one area.
+Landscape Stack is between the left-side player-info blocks. Special piles use
+one top-left circular total badge. Timeline icons use the originating player's
+color, with faint vertical dividers at effective group changes.
+
+Player counter rows are below special piles; portrait hides a player's row when
+all values are empty/zero, without deleting them. Tap life for life/color-counter
+controls. Drag up/down on a numeric value for a local +N/−N preview; a valid
+nonzero release sends one relative delta request, cancel sends none. Menus and
+accessibility remain; text counters cannot be changed arithmetically.
+
+History Play/Pause has text and fills portrait transport space; landscape has a
+similar central button with Previous/Next attached. Hold Play **while paused**
+to arm play from the selected boundary, or use the retained top-corner button.
+No tooltip/tutorial or Continuing from banner: armed play looks like live play
+at that historical state. The first successful mutation still creates the fork,
+not holding, arming or ordinary playback.
+
 ### Android installation and updates
 
 - Android 10+ (API 29), phones and tablets; Google Play services are not required
@@ -61,6 +80,9 @@ The general rules are:
   [Android contract](../03-contracts/android-experience.md#android-support-distribution-and-upgrades--d-273).
 
 ### Before the table: accounts, decks, and lobby
+
+Across already-in-scope searches, results/loading/empty/error feedback stay in
+the search field's own card/panel, not a separate results card (D-296).
 
 - Log in to reach the main menu; registration is available. D-292 selects
   **Async Tabletop Wizards**, subtitle **Specialized tabletop simulator for

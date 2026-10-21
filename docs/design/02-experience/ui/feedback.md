@@ -143,3 +143,23 @@ F44 explicitly adds a narrow card/token owner field/action despite D-241's older
 blanket exclusion of association authoring. Controller/arbitrary associations
 remain excluded. Existing ordinary card-field grouping/replay rules apply; owner
 initialization is part of instance creation, not an additional automatic action.
+
+## Round 5 — 2026-10-21 — D-296
+
+| ID | Persistent owner direction | Scope / supersession |
+| --- | --- | --- |
+| F48 | Search results belong in the **same card/panel as their search field**, everywhere, including contact adding. | P02 merges field/results; saved contacts remain separate. Also applies to future already-in-scope contents/token searches; does not add search features. |
+| F49 | Landscape gameplay Stack belongs **between the two player-info blocks in the side panel**. | Supersedes landscape central Stack placement; portrait right-of-libraries direction persists. |
+| F50 | Card size is constant everywhere at the same zoom, including combat, battlefield, hands, reveals and special piles. | Supersedes per-area/per-row responsive shrinking. Use one scale; accommodate space with layout/pan/scroll, not miniaturized combat or other cards. Inspection is a deliberately magnified view, not another table scale. |
+| F51 | Timeline icons use the originating player's color; faint vertical dividers mark **group changes**. | Preserve unique type icons, dense nodes and exact selection. Author color is not card owner; divider placement follows effective playback groups, not every event or manual grouping. |
+| F52 | Library, Graveyard, Exile and Stack use a consistent **top-left circular total-count badge** when some cards are not shown. | Total, not hidden-only count. Replaces dock counts below icons and separate Stack count button. Badge does not reveal hidden faces; empty/singleton counts remain clear and accessible. |
+| F53 | Player counters occupy a row beneath Library/Graveyard/Exile. In portrait show that row only when at least one counter is nonempty/nonzero. | Per-player row condition, including nonnumeric nonempty text. All-zero/empty hides the portrait row without deleting values; the life menu retains access. Landscape keeps its counter row. Narrow exception to D-58's always-visible-zero presentation, not counter semantics. |
+| F54 | Tap life for a context menu containing life/player-counter controls. Drag up/down on life or a numeric player counter, show **+N / −N** preview, apply on release. | One relative edit per completed nonzero drag, not per-frame/per-step requests or an absolute stale-base Set. Menu/accessibility paths remain. Preview/cancel is local, normal server ordering/prediction starts on release. Nonnumeric arithmetic remains inapplicable. |
+| F55 | History Play/Pause has text and fills portrait transport space. Landscape uses a similarly prominent central button with Previous/Next attached directly beside it, not at screen edges. | Explicit exception to icon-only history transport; other compact controls retain earlier rules. |
+| F56 | Holding the transport while **paused** enters play/continuation from the current boundary; keep the top-corner continuation button too. No tooltip/tutorial text. | Hold on paused Play is the same explicit continuation action, consumes tap and never also starts playback. First successful gameplay mutation still creates the fork, not the hold itself. Explicit top/accessibility route preserves discoverability without timed hold. |
+| F57 | No “Continuing from…” banner in armed continuation. It looks like ordinary live play but uses the selected historical state. | Supersedes the earlier visible intent banner, not explicit boundary capture, Cancel/Return, no-empty-fork rules or server authority. |
+
+F01–F47 remain unless explicitly superseded above. New G07/G08/G08b show the
+player menu and positive/negative drag-preview endpoints; these are inert
+documentation, not implemented gestures. A uniform zoom may require board panning
+in landscape; do not quietly restore area-specific shrinking to fit screenshots.

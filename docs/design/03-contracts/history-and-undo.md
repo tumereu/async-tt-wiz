@@ -1449,6 +1449,33 @@ scrubbing or a failed/no-change action does not create an empty fork. Undo still
 history under its existing rules, not whichever node the personal cursor displays.
 Exact button shapes/spacing remain trial layouts for owner review.
 
+**D-296 transport/continuation presentation:** Play/Pause has visible text and
+fills the space between Previous/Next in portrait. Landscape uses a similarly
+prominent central button with Previous/Next directly attached, not at viewport
+edges. While **paused**, holding Play invokes the same explicit continuation as
+the retained top-corner button: capture the selected concrete boundary at pointer
+start and, on recognized hold if still valid, expose
+ordinary play controls using that state. Recognized hold consumes the tap; never
+also start playback on press/release or arm from a moving playback cursor. The
+running Pause button has no continuation shortcut. Keep an explicit accessible
+action alongside the top button; no tooltip/tutorial text is added for the hold.
+
+Armed play has **no Continuing from… banner** and otherwise looks like live play
+at the head, but displays/acts from the captured historical state. This replaces
+the earlier banner, not intent or request boundaries. Cancel/Return remain in
+normal contextual navigation/accessibility rather than a mandatory banner.
+Hold/button/arming alone creates no fork; only the first successful mutation
+carrying explicit continuation intent does. Cancel, failed/no-change actions,
+offline restrictions, deleted-boundary validation and ordinary Undo target rules
+remain unchanged. Shared updates never silently substitute the live head for the
+captured continuation boundary.
+
+If sync removes that captured node during the hold, the review cursor's normal
+ancestor fallback must not retarget this continuation gesture. Leave it unarmed/
+show the normal invalid-context outcome; require a fresh explicit choice at the
+new cursor. Changes to playback-group presentation alone do not change a retained
+node's identity. Request-time deleted-boundary validation still applies later.
+
 **D-295 timeline density:** use compact event-type icons as the actual path nodes,
 not widely spaced generic dots with separate type labels. Different event types
 have distinct icons; the same type consistently reuses its icon. Exact selection
@@ -1457,6 +1484,15 @@ truncating/coalescing its mutations; branch stubs, exact cursor and group transp
 retain their existing semantics. Accessible details expose type, author, boundary
 and result without requiring precision taps on tiny icons. Final icon artwork/
 hit geometry remains UI completion; density is not a new grouping/history limit.
+
+**D-296 author/groups:** color each event-type icon by the originating participant,
+not affected card owner, current viewer or latest editor. Add faint vertical
+dividers exactly between adjacent events belonging to different effective
+playback groups, not after every event or only at author changes. Grouping stays
+derived from retained events; the dividers do not create/edit group boundaries.
+Selection, branch stubs and author/type details remain accessible without relying
+solely on color; selecting a node must not replace its author color with a generic
+selected tint.
 
 The owner has specified the playback/timeline behavior, not its final geometry,
 animation speed, automatic-versus-manual preference default or accessibility

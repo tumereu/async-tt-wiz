@@ -1,12 +1,12 @@
 {
   "generated": "2026-10-21",
-  "status": "UI review including gameplay and cumulative owner revisions D-292\u2013D-295; obsolete G00 retired",
+  "status": "UI review including gameplay and cumulative owner revisions D-292\u2013D-296; obsolete G00 retired",
   "currentFeedback": "feedback.md",
   "ownerRevision": {
-    "decision": "D-295 (retains D-292\u2013D-294 except explicit supersessions)",
-    "scope": "Cumulative F01\u2013F47: naming dialog/select-all, one deletion title, reconnect games escape only; unruled equal-footprint battlefield, red opponent area, owner borders/action, colored life squares, bottom-right P/T, central corner-peek Stack (top+2, no item capacity), trial combat placement/dividers, reveals, context/token/ping/owner mocks and dense type-icon history.",
+    "decision": "D-296 (retains D-292\u2013D-295 except explicit supersessions)",
+    "scope": "Cumulative F01\u2013F57: search field/results in one card; landscape sidebar Stack between player info; one card zoom everywhere; author-colored timeline/group dividers; top-left circular pile totals; player-counter row/portrait condition and life menu/release-only delta drags; labeled attached history transport with hold-to-continue shortcut; no continuation banner.",
     "provenance": "Local inert design revisions, not a new Stitch/cloud edit. Historical per-screen briefs and raw original/revision sources below describe the earlier generation, not current requirements; feedback.md and review.md take precedence.",
-    "newLocalSource": "table-round4.html/CSS shares inert G01\u2013G06/H01\u2013H03/U01 variants selected only by documentation capture tooling. Previous local/cloud sources retained below. G04/G05/G06 are new review states, not cloud generations."
+    "newLocalSource": "table-round4.html with cumulative table-round5.css and inert repetition templates; documentation capture materializes piles/counter rows and static camera/variant framing, not application behavior. G07/G08/G08b add player menu and positive/negative drag-preview endpoints. Prior editions remain in Git/cloud provenance; no new cloud generation."
   },
   "stitchProject": "6617750535460836476",
   "viewports": {
@@ -29,6 +29,2072 @@
     }
   ],
   "screens": [
+    {
+      "id": "G07",
+      "slug": "gameplay-player-actions",
+      "title": "Life and player-counter menu",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G07",
+      "derivation": "D-296 inert life-tap context menu, existing color +/-/Set parity.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 242,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 10,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "3",
+              "x": 61,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 112,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 163,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 214,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 265,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 337,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close player values",
+              "x": 336,
+              "y": 236,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 214,
+              "y": 295,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 272,
+              "y": 295,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 330,
+              "y": 295,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 214,
+              "y": 347,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 272,
+              "y": 347,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 330,
+              "y": 347,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 214,
+              "y": 399,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 272,
+              "y": 399,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 330,
+              "y": 399,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 214,
+              "y": 451,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 272,
+              "y": 451,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 330,
+              "y": 451,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 214,
+              "y": 503,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 272,
+              "y": 503,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 330,
+              "y": 503,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 214,
+              "y": 555,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 272,
+              "y": 555,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 330,
+              "y": 555,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 214,
+              "y": 607,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 272,
+              "y": 607,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 330,
+              "y": 607,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 722,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "3",
+              "x": 63,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 413,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close player values",
+              "x": 656,
+              "y": 28,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 534,
+              "y": 87,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 592,
+              "y": 87,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 650,
+              "y": 87,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 534,
+              "y": 139,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 592,
+              "y": 139,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 650,
+              "y": 139,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 534,
+              "y": 191,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 592,
+              "y": 191,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 650,
+              "y": 191,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 534,
+              "y": 243,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 592,
+              "y": 243,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 650,
+              "y": 243,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 534,
+              "y": 295,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 592,
+              "y": 295,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 650,
+              "y": 295,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 534,
+              "y": 347,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 592,
+              "y": 347,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "Set",
+              "x": 650,
+              "y": 347,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": true
+            },
+            {
+              "text": "1",
+              "x": 534,
+              "y": 399,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "1",
+              "x": 592,
+              "y": 399,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            },
+            {
+              "text": "Set",
+              "x": 650,
+              "y": 399,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": true,
+              "inViewport": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "G08",
+      "slug": "gameplay-life-drag",
+      "title": "Life drag positive preview",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G08",
+      "derivation": "D-296 inert +3 pre-release life preview, value remains 20.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 242,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20\n+3",
+              "x": 10,
+              "y": 345,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 10,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "3",
+              "x": 61,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 112,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 163,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 214,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 265,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 337,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 722,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20\n+3",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "3",
+              "x": 63,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 413,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "G08b",
+      "slug": "gameplay-counter-drag",
+      "title": "Player-counter drag negative preview",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G08b",
+      "derivation": "D-296 same gesture family, inert -2 pre-release blue counter preview; value remains 3.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 242,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 64,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 10,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "3\n\u22122",
+              "x": 61,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 112,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 163,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 214,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 265,
+              "y": 401,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 337,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 722,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
+              "x": 66,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "3\n\u22122",
+              "x": 63,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 413,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "G04",
       "slug": "gameplay-card-actions",
@@ -92,61 +2158,91 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 64,
-              "y": 369,
-              "width": 83,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -368,60 +2464,210 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 81,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -654,61 +2900,151 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 10,
+              "y": 338,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 64,
-              "y": 369,
-              "width": 83,
+              "y": 334,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 334,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 334,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 401,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 420,
-              "width": 83,
+              "y": 397,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 397,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 397,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 10,
+              "y": 457,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 420,
-              "width": 83,
+              "text": "3",
+              "x": 61,
+              "y": 457,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 420,
-              "width": 83,
+              "text": "\u2014",
+              "x": 112,
+              "y": 457,
+              "width": 48,
               "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 163,
+              "y": 457,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 214,
+              "y": 457,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 265,
+              "y": 457,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 393,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -800,60 +3136,210 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 81,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "3",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -956,61 +3442,91 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 64,
-              "y": 369,
-              "width": 83,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -1132,60 +3648,210 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 81,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -4308,7 +6974,7 @@
             {
               "text": "Add contact",
               "x": 223,
-              "y": 270,
+              "y": 232,
               "width": 143,
               "height": 48,
               "minimumWidth": 48,
@@ -4318,7 +6984,7 @@
             {
               "text": "Invite",
               "x": 267,
-              "y": 438,
+              "y": 400,
               "width": 99,
               "height": 48,
               "minimumWidth": 48,
@@ -4328,7 +6994,7 @@
             {
               "text": "Invite",
               "x": 267,
-              "y": 512,
+              "y": 474,
               "width": 99,
               "height": 48,
               "minimumWidth": 48,
@@ -4444,7 +7110,7 @@
             {
               "text": "Add contact",
               "x": 379,
-              "y": 240,
+              "y": 210,
               "width": 143,
               "height": 48,
               "minimumWidth": 48,
@@ -8039,61 +10705,91 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 64,
-              "y": 369,
-              "width": 83,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -8195,60 +10891,210 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 81,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8380,61 +11226,91 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 64,
-              "y": 369,
-              "width": 83,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -8526,60 +11402,210 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 81,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8709,71 +11735,91 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 64,
-              "y": 336,
-              "width": 83,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 460,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 336,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 336,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
               "y": 456,
-              "width": 83,
-              "height": 48,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
               "y": 456,
-              "width": 83,
-              "height": 48,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
+              "text": "0\nblock",
+              "x": 243,
               "y": 456,
-              "width": 83,
-              "height": 48,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "27",
-              "x": 334,
-              "y": 430,
-              "width": 60,
-              "height": 48,
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 342,
+              "y": 369,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -8875,70 +11921,210 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 81,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "27",
-              "x": 670,
-              "y": 168,
-              "width": 60,
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -9068,11 +12254,11 @@
               "inViewport": true
             },
             {
-              "text": "27",
-              "x": 334,
-              "y": 399,
-              "width": 60,
-              "height": 48,
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 342,
+              "y": 337,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -9089,9 +12275,9 @@
             },
             {
               "text": "Play",
-              "x": 182,
+              "x": 58,
               "y": 840,
-              "width": 48,
+              "width": 296,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -9154,18 +12340,18 @@
               "inViewport": true
             },
             {
-              "text": "27",
-              "x": 556,
-              "y": 141,
-              "width": 60,
-              "height": 48,
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Previous",
-              "x": 10,
+              "x": 248,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -9175,9 +12361,9 @@
             },
             {
               "text": "Play",
-              "x": 422,
+              "x": 296,
               "y": 362,
-              "width": 48,
+              "width": 300,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -9185,7 +12371,7 @@
             },
             {
               "text": "Next",
-              "x": 834,
+              "x": 596,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -9277,11 +12463,11 @@
               "inViewport": true
             },
             {
-              "text": "27",
-              "x": 334,
-              "y": 399,
-              "width": 60,
-              "height": 48,
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 342,
+              "y": 337,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -9298,9 +12484,9 @@
             },
             {
               "text": "Pause",
-              "x": 182,
+              "x": 58,
               "y": 840,
-              "width": 48,
+              "width": 296,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -9363,18 +12549,18 @@
               "inViewport": true
             },
             {
-              "text": "27",
-              "x": 556,
-              "y": 141,
-              "width": 60,
-              "height": 48,
+              "text": "Guide\nWard\nEmber\nlocal_fire_department\nauto_awesome\n27",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
               "text": "Previous",
-              "x": 10,
+              "x": 248,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -9384,9 +12570,9 @@
             },
             {
               "text": "Pause",
-              "x": 422,
+              "x": 296,
               "y": 362,
-              "width": 48,
+              "width": 300,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -9394,7 +12580,7 @@
             },
             {
               "text": "Next",
-              "x": 834,
+              "x": 596,
               "y": 362,
               "width": 48,
               "height": 48,
@@ -9496,81 +12682,91 @@
               "inViewport": true
             },
             {
-              "text": "Cancel continuation",
-              "x": 254,
-              "y": 76,
-              "width": 52,
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Return to live",
-              "x": 352,
-              "y": 76,
-              "width": 52,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 393,
-              "width": 83,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 393,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 393,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 444,
-              "width": 83,
-              "height": 48,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 444,
-              "width": 83,
-              "height": 48,
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 444,
-              "width": 83,
-              "height": 48,
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -9662,80 +12858,210 @@
               "inViewport": true
             },
             {
-              "text": "Cancel continuation",
-              "x": 494,
-              "y": 72,
-              "width": 52,
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Return to live",
-              "x": 832,
-              "y": 72,
-              "width": 52,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 66,
-              "y": 129,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 129,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 129,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -9865,61 +13191,91 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 10,
+              "y": 282,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 64,
-              "y": 369,
-              "width": 83,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 243,
+              "y": 278,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 10,
+              "y": 345,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 369,
-              "width": 83,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
-              "text": "Library\n50",
+              "text": "50",
               "x": 64,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 150,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 153,
+              "y": 341,
+              "width": 87,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 235,
-              "y": 420,
-              "width": 83,
-              "height": 48,
+              "text": "0\nblock",
+              "x": 243,
+              "y": 341,
+              "width": 87,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 342,
+              "y": 313,
+              "width": 56,
+              "height": 56,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -10051,60 +13407,210 @@
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "20",
+              "x": 12,
+              "y": 61,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 81,
-              "width": 51,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 57,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 81,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 117,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Library\n50",
+              "text": "\u2014",
+              "x": 165,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 117,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "layers\n0",
+              "x": 138,
+              "y": 176,
+              "width": 56,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "20",
+              "x": 12,
+              "y": 247,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "50",
               "x": 66,
-              "y": 255,
-              "width": 51,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Guide\nshield\nGuide\nshield\n2",
+              "x": 151,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0\nblock",
+              "x": 237,
+              "y": 243,
+              "width": 83,
+              "height": 56,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 12,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Graveyard\n2",
-              "x": 120,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 63,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Exile\n0",
-              "x": 175,
-              "y": 255,
-              "width": 51,
+              "text": "\u2014",
+              "x": 114,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 165,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "\u2014",
+              "x": 216,
+              "y": 303,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "0",
+              "x": 267,
+              "y": 303,
+              "width": 48,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,

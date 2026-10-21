@@ -230,6 +230,11 @@ cursors, settings or all cached downloads from this account-data decision.
 
 - Search by username and add the selected user to **your contacts**. Adding is a
   saved contact choice, not a friend request requiring the other user's approval.
+- **D-296 search presentation:** results/loading/empty/error feedback belong in
+  the same card/panel as their search field, not a separate results card. This
+  applies across already-in-scope searches, not just contacts; saved contacts may
+  remain a separate collection. It changes no matching/privacy/request semantics
+  and does not authorize additional search tools.
 - It does not automatically add you to their contacts or accept a game invitation
   on their behalf. Game invitations still use recipient Accept/Decline (D-195).
 - Exact username/search grammar, contact removal and discoverability/privacy

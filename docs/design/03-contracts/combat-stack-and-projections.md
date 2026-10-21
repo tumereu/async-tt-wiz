@@ -41,6 +41,13 @@ changes do not move/remove occurrences. Portrait Stack is right of central
 libraries. Combat-between-libraries/Stack-beside is a tentative trial; faint
 vertical dividers separate paired combat slots, never battlefield rows.
 
+D-296 refines the display: all card/occurrence drawings share the table's current
+card scale, including combat; there is no smaller combat-card scale. Landscape
+Stack moves between the side panel's player-info blocks. Portrait placement stays.
+Stack's total appears in the same top-left circular count badge as other special
+piles; the pile/badge opens its retained ordered contents. Geometry/count display
+changes no source/occurrence guards, capacity or lifecycle behavior.
+
 ## 13.1 Confirmed capabilities
 
 **Basic spatial model (D-158):** combat is a separate area between the player's

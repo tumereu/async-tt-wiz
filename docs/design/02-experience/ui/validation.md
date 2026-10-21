@@ -3,7 +3,48 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
-## Current round results — D-295
+## Current round results — D-296
+
+- Appended F48–F57 without losing earlier decisions/provenance. P02 field/results
+  now share a card; new G07/G08/G08b show the life/player-counter menu and signed
+  +3/−2 **pre-release** previews. Full edition: **37 primary states + four
+  continuations = 41 states / 82 captures / 51 PDF pages**.
+- Recaptured all 14 changed/new states in both orientations, with HTTP(S) assets
+  blocked, inert bodies, no executable scripts, loaded local fonts, fitting page
+  widths and ordinary controls at least 48 px/reachable through scrolling.
+  Materializing inert repetition templates, moving landscape Stack/reveal trays
+  and setting a static camera framing are documentation capture steps, not
+  implemented application behavior or gesture/event handlers.
+- Static regression checks now cover same-card search/results, equal 40 px card
+  height across every table area and both orientations, complete uniform pile
+  envelopes, top-left circular totals, landscape Stack between side player info,
+  retained reveal gutter, conditional portrait counter rows, timeline author/
+  effective-group metadata, labeled attached transport and hold/top continuation
+  routes without a Continuing from banner. The 40 px example is one review zoom,
+  not approval of a native minimum or per-area shrinking.
+- Inspected portrait/landscape search, combat, sidebar piles/counters, history,
+  armed play, player menu and positive/negative previews. Landscape hands hover
+  over the field, clear the timeline, and leave both side info blocks visible;
+  the board pans instead of shrinking combat cards. Existing card owner/type/
+  projection/ping/selection signals and disclosure rules persist.
+- Full HTML/PDF build verifies every declared state/image, dimensions/decodes and
+  phone-width layout. Replaced an unbreakable slash-separated coverage-ID list
+  with normally wrapping punctuation after the first build caught text overflow;
+  no content or check was suppressed. PDF has no near-blank pages/file-URL links.
+  Relative-file Markdown links, JSON, Python syntax and whitespace checks pass.
+- Board/history/account/model/summary/protocol contracts and future T-690–T-695
+  cover one release-time relative delta request, normal server arithmetic/recovery,
+  local preview/cancel, zero-row retention and paused-hold continuation without
+  creating a fork early. These are future native tests, not tests executed here.
+- Full edition replaces the same private port-8443 review.html/PDF files in place.
+  Loopback served HTML/PDF/manifest/feedback/new sources and sampled new captures
+  return HTTP 200 and match repository bytes; all 41 headings/82 images remain.
+  Tailscale retains the document proxy and both original port-443 routes. Host
+  self-connection to tailnet HTTPS is still refused, so phone/other-peer refresh
+  is not independently verified. No route change, public/cloud edit, app code,
+  passed UI/review gate or general stage transition.
+
+## Previous round results — D-295
 
 - Appended F37–F47, preserving earlier feedback and explicit supersessions. Added
   G04/G05/G06 for card actions, token/ping/reveals and owner choice. Current full
@@ -40,7 +81,7 @@ verification.
   phone/other-peer refresh is not independently verified. No public hosting, route
   change, new cloud generation, application implementation or passed gate.
 
-**Current edition: D-295 cumulative owner-feedback revision**, documented below. The original
+**Current edition: D-296 cumulative owner-feedback revision**, documented above. The original
 pilot/gameplay counts and cloud checks in earlier sections are historical.
 
 - The original pilot has **21 distinct Stitch-generated responsive sources**,

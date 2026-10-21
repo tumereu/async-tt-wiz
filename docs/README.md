@@ -28,7 +28,9 @@ deck actions, drag preparation and art inspection; D-294 adds named/date-stamped
 games, globally no app Back arrows, shared title rows and refined selection.
 D-295 adds naming dialog/select-all, simpler reconnect/delete presentation,
 unruled equal-space fields, owner borders/actions, compact life, corner-peek Stack,
-token/ping/reveal mocks and dense type-icon history. The
+token/ping/reveal mocks and dense type-icon history. D-296 refines search/results,
+uniform card scale, sidebar Stack/count badges, player counters/drag previews and
+author/group-aware history transport/continuation. The
 same-URL full HTML publication workflow persists. Remaining copy cuts are proposals.
 This authorizes these design artifacts, not application implementation, a passed
 review/UI gate or approval of the proposed layouts.

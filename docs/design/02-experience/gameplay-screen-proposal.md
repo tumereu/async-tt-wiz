@@ -52,6 +52,13 @@ usable zoom level that shows the full game area vertically rather than making
 vertical scrolling the normal requirement. No exact zoom or minimum card size is
 selected here.
 
+**D-296:** at any given zoom, every table card uses the same size, including
+combat, Stack, hands/backs, reveals and special piles. Area/row height never
+silently changes scale. Preserve uniform horizontal footprints; use pan/scroll
+when necessary. The review's 40 px card height is one illustrative shared zoom,
+not a selected native minimum, fixed device size or permission to miniaturize
+only one area. Magnified inspection remains deliberately separate.
+
 ## 2. Participant symmetry and card facing
 
 - Your area is below; the opponent's arrangement is reflected top-to-bottom
@@ -70,7 +77,7 @@ instruction to reflect x coordinates or card faces.
 
 | Orientation | Requested arrangement |
 | --- | --- |
-| Landscape | Library, Graveyard and Exile in a sidebar on the **left side of the screen**. Player life totals probably belong here too (tentative). |
+| Landscape | Library, Graveyard and Exile in a sidebar on the **left side of the screen**, with Stack **between the two player-info blocks** (D-296). |
 | Portrait | Put those special-zone controls in the **middle**, between the participant areas. Life totals are tentatively grouped with them. |
 
 **D-295:** life uses a player-colored square containing only its total, without
@@ -79,6 +86,15 @@ zone associations clear; the opponent's
 layout does not move the landscape sidebar to the right. Exact stacking/order,
 sidebar width and portrait middle-strip geometry are not selected yet. Preserve
 the existing zone counts, visibility and interaction rules.
+
+**D-296:** Library/Graveyard/Exile/Stack use a top-left circular **total** badge
+when entries are not all shown, not counts underneath icons or a separate Stack
+count button. Player counters are on a row beneath their special zones; portrait
+hides a player's row only when every counter is empty/numeric zero. Values/menu
+access remain. Tap life for life/counter actions. Drag up/down on numeric life/
+counter values previews +N/−N locally and commits one relative edit on release;
+cancel/zero delta commits nothing. See the primary player-value contract for
+capture, nonnumeric/absent values and concurrent server arithmetic.
 
 ## 4. Live-mode screen chrome
 
@@ -108,7 +124,8 @@ must explain their actual eligibility; the shortcut does not bypass Undo checks.
 - The draft places the opponent's covered Hand at the top outer edge as a
   **proposal**, not a separately confirmed fixed-top requirement. Ordinary hidden
   face/inspection rules still apply; no routine name leaks through backs.
-- Use central lanes for shared Stack and temporary combat. Combat has blockers
+- Use central temporary combat; Stack is central in portrait and between player
+  info in the landscape left sidebar (D-296). Combat has blockers
   above attackers; projection entry leaves real battlefield sources in place.
   Combat is shown only when its shared area exists, including an explicitly open
   empty area. Stack supports both actual cards and independent effect projections.
@@ -133,8 +150,10 @@ must explain their actual eligibility; the shortcut does not bypass Undo checks.
 Historical viewing replaces the live action chrome:
 
 - **No gameplay actions or gameplay-edit controls** while browsing history.
-- Fixed bottom row: **Previous group** on the left, **Play/Pause** in the center,
-  **Next** on the right. These are review/playback controls, not shared Undo/Redo.
+- Fixed bottom row: **Previous group / Play-Pause / Next**. D-296 gives Play/Pause
+  visible text and the remaining portrait width; landscape uses a similarly sized
+  center button with Previous/Next directly attached, not at screen edges. These
+  are review/playback controls, not shared Undo/Redo.
 - Immediately above that row, a **left-to-right timeline** shows the current
   event-tree path being reviewed. It is not a full expanded tree diagram.
 - An off-path branch can be indicated by a short **diagonal branch edge** leaving
@@ -145,6 +164,9 @@ Historical viewing replaces the live action chrome:
 - **D-295:** make the timeline dense; each node itself is its event-type icon.
   Distinct types use distinct icons, repeated types reuse theirs; selection must
   not replace the type icon. Windowing/scrolling never omits semantic events.
+- **D-296:** icons retain originating-player color, not affected-card owner color.
+  Faint vertical dividers separate different effective playback groups; they do
+  not change grouping or add a separator between every event.
 - Swipe/drag the timeline horizontally to change that exact event. Board changes
   animate as the user drags rather than updating only after release.
 - **D-291:** touching/dragging the timeline during playback pauses first, then
@@ -160,7 +182,10 @@ not a queue that forces every intermediate event to finish animating.
 ## 6. Continue playing from a historical point
 
 Provide an explicit **“Continue playing from here”**-type button (wording and
-placement to design), separate from the timeline's Play/Pause transport.
+placement to design), separate from the timeline's Play/Pause transport. D-296
+retains the top-corner button and adds holding **Play while paused** as an
+equivalent shortcut. Recognized hold consumes tap and cannot also start playback.
+No tooltip/tutorial text; keep the explicit accessible route too.
 
 The intended sequence is:
 
@@ -189,8 +214,10 @@ After each accepted Undo, recalculate from the remaining tree; a former fork doe
 not impose a permanent lock if its last extra continuation has been removed.
 Any remaining future still participates in normal replay/eligibility checks.
 
-The armed pre-action UI shows “Continuing from A · no action yet” and Cancel /
-Return to live routes. Cancel merely leaves this personal intent; no branch needs
+**D-296 supersedes the initial banner:** armed pre-action UI looks like ordinary
+live play using the selected historical state, without “Continuing from…” copy.
+Cancel/Return remain through normal contextual navigation/accessibility. Cancel
+merely leaves this personal intent; no branch needs
 deleting because none exists yet. Undo does not become cursor-relative just
 because the displayed board is historical; Undo/Redo edit the existing tree rather
 than supply continuation intent. A failed/no-change first action must

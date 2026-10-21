@@ -115,6 +115,12 @@ uses revision recovery plus checkpoint state digests without mandatory per-node
 or chained-event hashes. It does not change ownership or gameplay-tree semantics;
 comparison of accepted revisions alone cannot prove a materialized cache correct.
 
+D-296 player-value drag deltas before release are personal presentation state,
+not shared values or active predictions. A valid nonzero release creates one
+relative field request/prediction; normal accepted-state reconciliation follows.
+Counter-row visibility, shared card drawing scale and static dock anchors are
+also personal presentation, never an implicit counter edit or pile move.
+
 Confirmed card-text normalization (D-59/D-249): trim leading and trailing whitespace
 when a card-text/counter edit is completed, including corner text, card labels
 and notes and equivalent player-counter input. Preserve internal whitespace and line

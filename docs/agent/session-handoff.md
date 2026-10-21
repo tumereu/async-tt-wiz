@@ -14,7 +14,30 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-295
+## Current UI feedback iteration — D-296
+
+Read cumulative F01–F57 before UI edits. Full HTML/PDF stays at the exact port-8443
+review.html URL, replaced in place and verified after UI batches. No app/cloud
+implementation or stage/gate change. Round 5 merges search/results in one card;
+landscape Stack is between side player info; every table card now uses one zoom
+(40 px in review examples, not a native minimum), no per-area shrinking. Top-left
+circular total badges unify special piles. Timeline icons keep author color and
+faint effective-group dividers. Counter rows sit below zones; portrait per-player
+rows hide only for all empty/zero, retaining menu/zero access. Tap life opens
+life/color -/+ /Set. Drag up/down previews signed delta locally, valid release
+sends one relative request; no per-frame writes, stale Set or tap double-dispatch.
+
+History Play/Pause has text, fills portrait space and uses attached landscape
+Previous/Next. Hold Play while paused equals retained top/accessibility continue,
+without tooltip/tutorial or Continuing from banner. Armed UI looks live at the
+selected state; intent remains explicit and first successful mutation alone forks.
+G07/G08/G08b add player menu and positive/negative previews: **37 primary + four
+continuations = 41 states / 82 captures**. Source templates and static landscape
+framing/Stack placement are materialized only by doc capture tooling; no working
+gesture claim. Primary contracts, summaries, protocol and future T-690–T-695 align.
+Preserve earlier feedback/provenance/copy suggestions; validate, save and push.
+
+## Previous UI feedback iteration — D-295
 
 Read cumulative F01–F47 before UI edits. Full review remains at the exact existing
 port-8443 review.html URL, replaced in place with PDF after edits. No app code,

@@ -59,6 +59,15 @@ async def compile_pdf(chrome):
         else:
             await page.goto((UI / 'review.html').as_uri(), wait_until='networkidle')
         await page.evaluate('document.fonts.ready')
+        legend = await page.evaluate('''() => ({
+            count: document.querySelectorAll('.legend-icon').length,
+            loaded: document.fonts.check('24px "Review Legend Symbols"'),
+            invalid: [...document.querySelectorAll('.legend-icon')].filter(e=>
+                !getComputedStyle(e).fontFamily.includes('Review Legend Symbols') ||
+                e.getBoundingClientRect().width>30).map(e=>e.textContent)
+        })''')
+        if legend['count'] < 50 or not legend['loaded'] or legend['invalid']:
+            raise ValueError(f'Icon legend missing/unrendered glyphs: {legend}')
         await page.evaluate('Promise.all([...document.images].map(i => i.decode()))')
         missing = await page.locator('img').evaluate_all(
             '(images) => images.filter(i => !i.complete || !i.naturalWidth).map(i => i.alt)'

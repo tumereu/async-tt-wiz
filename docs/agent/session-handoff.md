@@ -14,7 +14,39 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-297
+## Current UI feedback iteration — D-298
+
+Read cumulative F01–F82 before further UI work. Full HTML/PDF stays at the exact
+existing port-8443 review.html URL, replaced and verified after every batch.
+Round 7 centers fitting/pannable hands; reserves four quick positions and documents
+every situation/icon/scope/full path. **Latest follow-up: Next step/End turn are
+one slot (tap/hold), hold consumes tap; three contextual positions remain.** This
+supersedes D-107's separate one-tap End turn and our initial two-slot progression
+plan. Explicit picker/Table actions/accessibility End turn stays; no priority/pass.
+
+Combat has only faded vertical dividers, no empty drawn card boxes/+; tapped River
+and source/Stack occurrences demonstrate local stable-source relationship emphasis
+without selection expansion. Small 28 px player circles retain separate 48 px hit
+allocations and span full portrait strip including Stack-side width. Indicator has
+exact-step icon/phase color/turn-player border, no phase words; turn number separate.
+G11's five-row/twelve-position picker preserves player/number on direct selection;
+bottom End opponent's turn changes tracking normally. Background-strength trial
+does not fade cards/change permissions. Do not invent a first-strike tracking step.
+
+Card panel has no title/X, two-position details and packed icons; seven P/T squares
+are Set,+/+,−/−,•/+,•/−,+/•,−/•. All counters form three paired Set-value-circle,+,−
+rows with dividers; player menu keeps title/X. Full legends explain general and
+conditional icons. G12 explains Table actions (former Game actions). H06/H07 add
+graphical review versus shared activation/continuation and reversible archive/
+return/restore; existing history/Redo/filter/full-tree rules remain, no new policy.
+
+**45 primary + four continuations = 49 states / 98 captures.** Round7 shared inert
+sources/capture composition/local-font document legends are documentation, not
+native handlers/cloud edits or implementation/gate authorization. Primary contracts,
+summaries and future T-703–T-709 align; T-202/T-204/T-702 correct superseded layouts.
+Validate, publish full edition in place, commit/push before replying as usual.
+
+## Previous UI feedback iteration — D-297
 
 Read cumulative F01–F68 before UI edits; keep the full HTML/PDF at the same exact
 port-8443 review.html URL, replace in place and verify. No app/cloud implementation

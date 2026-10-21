@@ -33,7 +33,10 @@ uniform card scale, sidebar Stack/count badges, player counters/drag previews an
 author/group-aware history transport/continuation. D-297 adds login logo/readiness,
 compact pannable hands in landscape control rows, narrow combat/insertion targets,
 circular player counters, centered timeline/endpoints, direct chat and icon-only
-card actions with retained state preview. The
+card actions with retained state preview. D-298 packs card/player values, adds
+full quick/icon legends, phase picker and graphical tree/return designs, centers
+hands and fixes small full-width counters. One quick slot now combines tap Next
+step/hold End turn; combat uses dividers only and source-relationship highlights. The
 same-URL full HTML publication workflow persists. Remaining copy cuts are proposals.
 This authorizes these design artifacts, not application implementation, a passed
 review/UI gate or approval of the proposed layouts.

@@ -1062,6 +1062,44 @@ the proposed first release.
 
 ## 3.6 Review progress
 
+### Graphical tree navigation presentation — D-298
+
+H06/H07 in the UI packet trial the previously unpictured explorer. Open it from
+the table/history tree button or a timeline branch stub. Show actual fork edges,
+root/internal/tip nodes, a distinct **personal selected boundary** and **shared
+current boundary**, and the retained current path. Long trees pan/zoom/window
+without dropping nodes or changing D-276's complete-tree download requirement.
+Accessible parent/root/child/sibling navigation and node details must not depend
+on precision graph taps. These are contextual tree controls, not app Back arrows.
+
+- Selecting a node reviews its board locally. Review selected closes the overlay
+  to that same boundary; native Back/X closes the overlay without activating it.
+  Root/parent/another branch are personal review, not Undo or a shared switch.
+  Follow current uses normal shared-path catch-up, not an unexplained state jump.
+- **Continue here** captures D-179 intent and restores gameplay at that boundary;
+  arming does not create a branch. Its first successful mutation alone forks.
+  **Make current** is a distinct explicit shared activation of the exact retained
+  node (including root/internal nodes), with ordinary guards/ordering and both
+  Redo queues clearing on a real context change. No vote, playback or additional
+  mutation is needed merely to activate a retained state. Do not conflate these
+  commands with a node tap, Play, Review selected or Undo.
+- Show hidden reveals D-222/D-223's presentation-filtered alternatives without
+  deleting/activating them; active, mixed-author, exposure-bearing and commented
+  continuations remain visible under the existing rules. Archived retained paths
+  have an explicit inventory/restore route, distinct from this hide filter.
+- Archive & return previews the exact selected continuation and return node/board,
+  normally the displaced line's retained current head. Review the return board
+  before the atomic archive-and-switch; if unavailable/changed, require selection/
+  restore rather than guessing. Archive keeps nodes/descendants recoverable and
+  never removes a shared prefix or silently archives descendant branches.
+  Restore only changes archive metadata; Restore & make current explicitly also
+  selects the displayed target. These recoveries are not game-node Undo/Redo.
+  No routine confirmation is inferred for ordinary Make current; the archive
+  preview completes the existing named archive-and-return operation.
+
+This is a proposed concrete layout over existing behavior, not a new history
+policy, finished-game archive, implemented graph or declaration of full UI coverage.
+
 Confirmed D-177: automatic or step-by-step animated playback advances through
 groups. The player can stop automatic playback and drag the horizontal bottom
 timeline left/right to select an exact mutation boundary and continue there.

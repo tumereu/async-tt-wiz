@@ -3,7 +3,59 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
-## Current round results — D-297
+## Current round results — D-298
+
+- Appended cumulative F69–F82, preserving the same-round follow-up explicitly:
+  **one tap-Next-step/hold-End-turn quick slot**, not our initial two-slot plan or
+  D-107's older separate one-tap layout. Four-position trial is three contextual
+  positions plus this one progression position, with overflow/full paths retained.
+  Card title/X and drawn empty combat boxes are explicitly superseded; prior
+  source/feedback editions remain in Git and the cumulative record.
+- Added G11/G12/H06/H07 for the phase picker, explicit Table actions, graphical
+  tree and archive/return/restore entries. Full edition: **45 primary + four
+  continuations = 49 states / 98 captures / 64 PDF pages**. Recaptured all 21 shared
+  table states (17 existing + four new), both orientations, with remote assets
+  blocked, inert bodies/no scripts, loaded local fonts, fitting document widths
+  and ordinary 48 px/reachable controls. These sources/capture compositions are
+  documentation, not native gesture, tree, archive or phase-picker handlers.
+- Static regressions now check fitting-hand centering and overflow reach, fixed
+  four-position geometry/hold annotation, full-strip portrait counters with 28 px
+  circles in separate 48 px allocations, divider-only combat/rotated envelopes,
+  River source+combat+Stack and Sentinel source+combat relationship examples,
+  one icon-only phase indicator, five phase colors/twelve distinct exact-step
+  icons, matching turn-player borders, no card title/X, seven square P/T controls,
+  six counter triplets on three rows, and distinct selected/current tree nodes.
+  Earlier scale/count/visibility/author/history/read-only checks remain enabled.
+- The full catalog documents all currently specified quick situations, scope,
+  full-action alternatives and icons; separate card/phase legends include
+  conditional variants. All **59 legend glyph instances** render with the local
+  embedded font; build rejects missing/wide unshaped ligature text. No extra
+  first-strike tracking position is invented beyond the primary twelve-position
+  sequence. Native tap/hold consumption, long-value fitting, source highlighting,
+  accessibility and server requests remain future verification, not claims that
+  static snapshots implement them.
+- Inspected portrait/landscape card/player panels, hands, full-width small
+  counters, combat/highlights, phase picker/active-player trial, Table actions,
+  graph and archive entries, plus the rendered icon legend. A first capture caught
+  portrait counter rows leaking into landscape combat; orientation hiding fixes
+  that rather than suppressing the check. A duplicate phase readout was removed.
+  Print-only H01 leading keeps its long source/interaction notes on one page,
+  avoiding an orphaned near-empty page without dropping any content.
+- Full build validates all state IDs/98 image instances, image dimensions/decodes,
+  phone-width HTML and 64 PDF pages. Minimum extracted page text is **494
+  characters**, with no near-blank pages or local-file PDF links. All **692 relative
+  documentation links**, JSON, Python syntax and whitespace checks pass. Primary
+  board/combat/history/action/domain/Android contracts, summaries, T-202/T-204/
+  T-702 corrections and future T-703–T-709 agree; native scenarios were not run.
+- Replaced the **full edition in place at the exact existing port-8443 URL**.
+  Verified all 49 headings/98 embedded PNGs and **137 HTTP 200 artifacts** against
+  repository bytes, including every current source/capture, full HTML/PDF, feedback,
+  manifest, styles and icon font. Service is active; Tailscale retains the document
+  proxy and both original port-443 routes. Host tailnet HTTPS self-connection is
+  still refused, so phone/other-peer refresh is not independently verified. No
+  route/public-hosting/cloud changes, app implementation or passed UI/stage gate.
+
+## Previous round results — D-297
 
 - Appended F58–F68 with explicit supersessions; all earlier feedback/provenance
   remains. Updated 19 existing states and added G09/G10/H04/H05: **41 primary +
@@ -122,7 +174,7 @@ verification.
   phone/other-peer refresh is not independently verified. No public hosting, route
   change, new cloud generation, application implementation or passed gate.
 
-**Current edition: D-297 cumulative owner-feedback revision**, documented above. The original
+**Current edition: D-298 cumulative owner-feedback revision**, documented above. The original
 pilot/gameplay counts and cloud checks in earlier sections are historical.
 
 - The original pilot has **21 distinct Stitch-generated responsive sources**,

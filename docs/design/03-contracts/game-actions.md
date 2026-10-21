@@ -71,7 +71,7 @@ Incomplete input does not stream malformed or half-selected game actions.
 | A-019 | Board markers/connectors | D-119 adds event-wide ping order numbers. D-120 supports links between projections that disappear with endpoints. D-112/D-118 separately require explicit assigned/unassigned blocker projections and adaptive combat spacing; no inferred legality/damage from pings/links. |
 | A-020 | Manual value changes | Edit one/many explicitly selected values; no damage calculation or automatic distribution. |
 | A-021 | Manual object changes | D-84/D-85 remove tokens moved into configured Library/Graveyard/Exile across all move controls; mixed sets move ordinary cards normally. D-174 restricts context Remove to tokens: non-token cards never disappear during play and have no Remove/delete action. Token Remove has no pile move/routine confirmation, with automatic sync and undo/history. No other inferred token expiry or rules effects. Exact mixed-selection routing/references/boundaries remain open. |
-| A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106–D-108 add one-tap End turn/no number editor and starter/turn-1 setup. D-105 removes priority; D-109 leaves extra turns manual/approximately counted. D-111 advances combined shortcuts despite no untap changes or empty Library, with no inferred loss. Exact controls/schema/boundaries remain open. History/undo/branches/online-only sync apply (D-182); arbitrary markers remain separate. |
+| A-022 | Turn/phase/step tracking | D-96–D-103 require MTG tracking/shortcuts and turn context. D-106/D-108 add End turn/no number editor and starter/turn-1 setup. D-298 supersedes D-107 placement: tap Next step/hold End turn share one quick slot, hold consumes tap; explicit picker/Table actions/accessibility End turn remains. Icon/color phase indicator and phase-row picker preserve existing tracking semantics. D-105 removes priority; D-109 leaves extra turns manual/approximately counted. D-111 advances combined shortcuts despite no untap changes or empty Library, with no inferred loss. History/undo/branches/online-only sync apply (D-182); arbitrary markers remain separate. |
 | A-023 | Named tracking sets | Excluded from R1: arbitrary named tracker/set authoring (D-241). Ordinary confirmed card/player text/counters remain. |
 | A-024 | Custom status | R1 card notes/corner text/counters only. Custom icon/piece/named-tracker authoring is excluded (D-241); no inferred mechanics. |
 | A-025 | Faces and visual composites | R1: printed face/cover controls and ordinary card placement. General composite/layout authoring is excluded (D-241); no inferred meld/merge/transform. |
@@ -98,6 +98,15 @@ D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;
 structural/applicability validation remains. Exact menu paths are stage 3.
+
+D-298's [quick-action catalog and icon legends](../02-experience/ui/review.md#quick-action-catalog-and-icon-legends)
+map all currently specified phase/selection/explicit-Stack-target situations,
+their icons, captured scope and full-action alternatives. The four-position
+layout is a UI trial (three contextual positions plus tap-Next/hold-End), not a
+new cap or new inferred phase action. **Table actions** explicitly contains the
+full table-level tools; Library/card/player tools keep their existing direct
+routes. The graphical tree UI separates personal review, arming continuation,
+shared activation and reversible archive/restore under the primary history rules.
 
 D-123 applies normal card actions through projections to the real source card,
 not a local copy. This includes moves into Graveyard/other destinations with

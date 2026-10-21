@@ -57,7 +57,7 @@ banner and still creates no fork until a first successful mutation. G07/G08/G08b
 are inert player-menu/positive/negative-preview states. Capture-only templates/
 landscape framing are local documentation, not a new Stitch edit or working app.
 
-**D-297 current revisions:** F58–F68 add ATW on login, small label-like search
+**D-297 revisions retained except D-298 supersessions:** F58–F68 add ATW on login, small label-like search
 results, colored per-player readiness (green check Ready), compact pannable hands
 and landscape own Hand in the quick-action row. Covered opponent Hand is trialed
 in the existing top control row, not taking battlefield space. Combat pair widths
@@ -76,6 +76,25 @@ overflow hands and centered endpoints. Full same-URL edition, local inert source
 only; no new cloud generation, application implementation or gate transition.
 
 ## Common prompt
+
+**D-298 current revisions:** apply F69–F82 before any historical prompt below.
+Center hands with safe bidirectional overflow. Four-position quick strip is three
+contextual positions plus **one tap Next step/hold End turn square**, not two
+progression buttons; this latest follow-up supersedes D-107. Hold consumes tap;
+explicit picker/Table actions/accessibility End turn remains. Full review catalogs
+all situational quick actions/icons/scopes/full paths; G02 suffices for positioning.
+Combat uses faded vertical dividers only, no drawn empty cards/+; show tapped
+projections and stable-source relationship emphasis distinct from selection.
+Player circles are small and span the entire portrait middle strip, Stack-side
+width included. Phase uses phase color/exact-step icon, active-player border and
+separate turn number; picker has five rows/twelve existing positions, direct
+selection preserves player/number, End turn changes them normally. Trial active/
+inactive background strength, never reduce card contrast or change permissions.
+Card actions: **no title/X**, two-position top-left details, packed square icons,
+seven P/T buttons and three paired color-Set,+,− rows; landscape tools left/values
+right. Player menu retains title/X. Include the decipherable icon legends and
+new H06/H07/G11/G12 tree/archive/phase/Table-action states. All are local inert
+design artifacts; no new cloud generation, application handlers or gate transition.
 
 ```text
 Design a STRUCTURAL LOW-FIDELITY Android phone UI mockup, not a web landing page and not application implementation. This is one screen in a manual two-player asynchronous tabletop app. App working title: Async Table. Style is intentionally provisional: near-white background, gray borders, dark readable text, restrained teal only for primary actions. No gradients, marketing hero, real artwork, generated illustrations, navigation invention or decorative bottom tab bar. Use real simple line icons (Material Symbols) only when requested; text buttons must remain labeled text. Body 15-16px, title 22-24px, helper no smaller than 13px. Approximate Android dp with CSS px: margins 16px, gaps 12px, top bar 56px, controls/touch targets >=48px, simple border radius 8px. Include minimal status area 24px and bottom safe inset 16px; no device chassis.

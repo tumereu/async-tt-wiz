@@ -16,7 +16,7 @@ Review editions: [PDF download](review.pdf) · [Markdown source](review.md).
 **Cumulative owner direction:** [feedback and explicit supersessions](feedback.md).
 Later rounds retain earlier decisions unless the owner explicitly changes them.
 This full document is republished at the same browser-refresh URL after changes.
-The D-292–D-297 cumulative revisions below are confirmed direction;
+The D-292–D-298 cumulative revisions below are confirmed direction;
 remaining geometry/style proposals are not silently approved by this round.
 
 Both **portrait and landscape are required** (D-290). Each screen below has a
@@ -33,6 +33,9 @@ from the current packet and replaces U01's empty backdrop with a real table.
 G04–G08 add card/owner/player actions, token/ping/reveal examples and signed
 player-value drag previews (G08b is the negative-preview continuation).
 G09/G10 and H04/H05 add game chat, overflowing hands and centered timeline endpoints.
+G11/G12 and H06/H07 add the phase picker, explicit Table actions, graphical tree
+navigation and archive/return routes. The catalogs below show every current
+situational quick action and the card/phase icon legends, not just sample glyphs.
 Full zone menus, gameplay-specific inspectors and result-ending overlays
 still need completion; D08 is a deck-context inspection reference and P04 the
 separate active-delete confirmation.
@@ -1055,16 +1058,23 @@ middle framing; the full-height board remains navigable rather than being squeez
 into its viewport. Landscape hands occupy the existing top/bottom rows, clear of
 field and history timeline; transport remains reachable. Dense/hit geometry still
 needs device review. Visible player counter circles spread evenly over the whole
-row (D-297), preserving the portrait visibility predicate.
+row (D-297), preserving the portrait visibility predicate. D-298 makes the circles
+smaller and spans the **full middle strip** in portrait, including Stack-side width.
+Fitting Hand cards are centered; overflow remains pannable in both directions.
 
-**Controls:** bottom-left tap Undo / hold Redo; bottom-center contextual actions;
+**Controls:** bottom-left tap Undo / hold Redo; bottom-center fixed quick strip;
 bottom-right current mode. The proposed mode square opens explicit Normal /
 Select / Ping choices. Select toggles membership editing without clearing the
 selection when turned off; Ping consumes its taps. Phase tap opens the existing
 tracking picker, not an automatic game action. History opens personal review.
-Overflow exposes Redo and full Game actions; a **separate Chat button** opens G09,
+Overflow exposes Redo and full **Table actions** (G12); a separate Chat button opens G09,
 with an unread bubble when incoming messages remain unviewed. A generic Actions affordance
 does not invent a phase shortcut or remove the full per-card action paths.
+**D-298:** trial four positions: three contextual, one **tap Next step / hold End
+turn**, with hold consuming tap and explicit End turn alternatives retained. The
+full catalog below lists every situation/icon; no generic empty-context Actions
+button is substituted. The phase indicator has exact-step icon/phase color only,
+with turn-player border and separate numeric turn badge; G11 shows its picker.
 
 **Gestures:** normal single tap opens captured-scope card Actions; double tap
 performs one selection-aware tap/untap. Hold inspects; drag moves the captured
@@ -1108,6 +1118,14 @@ not saved empty pairs: merely rendering/cancelling creates nothing, and D-138
 still removes fully empty semantic pairs. A valid drag creates/reuses/inserts only
 the requested occurrences, never moves their real battlefield sources. Pan for
 more pairs; no equal-width stretching or smaller combat cards.
+**D-298:** those empty hit regions have **no drawn card boxes or + markers**;
+only faded vertical dividers separate groups. The River combat projection is
+tapped, as is its real source and live Stack projection. Gold relationship emphasis
+connects those three views of the same stable source; it does not highlight the
+unrelated same-name Hand card, change selection or select every occurrence for
+an occurrence-removal action. Blue selection and owner borders remain distinct.
+The selected Sentinel also emphasizes its related combat projection without
+adding that occurrence to the actual selected-command targets.
 
 Stack uses the same **diagonal corner-peek** presentation as ordinary piles, but
 has **no gameplay item-count capacity**: show the top card plus at most two below
@@ -1269,7 +1287,7 @@ replaced with the live head just because they are not printed in a banner.
 
 ::: {.screen-pair}
 ::: {.portrait}
-![G03 portrait — overflow with explicit Redo and Game actions; Chat has its own button](images/gameplay-controls-portrait.png)
+![G03 portrait — overflow with explicit Redo and Table actions; Chat/tree have direct buttons](images/gameplay-controls-portrait.png)
 :::
 ::: {.landscape}
 ![G03 landscape — reachable explicit Redo alternative above fixed live controls](images/gameplay-controls-landscape.png)
@@ -1283,8 +1301,8 @@ accessibility must provide an equivalent explicit action, without requiring a
 timed hold. Both routes use the same server-authoritative per-player game stack,
 eligibility and retry rules. Exact hold interval/feedback is still UI work.
 
-**Menus:** overflow is a proposed route to Game actions, not a newly
-invented settings suite. Game actions must retain existing tracking, random,
+**Menus:** overflow is a proposed route to Table actions (G12), not a newly
+invented settings suite. Table actions retain existing tracking, random,
 token, combat and ending paths; this packet does not yet picture their complete
 menus or editors. The separate bottom-right mode square opens Normal / Select /
 Ping, rather than silently cycling modes. It does not open this overflow menu.
@@ -1301,30 +1319,40 @@ enabled/disabled color proves the complete eligibility computation.
 
 ::: {.screen-pair}
 ::: {.portrait}
-![G04 portrait — card action dialog including Change owner](images/gameplay-card-actions-portrait.png)
+![G04 portrait — titleless packed card controls with inline owner choices and paired counter rows](images/gameplay-card-actions-portrait.png)
 :::
 ::: {.landscape}
-![G04 landscape — compact card action grid with close at top-right](images/gameplay-card-actions-landscape.png)
+![G04 landscape — packed actions left, seven corner controls and paired counter triplets right](images/gameplay-card-actions-landscape.png)
 :::
 :::
 
 Normal single tap opens this card's Actions without rotating it. A selected card
 binds the selected set; an unselected card binds only itself and preserves prior
-selection. **D-297:** grouped square **icon-only** buttons show Library top/bottom,
+selection. Grouped square **icon-only** buttons show Library top/bottom,
 Graveyard/Exile, inspection and existing card tools, plus **inline owner choices**.
-Corner text has direct +/−/Set rows for left/right/both numbers; each of six counter
-colors has direct +/−/Set, even when absent. The underlined number(s) identify the
-addressed part of the one corner string; this is not separate P/T engine state.
+**D-298:** the card details occupy two stacked positions at top-left, with the
+other buttons packed around them. There is **no title or close X**. The card itself
+still identifies its permitted current state and captured scope/count. Landscape
+puts these general actions left and field controls right; portrait stacks them.
+
+P/T-like corner text has one seven-square row: **current value/Set, +/+, −/−,
+•/+, •/−, +/•, −/•**. The dot is a small centered circle meaning “unchanged side.”
+The Set square never widens; long values shrink/wrap within it, with full text in
+accessibility/the editor and bounded truncation if unreadable. This is one string,
+not separate P/T engine fields. Integer-only text uses Set/+1/−1; other text keeps
+Set with arithmetic unavailable. All six counters use three rows of two triplets:
+**colored current-value circle/Set, +, −**, divider between triplets. Absent values
+remain directly editable. The **icon legend below** names every pictured symbol,
+its group and conditional variants; no guessing from the pictures is required.
 No Card text / Counters / Owner category submenu adds another tap. Inspect other side retains its logged
 disclosure rule; opening a menu alone logs nothing. Orientation still uses normal
 double tap, with explicit Tap/Untap commands in Select mode, not a new normal-mode
 Tap button. This example is not every contextual/source/occurrence menu.
 
 A dialog is the owner's accepted alternative to their initial floating-buttons
-request. The title-corner preview shows the context card's current permitted
-visual state, and stays visible while direct controls scroll. G06 shows it updated
-after retained edits. Opening/closing creates no shared edit; outside tap, X and
-native Back dismiss without recalling earlier submitted requests. Completed
+request. D-298 replaces its title band with compact card details in the grid.
+G06 shows the details updated after retained edits. Opening/closing creates no
+shared edit; outside tap and native Back dismiss without recalling earlier submitted requests. Completed
 corner/counter +/−/Set keep the menu; successful Move to Graveyard closes it, as
 already agreed. No universal close/stay rule is invented for all other actions.
 Required Set editor/inspection/Link endpoint selection completes its chosen action,
@@ -1372,15 +1400,16 @@ ping and View/Reveal contracts; D-295 placement.
 ![G06 portrait — retained direct actions with red owner, 2/4 and blue counter 3 in preview](images/gameplay-owner-choice-portrait.png)
 :::
 ::: {.landscape}
-![G06 landscape — scrolled direct values with persistent updated title-corner preview](images/gameplay-owner-choice-landscape.png)
+![G06 landscape — retained compact actions and current-state card details](images/gameplay-owner-choice-landscape.png)
 :::
 :::
 
 **D-297 supersedes the separate owner chooser:** the same action dialog stays open,
 now with a red owner border, corner text **2/4** and blue counter **3**. This is a
 static after-edit example, not a working sequence or one atomic multi-field edit.
-Landscape scrolls the values to show the lower colors while the preview remains
-visible. +/−/Set retention does not require reopening the menu between adjustments.
+D-298's compact layout fits all six colors in three paired rows; it does not need
+the old tall scrolling value column or title band. +/−/Set retention does not
+require reopening the menu between adjustments.
 
 Inline owner choices use player colors without printed player names. Accessible labels
 identify both participants, the card and current selection. Choosing the other
@@ -1412,6 +1441,10 @@ normal counter text; nonnumeric text disables arithmetic, not Set. Existing
 retained-menu/trimmed-empty rules persist. Both participants may edit either
 player. A hidden all-empty/zero portrait counter row is still reachable here.
 This is a context-menu mock, not a functioning editor or completed keyboard state.
+**D-298:** the life value square itself is Set, then +/−. Counter rows use the same
+three paired color/value-Set,+,− triplets as the card panel, with dividers between
+pairs. Here the title and top-right close remain. On-table circles are smaller
+and portrait counter rows span the full middle strip, not just the library column.
 **Basis:** D-58/D-61/D-67/D-68 and D-296.
 :::
 
@@ -1548,10 +1581,238 @@ deleted-cursor fallback and sync rules remain unchanged; filling empty space mus
 never choose another boundary or fabricate events. **Basis:** D-297.
 :::
 
+::: {.screen-section}
+## G11 — Phase/step picker and active-player emphasis
+
+::: {.screen-pair}
+::: {.portrait}
+![G11 portrait — five colored phase rows, exact step icons and opponent-turn border](images/gameplay-phase-picker-portrait.png)
+:::
+::: {.landscape}
+![G11 landscape — compact phase rows and bottom End opponent's turn](images/gameplay-phase-picker-landscape.png)
+:::
+:::
+
+The table indicator contains only the exact step icon and phase background color,
+with the tracked turn player's border; the separate small number is the turn
+number. No phase/step text or priority indicator. The picker has one row for each
+fixed phase and horizontally arranged steps, using the legend below. All steps
+within a phase share its color. Current step is selected without obscuring its
+icon; every icon has an accessible exact name.
+
+Tapping a step changes **phase/step only**, preserving turn player/number and
+executing no intermediate Untap/Draw/etc. “Set the turn” here is tracking selection,
+not a new player/count editor. **End opponent's turn** uses ordinary End turn:
+other player, turn number +1, Beginning/Untap; no automatic draw/untap or game ending.
+Either player may invoke it. Next step remains explicitly available in the picker.
+
+**Latest follow-up:** one quick square combines **tap Next step / hold End turn**.
+Hold consumes tap, with no preceding step advance or second release action; cancel
+sends nothing. Explicit End turn in this picker/Table actions and accessibility
+avoids requiring a timed hold. “Pass” is not a new priority/pass feature. D-298
+supersedes D-107's separate one-tap End turn placement, not its no-confirmation rule.
+
+This screenshot trials the opponent's turn: red surrounds the picker/indicator,
+opponent field backgrounds are stronger and own backgrounds quieter. Only the
+background shades change, not readable card content, owner colors, permissions or
+visibility. Exact brightness/palette remains reviewable. **Basis:** D-96–D-111,
+D-253 and D-298.
+:::
+
+::: {.screen-section}
+## G12 — What “Table actions” contains
+
+::: {.screen-pair}
+::: {.portrait}
+![G12 portrait — explicit table-level action inventory rather than an unexplained generic entry](images/gameplay-table-actions-portrait.png)
+:::
+::: {.landscape}
+![G12 landscape — compact table-level tools with named icons](images/gameplay-table-actions-landscape.png)
+:::
+:::
+
+The old **Game actions** label meant the full table-level controls, not a second
+rules engine or settings suite. It is now **Table actions** in G03. The panel
+contains phase/step choice, Next step/End turn, standalone turn-player Untap all/
+Draw one, Create/Close combat area, catalog/Blank token creation, die/coin and
+win/loss/draw suggestion. When a result suggestion is pending, its applicable
+Accept route is shown instead of incompatible new suggestions. Accepted ending
+returns both players to lobby; End turn does not end the game.
+
+Untap/Draw use the **tracked turn player's configured field/Library/Hand**, not
+automatically the viewer's. Required die parameters and token catalog search are
+actual action inputs, not a new generic confirmation. These full controls remain
+available outside their quick windows, with ordinary structural/connection checks.
+Library contents/Draw N/View/Reveal/Shuffle/mulligans remain directly on each
+Library; per-card tools remain on cards. Chat/tree have their own direct buttons;
+Redo remains explicit in G03. No priority, extra-turn scheduler, turn-number editor,
+custom tracker/area authoring, in-game Sideboard or automatic resolution is added.
+**Basis:** current action catalog and D-121/D-241/D-253; icon geometry is proposed.
+:::
+
+::: {.screen-section}
+## H06 — Graphical tree viewer: review versus shared current
+
+::: {.screen-pair}
+::: {.portrait}
+![H06 portrait — selected C on the displaced path, shared current Y on another branch](images/gameplay-tree-viewer-portrait.png)
+:::
+::: {.landscape}
+![H06 landscape — fork graph, hidden/archive filters and distinct continuation/activation controls](images/gameplay-tree-viewer-landscape.png)
+:::
+:::
+
+**Navigation plan:** open the tree from its direct button or a timeline branch
+stub. Pan/zoom a graphical tree with actual root, fork, internal and tip nodes;
+long histories window the view without omitting retained events. Nodes expose
+exact event/type/author/details; accessible parent/root/child/sibling navigation
+does not require tiny graph targets. The **Root** control is personal review, not
+app Back, Undo or shared activation. This sample's C is an opponent Reveal, so its
+inactive continuation remains visible under the existing exposure exception.
+
+1. Tap a node to review its boundary **locally**; the selected square and the shared
+   current circle are distinct. Here C is selected while Y remains current.
+2. **Review C** closes the overlay to C's already selected board. Native Back/X
+   also dismisses without switching the shared game. Choose parent/fork/another
+   continuation to go back; no automatic Undo or branch deletion is involved.
+3. **Continue at C** arms historical gameplay; only the first successful mutation
+   creates/activates a new branch. Merely choosing it or pressing Play creates none.
+4. **Make C current** explicitly activates the retained node immediately, including
+   if it is internal/root. It is not playback or the same as arming a new branch;
+   a real shared switch clears both Redo queues. No second-player vote.
+5. **Follow current Y** returns through the existing catch-up/changed-path traversal.
+   To restore the displaced line as the shared game, select D and **Make D current**;
+   do not assume Undo of X automatically reactivates D.
+
+Show hidden reveals only presentation-filtered single-author/no-exposure/no-comment
+alternatives; it neither deletes nor activates them. Archived has a separate
+restore inventory. Sync continues and surviving personal cursor stays put; deleted
+nodes use normal ancestor fallback. Complete retained current-game data still
+downloads under D-276, independent of what is currently visible. **Basis:** D-179,
+D-222/D-223/D-238/D-258/D-276 and proposed D-298 presentation.
+:::
+
+::: {.screen-section}
+## H07 — Archive & return, with separate restoration
+
+::: {.screen-pair}
+::: {.portrait}
+![H07 portrait — exact archive/return references and restore-only versus restore-and-activate](images/gameplay-archive-return-portrait.png)
+:::
+::: {.landscape}
+![H07 landscape — reversible branch controls, distinct from game-node Undo](images/gameplay-archive-return-landscape.png)
+:::
+:::
+
+This proposed flow previews archiving **A → X → Y** and returning to exact state
+**D** on **A → C → D**. **Review exact return state D** opens that board for personal
+inspection and returns to the same bound preview; it is not a generic substitute
+for showing the return board. The screenshot pictures the entry/decision controls,
+not every state of that inspection round-trip. Completing **Archive & make D current**
+is the existing single atomic archive-and-switch, preserving every node and shared
+prefix and clearing both Redo queues on a real shared switch. Missing/changed/
+archived return target requires explicit selection/restore, never a guessed head.
+
+The lower restoration controls illustrate selecting an already archived Z:
+**Restore only** changes its archive metadata; **Restore & make current** additionally
+activates its displayed retained tip Z2. This is separate from the upper X–Y
+operation and from selective game-node Undo/Redo. Descendants are not silently
+archived with their parent. Finished-game archives are still out of R1 scope.
+**Basis:** existing archive/return contract, D-258 and proposed D-298 geometry.
+:::
+
+# Quick-action catalog and icon legends
+
+These are the complete **currently specified** offerings, not permission to add
+rules inference or a roadmap for unapproved controls. Icons/composition are
+review proposals unless directly selected by the owner. The glyphs below are the
+same local icon font as the captures, not unexplained font-ligature names.
+
+## Four-slot quick strip: every situation
+
+**Trial layout:** three contextual squares + one fixed progression square. Blank
+positions keep their space but draw no fake button. Contextual offerings beyond
+three pan in the same reserved rail; they do not move Hand/Undo/mode or hide the
+progression square. G02 is the positioning example; a separate layout for every
+combination is unnecessary. Within the rail, phase offerings precede an explicitly
+targeted Stack offering. There is no automatic top-of-Stack target.
+
+| Situation | Icon / action | Scope and full route |
+| --- | --- | --- |
+| Every live/armed-play phase/step | <span class="legend-icon">skip_next</span> tap **Next step**; small <span class="legend-icon">last_page</span> hold badge = **End turn** | Fixed fourth position. Tap advances one step only; hold performs End turn only, consumes tap and never double-dispatches. Cleanup's ordinary Next step already starts the next turn. Explicit picker/Table actions/accessibility End turn remains. No history-edit controls during plain historical review. |
+| Untap, any turn | <span class="legend-icon">rotate_90_degrees_ccw</span> **Untap all** | Tracked turn player's battlefield; no inferred skip flags. Standalone full Table action remains elsewhere. |
+| Untap, any turn | <span class="legend-icon">rotate_90_degrees_ccw</span> + small <span class="legend-icon">skip_next</span> **Untap all + next** | Same captured turn-player scope, then Upkeep, even if no orientation changes. Not automatic on entering Untap. Individual Untap/Next full paths remain outside the quick window. |
+| **Turn 1 Untap only**, additionally | <span class="legend-icon">shuffle</span> + <span class="legend-icon">download</span> **Return Hand → Shuffle → Draw N** | N picker defaults seven; same Library's configured Hand. Full Library-context action remains at other steps. These four total Untap offerings pan in three visible contextual positions. |
+| **Turn 1 Untap only**, additionally | <span class="legend-icon">shuffle</span> + <span class="legend-icon">exposure_neg_1</span> **Return Hand → Shuffle → Draw previous Hand size −1** | Uses the existing captured pre-return-size semantics/clamp, not seven-minus-one or a rules-driven mulligan gate. Full Library-context action remains. |
+| Draw step | <span class="legend-icon">download</span> **Draw one** | Turn player's Library → Hand; standalone leaves tracking unchanged. Full Table/Library path remains. |
+| Draw step | <span class="legend-icon">download</span> + small <span class="legend-icon">skip_next</span> **Draw one + next** | Then Precombat main; an empty Library still advances without a fabricated draw/loss. Individual Draw/Next remain full paths elsewhere. |
+| Declare attackers, **Select mode with captured multiselection** | <span class="legend-icon">swords</span> + small <span class="legend-icon">rotate_90_degrees_cw</span> **Declare + tap** | Selected applicable battlefield sources; create/reuse occurrences, leave real positions, then tap sources. Separate mutations/ordinary partial outcomes. Full targeted card path remains outside this quick window. |
+| Same Declare attackers condition | <span class="legend-icon">swords</span> **Declare without tapping** | Preserve orientation, including already-tapped sources; not an implicit untap. No new single-card, Beginning-of-combat or damage-step declaration quick offering is inferred. |
+| End of combat | <span class="legend-icon">layers_clear</span> + small <span class="legend-icon">skip_next</span> **Advance + close combat** | Advance to Postcombat main and close combat occurrences/links, not sources or Stack effects. Quick-only combination under D-253; separate advance/close remain elsewhere. Ordinary Next/End turn never silently closes combat. |
+| An **explicitly targeted actual instant/sorcery Stack card**, any phase | <span class="legend-icon">inventory_2</span> **Move to Graveyard** | Captured actual card and configured destination; normal reset/token rules. Not an automatic resolver or reinterpretation of unknown category. Full targeted card move remains. |
+| An **explicitly targeted actual permanent Stack card**, any phase | <span class="legend-icon">table_rows</span> **Move to Battlefield** | Captured actual card/configured battlefield routing, not the source of a separate effect. Normal move guards. Full targeted move remains. |
+| An **explicitly targeted Stack projection**, any phase | <span class="legend-icon">layers_clear</span> **Remove this effect** | Only that occurrence, never its source or the other effects from the same source. Frozen disappeared-token effects still support occurrence removal. Full occurrence path remains. |
+| Upkeep, main phases, other combat steps, Ending/Cleanup, or no contextual target | No extra inferred operation | Three contextual positions stay blank unless an explicit Stack target applies. Progression remains. Card context, Library menu, life menu, token/random/ending tools, Undo/Redo and chat/tree retain their own routes, not invented phase quick buttons. |
+
+Source: D-99–D-111, D-114/D-121/D-128/D-147/D-193/D-194/D-253 and existing
+operation-composition/Stack guards. Contextual Stack placement in this rail and
+the fixed three-plus-one allocation are reviewable UI composition choices; the
+underlying actions/visibility conditions above are not new policy votes.
+
+## Card-action legend and grouping
+
+G04/G06 use this packed reading order: **inspection/presentation → moves →
+clone/links/ping/effect/declaration → reset/note/owner**, then corner text and
+counters. Row wrapping around the two-position card preview is layout, not a
+category menu. The legend makes overlap/useless icons and missing group members
+reviewable. Conditional variants below are not all simultaneously applicable in
+the single sample; disabled/inapplicable state must remain meaningful/accessibly named.
+
+| Group | Pictured glyph / meaning | Important distinction |
+| --- | --- | --- |
+| Inspect | <span class="legend-icon">zoom_in</span> **Inspect** | Permitted visible/local own-area content; not a move/flip. |
+| Inspect | <span class="legend-icon">visibility</span> **Inspect other side** | Explicit logged hidden-side viewing; does not uncover/rotate. |
+| Presentation | <span class="legend-icon">flip</span> **Turn face down** | Sample shows the cover action. Face-up counterpart: <span class="legend-icon">flip_to_front</span>. Defined printed-face switch uses <span class="legend-icon">flip_camera_android</span> separately and only for multiple playable faces. |
+| Move | <span class="legend-icon">vertical_align_top</span> **Library top** · <span class="legend-icon">vertical_align_bottom</span> **Library bottom** | Two exact ordered destinations, not a reorder editor or two-sided inspection. |
+| Move | <span class="legend-icon">inventory_2</span> **Graveyard** · <span class="legend-icon">block</span> **Exile** | Unordered destinations; resets/token disappearance follow existing rules. Successful context Graveyard move dismisses. |
+| Copy | <span class="legend-icon">control_point_duplicate</span> **Clone** | New real instance, not a projection; not automatically linked/highlight-equivalent. |
+| Link | <span class="legend-icon">link</span> **Link** · <span class="legend-icon">link_off</span> **Unlink** | Choose required endpoint/existing link, not all links or an Attach/follow tool. No submenu before choosing the actual target. |
+| Communicate | <span class="legend-icon">ads_click</span> **Ping/Unping** | Event-scoped toggle; selected-set scope follows context trigger, not a new selection/target meaning. |
+| Effect | <span class="legend-icon">layers</span> **Add Stack effect** | Source stays in place; multiple independent effects allowed, normal Stack guard. |
+| Combat | <span class="legend-icon">swords</span> **Declare without tap** · same glyph + small <span class="legend-icon">rotate_90_degrees_cw</span> **Declare + tap** | Full targeted paths, unlike phase-restricted quick offering. No inferred legality or forced untap. |
+| Text | <span class="legend-icon">settings_backup_restore</span> **Reset corner** | Database default of current printed face; not counter reset or whole-card reset. |
+| Text | <span class="legend-icon">sticky_note_2</span> **Edit card note** | Plain multiline note, not event comment/chat or a rules text editor. |
+| Owner | <span class="legend-icon legend-own">person</span> **Owner alex** · <span class="legend-icon legend-opponent">person</span> **Owner riley** | Direct explicit field choices with selected border. No extra Change owner category button, controller or permission change. |
+| Corner row | Current **1/3** square = **Set**; <span class="legend-pair">+/+</span>, <span class="legend-pair">−/−</span>, <span class="legend-pair"><i class="legend-dot"></i>/+</span>, <span class="legend-pair"><i class="legend-dot"></i>/−</span>, <span class="legend-pair">+/<i class="legend-dot"></i></span>, <span class="legend-pair">−/<i class="legend-dot"></i></span> | Exact seven-button order. Dots mean unchanged component; relative +/− rewrites the same corner string and retains the panel. Set is the current-value button, not an eighth pencil button. |
+| Counter triplet | Colored **current value** circle = **Set**, <span class="legend-icon">add</span>, <span class="legend-icon">remove</span> | Red/Blue on row 1, Green/Yellow row 2, Purple/Gray row 3. Divider separates the two triplets. Dash = absent, not stored zero. Life menu uses equivalent value-Set,+,−. |
+| Conditional orientation | <span class="legend-icon">rotate_90_degrees_cw</span> **Tap** · <span class="legend-icon">rotate_90_degrees_ccw</span> **Untap** | Explicit Select/accessibility path; normal double-tap mapping is unchanged, not a new ordinary single-tap rotation button. |
+| Conditional occurrence | <span class="legend-icon">layers_clear</span> **Remove Stack effect** · <span class="legend-icon">remove_circle_outline</span> **Remove from combat** | Captured occurrence only; never a generic real-card delete. Expose when the context is that occurrence. |
+| Conditional token | <span class="legend-icon">delete</span> **Remove token** | Token-only. No Remove action for ordinary non-token real cards. |
+
+## Phase/step legend
+
+The **background color identifies the phase**, not the active player. The **border
+identifies the tracked turn player**, not card owner or whose input is allowed.
+Exact colors remain a trial, and accessibility always exposes the full meaning.
+No phase/step words are printed on the table indicator.
+
+| Phase / trial color | Step icons in order |
+| --- | --- |
+| Beginning · pale blue | <span class="legend-icon">rotate_90_degrees_ccw</span> **Untap** · <span class="legend-icon">hourglass_top</span> **Upkeep** · <span class="legend-icon">download</span> **Draw** |
+| Precombat main · pale violet | <span class="legend-icon">looks_one</span> **Precombat main** |
+| Combat · pale orange | <span class="legend-icon">flag</span> **Beginning of combat** · <span class="legend-icon">swords</span> **Declare attackers** · <span class="legend-icon">shield</span> **Declare blockers** · <span class="legend-icon">local_fire_department</span> **Combat damage** · <span class="legend-icon">flag_circle</span> **End of combat** |
+| Postcombat main · pale mint | <span class="legend-icon">looks_two</span> **Postcombat main** |
+| Ending · pale gray | <span class="legend-icon">nightlight</span> **End step** · <span class="legend-icon">cleaning_services</span> **Cleanup** |
+
+All **12 currently specified positions** are manual tracking. No extra first-strike
+step is invented by the mockup; players can repeat Combat damage manually through
+the existing picker. The app does not calculate damage, execute cleanup/discard or
+infer triggered effects. Entering any step alone performs no card operation.
+
 # Copy audit — suggested further deletions
 
 **All 41 current pictured states, both orientations, audited.** Round 2's table
-is retained cumulatively; D-294–D-297 dispositions below mark selected/superseded items
+is retained cumulatively; D-294–D-298 dispositions below mark selected/superseded items
 without turning all earlier suggestions into approvals. This table is
 owner-review advice, **not a new approval list for already confirmed outcomes**.
 “Suggest” items are deliberately **not all removed** from the mockups yet. Existing
@@ -1588,11 +1849,11 @@ in the specification notes. No blanket deletion of labels, errors or lifecycle s
 | U01 | D-295 selects no offline-review button or redundant recovery helper. | Reconnecting, concise restriction and Back to games list only; never claim an unknown request failed. |
 | G01 / G02 | D-295 selects removal of area/row labels, names and Life text; fixed-Hand/covered tutorial copy is absent. | Hand count, phase, selection, colored life number, zone/Stack counts, projection distinction. Identity remains accessible. |
 | H01 / H02 | D-295 removes diagram labels and scrub tutorials; type icons replace sparse generic dots. | Paused/Playing, exact boundary/type/branch context, transport and Continue/Return actions. |
-| G04 / G06 | No explanation paragraph in the dialog. | Card/action identity, owner colors/current selection, accessible participant names and close. |
+| G04 / G06 | D-298 removes the title and close X, not current-state card details. No instructional paragraph. | Permitted card state, captured scope, direct icons/current-value Set, owner/current selection and accessible names; outside/native Back dismiss. |
 | G05 | No Battlefield/Reveal/player-name headings. | Revealed card contents, token badge, numbered pings, owner borders and P/T. |
 | H03 | **D-296 supersedes the earlier keep-banner proposal: no Continuing from banner at all.** | Internal captured boundary/intent, normal play controls and contextual Cancel/Return remain; arming alone does not fork. |
 | G07 / G08 / G08b | No drag tutorial, extra confirmation or shortcut tooltip on the table. | Menu field/color/value controls, signed delta preview and accessible meanings; values remain unchanged before release. |
-| G03 | Delete “Hold Undo for Redo, or choose Redo here. Ordinary eligibility applies.” and inherited diagram labels. | Explicit labeled Redo/Game actions menu entries and actual availability feedback; Chat now has its own button (D-297). |
+| G03 | Delete “Hold Undo for Redo, or choose Redo here. Ordinary eligibility applies.” and inherited diagram labels. | Explicit labeled Redo/**Table actions** entries and actual availability; G12/full inventory explains the former generic Game actions. Chat/tree have direct buttons. |
 | G09 / G10 / H04 / H05 | No swipe, unread or endpoint tutorials printed on the screen. | Actual messages/composer, total hand counts, exact timeline boundary/type and normal transport; semantics stay in notes/accessibility. |
 
 No layout-driven explanation deletion here changes the server rules, retry/Ready
@@ -1620,6 +1881,8 @@ dismissal are additional interaction cost, not hidden zero-cost steps.
 | Saved-deck details → delete collection entry | Delete saved deck → confirm deletion: **2 taps**. | Copies selected in games survive. |
 | Live → exact history → armed continuation | History → drag timeline → Continue playing from here: **2 taps + 1 drag**. | If playback is running, dragging itself pauses before scrubbing; no separate Pause tap. First gameplay mutation is additional and alone creates/activates continuation. |
 | Live → eligible Redo | Hold Undo: **1 hold**, or overflow → Redo: **2 taps**. | No earlier Undo emitted; hold timing/native accessibility still need validation. |
+| Live → next step / end turn | Tap combined progression square: **1 tap** Next step; hold it: **1 hold** End turn. | Hold consumes tap, never emits both. Explicit phase picker → End turn is **2 taps**; native accessibility has a named End turn action. No priority/pass or routine confirmation. |
+| Live → review another branch / continue there | Tree → node: **2 taps** to local review; Continue here: **1 additional tap**. | Review selected/close optionally reveals the already selected board; no need to close/reopen just to Continue/Make current. Make current is a distinct shared switch, not arming or merely viewing. |
 | Live → game chat | Chat: **1 tap**. | Read existing messages; typing/send is additional. No overflow detour or shared read receipt. |
 | Card → repeated field adjustment / owner edit | Card → direct icon: **2 taps** initially; next +/− is **1 tap** while retained. Owner choice likewise **2 taps** from the table, no chooser submenu. | Set needs actual text editing/completion; Link needs endpoint selection. Scroll direct controls when necessary; ordinary 48 px buttons are not reduced. |
 
@@ -1630,30 +1893,31 @@ with a keyboard; the later large-text/keyboard review must count that cost too.
 
 # Coverage and limits
 
-**Pictured:** 41 primary screen/state drafts (26 original Stitch-derived states,
-some locally recomposed, plus N02, P03–P05, D07/D08, G04–G10 and H04/H05), two
+**Pictured:** 45 primary screen/state drafts (26 original Stitch-derived states,
+some locally recomposed, plus N02, P03–P05, D07/D08, G04–G12 and H04–H07), two
 scrolled continuations, L04b's faded feedback and G08b's negative preview:
-**45 states / 90 captures**.
+**49 states / 98 captures**.
 These include the shared navigation,
 inline sign-in error, submitted reset request, unresolved import, two import save
 modes in contextual D07 (Overwrite selected), collection-deletion modal, declined
 inviter lobby with Reinvite, game context/active-delete confirmation, full card
 inspection, mandatory named creation, no-own-deck
 lobby, preparation, accepted Ready, cancellation modal and reconnect dialog,
-plus fifteen primary gameplay states and the G08b continuation: live, populated Stack/combat, paused exact history,
+plus nineteen primary gameplay states and the G08b continuation: live, populated Stack/combat, paused exact history,
 running playback, armed continuation, explicit Redo menu, card actions, token/
 ping/reveal presentation, retained updated actions, player-value context, signed
-drag previews, game-chat panel, overflow hands and both timeline endpoints.
+drag previews, game-chat panel, overflow hands, both timeline endpoints, phase
+picker, explicit Table actions, graphical tree and archive/return/restore entries.
 
 **Described but not separately pictured:** clean authentication forms, network
 and field errors, invalid reset link, empty/loading/search-no-results lists,
 rename field editor, import lookup-in-progress/save failure, Merge-selected preview,
 returned-lobby not-ready state and successful reconnect. These still need visual
 state completion before claiming that every non-gameplay state is designed.
-Gameplay expansions still needed include alternate Hand expansion, phase/mode choice sheets,
+Gameplay expansions still needed include alternate Hand expansion and mode choice sheet,
 remaining card/zone action menus, gameplay-specific inspector/disclosure states
 (D08 pictures inspection in a deck context), further View/Reveal variants, dense/empty
-combat variants, branch selection/return/archive views, further chat/comments and ending
+combat variants, further tree/return/archive/restore states, chat/comments and ending
 dialogs, plus selected/conflict/reconnect/large-text/gesture variants over the real
 board. Static examples do not settle all camera bounds, hit regions or timings.
 
@@ -1734,6 +1998,17 @@ updated action dialog, not an owner submenu. G09/G10/H04/H05 add four local iner
 states: **45 states / 90 captures**. `table-round6.css` retains earlier direction
 except explicit supersessions; static repetition/scroll/center offsets are document
 tooling, not executable application interactions or a new cloud revision.
+
+**D-298 owner revision:** F69–F82 center hands, reserve the four-position quick
+strip/full situation+icon catalog, remove drawn empty combat boxes, show tapped
+source/projection relationships, reduce player circles and span portrait full
+strip, add exact-step/phase-color/turn-border indicators, phase picker/tree/Table
+actions and compact titleless card controls with seven P/T squares and paired
+counter triplets. Latest follow-up supersedes D-107: **tap Next step / hold End
+turn share one slot**, leaving three contextual positions. H06/H07/G11/G12 add
+four local states: **49 states / 98 captures**. `table-round7.css` and inert capture
+composition retain earlier unsuperseded feedback; local font legends are review
+reference, not hidden app labels. No new cloud edit or executable app behavior.
 
 See [generation briefs](generation-briefs.md) and [source manifest](manifest.json).
 The exported HTML is design material with executable interactions removed, not

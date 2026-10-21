@@ -177,8 +177,62 @@ D-297 makes the results heading a small subordinate label, not a new title.
   native Back dismiss without a game edit or cancelling an already-sent edit.
   Completed corner/counter +/- and Set retain the dialog for repeated edits;
   successful context Move to Graveyard still dismisses. Other existing per-action
-  lifetimes are not replaced with a universal close/stay rule. G04/G06 show before
+  lifetimes are not replaced with a universal close/stay rule. D-298 supersedes
+  the title/close-X band with a compact top-left preview and packed grid; outside
+  tap/native Back remain. G04/G06 show before
   and retained updated states, not a working editor or authorization to implement.
+
+### Compact action layout and source relationships — D-298
+
+- Center fitting Hand cards in their allocated display viewport. If they overflow,
+  preserve compact spacing and left/right reach to both ends; centering must not
+  create negative/unreachable overflow. This is personal layout, not reordering.
+- Trial **four fixed portrait quick positions**: three contextual positions and
+  one reserved progression position. Unused positions stay allocated without
+  drawn fake buttons; extra contextual offerings pan in the three-position rail.
+  A fixed allocation is not a gameplay/action-count cap. The complete situation,
+  icon, scope and full-path inventory is in the UI review's quick-action catalog;
+  G02 alone is sufficient to illustrate positioning. Do not invent shortcuts for
+  unlisted phases or auto-target the top Stack entry without a captured target.
+- **Tap the progression square for Next step; hold for End turn.** Recognition
+  consumes the tap: never dispatch Next step on press-down or after the hold.
+  Cancel before recognition sends nothing; one completed gesture sends once.
+  Explicit End turn remains in the phase picker/Table actions and native
+  accessibility, including the opponent's turn. This supersedes D-107's two
+  separate one-tap controls; it adds no priority/pass state. The four-slot example
+  therefore has three contextual positions, not the initially proposed two.
+- Card Actions has **no separate title or close X**. Pack square icon buttons
+  around the top-left current-state card details (trial two vertically stacked
+  grid positions). Include captured scope/count with the card details, not an
+  oversized title band. Outside tap/native Back dismiss as before; repeated edits
+  retain the menu, without a new universal per-action lifetime rule. A long menu
+  may scroll rather than shrink ordinary buttons or drop existing action paths.
+- Slash-pair corner text uses seven squares on one row in this order: current
+  value/Set, +/+, −/−, •/+, •/−, +/•, −/•. A centered dot denotes the unchanged
+  side, not zero or a decimal. Each is the existing relative edit to the same
+  one string. Single-integer text uses Set/+1/−1; other text uses Set with arithmetic
+  unavailable. Do not parse expressions or invent P/T fields. The value square
+  never widens: shrink/wrap long values within it; full text remains accessible
+  and in the Set editor, with bounded truncation if it cannot remain legible.
+  At widths where seven ordinary squares cannot fit, pan the single row rather
+  than making overlapping/undersized targets or silently dropping controls. The
+  412 px review demonstrates the fitting trial, not every device/large-text state.
+- Card counters occupy three rows, two triplets per row, with a vertical divider
+  between triplets. Each triplet is current-value circle/Set, +, −; all six colors
+  remain reachable even when absent. Player-value menus use the same paired
+  triplets and life value/Set,+,−, retaining their title and top-right X. Landscape
+  card Actions puts general actions left and corner/counter controls right.
+- **Relationship emphasis:** focusing/highlighting a visible card or projection,
+  including a selected view,
+  highlights the real source and all its other visible projections at the same
+  viewed boundary. Match stable source identity, not name, owner, clone or field
+  position. Preserve selection/command target IDs: this emphasis does not select
+  every occurrence, merge independent Stack effects, or alter removal scope.
+  Expose equivalent relationship descriptions to accessibility. Offscreen views
+  may be navigated normally; do not leak concealed faces/names or fabricate a live
+  source for a frozen effect whose token disappeared. No request is sent merely
+  for highlighting. Source orientation is shown through combat projections too:
+  a tapped source is not rendered upright merely because it is in combat.
 
 ### Player values: row, life menu and drag preview — D-296
 
@@ -189,6 +243,11 @@ D-297 makes the results heading a small subordinate label, not a new title.
   nonnumeric nonempty value qualifies. Under existing trimming/integer grammar,
   `0`, `+0`, `-0` and zero with leading zeros do not qualify; absent/empty also do
   not. This is a presentation predicate, not removal or conversion of stored text.
+  D-298 spans the **whole portrait middle strip**, not just its library column
+  excluding Stack width. Visible circles are smaller (28 px trial), while separate
+  48 px interaction allocations stay evenly distributed with no overlapping hit
+  targets; landscape uses the same small circles. A smaller drawing does not
+  shrink the card scale, drop a counter or remove accessible/drag/menu access.
   When a row is visible, existing zero values remain visible. Life itself does not
   participate in the predicate. Each player's row is evaluated independently.
 - Tap the colored life square for the existing participant context menu, now
@@ -1500,10 +1559,24 @@ The earlier turn-indicator player/number editor proposal is withdrawn; D-106
 explicitly rejects editing the number. D-109 also rejects dedicated extra-turn
 controls; do not add a player/count editor to compensate for manual step repeats.
 
-Confirmed End turn touch control (D-107): keep End turn visible beside Next step,
-invoking it in one tap without routine confirmation; Undo handles mistakes.
-No menu, hold, or extra confirmation step is required. Exact geometry and hit
-targets remain later work without weakening the approved one-tap interaction.
+**D-298 supersedes D-107's separate-control placement:** one reserved quick square
+invokes Next step by tap and End turn by hold, consuming tap with no double dispatch.
+Keep explicit End turn in the phase picker/Table actions and native accessibility,
+without routine confirmation. Undo handles eligible mistakes under ordinary rules.
+This changes touch access, not the next-turn transition or cooperative permission.
+
+**D-298 phase presentation:** show the exact step as an icon and its phase's color,
+without phase/step words on the table indicator. Every step in the same phase uses
+the same background color; a distinct icon identifies the precise step. Turn number
+remains a separate numeric badge with full accessible player/turn/phase/step names.
+Tap opens a picker with one row per fixed phase and horizontally laid-out step
+icons. Choosing one directly changes only phase/step, preserving turn player and
+number and performing no intermediate card operations. Bottom End turn reads
+**End opponent's turn** when applicable; Next step remains explicitly available
+alongside it inside the picker. Use the tracked turn player's border color on
+indicator and picker. Trial brighter active/faded inactive battlefield **backgrounds**
+only, not reduced card/text contrast. Owner borders, selection, visibility and both
+players' editing rights remain independent. Exact palette/brightness is a UI trial.
 
 Confirmed setup (D-108/D-201): choose the starting player **in the lobby**, offering
 either participant or **Random**; begin turn 1 at Beginning/Untap with that starter.

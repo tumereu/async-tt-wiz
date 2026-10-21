@@ -19,8 +19,8 @@ VIEWPORTS = {'portrait': (412, 892), 'landscape': (892, 412)}
 async def compose_table_review(page, screen, orientation):
     """Materialize inert repeated design markup, never application interactions."""
     await page.evaluate('''({id, orientation}) => {
-        const active=['G05','G07','G08','G08b','H01','H02'].includes(id);
-        const history=['H01','H02','H04','H05'].includes(id);
+        const active=['G01','G02','G05','G07','G08','G08b','G11','G12','H01','H02','H06','H07'].includes(id);
+        const history=['H01','H02','H04','H05','H06','H07'].includes(id);
         for (const pane of document.querySelectorAll('.zone-person')) {
             const own=pane.classList.contains('own'), name=own?'alex':'riley';
             const life=pane.querySelector('.life-square');
@@ -54,6 +54,10 @@ async def compose_table_review(page, screen, orientation):
             }
             pane.append(document.querySelector('#player-counter-row-template').content.cloneNode(true));
             const row=pane.querySelector('.counter-row');
+            if (pane.closest('.portrait-dock')) {
+                row.classList.add('portrait-counter-row'); row.dataset.player=own?'own':'opponent';
+                document.querySelector('.middle').append(row);
+            }
             row.querySelectorAll('.counter-chip').forEach(e=>e.setAttribute('aria-label',`${name}, ${e.getAttribute('aria-label')}`));
             if (own && active) {
                 row.dataset.nonzero='true';
@@ -99,15 +103,33 @@ async def compose_table_review(page, screen, orientation):
         const firstSide=combat.querySelector('.combat-slot:not(.combat-insert) .combat-side');
         firstSide.append(firstSide.firstElementChild.cloneNode(true));
         firstSide.lastElementChild.querySelector('strong').textContent='Ward';
+        if (id==='G02') {
+            const sentinel=document.querySelector('.participant.own .piece');
+            sentinel.classList.add('relation-highlight'); sentinel.dataset.reviewSource='battlefield-sentinel';
+            const declared=document.querySelector('.combat-slot:not(.combat-insert) [data-side="attacker"] .piece');
+            declared.classList.add('relation-highlight'); declared.dataset.reviewSource='battlefield-sentinel';
+            const river=document.querySelectorAll('.combat-slot:not(.combat-insert)')[1].querySelector('.piece');
+            river.classList.add('tapped','relation-highlight'); river.dataset.reviewSource='battlefield-river';
+            const main=document.querySelector('.participant.own .card-row > .card-footprint:nth-child(2) .piece');
+            main.classList.add('relation-highlight'); main.dataset.reviewSource='battlefield-river';
+            const effect=document.querySelector('.stack-pile .piece:last-child');
+            effect.classList.add('tapped','relation-highlight'); effect.dataset.reviewSource='battlefield-river';
+            effect.querySelector('strong').textContent='River'; effect.querySelector('.art .icon').textContent='water_drop';
+        }
         // Static direct controls for each card-counter color, not app handlers.
         for (const color of ['red','blue','green','yellow','purple','gray']) {
             const fragment=document.querySelector('#card-counter-row-template').content.cloneNode(true);
             const row=fragment.firstElementChild; row.classList.add(color);
             row.setAttribute('aria-label',color+' card counter');
             for (const [i,button] of [...row.querySelectorAll('button')].entries())
-                button.setAttribute('aria-label',[`Increase ${color} card counter by one`,
-                    `Decrease ${color} card counter by one`,`Set ${color} card counter`][i]);
-            if (id==='G06' && color==='blue') row.querySelector('strong').textContent='3';
+                button.setAttribute('aria-label',[`Set ${color} card counter`,
+                    `Increase ${color} card counter by one`,`Decrease ${color} card counter by one`][i]);
+            if (id==='G06' && color==='blue') row.querySelector('.fit-value').textContent='3';
+            const player=row.cloneNode(true); player.setAttribute('aria-label',color+' player counter');
+            for (const button of player.querySelectorAll('button')) button.setAttribute('aria-label',button.getAttribute('aria-label').replace('card counter','player counter'));
+            if (color==='blue') player.querySelector('.fit-value').textContent='3';
+            if (color==='gray') player.querySelector('.fit-value').textContent='0';
+            document.querySelector('.player-counter-controls').append(player);
             document.querySelector('.card-counter-rows').append(fragment);
         }
         if (id==='G06') {
@@ -115,14 +137,13 @@ async def compose_table_review(page, screen, orientation):
             preview.classList.replace('owner-own','owner-opponent');
             preview.setAttribute('aria-label','Sentinel, face up, untapped, owner riley, corner text 2/4, blue counter 3');
             preview.querySelector('.pt').textContent='2/4';
-            document.querySelector('.inline-owners .choose-own').setAttribute('aria-pressed','false');
-            document.querySelector('.inline-owners .choose-opponent').setAttribute('aria-pressed','true');
-            for (const sample of document.querySelectorAll('.corner-sample')) {
-                sample.children[0].textContent='2'; sample.children[1].textContent='4';
-            }
+            document.querySelector('.card-tools .choose-own').setAttribute('aria-pressed','false');
+            document.querySelector('.card-tools .choose-opponent').setAttribute('aria-pressed','true');
+            document.querySelector('.corner-set .fit-value').textContent='2/4';
             document.querySelector('.participant.own .piece').classList.replace('owner-own','owner-opponent');
             document.querySelector('.participant.own .piece .pt').textContent='2/4';
         }
+        document.querySelector('.card-preview').insertAdjacentHTML('beforeend','<span class="scope" aria-label="One captured target">1</span>');
         if (id==='G10') {
             const cards=document.querySelector('.hand-cards');
             const examples=[...cards.children];
@@ -144,6 +165,66 @@ async def compose_table_review(page, screen, orientation):
             document.querySelector('.stack-content').remove();
             document.querySelector('.stack-empty').style.display='flex';
         }
+        const opponent=document.querySelector('.opponent-hand'), backs=document.createElement('div');
+        backs.className='opponent-cards';
+        opponent.insertBefore(backs,opponent.firstChild);
+        opponent.querySelectorAll('.back').forEach(e=>backs.append(e));
+        const phaseGroups=[
+            ['beginning',[['Untap','rotate_90_degrees_ccw'],['Upkeep','hourglass_top'],['Draw','download']]],
+            ['precombat',[['Precombat main','looks_one']]],
+            ['combat',[['Beginning of combat','flag'],['Declare attackers','swords'],['Declare blockers','shield'],['Combat damage','local_fire_department'],['End of combat','flag_circle']]],
+            ['postcombat',[['Postcombat main','looks_two']]],
+            ['ending',[['End step','nightlight'],['Cleanup','cleaning_services']]]
+        ];
+        const turnPlayer=id==='G11'?'opponent':'own', turn=id==='H04'?1:4;
+        document.body.dataset.turnPlayer=turnPlayer;
+        const exact=id==='G02'?'Declare attackers':id==='G11'?'Draw':id==='H04'?'Untap':'Precombat main';
+        for (const [phase,steps] of phaseGroups) {
+            const row=document.createElement('div'); row.className='phase-choice-row'; row.dataset.phase=phase;
+            row.setAttribute('role','group'); row.setAttribute('aria-label',phase+' phase');
+            for (const [label,icon] of steps) {
+                const button=document.createElement('button'); button.dataset.icon=icon;
+                button.setAttribute('aria-label',`Set ${label}, preserve current player and turn number`);
+                button.setAttribute('aria-pressed',String(label===exact)); row.append(button);
+                if (label===exact) document.querySelectorAll('.top .phase').forEach(e=>{
+                    e.dataset.phase=phase; e.replaceChildren();
+                    e.insertAdjacentHTML('beforeend',`<span class="icon" aria-hidden="true">${icon}</span>`);
+                    e.setAttribute('aria-label',`Turn ${turn}, ${turnPlayer==='own'?'alex':'riley'}, ${label}${history?', read-only':', choose phase and step'}`);
+                });
+            }
+            document.querySelector('.phase-rows').append(row);
+        }
+        document.querySelector('.top .title').insertAdjacentHTML('beforeend',`<span class="turn-number" aria-label="Turn ${turn}">${turn}</span>`);
+        const context=document.querySelector('.contextual-quick');
+        if (id==='G02') context.innerHTML='<button class="primary combined-icon" data-icon="swords" aria-label="Declare attackers and tap"><span class="icon" aria-hidden="true">rotate_90_degrees_cw</span></button><button data-icon="swords" aria-label="Declare attackers without tapping"></button><span class="quick-slot" aria-hidden="true"></span>';
+        else if (id==='G11') context.innerHTML='<button data-icon="download" aria-label="Draw one for riley"></button><button class="combined-icon" data-icon="download" aria-label="Draw one for riley and advance"><span class="icon" aria-hidden="true">skip_next</span></button><span class="quick-slot" aria-hidden="true"></span>';
+        else context.innerHTML='<span class="quick-slot" aria-hidden="true"></span><span class="quick-slot" aria-hidden="true"></span><span class="quick-slot" aria-hidden="true"></span>';
+        if (turnPlayer==='opponent') document.querySelector('.progression-quick').setAttribute('aria-label',"Next step; hold to end opponent's turn");
+        const actions=[['flag','Choose phase / step'],['skip_next','Next step'],['last_page','End turn'],
+            ['rotate_90_degrees_ccw','Untap all · turn player'],['download','Draw one · turn player'],
+            ['add_box','Create combat area'],['layers_clear','Close combat area'],['add_card','Create catalog token'],
+            ['crop_portrait','Create Blank token'],['casino','Roll die…'],['monetization_on','Flip coin'],
+            ['emoji_events','Suggest my win'],['outlined_flag','Suggest my loss'],['handshake','Suggest draw']];
+        for (const [icon,label] of actions) {
+            const button=document.createElement('button'); button.dataset.icon=icon; button.textContent=label;
+            document.querySelector('.table-action-list').append(button);
+        }
+        document.querySelector('.tree-filters').insertAdjacentHTML('beforeend','<button data-icon="first_page">Root</button>');
+        document.querySelector('.archive-dialog h3').insertAdjacentHTML('afterend','<p>Selected: Z · retained tip Z2</p>');
+        if (id==='H06') {
+            document.querySelector('.timeline-label .paused-label').textContent='Paused · C · Reveal';
+            document.querySelector('.cursor-x').textContent='visibility';
+            document.querySelector('.cursor-x').dataset.eventType='reveal';
+            document.querySelector('.cursor-x').dataset.author='opponent';
+            document.querySelector('.cursor-x').setAttribute('aria-label','riley, C, Reveal, selected personal review');
+            document.querySelector('.node-c').setAttribute('aria-label','riley, C, Reveal, selected personal review');
+        }
+        // Long values fit the static square; native text fitting remains future work.
+        for (const value of document.querySelectorAll('.fit-value')) {
+            let size=parseFloat(getComputedStyle(value).fontSize);
+            const limit=value.closest('.counter-set')?28:44;
+            while ((value.scrollWidth>limit || value.scrollHeight>limit) && size>8) value.style.fontSize=`${--size}px`;
+        }
         // A fixed center reticle; only the path's static capture offset changes.
         const track=document.querySelector('.event-track'), viewport=document.createElement('div');
         viewport.className='event-viewport'; track.replaceWith(viewport); viewport.append(track);
@@ -160,7 +241,7 @@ async def compose_table_review(page, screen, orientation):
 
 
 async def validate_owner_revision(page, screen, orientation):
-    """Regression checks for cumulative D-292–D-297 static presentation."""
+    """Regression checks for cumulative D-292–D-298 static presentation."""
     issues = await page.evaluate(r'''({id, orientation}) => {
         const issues = [];
         const visible = e => !!(e && e.getBoundingClientRect().width && e.getBoundingClientRect().height);
@@ -368,7 +449,7 @@ async def validate_owner_revision(page, screen, orientation):
                 if (document.querySelector('.opponent-hand').parentElement!==document.querySelector('.top'))
                     issues.push('Landscape opponent Hand still occupies battlefield');
             } else {
-                for (const row of document.querySelectorAll('.portrait-dock .counter-row'))
+                for (const row of document.querySelectorAll('.portrait-counter-row'))
                     if (visible(row)!==(row.dataset.nonzero==='true')) issues.push('Portrait counter-row conditional visibility');
             }
             for (const row of document.querySelectorAll('.counter-row')) {
@@ -376,12 +457,23 @@ async def validate_owner_revision(page, screen, orientation):
                 const chips=[...row.querySelectorAll('.counter-chip')], bounds=row.getBoundingClientRect();
                 const first=chips[0].getBoundingClientRect(), last=chips.at(-1).getBoundingClientRect();
                 if (Math.abs(first.left-bounds.left)>1 || Math.abs(last.right-bounds.right)>1 ||
-                    chips.some(e=>getComputedStyle(e).borderRadius!=='50%'))
+                    chips.some(e=>getComputedStyle(e,'::before').width!=='28px'))
                     issues.push('Counters not circular/spread across entire row');
+                if (row.classList.contains('portrait-counter-row')) {
+                    const middle=document.querySelector('.middle').getBoundingClientRect();
+                    if (Math.abs(bounds.left-middle.left-4)>1 || Math.abs(middle.right-4-bounds.right)>1)
+                        issues.push('Portrait counters only span library column, not full middle strip');
+                }
             }
             if (parseFloat(getComputedStyle(document.querySelector('.hand-cards')).gap)>2)
                 issues.push('Hand card gap not compact');
-            if (id==='G10') for (const hand of document.querySelectorAll('.hand-cards,.opponent-hand')) {
+            for (const hand of document.querySelectorAll('.hand-cards,.opponent-cards')) {
+                if (hand.scrollWidth<=hand.clientWidth && hand.children.length) {
+                    const a=hand.firstElementChild.getBoundingClientRect(), b=hand.lastElementChild.getBoundingClientRect(), r=hand.getBoundingClientRect();
+                    if (Math.abs((a.left+b.right)/2-(r.left+r.right)/2)>1) issues.push('Fitting Hand not centered');
+                }
+            }
+            if (id==='G10') for (const hand of document.querySelectorAll('.hand-cards,.opponent-cards')) {
                 if (hand.scrollWidth<=hand.clientWidth || getComputedStyle(hand).overflowX!=='auto')
                     issues.push('Overflowing Hand not horizontally pannable');
                 hand.scrollLeft=hand.scrollWidth;
@@ -401,24 +493,59 @@ async def validate_owner_revision(page, screen, orientation):
                 }
                 if (inserts.some(e=>Math.abs(e.getBoundingClientRect().width-(40*.7143+7))>1.1))
                     issues.push('Empty combat target not one-card width plus tiny margin');
+                if ([...document.querySelectorAll('.combat-insert .combat-side')].some(e=>getComputedStyle(e).borderWidth!=='0px') ||
+                    [...document.querySelectorAll('.combat-insert .icon')].some(visible)) issues.push('Drawn empty combat boxes/plus markers returned');
+                if (document.querySelectorAll('.relation-highlight[data-review-source="battlefield-river"]').length!==3 ||
+                    document.querySelectorAll('.relation-highlight[data-review-source="battlefield-sentinel"]').length!==2 ||
+                    !document.querySelector('.combat .tapped')) issues.push('Tapped combat/source relationship example missing');
             }
             if (['G04','G06'].includes(id)) {
                 const dialog=document.querySelector('.card-action-dialog'), preview=dialog.querySelector('.card-preview');
-                if (!visible(preview) || preview.getBoundingClientRect().top<dialog.getBoundingClientRect().top)
-                    issues.push('Card state preview missing from dialog title corner');
-                if (dialog.querySelectorAll('.card-counter-rows .card-value-row').length!==6 ||
-                    dialog.querySelectorAll('.card-values button').length!==27 ||
-                    dialog.querySelectorAll('.inline-owners button').length!==2)
+                if (!visible(preview) || dialog.querySelector('h2,.dialog-heading,[data-icon="close"]'))
+                    issues.push('Card details missing or title/close X returned');
+                if (dialog.querySelectorAll('.card-counter-rows .counter-triplet').length!==6 ||
+                    dialog.querySelectorAll('.card-values button').length!==25 ||
+                    dialog.querySelectorAll('.card-tools .choose-own,.card-tools .choose-opponent').length!==2)
                     issues.push('Card +/-/Set or inline owner choices hidden in submenu');
+                const pt=[...dialog.querySelectorAll('.pt-controls button')].map(e=>e.getBoundingClientRect());
+                if (pt.length!==7 || pt.some(e=>e.top!==pt[0].top)) issues.push('P/T controls not seven squares on one row');
+                const triplets=[...dialog.querySelectorAll('.counter-triplet')].map(e=>e.getBoundingClientRect());
+                if (new Set(triplets.map(e=>e.top)).size!==3) issues.push('Card counters not paired triplets on three rows');
                 for (const button of dialog.querySelectorAll('button')) {
                     const b=button.getBoundingClientRect();
-                    const text=[...button.childNodes].filter(e=>e.nodeType===Node.TEXT_NODE).map(e=>e.textContent).join('').trim();
-                    if (b.width!==48 || b.height!==48 || text || !button.getAttribute('aria-label'))
+                    if (b.width!==48 || b.height!==48 || !button.getAttribute('aria-label'))
                         issues.push('Card action not square icon-only/named');
                 }
                 if (id==='G06' && (!preview.classList.contains('owner-opponent') || preview.querySelector('.pt').textContent!=='2/4'))
                     issues.push('Retained card preview not updated');
             }
+            if (visible(document.querySelector('.bottom.live-only'))) {
+                const quick=document.querySelector('.quick');
+                if (quick.getBoundingClientRect().width!==204 || quick.querySelectorAll(':scope > button').length!==1 ||
+                    quick.querySelectorAll('.contextual-quick > *').length!==3 ||
+                    quick.querySelector('.progression-quick').dataset.holdAction!=='end-turn')
+                    issues.push('Quick allocation not three contextual plus one tap/hold progression position');
+            }
+            for (const phase of [...document.querySelectorAll('.top .phase')].filter(visible)) {
+                if (!phase.dataset.phase || !phase.querySelector('.icon') || phase.childNodes.length!==1 ||
+                    getComputedStyle(phase).borderTopWidth!=='3px') issues.push('Phase indicator not exact icon/phase color/player border');
+            }
+            if ([...document.querySelectorAll('.top .phase')].filter(visible).length!==1) issues.push('Duplicate/missing phase indicator');
+            if (id==='G11' && (document.querySelectorAll('.phase-choice-row').length!==5 ||
+                document.querySelectorAll('.phase-choice-row button').length!==12 ||
+                !/End opponent/.test(document.querySelector('.phase-progression').innerText))) issues.push('Phase picker incomplete');
+            if (id==='G11') {
+                const rows=[...document.querySelectorAll('.phase-choice-row')];
+                if (new Set(rows.map(e=>getComputedStyle(e).backgroundColor)).size!==5 ||
+                    new Set([...document.querySelectorAll('.phase-choice-row button')].map(e=>e.dataset.icon)).size!==12)
+                    issues.push('Phase colors/exact-step icons not distinct');
+                if (getComputedStyle(document.querySelector('.phase-dialog')).borderTopColor!==
+                    getComputedStyle(document.querySelector('.phase.live-only')).borderTopColor)
+                    issues.push('Phase picker/indicator disagree on turn-player border');
+            }
+            if (id==='H06' && (!visible(document.querySelector('.tree-dialog')) ||
+                document.querySelectorAll('.tree-node').length!==5 || !document.querySelector('.selected-node') || !document.querySelector('.current-node')))
+                issues.push('Graphical tree/selected versus current distinction missing');
             if (!visible(document.querySelector('.chat-button'))) issues.push('Missing direct game chat button');
             if (id==='G09' && (!visible(document.querySelector('.chat-panel')) || visible(document.querySelector('.unread-bubble'))))
                 issues.push('Chat panel/read sample not shown');
@@ -528,14 +655,8 @@ async def main(screen_ids):
                     if screen['id'] == 'G02':
                         await page.evaluate('''() => {
                             document.querySelector('.mode').setAttribute('aria-label','Select mode, 2 selected; choose mode');
-                            document.querySelector('.phase.live-only').setAttribute('aria-label','Phase tracking, Declare attackers');
                         }''')
                 await page.evaluate('document.fonts.ready')
-                if screen['id'] == 'G06':
-                    await page.evaluate('''() => {
-                        const scroll=document.querySelector('.card-action-scroll');
-                        scroll.scrollTop=scroll.scrollHeight;
-                    }''')
                 if screen.get('captureVariant') and orientation == 'landscape':
                     # A static camera framing, not smaller area-specific cards.
                     await page.evaluate('''() => {

@@ -128,6 +128,10 @@ drop issues occurrence edits. Opening/viewing chat sends no read receipt or game
 mutation. Actual chat posts, owner/corner/counter edits and combat drops still go
 through their ordinary server requests; a preview remains a view of predicted/
 accepted state, not an independently authoritative card or hidden-face grant.
+D-298 source/projection relationship highlighting, centered Hand framing,
+small-circle drawing, packed value controls and phase/turn-player color emphasis
+are also presentation. They do not expand selection, alter permissions, copy
+source fields into independent projections or change tracked player/number.
 
 Confirmed card-text normalization (D-59/D-249): trim leading and trailing whitespace
 when a card-text/counter edit is completed, including corner text, card labels
@@ -852,9 +856,11 @@ same next-turn transition: other player, turn number +1, Beginning/Untap. It doe
 not execute skipped step operations, untap/draw cards, or mark the game complete.
 No manual turn-number editor is needed; numbering follows transitions, and undo/
 replay/branch review restores the number at the relevant boundary normally.
-D-107 keeps End turn visible beside Next step and invokes it in one tap without
-routine confirmation, relying on Undo. Exact geometry and atomic/group boundaries
-remain under review; D-109 omits dedicated extra-turn/player-count corrections.
+D-298 supersedes D-107's separate one-tap placement: one reserved quick square
+uses tap for Next step and hold for End turn, with hold consuming tap. Explicit
+End turn remains in the phase picker/Table actions and accessibility, without
+routine confirmation. This is touch presentation, not a new priority/pass state
+or transition. D-109 still omits dedicated extra-turn/player-count corrections.
 
 D-108 chooses the starting player during setup and initializes their turn 1 at
 Beginning/Untap, without automatically changing cards. This initializes shared

@@ -239,7 +239,37 @@ not create an empty fork or pretend the continuation succeeded.
 
 ## 7. Continuation checklist and existing contract anchors
 
-**D-297 direct controls:** player counters beneath libraries are evenly spread
+**D-298 supersessions:** center fitting Hand content while retaining overflow
+reach; trial four fixed quick positions, with **three contextual positions plus
+one tap-Next-step/hold-End-turn square**. The owner's follow-up replaces the
+initial two-slot progression plan and D-107's separate one-tap End turn. Hold
+consumes tap; keep explicit picker/Table actions/accessibility End turn, no new
+priority/pass state. The review's full quick-action catalog gives all currently
+specified situations/icons/scopes/full paths, with G02 as the one layout example.
+
+Combat draws only faded vertical dividers, no empty card boxes/+ markers; empty
+insertion hit regions remain. Tapped card envelopes and source orientation remain
+visible through projections. Highlighting one card/projection emphasizes its real
+source and other visible projections by stable source ID, without changing
+selection/command scope, hidden disclosure or unrelated same-name cards.
+
+Smaller player circles span the full portrait middle strip, including Stack-side
+width, not just the library column; preserve distinct usable hit allocations.
+Phase display is phase color + exact-step icon with turn-player border, no phase/
+step text. Five-row/twelve-position picker chooses phase/step only; End turn at
+bottom (End opponent's turn when applicable) changes player/number normally. Trial
+active/inactive background strength never fades cards or changes permissions.
+
+Card actions have no title/X: top-left details take two square positions, other
+actions pack around them; landscape tools left, fields right. Seven P/T squares
+are value-Set,+/+,−/−,•/+,•/−,+/•,−/•; unchanged dots are centered. Counter controls
+are three rows of paired value-circle/Set,+,− triplets, divider between pairs.
+Player menu keeps title/X. Review supplies full action/phase legends, explicit
+Table actions (formerly vague Game actions), graphical H06 and archive/return H07.
+Existing root/internal review versus shared activation/continuation, hidden filter,
+Redo clearing, reversible archive/restore and full-tree download rules govern.
+
+**Earlier D-297 direction (D-298 refines geometry above):** player counters beneath libraries are evenly spread
 circles, retaining portrait row conditions. Chat has a separate button/unread
 bubble and opens a panel; local viewing is not a shared read receipt. Card Actions
 has grouped square icon-only buttons with direct corner/counter +/−/Set and inline

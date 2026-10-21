@@ -1,4 +1,12 @@
 :root { color-scheme: light; font-family: system-ui, sans-serif; color: #17202a; background: #f4f6f8; }
+@font-face { font-family: 'Review Legend Symbols'; font-weight: 100 700;
+  src: url('sources/assets/3ae08513a06396b0258c.woff2') format('woff2'); }
+.legend-icon { font: 24px/1 'Review Legend Symbols'; font-feature-settings: 'liga';
+  display: inline-block; vertical-align: middle; white-space: nowrap; }
+.legend-pair { display: inline-flex; align-items: center; justify-content: center;
+  gap: 3px; font: 17px/1 system-ui; white-space: nowrap; }
+.legend-dot { width: 4px; height: 4px; background: currentColor; border-radius: 50%; display: inline-block; }
+.legend-own { color: #237963; } .legend-opponent { color: #b34850; }
 * { box-sizing: border-box; }
 body { max-width: 1120px; margin: 0 auto; padding: 32px 24px 80px; line-height: 1.55; background: white; }
 h1, h2, h3 { line-height: 1.2; }
@@ -52,6 +60,7 @@ figcaption { font-size: .85rem; color: #4b5563; margin-top: 6px; }
   p { margin: 6pt 0; }
   ul { margin-top: 5pt; margin-bottom: 5pt; }
   #whole-journey-interaction-budgets { break-before: page; }
-  /* Keep L04's long interaction notes and their source line on one page. */
-  #l04-prepare-mainboard-and-sideboard { line-height: 1.25; }
+  /* Keep long L04/H01 interaction notes and their source lines together. */
+  #l04-prepare-mainboard-and-sideboard,
+  #h01-historical-review-paused-at-an-exact-event { line-height: 1.25; }
 }

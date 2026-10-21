@@ -29,7 +29,7 @@ The general rules are:
 
 ## Confirmed behavior
 
-### Current table presentation and ownership — D-295–D-297
+### Current table presentation and ownership — D-295–D-298
 
 - Own field is green, opponent field red; no battlefield area labels, visible
   slots or row separators. Logical snapping remains. Cards and ordinary visual
@@ -79,6 +79,18 @@ bubble and panel (personal viewing state, not read receipts). Card actions are
 direct grouped square icons, including inline owner and +/−/Set, no category
 submenus. A dialog is acceptable with a persistent current-state card preview;
 outside tap/native Back dismiss, repeated field edits retain it as already agreed.
+
+D-298 centers fitting hands and trials four quick positions: three contextual
+positions plus **tap Next step / hold End turn** in one square. Extra contextual
+choices pan; the review documents every situation/icon/full route. Combat uses
+only faint vertical dividers, no drawn empty boxes, with tapped projections and
+source-identity relationship emphasis distinct from selection. Small counter
+circles span the entire portrait middle strip. Card actions lose title/X, pack
+around two-position card details, and use one seven-square corner row plus three
+paired counter-triplet rows. Player menus retain title/X. Icon legends, graphical
+tree/return flows and explicit Table actions make the formerly unpictured routes
+reviewable without changing shared activation/Undo/archive rules. Turn-player
+border and stronger/quieter field backgrounds are a visual trial, not permissions.
 
 ### Android installation and updates
 
@@ -427,9 +439,14 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   attackers → Declare blockers → Combat damage → End of combat → Postcombat
   main → End → Cleanup.**
 - Next step changes tracking only. Tap the phase/step indicator to jump directly,
-  without executing skipped operations. Cleanup → Next step and one-tap End turn
+  without executing skipped operations. Cleanup → Next step and End turn
   switch players, increment the turn number, and go to Untap without untapping or
-  drawing. End turn stays beside Next step and is available at any step.
+  drawing. D-298 combines them in one quick slot: tap Next step, hold End turn;
+  hold consumes tap and cannot also advance a step. Explicit End turn remains in
+  the phase picker/Table actions/accessibility, without routine confirmation.
+  The icon-only phase indicator uses one color per phase, exact-step icon and
+  turn-player border. Picker rows contain each phase's steps horizontally; direct
+  choice preserves player/number. End turn reads End opponent's turn when applicable.
 - During Untap: Untap all for the turn player's battlefield, alone or +advance to
   Upkeep. No inferred exceptions/skip flags; manually re-tap exceptions.
   During Draw: Draw one, alone or +advance to Precombat main. Standalone actions

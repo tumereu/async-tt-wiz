@@ -3,14 +3,15 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension and cumulative D-292–D-297 revisions, with both orientations: 41 primary
-  drafts plus four continuations, 90 captures total.
+  extension and cumulative D-292–D-298 revisions, with both orientations: 45 primary
+  drafts plus four continuations, 98 captures total.
   N02 shows navigation;
   P03/P04 show context/deletion, D07 contextual import and D08 full inspection.
   P05 adds named creation. G00 is retired provenance, not a current screen;
-  G01–G10/G08b and H01–H05 add live/history, direct actions/retained card preview,
+  G01–G12/G08b and H01–H07 add live/history, direct actions/retained card preview,
   token/ping/reveals, life/player-counter menus/drag previews, chat, overflowing
-  hands and fixed-center timeline endpoints.
+  hands, fixed-center timeline endpoints, phase picker/Table actions and tree/
+  archive navigation. The review includes full quick-action and card/phase icon catalogs.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
   clarified interactions and remaining geometry proposals.
 - `sources/` retains raw Stitch output and inert review derivatives; `images/`
@@ -22,7 +23,7 @@ These are specification artifacts, not application code or an approved final UI.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - **[Cumulative feedback](feedback.md):** preserve every owner decision across
-  rounds unless explicitly superseded; read before regeneration. F01–F68 apply;
+  rounds unless explicitly superseded; read before regeneration. F01–F82 apply;
   the packet's full-screen copy audit lists further deletion suggestions, not
   silently approved removals. Raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
@@ -124,6 +125,17 @@ full-row circular player counters, centered timeline/endpoint examples, direct
 chat/panel and square named icon-only card actions with inline owner/value controls
 and persistent updated state preview. Static scroll/offset/template composition
 is capture tooling, not native pan/drag/dismissal or message-read implementation.
+
+D-298 adds Hand centering without negative overflow, a fixed four-position quick
+strip (three contextual plus one tap-Next/hold-End), divider-only combat/tapped
+source relationships, small-circle full-strip portrait counters, a single icon/
+color phase indicator, five-row/twelve-position phase picker, titleless/X-less
+packed card controls with seven P/T squares and three paired counter rows, and
+explicit tree/current/selected examples. The Markdown/HTML/PDF legend glyphs use
+the same locally embedded font as captures. Native holds, source highlighting,
+tree activation and archive/restore remain specified/future verification, not
+implemented handlers. G02 alone demonstrates quick-control positioning; the
+catalog documents every currently specified situation and full alternative.
 
 ## Private review hosting
 

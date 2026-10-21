@@ -62,6 +62,14 @@ rendering, panning or cancelling a drag creates nothing. Accessible targeted ent
 must not depend on hitting a tiny gap. Closed combat does not gain a permanent
 visible empty row from these affordances. Exact margins/artwork remain reviewable.
 
+D-298 changes only their drawing: use faint vertical paired-slot dividers, **no
+empty card rectangles, dashed boxes or plus signs**. Empty insertion hit regions
+and accessible entry before/between/after pairs remain. Combat cards can be tapped:
+fit the full rotated card envelopes at the same scale, and render source orientation
+through projections, not an independently untapped combat copy. The board contract's
+source-identity relationship emphasis highlights real source/other projections
+without expanding selection or changing source-versus-occurrence action scope.
+
 ## 13.1 Confirmed capabilities
 
 **Basic spatial model (D-158):** combat is a separate area between the player's

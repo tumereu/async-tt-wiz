@@ -85,6 +85,27 @@ currently authorized. Earlier alternate design-round order is superseded.
 
 During stage 4+, after the preceding stages and implementation authorization:
 
+**Preparation update — D-300/D-301:** the owner requests a thin outer loop that
+launches a fresh agent for one bounded implementation, grouped behavioral review,
+fix or targeted verification unit; it validates/saves/pushes and exits before the
+next agent. Independent review is after coherent capabilities, **not each task**;
+tests and relevant validation still accompany every task. The
+[draft plan](implementation-plan.md), [execution/review contract](implementation-loop.md)
+and [inactive state](implementation-state.json) define the proposed work/dependency
+and handoff details. This sequencing refines the generic cycle below; its
+per-slice checks are not mandatory independent reviewer sessions after each slice.
+
+Review prioritizes actual casual cooperative use: usability, responsiveness,
+realistic performance, crashes, accepted-state loss/duplication, broken recovery
+and harmful races. Require concrete evidence/credible triggers and player impact;
+do not invent competitive/mission-critical guarantees or resurrect D-289's
+withdrawn reset/message-order machinery. Current functional/security obligations
+and tests remain. UI is the owner's good-enough planning baseline, not perfect or
+frozen. The separately authorized
+[local environment smoke](e2e-environment-smoke-2026-10-21.md) passed isolated
+one/two/three-device checks; normal-app/backend acceptance is still unimplemented.
+No runner or application implementation is activated by these preparations.
+
 **Autonomous through completion — D-256:** once this loop is authorized and begins,
 continue through the entire agreed scope without asking for routine slice approval
 or a new "continue" after each milestone. Establish the agreed scope and observable
@@ -115,8 +136,9 @@ starting implementation during the current specification phase.
    Report actual completion or the genuine blocker preventing it, not merely that
    one slice or one coding pass is complete.
 
-Proposed order: deterministic state/history core; local Android table and online
-publication/request recovery; automatic shared sync; review/branch/undo; full generic
-tabletop toolkit and manual MTG coverage; notifications/catalog/decks; operational
-hardening. This is an unapproved candidate order, not a settled delivery plan or
-current implementation authorization. Plan actual slices after stages 1–3.
+The older candidate order (core → local table → sync → history → toolkit →
+entry/catalog) is superseded **as the current planning draft**, not as an approved
+stage transition, by the source-linked B1–B8 plan. It gets normal entry/decks/lobby
+and real-UI test wiring in place before claiming gameplay E2E; shared server
+authority is the default from the first shared behavior, never a local game to
+retrofit later. The plan can be refined within approved scope before activation.

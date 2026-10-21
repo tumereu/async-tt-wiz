@@ -5,6 +5,22 @@
   [design index](docs/README.md) and [session handoff](docs/agent/session-handoff.md).
 - Preserve unrelated user work. Inspect Git status before editing and include
   only the files belonging to the current task when saving.
+- **Implementation-loop preparation — D-300/D-301.** Read the
+  [draft task plan](docs/agent/implementation-plan.md),
+  [fresh-session/review contract](docs/agent/implementation-loop.md) and
+  [inactive progress record](docs/agent/implementation-state.json). The owner
+  authorized isolated environment/tooling smoke tests and planning against the
+  finished UI packet as a good-enough starting point, not a perfect/frozen UI or
+  application implementation. The future loop uses one fresh agent per bounded
+  implement/review/fix/verify unit, saving and exiting before the next agent.
+  Independent reviews follow coherent capability groups, not every task. Focus
+  findings on evidenced, credible effects on real use: usability, responsiveness,
+  performance, crashes, accepted-state integrity/recovery and harmful races.
+  This is a casual cooperative simulator, not a mission-critical or competitive
+  system. No style nitpicks, speculative hardening or superseded password-reset/
+  message-order guarantees as blockers. Preserve basic security, current agreed
+  outcomes and required tests; no invented behavior, silent omissions or bypasses.
+  The runner and implementation authorization are still pending.
 - **Keep UI review refreshable and feedback cumulative.** After any UI-document
   edit batch, rebuild and publish a new HTML edition of the **full** review document
   at the exact existing URL: `https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html`.

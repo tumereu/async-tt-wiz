@@ -1,4 +1,4 @@
-# 14. Session handoff — resume behavior specification
+# 14. Session handoff — implementation-loop preparation, not activation
 
 Updated 2026-10-21. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](decisions.md); detailed contracts
@@ -14,7 +14,41 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-299
+## Current preparation — D-300/D-301
+
+The owner wants an outer loop launching a fresh agent for one implement/review/
+fix/targeted-verification unit, then validate/commit/push/exit before the next.
+Review coherent groups, not every task; focus on observable usability,
+responsiveness/performance, crashes, accepted-state/recovery issues and harmful
+races in a **casual cooperative simulator**, not style nitpicks, competitive
+guarantees or contrived reset/message-order cases. Basic privacy/security and
+agreed behavior/tests stay. See [loop contract](implementation-loop.md).
+
+The owner authorized missing test-tool installation and isolated environment
+smokes, then asked to wait for the UI agent before drafting tasks. Tests finished;
+the UI agent was idle and Git clean at `f3bd2cc65f6ca885dc48daeba4355a2ba9bb00df`.
+The [draft plan](implementation-plan.md) therefore uses the completed D-299/F01–F88
+packet: **36 task selections / eight capability-review groups**. Treat UI as a
+good-enough initial baseline expected to improve in real use, not perfect/frozen
+art, approval of extra product behavior or automatic gate/stage advancement.
+
+[Environment qualification](e2e-environment-smoke-2026-10-21.md): local WSL lacks
+KVM, but Windows WHPX emulators work through loopback remote ADB/Appium. Kotlin/
+JUnit native touch + Docker-network UI checks passed with one, two and three
+instances; all three passed again after wipe/cold boot and Compose reset alongside
+real Testcontainers/PostgreSQL/JDBC. Scope Java build/test processes to IPv4 on
+this host; detach Windows launchers and use Windows-native emulator shutdown.
+The initial fixture-browser reset failure/evidence and fixes are retained.
+All owned test services/emulators were stopped; tools/evidence remain outside Git.
+These are tooling tests, **not normal-product APK/backend/Canvas acceptance**.
+
+`implementation-state.json` is **draft/not-authorized**, every application task
+pending. No app scaffolding or loop runner was built. Next preparation is review/
+refinement of the plan and qualifying the thin runner/permissions/budget/stop
+behavior when authorized; application work still needs explicit owner approval
+after the design gates. Do not start I01 from the mere existence of a task list.
+
+## Completed UI feedback iteration — D-299
 
 Read cumulative F01–F88 before further UI work; full HTML/PDF remains at the exact
 port-8443 URL, replaced and verified each batch. Player absent values are **blank**,

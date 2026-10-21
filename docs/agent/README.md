@@ -12,6 +12,14 @@ support continuity and traceability; they are not another competing specificatio
 - [October 20 follow-up review](adversarial-review-2026-10-20-follow-up.md): F-01 withdrawn under D-254; D-257 resolves F-05 with singleton ending groups; D-258 resolves F-02 with deliberate-switch Redo clearing. D-259 clarifies server/UI authority; other derived repairs remain.
 - [Current review after D-259](adversarial-review-2026-10-20-current.md): G-01–G-07 cover historical bulk handoff, ordered recovery, late exposure, mixed-token lowering, randomness agreement, leading-ping wording and active specification drift. Review findings, not selected new behavior.
 - [Delivery workflow](delivery-workflow.md): readiness gates and the later implementation loop.
+- [Draft implementation plan](implementation-plan.md): 36 task selections in eight
+  capability/review groups, based on the completed D-299 UI packet; not activated.
+- [Fresh-session loop/review contract](implementation-loop.md) and
+  [inactive progress record](implementation-state.json): selection, behavioral
+  review/fix verification, durable handoffs and save/stop boundaries.
+- [Local E2E environment qualification](e2e-environment-smoke-2026-10-21.md): measured
+  Kotlin/JUnit/Appium/Windows-emulator/Docker smoke results, retained evidence and
+  limitations; not product acceptance or implementation authorization.
 
 Use decision history to establish approval/provenance, then reflect that result
 in the appropriate design tier. An unapproved proposal, old handoff, or worklist

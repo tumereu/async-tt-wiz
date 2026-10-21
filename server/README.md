@@ -5,7 +5,8 @@ forward-only Flyway migrations, an explicit executable migration command and
 server-only generated jOOQ bindings. I01c2a adds the real database writer
 ownership/epoch-fenced transaction boundary; I01c2b supplies the real Spring Boot
 service, separate public/health listeners, runtime configuration and bounded process
-shutdown/recovery.** The application image/lifecycle qualification remains I01c3.
+shutdown/recovery. I01c3 adds the local application OCI image and isolated image
+lifecycle qualification.** No image is published or deployed by these interfaces.
 No account/game/inbox/outbox schema, product API or durable worker exists yet.
 
 ## Build and test
@@ -171,7 +172,7 @@ reload. There are **no account/game/durable inbox/outbox/mail/push workers** to 
 flush or claim healthy. SMTP/MAIL/FCM credentials are not required/parsed before those
 adapters exist. Every future implemented worker must join recovery/readiness and
 shutdown before its command routes are admitted; this foundation does not claim
-future durable recovery. Image-level SIGTERM/restart is still I01c3.
+future durable recovery. The local image tests below exercise this same foundation.
 
 Focused real-process/admission checks (Linux signals, Testcontainers-owned PostgreSQL):
 
@@ -232,7 +233,7 @@ that arbitrary callback code is interruptible. Close is terminal/idempotent and
 releases the dedicated connection without waiting for application callbacks; a
 restart creates a new manager and epoch. Existing transactions still fence a
 replacement until commit/rollback or their database timeout. I01c2b qualifies Spring
-process drain/SIGTERM; image-level qualification remains I01c3.
+process drain/SIGTERM; the local image suite separately checks the packaged process.
 
 `WriterOwnershipTest` uses real owned PostgreSQL, test-owned probe tables and
 lower-layer transactions, never product test-action endpoints. It observes actual
@@ -250,6 +251,111 @@ Run just this scope with:
 No account/game/inbox/outbox/mail/push worker exists. Each future durable worker
 must join recovery/readiness before the real service can accept commands; this
 singleton-only foundation does not claim those workers have reloaded.
+
+## Local application image — I01c3
+
+Prerequisites are the same clean-build toolchain and local Docker daemon above,
+plus Python3 stdlib. Build from the repository root:
+
+```sh
+python3 scripts/build-server-image.py
+python3 tests/server/image_lifecycle.py
+```
+
+The build always cleans `:core`, `:protocol` and `:server`, disables the build
+cache, uses ordinary strict locks, regenerates jOOQ against an owned migrated
+PostgreSQL17 and installs the normal distribution. A small allowlisted context
+contains only its runtime JARs and the checked Dockerfile/ignore rules: no checkout,
+Gradle cache, test/code-generation tooling, credentials or host configuration.
+It then executes `docker build --pull --network=none --platform linux/amd64
+--iidfile ...` with source/distribution labels. No Docker socket is mounted in a
+builder. The output is **local only**, without a registry tag/push/deployment:
+
+- `server/build/application-image.id`: exact local OCI image identity, not a
+  mutable tag. BuildKit metadata/attestation may give a different ID on rebuild;
+  the recorded per-JAR/generated-schema hashes identify the actual payload.
+- `server/build/application-image.json`: platform, immutable base, starting source
+  commit, Dockerfile/distribution/runtime-JAR and generated-schema hashes. A build
+  during an uncommitted unit records the starting commit, not a claim those new
+  inputs already belong to that commit. Preserve this JSON with qualification
+  output before cleaning `server/build`.
+
+`server/Dockerfile` pins Eclipse Temurin **21.0.12.1+1 JRE / Ubuntu 24.04** by
+multi-platform index digest `sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c`.
+The source revision/platform manifests are retained in this run's preflight output;
+OpenJDK's included legal notices and actual runtime version are inspected in the
+image tests. This is dependency provenance, not completed redistribution notices,
+provider/art rights or release clearance. Deliberate base updates require
+requalification; neither a floating tag nor an assumed patch upgrade is used.
+
+The runtime is numeric **UID/GID 10001**, with root-owned non-writable application
+JARs. The direct exec-form Java entrypoint is PID1 and requires exactly `serve` or
+`migrate`; there is **no implicit default command or automatic migration**. No
+shell/certificate-entrypoint work runs before Java. The unchanged base trust store
+is used; this interface does not promise private-CA injection. No service credential
+or database target is baked into image configuration/layers. The tests export the
+actual filesystem and match every packaged JAR to the locked distribution hashes.
+
+Example **local development** commands against a separately intended local Docker
+network/database (replace all named inputs; these are not production orchestration):
+
+```sh
+IMAGE_ID=$(cat server/build/application-image.id)
+docker run --rm --network "$LOCAL_NETWORK" --read-only --cap-drop=ALL \
+  --security-opt=no-new-privileges --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 \
+  --mount "type=bind,src=$LOCAL_PASSWORD_FILE,dst=/run/secrets/db-password,readonly" \
+  --env "DB_URL=$LOCAL_JDBC_URL" --env "DB_USER=$LOCAL_DB_USER" \
+  --env DB_PASSWORD_FILE=/run/secrets/db-password "$IMAGE_ID" migrate
+docker run --name "$LOCAL_SERVICE_NAME" --network "$LOCAL_NETWORK" --read-only \
+  --cap-drop=ALL --security-opt=no-new-privileges \
+  --tmpfs /tmp:rw,nosuid,nodev,size=64m,mode=1777 \
+  --mount "type=bind,src=$LOCAL_PASSWORD_FILE,dst=/run/secrets/db-password,readonly" \
+  --env "DB_URL=$LOCAL_JDBC_URL" --env "DB_USER=$LOCAL_DB_USER" \
+  --env DB_PASSWORD_FILE=/run/secrets/db-password \
+  --env "PUBLIC_BASE_URL=$LOCAL_PUBLIC_BASE_URL" --env HEALTH_ADDRESS=0.0.0.0 \
+  --publish 127.0.0.1::8080 --publish 127.0.0.1::8081 "$IMAGE_ID" serve
+docker port "$LOCAL_SERVICE_NAME"
+docker stop --timeout 30 "$LOCAL_SERVICE_NAME"
+docker rm "$LOCAL_SERVICE_NAME"
+```
+
+The password path must be absolute, a regular UTF-8 file readable by UID10001
+(use appropriate local group/ACL/mode; do not make real credentials world-readable).
+The filesystem can be read-only with bounded writable `/tmp`. Listener inputs are
+unchanged: health defaults to container **loopback**, so opt into
+`HEALTH_ADDRESS=0.0.0.0` only on the intended private network. The development
+examples publish dynamically assigned **host-loopback-only** ports; public API and health are
+distinct ports. A Docker EXPOSE declaration does not publish a host port. No Docker
+healthcheck is baked in: use the actual `/health/live` and `/health/ready` contracts
+on the health port, not public-port or process-only guesses.
+
+The image test suite provisions a UUID-labelled **internal** Docker network,
+explicitly named private volume and pinned PostgreSQL17. It is separate from both
+Testcontainers and the later I01e reusable Compose environment. Every scenario
+gets a fresh database; in-scenario service/DB restarts retain its volume/data.
+The suite uses actual HTTP from the local Linux/WSL Docker host directly to its
+private bridge IP, with **no published host ports** and no network egress. Docker29
+suppresses port mappings on an internal network; a Docker Desktop/remote-daemon
+host without direct bridge access needs its own qualified test adapter, not a
+silent change to external networking. The development examples above are for an
+intended local network where explicit loopback publication is available.
+It tests real image commands, schema refusal without repair, private file secrets
+(including CRLF, unreadable and malformed input), nonroot/read-only execution,
+public/health HTTP isolation, writer competition/takeover, DB outage and recovery
+schema revalidation, <=30s actual SIGTERM (including DB blackhole), and retained
+singleton epoch restart. There are no user-action/test-only product endpoints.
+Safe output is captured **before** targeted cleanup, including on assertion failure;
+cleanup verifies exact owned containers/network/volume and temporary secrets are
+removed, and pre-existing unrelated resources are left intact. Built/base image
+caches are deliberately retained for subsequent local work, not pruned globally.
+
+Only **linux/amd64** execution is qualified here. The build can select
+`--platform linux/arm64` when that capacity exists, but building/selecting a base
+manifest is not arm64 execution qualification. The amd64-only suite explicitly
+refuses to certify arm64. Full mixed-version/architecture/runtime/device delivery
+qualification remains I35; physical performance remains I33 and external release
+gates remain unchanged. Only the ownership recovery scheduler/singleton reload
+exists: no account/game/inbox/outbox/mail/push worker recovery is claimed.
 
 ## Scope, evidence and remaining obligations
 
@@ -292,6 +398,15 @@ two-writer takeover, DB outage/blackhole recovery, epoch fencing/row-lock waits,
 configuration redaction and bounded SIGTERM/restart pass together without product
 changes. Exact command outputs, JUnit XML, dependency provenance and owned cleanup
 are retained in that run. This is implementation qualification, **not independent
-B1 review** or full T-630/T-662 acceptance. Image I01c3, I01c/I01 combined parent
-qualification, Compose/device work, full product/architecture acceptance and all
-external release gates remain open.
+B1 review** or full T-630/T-662 acceptance. At that checkpoint, image I01c3,
+I01c/I01 combined parent qualification, Compose/device work, full product/architecture
+acceptance and all external release gates remained open.
+
+The [I01c3 image qualification](../docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json)
+now closes the image child only: two clean locked builds with matching runtime and
+generated-schema hashes, two complete four-scenario local amd64 OCI lifecycle runs,
+and all 34 service/database regressions pass. Exact image/base identities, runtime
+legal/version inventory, JUnit XML, original networking/cache diagnostics and owned
+cleanup are retained. The repeated image's DB-blackhole SIGTERM exits in 10.374s
+(under 30s). No image is published/deployed. I01c/I01 parent qualification, B1 review,
+normal app/Compose/device/product/arm64 acceptance and release gates remain open.

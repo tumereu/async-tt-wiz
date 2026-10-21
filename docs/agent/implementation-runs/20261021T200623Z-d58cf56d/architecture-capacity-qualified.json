@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import platform; from pathlib import Path; import subprocess; print(\"Host architecture:\",platform.machine()); print(\"Docker architecture:\",subprocess.check_output([\"docker\",\"info\",\"--format\",\"{{.Architecture}}\"],text=True).strip()); root=Path(\"/proc/sys/fs/binfmt_misc\"); entries=sorted(root.iterdir()) if root.is_dir() else []; print(\"Registered binfmt handlers:\",[p.name for p in entries]); [print(p.name,p.read_text()) for p in entries if p.is_file() and p.name not in (\"register\",)]; print(\"Only local native amd64 is exercised; no arm64 native/remote runner supplied or arm64 measurement claimed. I35 remains required.\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "0bb48c5c97f8b1f3aeae525c370e3b320d1cea72fedf363ec520f05e373d8555",
+  "output": "Host architecture: x86_64\nDocker architecture: x86_64\nRegistered binfmt handlers: ['WSLInterop', 'python3.14', 'register', 'status']\nWSLInterop enabled\ninterpreter /init\nflags: PF\noffset 0\nmagic 4d5a\n\npython3.14 enabled\ninterpreter /usr/bin/python3.14\nflags: \noffset 0\nmagic 2b0e0d0a\n\nstatus enabled\n\nOnly local native amd64 is exercised; no arm64 native/remote runner supplied or arm64 measurement claimed. I35 remains required.\n"
+}

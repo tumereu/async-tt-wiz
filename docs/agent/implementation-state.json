@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -169,7 +169,10 @@
     {
       "id": "I01c3",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json",
+      "buildNotes": "server/README.md",
+      "qualification": "Real service/explicit migrate share a local-only OCI image on digest-pinned Temurin21.0.12.1+1 JRE/Ubuntu24.04. Two clean build-cache-disabled strictly locked builds regenerate real PostgreSQL/Flyway/jOOQ and produce matching runtime-JAR/generated-schema hashes; exact base/platform/application identities retained. Two full four-scenario amd64 image suites pass: nonroot/read-only runtime/exported payload, no build tooling/credentials, explicit fresh/retained migration, unchanged empty/unversioned/checksum/future/missing-singleton refusal, separate detail-free live/ready/public HTTP, file-secret/configuration failures/redaction, two writers/dedicated-session takeover, DB stop/start and schema/epoch recovery, actual PID1 SIGTERM including 10.374s paused-DB shutdown and same-container/retained-DB restart. All 34 service/database regressions, shared JVM tests, independent jOOQ generation, strict locks/boundaries, dependency/base provenance and coverage accounting pass. Original Docker29 internal-bridge/BuildKit inventory and one-line inventory syntax failures are retained as diagnostics with tested repairs. Owned containers/networks/volumes/processes removed; pre-existing unrelated inventory intact; image caches retained without publication/deployment. Only ownership scheduler/singleton recovery exists. I01c/I01 qualification, B1 review, Compose/device/full-product/arm64 execution and all release gates remain open.",
       "dependsOn": ["I01c1", "I01c2"],
       "outcome": "Package the real service and explicit migration command in one application OCI image with a qualified digest-pinned JVM21 base and retained built-image identity. Supply reproducible local image build/run/configuration documentation and isolated image-lifecycle checks using owned PostgreSQL17, not production orchestration or the later reusable E2E Compose environment. Qualify the available amd64 runtime; retain full architecture/compatibility obligations in I35 without publishing/deploying the image.",
       "checks": [

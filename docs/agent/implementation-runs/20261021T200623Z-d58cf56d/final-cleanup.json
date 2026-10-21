@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261021T200623Z-d58cf56d/final-cleanup.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "2903aaec49986426a9a05b4d0d0988a6f2febbfa4d15f0fca87c5a495d5af049",
+  "output": "containers [\"9f71282671af5fdc2a3dfbca0b8fc591d497fcc7f2e172731144c7ed6f7833d2\"]\nnetworks [\"68f5e261dfdc645e5ce6121ac7652e5043010396a62f56d0a042c36ecae5e224\", \"bb449130cd7311c5d95cb2b1365820cc18ac044f17cbbaf43612f4ff389f338d\", \"e8f0a86566dd1a6b9330f8ce751d14d706bdb87b5f9d1029c6a22c9a355038b2\"]\nvolumes []\nRemaining installed service JVMs: []\nPASS no run-owned application/PostgreSQL/Testcontainers/reaper containers, networks, volumes or installed service JVMs remain\nPASS exact pre-existing unrelated resource inventory preserved; image/base caches intentionally retained; no global cleanup performed\n"
+}

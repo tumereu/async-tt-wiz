@@ -146,6 +146,19 @@ Issue records retain `open → fixed-awaiting-check → verified`, plus explicit
 withdrawal/duplicate/blocked dispositions. The state may add child IDs before
 execution; the same approved parent/batch/coverage obligations remain.
 
+The driver checks **transitions**, not just status names. Implementation cannot
+review its own batch; a fix cannot verify or waive its own finding. Splitting is
+a planning-only unit leaving the parent in progress and new same-batch children
+pending for fresh units. A completed parent requires all its children implemented.
+Only attempted finding subsets may change during fix/verify. Necessary independent-
+lane/blocker bookkeeping and material review/finding reopenings use the explicit
+explained arrays in [the unit report contract](implementation-agent.md), never
+unreported advancement of unrelated tasks or reviews. A critical finding discovered
+inside an implementation unit is explicitly reported and prioritized normally.
+An early critical fix's clean verification returns an incomplete batch to pending,
+not prematurely reviewed. Final clean review/verification anchors the starting code
+commit that the fresh reviewer/verifier actually inspected.
+
 The report/state changes are saved with the unit. A commit cannot truthfully
 contain its own hash: the runner records the resulting commit and push confirmation
 in its external run journal after save, and the next session can reconcile them
@@ -153,6 +166,8 @@ with Git/report paths. Before the next launch verify that report/state is in the
 resulting commit, the working tree/index is safe and the configured upstream
 contains that commit. A final assistant sentence/zero process exit alone is not
 evidence of completion or a successful push.
+Every report/check-output reference must exist byte-for-byte in that commit;
+local ignored build output is not a durable check record.
 
 ## Runner lifecycle and stop rules
 
@@ -196,7 +211,13 @@ Required behavior for that wrapper:
 The driver uses one active agent and no automatic failed-unit reruns; stop if a supposedly
 successful run advances no task/finding/evidence; stop if the same finding remains
 unresolved after two fix attempts without a new diagnosis. These are engineering
-safeguards, not a defect waiver or extra per-slice owner checkpoints. Positive
+safeguards, not a defect waiver or extra per-slice owner checkpoints. Only reported
+attempted findings consume attempts; counts survive awaiting-check and failed
+verification. A second proposed repair gets its fresh verification before the
+unresolved-cycle guard fires. Verified/explicitly disposed findings clear counts;
+a genuinely new diagnosis needs a retained check-evidence reference, not cosmetic
+record changes. Counts and the resulting commit/push confirmation are retained even
+when the guard stops the run. Positive
 session-count and wall-time budgets are required on the run command; there is no
 unlimited default or billing-cap claim. Keep logs local and redact credentials/private data.
 Normal red/green development and repairing a failed check inside the selected
@@ -220,3 +241,6 @@ and reviewed activation/permission settings.
 The safe default after interruption is to stop and preserve dirty work. Any
 explicit resume must reconcile the recorded unit/owned paths first; qualification
 must prove unrelated work is never discarded or blindly staged.
+The shared active-run fence records the owning worktree, branch and state path.
+Recovery must run in that exact ownership context; a clean sibling worktree cannot
+acknowledge the original checkout's unfinished work.

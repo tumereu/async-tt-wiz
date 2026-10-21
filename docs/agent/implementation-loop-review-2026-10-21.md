@@ -1,6 +1,34 @@
 # Adversarial implementation-loop readiness review — 2026-10-21
 
-## Verdict and scope
+## Repair disposition — 2026-10-21
+
+The owner subsequently requested the recommended fixes. **IR-01–IR-07 are now
+corrected**, with 48 passing automated qualification tests (the original 25 plus
+23 new tests, several with multiple cases). The original findings and pre-repair
+line references below are retained as provenance, not claims that the defects
+remain in the repaired driver.
+
+| Finding | Repair and retained verification |
+| --- | --- |
+| IR-01 | Count only the report's attempted subset; a four-finding fix/verify cycle completes without charging untouched issues. |
+| IR-02 | Retain counts through awaiting-check and failed verification; two unsuccessful cycles halt with count 2 durably recorded. A second successful repair can verify, and only an evidenced new diagnosis resets its history. |
+| IR-03 | Validate role/target transitions and status/disposition combinations; reject fixer self-verification, implement-as-review, unreported/unselected advancement and cross-batch/multiply-parented/unfinished children. Positive tests preserve planning splits, early critical fixes, scoped reopenings and independent lanes. |
+| IR-04 | Check report/state and every referenced check output against actual committed blob bytes. Reject ignored/altered evidence and verify retained outputs in a clean clone. |
+| IR-05 | Record owning worktree, branch and canonical state path; recovery from a sibling worktree, another branch/state or an ownership-free legacy record preserves the fence. Correct-context recovery remains covered. |
+| IR-06 | I29 now says actor confirmation warning of removal for both, explicitly no opponent consent/vote; the absent-opponent and stale/retry checks remain assigned. |
+| IR-07 | I19 explicitly owns persistent card/player Link, selection scope, uniqueness/no-op, removal and endpoint cleanup, with native-UI/server/recovery/history tests distinct from pings/source relationships. |
+
+The [runner operations record](implementation-runner.md#current-review-repair-qualification--2026-10-21)
+identifies the repaired driver digest and qualification limits. The regression
+script is [checked in](../../scripts/test-implementation-loop.py). This repair
+batch used controlled disposable agents/Git remotes; it did **not** rerun the prior
+six-session live model cycle or claim independent application verification.
+Application state remains untouched, `draft/not-authorized`, all tasks pending.
+The activation/resource/permission/release checks below remain explicit pending
+preconditions, not silently cleared gates. The plan now brings their inventory
+forward to activation and states the implemented/verified/releasable distinction.
+
+## Original verdict and scope
 
 **Do not treat the current qualification as sufficient for an unattended whole-R1
 run yet.** Five executable driver counterexamples remain, plus two task-wording/
@@ -13,7 +41,7 @@ was performed by this review.
 Reviewed commit: `c3123a953992903ede091a700965c82a21280bf1`. Sources: the task plan,
 loop contract, driver, prompt, permissions, state, qualification tests, delivery
 workflow and relevant product/verification/environment contracts. Findings below
-are **open review findings**, not owner decisions or entries in the inactive
+were **open review findings at review time**, not owner decisions or entries in the inactive
 application execution queue. High means a likely avoidable halt or violation of
 the promised review loop; medium means a narrower recovery/evidence/scope risk.
 
@@ -212,13 +240,14 @@ Do not create a new feature or turn this into an extra per-task review.
    Session-count exhaustion is a pause; a timeout is a preserved halt requiring
    reconciliation, not an automatic continuation of a half-finished giant task.
 
-## Recommended next batch
+## Original recommendation and remaining activation work
 
-Repair IR-01–IR-05 with focused disposable regression tests, clarify IR-06 and
-assign IR-07, then rerun qualification including the new negative/subset cases.
-Keep prior qualification provenance: five new counterexamples do not erase the
-25 existing passing checks. Perform the activation/resource/permission checklist
-separately with the owner. Leave application authorization inactive meanwhile.
+The original recommendation was to repair IR-01–IR-05 with focused disposable
+regression tests, clarify IR-06 and assign IR-07, then rerun qualification including
+the new negative/subset cases. That batch is now applied as recorded above, with
+prior qualification provenance preserved. Perform the activation/resource/
+permission checklist separately with the owner. Leave application authorization
+inactive meanwhile.
 
 The review does not establish that every possible runner or R1 defect has been
 found; its blockers are concrete counterexamples, not a demand for speculative

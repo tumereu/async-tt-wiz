@@ -53,6 +53,9 @@ lane is explicitly recorded when blocked.
 
 A fresh agent may split a task that is too large into stable child IDs such as
 `I14a/I14b`, with concrete outcomes, checks and dependencies, **before coding it**.
+Use a planning-only split unit first, leaving the parent in progress and children
+pending for subsequent fresh units; do not spend most of the wall-time budget
+coding an oversized task before deciding to split it.
 Keep the parent open until every child passes; inherit the same review batch and
 do not add reviews after each child. Splitting is technical planning, not a request
 for routine owner approval or permission to broaden scope. Do not call a whole
@@ -159,7 +162,7 @@ together, not only basic movement. Retain one shared model/processor/UI semantic
 | --- | --- |
 | I17 | G04/G06/G07/G13 direct packed card/player actions: corner strings/arithmetic/Set/Reset, all six counters, life, notes, owner, face/cover and permitted inspection. Retained current-state preview/menu lifetimes, absent-player blank versus zero/card-counter dash, input/keyboard, disclosure and assigned-hold-versus-name-tooltip arbitration. |
 | I18 | Complete ordered Library/contents controls: top/bottom/subsets, Draw N, View/Reveal fixed accepted references, shuffle and both captured-hand mulligan compositions. Retained face defaults, destination resets, ordinary partial outcomes and deterministic recorded random results; no refilling trays, target substitution or extra guessed exposure records. |
-| I19 | Catalog/Blank token creation, Clone-as-token, token disappearance and explicit token-only removal; real-source links and event-scoped numbered Ping/Unping. Distinguish source identity/relationship highlight from actual selection/occurrence scope and preserve target binding across reflow/sync. No real-card Remove action. |
+| I19 | Catalog/Blank token creation, Clone-as-token, token disappearance and explicit token-only removal; persistent generic Link to card/player endpoints (including selection-to-endpoint), unique undirected pairs/repeated-Link no-op, Links-list removal and endpoint cleanup. Add native-UI/server/recovery/history tests for those links, separately from real-source relationships and event-scoped numbered Ping/Unping. Distinguish source identity/relationship highlight from actual selection/occurrence scope and preserve target binding across reflow/sync. No real-card Remove action. |
 | I20 | G08/G08b/G11/G12 turn/phase/step picker, life/player delta drags, standalone Table actions/die/coin and full quick-action catalog. Three contextual positions plus tap-Next/hold-End, panning overflow, ending-player fill and explicit alternatives. Release-only relative edits; no hold+tap dispatch, implicit untap/draw, priority, extra first-strike step or rules inference. |
 | I21 | G02 combat paired slots/insertions/cleanup and real/effect Stack entries: live write-through, owner/source relationship, multiple independent effects, disappeared-token last-live snapshots, contextual destinations/removal and declared combined actions. Compact divider-only geometry at common card scale, complete contents/count badges and full non-quick constituent paths. |
 
@@ -207,7 +210,7 @@ from preparation and remain reachable across devices/background work.
 | --- | --- |
 | I27 | G09 direct chat/composer/unread presentation and ordinary account/incarnation binding, clearly separated from I22's event-comment route. Game-wide chat is separate from selected history, viewing stays personal and offscreen messages are not read merely by opening. No sent-message editing/deletion/Undo/read receipts/presence. Integrate communication with B6's comment retention/Undo/grouping tests. |
 | I28 | Table-action win/loss/draw suggestion and explicit other-player acceptance, strict singleton ending groups and final-board-before-dialog playback. Restore last prepared lobby copies, clear both Ready and start a fresh incarnation only after both ready again. Add necessary unpictured states using the established UI patterns, not a score archive or End-turn-as-end-game. |
-| I29 | P03/P04 active shared-game Delete with extra both-player confirmation, captured incarnation and actual outcome/retry handling, distinct from setup cancellation and cooperative result acceptance. Both participants lose shared access/listing; no personal hide/trash or promise of instant physical erasure. |
+| I29 | P03/P04 active shared-game Delete with extra actor confirmation warning that the shared game is removed for both; no opponent consent/deletion vote. Retain captured incarnation and actual outcome/retry handling, distinct from setup cancellation and cooperative result acceptance. Either participant can delete; both lose shared access/listing. Test deletion while the opponent is absent as well as stale-confirmation/retry boundaries; no personal hide/trash or promise of instant physical erasure. |
 | I30 | Invitations/Game activity channels, synthetic notification deliveries, per-game coalescing, registered-installation routing and local foreground suppression. Working non-GMS best-effort polling and optional FCM adapter/configuration; OS permission/channel behavior and notification navigation. Sync works when neither notification route ran. No new settings/mutes/provider dependency. |
 | I31 | Full integrated two-player/three-instance journeys across chat, end/start, list navigation, restart/relogin and notification/background return. Exercise ordinary overlapping lifecycle requests without retargeting or duplicate effects; finish previously pending cross-batch recovery/UI assertions for delivered B1–B7 capabilities. No production credentials or API-controlled opponent. |
 
@@ -268,6 +271,16 @@ Before starting application work:
   Building this tooling does not activate product execution or authorize I01.
 - Recheck toolchain/device preflight from the measured topology; qualify the
   **normal app/backend** in B1/B4 instead of claiming the browser fixture passed it.
+- Inventory physical-phone/current-Android/tablet/non-GMS access, upgrade signing
+  and amd64/arm64 test capacity now. Record unavailable resources and independent
+  work, not a fabricated pass or a surprise late-B8 prerequisite. Exercise intended
+  bootstrap/build/test/device adapter commands under the actual per-session
+  permissions; do not infer permission-profile qualification from a separate smoke.
+- Reconcile activation/stage wording with the explicit owner authorization. The
+  runner's `complete` additionally requires the recorded external release gates;
+  if software is implemented but required verification or external readiness is
+  blocked, report those dimensions separately and stop honestly, without waiving
+  hardware/rights/signing/operator prerequisites or self-authorizing new resources.
 - Establish the per-task run/evidence records and concrete commands in I01. Exact
   build commands cannot truthfully be reported as existing before builds exist.
 

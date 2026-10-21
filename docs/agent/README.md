@@ -23,7 +23,8 @@ support continuity and traceability; they are not another competing specificatio
   reports, stop/recovery and isolated qualification; no product activation.
 - [Loop readiness review — 2026-10-21](implementation-loop-review-2026-10-21.md):
   five reproduced driver counterexamples, task-summary risks and expected external
-  activation/release blockers; open findings, not repairs or application approval.
+  activation/release blockers, followed by owner-requested IR-01–IR-07 repairs and
+  48 passing automated tests; no application activation or cleared external gates.
 - [Local E2E environment qualification](e2e-environment-smoke-2026-10-21.md): measured
   Kotlin/JUnit/Appium/Windows-emulator/Docker smoke results, retained evidence and
   limitations; not product acceptance or implementation authorization.

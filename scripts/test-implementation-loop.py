@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Runner qualification: real disposable Git remotes; no product/model work."""
 import fcntl
+import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -81,6 +82,8 @@ class FakeOpenCode:
         self.fixture, self.fault, self.issue = fixture, fault, issue
         self.calls, self.sessions = [], []
         self.runner = None
+        self.transform = None
+        self.finding_limit = None
 
     def create(self, title, permissions):
         identifier = "ses_fixture_" + str(len(self.sessions))
@@ -101,6 +104,7 @@ class FakeOpenCode:
         if self.fault == "missing-report":
             return {"model": loop.MODEL_REF}
         state = self.fixture.state()
+        finding_ids = []
         if self.fault != "no-progress":
             if mode == "implement":
                 task = next(t for t in state["tasks"] if t["id"] == choice["target"])
@@ -110,19 +114,29 @@ class FakeOpenCode:
             elif mode == "review":
                 if self.issue:
                     state["findings"].append({"id": "R1", "batch": "B1", "status": "open",
-                                               "disposition": "actionable"})
+                                                "disposition": "actionable"})
+                    finding_ids = ["R1"]
                     state["batches"][0]["status"] = "changes-requested"
                 else:
                     state["batches"][0].update(status="reviewed", reviewedCommit=context["startCommit"])
             elif mode in {"fix", "verify"}:
-                state["findings"][0]["status"] = "fixed-awaiting-check" if mode == "fix" else "verified"
-                state["batches"][0]["status"] = "fixes-awaiting-check" if mode == "fix" else "reviewed"
-                if self.fault == "partial-fix" and mode == "fix":
-                    state["findings"][0]["status"] = "open"
-                    state["findings"][0]["attemptNumber"] = state["findings"][0].get("attemptNumber", 0) + 1
-                    state["batches"][0]["status"] = "changes-requested"
-                if mode == "verify":
-                    state["batches"][0]["reviewedCommit"] = context["startCommit"]
+                finding_ids = choice["findingIds"][:self.finding_limit]
+                for finding in state["findings"]:
+                    if finding["id"] not in finding_ids:
+                        continue
+                    finding["status"] = "fixed-awaiting-check" if mode == "fix" else "verified"
+                    if self.fault == "partial-fix" and mode == "fix":
+                        finding["status"] = "open"
+                        finding["attemptNumber"] = finding.get("attemptNumber", 0) + 1
+                    if self.fault == "failed-verification" and mode == "verify":
+                        finding["status"] = "open"
+                batch = next(b for b in state["batches"] if b["id"] == choice["target"])
+                issues = [f for f in state["findings"] if f["batch"] == batch["id"]]
+                batch["status"] = ("fixes-awaiting-check" if any(f["status"] == "fixed-awaiting-check" for f in issues)
+                                   else "changes-requested" if any(f["status"] == "open" for f in issues)
+                                   else "reviewed")
+                if batch["status"] == "reviewed":
+                    batch["reviewedCommit"] = context["startCommit"]
             elif mode == "complete":
                 state["mode"] = "complete"
         if self.fault == "premature-complete":
@@ -136,7 +150,7 @@ class FakeOpenCode:
         self.fixture.write(evidence, "Fixture required check output\n")
         report = {
             "runId": context["runId"], "sessionID": session, "startCommit": context["startCommit"],
-            "mode": mode, "target": choice["target"], "findingIds": choice["findingIds"],
+            "mode": mode, "target": choice["target"], "findingIds": finding_ids,
             "outcome": "complete" if mode == "complete" or self.fault == "premature-complete"
             else "blocked" if self.fault == "blocked" else "progress",
             "summary": "Controlled fixture outcome", "selectionReason": "Required priority",
@@ -150,7 +164,9 @@ class FakeOpenCode:
             report["checks"][0]["evidence"] = "absent.log"
         if self.fault == "diagnostic":
             report["checks"].append({"kind": "diagnostic", "command": "reproduce issue",
-                                     "exitCode": 1, "evidence": evidence})
+                                      "exitCode": 1, "evidence": evidence})
+        if self.transform:
+            self.transform(context, state, report)
         self.fixture.write(loop.STATE, state)
         self.fixture.write(context["report"], report)
         if self.fault == "extra-path":
@@ -221,6 +237,96 @@ class SelectionTests(unittest.TestCase):
         with self.assertRaises(loop.Halt):
             loop.selection(state)
 
+    def test_children_cannot_change_batch_have_two_parents_or_be_skipped(self):
+        for fault in ("batch", "parents", "unfinished"):
+            with self.subTest(fault=fault):
+                state = initial_state()
+                state["tasks"][0].update(status="in-progress", children=["F1a"])
+                state["tasks"].append({"id": "F1a", "batch": "B1", "status": "pending"})
+                if fault == "batch":
+                    state["batches"].append({"id": "B2", "status": "pending"})
+                    state["tasks"][-1]["batch"] = "B2"
+                elif fault == "parents":
+                    state["tasks"][1]["children"] = ["F1a"]
+                else:
+                    state["tasks"][0]["status"] = "implemented"
+                with self.assertRaises(loop.Halt):
+                    loop.validate_state(state)
+
+
+class TransitionTests(unittest.TestCase):
+    def fixture(self):
+        before = initial_state()
+        for task in before["tasks"]:
+            task["status"] = "implemented"
+        before["batches"][0].update(status="reviewed", reviewedCommit="previous-review")
+        before["tasks"].append({"id": "F3", "batch": "B2", "status": "pending"})
+        before["batches"].append({"id": "B2", "status": "pending", "reviewedCommit": None})
+        after = copy.deepcopy(before)
+        after["tasks"][-1]["status"] = "implemented"
+        after["batches"][-1]["status"] = "ready-for-review"
+        choice = loop.selection(before)
+        report = {"startCommit": "current-code", "findingIds": []}
+        return before, after, choice, report
+
+    def test_scoped_reopening_does_not_review_another_capability(self):
+        before, after, choice, report = self.fixture()
+        after["batches"][0]["status"] = "ready-for-review"
+        report["reopenedBatches"] = [{"id": "B1", "reason": "Delivered integration materially changes B1 behavior"}]
+        loop.validate_state(after)
+        loop.validate_transition(before, after, choice, report)
+        self.assertEqual(loop.selection(after), {"mode": "review", "target": "B1", "findingIds": []})
+        del report["reopenedBatches"]
+        with self.assertRaisesRegex(loop.Halt, "Unrelated batch advancement"):
+            loop.validate_transition(before, after, choice, report)
+
+    def test_reopened_finding_needs_explicit_evidence_reason_and_new_fix(self):
+        before, after, choice, report = self.fixture()
+        before["findings"] = [{"id": "R1", "batch": "B1", "status": "verified", "disposition": "actionable"}]
+        after["findings"] = [{**before["findings"][0], "status": "open"}]
+        after["batches"][0]["status"] = "changes-requested"
+        report["reopenedBatches"] = [{"id": "B1", "reason": "Regression reproduced by the integration check"}]
+        report["reopenedFindings"] = [{"id": "R1", "reason": "New reproduction invalidates the previous fix"}]
+        loop.validate_state(after)
+        loop.validate_transition(before, after, choice, report)
+        self.assertEqual(loop.selection(after)["mode"], "fix")
+        del report["reopenedFindings"]
+        with self.assertRaisesRegex(loop.Halt, "Unreported finding change"):
+            loop.validate_transition(before, after, choice, report)
+
+    def test_early_critical_fix_returns_to_implementation_without_early_review(self):
+        before = initial_state()
+        before["tasks"][0]["status"] = "implemented"
+        before["batches"][0]["status"] = "fixes-awaiting-check"
+        before["findings"] = [{"id": "R1", "batch": "B1", "status": "fixed-awaiting-check", "disposition": "actionable"}]
+        after = copy.deepcopy(before)
+        after["findings"][0]["status"] = "verified"
+        after["batches"][0]["status"] = "pending"
+        loop.validate_state(after)
+        loop.validate_transition(before, after, loop.selection(before), {"findingIds": ["R1"], "startCommit": "fix-code"})
+        self.assertEqual(loop.selection(after)["target"], "F2")
+
+    def test_new_critical_finding_during_implementation_is_reported_not_suppressed(self):
+        before, after, choice, report = self.fixture()
+        after["findings"] = [{"id": "R2", "batch": "B2", "status": "open", "disposition": "actionable"}]
+        after["batches"][-1]["status"] = "changes-requested"
+        report["newFindingIds"] = ["R2"]
+        loop.validate_state(after)
+        loop.validate_transition(before, after, choice, report)
+        del report["newFindingIds"]
+        with self.assertRaisesRegex(loop.Halt, "New findings must be explicitly reported"):
+            loop.validate_transition(before, after, choice, report)
+
+    def test_fresh_review_and_verification_anchor_the_code_actually_inspected(self):
+        before = initial_state()
+        for task in before["tasks"]:
+            task["status"] = "implemented"
+        before["batches"][0]["status"] = "ready-for-review"
+        after = copy.deepcopy(before)
+        after["batches"][0].update(status="reviewed", reviewedCommit="arbitrary-ancestor")
+        with self.assertRaisesRegex(loop.Halt, "Review must anchor"):
+            loop.validate_transition(before, after, loop.selection(before), {"startCommit": "inspected-code"})
+
 
 class RunnerTests(unittest.TestCase):
     def setUp(self):
@@ -269,6 +375,181 @@ class RunnerTests(unittest.TestCase):
             runner.run(10, 30)
         self.assertEqual(client.calls[-2:], ["fix", "fix"])
         self.assertTrue((runner.journal / "active.json").exists())
+
+    def seed_findings(self, count=1):
+        state = self.fixture.state()
+        for task in state["tasks"]:
+            task["status"] = "implemented"
+        state["batches"][0]["status"] = "changes-requested"
+        state["findings"] = [{"id": f"R{i+1}", "batch": "B1", "status": "open",
+                              "disposition": "actionable", "diagnosis": "initial diagnosis"}
+                             for i in range(count)]
+        self.fixture.write(loop.STATE, state)
+        self.fixture.commit()
+
+    def test_bounded_subsets_do_not_count_untouched_findings(self):
+        self.seed_findings(4)
+        runner, client = self.runner()
+        client.finding_limit = 1
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["fix", "verify"] * 4 + ["complete"])
+        self.assertEqual(loop.load(runner.journal / "fix-attempts.json"), {})
+
+    def test_failed_verification_cycles_stop_and_retain_attempts(self):
+        self.seed_findings()
+        runner, client = self.runner("failed-verification")
+        with self.assertRaisesRegex(loop.Halt, "Repeated unresolved fix"):
+            runner.run(10, 30)
+        self.assertEqual(client.calls, ["fix", "verify", "fix", "verify"])
+        self.assertEqual(loop.load(runner.journal / "fix-attempts.json")["R1"]["count"], 2)
+        self.assertTrue((runner.journal / "active.json").exists())
+
+    def test_evidenced_new_diagnosis_allows_a_new_attempt(self):
+        self.seed_findings()
+        runner, client = self.runner("failed-verification")
+        def new_diagnosis(context, state, report):
+            if len(client.calls) == 4:
+                state["findings"][0].update(diagnosis="different evidenced root cause",
+                                            diagnosisEvidence=report["checks"][0]["evidence"])
+        client.transform = new_diagnosis
+        self.assertEqual(runner.run(4, 30)["status"], "paused")
+        self.assertEqual(loop.load(runner.journal / "fix-attempts.json")["R1"]["count"], 0)
+        client.fault = None
+        client.transform = None
+        self.assertEqual(runner.run(3, 30)["status"], "complete")
+
+    def test_cosmetic_or_unsupported_diagnosis_changes_do_not_reset_attempts(self):
+        for supported in (False, True):
+            with self.subTest(whitespace_only=supported):
+                self.seed_findings()
+                runner, client = self.runner("failed-verification")
+                def change(context, state, report):
+                    if len(client.calls) == 4:
+                        state["findings"][0]["diagnosis"] = (
+                            " initial  diagnosis\n" if supported else "unsupported new assertion")
+                client.transform = change
+                with self.assertRaisesRegex(loop.Halt, "Repeated unresolved fix|Diagnosis change needs"):
+                    runner.run(4, 30)
+                # This subtest owns only its disposable journal; use a new fixture next time.
+                if not supported:
+                    self.fixture.close()
+                    self.fixture = GitFixture()
+
+    def test_implement_cannot_review_or_complete_another_task(self):
+        for fault in ("review", "other-task"):
+            with self.subTest(fault=fault):
+                runner, client = self.runner()
+                def escape(context, state, report):
+                    if fault == "review":
+                        for task in state["tasks"]:
+                            task["status"] = "implemented"
+                        state["batches"][0].update(status="reviewed", reviewedCommit=context["startCommit"])
+                    else:
+                        state["tasks"][1]["status"] = "implemented"
+                        state["batches"][0]["status"] = "ready-for-review"
+                client.transform = escape
+                with self.assertRaises(loop.Halt):
+                    runner.run(1, 30)
+                self.assertTrue((runner.journal / "active.json").exists())
+                if fault == "review":
+                    self.fixture.close()
+                    self.fixture = GitFixture()
+
+    def test_fix_cannot_verify_itself(self):
+        self.seed_findings()
+        runner, client = self.runner()
+        def self_verify(context, state, report):
+            state["findings"][0]["status"] = "verified"
+            state["batches"][0].update(status="reviewed", reviewedCommit=context["startCommit"])
+        client.transform = self_verify
+        with self.assertRaisesRegex(loop.Halt, "Fix cannot verify/close"):
+            runner.run(1, 30)
+        self.assertEqual(client.calls, ["fix"])
+
+    def test_report_subset_cannot_change_an_unreported_finding(self):
+        self.seed_findings(2)
+        runner, client = self.runner()
+        client.transform = lambda context, state, report: report.update(findingIds=["R1"])
+        with self.assertRaisesRegex(loop.Halt, "Unreported finding change"):
+            runner.run(1, 30)
+
+    def test_planning_only_split_gets_fresh_child_units_and_one_group_review(self):
+        runner, client = self.runner(issue=False)
+        def split(context, state, report):
+            state["tasks"][0].update(status="in-progress", children=["F1a", "F1b"])
+            state["tasks"] += [{"id": name, "batch": "B1", "status": "pending"}
+                                for name in ("F1a", "F1b")]
+        client.transform = split
+        runner.run(1, 30)
+        client.transform = None
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        reports = [loop.load(self.fixture.root / path) for path in self.fixture.state()["runs"]]
+        self.assertEqual([r["target"] for r in reports], ["F1", "F1a", "F1b", "F1", "F2", "B1", "completion"])
+
+    def test_explicit_independent_lane_around_selected_blocker_is_allowed(self):
+        runner, client = self.runner()
+        def independent(context, state, report):
+            state["tasks"][0]["status"] = "blocked"
+            state["tasks"][1].update(dependsOn=[], independent=True)
+            report["taskAdjustments"] = [{"id": "F2", "reason": "Independent approved work around F1 blocker"}]
+        client.transform = independent
+        self.assertEqual(runner.run(1, 30)["status"], "paused")
+        self.assertEqual(loop.selection(self.fixture.state())["target"], "F2")
+
+    def test_fix_cannot_demote_a_functional_defect_to_polish(self):
+        self.seed_findings()
+        runner, client = self.runner()
+        def demote(context, state, report):
+            state["findings"][0].update(status="open", disposition="nonblocking-polish")
+            state["batches"][0].update(status="reviewed", reviewedCommit=context["startCommit"])
+        client.transform = demote
+        with self.assertRaisesRegex(loop.Halt, "Fix cannot verify/close"):
+            runner.run(1, 30)
+
+    def test_second_fix_can_succeed_before_the_retry_guard_stops(self):
+        self.seed_findings()
+        runner, client = self.runner("failed-verification")
+        runner.run(2, 30)
+        client.fault = None
+        self.assertEqual(runner.run(3, 30)["status"], "complete")
+        self.assertEqual(client.calls, ["fix", "verify", "fix", "verify", "complete"])
+
+    def test_verifier_can_withdraw_a_reproduced_false_finding_with_rationale(self):
+        self.seed_findings()
+        runner, client = self.runner()
+        runner.run(1, 30)
+        def withdraw(context, state, report):
+            if context["selection"]["mode"] == "verify":
+                state["findings"][0].update(status="withdrawn", disposition="not-a-defect",
+                                            rationale="The retained diagnostic establishes the approved outcome")
+        client.transform = withdraw
+        self.assertEqual(runner.run(2, 30)["status"], "complete")
+        self.assertEqual(loop.load(runner.journal / "fix-attempts.json"), {})
+
+    def test_ignored_evidence_is_rejected(self):
+        runner, client = self.runner()
+        def ignore(context, state, report):
+            (self.fixture.root / ".git/info/exclude").write_text("*-checks.log\n")
+            report["changedPaths"].remove(report["checks"][0]["evidence"])
+        client.transform = ignore
+        with self.assertRaisesRegex(loop.Halt, "Check evidence is not committed byte-for-byte"):
+            runner.run(1, 30)
+
+    def test_evidence_survives_clean_clone_and_byte_changes_are_detected(self):
+        runner, client = self.runner(issue=False)
+        runner.run(10, 30)
+        clone = self.fixture.base / "clean-clone"
+        loop.run_command(["git", "clone", "--branch", "main", str(self.fixture.remote), str(clone)], self.fixture.root)
+        state = loop.load(clone / loop.STATE)
+        for path in state["runs"]:
+            report = loop.load(clone / path)
+            for check in report["checks"]:
+                self.assertEqual((clone / check["evidence"]).read_bytes(),
+                                 (self.fixture.root / check["evidence"]).read_bytes())
+        evidence = report["checks"][0]["evidence"]
+        (self.fixture.root / evidence).write_bytes(b"changed output\x00\n")
+        with self.assertRaisesRegex(loop.Halt, "Check evidence is not committed byte-for-byte"):
+            runner.committed_file(evidence, self.fixture.git("rev-parse", "HEAD"))
 
     def test_stop_finishes_unit_without_launching_next(self):
         runner, client = self.runner("stop")
@@ -380,6 +661,45 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(loop.Halt, "failed required"):
             runner.recover()
         self.assertTrue((runner.journal / "active.json").exists())
+
+    def test_wrong_worktree_cannot_clear_original_dirty_run(self):
+        other = self.fixture.base / "other"
+        self.fixture.git("worktree", "add", "-b", "other", str(other))
+        loop.run_command(["git", "config", "branch.other.remote", "origin"], other)
+        loop.run_command(["git", "config", "branch.other.merge", "refs/heads/main"], other)
+        runner, client = self.runner("dirty-after")
+        with self.assertRaises(loop.Halt):
+            runner.run(1, 30)
+        before = self.fixture.git("status", "--short")
+        with self.assertRaisesRegex(loop.Halt, "Recovery ownership mismatch"):
+            loop.Runner(other, client=client).recover()
+        self.assertEqual(self.fixture.git("status", "--short"), before)
+        self.assertTrue((runner.journal / "active.json").exists())
+
+    def test_wrong_state_branch_and_legacy_record_cannot_clear_fence(self):
+        runner, client = self.runner("missing-report")
+        with self.assertRaises(loop.Halt):
+            runner.run(1, 30)
+        with self.assertRaisesRegex(loop.Halt, "Recovery ownership mismatch"):
+            loop.Runner(self.fixture.root, "different-state.json", client=client).recover()
+        self.fixture.git("switch", "-c", "different-branch")
+        with self.assertRaisesRegex(loop.Halt, "Recovery ownership mismatch"):
+            runner.recover()
+        self.fixture.git("switch", "main")
+        active = runner.journal / "active.json"
+        record = loop.load(active)
+        record.pop("worktree")
+        loop.atomic_json(active, record)
+        with self.assertRaisesRegex(loop.Halt, "Recovery ownership mismatch"):
+            runner.recover()
+        self.assertTrue(active.exists())
+
+    def test_recovery_accepts_equivalent_state_path_spelling(self):
+        runner, client = self.runner("missing-report")
+        with self.assertRaises(loop.Halt):
+            runner.run(1, 30)
+        equivalent = "./docs/agent/../agent/implementation-state.json"
+        self.assertEqual(loop.Runner(self.fixture.root, equivalent, client=client).recover()["status"], "recovered")
 
     def test_timeout_interrupts_server_owned_session(self):
         executable = self.fixture.base / "fake-opencode"

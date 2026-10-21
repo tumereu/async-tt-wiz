@@ -16,16 +16,20 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current preparation — D-300–D-302
 
-**Latest adversarial readiness review:** read
-[IR-01–IR-07](implementation-loop-review-2026-10-21.md) before activation. The 25
-existing runner tests pass, but five additional disposable-fixture probes reproduce
-false retry exhaustion on untouched findings, a failed-verification retry carousel,
-self-verification acceptance, uncommitted check evidence and wrong-worktree recovery.
-Two task-summary risks concern deletion consent wording and explicit persistent-Link
-ownership. These are open review findings; no driver/plan repair, product activation
-or owner decision was made. The review also separates expected hardware/permissions/
-external-release stops from defects. Earlier qualification below remains historical
-evidence, not a claim these new cases pass.
+**Latest owner-requested readiness repairs:**
+[IR-01–IR-07](implementation-loop-review-2026-10-21.md) are corrected. **48 automated
+runner tests pass**: bounded subsets no longer charge untouched findings; counters
+survive failed verification; role/target transitions prevent self-verification and
+unrelated advancement; check outputs must match committed bytes; recovery requires
+the owning worktree/branch/state. Planning-only child splits, scoped reopenings,
+early critical repairs and independent lanes remain covered. I29 now explicitly
+requires actor confirmation, not opponent consent; I19 owns persistent generic
+Link/remove-Link/endpoint cleanup independently of pings/source relationships.
+See [current qualification](implementation-runner.md#current-review-repair-qualification--2026-10-21)
+for the driver digest and limits: the earlier live six-session/timeout cycle was
+not rerun for this repair batch. Hardware/build-permission/activation/external
+release prerequisites remain pending and explicit. No application code, approval
+or state activation was introduced; the original findings are retained as provenance.
 
 The owner wants an outer loop launching a fresh agent for one implement/review/
 fix/targeted-verification unit, then validate/commit/push/exit before the next.
@@ -63,7 +67,7 @@ without discarding it. Explicit run-count/wall-time budgets, per-session
 permissions, graceful stop and manual recovery are provided. No global OpenCode
 configuration was changed; permissions are not an OS sandbox or billing cap.
 
-Qualification: **25 automated tests passed**; six real fresh sessions completed
+Earlier qualification: **25 automated tests passed**; six real fresh sessions completed
 implement F1 → implement F2 → grouped review B1 → fix R1 → verify R1 → complete,
 all pinned high, idle and committed/pushed to the disposable remote. The seeded
 arithmetic defect tests orchestration, not blind review quality. Later guard-only

@@ -82,6 +82,16 @@ def validate_state(state):
                     f"Invalid {key} in {task['id']}")
         require(not task.get("independent") or "dependsOn" in task,
                 "Independent work needs explicit dependencies")
+    by_id = {t["id"]: t for t in tasks}
+    parents = {}
+    for task in tasks:
+        require(len(task.get("children", [])) == len(set(task.get("children", []))), "Duplicate child IDs")
+        for child in task.get("children", []):
+            require(child not in parents and by_id[child]["batch"] == task["batch"],
+                    "Children need one parent and must inherit its review batch")
+            parents[child] = task["id"]
+            require(task["status"] != "implemented" or by_id[child]["status"] == "implemented",
+                    "Implemented parent has unfinished children")
     for batch in batches:
         members = [task for task in tasks if task["batch"] == batch["id"]]
         require(members, "Empty review batch")
@@ -90,15 +100,20 @@ def validate_state(state):
         if batch["status"] == "reviewed":
             require(batch.get("reviewedCommit") and all(t["status"] == "implemented" for t in members),
                     "Reviewed batch has unfinished tasks or no reviewed commit")
+            require(not any(needs_attention(f) for f in findings if f["batch"] == batch["id"]),
+                    "Reviewed batch has unresolved findings")
     for finding in findings:
         require(finding["batch"] in batch_ids and finding["status"] in {
             "open", "fixed-awaiting-check", "verified", "withdrawn", "duplicate", "blocked"},
             "Invalid finding batch/status")
         require(finding.get("disposition") in {"actionable", "nonblocking-polish", "not-a-defect",
-                                               "duplicate", "blocked-owner/environment"},
+                                                "duplicate", "blocked-owner/environment"},
                 "Finding needs an explicit disposition")
+        required_disposition = {"fixed-awaiting-check": "actionable", "verified": "actionable",
+                                "withdrawn": "not-a-defect", "duplicate": "duplicate"}.get(finding["status"])
+        require(not required_disposition or finding["disposition"] == required_disposition,
+                "Finding status/disposition mismatch")
     # Catch bad child/dependency graphs before launching an agent.
-    by_id = {t["id"]: t for t in tasks}
     def visit(identifier, path):
         require(identifier not in path, "Cycle in task dependencies/children")
         task = by_id[identifier]
@@ -106,6 +121,150 @@ def validate_state(state):
             visit(child, path | {identifier})
     for identifier in by_id:
         visit(identifier, set())
+
+
+def needs_attention(finding):
+    return finding["status"] in {"open", "fixed-awaiting-check", "blocked"} and finding.get(
+        "disposition") in {"actionable", "blocked-owner/environment"}
+
+
+def validate_transition(before, after, choice, report):
+    """Enforce one role/unit, allowing explicitly explained invalidation and planning."""
+    mode, target = choice["mode"], choice["target"]
+    old_tasks = {t["id"]: t for t in before["tasks"]}
+    new_tasks = {t["id"]: t for t in after["tasks"]}
+    old_issues = {f["id"]: f for f in before["findings"]}
+    new_issues = {f["id"]: f for f in after["findings"]}
+    old_batches = {b["id"]: b for b in before["batches"]}
+    require([t["id"] for t in after["tasks"] if t["id"] in old_tasks] == list(old_tasks),
+            "Agent reordered existing tasks")
+
+    def identifiers(key):
+        values = report.get(key, [])
+        require(isinstance(values, list) and all(isinstance(v, str) for v in values) and
+                len(values) == len(set(values)), f"Invalid report {key}")
+        return set(values)
+
+    def explained(key, known):
+        values = report.get(key, [])
+        require(isinstance(values, list) and all(isinstance(v, dict) and v.get("id") in known and
+                isinstance(v.get("reason"), str) and v["reason"].strip() for v in values),
+                f"Invalid explained {key}")
+        require(len({v["id"] for v in values}) == len(values), f"Duplicate {key}")
+        return {v["id"] for v in values}
+
+    attempted = identifiers("findingIds")
+    additions = identifiers("newFindingIds")
+    adjustments = explained("taskAdjustments", old_tasks)
+    reopened = explained("reopenedBatches", old_batches)
+    reopened_issues = explained("reopenedFindings", old_issues)
+    if mode == "review":
+        require(all(i in new_issues and new_issues[i]["batch"] == target for i in attempted),
+                "Review escaped its finding scope")
+    else:
+        require(attempted <= set(choice["findingIds"]), "Fix/verification escaped its finding scope")
+    added_issues = new_issues.keys() - old_issues.keys()
+    require(added_issues == additions | (attempted - old_issues.keys() if mode == "review" else set()),
+            "New findings must be explicitly reported")
+
+    new_ids = new_tasks.keys() - old_tasks.keys()
+    descendants = set()
+    def collect(identifier):
+        for child in new_tasks[identifier].get("children", []):
+            descendants.add(child)
+            collect(child)
+    if mode == "implement":
+        collect(target)
+    require(new_ids <= descendants and all(new_tasks[i]["status"] == "pending" for i in new_ids),
+            "New children must be pending descendants of the selected implementation task")
+    if new_ids:
+        require(new_tasks[target]["status"] == "in-progress", "Split-only unit must leave parent in progress")
+    for identifier, old in old_tasks.items():
+        new = new_tasks[identifier]
+        if mode == "implement" and identifier == target:
+            require(old["status"] != "implemented", "Cannot reimplement a completed task")
+            require(set(old.get("children", [])) <= set(new.get("children", [])), "Agent removed existing children")
+        elif new != old:
+            require(identifier in adjustments and old.get("children", []) == new.get("children", []) and
+                    (new["status"] == old["status"] or old["status"] != "implemented" and
+                     new["status"] in {"pending", "in-progress", "blocked"}),
+                    "Unrelated task advancement needs a bounded planning/blocker adjustment")
+
+    for identifier, new in new_issues.items():
+        old = old_issues.get(identifier)
+        if old == new:
+            continue
+        if old is None:
+            require(new["status"] not in {"verified", "fixed-awaiting-check"},
+                    "New finding cannot already be fixed/verified")
+        elif mode == "fix" and identifier in attempted:
+            require(old["status"] == "open" and new["status"] in {"open", "fixed-awaiting-check", "blocked"} and
+                    new["disposition"] in {"actionable", "blocked-owner/environment"},
+                    "Fix cannot verify/close its own finding or waive it as polish")
+        elif mode == "verify" and identifier in attempted:
+            require(old["status"] == "fixed-awaiting-check" and
+                    new["status"] in {"verified", "open", "blocked", "withdrawn", "duplicate"} and
+                    (new["status"] != "open" or new["disposition"] == "actionable"),
+                    "Verification needs a prior fresh fix handoff and an explicit verified/reopened/disposed result")
+        elif identifier in reopened_issues:
+            require(old["status"] in {"verified", "withdrawn", "duplicate", "blocked"} and
+                    new["status"] == "open" and new["disposition"] == "actionable",
+                    "Reopening must retain the finding and request new actionable work")
+        else:
+            require(mode == "review" and identifier in attempted and new["status"] != "verified",
+                    "Unreported finding change or verification outside a fresh verifier")
+        if new["status"] in {"withdrawn", "duplicate", "blocked"}:
+            require(isinstance(new.get("rationale"), str) and new["rationale"].strip(),
+                    "Finding disposition needs a rationale")
+        if old:
+            require(new["batch"] == old["batch"], "Agent reassigned a finding")
+
+    target_batch = new_tasks[target]["batch"] if mode == "implement" else target
+    for batch in after["batches"]:
+        old = old_batches[batch["id"]]
+        issues = [f for f in after["findings"] if f["batch"] == batch["id"] and needs_attention(f)]
+        attention = ("fixes-awaiting-check" if any(f["status"] == "fixed-awaiting-check" for f in issues)
+                     else "changes-requested" if issues else None)
+        if batch["id"] == target_batch and mode in {"implement", "review", "fix", "verify"}:
+            done = all(t["status"] == "implemented" for t in after["tasks"] if t["batch"] == batch["id"])
+            expected = attention or ("reviewed" if mode in {"review", "verify"} and done else
+                                     "ready-for-review" if mode == "implement" and done else "pending")
+            require(batch["status"] == expected, "Batch transition bypasses its selected role or remaining work")
+            if expected == "reviewed":
+                require(batch.get("reviewedCommit") == report["startCommit"], "Review must anchor the inspected starting commit")
+            else:
+                require(batch.get("reviewedCommit") in ([old.get("reviewedCommit"), report["startCommit"]]
+                        if mode == "review" else [old.get("reviewedCommit")]), "Unexpected review anchor change")
+        elif batch != old:
+            require(batch["id"] in reopened and old["status"] == "reviewed" and
+                    batch["status"] == (attention or "ready-for-review") and
+                    batch.get("reviewedCommit") == old.get("reviewedCommit"),
+                    "Unrelated batch advancement needs an explained scoped reopening")
+
+
+def update_attempts(attempts, choice, report, findings):
+    """Count attempted fixes, retaining the count until their separate verification."""
+    unresolved = []
+    if choice["mode"] not in {"fix", "verify"}:
+        return unresolved
+    issues = {f["id"]: f for f in findings}
+    for identifier in report["findingIds"]:
+        issue = issues[identifier]
+        if issue["status"] in {"verified", "withdrawn", "duplicate"}:
+            attempts.pop(identifier, None)
+            continue
+        old = attempts.get(identifier, {})
+        diagnosis = " ".join(issue.get("diagnosis", "").split())
+        if old and old.get("diagnosis", "") != diagnosis:
+            require(diagnosis and issue.get("diagnosisEvidence") in {c["evidence"] for c in report["checks"]},
+                    "Diagnosis change needs retained check evidence, not just a new assertion")
+        count = old.get("count", 0) if old.get("diagnosis", "") == diagnosis else 0
+        if choice["mode"] == "fix":
+            count += 1
+        attempts[identifier] = {"count": count, "diagnosis": diagnosis}
+        if count >= 2 and issue["status"] in {"open", "blocked"}:
+            unresolved.append(identifier)
+    return unresolved
 
 
 def selection(state):
@@ -238,8 +397,8 @@ class Runner:
     def __init__(self, root, state_path=STATE, client=None):
         self.root = Path(root).resolve()
         require(self.git("rev-parse", "--show-toplevel") == str(self.root), "Run at a Git repository root")
-        self.state_relative = state_path
         self.state_path = repo_path(self.root, state_path)
+        self.state_relative = str(self.state_path.relative_to(self.root))
         common = Path(self.git("rev-parse", "--git-common-dir"))
         self.journal = (common if common.is_absolute() else self.root / common).resolve() / "implementation-loop"
         self.journal.mkdir(parents=True, exist_ok=True)
@@ -247,6 +406,14 @@ class Runner:
 
     def git(self, *args):
         return run_command(["git", *args], self.root)
+
+    def committed_file(self, relative, commit):
+        repo_path(self.root, relative)
+        blob = self.git("hash-object", "--no-filters", "--", relative)
+        entries = self.git("ls-tree", "--format=%(objectmode) %(objecttype) %(objectname)",
+                           commit, "--", relative).splitlines()
+        require(entries in ([f"100644 blob {blob}"], [f"100755 blob {blob}"]),
+                f"Check evidence is not committed byte-for-byte: {relative}")
 
     def safe_git(self):
         require(not self.git("status", "--porcelain=v1", "--untracked-files=all"),
@@ -282,6 +449,8 @@ class Runner:
         directory = self.journal / run_id
         directory.mkdir()
         record = {"runId": run_id, "startCommit": start, "selection": choice,
+                  "worktree": str(self.root), "branch": self.git("symbolic-ref", "--short", "HEAD"),
+                  "state": self.state_relative,
                   "report": report_relative, "model": MODEL, "status": "starting"}
         active_path = self.journal / "active.json"
         atomic_json(active_path, record)
@@ -322,8 +491,7 @@ class Runner:
                     "Agent changed loop activation mode")
             require(after["runs"] == state["runs"] + [report_relative],
                     "Run history must retain previous reports and append exactly this unit")
-            require(set(report.get("findingIds", [])) <= set(choice["findingIds"]) or choice["mode"] == "review",
-                    "Fix/verification escaped its finding scope")
+            validate_transition(state, after, choice, report)
             required = [check for check in report.get("checks", []) if check.get("kind") == "required"]
             require(required or report["outcome"] in {"blocked", "failed"}, "No required validation recorded")
             for check in report.get("checks", []):
@@ -365,24 +533,21 @@ class Runner:
             require({report_relative, self.state_relative} <= actual, "Report/state not saved in this unit")
             for path in claimed:
                 repo_path(self.root, path)
+            for path in {report_relative, self.state_relative} | {c["evidence"] for c in report.get("checks", [])}:
+                self.committed_file(path, finish)
             self.git("diff", "--check", start, finish)
             for batch in after["batches"]:
                 if batch["status"] == "reviewed":
                     self.git("merge-base", "--is-ancestor", batch["reviewedCommit"], finish)
+            require(self.git("symbolic-ref", "--short", "HEAD") == record["branch"],
+                    "Agent changed the owned branch")
             self.safe_git()  # Includes actual remote confirmation, not just a local tracking ref.
+            record.update(commit=finish, pushed=True)
             attempts = load(self.journal / "fix-attempts.json") if (self.journal / "fix-attempts.json").exists() else {}
-            if choice["mode"] == "fix":
-                for identifier in choice["findingIds"]:
-                    issue = next(f for f in after["findings"] if f["id"] == identifier)
-                    if issue["status"] != "open":
-                        attempts.pop(identifier, None)
-                        continue
-                    old = attempts.get(identifier, {})
-                    diagnosis = issue.get("diagnosis", "")
-                    count = old.get("count", 0) + 1 if old.get("diagnosis", "") == diagnosis else 1
-                    attempts[identifier] = {"count": count, "diagnosis": diagnosis}
-                    require(count < 2, f"Repeated unresolved fix without a new diagnosis: {identifier}")
+            if choice["mode"] in {"fix", "verify"}:
+                unresolved = update_attempts(attempts, choice, report, after["findings"])
                 atomic_json(self.journal / "fix-attempts.json", attempts)
+                require(not unresolved, f"Repeated unresolved fix without a new diagnosis: {', '.join(unresolved)}")
             record.update(status=report["outcome"], commit=finish, pushed=True)
             atomic_json(directory / "result.json", record)
             active_path.unlink()
@@ -425,6 +590,10 @@ class Runner:
             active = self.journal / "active.json"
             require(active.exists(), "No retained interrupted/failed run")
             record = load(active)
+            require(record.get("worktree") == str(self.root) and record.get("state") == self.state_relative and
+                    record.get("branch") == self.git("symbolic-ref", "--short", "HEAD"),
+                    "Recovery ownership mismatch: use the recorded worktree, branch and --state; "
+                    "legacy records without ownership need manual provenance reconciliation")
             if record.get("sessionID"):
                 require(not self.client.is_active(record["sessionID"]), "Prior agent still active; interrupt it first")
             self.safe_git()  # Never discard or stage partially saved work.

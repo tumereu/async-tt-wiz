@@ -88,14 +88,19 @@ share one cooperative writer lock. This is not a lock on arbitrary human editors
    must concern actual behavior/player impact. A reproduced defect can have a red
    **diagnostic**; required validation cannot remain red on a success handoff.
 5. Require the session to finish successfully/idle with the pinned model. Verify
-   report identity/selection, retained history/evidence, meaningful target progress,
-   unchanged authorization/runner controls, committed report/state and exact owned
-   changed-path set. Check whitespace, ancestry, clean tree/index and actual remote
+    report identity/selection, retained history/evidence, meaningful target progress,
+    unchanged authorization/runner controls, committed report/state and exact owned
+    changed-path set. Enforce role-specific state transitions: no implement-as-review,
+    fix-as-verification or advancement of unselected tasks/findings. Explicit explained
+    bookkeeping/reopening preserves safe independent work and affected-scope reviews.
+    Check whitespace, ancestry, unchanged branch, clean tree/index and actual remote
    confirmation. Only then record success and start the next fresh session.
 
 The report's check command is descriptive evidence, **not shell text for the
-driver to execute**. The driver checks structure, reported exits and output-file
-existence; it cannot independently prove test honesty or application correctness.
+driver to execute**. The driver checks structure, reported exits and byte-for-byte
+presence of report/state/check outputs in the resulting commit, not just local
+file existence. Ignored build output alone is rejected. It cannot independently
+prove test honesty or application correctness.
 Normal executable checks and subsequent behavioral review remain required.
 
 The driver does not weaken failed checks, force-push, stage files, discard changes
@@ -133,11 +138,17 @@ Committed unit reports/check output go under `docs/agent/implementation-runs/`.
 The exact JSON fields and state updates are in [the agent prompt](implementation-agent.md).
 The driver writes private journals under `<git-common-dir>/implementation-loop/`:
 
-- `writer.lock`, `STOP`, and persistent `active.json` while running/halted.
+- `writer.lock`, `STOP`, and persistent `active.json` while running/halted; the
+  active record includes its owning worktree, branch and canonical state path.
 - A directory per run containing `agent.jsonl`, completed `session.json` and
   `result.json` with the actual resulting commit/push status or failure reason.
-- `fix-attempts.json`: stop after two unresolved fix attempts without a new
-  diagnosis. No-progress or missing/invalid reports stop immediately.
+- `fix-attempts.json`: count only actually attempted finding subsets. Counts survive
+  awaiting-verification and failed verification; after two unsuccessful fixes under
+  the same diagnosis, stop. The second proposed repair gets its fresh verification
+  first. Verified/explicitly disposed issues clear counts; a different diagnosis
+  needs a retained check-output reference (whitespace changes are not new diagnoses).
+  Counts and known resulting commit/push status survive a guard-triggered halt.
+  No-progress or missing/invalid reports stop immediately.
 
 No attempt to embed a commit's own hash in that commit is made. Reports reference
 the starting/reviewed code commit; the private journal records resulting commits.
@@ -150,11 +161,19 @@ the underlying issue **with applicable checks passing**, acknowledge the halt:
 python3 scripts/implementation-loop.py recover
 ```
 
-Recovery refuses an active prior session, dirty/staged work, an unpushed/divergent
-HEAD or unresolved failed required-check report. It archives the acknowledgement
+Recovery must run in the recorded **worktree, branch and state-path** context;
+a clean sibling worktree cannot acknowledge an interrupted unit elsewhere.
+Equivalent normalized spellings of the same state path are accepted. Recovery
+refuses missing/mismatched ownership, an active prior session, dirty/staged work,
+an unpushed/divergent HEAD or unresolved failed required-check report. It archives the acknowledgement
 and removes only the owned active-run fence. It neither stages/discards files,
 promotes tasks nor launches an agent. Inspect task/finding state before explicitly
 starting again; recovery is not a substitute for correcting an invalid handoff.
+For a legacy active record without ownership fields, inspect its private logs and
+session location and reconcile the original work first. Only after that manual
+provenance check may the operator supply the exact `worktree`, `branch` and `state`
+fields in that local active record and rerun recovery there. Never guess the current
+checkout as the owner, remove the fence blindly or edit immutable evidence archives.
 
 For a failed push, repair the cause and retry the **same** `scripts/save.sh`
 operation, not the implementation agent. Never bypass a rejected hook or force
@@ -175,7 +194,35 @@ real Git commit/push boundaries, failed saves, timeout interruption dispatch,
 stop/lock/recovery and preservation of unrelated dirty/staged work. They do not
 touch the real branch or launch a fake application in place of product E2E.
 
-### Results — 2026-10-21, OpenCode v2.1.1
+### Current review-repair qualification — 2026-10-21
+
+The owner requested the [readiness review's](implementation-loop-review-2026-10-21.md)
+recommended repairs. IR-01–IR-05 now have focused regression coverage and IR-06/
+IR-07 are clarified/assigned in the task plan. **48 automated tests pass**, retaining
+the initial 25 and adding multi-finding bounded fixes, failed-verification cycles,
+evidenced versus cosmetic diagnosis changes, second-attempt success, role/target
+transition rejection, child inheritance/closure, planning-only splits, critical
+mid-batch repairs, scoped reopenings, safe independent lanes, ignored/changed evidence,
+evidence from a clean clone and worktree/branch/state/legacy recovery checks.
+
+The regression probes were run red before the driver repairs and the complete
+expanded suite was run green afterward. Actual-project `status` still reports
+`not-authorized`, no retained run and next hint I01; a guarded one-run invocation
+still refuses **Implementation is not authorized**, without launching a session.
+Python syntax, documentation links and whitespace are checked separately.
+
+Current driver SHA-256:
+`f6734bc4570aa59c2e4c5ac05a9d9b80f552b8dfb2b17c1db6a5597e4e1530e7`.
+Repair logs: `/tmp/opencode/atw-loop-repair-red.log`,
+`/tmp/opencode/atw-loop-repair-check.log` and
+`/tmp/opencode/atw-loop-repair-project-guard.log`; stable regression source is the
+checked-in qualification script. No new live model/session cycle was run for this
+repair batch; the six-session/timeout evidence below belongs to earlier revisions.
+No model pin, API surface, global config, permission grants or application
+authorization was changed. This is automated tooling qualification, not an
+independent product review, full application acceptance or activation approval.
+
+### Earlier qualification — 2026-10-21, OpenCode v2.1.1
 
 - **25 automated tests passed**, using controlled fake agent outcomes and real
   disposable Git repositories/remotes. Coverage includes grouped dispatch,
@@ -192,9 +239,9 @@ touch the real branch or launch a fake application in place of product E2E.
   Group review reproduced the deliberately seeded subtraction result −1 instead
   of 5; the separate fix used addition and verification obtained 5. This qualifies
   orchestration, **not blind reviewer quality or product behavior**.
-- Current-code audit checked all six selections, retained history, report/session
+- At that qualification, the code audit checked all six selections, retained history, report/session
   identity, committed owned-path sets and check evidence. Restarting completed
-  fixture state with the current driver launched **no additional session**.
+  fixture state with the then-current driver launched **no additional session**.
 - Real eight-second timeout probe stopped after **8.43 seconds**, with session
   outcome `interrupted` and no active session remaining; exact high model retained.
 - The actual project refused `run` with **Implementation is not authorized**.
@@ -202,7 +249,7 @@ touch the real branch or launch a fake application in place of product E2E.
 
 The six-session smoke used a frozen driver with SHA-256
 `d77e8cc74d48efec247f1da26c8524e172f9520912e0941506b94221a15bace1`.
-Later history/recovery guards are included in the qualified current driver,
+Later history/recovery guards were included in the then-qualified driver,
 SHA-256 `4f197fbfa1f139f545e752d66af02e995da496faccec6759a031da44500252de`;
 the automated suite, current-code live-trace audit, completed restart and real
 timeout probe passed after those additions. The entire six-session cycle was

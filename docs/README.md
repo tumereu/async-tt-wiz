@@ -25,7 +25,10 @@ HTML/PDF review editions: the original non-gameplay pilot (D-290) and the
 The [cumulative UI feedback record](design/02-experience/ui/feedback.md) preserves
 D-292's fullscreen/branding/navigation and D-293's compact icons, contextual game/
 deck actions, drag preparation and art inspection; D-294 adds named/date-stamped
-games, globally no app Back arrows, shared title rows and refined selection. The
+games, globally no app Back arrows, shared title rows and refined selection.
+D-295 adds naming dialog/select-all, simpler reconnect/delete presentation,
+unruled equal-space fields, owner borders/actions, compact life, corner-peek Stack,
+token/ping/reveal mocks and dense type-icon history. The
 same-URL full HTML publication workflow persists. Remaining copy cuts are proposals.
 This authorizes these design artifacts, not application implementation, a passed
 review/UI gate or approval of the proposed layouts.

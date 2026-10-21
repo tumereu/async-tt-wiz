@@ -3,7 +3,44 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
-**Current edition: D-294 cumulative owner-feedback revision**, documented below. The original
+## Current round results — D-295
+
+- Appended F37–F47, preserving earlier feedback and explicit supersessions. Added
+  G04/G05/G06 for card actions, token/ping/reveals and owner choice. Current full
+  edition: **35 primary states + three continuations = 38 states / 76 captures,
+  48 PDF pages**. Earlier counts below are historical.
+- Recaptured all 12 changed/new states in both orientations with remote assets
+  blocked: inert bodies, no scripts, loaded local fonts, fitting page widths,
+  ordinary controls at least 48 px and visible or in scrolling content. Static
+  checks cover naming-dialog/select-all annotation, one deletion title, reconnect
+  games escape only, equal complete battlefield envelopes, no slot/row labels,
+  portrait Stack right/top+2 and collision-free sample event-type icons.
+- Inspected revised portrait/landscape examples for table, combat, history,
+  context/owner choice, token/ping/reveal, naming, reconnect and deletion. Fixed
+  duplicate phase presentation, hidden-combat selector leakage into normal mode,
+  orientation-dependent pile envelope overflow and short-height dock wrapping.
+  Landscape board thumbnails remain small structural examples, not native readable
+  minimum sizes or completed zoom/hit/accessibility validation.
+- Naming touch/focus select-all is a native interaction requirement, annotated in
+  the inert source, not executed/claimed as functioning HTML. Owner is now explicit
+  shared metadata; primary contracts, summaries, protocol/storage and future
+  T-685–T-689 align. Its narrow D-241 exception does not add arbitrary association/
+  controller authoring. No Android/gameplay/accessibility tests were run.
+- Full build validates all 38 state IDs, 76 embedded images/dimensions/decodes,
+  phone-width HTML and PDF. The first build exposed copy-audit table min-content
+  overflow; normal cell wrapping repairs it without hiding overflow/shrinking text
+  or bypassing the check. Tighter print leading on L04 keeps its Basis line from
+  orphaning onto an otherwise empty page; no content was dropped. Documentation relative-file links, JSON, Python syntax
+  and whitespace checks pass.
+- Published in place at the exact existing private port-8443 review.html URL.
+  Loopback HTML/PDF/manifest/feedback/new sources and sampled new captures return
+  HTTP 200 and match repository bytes; all 38 headings/76 images are in the served
+  full edition. Tailscale configuration retains the port-8443 document proxy and
+  both original port-443 routes. Host tailnet HTTPS self-connection is still refused;
+  phone/other-peer refresh is not independently verified. No public hosting, route
+  change, new cloud generation, application implementation or passed gate.
+
+**Current edition: D-295 cumulative owner-feedback revision**, documented below. The original
 pilot/gameplay counts and cloud checks in earlier sections are historical.
 
 - The original pilot has **21 distinct Stitch-generated responsive sources**,

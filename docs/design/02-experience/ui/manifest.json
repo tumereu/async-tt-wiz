@@ -1,12 +1,12 @@
 {
   "generated": "2026-10-21",
-  "status": "UI review including gameplay and cumulative owner revisions D-292\u2013D-294; obsolete G00 retired",
+  "status": "UI review including gameplay and cumulative owner revisions D-292\u2013D-295; obsolete G00 retired",
   "currentFeedback": "feedback.md",
   "ownerRevision": {
-    "decision": "D-294 (retains D-292/D-293 except explicit supersessions)",
-    "scope": "Cumulative F01\u2013F36: named/date-stamped games; no app Back arrows; title-row controls; equal pairs/right close; simplified cover/delete; opponent-slot Reinvite; draft deck selection; compact tappable/draggable one/all with fixed fading move text and short disappearing-row fade/slide; retire G00 and put real table under U01.",
+    "decision": "D-295 (retains D-292\u2013D-294 except explicit supersessions)",
+    "scope": "Cumulative F01\u2013F47: naming dialog/select-all, one deletion title, reconnect games escape only; unruled equal-footprint battlefield, red opponent area, owner borders/action, colored life squares, bottom-right P/T, central corner-peek Stack (top+2, no item capacity), trial combat placement/dividers, reveals, context/token/ping/owner mocks and dense type-icon history.",
     "provenance": "Local inert design revisions, not a new Stitch/cloud edit. Historical per-screen briefs and raw original/revision sources below describe the earlier generation, not current requirements; feedback.md and review.md take precedence.",
-    "newLocalSource": "P05 named creation added; L01/L02/L03/L05/L06/U01 use local recompositions; L04b freezes feedback faded with identical preparation layout. Prior derivatives preserved; G00 retired provenance only. No new cloud generation."
+    "newLocalSource": "table-round4.html/CSS shares inert G01\u2013G06/H01\u2013H03/U01 variants selected only by documentation capture tooling. Previous local/cloud sources retained below. G04/G05/G06 are new review states, not cloud generations."
   },
   "stitchProject": "6617750535460836476",
   "viewports": {
@@ -29,6 +29,1232 @@
     }
   ],
   "screens": [
+    {
+      "id": "G04",
+      "slug": "gameplay-card-actions",
+      "title": "Card context actions",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G04",
+      "derivation": "D-295 local inert normal card action menu; Change owner added, existing actions retained.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 242,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close card actions",
+              "x": 336,
+              "y": 269,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect",
+              "x": 28,
+              "y": 325,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect other side",
+              "x": 207,
+              "y": 325,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library top",
+              "x": 28,
+              "y": 375,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library bottom",
+              "x": 207,
+              "y": 375,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard",
+              "x": 28,
+              "y": 425,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile",
+              "x": 207,
+              "y": 425,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change owner",
+              "x": 28,
+              "y": 475,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Card text / counters",
+              "x": 207,
+              "y": 475,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Clone",
+              "x": 28,
+              "y": 525,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Link",
+              "x": 207,
+              "y": 525,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ping",
+              "x": 28,
+              "y": 575,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Stack effect",
+              "x": 207,
+              "y": 575,
+              "width": 177,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 722,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 413,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close card actions",
+              "x": 656,
+              "y": 79,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect",
+              "x": 188,
+              "y": 135,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Inspect other side",
+              "x": 361,
+              "y": 135,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library top",
+              "x": 533,
+              "y": 135,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library bottom",
+              "x": 188,
+              "y": 185,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard",
+              "x": 361,
+              "y": 185,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile",
+              "x": 533,
+              "y": 185,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Change owner",
+              "x": 188,
+              "y": 235,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Card text / counters",
+              "x": 361,
+              "y": 235,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Clone",
+              "x": 533,
+              "y": 235,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Link",
+              "x": 188,
+              "y": 285,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Ping",
+              "x": 361,
+              "y": 285,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Stack effect",
+              "x": 533,
+              "y": 285,
+              "width": 171,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "G05",
+      "slug": "gameplay-token-ping-reveal",
+      "title": "Token, pings and reveals",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G05",
+      "derivation": "D-295 local inert token, event-scoped numbered pings, accepted reveal trays and opposite-owner card on own field.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 242,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 722,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 413,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "G06",
+      "slug": "gameplay-owner-choice",
+      "title": "Change owner choice",
+      "source": "sources/table-round4.html",
+      "captureVariant": "G06",
+      "derivation": "D-295 local inert two-participant owner chooser; colored identity squares with accessible participant names.",
+      "audit": {
+        "portrait": {
+          "documentWidth": 412,
+          "viewportWidth": 412,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 242,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close owner choice",
+              "x": 336,
+              "y": 394,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "person\ncheck",
+              "x": 28,
+              "y": 450,
+              "width": 174,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "person",
+              "x": 210,
+              "y": 450,
+              "width": 174,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        },
+        "landscape": {
+          "documentWidth": 892,
+          "viewportWidth": 892,
+          "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
+            {
+              "family": "Review Symbols",
+              "status": "loaded"
+            }
+          ],
+          "controls": [
+            {
+              "text": "\u2630",
+              "x": 4,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Main 1",
+              "x": 722,
+              "y": 0,
+              "width": 58,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "History",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 413,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Close owner choice",
+              "x": 656,
+              "y": 154,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "person\ncheck",
+              "x": 188,
+              "y": 210,
+              "width": 254,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "person",
+              "x": 450,
+              "y": 210,
+              "width": 254,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "L04b",
       "slug": "prepare-deck-faded",
@@ -552,8 +1778,8 @@
             },
             {
               "text": "Cancel game creation",
-              "x": 356,
-              "y": 4,
+              "x": 328,
+              "y": 334,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -562,9 +1788,9 @@
             },
             {
               "text": "INPUT",
-              "x": 29,
-              "y": 144,
-              "width": 298,
+              "x": 36,
+              "y": 450,
+              "width": 284,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -572,8 +1798,8 @@
             },
             {
               "text": "Suggest another game name",
-              "x": 335,
-              "y": 144,
+              "x": 328,
+              "y": 450,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -582,9 +1808,9 @@
             },
             {
               "text": "Cancel",
-              "x": 29,
-              "y": 204,
-              "width": 173,
+              "x": 36,
+              "y": 510,
+              "width": 166,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -593,8 +1819,8 @@
             {
               "text": "Create & invite",
               "x": 210,
-              "y": 204,
-              "width": 173,
+              "y": 510,
+              "width": 166,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -684,8 +1910,8 @@
             },
             {
               "text": "Cancel game creation",
-              "x": 836,
-              "y": 4,
+              "x": 568,
+              "y": 94,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -694,9 +1920,9 @@
             },
             {
               "text": "INPUT",
-              "x": 249,
-              "y": 144,
-              "width": 558,
+              "x": 276,
+              "y": 210,
+              "width": 284,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -704,8 +1930,8 @@
             },
             {
               "text": "Suggest another game name",
-              "x": 815,
-              "y": 144,
+              "x": 568,
+              "y": 210,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -714,9 +1940,9 @@
             },
             {
               "text": "Cancel",
-              "x": 249,
-              "y": 204,
-              "width": 303,
+              "x": 276,
+              "y": 270,
+              "width": 166,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -724,9 +1950,9 @@
             },
             {
               "text": "Create & invite",
-              "x": 560,
-              "y": 204,
-              "width": 303,
+              "x": 450,
+              "y": 270,
+              "width": 166,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -4833,10 +6059,6 @@
               "status": "loaded"
             },
             {
-              "family": "Roboto",
-              "status": "loaded"
-            },
-            {
               "family": "Material Symbols Outlined",
               "status": "loaded"
             },
@@ -4869,7 +6091,7 @@
             {
               "text": "close",
               "x": 327,
-              "y": 317,
+              "y": 326,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -4879,7 +6101,7 @@
             {
               "text": "Delete saved deck",
               "x": 47,
-              "y": 514,
+              "y": 504,
               "width": 155,
               "height": 52,
               "minimumWidth": 48,
@@ -4889,7 +6111,7 @@
             {
               "text": "Keep deck",
               "x": 210,
-              "y": 514,
+              "y": 504,
               "width": 155,
               "height": 52,
               "minimumWidth": 48,
@@ -4902,10 +6124,6 @@
           "documentWidth": 892,
           "viewportWidth": 892,
           "fonts": [
-            {
-              "family": "Roboto",
-              "status": "loaded"
-            },
             {
               "family": "Roboto",
               "status": "loaded"
@@ -5011,7 +6229,7 @@
             {
               "text": "close",
               "x": 755,
-              "y": 102,
+              "y": 106,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -5021,7 +6239,7 @@
             {
               "text": "Delete saved deck",
               "x": 315,
-              "y": 256,
+              "y": 252,
               "width": 237,
               "height": 48,
               "minimumWidth": 48,
@@ -5031,7 +6249,7 @@
             {
               "text": "Keep deck",
               "x": 560,
-              "y": 256,
+              "y": 252,
               "width": 237,
               "height": 48,
               "minimumWidth": 48,
@@ -6753,7 +7971,9 @@
       "title": "Reconnecting and downloaded read-only review",
       "brief": "Game shell with EMPTY gray gameplay placeholder only, all board design omitted. Header Game with riley. Centered modal titled Reconnecting\u2026 with simple status icon and text Game actions are unavailable while disconnected. Previously sent actions will recover automatically. Text button Review downloaded data and secondary Back to games. Small read-only label on background. Review action closes modal into read-only navigation; it does NOT enable actions, Ready, Undo, activation or new hidden-information inspection, and it does not manually resend unknown requests. No cards, game controls or actual board geometry. Portrait and landscape adapt dialog max width 360/460 px and retain 48 px actions. This is proposed presentation of the existing offline behavior, not a new recovery center.",
       "stitchScreen": "projects/6617750535460836476/screens/1e53772e5d914cbca7c7051da7eb9d5c",
-      "source": "sources/reconnecting-table.html",
+      "source": "sources/table-round4.html",
+      "previousLocalSource": "sources/reconnecting-table.html",
+      "captureVariant": "U01",
       "originalSource": "sources/reconnecting.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -6789,21 +8009,131 @@
               "inViewport": true
             },
             {
-              "text": "Review downloaded data",
-              "x": 32,
-              "y": 464,
-              "width": 170,
-              "height": 58,
+              "text": "Main 1",
+              "x": 242,
+              "y": 0,
+              "width": 58,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Games",
-              "x": 210,
-              "y": 464,
-              "width": 170,
-              "height": 58,
+              "text": "History",
+              "x": 304,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 356,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 369,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 64,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 150,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 235,
+              "y": 420,
+              "width": 83,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 173,
+              "y": 840,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 336,
+              "y": 840,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to games list",
+              "x": 28,
+              "y": 455,
+              "width": 356,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6814,6 +8144,10 @@
           "documentWidth": 892,
           "viewportWidth": 892,
           "fonts": [
+            {
+              "family": "Material Symbols Outlined",
+              "status": "loaded"
+            },
             {
               "family": "Review Symbols",
               "status": "loaded"
@@ -6831,21 +8165,131 @@
               "inViewport": true
             },
             {
-              "text": "Review downloaded data",
-              "x": 252,
-              "y": 224,
-              "width": 190,
-              "height": 58,
+              "text": "Main 1",
+              "x": 722,
+              "y": 0,
+              "width": 58,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Games",
-              "x": 450,
-              "y": 224,
-              "width": 190,
-              "height": 58,
+              "text": "History",
+              "x": 784,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Game menu",
+              "x": 836,
+              "y": 0,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 81,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Library\n50",
+              "x": 66,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Graveyard\n2",
+              "x": 120,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Exile\n0",
+              "x": 175,
+              "y": 255,
+              "width": 51,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
+              "x": 10,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Actions",
+              "x": 413,
+              "y": 362,
+              "width": 48,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Normal",
+              "x": 816,
+              "y": 362,
+              "width": 66,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Back to games list",
+              "x": 188,
+              "y": 215,
+              "width": 516,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6860,7 +8304,9 @@
       "title": "Live table and fixed hand",
       "brief": "Live normal mode, combat CLOSED, Stack empty but labeled. Sparse cards show dark one-row and light two-row arrangement. alex hand three face-up synthetic cards (Meadow, River, Guide), riley covered hand 3. Main 1 phase. Bottom center can show a neutral Actions menu button (not an invented phase-specific shortcut). History and overflow visible. No timeline in live mode.",
       "stitchScreen": "projects/6617750535460836476/screens/487d1f4a6cef4964a39d3b0fcbfb2bde",
-      "source": "sources/gameplay-live.html",
+      "source": "sources/table-round4.html",
+      "previousLocalSource": "sources/gameplay-live.html",
+      "captureVariant": "G01",
       "originalSource": "sources/gameplay-live.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 1,
@@ -6904,11 +8350,11 @@
               "inViewport": true
             },
             {
-              "text": "Main 1\nphase",
-              "x": 56,
+              "text": "Main 1",
+              "x": 242,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -6916,7 +8362,7 @@
             {
               "text": "History",
               "x": 304,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -6924,9 +8370,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 356,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -6935,9 +8381,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 343,
-              "width": 94,
+              "x": 64,
+              "y": 369,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -6945,9 +8391,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 343,
-              "width": 94,
+              "x": 150,
+              "y": 369,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -6955,9 +8401,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 343,
-              "width": 94,
+              "x": 235,
+              "y": 369,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -6965,9 +8411,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 398,
-              "width": 94,
+              "x": 64,
+              "y": 420,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -6975,9 +8421,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 398,
-              "width": 94,
+              "x": 150,
+              "y": 420,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -6985,16 +8431,16 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 398,
-              "width": 94,
+              "x": 235,
+              "y": 420,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "Undo",
               "x": 10,
               "y": 840,
               "width": 48,
@@ -7014,7 +8460,7 @@
               "inViewport": true
             },
             {
-              "text": "Normal\nmode \u25be",
+              "text": "Normal",
               "x": 336,
               "y": 840,
               "width": 66,
@@ -7050,11 +8496,11 @@
               "inViewport": true
             },
             {
-              "text": "Main 1\nphase",
-              "x": 56,
+              "text": "Main 1",
+              "x": 722,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -7062,7 +8508,7 @@
             {
               "text": "History",
               "x": 784,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -7070,9 +8516,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 836,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -7081,9 +8527,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 100,
-              "width": 54,
+              "x": 66,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7091,9 +8537,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 100,
-              "width": 54,
+              "x": 120,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7101,9 +8547,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 100,
-              "width": 54,
+              "x": 175,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7111,9 +8557,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 253,
-              "width": 54,
+              "x": 66,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7121,9 +8567,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 253,
-              "width": 54,
+              "x": 120,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7131,16 +8577,16 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 253,
-              "width": 54,
+              "x": 175,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "Undo",
               "x": 10,
               "y": 362,
               "width": 48,
@@ -7160,7 +8606,7 @@
               "inViewport": true
             },
             {
-              "text": "Normal\nmode \u25be",
+              "text": "Normal",
               "x": 816,
               "y": 362,
               "width": 66,
@@ -7187,7 +8633,9 @@
       "title": "Live combat and populated Stack",
       "brief": "Live Select mode in Declare attackers. Combat OPEN: a clearly paired dashed blocker occurrence above attacker occurrence, sources still visible in green battlefield. Shared Stack has one actual card Ember and one dashed effect projection Guide; distinguish real vs projection. Bottom center quick actions Declare + tap and Without tap, horizontally scrollable within their bounded toolbar area if needed. Show selection count 2. Landscape may need vertical board navigation rather than clipping controls; no hidden extra button below page. alex floating hand still visible.",
       "stitchScreen": "projects/6617750535460836476/screens/0c640298b90b483ea8af8abf966fa0ff",
-      "source": "sources/gameplay-combat.html",
+      "source": "sources/table-round4.html",
+      "previousLocalSource": "sources/gameplay-combat.html",
+      "captureVariant": "G02",
       "originalSource": "sources/gameplay-combat.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 1,
@@ -7231,11 +8679,11 @@
               "inViewport": true
             },
             {
-              "text": "Declare atk\nphase",
-              "x": 56,
+              "text": "Attack",
+              "x": 242,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -7243,7 +8691,7 @@
             {
               "text": "History",
               "x": 304,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -7251,9 +8699,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 356,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -7262,9 +8710,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 284,
-              "width": 94,
+              "x": 64,
+              "y": 336,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7272,9 +8720,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 284,
-              "width": 94,
+              "x": 150,
+              "y": 336,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7282,9 +8730,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 284,
-              "width": 94,
+              "x": 235,
+              "y": 336,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7292,9 +8740,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 339,
-              "width": 94,
+              "x": 64,
+              "y": 456,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7302,9 +8750,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 339,
-              "width": 94,
+              "x": 150,
+              "y": 456,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7312,16 +8760,26 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 339,
-              "width": 94,
+              "x": 235,
+              "y": 456,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "27",
+              "x": 334,
+              "y": 430,
+              "width": 60,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
               "x": 10,
               "y": 840,
               "width": 48,
@@ -7331,27 +8789,27 @@
               "inViewport": true
             },
             {
-              "text": "Declare + tap",
-              "x": 146,
+              "text": "Declare attackers and tap",
+              "x": 140,
               "y": 840,
-              "width": 48,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Without tap",
+              "text": "Declare attackers without tapping",
               "x": 200,
               "y": 840,
-              "width": 48,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Select \u00b7 2\nmode \u25be",
+              "text": "Normal",
               "x": 336,
               "y": 840,
               "width": 66,
@@ -7387,11 +8845,11 @@
               "inViewport": true
             },
             {
-              "text": "Declare atk\nphase",
-              "x": 56,
+              "text": "Attack",
+              "x": 722,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -7399,7 +8857,7 @@
             {
               "text": "History",
               "x": 784,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -7407,9 +8865,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 836,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -7418,9 +8876,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 100,
-              "width": 54,
+              "x": 66,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7428,9 +8886,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 100,
-              "width": 54,
+              "x": 120,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7438,9 +8896,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 100,
-              "width": 54,
+              "x": 175,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7448,9 +8906,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 253,
-              "width": 54,
+              "x": 66,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7458,9 +8916,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 253,
-              "width": 54,
+              "x": 120,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7468,16 +8926,26 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 253,
-              "width": 54,
+              "x": 175,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "27",
+              "x": 670,
+              "y": 168,
+              "width": 60,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "Undo",
               "x": 10,
               "y": 362,
               "width": 48,
@@ -7487,27 +8955,27 @@
               "inViewport": true
             },
             {
-              "text": "Declare + tap",
-              "x": 386,
+              "text": "Declare attackers and tap",
+              "x": 380,
               "y": 362,
-              "width": 48,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Without tap",
+              "text": "Declare attackers without tapping",
               "x": 440,
               "y": 362,
-              "width": 48,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Select \u00b7 2\nmode \u25be",
+              "text": "Normal",
               "x": 816,
               "y": 362,
               "width": 66,
@@ -7534,7 +9002,9 @@
       "title": "Historical review paused at an exact event",
       "brief": "Historical mode PAUSED. Exact selected event X is INSIDE a playback group; timeline labels A, X, Y, Z, selected X outlined with vertical marker. Small diagonal branch stub at A indicates retained old line; no expanded tree. Top read-only Main 1; label Reviewing X. Footer Previous / Play / Next, timeline directly above, Continue playing from here separate and visible. No Undo, mode chooser, quick actions or gameplay editing. Hand and zones are historical read-only content.",
       "stitchScreen": "projects/6617750535460836476/screens/77d7565f204145d9a15556cdd2d2be65",
-      "source": "sources/gameplay-history-paused.html",
+      "source": "sources/table-round4.html",
+      "previousLocalSource": "sources/gameplay-history-paused.html",
+      "captureVariant": "H01",
       "originalSource": "sources/gameplay-history-paused.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 2,
@@ -7578,30 +9048,30 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
-              "x": 282,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Continue playing from here",
-              "x": 10,
-              "y": 714,
-              "width": 48,
+              "x": 292,
+              "y": 0,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Back to live",
-              "x": 354,
-              "y": 714,
-              "width": 48,
+              "text": "Return to live",
+              "x": 350,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "27",
+              "x": 334,
+              "y": 399,
+              "width": 60,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7664,30 +9134,30 @@
               "inViewport": true
             },
             {
-              "text": "Back to live",
-              "x": 732,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Continue playing from here",
-              "x": 784,
+              "x": 772,
               "y": 0,
-              "width": 48,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "more_vert",
-              "x": 836,
+              "text": "Return to live",
+              "x": 830,
               "y": 0,
-              "width": 48,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "27",
+              "x": 556,
+              "y": 141,
+              "width": 60,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7741,7 +9211,9 @@
       "title": "Grouped playback running",
       "brief": "Historical mode PLAYING. Footer Previous / Pause / Next. Timeline has selected Y marker and branch stub at A; concise status Playing grouped events and hint Drag timeline to pause. Continue playing from here remains separate; it pauses at the exact displayed selected boundary before arming gameplay, never forks on press. Top Back to live is personal navigation. No gameplay action controls or editable phase.",
       "stitchScreen": "projects/6617750535460836476/screens/5cdc3ce7326144199345b7e25b50a610",
-      "source": "sources/gameplay-history-playing.html",
+      "source": "sources/table-round4.html",
+      "previousLocalSource": "sources/gameplay-history-playing.html",
+      "captureVariant": "H02",
       "originalSource": "sources/gameplay-history-playing.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -7785,30 +9257,30 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
-              "x": 282,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Continue playing from here",
-              "x": 10,
-              "y": 714,
-              "width": 48,
+              "x": 292,
+              "y": 0,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Back to live",
-              "x": 354,
-              "y": 714,
-              "width": 48,
+              "text": "Return to live",
+              "x": 350,
+              "y": 0,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "27",
+              "x": 334,
+              "y": 399,
+              "width": 60,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7871,30 +9343,30 @@
               "inViewport": true
             },
             {
-              "text": "Back to live",
-              "x": 732,
-              "y": 0,
-              "width": 48,
-              "height": 48,
-              "minimumWidth": 48,
-              "scrollAncestor": false,
-              "inViewport": true
-            },
-            {
               "text": "Continue playing from here",
-              "x": 784,
+              "x": 772,
               "y": 0,
-              "width": 48,
+              "width": 54,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "more_vert",
-              "x": 836,
+              "text": "Return to live",
+              "x": 830,
               "y": 0,
-              "width": 48,
+              "width": 54,
+              "height": 48,
+              "minimumWidth": 48,
+              "scrollAncestor": false,
+              "inViewport": true
+            },
+            {
+              "text": "27",
+              "x": 556,
+              "y": 141,
+              "width": 60,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -7948,7 +9420,9 @@
       "title": "Historical continuation armed before first action",
       "brief": "Gameplay mode armed after Continue playing from here at historical event A, but NO action yet, so NO new branch exists. Show compact conspicuous banner Continuing from A \u00b7 no action yet with Cancel text button. Original displaced future is retained, no actual fork created on entering. Live controls Undo/Actions/Normal return, but do not imply Undo is relative to review cursor: actual Undo eligibility/target still use shared current history. Include Return to live text navigation. All new gameplay actions bind explicit historical intent at A; first successful mutation creates/activates continuation. No timeline transport. Keep fixed floating own hand.",
       "stitchScreen": "projects/6617750535460836476/screens/2e838a26a4b04756adcd9ea7e6e30e55",
-      "source": "sources/gameplay-continue.html",
+      "source": "sources/table-round4.html",
+      "previousLocalSource": "sources/gameplay-continue.html",
+      "captureVariant": "H03",
       "originalSource": "sources/gameplay-continue.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -7992,11 +9466,11 @@
               "inViewport": true
             },
             {
-              "text": "Main 1\nphase",
-              "x": 56,
+              "text": "Main 1",
+              "x": 242,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -8004,7 +9478,7 @@
             {
               "text": "History",
               "x": 304,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8012,9 +9486,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 356,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8022,10 +9496,10 @@
               "inViewport": true
             },
             {
-              "text": "Cancel",
-              "x": 265,
-              "y": 49,
-              "width": 48,
+              "text": "Cancel continuation",
+              "x": 254,
+              "y": 76,
+              "width": 52,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8033,9 +9507,9 @@
             },
             {
               "text": "Return to live",
-              "x": 356,
-              "y": 49,
-              "width": 48,
+              "x": 352,
+              "y": 76,
+              "width": 52,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8043,9 +9517,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 367,
-              "width": 94,
+              "x": 64,
+              "y": 393,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8053,9 +9527,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 367,
-              "width": 94,
+              "x": 150,
+              "y": 393,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8063,9 +9537,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 367,
-              "width": 94,
+              "x": 235,
+              "y": 393,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8073,9 +9547,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 422,
-              "width": 94,
+              "x": 64,
+              "y": 444,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8083,9 +9557,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 422,
-              "width": 94,
+              "x": 150,
+              "y": 444,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8093,16 +9567,16 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 422,
-              "width": 94,
+              "x": 235,
+              "y": 444,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "Undo",
               "x": 10,
               "y": 840,
               "width": 48,
@@ -8112,7 +9586,7 @@
               "inViewport": true
             },
             {
-              "text": "Actions at A",
+              "text": "Actions",
               "x": 173,
               "y": 840,
               "width": 48,
@@ -8122,7 +9596,7 @@
               "inViewport": true
             },
             {
-              "text": "Normal\nmode \u25be",
+              "text": "Normal",
               "x": 336,
               "y": 840,
               "width": 66,
@@ -8158,11 +9632,11 @@
               "inViewport": true
             },
             {
-              "text": "Main 1\nphase",
-              "x": 56,
+              "text": "Main 1",
+              "x": 722,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -8170,7 +9644,7 @@
             {
               "text": "History",
               "x": 784,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8178,9 +9652,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 836,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8188,10 +9662,10 @@
               "inViewport": true
             },
             {
-              "text": "Cancel",
-              "x": 505,
-              "y": 49,
-              "width": 48,
+              "text": "Cancel continuation",
+              "x": 494,
+              "y": 72,
+              "width": 52,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8199,9 +9673,9 @@
             },
             {
               "text": "Return to live",
-              "x": 836,
-              "y": 49,
-              "width": 48,
+              "x": 832,
+              "y": 72,
+              "width": 52,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8209,9 +9683,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 148,
-              "width": 54,
+              "x": 66,
+              "y": 129,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8219,9 +9693,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 148,
-              "width": 54,
+              "x": 120,
+              "y": 129,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8229,9 +9703,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 148,
-              "width": 54,
+              "x": 175,
+              "y": 129,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8239,9 +9713,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 253,
-              "width": 54,
+              "x": 66,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8249,9 +9723,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 253,
-              "width": 54,
+              "x": 120,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8259,16 +9733,16 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 253,
-              "width": 54,
+              "x": 175,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "Undo",
               "x": 10,
               "y": 362,
               "width": 48,
@@ -8278,7 +9752,7 @@
               "inViewport": true
             },
             {
-              "text": "Actions at A",
+              "text": "Actions",
               "x": 413,
               "y": 362,
               "width": 48,
@@ -8288,7 +9762,7 @@
               "inViewport": true
             },
             {
-              "text": "Normal\nmode \u25be",
+              "text": "Normal",
               "x": 816,
               "y": 362,
               "width": 66,
@@ -8315,7 +9789,9 @@
       "title": "Explicit Redo and mode chooser routes",
       "brief": "Live table with top-right overflow OPEN as bounded popover with explicit labeled Redo, Chat, Game actions, Close menu, each >=48px tall; no giant full-page settings. Include explanatory small footer hint Hold Undo for Redo. Bottom-right mode square labeled Normal. Do NOT show mode chooser simultaneously; the document will explain its three mutually exclusive choices Normal/Select/Ping. Actual background remains the live table, not placeholder. Redo and Undo are server requests; do not assert unconditional eligibility. Keep all popover entries reachable in landscape, scrolling popover if needed.",
       "stitchScreen": "projects/6617750535460836476/screens/386c330fde6c408183e303db67fef31c",
-      "source": "sources/gameplay-controls.html",
+      "source": "sources/table-round4.html",
+      "previousLocalSource": "sources/gameplay-controls.html",
+      "captureVariant": "G03",
       "originalSource": "sources/gameplay-controls.stitch.html.txt",
       "normalization": {
         "executableScriptsRemoved": 0,
@@ -8359,11 +9835,11 @@
               "inViewport": true
             },
             {
-              "text": "Main 1\nphase",
-              "x": 56,
+              "text": "Main 1",
+              "x": 242,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -8371,7 +9847,7 @@
             {
               "text": "History",
               "x": 304,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8379,9 +9855,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 356,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8390,9 +9866,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 343,
-              "width": 94,
+              "x": 64,
+              "y": 369,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8400,9 +9876,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 343,
-              "width": 94,
+              "x": 150,
+              "y": 369,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8410,9 +9886,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 343,
-              "width": 94,
+              "x": 235,
+              "y": 369,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8420,9 +9896,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 109,
-              "y": 398,
-              "width": 94,
+              "x": 64,
+              "y": 420,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8430,9 +9906,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 207,
-              "y": 398,
-              "width": 94,
+              "x": 150,
+              "y": 420,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8440,16 +9916,16 @@
             },
             {
               "text": "Exile\n0",
-              "x": 306,
-              "y": 398,
-              "width": 94,
+              "x": 235,
+              "y": 420,
+              "width": 83,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "Undo",
               "x": 10,
               "y": 840,
               "width": 48,
@@ -8469,7 +9945,7 @@
               "inViewport": true
             },
             {
-              "text": "Normal\nmode \u25be",
+              "text": "Normal",
               "x": 336,
               "y": 840,
               "width": 66,
@@ -8479,7 +9955,7 @@
               "inViewport": true
             },
             {
-              "text": "redo\nRedo",
+              "text": "Redo",
               "x": 163,
               "y": 78,
               "width": 234,
@@ -8489,7 +9965,7 @@
               "inViewport": true
             },
             {
-              "text": "chat_bubble\nChat",
+              "text": "Chat",
               "x": 163,
               "y": 126,
               "width": 234,
@@ -8499,7 +9975,7 @@
               "inViewport": true
             },
             {
-              "text": "apps\nGame actions",
+              "text": "Game actions",
               "x": 163,
               "y": 174,
               "width": 234,
@@ -8509,7 +9985,7 @@
               "inViewport": true
             },
             {
-              "text": "close\nClose menu",
+              "text": "Close menu",
               "x": 163,
               "y": 222,
               "width": 234,
@@ -8545,11 +10021,11 @@
               "inViewport": true
             },
             {
-              "text": "Main 1\nphase",
-              "x": 56,
+              "text": "Main 1",
+              "x": 722,
               "y": 0,
               "width": 58,
-              "height": 49,
+              "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
@@ -8557,7 +10033,7 @@
             {
               "text": "History",
               "x": 784,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8565,9 +10041,9 @@
               "inViewport": true
             },
             {
-              "text": "more_vert",
+              "text": "Game menu",
               "x": 836,
-              "y": 1,
+              "y": 0,
               "width": 48,
               "height": 48,
               "minimumWidth": 48,
@@ -8576,9 +10052,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 100,
-              "width": 54,
+              "x": 66,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8586,9 +10062,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 100,
-              "width": 54,
+              "x": 120,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8596,9 +10072,9 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 100,
-              "width": 54,
+              "x": 175,
+              "y": 81,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8606,9 +10082,9 @@
             },
             {
               "text": "Library\n50",
-              "x": 12,
-              "y": 253,
-              "width": 54,
+              "x": 66,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8616,9 +10092,9 @@
             },
             {
               "text": "Graveyard\n2",
-              "x": 69,
-              "y": 253,
-              "width": 54,
+              "x": 120,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
@@ -8626,16 +10102,16 @@
             },
             {
               "text": "Exile\n0",
-              "x": 126,
-              "y": 253,
-              "width": 54,
+              "x": 175,
+              "y": 255,
+              "width": 51,
               "height": 48,
               "minimumWidth": 48,
               "scrollAncestor": false,
               "inViewport": true
             },
             {
-              "text": "Undo\nhold: Redo",
+              "text": "Undo",
               "x": 10,
               "y": 362,
               "width": 48,
@@ -8655,7 +10131,7 @@
               "inViewport": true
             },
             {
-              "text": "Normal\nmode \u25be",
+              "text": "Normal",
               "x": 816,
               "y": 362,
               "width": 66,
@@ -8665,7 +10141,7 @@
               "inViewport": true
             },
             {
-              "text": "redo\nRedo",
+              "text": "Redo",
               "x": 643,
               "y": 78,
               "width": 234,
@@ -8675,7 +10151,7 @@
               "inViewport": true
             },
             {
-              "text": "chat_bubble\nChat",
+              "text": "Chat",
               "x": 643,
               "y": 126,
               "width": 234,
@@ -8685,7 +10161,7 @@
               "inViewport": true
             },
             {
-              "text": "apps\nGame actions",
+              "text": "Game actions",
               "x": 643,
               "y": 174,
               "width": 234,
@@ -8695,7 +10171,7 @@
               "inViewport": true
             },
             {
-              "text": "close\nClose menu",
+              "text": "Close menu",
               "x": 643,
               "y": 222,
               "width": 234,

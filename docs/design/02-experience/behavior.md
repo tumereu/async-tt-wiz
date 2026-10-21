@@ -29,6 +29,26 @@ The general rules are:
 
 ## Confirmed behavior
 
+### Current table presentation and ownership — D-295
+
+- Own field is green, opponent field red; no battlefield area labels, visible
+  slots or row separators. Logical snapping remains. Cards and ordinary visual
+  piles take equal horizontal space regardless of orientation/stacking.
+- Card/token border color identifies explicit owner, initially the participant
+  bringing/creating it. **Change owner** is a shared card edit, not a move,
+  controller assignment or permission change; both players can still edit either
+  side. Movement preserves owner; live projections show their source's owner.
+  Life is a player-colored square containing only its total; no printed gameplay
+  player names or “Life” labels. Accessible identity remains. P/T is bottom-right.
+- Portrait Stack sits right of central libraries, using diagonal corner peeks:
+  top plus at most two below, with all entries/count/order retained and no gameplay
+  item-count cap. Try combat between library rows with Stack beside it; that exact
+  placement remains tentative. Combat slots alone have faint vertical dividers.
+  Reveals sit between each participant's Library and field.
+- History is dense and each node is its event-type icon, distinct across types;
+  individual boundaries and existing grouped playback remain available. These
+  selected directions do not finalize all camera/hit/accessible geometry.
+
 ### Android installation and updates
 
 - Android 10+ (API 29), phones and tablets; Google Play services are not required
@@ -83,7 +103,8 @@ The general rules are:
   the same actions. Server ordering and captured-incarnation safeguards apply.
 - Choose an added contact, name the new game, then Create & invite. Name is required;
   offer fantasy/wizarding adjective + thing suggestions such as Azure Spark or
-  Crackling Mist, editable before creation. Blank names cannot create; cancelling
+  Crackling Mist, editable before creation. D-295 uses a naming dialog whose name
+  field selects all current text when touched/focused. Blank names cannot create; cancelling
   or generating suggestions creates nothing. Server creation date/name persist
   through reinvite/start/returned lobby and synchronize to both players/devices.
   Retries retain original name/date/game ID. No rename or name uniqueness is inferred.
@@ -108,7 +129,8 @@ The general rules are:
   Changing a saved deck does not change copies already selected in lobbies/games.
   Deck rows put small card art after quantity; press it or the row for full inspection.
   Cover choice uses its border, not an extra checkbox; saved-deck deletion needs
-  only “Deletion cannot be undone” in the dialog. Selected-copy isolation persists.
+  only “Deletion cannot be undone” in the dialog, with one title (D-295).
+  Selected-copy isolation persists.
 - Delete a saved deck to remove it from your collection. **Both editing and
   deleting saved decks preserve already selected lobby/game copies** (D-221),
   including their game-local preparation and active play. There is no trash/restore
@@ -666,8 +688,9 @@ The general rules are:
 - When disconnected, show a **Reconnecting... dialog that blocks gameplay
   actions**, including shared Undo/branch controls. This does not turn ordinary
   online acknowledgements into a blocking dialog or declare in-flight requests
-  rejected. Downloaded read-only access remains; dialog navigation/dismissal and
-  exact reconnect-readiness behavior are not yet settled.
+  rejected. D-295 selects **Back to games list** as its only button, no Review
+  downloaded data action. Escape does not cancel uncertain requests; downloaded
+  read-only access elsewhere and automatic original-request recovery remain.
 - Online actions have a small local send queue and are sent concurrently. Each
   succeeds or fails individually under its own checks; one failure does not cancel
   another valid action or the whole sequence. Continue normal local interaction

@@ -17,7 +17,7 @@ VIEWPORTS = {'portrait': (412, 892), 'landscape': (892, 412)}
 
 
 async def validate_owner_revision(page, screen, orientation):
-    """Regression checks for cumulative D-292–D-294 static presentation."""
+    """Regression checks for cumulative D-292–D-295 static presentation."""
     issues = await page.evaluate(r'''({id, orientation}) => {
         const issues = [];
         const visible = e => !!(e && e.getBoundingClientRect().width && e.getBoundingClientRect().height);
@@ -154,6 +154,47 @@ async def validate_owner_revision(page, screen, orientation):
             issues.push('Long deck-deletion explanation returned');
         if (id==='P05' && (!document.querySelector('#game-name[required]') || !document.querySelector('[aria-label="Suggest another game name"]')))
             issues.push('Required name/suggestion control missing');
+        if (id==='P05' && (!document.querySelector('[role="dialog"] #game-name[data-select-all-on-focus="true"]')))
+            issues.push('Naming is not a dialog with specified select-all behavior');
+        if (id==='D06' && document.querySelector('.dialog-eyebrow')) issues.push('Duplicate deletion title');
+        if (id==='U01') {
+            const dialog=document.querySelector('.reconnect-context [role="dialog"]');
+            if (!dialog || dialog.querySelectorAll('button').length!==1 || !/Back to games list/.test(dialog.innerText))
+                issues.push('Reconnect escape is not games-list only');
+        }
+        if (document.body.dataset.reviewState) {
+            if (document.querySelector('.ghost,.band-label')) issues.push('Visible slot/area labels returned');
+            const widths=[...document.querySelectorAll('.participant .card-footprint')].filter(visible).map(e=>e.getBoundingClientRect().width);
+            if (Math.max(...widths)-Math.min(...widths)>0.1) issues.push('Unequal battlefield footprints');
+            for (const row of document.querySelectorAll('.participant .card-row')) {
+                if (getComputedStyle(row).borderBottomWidth!=='0px') issues.push('Battlefield separators returned');
+            }
+            for (const card of document.querySelectorAll('.participant .piece')) {
+                const a=card.getBoundingClientRect(), b=card.parentElement.getBoundingClientRect();
+                if (a.left<b.left-.1 || a.right>b.right+.1 || a.top<b.top-.1 || a.bottom>b.bottom+.1)
+                    issues.push('Card/pile exceeds uniform footprint');
+            }
+            if (/riley|alex|Life\s*\d/.test(document.querySelector('.workspace').innerText))
+                issues.push('Gameplay player-name/Life clutter returned');
+            if (id==='G02') {
+                if (document.querySelectorAll('.stack-pile > .piece').length!==3) issues.push('Stack is not top plus two');
+                if (orientation==='portrait') {
+                    const stack=document.querySelector('.stack').getBoundingClientRect();
+                    const library=document.querySelector('.portrait-dock .zone-person').getBoundingClientRect();
+                    if (stack.left<library.right) issues.push('Portrait Stack is not right of libraries');
+                }
+            }
+            if (['H01','H02'].includes(id)) {
+                const icons=new Map(), reverse=new Map();
+                for (const node of document.querySelectorAll('.event-node')) {
+                    const type=node.dataset.eventType, icon=node.textContent;
+                    if (icons.has(type)&&icons.get(type)!==icon || reverse.has(icon)&&reverse.get(icon)!==type)
+                        issues.push('Event-type icon collision/inconsistency');
+                    icons.set(type,icon); reverse.set(icon,type);
+                }
+                if (icons.size<12) issues.push('Insufficient dense event-type examples');
+            }
+        }
         if (id==='U01' && (!document.querySelector('.board .piece') || /Empty gameplay placeholder/.test(document.body.innerText)))
             issues.push('Reconnect still has an empty board');
         for (const e of document.querySelectorAll('.dialog-heading .icon-only,.dialog-close-btn,.inspector-dialog > button')) {
@@ -205,6 +246,20 @@ async def main(screen_ids):
                 page = await context.new_page()
                 await page.set_viewport_size({'width': width, 'height': height})
                 await page.goto((UI / screen['source']).as_uri(), wait_until='networkidle')
+                if screen.get('captureVariant'):
+                    await page.evaluate('(variant)=>document.body.dataset.reviewState=variant', screen['captureVariant'])
+                    if screen['id'] == 'G02':
+                        await page.evaluate('''() => {
+                            document.querySelector('.mode').setAttribute('aria-label','Select mode, 2 selected; choose mode');
+                            document.querySelector('.phase.live-only').setAttribute('aria-label','Phase tracking, Declare attackers');
+                        }''')
+                    if screen['id'] in {'H01', 'H02'}:
+                        # Static historical variants use non-editable zone readouts.
+                        await page.evaluate('''() => document.querySelectorAll('.zones button').forEach(e=>{
+                            const span=document.createElement('span'); span.className='zone-label';
+                            span.innerHTML=e.innerHTML; span.setAttribute('aria-label',e.getAttribute('aria-label'));
+                            e.replaceWith(span);
+                        })''')
                 await page.evaluate('document.fonts.ready')
                 if screen.get('captureFeedback') == 'faded':
                     await page.evaluate('''() => {

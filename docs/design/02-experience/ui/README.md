@@ -3,12 +3,12 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension and cumulative D-292–D-294 revisions, with both orientations: 32 primary
-  drafts plus two scroll and one faded-feedback continuation, 70 captures total.
+  extension and cumulative D-292–D-295 revisions, with both orientations: 35 primary
+  drafts plus two scroll and one faded-feedback continuation, 76 captures total.
   N02 shows navigation;
   P03/P04 show context/deletion, D07 contextual import and D08 full inspection.
   P05 adds named creation. G00 is retired provenance, not a current screen;
-  G01–G03 and H01–H03 add the live/history table and controls.
+  G01–G06 and H01–H03 add live/history, context/owner actions and token/ping/reveal examples.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
   clarified interactions and remaining geometry proposals.
 - `sources/` retains raw Stitch output and inert review derivatives; `images/`
@@ -20,7 +20,7 @@ These are specification artifacts, not application code or an approved final UI.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - **[Cumulative feedback](feedback.md):** preserve every owner decision across
-  rounds unless explicitly superseded; read before regeneration. F01–F36 apply;
+  rounds unless explicitly superseded; read before regeneration. F01–F47 apply;
   the packet's full-screen copy audit lists further deletion suggestions, not
   silently approved removals. Raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
@@ -99,6 +99,13 @@ Ordinary buttons remain at least 48 px; the explicitly selected 24 px-wide **1 /
 tap buttons/drag origins are a separate geometry exception with accessible alternatives.
 L04/L04b freeze visible/faded result-text endpoints and check unchanged layout;
 actual short row fade/slide and ~1–2 s text fade remain native interaction requirements.
+
+D-295 checks add naming-dialog/select-all annotation, one deletion title, games-
+list-only reconnect escape, equal complete battlefield footprints, absent slot/
+row-label decorations, portrait Stack position/top+2 rendering and collision-free
+sample event-type icons. `table-round4.html`/CSS is one shared inert composition;
+the capture helper sets its static `captureVariant` attribute and converts history
+zone controls to readouts. It is not an app renderer or executable gesture demo.
 
 ## Private review hosting
 

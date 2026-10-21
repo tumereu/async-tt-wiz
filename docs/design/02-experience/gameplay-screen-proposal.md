@@ -4,7 +4,7 @@ Captured 2026-10-21 from the owner's gameplay-layout notes and clarified with th
 owner in the follow-up gameplay review batch (D-291). The owner now authorizes
 extending the same Stitch project and [Markdown/HTML/PDF packet](ui/README.md)
 with this screen in both orientations. G00 remains labeled as the original pilot
-placeholder for provenance; G01–G03 and H01–H03 are the gameplay extension.
+placeholder for provenance only; G01–G06 and H01–H03 are the current extension.
 This authorizes design artifacts only, not implementation or a passed UI gate.
 
 ## Status and scope
@@ -21,14 +21,23 @@ continued with the owner once the initial UI draft is ready.
 
 ## 1. Battlefield/card areas
 
-For each participant, use two subtly different green bands:
+Use two subtly different bands per participant: **own green, opponent red**
+(D-295 supersedes the initial both-green coloring):
 
-- **Lower band: darker green, one card row.** Intended mainly for lands.
-- **Upper band: lighter green, two card rows.** Intended mainly for creatures and
+- **Outer band: darker, one card row.** Intended mainly for lands.
+- **Inner band: lighter, two card rows.** Intended mainly for creatures and
   other permanents/stuff.
 - These are generic game/card areas, together effectively the battlefield. The
   visual convention does not restrict card types, enforce MTG rules or create
   separate semantic zones just because a card crosses a color boundary.
+
+**D-295:** no visible battlefield slots, row separators or card-area labels.
+Logical snapping is unchanged. Upright, tapped and every ordinary visual-pile
+configuration use equal horizontal allocation containing the complete rotated/
+corner-peek envelope; no tap-dependent margin/reflow. Card/token owner colors
+remain independent of field color/placement. Default owner is creator/bringer;
+Change owner in card Actions is an explicit shared field edit, not controller or
+permission. P/T is bottom-right. See the primary board owner contract.
 
 Both bands extend conceptually without a fixed left/right edge. Horizontal
 navigation is bounded to **N card slots beyond the outermost card** on each side,
@@ -64,7 +73,9 @@ instruction to reflect x coordinates or card faces.
 | Landscape | Library, Graveyard and Exile in a sidebar on the **left side of the screen**. Player life totals probably belong here too (tentative). |
 | Portrait | Put those special-zone controls in the **middle**, between the participant areas. Life totals are tentatively grouped with them. |
 
-Keep both participants' identities and zone associations clear; the opponent's
+**D-295:** life uses a player-colored square containing only its total, without
+printed player names or “Life” text. Keep participant identity accessible and
+zone associations clear; the opponent's
 layout does not move the landscape sidebar to the right. Exact stacking/order,
 sidebar width and portrait middle-strip geometry are not selected yet. Preserve
 the existing zone counts, visibility and interaction rules.
@@ -101,6 +112,13 @@ must explain their actual eligibility; the shortcut does not bypass Undo checks.
   above attackers; projection entry leaves real battlefield sources in place.
   Combat is shown only when its shared area exists, including an explicitly open
   empty area. Stack supports both actual cards and independent effect projections.
+- **D-295:** portrait Stack is right of the central libraries, with the same
+  diagonal corner-peek vocabulary as other piles: top card plus at most two
+  underneath, full count/all ordered entries retained and no gameplay item limit.
+  Try combat between the library rows, Stack beside it (tentative placement).
+  Only combat has faint vertical paired-slot dividers. Reveals sit between each
+  player's Library and battlefield. G04–G06 add context/owner and token/ping/reveal
+  examples; all previous gesture/disclosure/source rules persist.
 - Life grouped with each participant's special zones, mode square opening an
   explicit Normal/Select/Ping chooser, and compact phase control at top left are
   **draft presentation choices**. The existing phase-tap tracking picker remains;
@@ -124,6 +142,9 @@ Historical viewing replaces the live action chrome:
   This is a visual simplification, not deletion or loss of retained history.
 - Clearly indicate the **exact currently selected event/boundary** on the timeline;
   the marker/highlight design is not chosen yet.
+- **D-295:** make the timeline dense; each node itself is its event-type icon.
+  Distinct types use distinct icons, repeated types reuse theirs; selection must
+  not replace the type icon. Windowing/scrolling never omits semantic events.
 - Swipe/drag the timeline horizontally to change that exact event. Board changes
   animate as the user drags rather than updating only after release.
 - **D-291:** touching/dragging the timeline during playback pauses first, then

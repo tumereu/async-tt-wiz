@@ -14,7 +14,28 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-294
+## Current UI feedback iteration — D-295
+
+Read cumulative F01–F47 before UI edits. Full review remains at the exact existing
+port-8443 review.html URL, replaced in place with PDF after edits. No app code,
+cloud edit or stage/gate transition. Round 4 selects naming dialog/select-all,
+one deck-delete title, games-list-only reconnect escape, unruled/equal-footprint
+fields, red opponent area, owner borders/Change owner, life squares without
+printed names/Life, bottom-right P/T, central corner-peek Stack (unlimited entries,
+top+2 visible), reveal placement and dense event-type-icon nodes. Combat between
+library rows with Stack beside it is **tentative**, not final geometry.
+
+Owner is shared card metadata initialized creator/bringer, explicitly editable,
+not controller/placement/permission. Moves/resets preserve it; projections derive
+live source owner, frozen effects retain last-live owner. Board/model/protocol/
+storage/summary and future T-685–T-689 align. Native gestures are not run by inert
+sources. Shared table-round4.html/CSS uses captureVariant only in doc tooling;
+old derivatives/cloud exports remain provenance. G04/G05/G06 add card actions,
+token/ping/reveals and owner chooser: **35 primary + three continuations = 38
+states / 76 captures**. Preserve all earlier unsuperseded feedback and remaining
+copy suggestions. Rebuild/verify full serving and save/push every completed batch.
+
+## Previous UI feedback iteration — D-294
 
 Read cumulative F01–F36 before UI edits. Current full packet remains at the exact
 port-8443 review.html URL, rebuilt in place with PDF after every batch. Preserve

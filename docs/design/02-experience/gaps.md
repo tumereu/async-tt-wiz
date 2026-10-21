@@ -231,6 +231,8 @@ D-241, not a queue of individual feature questions. In particular:
 
 - Arbitrary named values/participant associations, custom non-card pieces/markers,
   general authoring/layout or correction tools beyond the approved tabletop tools.
+  D-295 explicitly adds only card/token owner metadata and Change owner; this
+  narrow exception does not authorize controller/arbitrary-association authoring.
 - Full manual deck authoring/export, additional import formats/sections, configurable
   starting arrangements or extra in-game areas beyond approved scope.
 - Optional manual group editing, branch comparison/renaming,

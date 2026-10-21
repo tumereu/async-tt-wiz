@@ -121,6 +121,11 @@ tree review/activation, common text import, deck metadata/lobby preparation and
 invitation/grouped-activity pushes remain included. No expansion roadmap is
 implied, and prior explicit deferrals under D-214/D-220 remain unchanged.
 
+D-295 adds the narrow explicit card/token owner field/action (creator/bringer
+default, owner-colored borders), superseding any blanket association-authoring
+exclusion for that field only. It adds no controller model, permission restriction
+or arbitrary participant-association editor; primary behavior is in board controls.
+
 Included:
 
 - Private two-player tables, card/deck import, editable setup, manual play,

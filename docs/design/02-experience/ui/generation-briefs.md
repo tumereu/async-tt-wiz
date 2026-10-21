@@ -17,7 +17,7 @@ contextual default Overwrite/additive Merge; one/all drag handles; art inspectio
 Further copy-audit deletions are suggestions, not approved removals. New and
 recomposed local states are recorded in the manifest; no new cloud edit is claimed.
 
-**D-294 current revisions:** required named creation with fantasy adjective + thing
+**D-294 revisions retained:** required named creation with fantasy adjective + thing
 suggestions and persistent server creation dates; no app Back/home arrows anywhere;
 hamburger/title on one row, import/editor unsaved-exit and lobby Cancel upper-right;
 equal button pairs; dialog X right; border-only cover and cannot-undo deck deletion;
@@ -30,6 +30,18 @@ drag with no double dispatch. Reserve fixed plain-text latest-move feedback,
 fading ~1–2 s without shifting layout. When a row empties, quickly fade it and
 slide following rows up; do not confuse actual transfer reflow with feedback
 layout changes. L04/L04b freeze visible/faded text endpoints, not app interactions.
+
+**D-295 current revisions:** F37–F47 supersede naming-as-screen, duplicate deck-
+delete title, offline-review reconnect escape, both-green fields, visible slots/
+separators/area labels, tap-dependent widths, side-by-side Stack entries, printed
+gameplay player names/Life and sparse generic timeline dots. Apply the naming
+dialog/select-all contract, games-list-only escape, equal complete card/pile
+footprints, red opponent field, explicit owner border/action, compact life squares,
+bottom-right P/T, portrait Stack right of libraries with top+2 diagonal peeks and
+unlimited semantic entries, trial combat-between-libraries/faint paired dividers,
+reveal placement and dense type-icon nodes. New G04–G06 show card actions, token/
+ping/reveals and owner chooser. These are local inert revisions only; all raw
+prompts below are historical, not permission to restore superseded layouts.
 
 ## Common prompt
 

@@ -6,7 +6,7 @@ h1 { font-size: 2.2rem; }
 h2 { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #d5dce2; }
 a { color: #006e73; }
 table { border-collapse: collapse; width: 100%; font-size: .92rem; }
-td, th { text-align: left; border: 1px solid #d5dce2; padding: 8px; vertical-align: top; }
+td, th { text-align: left; border: 1px solid #d5dce2; padding: 8px; vertical-align: top; overflow-wrap: anywhere; }
 th { background: #edf1f3; }
 blockquote { margin: 20px 0; padding: 8px 16px; border-left: 4px solid #4a7377; background: #eef5f5; }
 code { overflow-wrap: anywhere; }
@@ -52,4 +52,6 @@ figcaption { font-size: .85rem; color: #4b5563; margin-top: 6px; }
   p { margin: 6pt 0; }
   ul { margin-top: 5pt; margin-bottom: 5pt; }
   #whole-journey-interaction-budgets { break-before: page; }
+  /* Keep L04's long interaction notes and their source line on one page. */
+  #l04-prepare-mainboard-and-sideboard { line-height: 1.25; }
 }

@@ -136,7 +136,7 @@ other non-card field normalization requires its own contract.
 | Participant | Stable ID, account reference, display name; neither seat owns exclusive editing rights. |
 | Saved deck | Named mainboard/sideboard list with rename support and a cover selected from its cards. Replace or save a new deck on re-import. Already selected lobby/game copies are isolated from saved-deck changes, and lobby edits leave the saved deck unchanged (D-191/D-199). Exact storage/schema/metadata retention remains open. |
 | Card definition | Source/catalog ID or custom definition, version, names, faces, display text/data, default corner text (D-56), image references; never executable rules. |
-| Card instance | Stable game-local object ID, definition reference, optional participant associations, container, explicit editable state. |
+| Card instance | Stable game-local object ID, definition reference, required owner participant (D-295; creator/bringer default, explicit Change owner), other optional participant associations, container, explicit editable state. Owner is shared card metadata, not controller/permission/zone. See the board owner contract. |
 | Projection | Virtual occurrence, not a Clone/token or second containment. Card edits/moves affect the existing real source (D-123). Combat stays live-linked and cleans up on Battlefield departure (D-124). Stack remains live-linked across locations, including creation from Graveyard/Exile; only token disappearance freezes read-only last-live source information (D-242). Stack effects require explicit removal/resolution (D-125). Identity/schema/snapshot mappings and link/ping routing need contract/technical completion. |
 | Combat slot pair | One visual combat group with attacker-side and blocker-side projection membership/order (D-137/D-139). No individual attacker↔blocker assignments or inferred all-to-all blocking rules. D-138 supplies empty-pair removal/insertion/reflow; exact schema remains open. |
 | Other object | Stable ID, visual kind, labels, generic attributes; standees, tokens, notes, or other player-created pieces. |
@@ -347,7 +347,9 @@ Every card instance has:
 - A stable identity across moves. Explicitly creating/duplicating an object gets
   a new ID; moving it between containers does not create a rules incarnation.
 - One container/location, with an explicit position when ordered.
-- Optional manually assigned participant associations and arbitrary labeled values.
+- Required owner participant (D-295), initialized creator/bringer and explicitly
+  editable; other optional internal participant associations. Arbitrary association/
+  labeled-value authoring remains excluded by D-241, not implied by this model.
 - Face/side, covered/uncovered presentation, orientation/tapped presentation,
   counters, optional bottom-right corner text, and notes.
 - Explicit per-instance token status for catalog-token creation and Clone output

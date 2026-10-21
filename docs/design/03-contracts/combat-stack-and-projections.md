@@ -30,6 +30,17 @@ limited [gameplay review extension](../02-experience/ui/README.md), including tr
 central Stack/combat lanes in both orientations. This is not full combat/Stack
 visual-state completion, final geometry approval or application authorization.
 
+**D-295 Stack display:** no gameplay entry-count capacity for actual cards or
+independent projections. Render a diagonal corner-peek pile with the top entry
+and at most two underneath, using the ordinary visual-pile vocabulary without
+importing its membership limit. Preserve total count, every entry's identity/order
+and access to ordered contents. A visible-three bound cannot discard/collapse
+semantic entries, substitute a hidden occurrence or auto-resolve them. Projection
+borders derive live source owner (frozen effects retain last-live owner); owner
+changes do not move/remove occurrences. Portrait Stack is right of central
+libraries. Combat-between-libraries/Stack-beside is a tentative trial; faint
+vertical dividers separate paired combat slots, never battlefield rows.
+
 ## 13.1 Confirmed capabilities
 
 **Basic spatial model (D-158):** combat is a separate area between the player's

@@ -278,6 +278,14 @@ Retrying creation recovers its original IDs/outcome, not a new game after cancel
 
 ### Required game name and creation date — D-294
 
+**D-295 presentation:** naming is a bounded dialog, not a full screen. Touching/
+focusing its name field selects all existing text for replacement, including
+suggestions and an already edited value; retain normal subsequent text editing
+and accessible/keyboard selection. Selection alone never rerolls or submits.
+Close/Cancel/native Back creates nothing; Create & invite retains the atomic
+request below. Saved-deck deletion similarly uses one title, not an extra
+“Confirm deletion” eyebrow; the cannot-undo warning and copy isolation remain.
+
 **Confirmed:** name each game when creating it. Offer random procedural
 **adjective + thing** suggestions themed around fantasy/wizardry, such as **Azure
 Spark** or **Crackling Mist**. A proposed compact form prefills an editable suggestion

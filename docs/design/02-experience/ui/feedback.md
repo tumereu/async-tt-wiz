@@ -116,3 +116,30 @@ copy-audit suggestions are still suggestions unless this round explicitly select
 them. Generated-name prefilling/reroll geometry and exact date formatting are
 review compositions/technical details, not claims of owner-selected final art or
 an authorization to implement the application or advance a gate.
+
+## Round 4 — 2026-10-21 — D-295
+
+| ID | Persistent owner direction | Scope / supersession |
+| --- | --- | --- |
+| F37 | New-game naming is a dialog; touching/focusing its name field selects all existing text. | P05; supersedes the full-screen naming composition, not required name, suggestions or atomic Create & invite. Native selection behavior is specified, not executed by inert HTML. |
+| F38 | Deck-deletion confirmation needs only one title. | D06; remove the redundant deletion eyebrow, retain deck identity and cannot-undo warning. |
+| F39 | Reconnecting needs only a Back to games list button, not Review downloaded data. | U01; supersedes the proposed modal offline-review action. Does not revoke downloaded read-only access elsewhere or change recovery/unknown outcomes. |
+| F40 | No visible card slots, row separators or area labels such as Battlefield. All battlefield cards/piles consume equal horizontal space, regardless of tapping or visual stacking configuration. | Logical snapping remains; render a common footprint containing the entire rotated/pile envelope, without orientation-dependent margins/reflow. |
+| F41 | Portrait Stack is to the right of the libraries in the center. Use the same diagonal corner-peek pile display as elsewhere: top card plus at most two underneath, regardless of total cards/projections. | No semantic Stack capacity limit; count includes hidden entries, ordered contents remain reachable. Supersedes G02's side-by-side actual/effect cards. Ordinary visual-pile capacity rules are unchanged. |
+| F42 | Try combat between the libraries, with Stack beside it. Combat slots have faint vertical dividers. | Placement remains tentative (owner: “maybe”); mock G02 trials it. Dividers apply only to paired combat slots, never battlefield rows. |
+| F43 | Reveals go between each player's Library and battlefield. | G05 adds an explicit tray example; accepted content/disclosure/dismissal rules remain unchanged. |
+| F44 | Opponent area uses a different color, red. Card/token borders signal owner; default owner is the participant creating/bringing the object into the game. Add Change owner to card context actions. | Owner is explicit shared metadata, not controller, zone association or editing permission. Moves do not silently change it. Live projections derive it from their source. G04/G06 show action/chooser. |
+| F45 | In gameplay do not show player names or “Life” text: show a player-colored square with the life total inside. P/T is bottom-right on cards. | Accessible names still identify participant, life and owner. Lobby/contact/navigation identities remain. |
+| F46 | Add card context-action, token and ping mocks. | G04/G05/G06 show context, token/ping/reveals and owner choice; not complete coverage of every menu/editor. Existing one-style numbered event-scoped pings persist. |
+| F47 | Make history much denser. The node itself is a unique icon for its event type; different event types have different icons. | H01/H02; not one generic dot plus a separate label. Same event type reuses its icon, exact cursor/group/branch distinctions persist; no event truncation. |
+
+F01–F36 persist except the explicit presentation supersessions above. “Infinite”
+Stack means no gameplay item-count capacity, not infinite memory or unbounded
+rendering. F42 is a trial, not a silently finalized placement. Exact shades,
+icon artwork and density remain reviewable. All changes are local inert design
+artifacts; no new cloud edit, implementation or stage/gate transition.
+
+F44 explicitly adds a narrow card/token owner field/action despite D-241's older
+blanket exclusion of association authoring. Controller/arbitrary associations
+remain excluded. Existing ordinary card-field grouping/replay rules apply; owner
+initialization is part of instance creation, not an additional automatic action.

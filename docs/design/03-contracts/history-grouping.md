@@ -248,8 +248,11 @@ retained nodes are impossible.
 
 1. **Action mapping:** use the category/prefix matrix above; D-251 replaces tap
    transparency. Further playtest revisions need an explicit rule/test update.
-2. **Other action families:** participant-association authoring is excluded from
-   R1. Covered-face inspection is a distinct exposure event with its viewed and
+2. **Other action families:** arbitrary participant-association authoring remains
+   excluded, but D-295 explicitly adds card-owner editing. It is an ordinary
+   card-field edit in E (D-165/D-169/D-172); initial owner is part of creation, not
+   a second automatic mutation. No new owner-edit grouping rule/picker.
+   Covered-face inspection is a distinct exposure event with its viewed and
    recording contexts when explicitly invoked under D-252; own-area holds are
    unlogged. It is not an ordinary card-field edit. D-175 settles
    explicit View/Reveal openings, combat-area creation/removal and Stack
@@ -262,7 +265,8 @@ retained nodes are impossible.
    excluded by D-241; do not make them runtime inputs. Further irregular spatial
    ties/rendering remain technical/UI work, not new node granularity.
 5. **Historical additions:** distinguish recording and referenced contexts under
-   the annotation contract. No manual group editing/ownership picker in R1.
+   the annotation contract. No manual group editing/event-ownership picker in R1;
+   this is unrelated to D-295's card-owner action.
 
 ## Inventory to review
 
@@ -280,7 +284,7 @@ changes or event mapping.
 | Combat occurrences/area | Create/close combat; declare with/without tapping; create/reuse projection by drag; role/slot/order changes; Remove from combat. | A-019, A-034 | D-163/D-166/D-175: area creation and projection creation/repositioning/removal group together; closure groups forward. D-176 records individual mutations, not combined invocation nodes. |
 | Stack occurrences | Create an ability projection, rearrange occurrences, remove one effect; keep actual-card exits under transfer. | A-035, A-036 | D-163: each Stack projection creation is isolated from moves/other projection creation, but groups with taps/pings. D-175: rearrangements group separately from entries/removals; each explicit effect removal stays separately visible. D-176: bulk removal issues individual mutations. |
 | Card text/counters | Counter +/-/Set/remove; corner +/-/Set/Reset; card note and other descriptive-field edits. | A-010, A-018, A-020, A-024 | D-165/D-169/D-171: ordinary card/face/cover edits and token removal group together, not restricted to one card/field. |
-| Participant values/associations | Confirmed life/counter tools; broader named tracking/association authoring is excluded by D-241. | A-009, A-010, A-011, A-020, A-023 | D-172: in-scope value/counter edits join E across cards/players/fields. No inferred damage, ownership changes or excluded-authoring grouping inputs. |
+| Participant values/associations | Confirmed life/counter tools and D-295 explicit card-owner edit; broader named tracking/association authoring remains excluded. | A-009, A-010, A-011, A-020, A-023 | D-172: in-scope field/value/counter edits join E across cards/players/fields. No inferred damage/owner changes or excluded-authoring inputs; explicit owner editing is E, default owner is part of creation. |
 | Shared faces/cover | Turn face down/up; switch printed face. | A-007, A-008, A-018, A-025 | D-169: ordinary manual face/cover edits group with card edits; explicit Stack effects stay separate. General composite authoring is excluded from R1. |
 | Inspection and reference displays | Explicit Inspect other side; full contents View; View/Reveal top/bottom N; dismissal. Own-area hold and permitted visible-face navigation are unlogged. | A-006, A-007 | V anchors and F dismissal under the category contract; exposure participation is in history. |
 | Creation/removal | Catalog token, Blank token, Clone, explicit token Remove; broader custom pieces only if approved. | A-003, A-013, A-014, A-016, A-021, A-024 | D-171: token removal joins ordinary card edits. D-173: token creation/Clone groups together with interleaved customization. D-174 forbids non-token Remove entirely; it is not an open grouping case. Distinguish token removal from occurrence removal. |

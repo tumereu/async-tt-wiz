@@ -8,6 +8,10 @@ gameplay when disconnected. D-216 automatically recovers already-sent actions
 after reconnect without manual resend or duplicate execution; exact recovery
 mechanics remain open.
 
+D-295 selects a single **Back to games list** button on that blocking dialog,
+not Review downloaded data. Leaving it does not cancel uncertain requests or
+change retained read-only access elsewhere; automatic recovery continues normally.
+
 Status: gesture choices, snapping, diagonal piles, selection-aware dragging,
 top-insertion drops on Library, unordered Graveyard/Exile moves, visual stacking
 drops, and top/bottom context moves for Library are confirmed (D-226). Layout,
@@ -79,8 +83,8 @@ copy or recreate the token; occurrence layout/removal remains available.
 required. The [gameplay layout brief](../02-experience/gameplay-screen-proposal.md)
 and [review packet](../02-experience/ui/review.md) (G01)
 replace the older portrait-only sketch below as the current trial composition,
-not approved final geometry. Each generic battlefield has an outer darker-green
-one-row band and an inner lighter-green two-row band. Colors suggest lands versus
+not approved final geometry. D-295 updates the colors: own green, opponent red,
+each with an outer darker one-row band and an inner lighter two-row band. Bands suggest lands versus
 other permanents but do not restrict types or create new semantic zones. Opponent
 geometry reflects top/bottom only, retaining horizontal positions and viewer-facing
 card text. Library/Graveyard/Exile controls for both players stay on the left in
@@ -94,6 +98,48 @@ may need navigation rather than a promise that all cards fit at readable size.
 Horizontal camera bounds stop a still-unspecified card-slot margin beyond the
 outermost cards, not a finite placement boundary. Empty-board/cross-band bounds
 and exact zoom remain geometry completion.
+
+**D-295 presentation refinements:** no visible battlefield card slots, row
+separators or area labels. Logical snapping/placement is unchanged. Allocate the
+same horizontal footprint to each card/ordinary pile, containing the complete
+upright, tapped or mixed-orientation diagonal-peek envelope. Rotation, pile
+configuration or ownership must not change adjacent horizontal spacing. Combat
+alone uses faint vertical paired-slot dividers. Portrait Stack sits right of
+central libraries; combat-between-libraries with Stack beside it is a tentative
+trial, not final geometry. Reveals sit between the relevant Library and field.
+Life displays as a player-colored square with only its total, no printed names or
+“Life” text; accessible descriptions retain identity/meaning. Card P/T is at its
+bottom-right. Owner-colored borders are distinct from field color and projection
+dash/selection/token/ping signals. See G01–G06 and H01–H03 in the review packet.
+
+### Card/token owner metadata — D-295
+
+- Each real card/token has an explicit **owner participant**. Default to the
+  participant bringing that card into the game (their selected deck copies), or
+  creating a new instance/token/Clone. Creating a projection does not create a
+  new owner: live occurrences display their real source's owner. A frozen token
+  effect retains the source's last-live owner with its other frozen information.
+- **Change owner** in card Actions selects one of the game's two participants.
+  Either participant may perform it; existing captured-selection scope applies.
+  Opening/closing the chooser is personal UI; choosing a changed value is an
+  ordinary connected server-authoritative card-field mutation with immediate
+  prediction. A same-value edit is a no-op. Multi-card scope issues individual
+  edits under D-176, not a new atomic multi-card command.
+- Ownership is neither controller nor permission nor a rules assertion. Moving
+  between fields, zones, piles or combat/Stack does not infer an owner change.
+  Resetting other card fields does not silently change owner; only explicit owner
+  editing does. Keep owner through retained state/history/recovery and ordinary
+  eligible selective Undo/Redo; token disappearance still removes the real token.
+- Relevant `(from,to)` for an owner edit is that source's owner value. Different
+  card fields remain independent unless their own contract reads owner. Accepted
+  moves retain their original destination, not a destination recomputed from owner.
+  Concurrent edits use ordinary server ordering/current-state validation, not a
+  new previous-owner lock. Borders update on all live views without changing
+  location, orientation, disclosure, counters or links. Historical rendering uses
+  the owner at that boundary, never today's owner over every past state.
+- Color is not the sole accessible owner signal: inspectors/actions/semantic
+  descriptions identify owner, including on peeks and projections, without
+  restoring persistent printed player-name clutter in the gameplay canvas.
 
 Earlier conceptual sketch retained for context, not a competing current layout:
 
@@ -1140,7 +1186,8 @@ Confirmed Clone behavior (D-83/D-84):
 1. Clone copies the source's current printed face, covered/orientation state,
    corner text, counters, and notes into one independent new token instance with its
    retained defaults. Do not copy persistent links or event pings; source state
-   stays unchanged. Place automatically, without a preview/picker.
+   stays unchanged. D-295 initializes the new token's owner to the participant
+   invoking Clone, not the source's owner. Place automatically, without a preview/picker.
 2. Selection-scoped Clone creates one copy per selected card under D-66 parity;
    no quantity picker. Exact context routing and action boundaries remain open.
 3. Omit the separate Repeat last token shortcut initially; use Clone for more

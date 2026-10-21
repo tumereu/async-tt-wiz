@@ -589,8 +589,9 @@ the opponent creates another continuation. The engine never calls the sequence
 requirement includes shared Undo and branch controls; do not create offline
 mutations behind the dialog. This is an actual connection-loss gate, not a
 routine wait for each online acknowledgement. Preserve downloaded read-only
-access; exact dialog navigation/dismissal and reconnect-readiness criteria remain
-open. The dialog does not declare unresolved requests failed. D-216 separately
+access. D-295 selects **Back to games list** as the dialog's only button, with no
+Review downloaded data action; leaving does not cancel uncertain requests. The
+dialog does not declare unresolved requests failed. D-216 separately
 confirms automatic recovery below.
 
 **Confirmed reconnect recovery (D-216):** after reconnecting, **automatically
@@ -1447,6 +1448,15 @@ edit the existing tree rather than supply that intent. Arming, cancelling,
 scrubbing or a failed/no-change action does not create an empty fork. Undo still targets shared current
 history under its existing rules, not whichever node the personal cursor displays.
 Exact button shapes/spacing remain trial layouts for owner review.
+
+**D-295 timeline density:** use compact event-type icons as the actual path nodes,
+not widely spaced generic dots with separate type labels. Different event types
+have distinct icons; the same type consistently reuses its icon. Exact selection
+must remain evident without obscuring that icon. Scroll/window a long path without
+truncating/coalescing its mutations; branch stubs, exact cursor and group transport
+retain their existing semantics. Accessible details expose type, author, boundary
+and result without requiring precision taps on tiny icons. Final icon artwork/
+hit geometry remains UI completion; density is not a new grouping/history limit.
 
 The owner has specified the playback/timeline behavior, not its final geometry,
 animation speed, automatic-versus-manual preference default or accessibility

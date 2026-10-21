@@ -29,7 +29,7 @@ The general rules are:
 
 ## Confirmed behavior
 
-### Current table presentation and ownership — D-295–D-298
+### Current table presentation and ownership — D-295–D-299
 
 - Own field is green, opponent field red; no battlefield area labels, visible
   slots or row separators. Logical snapping remains. Cards and ordinary visual
@@ -91,6 +91,21 @@ paired counter-triplet rows. Player menus retain title/X. Icon legends, graphica
 tree/return flows and explicit Table actions make the formerly unpictured routes
 reviewable without changing shared activation/Undo/archive rules. Turn-player
 border and stronger/quieter field backgrounds are a visual trial, not permissions.
+
+D-299 shows absent **player** counter values as blank, not dashes; zero remains
+0. End controls, including the combined progression square, use the tracked
+ending player's color fill. Holding an icon-only button without an assigned hold
+shows only its short action name and consumes tap, never executing on release.
+Assigned/inherited hold commands and card gestures keep priority.
+
+The tree viewer is a compact pannable **group** graph with active path/current
+highlight, separate local selection and one Make current action. Use the actual
+most-significant event icon under the delegated R1 ranking in the grouping
+contract; group selection targets its last mutation, not that representative.
+Exact timeline cursors, internal current pointers and real forks remain intact.
+Archive/return is unnecessary for switching branches: the confusing H07 UI is
+withdrawn, not the older archive product contract. Switching alone preserves both
+continuations and neither archives nor deletes them.
 
 ### Android installation and updates
 

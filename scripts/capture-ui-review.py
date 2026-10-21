@@ -16,11 +16,39 @@ UI = ROOT / 'docs/design/02-experience/ui'
 VIEWPORTS = {'portrait': (412, 892), 'landscape': (892, 412)}
 
 
+def review_group_nodes():
+    """Resolve literal D-299 document fixtures, not application history grouping."""
+    fixture = json.loads((UI / 'group-icon-order.json').read_text())
+
+    def representative(events):
+        anchors = [e for e in events if e['role'] == 'anchor']
+        pool = anchors or events
+        ranks = fixture['anchorRanks' if anchors else 'companionRanks']
+        return min(pool, key=lambda e: ranks[e['kind']])  # min preserves first tie.
+
+    nodes = fixture['nodes']
+    for node in nodes:
+        if node['events']:
+            winner = representative(node['events'])
+            assert winner['id'] == node['representative'], node['id']
+            node.update(icon=winner['icon'], name=winner['name'])
+    by_id = {node['id']: node for node in nodes}
+    for check in fixture['prefixChecks']:
+        events = by_id[check['node']]['events']
+        actual = [representative(events[:n])['id'] for n in range(1, len(events) + 1)]
+        assert actual == check['expected'], (check, actual)
+    for case in fixture['cases']:
+        events = case['events']
+        actual = [representative(events[:n])['id'] for n in range(1, len(events) + 1)]
+        assert actual == case['expected'], (case['name'], actual)
+    return nodes
+
+
 async def compose_table_review(page, screen, orientation):
     """Materialize inert repeated design markup, never application interactions."""
-    await page.evaluate('''({id, orientation}) => {
-        const active=['G01','G02','G05','G07','G08','G08b','G11','G12','H01','H02','H06','H07'].includes(id);
-        const history=['H01','H02','H04','H05','H06','H07'].includes(id);
+    await page.evaluate('''({id, orientation, groupNodes}) => {
+        const active=['G01','G02','G05','G07','G08','G08b','G11','G12','H01','H02','H06'].includes(id);
+        const history=['H01','H02','H04','H05','H06'].includes(id);
         for (const pane of document.querySelectorAll('.zone-person')) {
             const own=pane.classList.contains('own'), name=own?'alex':'riley';
             const life=pane.querySelector('.life-square');
@@ -126,6 +154,7 @@ async def compose_table_review(page, screen, orientation):
                     `Increase ${color} card counter by one`,`Decrease ${color} card counter by one`][i]);
             if (id==='G06' && color==='blue') row.querySelector('.fit-value').textContent='3';
             const player=row.cloneNode(true); player.setAttribute('aria-label',color+' player counter');
+            player.querySelector('.fit-value').textContent='';
             for (const button of player.querySelectorAll('button')) button.setAttribute('aria-label',button.getAttribute('aria-label').replace('card counter','player counter'));
             if (color==='blue') player.querySelector('.fit-value').textContent='3';
             if (color==='gray') player.querySelector('.fit-value').textContent='0';
@@ -200,6 +229,9 @@ async def compose_table_review(page, screen, orientation):
         else if (id==='G11') context.innerHTML='<button data-icon="download" aria-label="Draw one for riley"></button><button class="combined-icon" data-icon="download" aria-label="Draw one for riley and advance"><span class="icon" aria-hidden="true">skip_next</span></button><span class="quick-slot" aria-hidden="true"></span>';
         else context.innerHTML='<span class="quick-slot" aria-hidden="true"></span><span class="quick-slot" aria-hidden="true"></span><span class="quick-slot" aria-hidden="true"></span>';
         if (turnPlayer==='opponent') document.querySelector('.progression-quick').setAttribute('aria-label',"Next step; hold to end opponent's turn");
+        document.querySelector('.progression-quick').classList.add('end-turn-control');
+        document.querySelector('.undo').dataset.holdAction='redo';
+        document.querySelector('.phase-progression button:last-child').classList.add('end-turn-control');
         const actions=[['flag','Choose phase / step'],['skip_next','Next step'],['last_page','End turn'],
             ['rotate_90_degrees_ccw','Untap all · turn player'],['download','Draw one · turn player'],
             ['add_box','Create combat area'],['layers_clear','Close combat area'],['add_card','Create catalog token'],
@@ -207,17 +239,27 @@ async def compose_table_review(page, screen, orientation):
             ['emoji_events','Suggest my win'],['outlined_flag','Suggest my loss'],['handshake','Suggest draw']];
         for (const [icon,label] of actions) {
             const button=document.createElement('button'); button.dataset.icon=icon; button.textContent=label;
+            if (label==='End turn') button.classList.add('end-turn-control');
             document.querySelector('.table-action-list').append(button);
         }
-        document.querySelector('.tree-filters').insertAdjacentHTML('beforeend','<button data-icon="first_page">Root</button>');
-        document.querySelector('.archive-dialog h3').insertAdjacentHTML('afterend','<p>Selected: Z · retained tip Z2</p>');
+        for (const node of groupNodes) {
+            const button=document.createElement('button');
+            button.className='tree-node'; button.dataset.group=node.id;
+            button.dataset.author=node.author; button.dataset.icon=node.icon;
+            button.dataset.target=node.target; button.dataset.tooltipName='Review '+node.name;
+            button.style.left=node.x+'px'; button.style.top=node.y+'px';
+            button.setAttribute('aria-label',`Review ${node.name} group, ${node.events.length} events; group end ${node.target}`);
+            if (node.id==='g5') {button.classList.add('selected-node'); button.setAttribute('aria-pressed','true');}
+            if (node.id==='g4') {button.classList.add('current-node'); button.setAttribute('aria-current','step');}
+            document.querySelector('.tree-world').append(button);
+        }
+        const tree=document.querySelector('.tree-canvas'); tree.scrollLeft=220; tree.scrollTop=26;
         if (id==='H06') {
-            document.querySelector('.timeline-label .paused-label').textContent='Paused · C · Reveal';
-            document.querySelector('.cursor-x').textContent='visibility';
-            document.querySelector('.cursor-x').dataset.eventType='reveal';
+            document.querySelector('.timeline-label .paused-label').textContent='Paused · C2 · Comment';
+            document.querySelector('.cursor-x').textContent='chat_bubble';
+            document.querySelector('.cursor-x').dataset.eventType='comment';
             document.querySelector('.cursor-x').dataset.author='opponent';
-            document.querySelector('.cursor-x').setAttribute('aria-label','riley, C, Reveal, selected personal review');
-            document.querySelector('.node-c').setAttribute('aria-label','riley, C, Reveal, selected personal review');
+            document.querySelector('.cursor-x').setAttribute('aria-label','riley, C2, Comment, selected personal review');
         }
         // Long values fit the static square; native text fitting remains future work.
         for (const value of document.querySelectorAll('.fit-value')) {
@@ -237,11 +279,61 @@ async def compose_table_review(page, screen, orientation):
             document.querySelector('.timeline-label .paused-label').textContent=id==='H04'?'Paused · A · Setup':'Paused · Last · Reveal';
             track.setAttribute('aria-label',id==='H04'?'Start of event path centered, left half empty':'End of event path centered, right half empty');
         }
-    }''', {'id': screen['id'], 'orientation': orientation})
+        // Static name annotations only; no native long-press handler is installed.
+        const known={zoom_in:'Inspect',visibility:'Inspect other side',flip:'Turn face down',
+            vertical_align_top:'Library top',vertical_align_bottom:'Library bottom',inventory_2:'Graveyard',
+            block:'Exile',control_point_duplicate:'Clone',link:'Link',link_off:'Unlink',ads_click:'Ping',
+            layers:'Stack effect',swords:'Declare attacker',settings_backup_restore:'Reset corner',
+            sticky_note_2:'Edit note',published_with_changes:'Make current',account_tree:'Game tree',
+            chat_bubble_outline:'Game chat',close:'Close',more_vert:'Table menu',call_split:'Continue here',live_tv:'Return to live'};
+        for (const button of document.querySelectorAll('button')) {
+            if (button.dataset.holdAction) {button.dataset.tooltipPolicy='hold-action'; continue;}
+            if (button.closest('.review-navigation') && button.classList.contains('navigation-game')) {
+                button.dataset.holdAction='game-context'; button.dataset.tooltipPolicy='hold-action'; continue;
+            }
+            const compact=button.matches('[data-icon]:empty,.icon-button,.phase,.history-button,.review-hamburger,.mode,.counter-chip,.counter-set,.corner-set,.pair-action,.life-square,.value-set,.pile-control,.previous-group,.next-group,.tree-node,.combined-icon,.declare-tap,.choose-own,.choose-opponent');
+            if (!compact) continue;
+            let name=button.dataset.tooltipName || known[button.dataset.icon];
+            const label=button.getAttribute('aria-label')||'';
+            if (button.matches('.history-button')) name='History';
+            if (button.matches('.review-hamburger')) name='Menu';
+            if (button.matches('.phase')) name='Choose step';
+            if (button.closest('.phase-choice-row')) name=label.split(',')[0];
+            if (button.matches('.mode')) name='Choose mode';
+            if (button.matches('.declare-tap')) name='Declare and tap';
+            if (button.matches('.life-square')) name='Life and counters';
+            if (button.matches('.counter-chip')) name='Counter actions';
+            if (button.matches('.pile-control')) name=button.closest('.stack')?'Stack contents':`${button.dataset.zone[0].toUpperCase()+button.dataset.zone.slice(1)} actions`;
+            if (button.closest('.contextual-quick') && button.dataset.icon==='swords') name=button.querySelector('.icon')?'Declare and tap':'Declare attackers';
+            if (button.closest('.contextual-quick') && button.dataset.icon==='download') name=button.querySelector('.icon')?'Draw and next':'Draw one';
+            if (button.dataset.icon==='send') name='Send';
+            if (button.matches('.corner-set')) name='Set corner text';
+            if (button.matches('.value-set')) name='Set life';
+            if (button.closest('.life-controls') && button.dataset.icon==='add') name='Increase life';
+            if (button.closest('.life-controls') && button.dataset.icon==='remove') name='Decrease life';
+            if (button.matches('.pair-action')) name=label.replace(' corner numbers by one','').replace(' corner number by one','');
+            if (button.matches('.counter-set') || button.closest('.counter-triplet')) name=label.replace(' by one','').replace('card counter','counter').replace('player counter','counter');
+            if (button.matches('.choose-own')) name='Owner alex';
+            if (button.matches('.choose-opponent')) name='Owner riley';
+            if (button.matches('.previous-group')) name='Previous group';
+            if (button.matches('.next-group')) name='Next group';
+            if (!name) name=label.split(';')[0].split(',')[0];
+            button.dataset.tooltipPolicy='name-only'; button.dataset.tooltipName=name;
+        }
+        if (id==='G13') {
+            const button=document.querySelector('.card-tools [data-icon="zoom_in"]');
+            const tooltip=document.createElement('span'); tooltip.className='review-tooltip';
+            tooltip.id='name-tooltip'; tooltip.setAttribute('role','tooltip'); tooltip.textContent=button.dataset.tooltipName;
+            document.body.append(tooltip); button.setAttribute('aria-describedby',tooltip.id);
+            const a=button.getBoundingClientRect(), b=tooltip.getBoundingClientRect();
+            tooltip.style.left=Math.max(8,Math.min(innerWidth-b.width-8,a.left+(a.width-b.width)/2))+'px';
+            tooltip.style.top=Math.max(8,a.top-b.height-6)+'px';
+        }
+    }''', {'id': screen['id'], 'orientation': orientation, 'groupNodes': review_group_nodes()})
 
 
 async def validate_owner_revision(page, screen, orientation):
-    """Regression checks for cumulative D-292–D-298 static presentation."""
+    """Regression checks for cumulative D-292–D-299 static presentation."""
     issues = await page.evaluate(r'''({id, orientation}) => {
         const issues = [];
         const visible = e => !!(e && e.getBoundingClientRect().width && e.getBoundingClientRect().height);
@@ -464,7 +556,12 @@ async def validate_owner_revision(page, screen, orientation):
                     if (Math.abs(bounds.left-middle.left-4)>1 || Math.abs(middle.right-4-bounds.right)>1)
                         issues.push('Portrait counters only span library column, not full middle strip');
                 }
+                for (const chip of chips) if (/absent/.test(chip.getAttribute('aria-label')) && chip.textContent.trim())
+                    issues.push('Absent player counter still displays a dash/value');
             }
+            if (document.querySelector('.player-counter-controls .red .fit-value').textContent!=='' ||
+                document.querySelector('.player-counter-controls .gray .fit-value').textContent!=='0')
+                issues.push('Player menu conflates blank/zero values');
             if (parseFloat(getComputedStyle(document.querySelector('.hand-cards')).gap)>2)
                 issues.push('Hand card gap not compact');
             for (const hand of document.querySelectorAll('.hand-cards,.opponent-cards')) {
@@ -499,7 +596,7 @@ async def validate_owner_revision(page, screen, orientation):
                     document.querySelectorAll('.relation-highlight[data-review-source="battlefield-sentinel"]').length!==2 ||
                     !document.querySelector('.combat .tapped')) issues.push('Tapped combat/source relationship example missing');
             }
-            if (['G04','G06'].includes(id)) {
+            if (['G04','G06','G13'].includes(id)) {
                 const dialog=document.querySelector('.card-action-dialog'), preview=dialog.querySelector('.card-preview');
                 if (!visible(preview) || dialog.querySelector('h2,.dialog-heading,[data-icon="close"]'))
                     issues.push('Card details missing or title/close X returned');
@@ -543,9 +640,41 @@ async def validate_owner_revision(page, screen, orientation):
                     getComputedStyle(document.querySelector('.phase.live-only')).borderTopColor)
                     issues.push('Phase picker/indicator disagree on turn-player border');
             }
-            if (id==='H06' && (!visible(document.querySelector('.tree-dialog')) ||
-                document.querySelectorAll('.tree-node').length!==5 || !document.querySelector('.selected-node') || !document.querySelector('.current-node')))
-                issues.push('Graphical tree/selected versus current distinction missing');
+            for (const end of document.querySelectorAll('.end-turn-control')) {
+                const style=getComputedStyle(end), phase=getComputedStyle(document.querySelector('.phase.live-only'));
+                if (style.backgroundColor!==phase.borderTopColor || style.color!=='rgb(255, 255, 255)')
+                    issues.push('End-turn control not filled with tracked player color');
+            }
+            for (const button of document.querySelectorAll('button[data-tooltip-policy]')) {
+                if (button.dataset.holdAction && (button.dataset.tooltipName || button.dataset.tooltipPolicy!=='hold-action'))
+                    issues.push('Name tooltip steals an assigned hold action');
+                if (button.dataset.tooltipPolicy==='name-only' && (!button.dataset.tooltipName ||
+                    button.dataset.tooltipName.length>40 || /hold|preserve|logged| by one/i.test(button.dataset.tooltipName)))
+                    issues.push('Tooltip is explanatory rather than a short action name');
+            }
+            if (id==='G13') {
+                const tip=document.querySelector('[role="tooltip"]'), r=tip.getBoundingClientRect();
+                if (tip.textContent!=='Inspect' || r.left<0 || r.right>innerWidth || r.top<0 || r.bottom>innerHeight)
+                    issues.push('Short-name tooltip missing/out of bounds');
+            }
+            if (id==='H06') {
+                const dialog=document.querySelector('.tree-dialog'), tree=document.querySelector('.tree-canvas');
+                if (!visible(dialog) || dialog.getBoundingClientRect().width>360 || dialog.getBoundingClientRect().height>300 ||
+                    document.querySelectorAll('.tree-node').length!==7 || dialog.querySelector('.tree-filters,.tree-review-actions,.archive-dialog') ||
+                    dialog.querySelectorAll('.make-current').length!==1) issues.push('Group tree still oversized/button-heavy');
+                if (tree.scrollWidth<=tree.clientWidth || tree.scrollHeight<=tree.clientHeight ||
+                    [...dialog.querySelectorAll('.tree-node')].some(e=>e.textContent.trim() || !e.dataset.group || !e.dataset.icon))
+                    issues.push('Tree not pannable group icons');
+                const chosen=dialog.querySelector('.selected-node'), current=dialog.querySelector('.current-node');
+                if (chosen.dataset.target!=='C2' || chosen.dataset.icon!=='visibility' || current.dataset.target!=='Y2' ||
+                    !dialog.querySelector('.current-edge')) issues.push('Representative icon confused with exact group-end target/current path');
+                const x=tree.scrollLeft,y=tree.scrollTop;
+                tree.scrollLeft=0; tree.scrollTop=0;
+                if (tree.scrollLeft!==0 || tree.scrollTop!==0) issues.push('Cannot pan tree to start');
+                tree.scrollLeft=tree.scrollWidth; tree.scrollTop=tree.scrollHeight;
+                if (tree.scrollLeft<=0 || tree.scrollTop<=0) issues.push('Cannot pan tree to far ends');
+                tree.scrollLeft=x; tree.scrollTop=y;
+            }
             if (!visible(document.querySelector('.chat-button'))) issues.push('Missing direct game chat button');
             if (id==='G09' && (!visible(document.querySelector('.chat-panel')) || visible(document.querySelector('.unread-bubble'))))
                 issues.push('Chat panel/read sample not shown');
@@ -624,8 +753,8 @@ async def validate_owner_revision(page, screen, orientation):
 async def main(screen_ids):
     manifest = json.loads((UI / 'manifest.json').read_text())
     known_ids = {screen['id'] for screen in manifest['screens']}
-    if 'G00' in known_ids:
-        raise ValueError('D-294: obsolete G00 must stay outside the current review')
+    if known_ids & {'G00', 'H07'}:
+        raise ValueError('Retired G00/H07 must stay outside the current review')
     if set(screen_ids) - known_ids:
         raise ValueError(f'Unknown screen IDs: {sorted(set(screen_ids) - known_ids)}')
     chrome = os.environ.get('CHROME_PATH') or shutil.which('google-chrome') or shutil.which('chromium')
@@ -697,7 +826,8 @@ async def main(screen_ids):
                         const r=e.getBoundingClientRect();let scrollAncestor=false;
                         for(let p=e.parentElement;p;p=p.parentElement){
                             const c=getComputedStyle(p);
-                            if(['auto','scroll'].includes(c.overflowY)&&p.scrollHeight>p.clientHeight)scrollAncestor=true;
+                            if(['auto','scroll'].includes(c.overflowY)&&p.scrollHeight>p.clientHeight ||
+                               ['auto','scroll'].includes(c.overflowX)&&p.scrollWidth>p.clientWidth)scrollAncestor=true;
                         }
                         return {text:(e.innerText||e.getAttribute('aria-label')||e.getAttribute('placeholder')||e.tagName).trim().slice(0,120),
                             x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height),

@@ -208,3 +208,19 @@ not implemented interaction handlers, cloud edits or a stage/gate transition.
 All earlier decisions persist except these explicit presentation supersessions.
 New H06/H07/G11/G12 and the icon/catalog sections are local inert design material,
 not functional tree/phase/gesture handlers or permission to implement the app.
+
+## Round 8 — 2026-10-21 — D-299
+
+| ID | Persistent owner direction | Scope / supersession |
+| --- | --- | --- |
+| F83 | A player counter without a value displays **empty**, not a dash. | Both table row and player-value menu; zero still displays 0 and absent controls remain accessible. Card-counter dash presentation is not changed by this player-specific request. |
+| F84 | End turn / End opponent's turn uses player-color **fill**. | Fill identifies the tracked player whose turn is being ended, not the next player/actor. Applies to explicit buttons and the combined progression square; preserve contrast and existing transition. |
+| F85 | Holding an icon-only button with **no assigned hold action** shows a short action-name tooltip—the text the button would have—not an explanation. | Tooltip recognition consumes click; no action on release, request or preview edit. Existing hold commands (Undo→Redo, progression→End turn, paused Play→continue, game-row context) take precedence and do not also show a tooltip. Normal movement/cancel dismisses. This supersedes the earlier blanket no-tooltip reading, not the ban on shortcut tutorials. |
+| F86 | Tree viewer is too large/button-heavy: use a compact **pannable group tree**, highlight active path/node, allow choosing what becomes active. | One explicit Make current action after local group selection, plus close. No event-letter graph or Review/Continue/Follow/Root/filter/archive button toolbar. Exact-event review/continuation and advanced filters remain in their existing context/accessibility routes, not lost semantics. |
+| F87 | Use the most significant event's icon for each group. Owner delegates sensible **R1 significance ordering** to the agent, based on MTG use and the agreed grouping rules. | Deterministic representative-event ranking is documented in the primary grouping contract and checked review fixtures. Anchor beats tap/closure/random/tracking/ping companions; ranking never changes groups, events or target boundaries and infers no card rules. |
+| F88 | Owner questions the confusing archive/return dialog as unnecessary. | Explain: older reversible branch-hiding/recovery, not needed to navigate or reactivate a retained path. Withdraw **H07's current UI proposal** and remove archive/return clutter from normal tree navigation; keep provenance. Switching alone archives/deletes nothing. This is UI cleanup, **not unrequested retirement of the older archive product/protocol contract**. |
+
+Earlier unsuperseded feedback remains. H06 replaces the oversized D-298 graph;
+G13 supplies a short-name tooltip snapshot. Retired H07's captures and source
+revision remain provenance. These are inert design artifacts, not app behavior,
+a new cloud generation or permission to advance a delivery gate.

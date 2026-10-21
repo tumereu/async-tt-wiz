@@ -243,6 +243,11 @@ D-297 makes the results heading a small subordinate label, not a new title.
   nonnumeric nonempty value qualifies. Under existing trimming/integer grammar,
   `0`, `+0`, `-0` and zero with leading zeros do not qualify; absent/empty also do
   not. This is a presentation predicate, not removal or conversion of stored text.
+  **D-299:** an absent/empty player counter is visually **blank**, not a dash,
+  in both table circles and player-value Set circles. Numeric zero remains `0`;
+  do not initialize an absent field merely to draw it. Accessibility names the
+  color/participant and “no value.” All absent color controls remain usable.
+  This player-specific change does not alter the card-counter dash example.
   D-298 spans the **whole portrait middle strip**, not just its library column
   excluding Stack width. Visible circles are smaller (28 px trial), while separate
   48 px interaction allocations stay evenly distributed with no overlapping hit
@@ -1577,6 +1582,12 @@ alongside it inside the picker. Use the tracked turn player's border color on
 indicator and picker. Trial brighter active/faded inactive battlefield **backgrounds**
 only, not reduced card/text contrast. Owner borders, selection, visibility and both
 players' editing rights remain independent. Exact palette/brightness is a UI trial.
+
+D-299 fills every End turn / End opponent's turn control, including the combined
+progression square, with the **currently tracked turn player's color** and
+contrasting foreground. This is the player whose turn ends, not the next player
+or requester. Update it with the displayed tracking context, including an armed
+historical view; no extra request, permission or transition follows from color.
 
 Confirmed setup (D-108/D-201): choose the starting player **in the lobby**, offering
 either participant or **Random**; begin turn 1 at Beginning/Untap with that starter.

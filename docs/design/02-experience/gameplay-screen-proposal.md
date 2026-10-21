@@ -239,6 +239,20 @@ not create an empty fork or pretend the continuation succeeded.
 
 ## 7. Continuation checklist and existing contract anchors
 
+**D-299 supersessions:** absent player counters are blank, zero stays 0; End
+controls use the tracked ending player's color fill, including tap-Next/hold-End.
+Unassigned icon-only/value-only button holds show a short action-name tooltip and
+consume tap without executing on release; assigned/inherited holds and card
+gestures win. Compact H06 uses pannable group glyphs, highlighted active path/node,
+local selection and one Make current action. Use actual representative-event
+icons under the delegated R1 anchor-first ranking in the grouping contract, not
+inferred MTG semantics. Group tap selects its exact end, not the representative;
+opening from an exact timeline cursor preserves it, including inside a group.
+Preserve all real forks/internal targets and captured selection through growth.
+Withdraw H07's unnecessary archive/return UI proposal, keep provenance and the
+older product contract; branch switching archives/deletes nothing. G13 shows a
+short tooltip. Earlier unsuperseded feedback below remains.
+
 **D-298 supersessions:** center fitting Hand content while retaining overflow
 reach; trial four fixed quick positions, with **three contextual positions plus
 one tap-Next-step/hold-End-turn square**. The owner's follow-up replaces the

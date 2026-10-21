@@ -77,7 +77,7 @@ only; no new cloud generation, application implementation or gate transition.
 
 ## Common prompt
 
-**D-298 current revisions:** apply F69–F82 before any historical prompt below.
+**D-298 revisions retained except D-299 supersessions:** apply F69–F82 before any historical prompt below.
 Center hands with safe bidirectional overflow. Four-position quick strip is three
 contextual positions plus **one tap Next step/hold End turn square**, not two
 progression buttons; this latest follow-up supersedes D-107. Hold consumes tap;
@@ -95,6 +95,27 @@ seven P/T buttons and three paired color-Set,+,− rows; landscape tools left/va
 right. Player menu retains title/X. Include the decipherable icon legends and
 new H06/H07/G11/G12 tree/archive/phase/Table-action states. All are local inert
 design artifacts; no new cloud generation, application handlers or gate transition.
+
+**D-299 current revisions:** apply F83–F88 cumulatively. Absent **player** counter
+values are blank, zero remains 0; card-counter dash examples are unchanged. End
+turn/End opponent's turn and the combined progression square use the tracked
+ending player's color fill. Icon-only/value-only buttons without assigned holds
+show only short action names on hold; consume tap and execute nothing on release.
+Existing/inherited hold commands and card gestures retain priority, no competing
+tooltip. G13 freezes an Inspect tooltip; no gesture handler is implemented.
+
+H06 replaces the large event-letter tree/toolbar with a compact pannable **group**
+graph, highlighted active path/current node, separate local selection and one
+Make current action. Root/view framing/hidden options do not become a large row
+of buttons. Use actual most-significant event icons under the delegated R1
+anchor-first ranking in the primary grouping contract and group-icon-order.json.
+Group tap targets its exact last mutation, not its representative; preserve exact
+timeline cursors, real forks and internal current pointers. Never retarget a
+pending selection as the group grows. H07 archive/return UI is withdrawn, captures/
+source revision retained; switching branches neither needs it nor archives/deletes
+anything. This does not retire the older archive product/protocol capability.
+Full edition remains 49 states/98 captures at the same URL. Local inert artifacts
+only; prior historical prompts below are provenance, not current requirements.
 
 ```text
 Design a STRUCTURAL LOW-FIDELITY Android phone UI mockup, not a web landing page and not application implementation. This is one screen in a manual two-player asynchronous tabletop app. App working title: Async Table. Style is intentionally provisional: near-white background, gray borders, dark readable text, restrained teal only for primary actions. No gradients, marketing hero, real artwork, generated illustrations, navigation invention or decorative bottom tab bar. Use real simple line icons (Material Symbols) only when requested; text buttons must remain labeled text. Body 15-16px, title 22-24px, helper no smaller than 13px. Approximate Android dp with CSS px: margins 16px, gaps 12px, top bar 56px, controls/touch targets >=48px, simple border radius 8px. Include minimal status area 24px and bottom safe inset 16px; no device chassis.

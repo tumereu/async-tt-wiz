@@ -3,7 +3,50 @@
 This records documentation-artifact checks, not implemented-app or approved-UI
 verification.
 
-## Current round results — D-298
+## Current round results — D-299
+
+- Appended F83–F88 without losing earlier feedback. Absent player values are
+  blank, zero stays 0; End controls have ending-player fill. G13 adds a short
+  Inspect tooltip snapshot; assigned holds retain priority. H06 replaces the
+  oversized event-letter toolbar with a compact pannable group graph, active path/
+  current ring, local selection and one Make current action. H07 UI is withdrawn,
+  with captures and source revision a784890 retained; this does not retire the
+  older archive product/protocol contract or archive/delete paths on switching.
+- Recaptured all **21 current shared-table states / 42 orientations**, blocking
+  remote assets and checking inert bodies/no scripts, local fonts, viewport fit,
+  ordinary 48 px/reachable controls and cumulative presentation regressions.
+  New checks cover blank player values versus zero, ending-player fills, short
+  tooltip annotations/assigned-hold exclusions, bounded Inspect snapshot, smaller
+  graph dimensions, two-axis pan reach, group glyphs and representative/target
+  separation (Reveal C1 icon versus selected Comment C2; current Move ends Y2).
+- The delegated R1 anchor-first rank uses actual event icons and first-effective
+  ties. `group-icon-order.json` contains 19 anchor keys, eight companion keys,
+  seven graph markers, three graph-prefix checks and five extra prefix/tie cases.
+  Capture resolves/asserts all fixture representatives/prefixes. Both documented
+  rank tables agree with those keys/ranks. These are literal design fixtures,
+  not runtime configuration, a grouping engine or executed fork-layout tests.
+- Inspected final portrait/landscape group-tree, tooltip, player-value and phase/
+  End-fill captures, plus rendered PDF tree/tooltip/ranking and icon-legend pages.
+  Explicitly clarified the card-counter dash versus blank-player distinction in
+  the legend. Full build checks **49 states / 98 embedded captures / 65 PDF
+  pages**, image sizes/decodes, local icon glyphs and phone-width HTML. Minimum
+  extracted PDF page text is **494 characters**, with no near-blank pages or
+  local-file link annotations. Earlier state/capture totals remain unchanged.
+- All **702 relative documentation links**, documentation JSON, Python syntax
+  and whitespace checks pass. Primary Android/board/history/grouping/model
+  contracts, summaries and future T-710–T-715 align; T-708 reflects the compact
+  graph rather than the withdrawn toolbar. No native gesture, accessibility,
+  server, group-range/fork or concurrency tests were run. Static composition is
+  documentation tooling, not application implementation or a passed design gate.
+- Replaced the **full edition at the exact existing port-8443 review.html URL**.
+  All 49 current headings/98 embedded PNGs remain; H07 is not a current heading.
+  **138 HTTP 200 artifacts** match repository bytes via the document service,
+  including current captures/sources, HTML/PDF, styles/fonts and ranking fixtures.
+  Service is active and Tailscale preserves the dedicated document proxy and both
+  original port-443 routes. Host HTTPS self-connection still fails; phone/other-
+  peer refresh is not independently verified. No route/public-hosting/cloud change.
+
+## Previous round results — D-298
 
 - Appended cumulative F69–F82, preserving the same-round follow-up explicitly:
   **one tap-Next-step/hold-End-turn quick slot**, not our initial two-slot plan or
@@ -174,7 +217,7 @@ verification.
   phone/other-peer refresh is not independently verified. No public hosting, route
   change, new cloud generation, application implementation or passed gate.
 
-**Current edition: D-298 cumulative owner-feedback revision**, documented above. The original
+**Current edition: D-299 cumulative owner-feedback revision**, documented above. The original
 pilot/gameplay counts and cloud checks in earlier sections are historical.
 
 - The original pilot has **21 distinct Stitch-generated responsive sources**,

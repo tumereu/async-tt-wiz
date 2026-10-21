@@ -37,6 +37,81 @@ animation coalescing never changes the grouping algorithm or publication timing.
 The remaining grouping questions below concern presentation only; they are not
 questions about atomic gameplay units or which changes enter the tree.
 
+## R1 representative group icons — D-299
+
+The owner delegates the initial significance order. This is a **chosen R1 UI
+ranking**, revisable through normal design feedback, not a change to grouping,
+event types, tree ordering, Undo or game rules. The compact explorer draws one
+group glyph, reusing the **actual representative event's existing icon** and
+author color; it never invents a “cast,” damage or payment interpretation.
+
+Resolve from the group's **currently effective prefix** at the viewed boundary:
+
+1. If the group contains substantive anchors (I/V/C/K/M/H/L/E/S categories below),
+   consider those events only. Otherwise consider the available companion/tap run.
+   Token customization remains an ordinary field event for this display ranking;
+   creation wins over its subsequent edits without changing their grouping.
+2. Lowest rank in the applicable table wins. Ties use the **first event in
+   effective recorded path order**, not object name, timestamp, last writer or
+   arbitrary iteration order. Root is a separate initial-state marker, not a
+   fabricated event/group.
+3. Use that event's literal type icon, not an icon based on its rank label. Event
+   details retain all members/counts/changes. In particular, a Draw or ordinary
+   Move keeps its existing event-type icon; do not infer casting from card text.
+4. Recompute after append/Undo/Redo/recovery/regrouping. Before an anchor arrives,
+   show the best existing companion; do not borrow an icon from a future event.
+   A representative changing never moves a group start, changes ping scope or
+   retargets a user's captured activation boundary.
+
+| Anchor rank | Literal event/context | Rationale |
+| --- | --- | --- |
+| 10 | Ending suggestion S | Already a strict singleton; preserve the visible outcome request. |
+| 20 | Stack entry or explicit Stack removal I | Each is already an isolated anchor; show the entry/removal, not its taps/pings. |
+| 30 | Explicit Inspect/View/Reveal opening V | Preserve the intentional information action. |
+| 40 | Token or Clone creation C | Creation is more useful than its interleaved customization fields. |
+| 50 | Combat membership: entry/declaration, role change, occurrence removal K | Show actual participation changes before layout/empty-area setup. |
+| 60 | Empty combat-area creation K | A real area transition when no membership event dominates. |
+| 70 | Actual cross-zone move M | Concrete card movement, including literal Draw where recorded as such. |
+| 80 | Shuffle H | Recorded library-order change, not an inferred random game effect. |
+| 90 | Explicit token removal E | A piece disappears, unlike an ordinary metadata adjustment. |
+| 100 | Face/cover edit E | Visible presentation change, not an inferred activation. |
+| 110 | Life or colored player-counter edit E | Prominent participant value change; no damage inference. |
+| 120 | Card corner/counter edit E | Concrete card values before ancillary metadata. |
+| 130 | Card owner edit E | Explicit owner metadata, not controller/permission. |
+| 140 | Persistent link edit E | Relationship change, not a rules target. |
+| 150 | Card text/note edit E | Plain text; do not parse it to promote its importance. |
+| 160 | Combat slot/order/layout change K | Position-only change within the combat family. |
+| 170 | Stack layout/order change L | No automatic resolution or priority inferred. |
+| 180 | Same-zone placement/rearrangement M | Useful fallback for a layout-only group. |
+
+If there is **no anchor**, use this companion ranking:
+
+| Companion rank | Event/context |
+| --- | --- |
+| 10 | Combat closure F |
+| 20 | View/Reveal display dismissal F |
+| 30 | Die/coin tool result R |
+| 40 | Tap/untap orientation T |
+| 50 | Turn transition B |
+| 60 | Phase/step tracking B |
+| 70 | Event comment B |
+| 80 | Ping/Unping P |
+
+Thus taps → Stack entry → ping → Next step shows the **Stack entry** icon;
+token creation → corner/counter/owner edits shows **creation**; card-counter →
+life edit shows the **life event**; tap/ping-only shows **orientation**. A random/
+closure run takes its following real anchor once present. These are display
+choices over already-derived groups, never permission to combine invalid groups
+or absorb an ending singleton. Ordinary authorship boundaries still win.
+
+[Literal review fixtures](../02-experience/ui/group-icon-order.json) record these
+ranks, representative IDs and prefix/tie examples used by documentation capture.
+They are not application configuration or a substitute for the future grouping
+engine/tests. Rank keys are documentation categories, **not new wire event kinds
+or client-supplied group definitions**. Accepted mutation family/fields supply them;
+unknown/invalid event data follows compatibility/recovery handling, not guessed
+MTG semantics or a generic icon silently replacing a known type.
+
 ## What the grouping rule needs to consider
 
 The owner's examples rule out one invocation = one group and a rule based only

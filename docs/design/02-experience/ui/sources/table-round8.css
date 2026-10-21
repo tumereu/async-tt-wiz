@@ -1,0 +1,30 @@
+/* D-299 inert documentation only. No event/gesture handlers. */
+.end-turn-control, .phase-progression button:last-child, .table-action-list .end-turn-control {
+  background: var(--turn-color); border-color: var(--turn-color); color: white; }
+.tree-context { background: transparent; align-items: flex-start; justify-content: flex-end; padding: 52px 8px 8px; }
+.tree-dialog { width: 320px; max-width: calc(100vw - 16px); padding: 8px; overflow: hidden; }
+.tree-dialog .dialog-heading { margin: 0 0 4px; }
+.tree-dialog h2 { font-size: 14px; }
+.tree-canvas { height: 160px; width: 100%; overflow: auto; overscroll-behavior: contain;
+  background: #f5f8f6; border: 1px solid #dce5df; }
+.tree-world { position: relative; width: 600px; height: 224px; }
+.tree-world svg { position: absolute; inset: 0; width: 600px; height: 224px; }
+.tree-world .tree-node { width: 48px; height: 48px; border: 0; padding: 0;
+  background: transparent; border-radius: 0; color: var(--own); isolation: isolate; }
+.tree-world .tree-node[data-author="opponent"] { color: var(--opponent); }
+.tree-world .tree-node[data-author="none"] { color: #61736d; }
+.tree-world .tree-node::before { margin: 0; font-size: 23px; }
+.tree-world .tree-node::after { content: ''; position: absolute; z-index: -1; inset: 7px;
+  background: #fff; border: 1px solid #b7c8c1; border-radius: 50%; }
+.tree-world .selected-node { outline: 2px solid #364f91; outline-offset: -2px; border-radius: 5px; }
+.tree-world .current-node::after { border: 3px solid #237963; background: #e2eee4; }
+.make-current { width: 100%; margin-top: 6px; }
+.tree-dialog .tree-view-menu { width: auto; padding: 0; min-width: 48px; height: 48px;
+  border: 0; background: transparent; font-size: 14px; }
+.review-tooltip { position: fixed; z-index: 100; max-width: calc(100vw - 16px);
+  padding: 7px 10px; color: white; background: #263b35; border-radius: 4px;
+  font: 12px/1.2 system-ui; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 7px #243b3530; }
+@media (min-width: 700px) and (max-height: 500px) {
+  .tree-dialog { width: 360px; max-width: 360px; }
+  .tree-canvas { height: 160px; }
+}

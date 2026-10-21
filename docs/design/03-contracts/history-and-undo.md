@@ -1062,43 +1062,60 @@ the proposed first release.
 
 ## 3.6 Review progress
 
-### Graphical tree navigation presentation — D-298
+### Compact grouped tree presentation — D-299
 
-H06/H07 in the UI packet trial the previously unpictured explorer. Open it from
-the table/history tree button or a timeline branch stub. Show actual fork edges,
-root/internal/tip nodes, a distinct **personal selected boundary** and **shared
-current boundary**, and the retained current path. Long trees pan/zoom/window
-without dropping nodes or changing D-276's complete-tree download requirement.
-Accessible parent/root/child/sibling navigation and node details must not depend
-on precision graph taps. These are contextual tree controls, not app Back arrows.
+H06 replaces D-298's oversized event-letter graph with a compact pannable group
+graph. Show the shared **active path and exact current position**, distinct from
+the locally selected group. Each normal vertex represents an effective playback
+group, using the representative event's icon under
+[the chosen R1 ranking](history-grouping.md#r1-representative-group-icons--d-299).
+Chronological/tree order never changes to match that significance ranking.
 
-- Selecting a node reviews its board locally. Review selected closes the overlay
-  to that same boundary; native Back/X closes the overlay without activating it.
-  Root/parent/another branch are personal review, not Undo or a shared switch.
-  Follow current uses normal shared-path catch-up, not an unexplained state jump.
-- **Continue here** captures D-179 intent and restores gameplay at that boundary;
-  arming does not create a branch. Its first successful mutation alone forks.
-  **Make current** is a distinct explicit shared activation of the exact retained
-  node (including root/internal nodes), with ordinary guards/ordering and both
-  Redo queues clearing on a real context change. No vote, playback or additional
-  mutation is needed merely to activate a retained state. Do not conflate these
-  commands with a node tap, Play, Review selected or Undo.
-- Show hidden reveals D-222/D-223's presentation-filtered alternatives without
-  deleting/activating them; active, mixed-author, exposure-bearing and commented
-  continuations remain visible under the existing rules. Archived retained paths
-  have an explicit inventory/restore route, distinct from this hide filter.
-- Archive & return previews the exact selected continuation and return node/board,
-  normally the displaced line's retained current head. Review the return board
-  before the atomic archive-and-switch; if unavailable/changed, require selection/
-  restore rather than guessing. Archive keeps nodes/descendants recoverable and
-  never removes a shared prefix or silently archives descendant branches.
-  Restore only changes archive metadata; Restore & make current explicitly also
-  selects the displayed target. These recoveries are not game-node Undo/Redo.
-  No routine confirmation is inferred for ordinary Make current; the archive
-  preview completes the existing named archive-and-return operation.
+- Open from the table/history tree button or branch stub. Pan the graph to root,
+  other paths and later groups; keep usable targets and accessible graph navigation.
+  Root is a separate initial-state marker. One **Make current** action activates
+  the selected target; the view-title menu contains framing/Show hidden options,
+  not a row of Review/Continue/Follow/Root/filter/archive buttons. Close/outside/
+  native Back dismisses without activating or recalling a submitted request.
+- Selecting a group reviews **its last effective mutation on that path**, not its
+  representative event. Bind that exact event ID when selected. Group growth,
+  icon/rank changes or sync must not silently substitute a newer group end for
+  the pending activation. Removed targets follow normal local ancestor fallback,
+  but an invalid bound activation needs fresh explicit selection, not a guessed
+  server target. Make current is a no-op only if that exact target is already
+  shared current, not merely because selected/current belong to the same group.
+  Opening the graph from an already-selected exact timeline boundary preserves
+  that boundary (including inside a group); only a new group selection chooses
+  its end. Thus the same Make current action still reaches any retained internal
+  event via exact timeline review, without adding another prominent graph button.
+- Grouping is only the drawing/navigation scale: retain every exact mutation,
+  fork, root/internal target and current pointer. A real fork cuts **rendered
+  group ranges** if needed; this does not add a group-start marker or change ping
+  scope. Show a fork junction, never collapse two continuations into one tile.
+  Each displayed range uses its included events for the representative. An exact
+  selection of a split range targets its **last included mutation**, not a later
+  range across the fork; the same stable exact-target binding applies. An exact
+  current/selected point inside a range is indicated as inside that group, not
+  falsely moved to its end. Exact-event timeline/detail navigation still exposes
+  every boundary and its explicit Make current/accessibility action, without
+  expanding the graph into one button per event.
+- Make current is explicit shared activation under the existing guards/ordering;
+  a real shared context change clears both Redo queues. Merely selecting/panning
+  is local. Historical **Continue here** remains the existing separate top/paused-
+  transport/accessibility route: arming alone creates no branch, first successful
+  mutation alone does. Normal return-to-live catch-up and D-222/D-223 hidden-path
+  filtering remain, with Show hidden in the small view menu. No second-player vote,
+  automatic Undo, priority state or activation from a tooltip is introduced.
+- **Archive/return is not required for branch switching.** Withdraw H07 from the
+  current UI packet and remove that clutter from normal navigation. Choosing an
+  old retained group/node and Make current leaves both continuations intact; it
+  neither archives nor deletes either. The older reversible archive capability in
+  section 3.8 is not retired by this UI-only change; its advanced presentation is
+  not selected by the withdrawn mockup. Historical H07/provenance remains in Git.
 
-This is a proposed concrete layout over existing behavior, not a new history
-policy, finished-game archive, implemented graph or declaration of full UI coverage.
+Whole retained current-game download, sync, exposure/Undo rules and offline read-
+only review remain unchanged. This is a UI composition, not an application or a
+claim that every advanced filter/archive/detail state has been pictured.
 
 Confirmed D-177: automatic or step-by-step animated playback advances through
 groups. The player can stop automatic playback and drag the horizontal bottom

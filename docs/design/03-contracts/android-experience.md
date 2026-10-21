@@ -244,6 +244,35 @@ No essential action may require leaving Android for an external editing tool.
 
 ## 5.2 Persistent table context
 
+### Short-name button tooltips — D-299
+
+Holding an **icon-only button without an assigned hold action** shows just its
+short action name: the text it would have as a labeled button, e.g. Inspect,
+Library top, Set red counter or Choose step. Value-only action squares use the
+same rule where the value stands in for an action label. Do not show a tutorial,
+long explanation, shortcut hint, request metadata or a concealed card's name.
+
+- A recognized tooltip hold consumes the tap. Release dismisses without also
+  clicking, changing a value, opening an inspector or logging hidden-side viewing.
+  Do not execute the button on press-down before hold/click arbitration finishes.
+- **Assigned hold actions have priority**, including Undo→Redo, Next step→End
+  turn, paused Play→historical continuation, and game-row context actions inherited
+  by their child controls. They never also show a name tooltip or dispatch a tap.
+  Cards' own hold inspection and drag gestures are not replaced by button tooltips.
+- Moving beyond normal gesture slop cancels pending tooltip recognition. Normal
+  drag/pan recognition still owns its completed gesture; showing/dismissing a tip
+  cannot add a release click or duplicate a transfer/value-drag request. Cancel,
+  leaving, native Back or a lost target dismisses without a game action.
+- Keep the tip inside visible bounds and brief. Full accessible action names and
+  actual availability remain exposed without requiring a timed hold. Tooltip state
+  is personal UI, not sync/history/presence or an extra confirmation. Hold timing
+  and exact styling remain UI implementation/verification details.
+
+This supersedes earlier broad “no tooltip” wording only for these short names;
+it does not restore shortcut tutorials or attach a tooltip to a real hold command.
+
+### Shared and personal table context
+
 The table must always make these distinguishable:
 
 - Which participant's perspective and zones are shown.

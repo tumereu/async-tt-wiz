@@ -132,6 +132,10 @@ D-298 source/projection relationship highlighting, centered Hand framing,
 small-circle drawing, packed value controls and phase/turn-player color emphasis
 are also presentation. They do not expand selection, alter permissions, copy
 source fields into independent projections or change tracked player/number.
+D-299 name tooltips, blank absent-player-counter drawing, turn-colored fills,
+group-tree compression and representative icons are likewise derived/personal
+presentation. Group vertices still reference exact mutation boundaries; neither
+the representative event nor the rendered group ID becomes game-state authority.
 
 Confirmed card-text normalization (D-59/D-249): trim leading and trailing whitespace
 when a card-text/counter edit is completed, including corner text, card labels

@@ -16,7 +16,7 @@ Review editions: [PDF download](review.pdf) · [Markdown source](review.md).
 **Cumulative owner direction:** [feedback and explicit supersessions](feedback.md).
 Later rounds retain earlier decisions unless the owner explicitly changes them.
 This full document is republished at the same browser-refresh URL after changes.
-The D-292–D-298 cumulative revisions below are confirmed direction;
+The D-292–D-299 cumulative revisions below are confirmed direction;
 remaining geometry/style proposals are not silently approved by this round.
 
 Both **portrait and landscape are required** (D-290). Each screen below has a
@@ -33,8 +33,9 @@ from the current packet and replaces U01's empty backdrop with a real table.
 G04–G08 add card/owner/player actions, token/ping/reveal examples and signed
 player-value drag previews (G08b is the negative-preview continuation).
 G09/G10 and H04/H05 add game chat, overflowing hands and centered timeline endpoints.
-G11/G12 and H06/H07 add the phase picker, explicit Table actions, graphical tree
-navigation and archive/return routes. The catalogs below show every current
+G11/G12 and revised H06 add the phase picker, explicit Table actions and compact
+group-tree navigation. G13 adds a short action-name tooltip; the confusing H07
+archive/return proposal is withdrawn, with provenance retained. The catalogs below show every current
 situational quick action and the card/phase icon legends, not just sample glyphs.
 Full zone menus, gameplay-specific inspectors and result-ending overlays
 still need completion; D08 is a deck-context inspection reference and P04 the
@@ -1060,6 +1061,7 @@ field and history timeline; transport remains reachable. Dense/hit geometry stil
 needs device review. Visible player counter circles spread evenly over the whole
 row (D-297), preserving the portrait visibility predicate. D-298 makes the circles
 smaller and spans the **full middle strip** in portrait, including Stack-side width.
+D-299 leaves absent player values **blank**, not dashes; stored zero stays 0.
 Fitting Hand cards are centered; overflow remains pannable in both directions.
 
 **Controls:** bottom-left tap Undo / hold Redo; bottom-center fixed quick strip;
@@ -1436,7 +1438,8 @@ Undo rules. This does not add controller, permission or rules-engine semantics.
 
 Tap either player's life square to open these controls for that player. Life and
 each color expose -1/+1/Set; no initialization submenu. The example has Blue **3**
-and Gray **0**; dashes denote absent colors, not stored zero strings. Set may enter
+and Gray **0**; **D-299: absent player values are empty circles, not dashes**.
+Zero still shows 0; drawing a blank does not initialize a stored zero. Set may enter
 normal counter text; nonnumeric text disables arithmetic, not Set. Existing
 retained-menu/trimmed-empty rules persist. Both participants may edit either
 player. A hidden all-empty/zero portrait counter row is still reachable here.
@@ -1605,6 +1608,8 @@ executing no intermediate Untap/Draw/etc. “Set the turn” here is tracking se
 not a new player/count editor. **End opponent's turn** uses ordinary End turn:
 other player, turn number +1, Beginning/Untap; no automatic draw/untap or game ending.
 Either player may invoke it. Next step remains explicitly available in the picker.
+D-299 fills End turn / End opponent's turn controls, including the combined quick
+square, with the **ending player's color**, not the requester or next player.
 
 **Latest follow-up:** one quick square combines **tap Next step / hold End turn**.
 Hold consumes tap, with no preceding step advance or second release action; cancel
@@ -1651,74 +1656,87 @@ custom tracker/area authoring, in-game Sideboard or automatic resolution is adde
 :::
 
 ::: {.screen-section}
-## H06 — Graphical tree viewer: review versus shared current
+## H06 — Compact pannable group tree
 
 ::: {.screen-pair}
 ::: {.portrait}
-![H06 portrait — selected C on the displaced path, shared current Y on another branch](images/gameplay-tree-viewer-portrait.png)
+![H06 portrait — compact group icons, active path and current ring, one Make current action](images/gameplay-tree-viewer-portrait.png)
 :::
 ::: {.landscape}
-![H06 landscape — fork graph, hidden/archive filters and distinct continuation/activation controls](images/gameplay-tree-viewer-landscape.png)
+![H06 landscape — pannable group graph rather than an event-letter/button dashboard](images/gameplay-tree-viewer-landscape.png)
 :::
 :::
 
-**Navigation plan:** open the tree from its direct button or a timeline branch
-stub. Pan/zoom a graphical tree with actual root, fork, internal and tip nodes;
-long histories window the view without omitting retained events. Nodes expose
-exact event/type/author/details; accessible parent/root/child/sibling navigation
-does not require tiny graph targets. The **Root** control is personal review, not
-app Back, Undo or shared activation. This sample's C is an opponent Reveal, so its
-inactive continuation remains visible under the existing exposure exception.
+**D-299 replaces the oversized prior composition.** The small popover contains a
+two-direction pannable graph, not an individual-event list. Each normal vertex is
+an effective **playback group**, using its most significant event's own icon under
+the R1 ordering below. Initial state has a separate neutral flag. Green path/ring
+marks shared active history/current position; the square marks personal selection.
+Icon color remains the author, not card owner. No event-letter labels or large
+Review/Continue/Follow/Root/filter/archive button toolbar.
 
-1. Tap a node to review its boundary **locally**; the selected square and the shared
-   current circle are distinct. Here C is selected while Y remains current.
-2. **Review C** closes the overlay to C's already selected board. Native Back/X
-   also dismisses without switching the shared game. Choose parent/fork/another
-   continuation to go back; no automatic Undo or branch deletion is involved.
-3. **Continue at C** arms historical gameplay; only the first successful mutation
-   creates/activates a new branch. Merely choosing it or pressing Play creates none.
-4. **Make C current** explicitly activates the retained node immediately, including
-   if it is internal/root. It is not playback or the same as arming a new branch;
-   a real shared switch clears both Redo queues. No second-player vote.
-5. **Follow current Y** returns through the existing catch-up/changed-path traversal.
-   To restore the displaced line as the shared game, select D and **Make D current**;
-   do not assume Undo of X automatically reactivates D.
+Tap a group to review its **last mutation** locally, then use the single **Make
+current** action to activate that exact boundary. The selected eye group contains
+Reveal **C1** followed by Comment **C2**: its glyph is Reveal, but its selected
+state/activation target is **C2**, not C1. Current is the other path's Move group
+ending **Y2**. Panning/selecting/holding for a name tooltip never activates anything.
+Close/outside/native Back dismisses; a real explicit shared switch clears both
+Redo queues, as before, without a vote or automatic branch deletion.
 
-Show hidden reveals only presentation-filtered single-author/no-exposure/no-comment
-alternatives; it neither deletes nor activates them. Archived has a separate
-restore inventory. Sync continues and surviving personal cursor stays put; deleted
-nodes use normal ancestor fallback. Complete retained current-game data still
-downloads under D-276, independent of what is currently visible. **Basis:** D-179,
-D-222/D-223/D-238/D-258/D-276 and proposed D-298 presentation.
+Root/earlier groups are reached by panning; the small view-title menu retains
+framing and **Show hidden** options without filling the graph with buttons. Exact
+mutation review remains in the timeline/details. Opening the graph from such an
+exact boundary preserves it inside its group; a new group tap selects its end.
+Real forks remain junctions, splitting only rendered group ranges if necessary,
+not changing automatic groups or collapsing distinct continuations. An internal
+current pointer is marked within its group, never falsely moved to its end.
+Selecting a fork-split range targets its last included mutation, never a later
+range across that junction; this changes no playback group boundary.
+
+Hold a selected target stable through group growth/reranking/sync; do not silently
+activate a newer end. Continue here/return-to-live remain existing history routes,
+not extra graph buttons. Normal hidden-path rules, ancestor fallback, complete
+tree download and offline read-only review remain. **Basis:** D-179/D-222/D-223/
+D-238/D-258/D-276 and D-299. This is an inert composition, not a working graph.
+
+**Why archive/return was confusing:** it was an older reversible branch-hiding/
+recovery flow, **not required to switch branches**. H07's proposed dialog is now
+withdrawn from the current review. Select an old group/node and Make current;
+both continuations remain intact. This UI cleanup does not delete the older
+archive product/protocol contract without an explicit scope decision. Its prior
+[portrait](images/gameplay-archive-return-portrait.png) and
+[landscape](images/gameplay-archive-return-landscape.png) captures remain provenance,
+not current navigation designs.
 :::
 
 ::: {.screen-section}
-## H07 — Archive & return, with separate restoration
+## G13 — Short action-name tooltip
 
 ::: {.screen-pair}
 ::: {.portrait}
-![H07 portrait — exact archive/return references and restore-only versus restore-and-activate](images/gameplay-archive-return-portrait.png)
+![G13 portrait — holding Inspect shows only the short name, without executing inspection](images/gameplay-action-tooltip-portrait.png)
 :::
 ::: {.landscape}
-![H07 landscape — reversible branch controls, distinct from game-node Undo](images/gameplay-archive-return-landscape.png)
+![G13 landscape — bounded action-name tooltip over the packed card controls](images/gameplay-action-tooltip-landscape.png)
 :::
 :::
 
-This proposed flow previews archiving **A → X → Y** and returning to exact state
-**D** on **A → C → D**. **Review exact return state D** opens that board for personal
-inspection and returns to the same bound preview; it is not a generic substitute
-for showing the return board. The screenshot pictures the entry/decision controls,
-not every state of that inspection round-trip. Completing **Archive & make D current**
-is the existing single atomic archive-and-switch, preserving every node and shared
-prefix and clearing both Redo queues on a real shared switch. Missing/changed/
-archived return target requires explicit selection/restore, never a guessed head.
+For icon-only buttons **without a hold action**, holding shows only the short
+action name the button would have as text: **Inspect**, **Library top**, **Set red
+counter**, **Choose step**. Value-only action squares follow the same principle.
+Not a tutorial, long explanation or hidden-card detail. The tooltip stays within
+visible bounds and is local UI only.
 
-The lower restoration controls illustrate selecting an already archived Z:
-**Restore only** changes its archive metadata; **Restore & make current** additionally
-activates its displayed retained tip Z2. This is separate from the upper X–Y
-operation and from selective game-node Undo/Redo. Descendants are not silently
-archived with their parent. Finished-game archives are still out of R1 scope.
-**Basis:** existing archive/return contract, D-258 and proposed D-298 geometry.
+Recognizing the tooltip consumes tap: releasing must not also execute Inspect,
+move a card, change a counter or log hidden-side viewing. Movement/cancel dismisses
+it; normal drag/pan behavior keeps its own gesture. **Assigned holds win instead**:
+Undo→Redo, progression→End turn, paused Play→continue and game-row context actions
+must never also show a tooltip or trigger a release click. Card hold inspection is
+not a button tooltip. Accessible names remain available without timing a hold.
+
+This is a frozen **Inspect** tooltip example, not a working hold recognizer. The
+new name rule supersedes earlier blanket no-tooltip wording, not the ban on
+shortcut tutorials. **Basis:** D-299; Android/gesture and existing disclosure rules.
 :::
 
 # Quick-action catalog and icon legends
@@ -1784,7 +1802,7 @@ the single sample; disabled/inapplicable state must remain meaningful/accessibly
 | Text | <span class="legend-icon">sticky_note_2</span> **Edit card note** | Plain multiline note, not event comment/chat or a rules text editor. |
 | Owner | <span class="legend-icon legend-own">person</span> **Owner alex** · <span class="legend-icon legend-opponent">person</span> **Owner riley** | Direct explicit field choices with selected border. No extra Change owner category button, controller or permission change. |
 | Corner row | Current **1/3** square = **Set**; <span class="legend-pair">+/+</span>, <span class="legend-pair">−/−</span>, <span class="legend-pair"><i class="legend-dot"></i>/+</span>, <span class="legend-pair"><i class="legend-dot"></i>/−</span>, <span class="legend-pair">+/<i class="legend-dot"></i></span>, <span class="legend-pair">−/<i class="legend-dot"></i></span> | Exact seven-button order. Dots mean unchanged component; relative +/− rewrites the same corner string and retains the panel. Set is the current-value button, not an eighth pencil button. |
-| Counter triplet | Colored **current value** circle = **Set**, <span class="legend-icon">add</span>, <span class="legend-icon">remove</span> | Red/Blue on row 1, Green/Yellow row 2, Purple/Gray row 3. Divider separates the two triplets. Dash = absent, not stored zero. Life menu uses equivalent value-Set,+,−. |
+| Counter triplet | Colored **current value** circle = **Set**, <span class="legend-icon">add</span>, <span class="legend-icon">remove</span> | Red/Blue on row 1, Green/Yellow row 2, Purple/Gray row 3. Divider separates the two triplets. Card-counter dash = absent, not stored zero. Player menu uses equivalent value-Set,+,−, but absent player values are blank (D-299). |
 | Conditional orientation | <span class="legend-icon">rotate_90_degrees_cw</span> **Tap** · <span class="legend-icon">rotate_90_degrees_ccw</span> **Untap** | Explicit Select/accessibility path; normal double-tap mapping is unchanged, not a new ordinary single-tap rotation button. |
 | Conditional occurrence | <span class="legend-icon">layers_clear</span> **Remove Stack effect** · <span class="legend-icon">remove_circle_outline</span> **Remove from combat** | Captured occurrence only; never a generic real-card delete. Expose when the context is that occurrence. |
 | Conditional token | <span class="legend-icon">delete</span> **Remove token** | Token-only. No Remove action for ordinary non-token real cards. |
@@ -1809,10 +1827,71 @@ step is invented by the mockup; players can repeat Combat damage manually throug
 the existing picker. The app does not calculate damage, execute cleanup/discard or
 infer triggered effects. Entering any step alone performs no card operation.
 
+## R1 group-icon significance order
+
+The owner delegates this initial choice. **Use the actual most significant event's
+icon**, not a synthetic icon for an inferred spell/effect. First consider real
+anchors; use the companion table only if no anchor has arrived. Lower rank wins;
+ties pick the **first effective event on that path**. This is the chosen R1
+presentation order, not a change to groups, event types or chronological order.
+
+| Anchor rank | Literal event/context |
+| --- | --- |
+| 10 | Ending suggestion (already a strict singleton) |
+| 20 | Stack entry or explicit Stack removal |
+| 30 | Explicit Inspect/View/Reveal opening |
+| 40 | Token or Clone creation |
+| 50 | Combat membership: declaration/entry, role change or occurrence removal |
+| 60 | Empty combat-area creation |
+| 70 | Actual cross-zone movement, including a recorded Draw |
+| 80 | Shuffle |
+| 90 | Explicit token removal |
+| 100 | Face/cover edit |
+| 110 | Life or player-counter edit |
+| 120 | Card corner/counter edit |
+| 130 | Card owner edit |
+| 140 | Persistent link edit |
+| 150 | Card text/note edit |
+| 160 | Combat layout/order change |
+| 170 | Stack layout/order change |
+| 180 | Same-zone placement/rearrangement |
+
+With **no anchor**, choose in this order: **combat closure → View/Reveal dismissal
+→ die/coin result → tap/untap → turn transition → phase/step tracking → event comment
+→ ping**. Use the first tied event, not the last bookkeeping change. The initial
+state is a separate flag, with no invented event.
+
+Examples using the agreed grouping rules:
+
+- **Tap → Tap → Stack entry → Ping → Next step:** <span class="legend-icon">layers</span>
+  Stack entry, not rotation/ping/phase. Before the entry arrives the tap-only prefix
+  correctly shows <span class="legend-icon">rotate_90_degrees_cw</span> orientation.
+- **Create token → corner/counter/owner customization:** <span class="legend-icon">add_box</span>
+  creation, not the final small edit. Multiple tied creations keep the first icon.
+- **Reveal → Comment:** <span class="legend-icon">visibility</span> Reveal, while the
+  group's selected **end state includes the comment**. The icon is not the target ID.
+- **Card counter → Life edit:** <span class="legend-icon">favorite</span> the actual
+  life event. No damage or importance-from-number-size inference.
+- Closure/random runs take their following actual anchor once present, rather
+  than permanently hiding it behind a closure/die icon. Tap/ping-only groups keep
+  their orientation icon. Ending suggestions remain singleton; author boundaries
+  and recorded ping scopes never change to satisfy a prettier glyph.
+
+Recompute the representative from current effective events after growth, Undo,
+Redo or recovery; never borrow a future event or retain a removed winner. Keep the
+selected exact boundary fixed if its group's icon/end changes. Real forks remain
+junctions; split only rendered group ranges when necessary, not the grouping rules.
+Do not merge alternatives or snap an internal current pointer to a group end.
+
+The [primary grouping contract](../../03-contracts/history-grouping.md) owns the
+exact ranking, and [checked literal fixtures](group-icon-order.json) supply the
+H06 examples and every-prefix/tie checks used by documentation capture. These are
+not app/runtime configuration or proof that native grouping/navigation is tested.
+
 # Copy audit — suggested further deletions
 
-**All 41 current pictured states, both orientations, audited.** Round 2's table
-is retained cumulatively; D-294–D-298 dispositions below mark selected/superseded items
+**Cumulative copy audit, both orientations.** Round 2's table
+is retained cumulatively; D-294–D-299 dispositions below mark selected/superseded items
 without turning all earlier suggestions into approvals. This table is
 owner-review advice, **not a new approval list for already confirmed outcomes**.
 “Suggest” items are deliberately **not all removed** from the mockups yet. Existing
@@ -1882,7 +1961,7 @@ dismissal are additional interaction cost, not hidden zero-cost steps.
 | Live → exact history → armed continuation | History → drag timeline → Continue playing from here: **2 taps + 1 drag**. | If playback is running, dragging itself pauses before scrubbing; no separate Pause tap. First gameplay mutation is additional and alone creates/activates continuation. |
 | Live → eligible Redo | Hold Undo: **1 hold**, or overflow → Redo: **2 taps**. | No earlier Undo emitted; hold timing/native accessibility still need validation. |
 | Live → next step / end turn | Tap combined progression square: **1 tap** Next step; hold it: **1 hold** End turn. | Hold consumes tap, never emits both. Explicit phase picker → End turn is **2 taps**; native accessibility has a named End turn action. No priority/pass or routine confirmation. |
-| Live → review another branch / continue there | Tree → node: **2 taps** to local review; Continue here: **1 additional tap**. | Review selected/close optionally reveals the already selected board; no need to close/reopen just to Continue/Make current. Make current is a distinct shared switch, not arming or merely viewing. |
+| Live → review another branch / activate it | Tree → group: **2 taps** to local end-state review; Make current: **1 additional tap**. | Pan if needed. Close reveals the selected board without activation; historical continuation remains outside this compact graph. Make current is a distinct shared switch, not arming or merely viewing. |
 | Live → game chat | Chat: **1 tap**. | Read existing messages; typing/send is additional. No overflow detour or shared read receipt. |
 | Card → repeated field adjustment / owner edit | Card → direct icon: **2 taps** initially; next +/− is **1 tap** while retained. Owner choice likewise **2 taps** from the table, no chooser submenu. | Set needs actual text editing/completion; Link needs endpoint selection. Scroll direct controls when necessary; ordinary 48 px buttons are not reduced. |
 
@@ -1894,7 +1973,7 @@ with a keyboard; the later large-text/keyboard review must count that cost too.
 # Coverage and limits
 
 **Pictured:** 45 primary screen/state drafts (26 original Stitch-derived states,
-some locally recomposed, plus N02, P03–P05, D07/D08, G04–G12 and H04–H07), two
+some locally recomposed, plus N02, P03–P05, D07/D08, G04–G13 and H04–H06), two
 scrolled continuations, L04b's faded feedback and G08b's negative preview:
 **49 states / 98 captures**.
 These include the shared navigation,
@@ -1907,7 +1986,8 @@ plus nineteen primary gameplay states and the G08b continuation: live, populated
 running playback, armed continuation, explicit Redo menu, card actions, token/
 ping/reveal presentation, retained updated actions, player-value context, signed
 drag previews, game-chat panel, overflow hands, both timeline endpoints, phase
-picker, explicit Table actions, graphical tree and archive/return/restore entries.
+picker, explicit Table actions, compact grouped tree and short action-name tooltip.
+H07's withdrawn archive/return captures remain linked provenance, not current states.
 
 **Described but not separately pictured:** clean authentication forms, network
 and field errors, invalid reset link, empty/loading/search-no-results lists,
@@ -1917,7 +1997,8 @@ state completion before claiming that every non-gameplay state is designed.
 Gameplay expansions still needed include alternate Hand expansion and mode choice sheet,
 remaining card/zone action menus, gameplay-specific inspector/disclosure states
 (D08 pictures inspection in a deck context), further View/Reveal variants, dense/empty
-combat variants, further tree/return/archive/restore states, chat/comments and ending
+combat variants, further tree/detail/filter states, advanced archive presentation
+(the previous H07 proposal is withdrawn), chat/comments and ending
 dialogs, plus selected/conflict/reconnect/large-text/gesture variants over the real
 board. Static examples do not settle all camera bounds, hit regions or timings.
 
@@ -2009,6 +2090,17 @@ turn share one slot**, leaving three contextual positions. H06/H07/G11/G12 add
 four local states: **49 states / 98 captures**. `table-round7.css` and inert capture
 composition retain earlier unsuperseded feedback; local font legends are review
 reference, not hidden app labels. No new cloud edit or executable app behavior.
+
+**D-299 owner revision:** F83–F88 make absent player counters blank, fill End
+controls with the ending player's color and give unassigned icon-button holds
+short action-name tooltips without release clicks. Existing hold commands win.
+H06 is now a compact pannable **group** graph with current path/node and one Make
+current action. The owner-delegated R1 representative-icon ranking is documented
+above and in the grouping contract; checked document fixtures cover prefixes/ties.
+Representative and exact activation target are distinct. Withdraw the confusing
+H07 archive/return UI, retain its captures/source revision, and add G13's tooltip:
+totals remain **49 states / 98 captures**. `table-round8.css` and inert composition
+retain all earlier unsuperseded feedback. No application or new cloud work.
 
 See [generation briefs](generation-briefs.md) and [source manifest](manifest.json).
 The exported HTML is design material with executable interactions removed, not

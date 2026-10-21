@@ -37,7 +37,11 @@ card actions with retained state preview. D-298 packs card/player values, adds
 full quick/icon legends, phase picker and graphical tree/return designs, centers
 hands and fixes small full-width counters. One quick slot now combines tap Next
 step/hold End turn; combat uses dividers only and source-relationship highlights. The
-same-URL full HTML publication workflow persists. Remaining copy cuts are proposals.
+same-URL full HTML publication workflow persists. D-299 adds blank absent player
+counters, ending-player-filled End controls, short action-name tooltips without
+stealing hold actions, and a compact pannable grouped tree with delegated R1 icon
+ranking. H07's archive/return UI is withdrawn as unnecessary for branch switching,
+not a retirement of the older archive feature. G13 pictures the tooltip. Remaining copy cuts are proposals.
 This authorizes these design artifacts, not application implementation, a passed
 review/UI gate or approval of the proposed layouts.
 

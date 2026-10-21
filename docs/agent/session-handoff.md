@@ -14,7 +14,35 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current UI feedback iteration — D-298
+## Current UI feedback iteration — D-299
+
+Read cumulative F01–F88 before further UI work; full HTML/PDF remains at the exact
+port-8443 URL, replaced and verified each batch. Player absent values are **blank**,
+zero is 0; card-counter dash examples unchanged. End buttons/combined progression
+use tracked ending-player fill. Short action-name tooltips only for unassigned
+icon/value button holds; consume tap, no release action/inspection/edit. Existing
+Undo/Play/progression/inherited game-row holds and card gestures retain priority.
+
+H06 is compact (320 px portrait/360 px landscape) with pannable group glyphs,
+active path/current ring, local selection and one Make current action. Small view
+menu replaces a toolbar. Owner delegated R1 representative ranking: primary
+history-grouping contract plus checked group-icon-order.json document fixtures.
+Anchor beats companion; lowest rank/first-effective tie, actual event icon/author.
+Group tap selects exact end, **not representative ID** (Reveal C1 represents the
+group ending Comment C2); preserve exact timeline cursors, fork junctions/internal
+current and captured activation through group growth/reranking. Graph selection
+is local; server activation, Redo/filter/full-tree rules unchanged.
+
+H07 archive/return UI is withdrawn as unnecessary for switching branches, **not
+retirement of the older archive product/protocol contract**. Retain captures and
+source revision a784890; switching neither archives nor deletes either path.
+G13 replaces it with an Inspect tooltip snapshot. **45 primary + four continuations
+= 49 states / 98 captures**. Round8 sources/composition remain inert documentation,
+no app/cloud work or gate authorization. Primary contracts/summaries and future
+T-710–T-715 align. Consult validation.md for actual artifact checks/hosting limits;
+native gestures, grouped-fork layout and server behavior are future verification.
+
+## Previous UI feedback iteration — D-298
 
 Read cumulative F01–F82 before further UI work. Full HTML/PDF stays at the exact
 existing port-8443 review.html URL, replaced and verified after every batch.

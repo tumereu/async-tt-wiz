@@ -3,15 +3,16 @@
 These are specification artifacts, not application code or an approved final UI.
 
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
-  extension and cumulative D-292–D-298 revisions, with both orientations: 45 primary
+  extension and cumulative D-292–D-299 revisions, with both orientations: 45 primary
   drafts plus four continuations, 98 captures total.
   N02 shows navigation;
   P03/P04 show context/deletion, D07 contextual import and D08 full inspection.
   P05 adds named creation. G00 is retired provenance, not a current screen;
-  G01–G12/G08b and H01–H07 add live/history, direct actions/retained card preview,
+  G01–G13/G08b and H01–H06 add live/history, direct actions/retained card preview,
   token/ping/reveals, life/player-counter menus/drag previews, chat, overflowing
-  hands, fixed-center timeline endpoints, phase picker/Table actions and tree/
-  archive navigation. The review includes full quick-action and card/phase icon catalogs.
+  hands, fixed-center timeline endpoints, phase picker/Table actions, compact group
+  tree and short-name tooltip. H07 archive/return UI is retired provenance, not
+  required for switching branches. Full quick-action/card/phase icon catalogs remain.
 - **[Gameplay layout brief](../gameplay-screen-proposal.md):** owner direction,
   clarified interactions and remaining geometry proposals.
 - `sources/` retains raw Stitch output and inert review derivatives; `images/`
@@ -23,7 +24,7 @@ These are specification artifacts, not application code or an approved final UI.
 - [Artifact validation](validation.md) records checks, corrections and hosting
   limitations without claiming a passed UI or implementation gate.
 - **[Cumulative feedback](feedback.md):** preserve every owner decision across
-  rounds unless explicitly superseded; read before regeneration. F01–F82 apply;
+  rounds unless explicitly superseded; read before regeneration. F01–F88 apply;
   the packet's full-screen copy audit lists further deletion suggestions, not
   silently approved removals. Raw Stitch sources/older prompts remain provenance only.
 - [HTML](review.html) and [PDF](review.pdf) are generated from the same Markdown. The HTML is
@@ -136,6 +137,16 @@ the same locally embedded font as captures. Native holds, source highlighting,
 tree activation and archive/restore remain specified/future verification, not
 implemented handlers. G02 alone demonstrates quick-control positioning; the
 catalog documents every currently specified situation and full alternative.
+
+D-299 checks add blank absent player counters (zero remains 0), ending-player fills,
+short action-name annotations without stealing assigned holds, bounded tooltip
+snapshot and smaller pannable group graph with separate selection/current path,
+one activation action and exact group-end targets distinct from representative
+IDs. `group-icon-order.json` records the chosen R1 anchor/companion ranks and
+prefix/tie fixtures; it is document data, not application configuration. H07's
+old captures/source revision remain provenance; G13 replaces it in current totals.
+Native tooltip arbitration, fork-range compression and requests remain future
+verification, not working behavior in these snapshots.
 
 ## Private review hosting
 

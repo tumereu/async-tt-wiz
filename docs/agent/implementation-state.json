@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -119,9 +119,12 @@
     {
       "id": "I01c2",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
       "children": ["I01c2a", "I01c2b"],
       "planningRecord": "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json",
+      "implementationRecord": "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json",
+      "buildNotes": "server/README.md",
+      "qualification": "Combined I01c2a/I01c2b outcome qualified without product changes: two complete 34-test server runs plus shared JVM tests, installed Spring service/migrate executables and independent byte-identical PostgreSQL17/Flyway/jOOQ regeneration pass; second run cleans and recompiles core/protocol/server with build cache disabled and ordinary strict locks. Actual HTTP/process checks cover detail-free separate bindings, empty/unversioned/future/checksum refusal without auto-migration, explicit clean/retained migration, two writers, dedicated-session takeover, DB outage/blackhole and schema/epoch reload before recovery. Lower-layer tests prove old shared-row-lock commit/rollback precedes replacement epoch, delayed stale tokens cannot mutate, simultaneous current transactions, admission stop/drain and rollback. File-secret/configuration/redaction and actual bounded SIGTERM/restart pass. JUnit XML, dependency/license provenance, coverage accounting, module boundaries and exact owned cleanup retained. Only ownership scheduler/singleton reload exists; future account/game/inbox/outbox/mail/push workers remain later scope. This closes I01c2 only: image I01c3, I01c/I01 combined qualification, Compose/device/full product/architecture acceptance, independent B1 review and all release gates remain open.",
       "dependsOn": ["I01c1"],
       "outcome": "Implement the real minimal Spring Boot/JVM21 service using I01c1's schema and explicit migration interface, runtime configuration/secret-file inputs and redacted live/ready health contracts. Own the database advisory lock on a dedicated connection, advance the persisted writer epoch on acquisition and fence mutating transactions through the epoch row. Lose readiness/admission on DB or ownership loss; reacquire and revalidate/reload the implemented durable foundation before readiness. Keep runtime/generated types outside shared semantics and do not fabricate future account, durable inbox/outbox or mail/push workers.",
       "checks": [

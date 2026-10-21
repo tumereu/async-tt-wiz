@@ -280,5 +280,18 @@ diagnostics retained. It does not close I01c2, its ancestors or any independent
 review. Its Spring/HTTP/configuration/process obligation is now supplied by
 [I01c2b](../docs/agent/implementation-runs/20261021T192847Z-0d517a87.json), with clean
 and repeated JVM/database/process regression evidence and retained development
-diagnostics. Image, combined parent qualification, independent B1 review, full
-product/device/architecture acceptance and all external release gates remain open.
+diagnostics.
+
+The [I01c2 combined qualification](../docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json)
+closes that service/ownership parent after both children: two complete 34-test
+server runs without skipped/failing cases, shared JVM tests and independent
+byte-identical jOOQ regeneration. The second run cleans/recompiles `:core`,
+`:protocol` and `:server` with the build cache disabled and ordinary strict locks.
+Actual installed Spring processes, migration separation, schema refusal,
+two-writer takeover, DB outage/blackhole recovery, epoch fencing/row-lock waits,
+configuration redaction and bounded SIGTERM/restart pass together without product
+changes. Exact command outputs, JUnit XML, dependency provenance and owned cleanup
+are retained in that run. This is implementation qualification, **not independent
+B1 review** or full T-630/T-662 acceptance. Image I01c3, I01c/I01 combined parent
+qualification, Compose/device work, full product/architecture acceptance and all
+external release gates remain open.

@@ -1,0 +1,92 @@
+{
+  "runId": "20261021T191059Z-a9372bb4",
+  "sessionID": "ses_ea0204676ffe8EhEC2Vg2GWnrt",
+  "startCommit": "333e88e556c07f46265e7e7cf8f3629eecf18aff",
+  "mode": "implement",
+  "target": "I01c2",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split of I01c2 into two pending B1 children: database schema validation/ownership/epoch-transaction fencing and its concurrency/fault tests (I01c2a), then real Spring configuration/HTTP health/process integration and lifecycle qualification (I01c2b). I01c2 remains in-progress with its original full outcome/checks unchanged for a fresh combined qualification after both children. No runtime, build, UI, runner or permission file changed; no application test, task, independent review or release gate is claimed complete.",
+  "selectionReason": "The clean master checkout matches the supplied startCommit. State and the owner record explicitly authorize implementation under D-304. There are no findings or due complete-capability reviews. I01c1 is implemented; I01c2 is the earliest eligible child and the driver selection agrees. Inspection confirms the real explicit migration executable and V1 singleton exist, but no ownership manager, epoch transaction wrapper, Spring service or HTTP health endpoints exist. The selected outcome combines a database-concurrency layer with separately fault-qualified service processes, configuration/redaction and shutdown. Splitting before coding keeps each implementation unit bounded without skipping ahead, weakening the parent or declaring an intermediate library to be a working service.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T191059Z-a9372bb4-coverage-check.json -- python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T191059Z-a9372bb4-coverage-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T191059Z-a9372bb4-planning-check.json -- python3 docs/agent/implementation-runs/20261021T191059Z-a9372bb4-planning-check.py",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T191059Z-a9372bb4-planning-check.py"],
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T191059Z-a9372bb4-planning-check.json"
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json",
+    "docs/agent/implementation-runs/20261021T191059Z-a9372bb4-planning-check.py",
+    "docs/agent/implementation-runs/20261021T191059Z-a9372bb4-planning-check.json",
+    "docs/agent/implementation-runs/20261021T191059Z-a9372bb4-coverage-check.json"
+  ],
+  "planning": {
+    "children": {
+      "I01c2a": "Server-only non-migrating schema validation, dedicated advisory-lock ownership, persisted epoch acquisition and shared-row-lock transaction fencing; real PostgreSQL two-owner, old-transaction/takeover, stale-token, outage/recovery and resource tests.",
+      "I01c2b": "Real Spring runtime/executable, pinned dependencies, configuration/file secrets, separate health binding, live/ready/admission integration, two-process DB/ownership failure/recovery, redaction and actual SIGTERM/restart qualification."
+    },
+    "dependencies": "I01c2a depends on implemented I01c1; I01c2b depends on I01c2a. Neither depends on its open parent. I01c2 preserves its original I01c1 dependency, full outcome and all four checks, and closes only in a fresh parent unit after both children and combined regression qualification. I01c3 still depends on completed I01c1 and I01c2, not an intermediate library. I01c, I01d-I01f, I01 and I02-I36 are unchanged. Simulated selection checks both child boundaries, parent qualification, image, I01c qualification and I01d without advancing saved task statuses.",
+    "reviewBoundary": "All descendants inherit B1. Independent B1 review still follows the complete I01-I04 capability and all descendants; no child review was added. Batch/review records, findings, authorization, exact model, runner/permissions and externalReleaseGates remain byte-equivalent as parsed state.",
+    "coverage": [
+      "I01c2a supplies schema compatibility validation without startup migration and the database ownership/epoch transaction boundary. Testcontainers owns isolated real PostgreSQL; generated database types remain server-only. Preserve existing V1 migration history rather than rewriting the migration for a new runtime implementation.",
+      "I01c2a proves that replacement epoch advancement waits for old shared-row-lock transactions and that delayed stale tokens cannot mutate after takeover, while concurrent current-token transactions can share the epoch lock. It retains outage/reacquisition/schema-reload evidence without claiming HTTP readiness or future durable workers.",
+      "I01c2b supplies the actual installed Spring process and validates config/file-secret/redaction, public-versus-health HTTP binding and ready/admission integration. Two real processes, DB loss and dedicated-connection loss exercise the same ownership layer. No product action endpoints are introduced merely for tests.",
+      "I01c2b qualifies JVM-process SIGTERM within 30 seconds, persistent-foundation restart and the separate migration executable, while pinning/locking qualified Spring dependencies. The fresh I01c2 parent reruns its original combined schema/ownership/service checks; image-level behavior is still I01c3, Compose ownership I01e, normal APK/device adapters I01f, architecture/upgrades I35 and real accounts/gameplay/workers later tasks."
+    ],
+    "sourceIds": {
+      "directScenarioPortions": ["T-630", "T-662"],
+      "architectureConstraintPortions": ["T-661"],
+      "deferredScopeGuard": ["P-062"],
+      "feedback": "No UI implementation/document change in this unit; all F01-F88 obligations stay with their existing owning tasks.",
+      "accounting": "The unchanged source-pinned ledger assigns the I01 foundation portions; the new children refine only the service/database portions of T-630/T-662. No complete Compose/normal-Android, durable inbox/outbox, signed upgrade or retained-game-format scenario is executed here. T-661 full hardware/architecture/performance remains I33/I35; P-062 durable per-game ordering remains I09/I13. No ledger assertion or execution record changes."
+    },
+    "contractSections": [
+      "docs/agent/implementation-plan.md: Work-unit and dependency rules; B1 I01; B8 I35 and completion obligations",
+      "docs/agent/implementation-loop.md: One fresh agent per bounded unit; Implement; Durable records",
+      "docs/design/04-technical/runtime-and-verification-profile.md: Application container interface (inputs, health, explicit migrations, shutdown)",
+      "docs/design/04-technical/storage-mechanics.md: Ordered ingress, execution and fencing (database-backed writer advisory ownership and persisted epoch-row transaction fencing)",
+      "docs/design/05-verification/acceptance.md: T-630, T-661 and T-662",
+      "docs/design/03-contracts/product.md: P-062 deferred durable gameplay ordering"
+    ],
+    "limitations": [
+      "This run executes planning/state/coverage validation only; no database container, Spring service, build, migration, image or device check runs.",
+      "No subagent, competing loop, deployment or paid resource is started. The check helper imports only pure driver validation/selection functions, never constructs a controller or session.",
+      "Spring versions, configuration names/defaults beyond the existing contract and real service commands must be selected and qualified in I01c2b, not invented as already tested here.",
+      "No task/capability or release gate is closed. Physical performance, rights/attribution, signing/distribution, external operator readiness and full image/device/upgrade obligations remain unchanged."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/implementation-permissions.json",
+    "docs/agent/delivery-workflow.md",
+    "docs/agent/coverage/README.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/04-technical/runtime-and-verification-profile.md",
+    "docs/design/04-technical/storage-mechanics.md",
+    "docs/design/05-verification/acceptance.md",
+    "docs/design/03-contracts/product.md",
+    "server/README.md",
+    "server/build.gradle.kts",
+    "gradle/libs.versions.toml",
+    "server/src/main/java/org/asyncttwiz/server/database/DatabaseSettings.java",
+    "server/src/main/java/org/asyncttwiz/server/database/FoundationMigrations.java",
+    "server/src/main/resources/db/migration/V1__service_writer.sql"
+  ]
+}

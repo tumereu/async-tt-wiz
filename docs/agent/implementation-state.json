@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -119,7 +119,9 @@
     {
       "id": "I01c2",
       "batch": "B1",
-      "status": "pending",
+      "status": "in-progress",
+      "children": ["I01c2a", "I01c2b"],
+      "planningRecord": "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json",
       "dependsOn": ["I01c1"],
       "outcome": "Implement the real minimal Spring Boot/JVM21 service using I01c1's schema and explicit migration interface, runtime configuration/secret-file inputs and redacted live/ready health contracts. Own the database advisory lock on a dedicated connection, advance the persisted writer epoch on acquisition and fence mutating transactions through the epoch row. Lose readiness/admission on DB or ownership loss; reacquire and revalidate/reload the implemented durable foundation before readiness. Keep runtime/generated types outside shared semantics and do not fabricate future account, durable inbox/outbox or mail/push workers.",
       "checks": [
@@ -127,6 +129,32 @@
         "Prove one writer at a time with two real service instances, DB loss/reconnection and lock-connection termination/takeover. Use lower-layer transactions to show a replacement epoch waits for old shared epoch-row locks and stale-token transactions cannot mutate after takeover; do not add product test-action endpoints. Verify readiness drops and only successful ownership/schema recovery restores it.",
         "Exercise required/malformed configuration and missing/unreadable secret-file failure, safe JDBC/config logging, configured port/health binding and bounded shutdown/restart of the real service. Keep passwords/token material out of responses/logs and document exactly which workers are not yet implemented; future workers must become readiness dependencies when introduced.",
         "Run focused unit/integration regressions, I01c1 migration/generation tests and module-boundary checks with qualified pinned Spring dependencies/locks; retain actual commands, outputs and Testcontainers/process cleanup. Image-level lifecycle qualification remains I01c3, not a passing claim from JVM tests."
+      ]
+    },
+    {
+      "id": "I01c2a",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01c1"],
+      "outcome": "Implement the server-only database ownership/fencing foundation using the unchanged explicit migration interface and existing V1 service_writer schema: non-migrating schema/history/checksum validation, a dedicated advisory-lock connection, persisted epoch advancement under an exclusive epoch-row lock, and an epoch-checked shared-row-lock entry to mutating transactions. Invalidate ownership on database/lock-connection failure and require reacquisition, schema validation and reload of the implemented singleton state before exposing an available ownership token. Keep lifecycle operations bounded and resources closeable for Spring integration in I01c2b; this child does not supply HTTP readiness, account/game/inbox/outbox workers or new action endpoints.",
+      "checks": [
+        "Run real Testcontainers PostgreSQL17 validation on clean explicitly migrated and retained supported schemas; reject empty, unversioned, future and checksum-mismatched schemas without creating/migrating/repairing them. Rerun I01c1 migration and generated-query regressions; retain exact dependency/build commands and owned-container cleanup.",
+        "Exercise two independent ownership managers/connections against the same real database: only one holds the advisory lock, every successful acquisition advances the stored epoch, termination of the dedicated lock connection permits takeover, and stale tokens cannot enter mutating transactions after the new epoch commits. Use lower-layer transaction callbacks/test-owned data, never product test-action endpoints or gameplay tables.",
+        "Hold an old shared epoch-row lock in a real transaction while a replacement owns the advisory lock; prove the replacement's exclusive epoch update waits until the old transaction commits/rolls back, then fences delayed old tokens. Prove simultaneous current-token shared locks do not serialize independent transactions. Bound waits and retain deterministic synchronization/observed results rather than relying only on sleeps.",
+        "Exercise DB loss/reconnection, acquisition failure, orderly release and repeated close/restart; invalidate stale ownership before recovery and reload/validate the implemented durable foundation before availability. Verify errors/toString/logs do not disclose DB credentials or connection inputs, and run focused JVM21 tests plus module-boundary checks. Document that real Spring process/HTTP/configuration/SIGTERM qualification is still I01c2b and image qualification I01c3."
+      ]
+    },
+    {
+      "id": "I01c2b",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01c2a"],
+      "outcome": "Implement and qualify the real minimal Spring Boot/JVM21 service around I01c2a's ownership/transaction boundary, preserving a separately executable migrate command. Qualify pinned Spring dependencies and strict locks, runtime configuration/file-secret parsing and safe failure/logging, configurable public/health bindings, detail-free live/ready routes and bounded SIGTERM. Gate readiness/admission on reachable supported validated schema and current writer ownership, stop them on loss, and recover only after ownership/schema/foundation reload. Document absent account/game/inbox/outbox/mail/push workers honestly and require future implemented workers to join readiness; do not fabricate product endpoints, workers or production configuration.",
+      "checks": [
+        "Launch the actual installed Spring service executable against Testcontainers-owned PostgreSQL and probe /health/live and /health/ready over HTTP. Live is responsive/detail-free; ready requires supported schema, a live database and writer ownership. Empty, unsupported and checksum-mismatched schemas never become ready or get auto-migrated. Probe unknown public routes and health/public port separation for no configuration/secret disclosure.",
+        "Run two real service processes against one owned database, DB outage/recovery and dedicated-lock-connection termination/takeover. Observe readiness/admission loss and successful ownership/schema/foundation recovery before readiness returns; regress I01c2a's transaction fencing without adding test-action endpoints. Check persisted epoch and retained foundation data across actual service shutdown/restart.",
+        "Exercise required/malformed runtime inputs and missing/unreadable/invalid file secrets with sentinel credentials, configured port/health bindings and safe JDBC/configuration logging. Prove the real migration executable still works separately and service startup never calls migrate. Send actual SIGTERM, verify process exit within 30 seconds, closed listeners/connections and released ownership; retain redacted process output and exact cleanup checks.",
+        "Run clean JVM21 shared/service tests, I01c1 migration/generation regressions, I01c2a concurrency/fault tests, strict dependency locks and module-boundary checks with compatible pinned Spring versions/license provenance. Update reproducible local service/configuration commands and the exact implemented-worker inventory. Keep image-level lifecycle testing I01c3, Compose E2E I01e and full architecture/device/upgrade qualification I35; this child does not close I01c2 or its ancestors."
       ]
     },
     {

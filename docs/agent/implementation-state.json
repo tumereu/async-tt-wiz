@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": [],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -42,7 +42,93 @@
       "review": { "units": [{ "id": "capability", "scope": "Full B8 final whole-R1 journeys, coverage/performance/compatibility/delivery evidence and D-303 complete interface-to-mock comparison in both orientations, including unpictured interfaces and all discrepancy fix/rechecks" }], "completed": {}, "blocked": {} } }
   ],
   "tasks": [
-    { "id": "I01", "batch": "B1", "status": "pending" },
+    {
+      "id": "I01",
+      "batch": "B1",
+      "status": "in-progress",
+      "children": ["I01a", "I01b", "I01c", "I01d", "I01e", "I01f"],
+      "planningRecord": "docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json",
+      "outcome": "Complete the unchanged I01 foundation outcome in implementation-plan.md after all six children are implemented; qualify their combined clean build, storage, image and normal-APK test-environment interfaces before I02. B1 independent review still follows I01-I04 together.",
+      "checks": [
+        "Run the children's actual documented commands together from a clean build and independently reset synthetic environment; retain build/unit/integration/device outputs and verify owned-service cleanup.",
+        "Validate complete P-001-P-072, T-001-T-715 and F01-F88 coverage accounting without treating assigned or superseded scenarios as executed passes; verify child evidence and remaining feature dependencies.",
+        "Confirm actual test-only paths match the unchanged reviewTestPaths, unavailable resources remain recorded, and no external release gate or later account/gameplay outcome is claimed passed."
+      ]
+    },
+    {
+      "id": "I01a",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": [],
+      "outcome": "Establish the reproducible Gradle Kotlin DSL wrapper, compatible checked-in version catalog/locks and initial :core, :protocol, :client-storage, :androidApp, :server and :e2e module boundaries. Produce a normal Android scaffold APK at minSdk29/compile-target36 and JVM21 shared/server builds, keeping generated SQL/Compose/Spring types out of semantic objects. Inventory tool/device/signing/architecture availability and qualify bootstrap/build commands under current session permissions; no account/gameplay implementation or alternate test app.",
+      "checks": [
+        "Execute wrapper/bootstrap and clean shared JVM21 tests plus normal Android debug/test APK assembly; retain exact dependency/tool versions, locks and API29 compatibility evidence rather than copying smoke-fixture versions unqualified.",
+        "Check module dependency boundaries and protocol codec smoke round trips without implementing later gameplay processors; ensure no platform/database generated types enter :core.",
+        "Inventory API29/non-GMS, current Android, tablet, physical reference phone, upgrade signing and amd64/arm64 capacity using actual availability probes; distinguish available, unavailable and not yet qualified, retaining blockers without changing release gates.",
+        "Exercise commands under the existing permissions and prove representative commonTest/jvmTest/test/androidInstrumentedTest paths for the actual layout match the unchanged reviewTestPaths; do not edit runner controls or permissions."
+      ]
+    },
+    {
+      "id": "I01b",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": [],
+      "outcome": "Create machine-checkable task-to-source coverage accounting for every P-001-P-072, T-001-T-715 and F01-F88, with current, superseded, conditional, phase-only or excluded dispositions, source-backed rationale and owning implementation/check dependencies. Add stable versioned synthetic catalogs and original art, including a second identity-distinct dataset, for later normal downloader/import/image tests; no licensed data or production provider calls.",
+      "checks": [
+        "Run a ledger validator against the actual primary product/acceptance/feedback sources; reject missing/duplicate/unknown IDs, unexplained dispositions and false executed-pass claims, preserving supersession provenance and partial cross-task assertions.",
+        "Validate both synthetic datasets, deterministic IDs/content hashes, original-art provenance, multiface/default/printing/ambiguity/token/version-change and missing/broken-art cases against e2e-strategy.md; fixtures must not require special-case application IDs or a test-only parser.",
+        "Map every current requirement/scenario/feedback item to approved I01-I36 scope and concrete future checks; explicitly retain conditional T-610 and D-278/D-285-D-289 supersessions rather than reviving offline queues, disclosure side channels or stronger reset races."
+      ]
+    },
+    {
+      "id": "I01c",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a"],
+      "outcome": "Implement the minimal real Spring Boot/PostgreSQL17 foundation with explicit Flyway migration command, jOOQ generation against disposable migrated PostgreSQL, configuration/secret-file inputs, database-backed single-writer ownership and live/ready health contracts. Build a digest-pinned application image and establish Testcontainers-owned integration isolation; do not implement account, durable gameplay inbox or production orchestration ahead of their tasks.",
+      "checks": [
+        "Run real PostgreSQL Testcontainers clean/retained-schema migrations and jOOQ generation/query round trips, checking the same migrated schema rather than H2 or hand-written generated stubs.",
+        "Build/run the real application image; check explicit migration, startup readiness, DB loss/reacquisition, second-writer and unsupported-schema refusal, configuration/secret redaction, bounded SIGTERM and restart. Report not-yet-implemented workers honestly; never return ready without schema and writer ownership.",
+        "Retain exact unit/integration/image commands, image/dependency versions and owned-container cleanup evidence; keep full amd64/arm64 compatibility qualification assigned to I35."
+      ]
+    },
+    {
+      "id": "I01d",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a"],
+      "outcome": "Implement the minimal SQLDelight SQLite schema/driver/repository and forward migration path in :client-storage, wired into the normal Android scaffold. Keep accepted replica, disposable cache and personal-state categories distinct from volatile request/prediction memory; no crash-durable outgoing/exposure journal or fabricated authoritative local game.",
+      "checks": [
+        "Run generated SQLDelight query/driver tests for fresh create, transaction rollback, reopen and retained older-schema forward migration, preserving stored records/cursors without destructive fallback.",
+        "Exercise migration failure/incompatible schema handling and verify the old database remains recoverable and writes stop; no wipe/reinstall to turn failure into success.",
+        "Assemble the normal Android storage wiring and focused storage instrumentation APK; verify generated persistence types stay outside shared semantics. Execute device-driver instrumentation in I01f after adapter qualification, not as a hidden prerequisite that creates a dependency cycle; later auth/account-isolation/full-tree behavior remains pending."
+      ]
+    },
+    {
+      "id": "I01e",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a", "I01b", "I01c"],
+      "outcome": "Provide the isolated synthetic E2E Docker Compose environment using the real application image/PostgreSQL plus synthetic catalog/art and mailbox adapters, with exact readiness/reset/evidence/cleanup commands. Separate Compose E2E ownership from Testcontainers integration ownership and retain state across in-scenario restarts; no production Compose, user-action injection or external deployment.",
+      "checks": [
+        "Run environment provision/readiness, clean independent-scenario reset twice and failure-then-reset checks; verify empty mutable stores/deliveries and quiesced old workers/connections before allowing a test to proceed.",
+        "Verify the synthetic source and mailbox adapters are isolated, readiness/reset failures fail setup, and test administration cannot be used by production clients; future initialization helpers are restricted to users/saved decks before the scenario.",
+        "Run Compose and a separately owned PostgreSQL Testcontainers check without shared state/reset collisions; capture redacted failure evidence before targeted cleanup and verify only owned containers/volumes/ports are removed."
+      ]
+    },
+    {
+      "id": "I01f",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a", "I01c", "I01d", "I01e"],
+      "outcome": "Qualify the measured WSL/Windows remote-ADB/Appium adapter and Kotlin/JUnit host-side runner against the normal scaffold APK and real isolated backend environment, with explicit serial/port ownership, bounded actual readiness, device-visible startup evidence and cleanup. Publish exact reproducible build/unit/integration/component/E2E commands and resource limitations for fresh sessions; early startup qualification is not account/gameplay/Canvas acceptance.",
+      "checks": [
+        "Install/launch and observe the normal APK on one, two and three API29 non-GMS Android instances using distinct Appium sessions/driver ports and real UI discovery/touch where startup controls exist; no browser-fixture substitute or alternate test screen. Run I01d's focused storage instrumentation on the actual Android driver. Retain screenshots/hierarchy and per-device results.",
+        "Check actual Android-to-backend/catalog endpoint reachability as infrastructure diagnostics, separately from user-visible acceptance. Repeat after owned-device cold boot and Compose reset; preserve app/backend state during an in-scenario process restart.",
+        "Qualify WSL IPv4-scoped build/test JVMs, detached Windows launch/readiness and Windows-native shutdown of exact owned AVDs under existing permissions; collect evidence before cleanup and verify owned services/ports stop without affecting unrelated devices.",
+        "Document and execute the exact available commands, versions, reset/evidence paths and normal-APK signing/configuration interfaces. Carry unavailable hardware/permission checks as retained blockers, keep physical frame measurement in I33 and API/current/tablet/upgrade/image qualification in I35, and leave B1 account journeys plus B4 Canvas targeting pending."
+      ]
+    },
     { "id": "I02", "batch": "B1", "status": "pending" },
     { "id": "I03", "batch": "B1", "status": "pending" },
     { "id": "I04", "batch": "B1", "status": "pending" },

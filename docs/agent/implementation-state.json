@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json", "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json", "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json", "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json", "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json", "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json", "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json", "docs/agent/implementation-runs/20261021T210831Z-b3901e8c.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -234,13 +234,39 @@
     {
       "id": "I01e",
       "batch": "B1",
-      "status": "pending",
+      "status": "in-progress",
+      "children": ["I01e1", "I01e2"],
+      "planningRecord": "docs/agent/implementation-runs/20261021T210831Z-b3901e8c.json",
       "dependsOn": ["I01a", "I01b", "I01c"],
       "outcome": "Provide the isolated synthetic E2E Docker Compose environment using the real application image/PostgreSQL plus synthetic catalog/art and mailbox adapters, with exact readiness/reset/evidence/cleanup commands. Separate Compose E2E ownership from Testcontainers integration ownership and retain state across in-scenario restarts; no production Compose, user-action injection or external deployment.",
       "checks": [
         "Run environment provision/readiness, clean independent-scenario reset twice and failure-then-reset checks; verify empty mutable stores/deliveries and quiesced old workers/connections before allowing a test to proceed.",
         "Verify the synthetic source and mailbox adapters are isolated, readiness/reset failures fail setup, and test administration cannot be used by production clients; future initialization helpers are restricted to users/saved decks before the scenario.",
         "Run Compose and a separately owned PostgreSQL Testcontainers check without shared state/reset collisions; capture redacted failure evidence before targeted cleanup and verify only owned containers/volumes/ports are removed."
+      ]
+    },
+    {
+      "id": "I01e1",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a", "I01b"],
+      "outcome": "Provide reusable isolated synthetic catalog/art HTTP and non-forwarding SMTP mailbox adapter services for the later Compose environment. Serve I01b's two identity-distinct versioned datasets through ordinary MTGJSON/Scryfall-shaped routes, with configured device-facing art origins and retained served-copy hashes. Supply harness-only delivery inspection, source version/outage controls and explicit empty/reset/readiness interfaces outside the normal app/backend API. Package and qualify the adapters locally with pinned dependency/base provenance; do not implement the production downloader, reset mail worker, account/game initialization or a fake backend.",
+      "checks": [
+        "Exercise real HTTP for both datasets and v1/v2 metadata, compressed catalog/checksum, printing/face objects and art; compare actual bytes/hashes, MIME/status, absent/broken art and configurable-origin metadata. Verify normal routes never expose harness manifests, secrets, host files or reset/delivery administration; fixture roles/IDs must not require special application parsing.",
+        "Deliver messages over actual SMTP to the isolated sink and inspect them only through harness administration; prove no external forwarding, separate instance stores, empty initial/reset state, bounded readiness/failure and no message-body/token/credential disclosure in routine logs. Exercise restart retention within an instance and quiesce/reset with an in-flight delivery so old work cannot repopulate a new baseline.",
+        "Run focused adapter/failure/isolation regressions, existing synthetic-fixture validation and compatible local container execution; retain exact versions, hashes, redacted output and owned-service cleanup. Document invocation/configuration for I01e2 without adding production test endpoints, gameplay/action helpers or claiming normal-app downloader/reset acceptance."
+      ]
+    },
+    {
+      "id": "I01e2",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a", "I01b", "I01c", "I01e1"],
+      "outcome": "Implement the reusable test-only Docker Compose environment and host lifecycle commands around the actual I01c application image, explicit migration executable, pinned PostgreSQL17 and I01e1 adapters. Own the complete scenario's containers/network/volumes/ports/secrets explicitly; provide bounded provision/readiness, independent-scenario reset, retained in-scenario restart, redacted evidence collection and targeted verified cleanup. Expose only required configured device endpoints, keep health/database/mailbox/reset administration outside client APIs, and keep Testcontainers ownership wholly separate. Current service has only writer/singleton recovery; future account/mail/game workers and UI journeys remain their owning tasks.",
+      "checks": [
+        "Provision the real image/database/adapters, run the same image's explicit migrate command, verify actual database/schema/writer and backend/catalog/mailbox readiness, then execute clean independent-scenario resets twice and after an induced failure. Quiesce and remove old workers/connections/deliveries before replacing mutable stores; verify only migrated foundation/configuration plus pinned synthetic source remain, with all implemented mutable stores empty. Setup must fail on reset/migration/readiness failure rather than expose a usable dirty environment.",
+        "Restart backend/database/adapters inside a scenario without reset and prove retained database foundation/epoch, selected source edition and captured synthetic deliveries survive appropriately; distinguish this from independent-scenario baseline creation. Exercise source/backend isolation, private administration and ownership/target refusal. No external relay/catalog, production Compose/paths/secrets, public deployment, user-action injection or fabricated absent-worker recovery; any future initialization is users/saved-decks-only before the scenario.",
+        "Run an independently owned real PostgreSQL Testcontainers integration check alongside Compose, reset Compose and prove no shared/reset state or cleanup collision. Retain failure evidence before targeted cleanup and verify exact owned containers/volumes/networks/ports/temporary secrets removed while unrelated resources remain unchanged. Document and execute exact provision/wait/restart/reset/capture/cleanup commands and endpoint handoff for I01f; actual Android reachability/storage instrumentation and Appium startup remain I01f."
       ]
     },
     {

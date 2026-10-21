@@ -22,6 +22,9 @@ does not authorize application work in the real project.
    harmful failures, not style, hypothetical enterprise/competitive guarantees or
    superseded reset/message-order cases. Follow the loop contract's review policy.
    A verification run checks fixes and affected behavior, not a new broad audit.
+   B8's final review must include the plan's complete interface-to-mock comparison
+   inventory in both orientations, with discrepancies fixed and independently
+   rechecked before closure; a sampled usability pass is not the final UI gate.
 4. Run applicable checks and retain their actual output. A diagnostic reproducing
    a review finding may fail; mark it `diagnostic`. Required validation must pass
    for a successful unit. No skipped/red required check may be labeled passing.

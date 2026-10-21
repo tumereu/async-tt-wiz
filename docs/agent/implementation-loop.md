@@ -1,6 +1,6 @@
 # Fresh-session implementation loop and behavioral review contract
 
-Owner direction D-300; prepared under D-301 and executable driver work D-302.
+Owner direction D-300/D-303; prepared under D-301 and executable driver work D-302.
 **Product execution remains inactive.** Read
 the [task plan](implementation-plan.md), [state record](implementation-state.json)
 and [delivery authorization gates](delivery-workflow.md) before any execution.
@@ -107,6 +107,13 @@ Disposition is `actionable`, `nonblocking-polish`, `not-a-defect`, `duplicate`, 
 real user benefit; it is not a compulsory new backlog or permission to leave an
 approved functional requirement broken. No review quota/minimum finding count.
 A clean review may close the batch without inventing another round of questions.
+
+The final B8 review additionally performs the task plan's
+[complete interface-to-mock comparison](implementation-plan.md#final-interface-to-mock-review--required-b8-completion-gate):
+all current mocked states/orientations and implemented unpictured interfaces, not
+just a representative usability sample. Record discrepancies for repair and fresh
+targeted visual/interaction verification. The comparison inventory and all required
+corrections must be complete before B8 closes; I32's earlier pass does not replace it.
 
 ### Fix and verify
 

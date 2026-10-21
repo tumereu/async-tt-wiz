@@ -5,6 +5,8 @@ the UI agent's completed batch. **Planning only; application implementation and
 the autonomous runner are not activated.** The owner asked to treat the finished
 UI as good enough to move toward implementation, not perfect or frozen. This
 planning assumption does not certify all design gates or approve extra features.
+The later D-303 owner follow-up adds the explicit final interface-to-mock review
+and correction gate under B8.
 
 Read the [loop/review contract](implementation-loop.md),
 [progress record](implementation-state.json), [delivery gates](delivery-workflow.md)
@@ -226,8 +228,9 @@ already permits authorized in-flight work to finish during reset/Logout.
 
 ## B8 — Whole-game usability, qualification and delivery
 
-**Review after I32–I36, then targeted fixes/verification.** Outcome: the agreed
-scope is integrated and evidenced, not just a collection of locally passing parts.
+**Review after I32–I36, including the final interface-to-mock review below, then
+targeted fixes/verification.** Outcome: the agreed scope is integrated and
+evidenced, not just a collection of locally passing parts.
 
 | Task | Implementation and completion outcome |
 | --- | --- |
@@ -235,7 +238,7 @@ scope is integrated and evidenced, not just a collection of locally passing part
 | I33 | Measure realistic scene/core/server/sync workloads against the runtime profile: gesture recognition versus provisional response, frames/retargeting, image loading, large retained histories, bounded replay/backpressure and memory. Fix observed stalls/OOM/race effects. Keep emulator tooling timings separate from physical-phone frame evidence; do not silently relax budgets or add gameplay caps. |
 | I34 | Complete requirement/test coverage and full-stack synthetic journeys, model/property/golden, real-PostgreSQL migrations/concurrency/fault, component/Canvas, normal-APK two-player/three-device, coherent full recovery and suite reset/isolation. Run a clean repeated suite; preserve failures and fix their causes. No skipped required checks, fake backend/action injection or unexplained unmapped current requirement. |
 | I35 | Supported Android/API29/current/tablet/non-GMS and compatible mixed-version/upgrade qualification; stable test/release signing interfaces and versioned APK/hash/protocol metadata. Validate container/config/health/migration/shutdown/restart and amd64/arm64 application image interfaces, not production Compose/backups or a Pi-capacity promise. Keys remain external; install upgrades normally without wiping supported data. |
-| I36 | Reconcile final delivered scope, evidence, retained-data/erasure interfaces and documented limitations; prepare installation/test/operator-interface notes and release-readiness checklist. Record provider/art rights/attribution, release signing/host and unavailable reference-hardware checks as explicit external gates, never fabricated clearance. All actionable final-review issues get fix/targeted verification runs before completion. |
+| I36 | Reconcile final delivered scope, evidence, retained-data/erasure interfaces and documented limitations; prepare installation/test/operator-interface notes and release-readiness checklist. Prepare the complete final interface-to-mock comparison inventory and normal-app capture/journey evidence below for the independent B8 review. Record provider/art rights/attribution, release signing/host and unavailable reference-hardware checks as explicit external gates, never fabricated clearance. All actionable final-review issues get fix/targeted verification runs before completion. |
 
 **Sources:** all current contracts, [E2E journeys](../design/05-verification/e2e-strategy.md),
 [runtime/device budgets](../design/04-technical/runtime-and-verification-profile.md),
@@ -246,12 +249,54 @@ all current applicable T-001–T-715, grouping fixtures and cumulative UI direct
 entry to rematch, plus measured workloads and targeted credible failure traces.
 Review integrated behavior, not a new unlimited specification audit.
 
+### Final interface-to-mock review — required B8 completion gate
+
+Owner follow-up D-303, 2026-10-21: explicitly review **all implemented interfaces against
+the mocks at the end, and fix the differences**. I32's earlier usability pass does
+not replace this final comparison after I33–I36 and intervening changes.
+
+- I36 prepares a complete comparison inventory against the **current full UI
+  packet**, cumulative F01–F88 and explicit supersessions: every current mocked
+  screen, dialog, overlay and scroll continuation in portrait and landscape
+  (currently 49 states / 98 captures). Retired G00/H07 are not targets to restore.
+  Record the mock/state/orientation, normal-app route and matching captured app
+  evidence, comparison result and any finding IDs; do not sample only gameplay or
+  the happy path. Account/navigation, decks/import, contacts/invitations, lobby,
+  table/actions/inspectors, history and chat all belong in the inventory.
+- The fresh independent **B8 reviewer** exercises those interfaces in the normal
+  app and compares their final layout, controls, icons, labels, displayed state,
+  selection/feedback and documented interactions with the current references.
+  Inspect scrolling/keyboard/overflow and live transitions where a still capture
+  alone is insufficient. Inventory additional implemented but unpictured states
+  too, checking the primary contracts and established UI patterns rather than
+  inventing missing mocks or omitting those interfaces.
+  Use synthetic accounts/catalog/art and equivalent app states: example card names,
+  dates and random outcomes in a mock are data, not literals to hard-code/reproduce.
+- Every unexplained implementation/mock discrepancy becomes a concrete finding
+  **to fix**, not an automatic `nonblocking-polish` exemption. Normal platform
+  rasterization is not a pixel-identity requirement. A necessary responsive
+  adaptation or intentional difference must have an explicit current-contract or
+  owner-feedback basis and retained rationale; an agent's aesthetic preference is
+  not permission to silently depart from the mocks. Conflicting behavior/feedback
+  must be reconciled, not copied blindly from a superseded picture.
+- Fresh fix units repair the discrepancies; fresh verification units compare the
+  affected interfaces against the mocks again, rerun relevant interaction/UI
+  regression checks and update the comparison evidence. A fix that changes another
+  interface adds that interface to the recheck scope. Preserve the original
+  findings/evidence and their verified corrections, not just new screenshots.
+- B8 cannot be marked reviewed or the project complete until the inventory covers
+  every current target/orientation, all discrepancies are verified fixed or have an
+  explicit source-backed intentional-difference disposition, and no actionable UI
+  comparison finding remains. Missing device access or capture/interaction evidence
+  is a recorded blocker, never a presumed visual pass.
+
 ## Completion and remaining activation work
 
 **Software completion** requires all task/child outcomes, batch reviews and
-targeted fix verifications, complete approved-scope traceability, reproducible
-passing required checks, no unresolved actionable defects and committed/pushed
-evidence. A missing physical measurement or required environment check is not a
+targeted fix verifications, the final interface-to-mock review and verified UI
+corrections, complete approved-scope traceability, reproducible passing required
+checks, no unresolved actionable defects and committed/pushed evidence. A missing
+physical measurement or required environment check is not a
 pass. Report the affected gate/blocker honestly and continue independent work.
 
 **Release readiness** additionally needs the documented rights/attribution,

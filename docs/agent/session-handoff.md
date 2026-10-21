@@ -16,6 +16,18 @@ This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGEN
 
 ## Current preparation — D-300–D-302
 
+**Latest follow-up readiness review, not repairs:**
+[IR-08–IR-13](implementation-loop-followup-review-2026-10-21.md) identify additional
+group-review/verification/gate boundaries and independent-work/progress/bounded-review
+risks. The existing 48 tests still pass; eight additional diagnostic probes retain
+the new counterexamples. No driver repair, permission change, application work or
+activation was performed. IR-01–IR-07 below remain corrected, not reopened. Address
+the new findings and actual activation/resource preflight before an unattended R1 run.
+Owner follow-up D-303 adds a required final B8 interface-to-mock comparison: I36 prepares
+the complete current-state/orientation inventory, the independent reviewer compares
+all interfaces, and fresh fix/verify units correct and recheck discrepancies before
+closure. This supplements I32, not another implementation task or activation.
+
 **Latest owner-requested readiness repairs:**
 [IR-01–IR-07](implementation-loop-review-2026-10-21.md) are corrected. **48 automated
 runner tests pass**: bounded subsets no longer charge untouched findings; counters

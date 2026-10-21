@@ -25,6 +25,10 @@ support continuity and traceability; they are not another competing specificatio
   five reproduced driver counterexamples, task-summary risks and expected external
   activation/release blockers, followed by owner-requested IR-01–IR-07 repairs and
   48 passing automated tests; no application activation or cleared external gates.
+- [Follow-up loop-readiness review](implementation-loop-followup-review-2026-10-21.md):
+  IR-08–IR-13 cover missing first group reviews, verifier code repairs, mutable
+  release gates, independent-lane scheduling, metadata churn and bounded review;
+  diagnostic probes retained, repairs not applied and application still inactive.
 - [Local E2E environment qualification](e2e-environment-smoke-2026-10-21.md): measured
   Kotlin/JUnit/Appium/Windows-emulator/Docker smoke results, retained evidence and
   limitations; not product acceptance or implementation authorization.

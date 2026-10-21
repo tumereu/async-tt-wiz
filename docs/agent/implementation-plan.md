@@ -262,9 +262,10 @@ Before starting application work:
 
 - Owner explicitly authorizes the implementation loop/scope after the design
   gates; update the state record with that authorization, not an agent's inference.
-- Prepare/qualify the thin session runner and unattended permissions within its
-  approved boundaries. Its selection/save/stop behavior is specified in the
-  [loop contract](implementation-loop.md), but no runner is built or running here.
+- Use the separately authorized [thin driver](implementation-runner.md) and inspect
+  its qualification/per-session permissions within approved boundaries. D-302
+  pins `openai/gpt-6.1-sol#high`; supply explicit session-count/wall-time budgets.
+  Building this tooling does not activate product execution or authorize I01.
 - Recheck toolchain/device preflight from the measured topology; qualify the
   **normal app/backend** in B1/B4 instead of claiming the browser fixture passed it.
 - Establish the per-task run/evidence records and concrete commands in I01. Exact

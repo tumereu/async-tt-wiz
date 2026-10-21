@@ -85,7 +85,7 @@ currently authorized. Earlier alternate design-round order is superseded.
 
 During stage 4+, after the preceding stages and implementation authorization:
 
-**Preparation update — D-300/D-301:** the owner requests a thin outer loop that
+**Preparation update — D-300–D-302:** the owner requests a thin outer loop that
 launches a fresh agent for one bounded implementation, grouped behavioral review,
 fix or targeted verification unit; it validates/saves/pushes and exits before the
 next agent. Independent review is after coherent capabilities, **not each task**;
@@ -104,7 +104,12 @@ and tests remain. UI is the owner's good-enough planning baseline, not perfect o
 frozen. The separately authorized
 [local environment smoke](e2e-environment-smoke-2026-10-21.md) passed isolated
 one/two/three-device checks; normal-app/backend acceptance is still unimplemented.
-No runner or application implementation is activated by these preparations.
+D-302 separately authorized the [driver and isolated qualification](implementation-runner.md),
+which passed 25 automated tests and a six-session real-agent cycle with every role
+pinned to `openai/gpt-6.1-sol#high`. This qualifies tooling, not application behavior.
+No application implementation/runner activation or stage transition is granted;
+the real state remains draft/not-authorized. Activation still needs owner approval,
+reviewed build/test permissions and explicit run-count/wall-time budgets.
 
 **Autonomous through completion — D-256:** once this loop is authorized and begins,
 continue through the entire agreed scope without asking for routine slice approval

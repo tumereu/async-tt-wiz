@@ -5,7 +5,7 @@
   [design index](docs/README.md) and [session handoff](docs/agent/session-handoff.md).
 - Preserve unrelated user work. Inspect Git status before editing and include
   only the files belonging to the current task when saving.
-- **Implementation-loop preparation — D-300/D-301.** Read the
+- **Implementation-loop preparation — D-300–D-302.** Read the
   [draft task plan](docs/agent/implementation-plan.md),
   [fresh-session/review contract](docs/agent/implementation-loop.md) and
   [inactive progress record](docs/agent/implementation-state.json). The owner
@@ -20,7 +20,12 @@
   system. No style nitpicks, speculative hardening or superseded password-reset/
   message-order guarantees as blockers. Preserve basic security, current agreed
   outcomes and required tests; no invented behavior, silent omissions or bypasses.
-  The runner and implementation authorization are still pending.
+  D-302 separately authorizes building/qualifying the
+  [loop driver](scripts/implementation-loop.py), not application implementation.
+  Every driver role must use **`openai/gpt-6.1-sol#high`**, checked against session
+  metadata with no fallback. See [driver operations](docs/agent/implementation-runner.md).
+  The application state remains `draft/not-authorized`; never activate it from
+  tooling approval alone.
 - **Keep UI review refreshable and feedback cumulative.** After any UI-document
   edit batch, rebuild and publish a new HTML edition of the **full** review document
   at the exact existing URL: `https://desktop-b2kalvm.tail27cccc.ts.net:8443/review.html`.

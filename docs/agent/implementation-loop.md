@@ -1,6 +1,7 @@
 # Fresh-session implementation loop and behavioral review contract
 
-Owner direction D-300; prepared under D-301. **Inactive planning contract.** Read
+Owner direction D-300; prepared under D-301 and executable driver work D-302.
+**Product execution remains inactive.** Read
 the [task plan](implementation-plan.md), [state record](implementation-state.json)
 and [delivery authorization gates](delivery-workflow.md) before any execution.
 
@@ -155,10 +156,12 @@ evidence of completion or a successful push.
 
 ## Runner lifecycle and stop rules
 
-The runner is **not implemented by these documents**. OpenCode V2 supports
-headless `opencode run`; qualify fresh-session behavior and final-outcome handling
-against the installed CLI/API before building the wrapper. Do not guess flags or
-assume a session's conversational ending is the required durable outcome.
+The [Python driver](../../scripts/implementation-loop.py) implements this contract;
+see [operations/qualification](implementation-runner.md). OpenCode V2.1.1 CLI help
+and the V2 API were checked: create a fresh top-level session, then attach the
+headless invocation only to that newly created ID. Never assume a conversational
+ending or zero CLI exit alone is the required durable outcome. D-302 authorizes
+this tooling, not activation of the product task plan.
 
 Required behavior for that wrapper:
 
@@ -166,13 +169,14 @@ Required behavior for that wrapper:
 2. Check explicit authorization and a user stop/pause control **between** runs.
    Requesting a stop should let the active unit reach a safe boundary by default;
    interruption is not permission to discard its files.
-3. Start a fresh session with the operating brief and record/report paths, scoped
-   unattended permissions and a declared run time/cost budget. Inherit the selected
-   configured model unless the owner selects another; no silent paid-resource,
-   model-panel or parallel-agent expansion.
+3. Start a fresh session with the operating brief and record/report paths, explicit
+   per-session permissions and operator-selected run-count/wall-time budgets.
+   D-302 selects **openai/gpt-6.1-sol#high for every role**; pin and verify its actual
+   metadata, with no fallback/model-panel/parallel expansion. These budgets do not
+   promise a hard dollar cap or authorize acquiring paid resources.
 4. Require exactly one bounded unit and a structured `progress`, `complete`,
    `blocked`, or `failed` result referencing durable evidence. `progress` records
-    its selected implement/review/fix/verify mode. Validate it against state/Git.
+   its selected implement/review/fix/verify mode. Validate it against state/Git.
    A task-scoped blocker with safe independent approved work remaining is recorded
    as progress with that task blocked; reserve `blocked` for no runnable work.
 5. Each completed unit runs applicable checks, then uses
@@ -189,13 +193,12 @@ Required behavior for that wrapper:
    boundary, a permission prompt requiring the owner, or repeated no progress. Bounded transient tool
    retries are acceptable with evidence; no automatic semantic retry/reroll.
 
-Initial anti-spin defaults for wrapper qualification: one active agent; at most
-one automatic rerun of a failed infrastructure operation; stop if a supposedly
+The driver uses one active agent and no automatic failed-unit reruns; stop if a supposedly
 successful run advances no task/finding/evidence; stop if the same finding remains
-unresolved after two fix attempts without a new diagnosis. These are proposed
-engineering safeguards, not a defect waiver or extra per-slice owner checkpoints.
-Exact per-run budget must be configured before unattended activation, not invented
-as unlimited spending. Keep logs local and redact credentials/private data.
+unresolved after two fix attempts without a new diagnosis. These are engineering
+safeguards, not a defect waiver or extra per-slice owner checkpoints. Positive
+session-count and wall-time budgets are required on the run command; there is no
+unlimited default or billing-cap claim. Keep logs local and redact credentials/private data.
 Normal red/green development and repairing a failed check inside the selected
 unit are expected; the stop rule applies when the agent exits with the failure
 unresolved, not to the first failing test while developing its fix.
@@ -208,11 +211,12 @@ each task. Derive technical details and repair ambiguous documentation within
 approved constraints. Escalate only demonstrated product choices, unavailable
 required resources or genuine blockers, and continue independent approved work.
 
-Before activation, qualify wrapper dispatch/one-unit exit, grouped-review priority,
+Tooling qualification exercises dispatch/one-unit exit, grouped-review priority,
 fix verification, save/push failure, stop control and interrupted-work recovery in
-an isolated non-product fixture. Do not start coding merely because state files
-exist or because a headless session can be launched. Current readiness still needs
-explicit implementation authorization and this runner qualification.
+isolated non-product fixtures; see the operations record for actual evidence.
+Do not start coding merely because state files exist or a headless session can
+be launched. Product execution still requires explicit implementation authorization
+and reviewed activation/permission settings.
 The safe default after interruption is to stop and preserve dirty work. Any
 explicit resume must reconcile the recorded unit/owned paths first; qualification
 must prove unrelated work is never discarded or blindly staged.

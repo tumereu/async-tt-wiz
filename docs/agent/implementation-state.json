@@ -2,6 +2,11 @@
   "formatVersion": 1,
   "mode": "draft",
   "authorization": "not-authorized",
+  "authorizationRecord": null,
+  "runner": {
+    "model": "openai/gpt-6.1-sol#high",
+    "permissions": "docs/agent/implementation-permissions.json"
+  },
   "plan": "docs/agent/implementation-plan.md",
   "loopContract": "docs/agent/implementation-loop.md",
   "baselineCommit": "f3bd2cc65f6ca885dc48daeba4355a2ba9bb00df",
@@ -11,7 +16,8 @@
     "status": "isolated-smoke-qualified",
     "report": "docs/agent/e2e-environment-smoke-2026-10-21.md",
     "normalProductE2E": "not-yet-implemented",
-    "runner": "not-yet-built-or-qualified"
+    "runner": "isolated-smoke-qualified",
+    "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
   "runs": [],

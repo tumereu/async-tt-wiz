@@ -14,7 +14,7 @@ no arguments the helper uses the existing index; with no new changes it still
 pushes, allowing a retry. Report failures without force pushing/bypassing checks.
 This supersedes D-57's occasional-checkpoint cadence. See [AGENTS.md](../../AGENTS.md).
 
-## Current preparation — D-300/D-301
+## Current preparation — D-300–D-302
 
 The owner wants an outer loop launching a fresh agent for one implement/review/
 fix/targeted-verification unit, then validate/commit/push/exit before the next.
@@ -42,11 +42,32 @@ The initial fixture-browser reset failure/evidence and fixes are retained.
 All owned test services/emulators were stopped; tools/evidence remain outside Git.
 These are tooling tests, **not normal-product APK/backend/Canvas acceptance**.
 
-`implementation-state.json` is **draft/not-authorized**, every application task
-pending. No app scaffolding or loop runner was built. Next preparation is review/
-refinement of the plan and qualifying the thin runner/permissions/budget/stop
-behavior when authorized; application work still needs explicit owner approval
-after the design gates. Do not start I01 from the mere existence of a task list.
+D-302 separately authorized building/qualifying the thin runner, with
+**`openai/gpt-6.1-sol#high` for every role**, no fallback. The driver is now
+[scripts/implementation-loop.py](../../scripts/implementation-loop.py); read
+[operations and qualification](implementation-runner.md) and the
+[one-unit prompt](implementation-agent.md). It creates fresh sessions, validates
+report/state/Git handoffs and actual pushes, and stops on failed/interrupted work
+without discarding it. Explicit run-count/wall-time budgets, per-session
+permissions, graceful stop and manual recovery are provided. No global OpenCode
+configuration was changed; permissions are not an OS sandbox or billing cap.
+
+Qualification: **25 automated tests passed**; six real fresh sessions completed
+implement F1 → implement F2 → grouped review B1 → fix R1 → verify R1 → complete,
+all pinned high, idle and committed/pushed to the disposable remote. The seeded
+arithmetic defect tests orchestration, not blind review quality. Later guard-only
+changes passed automated tests/current-code trace audit rather than another full
+live cycle. Completed-state restart launched no session. Real eight-second
+timeout stopped after 8.43 seconds, outcome interrupted, no active session remained.
+The real project execution guard refused to start. Private evidence archive:
+`~/.local/share/async-tt-wiz-e2e-tools/runner-20261021/` (232 files; manifest SHA-256
+`70562b7553c8bc1c842e30093d94afeab496a6219db9b8fd17aafebf4038acbc`).
+
+`implementation-state.json` stays **draft/not-authorized**, every application task
+pending. No app code/scaffolding was built. Before activation, review/refine the
+plan and actual build/test permissions, select budgets and obtain explicit owner
+implementation authorization after the design gates. Do not start I01 from
+tooling approval, passed smoke tests or the mere existence of the task list.
 
 ## Completed UI feedback iteration — D-299
 

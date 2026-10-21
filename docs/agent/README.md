@@ -17,6 +17,10 @@ support continuity and traceability; they are not another competing specificatio
 - [Fresh-session loop/review contract](implementation-loop.md) and
   [inactive progress record](implementation-state.json): selection, behavioral
   review/fix verification, durable handoffs and save/stop boundaries.
+- [Loop driver operations](implementation-runner.md) and
+  [one-unit agent prompt](implementation-agent.md): executable serial driver,
+  pinned `openai/gpt-6.1-sol#high`, explicit session permissions, budgets,
+  reports, stop/recovery and isolated qualification; no product activation.
 - [Local E2E environment qualification](e2e-environment-smoke-2026-10-21.md): measured
   Kotlin/JUnit/Appium/Windows-emulator/Docker smoke results, retained evidence and
   limitations; not product acceptance or implementation authorization.

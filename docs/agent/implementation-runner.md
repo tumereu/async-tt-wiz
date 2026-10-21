@@ -266,9 +266,42 @@ is the stable executable regression source. The project guard still refuses
 draft authorization intact. No application code/scaffolding, paid infrastructure,
 global configuration change or release-gate waiver was introduced.
 
-The current live fresh-session qualification and retained evidence are recorded
-below when that bounded isolated cycle finishes; the historical six-session run
-is not evidence for the revised checkpoint/role protocol.
+**Current live qualification passed with OpenCode v2.1.1:** eight fresh top-level
+sessions executed implement F1 → implement F2 (+ last-task R1 discovery) → fix R1 →
+verify R1 → review planning-only split → workflow review checkpoint → recovery/
+integration review checkpoint → complete. Every session used the exact pinned high
+model, succeeded, was idle and actually committed/pushed before the next launch.
+Verification left the batch `ready-for-review` with empty coverage; the planning
+unit retained that empty coverage; the first checked scope still left it ready;
+only the final scoped review marked the group reviewed. No independent review was
+skipped and no one-session/full-review assumption was needed.
+
+The F2 arithmetic diagnostic was genuinely red (expected 5, observed −1); the fresh
+fix, verifier and reviewers ran actual passing checks. The seeded defect/prescribed
+fixture tests orchestration, **not blind review quality or product acceptance**.
+The independent audit checked all eight exact model/idle/session identities,
+committed report/state/check bytes, intermediate review statuses and actual remote
+confirmation. The final three-test fixture suite passed again in a fresh Python
+process. Restarting completed state launched **zero** additional sessions. Tree/
+index and upstream matched, and no active-run fence remained. Fixture final commit:
+`b955cd56761769053ac11f9a36a7a0ad2a241b2a`.
+
+**Retained private evidence:**
+`~/.local/share/async-tt-wiz-e2e-tools/runner-followup-20261021T161926Z/`.
+The verified `SHA256SUMS.json` inventories **304 files**, manifest SHA-256
+`2e6a970e1eca271ca8cf7c49165fd8bca92dc804299d533fc5a8d6f1a86db407`.
+It retains the complete disposable repo/local bare remote, eight private journals,
+committed reports/check output, frozen driver/prompt, current qualification sources,
+red/green/guard logs, preparation/audit scripts, `independent-audit.json`, repeated
+fixture test output and completed-restart result. Original scratch:
+`/tmp/opencode/atw-followup-live-20261021T161926Z/`. This is immutable evidence, not
+a relocated runnable checkout; paths in Git/session configuration remain original.
+Do not run/save agents in the archive or publish raw logs. The older six-session
+archive below remains separate provenance and was not overwritten.
+
+This qualifies the revised orchestration/report/role protocol, not normal
+Gradle/Android/Canvas builds, device permissions, real UI parity, reference hardware
+or external release readiness. Product authorization remains draft/not-authorized.
 
 ### Current review-repair qualification — 2026-10-21
 

@@ -26,7 +26,12 @@ checkpointed with exact code anchors and remaining/blocked scopes retained.
 The state adds inactive review accounting/test-only boundaries/gate authority;
 every application task stays pending and draft/not-authorized. See
 [current qualification](implementation-runner.md#current-follow-up-repair-qualification--2026-10-21)
-for actual live-cycle evidence/limits. Actual build/device permissions, hardware,
+for evidence/limits. **Eight fresh live sessions passed on the repaired driver**:
+two implementations (last-task defect discovery), fix, verify, review planning,
+two bounded review checkpoints and completion. Every role was exact high, idle,
+committed and pushed; verification did not skip first review. An independent audit/
+fresh fixture-suite repeat passed, and completed restart launched no session. The
+304-file private archive/digest is in the operations record. Actual build/device permissions, hardware,
 external release prerequisites and explicit owner activation remain separate.
 Owner follow-up D-303 adds a required final B8 interface-to-mock comparison: I36 prepares
 the complete current-state/orientation inventory, the independent reviewer compares

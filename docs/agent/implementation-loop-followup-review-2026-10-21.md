@@ -10,6 +10,15 @@ qualification of this revised protocol is recorded in
 The original findings below remain pre-repair provenance, not claims that those
 same defects remain. Tooling repairs do not authorize or activate application work.
 
+The repaired driver/prompt also passed **eight real fresh exact-high sessions** in
+an isolated arithmetic fixture: last-task discovery → fix/verify → first-review
+planning split → two review checkpoints → complete. All sessions were idle and
+committed/pushed; an independent metadata/Git/evidence audit and fresh fixture-suite
+repeat passed. Completed restart launched no session. The operations record retains
+the current digests and 304-file private evidence archive. This is orchestration
+qualification with a prescribed seeded defect, not blind reviewer or application
+acceptance evidence.
+
 | Finding | Repair and regression evidence |
 | --- | --- |
 | IR-08 | Independent group-review coverage is separate from findings. A last-task discovery now executes implement → fix → verify → first review, never verify → complete without review. |

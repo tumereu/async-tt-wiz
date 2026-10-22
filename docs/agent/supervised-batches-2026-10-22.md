@@ -110,3 +110,19 @@ detour, without adding product behavior or a qualification matrix.
 Two of this batch's five fresh units were launched. After safe recovery, run only
 the remaining three before the next batch assessment; the continuation of the same
 interrupted bounded unit is not a new implementation session or a fresh approval.
+
+Batch 3 completion (`26c7e2a..e0f4b0e`): password reset/email/native links and the
+two-device recovery path are delivered; I04 closed by evidence reconciliation and
+the independent B1 capability review found no actionable defect. It added only two
+focused auth/reset-controller seam tests, not another device/fault matrix. The
+remaining landscape target/viewport assertion, positive local TLS/auth SMTP and
+whole final native-run obligations are explicitly retained under I34/I35, not
+converted into early blockers or claimed passes. This follows the owner's requested
+big-picture-first deferral.
+
+Assessment: product work remains on track after the corrected asynchronous-exit
+detour. The next delivery is catalog acquisition/art to enable import; I05 split
+once into those concrete outcomes. No speculative finding/fix carousel or additional
+refocusing change is justified. Fifteen resumed fresh units consumed; 2,956 sessions
+remain in the original ceiling. No main-game/full-suite/final-UI/release completion
+is claimed; continue the next five without owner approval.

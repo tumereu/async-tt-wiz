@@ -183,7 +183,7 @@ class ImageLifecycle(unittest.TestCase):
         await_true("owned PostgreSQL ready", lambda: docker("exec", self.db, "pg_isready", "-h", "127.0.0.1", "-U", "image_fixture",
                    "-d", "foundation", check=False).returncode == 0)
 
-    def migrate(self, applied=3, success=True):
+    def migrate(self, applied=4, success=True):
         migration = self.app(("migrate",))
         self.stopped(migration, 0 if success else 1)
         if success:

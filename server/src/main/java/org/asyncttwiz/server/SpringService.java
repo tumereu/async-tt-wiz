@@ -22,6 +22,7 @@ import org.asyncttwiz.server.accounts.AccountHttp;
 import org.asyncttwiz.server.accounts.PasswordResetService;
 import org.asyncttwiz.server.accounts.ResetMailWorker;
 import org.asyncttwiz.server.accounts.SmtpResetMailer;
+import org.asyncttwiz.server.decks.DeckHttp;
 
 /** Explicit Spring Boot servlet contexts; no auto-configured database, migrations, Actuator or APIs. */
 public final class SpringService implements AutoCloseable {
@@ -100,14 +101,17 @@ public final class SpringService implements AutoCloseable {
         private final ServiceRuntime runtime;
         private final boolean health;
         private final AccountHttp accounts;
+        private final DeckHttp decks;
         Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings) {
             this.runtime = runtime;
             this.health = health;
             accounts = health ? null : new AccountHttp(runtime, resets, settings.resetMail());
+            decks = health ? null : new DeckHttp(runtime);
         }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
             if (!health && accounts.handle(request, response)) return;
+            if (!health && decks.handle(request, response)) return;
             int status = 404;
             String body = "Not found\n";
             if (health && (request.getMethod().equals("GET") || request.getMethod().equals("HEAD"))) {

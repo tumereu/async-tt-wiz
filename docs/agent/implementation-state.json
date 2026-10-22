@@ -75,7 +75,8 @@
                             "docs/agent/implementation-runs/20261022T113642Z-ea0d8fde.json",
                              "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
                               "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json",
-                              "docs/agent/implementation-runs/20261022T121920Z-442a17be.json"
+                               "docs/agent/implementation-runs/20261022T121920Z-442a17be.json",
+                               "docs/agent/implementation-runs/20261022T122241Z-22388f73.json"
    ],
   "findings": [],
   "batches": [
@@ -716,7 +717,9 @@
     {
       "id": "I06b1",
       "batch": "B2",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T122241Z-22388f73.json",
+      "qualification": "Delivered shared versioned definition/deck wire types, explicit V4 migration and generated jOOQ, normal authenticated complete metadata POST, atomic named mainboard/sideboard creation with globally bound request/account/kind/canonical-intent identity and retained original non-secret outcomes, private paginated list/detail/attached-definition reads. Seven shared tests (three new definition/golden cases) and five real PostgreSQL/normal Spring HTTP tests pass, including whole-set validation/interrupted HTTP, six concurrent duplicates, lost-response-equivalent retry through actual service restart, foreign/missing access, distinct content under one external ID, blank optional defaults and real SQL interruption rollback of definitions/grants/deck/entries/identity/outcome. Ten affected account/foundation cases passed inside the retained initial diagnostic command; its single malformed-Unicode test-oracle failure was corrected and the affected deck suite passes, without repeating green siblings. Incremental normal Android assembly/lint/boundaries and focused V4/reset-oracle environment regressions pass. Current source/lock/fixture/generated/runtime/APK identities, exact XML/diagnostics and owned-container/volume cleanup retained. No provider/art/game dependency, local saved authority or native Save is claimed; I06b2 owns native Save/retry/reopen. Only I06b1 closes; I06b/I06, I07/I08, independent B2 review, final I34-I36 and all external gates remain open.",
       "dependsOn": ["I06a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T121920Z-442a17be.json",
       "outcome": "Deliver the real authenticated definition/deck creation and owned read-back service that I06b2's normal Save uses. Add shared versioned semantic/protocol types, explicit Flyway migration and real jOOQ bindings for immutable content-addressed definitions/account access, saved decks/section entries and shared business-request identity/original non-secret outcomes. Implement ordinary complete POST /v1/definitions and POST /v1/decks plus owned deck/list/attached-definition reads, using the existing account authentication and writer-epoch transaction boundary. Validate the full set's supported schema/digests/face references and resource bounds before atomic retention; distinct contents sharing external names/printing IDs remain distinct. Atomically attach accepted owned definitions and exact name/quantities/sections with the creation outcome, so lost-response/concurrent duplicate retries create one deck and changed account/kind/intent cannot reuse an ID. No game/provider/art dependency, upload-session protocol, temporary local authority or contextual Overwrite/Merge. Document the concrete wire interface for the next client child; existing native Save remains honestly unavailable until I06b2.",

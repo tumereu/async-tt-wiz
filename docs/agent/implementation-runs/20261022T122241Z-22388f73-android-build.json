@@ -1,0 +1,13 @@
+{
+  "command": [
+    "./scripts/gradle.sh",
+    "--no-daemon",
+    "--console=plain",
+    ":androidApp:assembleDebug",
+    ":protocol:lint",
+    "verifyModuleBoundaries"
+  ],
+  "exitCode": 1,
+  "outputSha256": "fc7121ab7782397a99740c3b7c197a0acfade0b90ca812e47ac39f75110aa71f",
+  "output": "Picked up JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true\nTo honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.\nDaemon will be stopped at the end of the build \n\n> Configure project :core\nWARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.\nAdd android.sync.suppressAgpWarnings=GENERIC to the gradle.properties file to suppress this warning.\n\n> Configure project :protocol\nWARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.\nAdd android.sync.suppressAgpWarnings=GENERIC to the gradle.properties file to suppress this warning.\n\n[Incubating] Problems report is available at: file:///home/tuomas/projects/async-tt-wiz/build/reports/problems/problems-report.html\n\nFAILURE: Build failed with an exception.\n\n* What went wrong:\nSelection failed\n  Cannot locate tasks that match ':protocol:lint' as task 'lint' not found in project ':protocol'.\n\n* Try:\n> Run gradlew tasks to get a list of available tasks.\n> For more on name expansion, please refer to https://docs.gradle.org/9.7.0/userguide/command_line_interface.html#sec:name_abbreviation in the Gradle documentation.\n> Run with --stacktrace option to get the stack trace.\n> Run with --info or --debug option to get more log output.\n> Run with --scan to get full insights from a Build Scan (powered by Develocity).\n> Get more help at https://help.gradle.org.\n\nBUILD FAILED in 6s\n"
+}

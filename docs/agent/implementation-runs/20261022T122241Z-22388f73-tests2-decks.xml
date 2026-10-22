@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.server.decks.DeckHttpTest" tests="4" skipped="0" failures="1" errors="0" timestamp="2026-10-22T12:30:50.433Z" hostname="DESKTOP-B2KALVM" time="11.882">
+  <properties/>
+  <testcase name="whole set validation strict HTTP and interrupted body retain no partial definitions or deck()" classname="org.asyncttwiz.server.decks.DeckHttpTest" time="2.609">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;400&gt; but was: &lt;200&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;400&gt; but was: &lt;200&gt;
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:569)
+	at org.asyncttwiz.server.decks.DeckHttpTest.whole set validation strict HTTP and interrupted body retain no partial definitions or deck(DeckHttpTest.kt:160)
+</failure>
+  </testcase>
+  <testcase name="explicit V3 to V4 upgrade preserves account data and routes never self migrate()" classname="org.asyncttwiz.server.decks.DeckHttpTest" time="2.542"/>
+  <testcase name="database failure rolls back effects identity and outcome and same request can recover()" classname="org.asyncttwiz.server.decks.DeckHttpTest" time="2.681"/>
+  <testcase name="HTTP complete definitions exact deck concurrent original outcome restart and private readback()" classname="org.asyncttwiz.server.decks.DeckHttpTest" time="4.046"/>
+  <system-out><![CDATA[OWNED integration PostgreSQL container=725ef4ff7b9602553953d470599ff5d262013b3c6bbff64dd3c4d49e6bfbcfe5 image=postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+PostgreSQL server_version=17.11 (Debian 17.11-1.pgdg12+2)
+CLEANUP removed owned integration container=725ef4ff7b9602553953d470599ff5d262013b3c6bbff64dd3c4d49e6bfbcfe5 volumes=[0c42512c0936af541141188ed6bbdb60203843f98a3508cd2951db67e494b9be]
+OWNED integration PostgreSQL container=610376967edf4874ec49a46473bb540967c59a4c788b69af2daf35b7dd734f8c image=postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+PostgreSQL server_version=17.11 (Debian 17.11-1.pgdg12+2)
+Picked up JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
+Migration successful; applied=1
+PASS installed explicit V4 migration preserves populated V3 account; clean unsupported routes never migrate; real generated deck bindings exercised by HTTP tests
+CLEANUP removed owned integration container=610376967edf4874ec49a46473bb540967c59a4c788b69af2daf35b7dd734f8c volumes=[f8adb7ce4e4947ad1d0f1ccd952d10a7d9845cb0b35fc10f63592d5968dc0ab2]
+OWNED integration PostgreSQL container=738fa5ae65ef65cf34aee94462fb756732e5ecec43eb1d38c4733dfcbe268f3d image=postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+PostgreSQL server_version=17.11 (Debian 17.11-1.pgdg12+2)
+PASS real SQL failure after deck and first entry rolls back deck/entries/request/outcome; writer recovery and unchanged identity retry create exactly once
+CLEANUP removed owned integration container=738fa5ae65ef65cf34aee94462fb756732e5ecec43eb1d38c4733dfcbe268f3d volumes=[b5fe616ee321abb670e54f4979528a1f2fe3e6821deb0803c1bc768a214d03c4]
+OWNED integration PostgreSQL container=b534495f45dc1b8ad86cf33ea215bb520f427d1fb2e8d23c66685596640590d7 image=postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+PostgreSQL server_version=17.11 (Debian 17.11-1.pgdg12+2)
+PASS authenticated complete arbitrary and multiface snapshots, exact main/side/name, six concurrent/lost-response original outcomes, identity/account/kind conflicts, private reads/attachments, no provider/art dependency, actual service restart and revoked-token refusal
+CLEANUP removed owned integration container=b534495f45dc1b8ad86cf33ea215bb520f427d1fb2e8d23c66685596640590d7 volumes=[32d2a8f96860fc62130831048c2f4ac57f6dd6cc41423ecb642decfae6337706]
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

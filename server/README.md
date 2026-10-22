@@ -10,6 +10,9 @@ lifecycle qualification.** No image is published or deployed by these interfaces
 I02a adds the real account/session schema and public account API described below.
 I04a adds password-reset tokens, an encrypted durable mail outbox, SMTP worker and
 secure browser fallback form. No game/inbox/game-outbox/push worker exists yet.
+I06b1 adds [immutable private definitions and atomic saved-deck creation/read-back](DECKS.md)
+through normal authenticated HTTP, with retained original business outcomes. Native
+Save wiring remains I06b2; collection management and contextual imports remain I07/I08.
 
 ## Build and test
 
@@ -95,8 +98,8 @@ or environment logging when diagnosing a secret-bearing command.
 
 The only CLI operation is `migrate`; no `clean`, `repair`, automatic baseline,
 out-of-order migration or unsupported-future-schema exception is enabled.
-An empty database receives V1 service writer, V2 accounts/sessions and V3 password
-reset/mail migrations; an unchanged supported database
+An empty database receives V1 service writer, V2 accounts/sessions, V3 password
+reset/mail and V4 definitions/saved-decks/business-outcomes migrations; an unchanged supported database
 is an idempotent rerun. History/checksums are validated. An unexpected nonempty
 unversioned database, altered checksum or newer applied history fails closed without
 destructive fallback. PostgreSQL transactional migration failures roll back that

@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T122241Z-22388f73-retain.py"
+  ],
+  "exitCode": 1,
+  "outputSha256": "44a411a69a5e1c54f3fa3fe17201af3683099429c0704c62b98a00916edf266b",
+  "output": "PASS exact original command bytes preserved in whitespace-safe lossless JSON envelopes; diagnostics stay red\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T122241Z-22388f73-retain.py\", line 46, in <module>\n    assert sum(item['tests'] for path, item in junit.items() if path.startswith('protocol/')) == 8\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+}

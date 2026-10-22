@@ -444,17 +444,19 @@ def empty_baseline(value):
     # Deliberately explicit implemented-store inventory. New migrations/workers
     # must extend this qualification, never silently escape the reset contract.
     require(database(value, "SELECT string_agg(tablename,',' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'")
-            == "account,account_session,flyway_schema_history,password_reset_token,reset_mail,service_writer", "Unexpected baseline tables")
-    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3", "Unexpected migration baseline")
-    for table in ("account", "account_session", "password_reset_token", "reset_mail"):
-        require(database(value, "SELECT count(*) FROM " + table) == "0", "Retained account/session baseline")
+            == "account,account_definition,account_request,account_session,deck_entry,definition,flyway_schema_history,password_reset_token,request_identity,reset_mail,saved_deck,service_writer", "Unexpected baseline tables")
+    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3\n4", "Unexpected migration baseline")
+    mutable = ("account", "account_session", "password_reset_token", "reset_mail", "definition",
+               "account_definition", "saved_deck", "deck_entry", "request_identity", "account_request")
+    for table in mutable:
+        require(database(value, "SELECT count(*) FROM " + table) == "0", "Retained private baseline")
     require(database(value, "SELECT count(*) FROM service_writer WHERE singleton AND epoch > 0") == "1", "Missing baseline writer")
     state = admin(value, "/admin/state")
     require(state["instance"] == value["project"] and state["versions"] == {"prism": 1, "quilt": 1} and
             state["generation"] == 0 and state["messageCount"] == 0 and
             state["sourceFault"] == state["mailFault"] == "ok", "Nonempty adapter baseline")
     require(admin(value, "/admin/messages") == [], "Retained baseline deliveries")
-    return {"tables": ["account", "account_session", "password_reset_token", "reset_mail", "flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3"],
+    return {"tables": list(mutable) + ["flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3", "4"],
             "accountCount": 0, "sessionCount": 0, "resetTokenCount": 0, "resetMailCount": 0,
             "versions": state["versions"], "messageCount": 0, "faults": "ok"}
 

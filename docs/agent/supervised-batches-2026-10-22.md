@@ -175,3 +175,22 @@ with more qualification layers. I07 collection management and I08 Overwrite/Merg
 are now the next feature work, followed by the existing B2 review and invitation/
 preparation delivery. Twenty-five resumed fresh units consumed; 2,946 sessions
 remain in the original ceiling. No current drift requires another prompt repair.
+
+### Batch 6 — complete ordinary deck-management/reimport capability
+
+Range `69cf5bd..4d2a12e`: collection/details/section tabs, rename, in-deck cover,
+confirmed delete and same-account synchronization now work through the real server.
+Saved/import rows open full-card inspection with exact faces, large art/pan and text
+fallback. Contextual Overwrite/default and additive Merge preserve retry identity,
+section quantities and saved snapshots; an actual green normal-APK journey covers
+failure/draft retention/retry, rotation, main-only Merge, Overwrite and restart.
+
+Assessment: on track. I07's two children delivered vertical management and inspection
+capabilities, not extra qualification layers. Observed art sizing and test-fixture
+failures received affected rechecks. One transient pagination 503 remains an honest
+diagnostic with a passing narrow recheck, not a claimed repaired cause or an early
+investigation rabbit hole. Composed I07 device evidence keeps its red-run limits;
+final I34 still owns the whole-suite/combined qualification. No speculative findings
+or unneeded prompt correction. B2's existing independent review is due next, then
+real contacts/invitations/preparation. Thirty resumed fresh units consumed; 2,941
+sessions remain. Scope, exact model, reviews and external gates remain unchanged.

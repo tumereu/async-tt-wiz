@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_device_app.py",
+    "-v"
+  ],
+  "exitCode": 0,
+  "outputSha256": "538538fc8178ccd7469b916241edc7f2f7d62f12b72a25cf50e632d556a615da",
+  "output": "test_active_journal_refused_before_raw_copy (test_device_app.NormalAppControllerTest.test_active_journal_refused_before_raw_copy) ... ok\ntest_bad_screenshot_or_lost_foreground_never_publishes_ready (test_device_app.NormalAppControllerTest.test_bad_screenshot_or_lost_foreground_never_publishes_ready) ... ok\ntest_binary_timeout_retains_partial_artifact_not_decoded_as_text (test_device_app.NormalAppControllerTest.test_binary_timeout_retains_partial_artifact_not_decoded_as_text) ... ok\ntest_changed_retained_apk_foreign_owner_or_guest_refused (test_device_app.NormalAppControllerTest.test_changed_retained_apk_foreign_owner_or_guest_refused) ... ok\ntest_failed_am_launch_and_capture_remove_stale_handoff (test_device_app.NormalAppControllerTest.test_failed_am_launch_and_capture_remove_stale_handoff) ... ok\ntest_install_changed_copy_refused_before_mutation (test_device_app.NormalAppControllerTest.test_install_changed_copy_refused_before_mutation) ... ok\ntest_install_command_failure_never_publishes_install (test_device_app.NormalAppControllerTest.test_install_command_failure_never_publishes_install) ... ok\ntest_install_failure_revokes_prior_install_and_ui_success (test_device_app.NormalAppControllerTest.test_install_failure_revokes_prior_install_and_ui_success) ... ok\ntest_installed_bytes_must_match_even_with_right_package (test_device_app.NormalAppControllerTest.test_installed_bytes_must_match_even_with_right_package) ... ok\ntest_invalid_missing_relative_or_symlink_apk_refused (test_device_app.NormalAppControllerTest.test_invalid_missing_relative_or_symlink_apk_refused) ... ok\ntest_launch_retains_data_and_capture_does_not_launch (test_device_app.NormalAppControllerTest.test_launch_retains_data_and_capture_does_not_launch) ... ok\ntest_opening_failure_and_foreign_text_cannot_mean_storage_ready (test_device_app.NormalAppControllerTest.test_opening_failure_and_foreign_text_cannot_mean_storage_ready) ... ok\ntest_readonly_db_diagnostic_does_not_modify_capture (test_device_app.NormalAppControllerTest.test_readonly_db_diagnostic_does_not_modify_capture) ... ok\ntest_startup_observation_timeout_is_bounded (test_device_app.NormalAppControllerTest.test_startup_observation_timeout_is_bounded) ... ok\ntest_verified_package_launcher_api_and_signer (test_device_app.NormalAppControllerTest.test_verified_package_launcher_api_and_signer) ... ok\ntest_wrong_package_launcher_api_testonly_or_unsigned_refused (test_device_app.NormalAppControllerTest.test_wrong_package_launcher_api_testonly_or_unsigned_refused) ... ok\n\n----------------------------------------------------------------------\nRan 16 tests in 0.017s\n\nOK\n"
+}

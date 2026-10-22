@@ -4,9 +4,10 @@ Windows/WSL **I01f1a device-service lifecycle is qualified**: see
 [device commands and limits](devices-README.md). Actual owned API29/Appium
 readiness, foreign-resource/mapping refusal, timeout/service-loss invalidation,
 interrupted-launch recovery, native cleanup and fresh same-port cold boot pass
-against a fresh locked tool installation. Normal APK, Compose routing, Kotlin
-sessions and instrumentation remain I01f1b/I01f2/I01f3; no parent/product E2E or
-independent B1 review is closed by this service-only child.
+against a fresh locked tool installation. I01f1b1 additionally qualifies normal-APK
+install/production-launcher startup capture and read-only idle storage evidence;
+Compose routing, Kotlin sessions and instrumentation remain I01f1b2/I01f2/I01f3;
+no parent/product E2E or independent B1 review is closed by these foundation checks.
 
 The Kotlin/JUnit host runner's current runtime test qualifies only its Java
 toolchain. The **test-only** [Compose topology](compose.json) and

@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T010348Z-d9861514-sqlite-diagnosis.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "a9fe406c12b1ed643a33bb1ab926e3b0a55828b5eb579bb199d33a663119502f",
+  "output": "/tmp/opencode/atw-device-d986151411114af58b9f3861313df8c1/app-3974aeb20d781082/replica.db rawSha256 669d0cc6e66b2966daee2c6bf0e099a569268c1f6ba0196dd5752faea93c86de logicalSha256 ffef22c9a82f7e47cfe134cd224ddd1379daf01142cf4f18ad76f370b55b0405\nactual byte differences (offset, before, after) []\n/tmp/opencode/atw-device-d986151411114af58b9f3861313df8c1/app-d7b1c6fb6c9b168a/replica.db rawSha256 669d0cc6e66b2966daee2c6bf0e099a569268c1f6ba0196dd5752faea93c86de logicalSha256 ffef22c9a82f7e47cfe134cd224ddd1379daf01142cf4f18ad76f370b55b0405\nactual byte differences (offset, before, after) []\n/tmp/opencode/atw-device-d986151411114af58b9f3861313df8c1/app-33232c593a981b0b/replica.db rawSha256 4de6452493c477e531640757e3b39bae7630dbae7f61af0058ff40891439ccae logicalSha256 ffef22c9a82f7e47cfe134cd224ddd1379daf01142cf4f18ad76f370b55b0405\nactual byte differences (offset, before, after) [(27, 1, 2), (95, 1, 2)]\nPASS: unchanged complete schema/data; only SQLite file-change counter and version-valid-for header words advanced on ordinary reopen. Raw-hash retention assertion was incorrect; no product repair, data wipe or seeded state.\n"
+}

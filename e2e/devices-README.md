@@ -1,4 +1,4 @@
-# Windows/WSL device services — I01f1a qualified
+# Windows/WSL device controller — services and normal scaffold startup
 
 **Device-service foundation only, not product E2E.** The test-only
 [`devices.py`](devices.py) / [`windows-device.ps1`](windows-device.ps1) controller
@@ -24,10 +24,101 @@ so their unrelated-listener baseline is stable. An earlier concurrent regression
 run closed its own mirrored Linux test sockets during the device inventory check;
 that diagnostic failed, and the complete sequential rerun passes without relaxing
 the unchanged-listener assertion. This is still not a complete scenario environment.
-I01f1b still owns normal-APK launch/capture and actual public-only Compose routing;
+I01f1b1 now qualifies normal-APK launch/capture as described below. I01f1b2 still
+owns actual public-only Compose routing and the combined environment handoff;
 I01f2 owns Kotlin/Appium sessions and the 14 actual storage instrumentation tests.
 No application, Gradle, permission, authorization or global networking change is
 made by these helpers. No default ADB or historical private tool archive is reused.
+
+## Normal-APK install, retained relaunch and capture — I01f1b1
+
+The [startup child record](../docs/agent/implementation-runs/20261022T010348Z-d9861514.json)
+retains an actual fresh API29 non-GMS WHPX lifecycle with the ordinary debug APK,
+production `org.asyncttwiz.android.MainActivity`, readable 720×1280 screenshot,
+native hierarchy and API29-valid signer/package/version identities. Visible title
+and subtitle, absence of storage-opening/error copy, foreground activity/process
+and a read-only copy of the real `no_backup/client-storage/replica.db` corroborate
+completed storage startup. The foundation schema is version 2 with four **empty**
+tables: no account/game/fixture records were seeded. Read-only inspection is an
+infrastructure diagnostic, **not** the 14 pending storage instrumentation tests.
+This branded scaffold is deliberately replaced by ordinary account entry in I02.
+
+From the repository root, after a successful `provision` with the explicit tools
+below (use a fresh synthetic guest, never a personal installation):
+
+```sh
+./scripts/gradle.sh --no-daemon --console=plain --no-build-cache \
+  :client-storage:testDebugUnitTest :client-storage:verifySqlDelightMigration \
+  :core:jvmTest :protocol:jvmTest :e2e:test \
+  :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest \
+  :client-storage:lintDebug :androidApp:lintDebug verifyModuleBoundaries
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> \
+  install-app --apk /absolute/repository/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> launch-app
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> capture-app
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> capture
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> cleanup
+python3 -m unittest discover -s tests -p test_device_app.py -v
+python3 scripts/check-device-app.py --directory /tmp/opencode/atw-device-<fresh-32-hex> \
+  --config /tmp/opencode/device-config.json \
+  --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk \
+  --test-apk androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk
+```
+
+`install-app` verifies a **regular absolute** normal debug APK with the configured
+SDK's `build-tools/36.0.0/aapt2` and `apksigner --min-sdk-version 29 --print-certs`.
+It refuses another package/launcher, min/target SDK mismatch, test-only or
+instrumentation artifacts and invalid/unsigned bytes. It snapshots and re-verifies
+the input before bounded `adb install -r`, then reads back the actual installed
+base APK, verifies its hash/signer/version and resolves its normal launcher. A new
+verified `app-installed.json` is published only after success. Failed install
+invalidates prior installation/startup markers, never silently falling back to an
+older APK. Reinstall is **not clear-data** and never uninstalls to fix an error.
+
+`launch-app` checks ownership/services and the installed APK again, force-stops the
+normal package and launches its explicit production component with `am start -W`.
+It never clears data. `capture-app` performs the same checks/observation **without
+launching**. Both require bounded actual branded foreground UI with storage-open
+complete; no stale screenshot or just a successful launcher exit suffices.
+`--timeout 1..300` bounds each services-readiness and UI-observation phase; individual
+APK/install/hierarchy commands have separate 30/60/120-second bounds, so the whole
+operation can exceed that phase timeout by bounded in-flight work. No driver
+session, input action, instrumentation, alternate activity or failure hook is used.
+
+Each attempt has a private `app-<id>` evidence directory, with actual XML/PNG,
+installed APK copy, read-only idle database copy and timestamped `observed.json`.
+`app-progress.json` points to the latest attempt even on failure; `app-ready.json`
+exists only after successful observation, and failures/cleanup remove it. It is a
+**snapshot**, not an enduring health lease: `wait` still certifies services only;
+require new `capture-app` or `launch-app` for fresh startup evidence. Capture uses
+only a UUID-like exact temporary guest XML path and removes only that file. Binary
+transfer logs retain actual exit/error/size/hash, never decode APK/DB/PNG as text.
+Regular service `capture` includes safe app status and does not require a healthy
+app, so it remains usable before cleanup after failure.
+
+Only the idle scaffold supports the raw no-backup DB diagnostic: active nonempty
+WAL/journal is refused instead of claiming a coherent copy during future feature
+writes. Host SQLite opens the copied file **read-only/immutable** and reports
+integrity/version/table counts, inode and logical-content digest, not payloads.
+This is not a future live-database export interface. An ordinary Android reopen
+advances SQLite header change counters: retained raw hashes differ, while the
+same device inode, schema/content digest, version/counts and all bytes outside the
+two counter words agree. The initial overly strong raw-hash assertion and precise
+diagnosis are retained; no product check was weakened to hide data loss.
+
+Actual invalid and wrong-package artifact refusal, stopped-app capture timeout,
+explicit recovery/reinstall and retained force-stop/relaunch pass. Cleanup captures
+before exact native guest/ADB/Appium/watchdog shutdown, verifies ports/launchers
+gone and preserves unrelated Android processes/listeners. Run actual device checks
+**sequentially**, not alongside tests creating transient mirrored-loopback sockets.
+Committed synthetic screenshot/hierarchy and command outputs are in the run;
+large APK/DB/AVD artifacts remain private with hashes. Never publish raw future
+account/token/message/DB/log captures without checking/redacting private content.
+
+No normal backend connection, routing, Kotlin/Appium UI scenario, real touch,
+instrumentation, downloader/account/gameplay/Canvas acceptance, physical frame
+measurement, parent/group review or release gate is passed by startup observation.
+I01f1b2/I01f2/I01f3 and the later parent qualifications retain those obligations.
 
 ## Explicit tools and configuration
 

@@ -1,6 +1,6 @@
 """Test-only, explicitly owned Windows WHPX / WSL Appium lifecycle.
 
-No APK/action API, default ADB reuse, networking changes or implicit cleanup.
+No action API, default ADB reuse, networking changes or implicit cleanup.
 Failed setup keeps evidence/resources and removes the ready handoff.
 """
 import argparse
@@ -191,12 +191,12 @@ def run(value, arguments, timeout=12, check=True, env=None):
     return result
 
 
-def adb(value, *arguments, check=True):
+def adb(value, *arguments, check=True, timeout=12):
     config = value['config']
     # Never let a failed connection start/adopt a replacement server.
     with socket.create_connection(('127.0.0.1', config['adbPort']), timeout=2):
         pass
-    return run(value, [config['linuxAdb'], '-H', '127.0.0.1', '-P', str(config['adbPort']), *arguments], check=check)
+    return run(value, [config['linuxAdb'], '-H', '127.0.0.1', '-P', str(config['adbPort']), *arguments], check=check, timeout=timeout)
 
 
 def appium_identity(value):
@@ -360,7 +360,8 @@ def provision(directory, config, timeout):
 def capture(value):
     snapshot = windows(value, 'snapshot')
     output = {'windows': snapshot, 'appiumProcess': appium_identity(value)}
-    for name in ('versions.json', 'ready.json', 'readiness-progress.json', 'appium.log', 'appium-launch.log'):
+    for name in ('versions.json', 'ready.json', 'readiness-progress.json', 'appium.log', 'appium-launch.log',
+                 'app-installed.json', 'app-ready.json', 'app-progress.json'):
         path = Path(value['directory']) / name
         if path.exists():
             output[name] = path.read_text(errors='replace')[-16000:]
@@ -370,6 +371,7 @@ def capture(value):
 
 def cleanup(value):
     invalidate(value)
+    (Path(value['directory']) / 'app-ready.json').unlink(missing_ok=True)
     capture(value)  # Diagnostics before any shutdown; never broad process cleanup.
     snapshot = windows(value, 'snapshot')
     if not snapshot.get('absent') and any(p and p['executable'].lower().endswith('\\adb.exe')
@@ -412,6 +414,9 @@ def main():
     sub.add_parser('provision').add_argument('--config', required=True)
     for operation in ('wait', 'capture', 'cleanup'):
         sub.add_parser(operation)
+    sub.add_parser('install-app').add_argument('--apk', required=True)
+    for operation in ('launch-app', 'capture-app'):
+        sub.add_parser(operation)
     args = parser.parse_args()
     directory = directory_path(args.directory)
     require(1 <= args.timeout <= 300, 'Readiness timeout must be 1..300 seconds')
@@ -424,11 +429,16 @@ def main():
             else:
                 value = load(directory)
                 require(not (directory / 'cleaned.json').exists(), 'Cleaned instance cannot be reused')
-                result = wait(value, args.timeout) if args.operation == 'wait' else globals()[args.operation](value)
+                if args.operation in ('install-app', 'launch-app', 'capture-app'):
+                    from e2e import device_app
+                    result = device_app.operation(value, args.operation, args.timeout, getattr(args, 'apk', None))
+                else:
+                    result = wait(value, args.timeout) if args.operation == 'wait' else globals()[args.operation](value)
             print(json.dumps(result, indent=2))
         except BaseException:
             if directory.is_dir():
                 (directory / 'ready.json').unlink(missing_ok=True)
+                (directory / 'app-ready.json').unlink(missing_ok=True)
             raise
 
 

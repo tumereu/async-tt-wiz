@@ -1,0 +1,82 @@
+{
+  "runId": "20261022T195604Z-aa3e4430",
+  "sessionID": "ses_e9ad0a606ffe03cGVy6dFwidUo",
+  "startCommit": "0bd0a31406b29d700fd5c8f95bb0078451fc1b24",
+  "mode": "implement",
+  "target": "I10a1",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented shared pure preparation selection and real ordered selectDeck execution on the existing inbox/processor/revision/outbox. Captured account-owned source revision and preparation round yield independent selected name/cover, compact concrete UUIDv5 copy ranges, Library/mainboard versus Sideboard and complete retained definitions. Source overwrite/rename/cover/delete and invitation-attempt changes do not rewrite selected copies; selection clears only actor Ready. Wrong-round/non-lobby/unaccepted-recipient/foreign/deleted/changed source refusals never substitute. Explicit V8 has no saved-source cascading dependency; retained V7 and affected V6 upgrades pass. Nine shared, fourteen actual PostgreSQL/socket/deck and six affected client-session host tests pass without skips, plus incremental normal debug APK assembly. Actual socket/read privacy, pure/server equivalence, pending/final dedup, real SQL rollback and service/stream recovery retain original copies/outcomes with one attachment/revision/outbox. Initial Kotlin cross-module smart-cast compile failure is retained as a diagnostic and repaired. Only I10a1 closes; native picker/accepted-predicted-UI wiring remains I10a2, transfers I10b, Ready/start/cancel I11/I12 and independent B3 review remain pending. No full suite, native picker journey or release claim.",
+  "selectionReason": "The supplied clean master/startCommit, D-304 active authorization, reviewed B1/B2, verified B2-R01 and implemented I09 agree with I10a1 as the earliest ready child. Deliver the shared/backend selected-copy capability required by the native picker, not another plan/qualification layer or a second queue. Affected scope is the additive selection wire/pure semantics, V8 migration/jOOQ, source-row snapshot adapter, existing ordered game execution/head/revision/publication privacy, and their Android compilation/session compatibility. Targeted shared/PostgreSQL/socket/source-mutation/session regressions and one incremental APK build cover that scope; no unchanged image/device/fault matrix or full-suite rerun. Ancestor closures and independent B3 review remain separately selected.",
+  "sourceIds": ["P-044", "P-045", "P-052", "P-053", "P-059", "T-400", "T-401", "T-402", "T-403", "T-404", "T-405", "T-440", "T-441", "T-442", "T-443", "T-444", "T-445", "T-608", "T-680", "T-682", "T-683", "T-684", "F20", "F21", "F30", "F31", "F32", "F34", "F35", "F36"],
+  "sourceDisposition": "Partial I10.preparation assertions under accounts-decks-and-lobby D-189/D-191/D-199/D-202/D-205/D-221/D-271/D-294, server-authority D-259 and protocol/request-recovery D-275/D-278/D-285/D-289. This run implements source capture/immutable copies/definition retention/partition/own-only Ready clearing and ordered accepted read/recovery semantics. All 30 source assignments retain unexecuted complete-scenario status in the unchanged ledger: draft/confirmation/import-return/native/gesture/Ready/start/play assertions await their owning tasks. Lower-layer Ready/lifecycle fixtures do not claim real start or a native flow.",
+  "implementationNotes": [
+    "GameAction.SelectDeck captures deckId/sourceRevision and game/preparation scope, explicitly without invitation scope or a whole-lobby revision lock. Server derives actor, holds the source row while copying and refuses unavailable/changed sources normally. No preparation mutation HTTP endpoint, separate processor, client outgoing journal, default deck, format/size/exchange rule or premature Ready/start control.",
+    "PreparationRules.select is shared pure application for server execution and I10a2 provisional use; accepted LobbyPreparation is distinct from the GameCommand original and future personal picker draft. PreparedDeck stores compact exact copy-index ranges so existing maximum-quantity sources do not allocate a card object per quantity. Concrete card UUIDv5 namespace=request and prepared-card/index role, selected deck prepared-deck/0; golden standard/Python vectors and 64-bit large-quantity identity checks pass. I10b must preserve/split these identity ranges rather than invent copies.",
+    "V8 player_preparation/game_definition retain selected data without a saved_deck FK. Immutable global definition records are referenced by the game and sent with authorized preparation; a missing general catalog or later source edit/deletion cannot invalidate the game copy. Saved source is account-private even after accepted participants share game definitions.",
+    "GameHead/GameRevision add a separate preparation field. Inviter/accepted recipient receive it; pending/declined recipients receive metadata-only heads/revisions, including HTTP recovery and publication to existing subscriptions. Result remains original outcome/revision/selected-deck ID, never an old state to install. Same-round invitation decisions/Reinvite preserve chosen preparation and readiness.",
+    "The first compile reached successful real V8 code generation and shared tests, then exposed a Kotlin cross-module nullable-property smart-cast error. Replaced that call with nullable let; subsequent required affected tests compile and pass. No dependency/build-lock, permission, model, authorization, runner, gate or UI-document change. Exact 15 owned codegen/test PostgreSQL containers and anonymous volumes are verified removed; no deployment or native device resources started."
+  ],
+  "remainingObligations": [
+    "I10a2: actual normal-APK border-only draft/one bottom confirmation, empty collection/contextual Import return, selected lobby display, accepted-replica/prediction/UI wiring, original-intent reauthentication/account fencing/restart and both-orientation native picker/source-isolation journeys. Host compatibility and debug assembly in this run are not execution of that feature.",
+    "I10b: per-concrete-copy one/all tap/drag/accessibility transfers and partial multiple-in-flight reconciliation on these identities, fixed fading feedback and disappearing rows. I10a/I10 remain in-progress for separately selected exact-child evidence reconciliation; no child review or additional certification layer.",
+    "I11/I12: real Ready/starter/start/shuffle/initial table, sideboard exclusion during play, cancellation and two-Android prepared-start/acceptance/readiness/lifecycle overlaps. Ready booleans and ACTIVE state in this unit's lower-layer tests are test-owned fixtures, not implemented Ready/start actions. I13/I14 extend this same request/prediction path; I28/I31 restore/rematch copies.",
+    "B3 independent capability review remains after I09-I12. I34 retains final full-suite and deferred uncommon assertions, earlier migration-fixture reconciliation and I09 recovered-HTTP-error correction/recheck; I33 performance, I35 compatibility and I36/B8 complete all-interface/both-orientation comparison remain required. All external release gates are unchanged/unverified. No native, complete-scenario, broad qualification or release pass is fabricated."
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261022T195604Z-aa3e4430/initial-compile.json -- ./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest --tests '*PreparationTest' --tests '*GameWireTest' :server:compileKotlin :server:compileJava",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/initial-compile.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261022T195604Z-aa3e4430/affected-tests.json -- ./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest --tests '*PreparationTest' --tests '*GameWireTest' :server:test --tests '*PreparedDeckTest' --tests '*GameSocketTest' --tests '*GameDurabilityTest' --tests '*DeckHttpTest.contextual imports serialize*' --tests '*DeckHttpTest.owned metadata deletion*' verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/affected-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261022T195604Z-aa3e4430/android-affected.json -- ./scripts/gradle.sh --no-daemon --console=plain :androidApp:testDebugUnitTest --tests '*GameSessionTest' --tests '*GameLobbyIntegrationTest' :androidApp:assembleDebug",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/android-affected.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T195604Z-aa3e4430/audit.py > docs/agent/implementation-runs/20261022T195604Z-aa3e4430/audit.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/audit.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T195604Z-aa3e4430/audit.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430.json",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/README.md",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/affected-tests.json",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/android-affected.json",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/audit.py",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/audit.txt",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/initial-compile.json",
+    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430/retained-junit.json",
+    "protocol/src/androidMain/kotlin/org/asyncttwiz/protocol/DeckDigest.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Preparation.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/PreparationTest.kt",
+    "protocol/src/jvmMain/kotlin/org/asyncttwiz/protocol/DeckDigest.kt",
+    "server/GAMES.md",
+    "server/README.md",
+    "server/src/main/kotlin/org/asyncttwiz/server/decks/DeckService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/PreparationStore.kt",
+    "server/src/main/resources/db/migration/V8__prepared_deck_copies.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameDurabilityTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/PreparedDeckTest.kt"
+  ]
+}

@@ -226,4 +226,63 @@ class GameSocketTest {
             println("PASS actual socket resume fences old connection before final/notAdmitted statuses, independent installation admits, duplicate original recovers unchanged final, revoked socket rejects new work and same-account new login reads original result; unauthorized upgrade and incompatible negotiation fail")
         }
     }
+
+    @Test fun `actual socket prepared selection publishes coherent private copies and accepted recipient receives retained definitions`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val a = account(settings, "PickerOwner"); val b = account(settings, "PickerRecipient")
+                val stranger = account(settings, "PickerOther"); val (_, game) = create(settings, a, b)
+                val front = id(); val back = id()
+                val definition = CardDefinition("Prepared multiface", listOf(DefinitionFace(front, "Front", listOf(back), corner = "3/5"),
+                    DefinitionFace(back, "Back", listOf(front), rulesText = "Retained rules")), sourceVersion = "synthetic-old")
+                val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(submitted)), a.token).statusCode())
+                val entries = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 4),
+                    SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 1))
+                val response = post(settings, "/v1/decks", CreateDeck(id(), "Chosen source", entries), a.token)
+                assertEquals(201, response.statusCode()); val source = json.decodeFromString<SavedDeck>(response.body())
+                Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->
+                    owner.negotiate(); recipient.negotiate()
+                    val aStream = owner.open(game); val bStream = recipient.open(game)
+                    owner.send(SubscribeGame(game.id)); assertNotNull(owner.next<GameHead>().preparation)
+                    recipient.send(SubscribeGame(game.id)); assertNull(recipient.next<GameHead>().preparation)
+                    val select = GameCommand(id(), GameScope(game.id, game.preparationRound),
+                        GameAction.SelectDeck(source.deck.id, source.deck.revision), aStream.streamId, aStream.generation)
+                    owner.send(select); owner.receipt(select.requestId)
+                    val result = owner.result(select.requestId); assertEquals("accepted", result.outcome)
+                    val accepted = owner.revision(select.requestId)
+                    val preparation = accepted.preparation!!; val selected = preparation.players[0].deck!!
+                    assertEquals(4L, selected.count(SavedDeckSection.MAINBOARD)); assertEquals(1L, selected.count(SavedDeckSection.SIDEBOARD))
+                    assertEquals(listOf(submitted), preparation.definitions)
+                    val predicted = PreparationRules.select(game, PreparationRules.empty(game), a.account.accountId,
+                        select.requestId, select.scope, select.action as GameAction.SelectDeck, source, listOf(submitted)).state
+                    assertEquals(predicted, preparation)
+                    assertNull(recipient.revision(select.requestId).preparation)
+                    val privateRead = request(settings, "GET", "/v1/games/${game.id}/revisions?after=0", b.token)
+                    assertEquals(200, privateRead.statusCode())
+                    assertNull(json.decodeFromString<GameRevisions>(privateRead.body()).revisions.single().preparation)
+                    assertFalse(privateRead.body().contains(source.deck.id)); assertFalse(privateRead.body().contains(definition.name))
+                    val denied = select.copy(requestId = id(), streamId = bStream.streamId, generation = bStream.generation)
+                    recipient.send(denied); assertEquals("accessDenied", recipient.result(denied.requestId).reason)
+                    val accept = command(game, bStream, GameAction.AcceptInvitation)
+                    recipient.send(accept); assertEquals("accepted", recipient.result(accept.requestId).outcome)
+                    val shared = recipient.revision(accept.requestId).preparation!!
+                    assertEquals(preparation, shared)
+                    assertEquals(emptyList<DeckSummary>(), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", b.token).body()).decks)
+                    assertEquals(404, request(settings, "GET", "/v1/decks/${source.deck.id}", b.token).statusCode())
+                    recipient.send(SubscribeGame(game.id, "2")); assertEquals(preparation, recipient.next<GameHead>().preparation)
+                    owner.send(select); assertEquals(result, owner.result(select.requestId))
+                    assertEquals(404, post(settings, "/v1/games/${game.id}/selectDeck", LookupGameResults(emptyList()), a.token).statusCode())
+                    assertEquals(404, request(settings, "GET", "/v1/games/${game.id}/revisions?after=0", stranger.token).statusCode())
+                    assertFalse(json.encodeToString(result).contains("deck")) // Correlation, not an old preparation snapshot.
+                    val ownRead = json.decodeFromString<GameRevisions>(request(settings, "GET", "/v1/games/${game.id}/revisions?after=0", a.token).body())
+                    assertEquals(listOf("1", "2"), ownRead.revisions.map { it.resultRevision })
+                    assertEquals(preparation, ownRead.revisions[0].preparation)
+                } }
+            }
+            println("PASS actual authenticated HTTP saved source plus ordered socket select/receipt/result/revision, exact shared predicted equivalence and copy counts/definitions; pending-recipient socket and HTTP preparation redacted, accepted recipient receives retained game definitions without catalog/saved-deck access; stranger denied and no competing write endpoint")
+        }
+    }
 }

@@ -96,7 +96,8 @@
                                                  "docs/agent/implementation-runs/20261022T193210Z-618299c4.json",
                                                   "docs/agent/implementation-runs/20261022T193734Z-9b2c031f.json",
                                                    "docs/agent/implementation-runs/20261022T194247Z-e9e3e478.json",
-                                                   "docs/agent/implementation-runs/20261022T194819Z-c1033a39.json"
+                                                    "docs/agent/implementation-runs/20261022T194819Z-c1033a39.json",
+                                                    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430.json"
    ],
   "findings": [
     {
@@ -963,7 +964,9 @@
     {
       "id": "I10a1",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T195604Z-aa3e4430.json",
+      "qualification": "Shared pure prepared selection and real selectDeck action extend the existing ordered inbox/processor/revision/outbox. Captured account-owned source revision and preparation round are validated atomically under a source-row lock; immutable selected name/cover, compact concrete UUIDv5 copy ranges, mainboard/Library versus Sideboard and complete retained definitions survive source overwrite/rename/cover/delete and invitation-attempt changes. Only actor Ready clears; wrong-round/non-lobby/unaccepted-recipient/foreign/deleted/changed source refusals never substitute. V8 adds independent player_preparation/game_definition, with retained V7 and affected V6 upgrades. Nine shared tests, fourteen actual PostgreSQL/socket/deck integration tests and six affected client-session host tests pass without skips; normal debug APK builds incrementally. Actual socket publication/read privacy, pure/server equivalence, pending/final dedup, real SQL rollback and service/stream recovery retain exact original copies/outcomes with no duplicate attachment/revision/outbox. Initial cross-module Kotlin smart-cast compile error is repaired with retained diagnostic and passing affected build/tests. No native picker, transfer, Ready/start, whole B3, final suite/UI/compatibility or release gate pass is claimed. I10a2 native picker/accepted-predicted-UI wiring is next; I10a/I10 remain open and B3 pending until I10-I12 plus independent review.",
       "dependsOn": ["I09"],
       "planningRecord": "docs/agent/implementation-runs/20261022T194819Z-c1033a39.json",
       "outcome": "Implement the shared preparation semantic model and real ordered prepared-deck selection through the existing GameAction/GameService/inbox/revision/outbox path. Capture the account-owned saved source identity/revision and preparation round, retain its complete immutable definitions and game-local mainboard/Library versus Sideboard copies with stable concrete UUIDs, and publish coherent accepted preparation reads. Share the pure selection application/validation semantics with provisional client use in I10a2, keeping accepted state separate from original intent and personal draft. Make attachment atomic, account-private and independent of later saved-source edits/deletion or invitation-attempt changes. Establish actor-only Ready clearing and non-lobby/wrong-round/stale-source refusal without exposing Ready/start UI, a new mutation endpoint or a competing queue. This is the functional backend/shared part of I10a, not native picker completion or a new qualification layer.",

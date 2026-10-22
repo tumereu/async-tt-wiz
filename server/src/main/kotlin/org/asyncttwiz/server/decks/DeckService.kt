@@ -147,6 +147,14 @@ class DeckService(private val runtime: ServiceRuntime) {
             SavedDeckEntry(SavedDeckSection.valueOf(it.section!!), it.definitionDigest!!, it.quantity!!)
         }
 
+    /** Called inside the game transaction; a concurrent edit/delete cannot change this snapshot. */
+    internal fun selectedSource(sql: DSLContext, owner: UUID, id: String): SavedDeck? {
+        val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
+            .and(SAVED_DECK.ACCOUNT_ID.eq(owner)).forShare().fetchOne() ?: return null
+        val entries = entries(sql, row.id!!)
+        return SavedDeck(summary(sql, row, entries), entries)
+    }
+
     private fun summary(sql: DSLContext, row: SavedDeckRecord, entries: List<SavedDeckEntry> = entries(sql, row.id!!)): DeckSummary {
         val cover = (row.coverDigest?.takeIf { digest -> entries.any { it.definition == digest } } ?: entries.firstOrNull()?.definition)?.let { digest ->
             val definition = json.decodeFromString<CardDefinition>(sql.select(DEFINITION.PAYLOAD).from(DEFINITION)

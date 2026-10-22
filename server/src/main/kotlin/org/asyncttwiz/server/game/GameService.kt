@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
+import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GameInbox.GAME_INBOX
 import org.asyncttwiz.server.generated.tables.GameOutbox.GAME_OUTBOX
@@ -126,7 +127,8 @@ class GameService(private val runtime: ServiceRuntime) {
     fun head(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
         locked(sql, uuid(gameId), actor(principal))
         val summary = lobby.summary(sql, uuid(gameId))
-        GameHead(gameId, summary.revision, summary)
+        GameHead(gameId, summary.revision, summary, preparation =
+            if (canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null)
     }
     fun revisions(principal: AccountService.Principal, gameId: String, after: String): GameRevisions {
         val base = GameWire.ordinal(after)
@@ -135,10 +137,17 @@ class GameService(private val runtime: ServiceRuntime) {
             if (base > game.revision!!) throw GameProtocolFailure("invalidInput")
             val rows = sql.select(GAME_REVISION.PAYLOAD).from(GAME_REVISION).where(GAME_REVISION.GAME_ID.eq(game.id))
                 .and(GAME_REVISION.REVISION.gt(base)).orderBy(GAME_REVISION.REVISION).limit(101).fetch(GAME_REVISION.PAYLOAD)
-            val revisions = rows.take(100).map { json.decodeFromString<GameServerMessage>(it!!) as GameRevision }
+            val revisions = rows.take(100).map {
+                visibleRevision(json.decodeFromString<GameServerMessage>(it!!) as GameRevision, principal.account.accountId) }
             GameRevisions(revisions, if (rows.size > 100) revisions.last().resultRevision else null)
         }
     }
+
+    private fun canReadPreparation(summary: GameSummary, accountId: String) = accountId == summary.inviter.accountId ||
+        (accountId == summary.recipient.accountId && summary.invitationState == InvitationState.ACCEPTED)
+
+    internal fun visibleRevision(revision: GameRevision, accountId: String): GameRevision =
+        if (canReadPreparation(revision.summary, accountId)) revision else revision.copy(preparation = null)
 
     /** Candidate games are independent; every selected game executes its lowest pending ordinal. */
     fun executeOne(): Boolean = transaction { sql ->
@@ -149,17 +158,27 @@ class GameService(private val runtime: ServiceRuntime) {
             .orderBy(GAME_INBOX.INGRESS_ORDINAL).limit(1).fetchSingle()
         val command = GameWire.decodeClient(inbox.command!!) as GameCommand
         val before = game.revision!!
-        val rejection = applyInvitation(sql, game, inbox.accountId!!, command)
+        val rejection = when (command.action) {
+            is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
+            else -> applyInvitation(sql, game, inbox.accountId!!, command)
+        }
         val revision = if (rejection == null) Math.addExact(before, 1) else null
         var update: GameRevision? = null
         if (revision != null) {
             sql.update(GAME).set(GAME.REVISION, revision).where(GAME.ID.eq(game.id)).execute()
+            val summary = lobby.summary(sql, game.id!!)
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
-                inbox.accountId.toString(), command.scope, lobby.summary(sql, game.id!!))
+                inbox.accountId.toString(), command.scope, summary, PreparationStore.read(sql, summary))
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, GameWire.encode(update)).execute()
         }
-        val created = if (revision != null && command.action == GameAction.Reinvite) listOf(update!!.summary.invitationId) else emptyList()
+        val created = when {
+            revision == null -> emptyList()
+            command.action == GameAction.Reinvite -> listOf(update!!.summary.invitationId)
+            command.action is GameAction.SelectDeck -> update!!.preparation!!.players.single {
+                it.accountId == inbox.accountId.toString() }.deck!!.let { listOf(it.id) }
+            else -> emptyList()
+        }
         val result = GameResult(command.requestId, command.scope, if (rejection == null) "accepted" else "rejected",
             rejection, inbox.ingressOrdinal.toString(), revision?.toString(), created)
         val encoded = json.encodeToString(result)
@@ -168,6 +187,21 @@ class GameService(private val runtime: ServiceRuntime) {
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result))
             .set(GAME_OUTBOX.REVISION, update?.let(GameWire::encode)).execute()
         true
+    }
+
+    private fun applySelection(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
+        val action = command.action as GameAction.SelectDeck
+        val summary = lobby.summary(sql, game.id!!)
+        // Refuse scope/access before looking at any account-private saved source.
+        if (game.lifecycle != "LOBBY") return "lifecycleEnded"
+        if (command.scope.preparationId != game.preparationRound.toString()) return "inapplicable"
+        if (!canReadPreparation(summary, account.toString())) return "accessDenied"
+        val source = DeckService(runtime).selectedSource(sql, account, action.deckId)
+        val definitions = PreparationStore.definitions(sql, source?.entries?.map { it.definition }?.toSet() ?: emptySet())
+        val change = PreparationRules.select(summary, PreparationStore.read(sql, summary), account.toString(),
+            command.requestId, command.scope, action, source, definitions)
+        change.state?.let { PreparationStore.saveSelection(sql, account, it) }
+        return change.reason
     }
 
     private fun applyInvitation(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
@@ -190,6 +224,7 @@ class GameService(private val runtime: ServiceRuntime) {
                 sql.insertInto(INVITATION).set(INVITATION.ID, next).set(INVITATION.GAME_ID, game.id).execute()
                 sql.update(GAME).set(GAME.CURRENT_INVITATION, next).where(GAME.ID.eq(game.id)).execute()
             }
+            is GameAction.SelectDeck -> error("Selection uses the shared preparation processor")
         }
         return null
     }

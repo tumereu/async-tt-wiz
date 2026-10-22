@@ -12,6 +12,7 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
+    @Serializable @SerialName("selectDeck") data class SelectDeck(val deckId: String, val sourceRevision: String) : GameAction
 }
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,
@@ -45,10 +46,10 @@ import kotlinx.serialization.json.*
     val retryable: Boolean, val requestId: String? = null) : GameServerMessage
 @Serializable @SerialName("head") data class GameHead(val gameId: String, val revision: String,
     val summary: GameSummary, val minimumResumableRevision: String = "0", val engineVersion: Int = 1,
-    val readFormat: Int = 1) : GameServerMessage
+    val readFormat: Int = 1, val preparation: LobbyPreparation? = null) : GameServerMessage
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
-    val summary: GameSummary) : GameServerMessage
+    val summary: GameSummary, val preparation: LobbyPreparation? = null) : GameServerMessage
 @Serializable @SerialName("pong") data class GamePong(val correlationId: String) : GameServerMessage
 @Serializable data class GameRevisions(val revisions: List<GameRevision>, val next: String? = null)
 @Serializable data class LookupGameResults(val requestIds: List<String>)
@@ -68,7 +69,14 @@ object GameWire {
         require(command.commandVersion == 1 && command.continuation == null && command.inlineDefinitions.isEmpty())
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
-        require(command.scope.preparationId != null && command.scope.invitationId != null && command.scope.playId == null)
+        require(command.scope.preparationId != null && command.scope.playId == null)
+        when (val action = command.action) {
+            is GameAction.SelectDeck -> {
+                require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
+                require(ordinal(action.sourceRevision) > 0)
+            }
+            else -> require(command.scope.invitationId != null)
+        }
         ordinal(command.generation)
     }.isSuccess
     /** Auth, connection/fence and request identity are not semantic intent. Defaults are expanded. */

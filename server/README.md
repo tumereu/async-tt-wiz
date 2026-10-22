@@ -15,7 +15,10 @@ through normal authenticated HTTP, with retained original business outcomes. Nat
 Save wiring remains I06b2; collection management and contextual imports remain I07/I08.
 I09a adds [contacts, named atomic first invitation, private game listings and waiting-lobby reads](LOBBY.md).
 I09b1 adds [ordered socket invitation decisions, durable game requests and live workers](GAMES.md).
-Native decisions/recovery remain I09b2; preparation/start remain I10–I12.
+I09b2 delivered native invitation decisions/recovery. I10a1 adds shared pure
+prepared-deck selection, immutable game-local copies/definitions and explicit V8
+persistence on that same ordered path. Native picker/transfers and Ready/start
+remain I10a2/I10b/I11–I12; see [the preparation handoff](GAMES.md#prepared-deck-selection--i10a1).
 
 ## Build and test
 

@@ -1,7 +1,7 @@
-# Ordered game service — I09b1
+# Ordered game service — invitations and prepared selection
 
 The running Spring service now implements recipient **Accept/Decline** and inviter
-**Reinvite** through `GET /v1/socket` WebSocket upgrade. Use the normal bearer
+**Reinvite**, plus **Select deck**, through `GET /v1/socket` WebSocket upgrade. Use the normal bearer
 Authorization header, never a URL credential; TLS is supplied by the normal HTTPS
 boundary (`wss` outside isolated local tests). There is no HTTP game-write route.
 Initial create+first-invite remains the [account HTTP exception](LOBBY.md).
@@ -62,11 +62,12 @@ identity collisions return a detail-free conflict, never another outcome. Foreig
 games return inaccessible/404. Existing lobby HTTP `head` remains a `GameSummary`
 for the inviter or accepted recipient, preserving I09a/native compatibility.
 
-Socket `head`/revision data currently consists only of username-only invitation
-metadata already shared with the two invitation participants. Pending/declined
-recipients may reconnect for their original outcomes and future invitation state;
-this does not grant accepted-lobby/prepared-deck/gameplay access. Future preparation
-and gameplay read payloads must enforce that distinction when added in I10–I14.
+Socket `head` and revisions carry a separate nullable `preparation` payload.
+The inviter and accepted recipient receive it; pending/declined recipients receive
+only invitation metadata, including through revision HTTP reads and publication
+to an already subscribed socket. They can still recover their own original outcomes.
+The ordinary HTTP lobby summary/list remains metadata-only. Account-owned saved
+sources remain private even when an accepted participant receives the game copy.
 
 Accept/Decline requires the recipient and exact current pending attempt. Reinvite
 requires the inviter and exact declined attempt in the same preparation. A new
@@ -74,6 +75,44 @@ attempt is retained without replacing the game, preparation, name or server date
 Old attempt/preparation requests reject; same-ID retries recover their original
 result. Decline leaves the inviter's listed lobby; pending invites never age out.
 Accept is not Ready/start. No reciprocal contacts or online-presence check applies.
+
+## Prepared-deck selection — I10a1
+
+Use `action: {"type":"selectDeck","deckId":"captured UUID","sourceRevision":"decimal"}`
+with the current game/preparation UUIDs and **null invitation/play scope**. The
+captured saved revision is checked under a shared source-row lock in the same
+game execution transaction. A rename, cover or content change before execution
+rejects `sourceChanged`; absent/foreign/deleted sources uniformly reject
+`sourceUnavailable`. Wrong round, non-lobby and unaccepted-recipient requests
+reject normally. Invitation attempt changes are not preparation locks. No whole
+lobby revision, format/size, reciprocal-contact or online-presence guard is added.
+
+`PreparationRules.select` is the pure shared application used by the server and
+available to I10a2's provisional display. It installs an independent name/cover,
+source identity/revision and complete definition snapshot, partitions mainboard
+copies into Library and sideboard copies into Sideboard, and clears only the
+actor's Ready. This unit supplies the lower-layer Ready field/rules, not Ready/start
+actions or UI. Leaving, Reinvite and invitation decisions do not reset preparation.
+Later source changes/deletion never rewrite or cascade-delete selected copies.
+
+Copies have concrete UUIDv5 identities: namespace = selection request UUID,
+name = `prepared-card/<zero-based-index>` in captured saved-entry/copy order.
+The selected-deck identity uses `prepared-deck/0`. `PreparedDeck` stores that seed
+and compact `PreparedEntry` ranges (`firstIndex` is a decimal string), not an
+allocation per quantity or a fungible count without identity. `deck.card(entry,
+offset)` resolves the exact stable UUID. This also supports saved sources with
+large quantities without a new legality limit. A transfer in I10b must preserve
+these identities, splitting the ranges as needed rather than generating new copies.
+The result's `createdIds` contains the selected-deck UUID; all card UUIDs follow
+the shared role rule. Results are correlation/outcomes, never state snapshots.
+
+Explicit **V8** adds `player_preparation` and `game_definition`; neither references
+the mutable saved source. Immutable definitions remain referenced by the game.
+Selection, actor Ready clearing, definition retention, final result, revision and
+outbox commit together on the existing inbox/processor. Pending/final retries use
+the original request and cannot attach a second copy, revision or publication.
+The accepted preparation is in socket heads and revision payloads for coherent
+restart/recovery; picker drafts and outgoing/provisional work are not persisted here.
 
 ## Persistence and workers
 
@@ -111,13 +150,19 @@ Focused real PostgreSQL and actual WebSocket/HTTP tests:
 ```sh
 ./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest --tests '*GameWireTest' \
   :server:test --tests '*GameDurabilityTest' --tests '*GameSocketTest' --tests '*LobbyHttpTest'
+
+./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest --tests '*PreparationTest' \
+  :server:test --tests '*PreparedDeckTest' --tests '*GameSocketTest'
 ```
 
 These cover invitation lifecycle, immutable metadata, actor/context privacy,
 FIFO/pipelining, receipt commit, pending/final dedup, global conflicts, fenced
 replacement/independent devices, real SQL rollback/restart, committed publication,
 worker recovery/close and the retained V6 migration. They are server checks, not a
-native journey or final qualification. I09b2 supplies native controls/volatile
-recovery and the two-APK decline/reinvite/accept journey on this path. I10–I14 add
-preparation, Ready/start/cancel, gameplay and complete replica recovery to the same
-domain. I34–I36 retain full-suite, compatibility and final UI/release obligations.
+native journey or final qualification. I09b2 supplied native invitation controls/
+volatile recovery and the two-APK decline/reinvite/accept journey on this path.
+I10a1 adds pure/server selection, retained V7 migration, exact source isolation,
+actor-only Ready fixtures and actual socket preparation/privacy checks. I10a2 still
+owns the native picker and accepted/predicted/UI wiring; I10b owns transfers,
+I11/I12 Ready/start/cancel, and I13/I14 gameplay/complete replica extensions on this
+same domain. I34–I36 retain full-suite, compatibility and final UI/release obligations.

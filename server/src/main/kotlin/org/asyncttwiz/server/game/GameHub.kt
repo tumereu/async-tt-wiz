@@ -135,7 +135,10 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
             if (publication.gameId !in subscriptions && publication.gameId !in streams) return
             try {
                 principal() // A revoked socket is not a permanent authorization subscription.
-                if (publication.revision != null && publication.gameId in subscriptions) sendText(publication.revision)
+                if (publication.revision != null && publication.gameId in subscriptions) {
+                    val revision = GameWire.json.decodeFromString<GameServerMessage>(publication.revision) as GameRevision
+                    send(games.visibleRevision(revision, accountId))
+                }
                 if (publication.accountId == accountId) sendText(publication.result)
             } catch (failure: GameProtocolFailure) { if (failure.code == "unauthorized") stop() }
         }

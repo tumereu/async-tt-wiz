@@ -29,6 +29,17 @@
   delivery over minor-detail/fault-matrix detours. Record noncritical findings for
   final qualification or later owner review, not repeated early fix/audit loops;
   do not waive required behavior, final full-suite fixes, reviews or release gates.
+  **Nighttime/context survival:** the owner reaffirmed that these five-session
+  batches must keep running through the night, including across context limits
+  and compaction. This is the supervisor's active assignment, not a suggestion
+  for a future session. After compaction read the latest
+  [handoff](docs/agent/session-handoff.md) and
+  [batch record](docs/agent/supervised-batches-2026-10-22.md), inspect ownership/
+  stop/retained-run state, then continue safe batch execution and autonomous repair.
+  Do not end supervision merely because a batch paused or the context reset;
+  only actual completion, explicit owner pause, exhausted quota/budget or a truly
+  unavoidable boundary ends execution. Continue independent feasible scope around
+  external blockers; never fake completion or bypass safeguards to keep moving.
 - **Authorized implementation loop — D-300–D-304.** Read the
   [task plan](docs/agent/implementation-plan.md),
   [fresh-session/review contract](docs/agent/implementation-loop.md) and

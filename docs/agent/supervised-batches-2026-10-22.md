@@ -8,12 +8,25 @@ instructions/task scope before the next batch if necessary. Do not return a rout
 "continue?" checkpoint. The objective is the whole agreed R1 plus final full-suite
 testing and fixes, not report/qualification counts or a reduced demonstration.
 
+**Overnight reaffirmation (owner, 2026-10-22):** implementation agents must keep
+running through the night in these same five-session batches even if the supervisor
+hits context limits and compacts. This is the primary context-survival instruction:
+after compaction, resume this active assignment from actual Git/driver/state, not a
+new discussion or final "ready to continue" answer. Run a blocking
+`python3 scripts/implementation-loop.py run --max-runs 5 --timeout-seconds 86400`
+with shell `timeout: 0` only when no worker/controller owns the checkout. At every
+exit assess real journey progress/drift, repair/recover a safe owned handoff when
+needed and continue the next batch without owner approval. Preserve explicit later
+pause, original total budget, model/grants, safe saves/reviews/final tests/release
+gates. Missing external resources defer their corresponding claims, not remaining
+feasible implementation. A routine batch boundary or context reset is not a stop.
+
 ## Safe resume and preserved limits
 
 - Owning checkout: `/home/tuomas/projects/async-tt-wiz`, `master`, state
   `docs/agent/implementation-state.json`; starting committed workflow `d18ad62`.
-- The writer lock is free, no controller/headless implementation process exists,
-  and the only active OpenCode session is the supervising conversation. The
+- At initial resume the writer lock was free, no controller/headless implementation
+  process existed, and the only active session was the supervisor. The
   repaired workflow already recovered the stale previous run through the documented
   procedure; `retainedRun` is null. Do not invent another recovery or remove fences.
 - The stop flag initially remains set. Clear it only via the documented command
@@ -213,3 +226,21 @@ Accept/Decline/Reinvite and the shared durable ordered request processor are nex
 in I09b, then deck preparation/Ready/start. Assessment: on track; no extra refocusing
 or theoretical blockers. Thirty-five resumed fresh units consumed; 2,936 sessions
 remain. Full final test/fix/UI/compatibility obligations and release gates persist.
+
+### Batch 8 — invitation decisions and durable ordered transport delivered
+
+Range `00b7c7e..39a7378`: two normal APKs now Decline, Reinvite and Accept the same
+persistent named/date-stamped game through the actual negotiated socket, durable
+inbox/execution/outcome/publication and volatile client FIFO/recovery path. A green
+two-device interrupted-Accept/reconnect/restart journey retains exact attempt/game/
+preparation identity and original accepted requests. New worker tests cover only
+its actual durability/readiness/fencing seams, not unchanged platform matrices.
+
+Assessment: on track; no active findings or speculative blockers. A noncritical
+stale recovered HTTP error and migration-fixture assertion are explicitly owned by
+I34 rather than trapping this batch in refinements. Parent closures audited child
+evidence only. Next delivery is I10 preparation, I11 Ready/start, I12 integrated
+two-player lobby/start, followed by independent B3 review. Forty resumed fresh units
+consumed; 2,931 original-budget sessions remain. The owner's latest overnight
+reaffirmation is durable above and in AGENTS.md/session-handoff.md; continue after
+compaction and each ordinary batch pause, not a routine final response.

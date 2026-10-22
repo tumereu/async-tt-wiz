@@ -4,7 +4,25 @@ Updated 2026-10-22. This is continuation context, not a new source of requiremen
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
 
-## Latest owner execution direction — D-307
+## Active overnight continuation — read first after compaction
+
+**This conversation is the running implementation supervisor.** The owner has
+reaffirmed that if only one thing survives context limits/compaction, it must be
+continued five-session execution through the night. Do not turn a compacted
+context, routine batch pause or repaired controller exit into a final response.
+Read the latest [batch assessment](supervised-batches-2026-10-22.md), inspect actual
+Git/ownership/STOP/retained-run state and continue. At an idle clean boundary run
+`python3 scripts/implementation-loop.py run --max-runs 5 --timeout-seconds 86400`
+as a blocking shell call with `timeout: 0`; assess actual journey progress/drift,
+repair/recover safely as needed, and repeat without routine owner approval.
+Never start alongside an existing worker/controller. Preserve explicit later owner
+pause, exact high model, original total ceiling, scoped grants, safe saves, reviews,
+final full-suite/fixes and release gates. Noncritical details belong to the recorded
+final/owner review, not an early detour. The latest saved state—not old snapshots
+below—selects work. Last completed supervision batch is 8; I09 invitations are
+delivered, I10 preparation is next, and 2,931 original-budget sessions remain.
+
+## Latest owner execution direction — D-307/D-308
 
 **Owner resume — D-308:** the owner explicitly resumed after the committed workflow
 repair. Run five-session batches, each unit capped at 86,400 seconds, with no shell

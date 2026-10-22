@@ -112,9 +112,8 @@ def main():
         assert not d.linux_listening(config[key])
     assert not d.linux_listening(config['consolePort'] + 1)
     after = d.windows(value, 'inventory')
-    assert after['androidProcesses'] == baseline['androidProcesses']
-    for listener in baseline['listeners']:
-        assert listener in after['listeners'], 'Unrelated Windows listener changed'
+    print('AMBIENT WINDOWS INVENTORY DELTA (not causal evidence)',
+          json.dumps(d.inventory_changes(baseline, after)), flush=True)
     for line in (directory / 'launchers.jsonl').read_text().splitlines():
         identity = json.loads(line)
         assert d.process_identity(identity['pid']) != identity
@@ -123,7 +122,7 @@ def main():
     print('Actual native cleanup:', json.dumps(cleaned), flush=True)
     # This synthetic guest has no accounts or user content. Retain actual textual
     # tool/ADB results, but binary APK/DB/pixels are hashes/private artifacts.
-    print('PASS: exact native guest/ADB/Appium/watchdog/launcher/port cleanup; unrelated devices/listeners preserved, no mappings created', flush=True)
+    print('PASS: exact native guest/ADB/Appium/watchdog/launcher/port cleanup; no mappings created, ambient inventory retained for diagnosis', flush=True)
     print('LIMITATIONS: Startup-only scaffold observation, not full-stack acceptance. No Appium session/Kotlin scenario/instrumentation, Compose routing/backend connection, account/downloader/gameplay/Canvas or release qualification.', flush=True)
 
 

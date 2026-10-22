@@ -9,6 +9,16 @@ approve extra features or claim required app/device/release checks have passed.
 The later D-303 owner follow-up adds the explicit final interface-to-mock review
 and correction gate under B8.
 
+**D-307 — delivery-first scheduling/testing (2026-10-22):** follow the
+[execution policy and paused application procedure](delivery-first-execution.md).
+Minimize real time to complete R1: run/fix affected tests while implementing real
+user journeys; run the full suite at the end and fix its failures with affected
+rechecks. No repeated green clean builds/full suites/fault matrices at task or
+ancestor boundaries. Parent closure audits reusable child evidence and tests only
+uncovered affected integration. Older broad repetition wording in task/check
+records is superseded as an upfront/per-boundary gate, not deleted as a final
+obligation. See the [paused state migration/application record](delivery-first-application-2026-10-22.md).
+
 Read the [loop/review contract](implementation-loop.md),
 [progress record](implementation-state.json), [delivery gates](delivery-workflow.md)
 and [environment evidence](e2e-environment-smoke-2026-10-21.md) with this plan.
@@ -45,6 +55,10 @@ task carries its own relevant tests and usable presentation. Later batches add
 capabilities; their explicit pending status is not a defect in an earlier batch.
 Once a capability is delivered, its ordinary failure/recovery behavior is part of
 that delivery, not permission to leave a crash/data-loss hole until final hardening.
+Use affected checks for that behavior, not exhaustive recertification of all
+previous capabilities. Broad compatibility, repeated clean/cold-boot matrices and
+global regression qualification belong to the final B8 phase. Speculative concerns
+without a credible harmful failure path are not new implementation blockers.
 
 ## Work-unit and dependency rules
 
@@ -63,6 +77,11 @@ Keep the parent open until every child passes; inherit the same review batch and
 do not add reviews after each child. Splitting is technical planning, not a request
 for routine owner approval or permission to broaden scope. Do not call a whole
 multi-session feature complete because one internal layer was committed.
+
+Under D-307, do not add recursive splits just to create qualification layers.
+Existing parents still have selected fresh closure units, but those units audit
+exact child evidence/current inputs and cover a missing integration seam only.
+An unchanged integrated path already exercised by children is not run again.
 
 Independent group reviews can likewise span bounded fresh units. Their state
 records retain the full original capability obligation, any planning-only review
@@ -93,12 +112,20 @@ real containerized backend for ordinary account entry/navigation/recovery.
 
 | Task | Implementation and completion outcome |
 | --- | --- |
-| I01 | Establish reproducible Gradle modules, version locks and JVM21/API29→SDK36 clean builds; shared semantic/protocol boundaries, Spring image/config/health and PostgreSQL/Flyway/jOOQ generation; minimal SQLDelight storage/migration path. Add task-to-requirement/test coverage ledger and stable synthetic datasets/art. Provide exact build/unit/integration/E2E commands, isolated Compose and Testcontainers ownership, the measured WSL/Windows device adapter, readiness/reset/evidence/cleanup. Use/qualify the configured test-only review paths for the actual module layout; reviewers/verifiers cannot edit runtime or build inputs. D-305 permits evidenced driver/prompt repairs in implement/fix units; permission-grant changes still need outside-unit owner authorization. No production orchestration or alternate test app. |
+| I01 | Establish reproducible Gradle modules, version locks and JVM21/API29→SDK36 builds; shared semantic/protocol boundaries, Spring image/config/health and PostgreSQL/Flyway/jOOQ generation; minimal SQLDelight storage/migration path. Add task-to-requirement/test coverage ledger and stable synthetic datasets/art. Provide exact commands, isolated Compose/Testcontainers ownership and a working measured one-device normal-APK/WSL/Windows/Appium path with affected storage tests and safe readiness/reset/evidence/cleanup. Reuse valid child qualification; no repeated broad clean builds or unchanged platform fault matrices for ancestor closure. D-307 moves pending I01f3 three-instance/cold-boot scaffold qualification to B8 before I34; full reproducibility/global checks remain final obligations, not prerequisites to account entry. Use/qualify configured test-only review paths; reviewers/verifiers cannot edit runtime/build inputs. D-305 permits evidenced driver/prompt repairs, not self-expanded grants. No production orchestration or alternate test app. |
 | I02 | Implement register/login, persistent revocable tokens/Keystore, ordinary authorization and server account privacy; native A01/A02 forms/errors with consistent whitespace/Unicode passwords. Actual requests/storage, not a fake login or hard-coded user. |
 | I03 | Implement N01/N02 authenticated shell and Menu/Games navigation, fixed Logout, portrait drawer/landscape persistent navigation and native Back/fullscreen/rotation behavior. Restore valid login/context; Logout clears local private work/downloads immediately and fences old-account callbacks. Account-owned data synchronizes, unfinished UI stays personal. |
 | I04 | Complete A03/A04 email reset/deep-link handling and synthetic mailbox adapter; successful reset revokes old sessions for **new** requests, invalid/expired links do not. Run normal-app registration/login/reset/logout/resume journeys through Kotlin/JUnit/Appium, including restart and a second account/device. No special ordering against already-authorized gameplay. |
 
 **Sources:** accounts/decks/lobby, Android experience, auth, runtime/test architecture.
+
+**D-307 foundation handoff:** the [paused state migration](delivery-first-application-2026-10-22.md)
+is applied. Keep I01f2's actual one-device Appium/storage checks, then close
+ancestors through evidence reconciliation and proceed to I02. Set up further
+devices when a real delivered feature needs them (second-device account/reset at
+I04, two players at I12, third-instance recovery at I26/I31), rather than requiring
+repeated three-device scaffold runs first.
+
 **Seeds:** P-001/P-043/P-047/P-059/P-065/P-066; T-396/T-397/T-419–T-422,
 T-543/T-572/T-573/T-621/T-656/T-657/T-666/T-676/T-677.
 **Review journey:** fresh install → register → login → navigate/rotate/keyboard →
@@ -248,7 +275,7 @@ evidenced, not just a collection of locally passing parts.
 | --- | --- |
 | I32 | Whole-game usability pass against F01–F88 and completed packet: both orientations, long lists/hands/Stack, keyboard/large text/cutouts, native Back, reachability/accessibility, tooltip/gesture arbitration and text/art failure. Finish unpictured zone menus, inspectors, result/error states from existing rules. Improve demonstrable real-use friction; no arbitrary decorative redesign or demand for mockup pixel identity. |
 | I33 | Measure realistic scene/core/server/sync workloads against the runtime profile: gesture recognition versus provisional response, frames/retargeting, image loading, large retained histories, bounded replay/backpressure and memory. Fix observed stalls/OOM/race effects. Keep emulator tooling timings separate from physical-phone frame evidence; do not silently relax budgets or add gameplay caps. |
-| I34 | Complete requirement/test coverage and full-stack synthetic journeys, model/property/golden, real-PostgreSQL migrations/concurrency/fault, component/Canvas, normal-APK two-player/three-device, coherent full recovery and suite reset/isolation. Run a clean repeated suite; preserve failures and fix their causes. No skipped required checks, fake backend/action injection or unexplained unmapped current requirement. |
+| I34 | Final full-suite qualification after functionality: complete requirement/test coverage and full-stack synthetic journeys, model/property/golden, real-PostgreSQL migrations/concurrency/fault, component/Canvas, normal-APK two-player/three-device, coherent full recovery and suite reset/isolation. Include deferred repeated foundation/reproducibility assertions and I01f3 (moved to B8 immediately before this task, with its original obligations retained). Run the full suite, preserve/fix actual failures and rerun affected tests. No automatic second full run after each fix or "to be sure"; broaden rechecks only when the repair credibly affects that scope. No skipped required checks, fake backend/action injection or unexplained unmapped current requirement; report the full run and subsequent affected rechecks accurately. |
 | I35 | Supported Android/API29/current/tablet/non-GMS and compatible mixed-version/upgrade qualification; stable test/release signing interfaces and versioned APK/hash/protocol metadata. Validate container/config/health/migration/shutdown/restart and amd64/arm64 application image interfaces, not production Compose/backups or a Pi-capacity promise. Keys remain external; install upgrades normally without wiping supported data. |
 | I36 | Reconcile final delivered scope, evidence, retained-data/erasure interfaces and documented limitations; prepare installation/test/operator-interface notes and release-readiness checklist. Prepare the complete final interface-to-mock comparison inventory and normal-app capture/journey evidence below for the independent B8 review. Record provider/art rights/attribution, release signing/host and unavailable reference-hardware checks as explicit external gates, never fabricated clearance. All actionable final-review issues get fix/targeted verification runs before completion. |
 

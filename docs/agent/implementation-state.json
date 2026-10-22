@@ -82,9 +82,10 @@
       "status": "in-progress",
       "children": ["I01a", "I01b", "I01c", "I01d", "I01e", "I01f"],
       "planningRecord": "docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json",
-      "outcome": "Complete the unchanged I01 foundation outcome in implementation-plan.md after all six children are implemented; qualify their combined clean build, storage, image and normal-APK test-environment interfaces before I02. B1 independent review still follows I01-I04 together.",
+      "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",
+      "outcome": "Complete D-307's scoped one-device I01 foundation after all six children are implemented. Reconcile their existing build, storage, image and normal-APK environment evidence, testing only missing affected integration before I02. Broad repeated clean/reproducibility qualification remains I34; I01f3's pending three-device matrix is retained in B8 before I34. B1 independent review still follows I01-I04 together.",
       "checks": [
-        "Run the children's actual documented commands together from a clean build and independently reset synthetic environment; retain build/unit/integration/device outputs and verify owned-service cleanup.",
+        "Run a small current-unit evidence audit of child records, exact relevant source/artifact identities and the integrated one-device path. Reuse unchanged passing evidence; run only a missing or materially affected integration assertion, not all child commands or another clean build. Retain the audit output and unresolved final qualification ownership.",
         "Validate complete P-001-P-072, T-001-T-715 and F01-F88 coverage accounting without treating assigned or superseded scenarios as executed passes; verify child evidence and remaining feature dependencies.",
         "Confirm actual test-only paths match the unchanged reviewTestPaths, unavailable resources remain recorded, and no external release gate or later account/gameplay outcome is claimed passed."
       ]
@@ -348,15 +349,16 @@
       "id": "I01f",
       "batch": "B1",
       "status": "in-progress",
-      "children": ["I01f1", "I01f2", "I01f3"],
+      "children": ["I01f1", "I01f2"],
       "planningRecord": "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json",
+      "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",
       "dependsOn": ["I01a", "I01c", "I01d", "I01e"],
-      "outcome": "Qualify the measured WSL/Windows remote-ADB/Appium adapter and Kotlin/JUnit host-side runner against the normal scaffold APK and real isolated backend environment, with explicit serial/port ownership, bounded actual readiness, device-visible startup evidence and cleanup. Publish exact reproducible build/unit/integration/component/E2E commands and resource limitations for fresh sessions; early startup qualification is not account/gameplay/Canvas acceptance.",
+      "outcome": "Complete the measured one-device WSL/Windows remote-ADB/Appium and Kotlin/JUnit path against the normal APK and real isolated backend, including the affected actual Android storage tests, owned readiness and cleanup. Audit existing child integration evidence without repeating unchanged broad builds or failure matrices. Retain reproducible commands and resource limits. D-307 defers the unchanged functional three-device/cold-boot matrix to I01f3 in B8 before I34; early startup is not account/gameplay/Canvas acceptance.",
       "checks": [
-        "Install/launch and observe the normal APK on one, two and three API29 non-GMS Android instances using distinct Appium sessions/driver ports and real UI discovery/touch where startup controls exist; no browser-fixture substitute or alternate test screen. Run I01d's focused storage instrumentation on the actual Android driver. Retain screenshots/hierarchy and per-device results.",
-        "Check actual Android-to-backend/catalog endpoint reachability as infrastructure diagnostics, separately from user-visible acceptance. Repeat after owned-device cold boot and Compose reset; preserve app/backend state during an in-scenario process restart.",
-        "Qualify WSL IPv4-scoped build/test JVMs, detached Windows launch/readiness and Windows-native shutdown of exact owned AVDs under existing permissions; collect evidence before cleanup and verify owned services/ports stop without affecting unrelated devices.",
-        "Document and execute the exact available commands, versions, reset/evidence paths and normal-APK signing/configuration interfaces. Carry unavailable hardware/permission checks as retained blockers, keep physical frame measurement in I33 and API/current/tablet/upgrade/image qualification in I35, and leave B1 account journeys plus B4 Canvas targeting pending."
+        "Audit the one actual API29 non-GMS normal-APK Appium startup and I01d Android-driver/controller/launcher instrumentation from I01f2, with actual XML/screenshots/hierarchy and no skipped/red affected tests. Retain all multi-device/repeated cold-boot assertions under pending I01f3 in B8, not as passing foundation checks.",
+        "Reconcile existing real Android-to-backend/catalog route, reset/restart retention and failed-readiness evidence against unchanged relevant inputs; run only uncovered or affected integration. Do not repeat the child's already passing fault matrix or cold-boot qualification for parent closure.",
+        "Audit existing WSL IPv4 build/test configuration and exact detached Windows/native-shutdown ownership evidence, plus affected controller regressions when changed. Verify owned-resource cleanup without inferring controller-caused damage from independently changing machine-wide inventory.",
+        "Retain exact commands, versions, reset/evidence paths and normal-APK signing/configuration interfaces with their existing execution records. Execute only missing or affected checks, not every documented command again. Carry unavailable hardware/permission checks as retained blockers, keep broad repeated qualification in I34, physical frame measurement in I33 and API/current/tablet/upgrade/image qualification in I35; B1 account journeys and B4 Canvas targeting remain pending."
       ]
     },
     {
@@ -365,12 +367,13 @@
       "status": "in-progress",
       "children": ["I01f1a", "I01f1b"],
       "planningRecord": "docs/agent/implementation-runs/20261022T000023Z-9ea51e7b.json",
+      "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",
       "dependsOn": ["I01a", "I01c", "I01d", "I01e"],
       "outcome": "Implement the reusable test-only WSL/Windows device-service controller: explicit owned AVD/serial/port identities, dedicated remote ADB and isolated Appium executable/driver home, detached Windows launch, bounded actual Android/Appium readiness, safe capture and exact Windows-native shutdown. Qualify one API29 non-GMS device by installing/launching the normal scaffold APK and capturing its real visible startup. Measure device-to-real-Compose backend/source routing separately as infrastructure diagnostics, preserving private administration and loopback isolation. Do not implement Kotlin UI scenarios, alternate app screens or account/gameplay APIs in this child.",
       "checks": [
-        "Run controller unit/failure regressions for busy/foreign serials, AVD identities, ports and service processes; require nonzero failed setup/readiness without adopting or stopping unrelated resources. Record explicit tool paths/versions and owned PID/serial/AVD/mapping identities under the unchanged session permissions; do not silently reuse another ADB/Appium server.",
-        "Start a dedicated Windows ADB service, one detached WHPX API29 non-GMS AVD and isolated Appium service; bound readiness using actual boot completion/package manager and Appium status rather than launcher PID or sleeps. Install the normal APK, launch its production MainActivity and retain screenshot/hierarchy plus package/signer/API/storage-startup evidence. This is adapter/startup qualification, not a passing Appium UI scenario or instrumentation run.",
-        "Provision/wait the real I01e environment and measure an explicit per-device route to only its public backend/source ports, including synthetic source bytes/art origin and the real backend's currently expected public HTTP response. Treat shell/network probes as infrastructure diagnostics, not app downloader/auth acceptance. Check unavailable/broken routing fails setup, retain safe evidence before exact cleanup, verify owned mappings/listeners/AVD/ADB/Appium/Compose resources stop and unrelated inventory is unchanged. Document fresh setup, capture and cleanup commands for I01f2."
+        "Run a small current-unit audit of I01f1a/I01f1b records and unchanged relevant source/artifact identities. Reuse actual busy/foreign-resource refusal, readiness, cleanup and pinned-tool evidence; rerun only materially affected controller checks. Do not repeat the complete child lifecycle/fault matrix.",
+        "Reconcile the children's actual normal-APK API29 production-launch, screenshot/hierarchy, signer and storage-startup evidence. If the integrated path was already exercised with valid relevant inputs, do not launch another scaffold qualification. Preserve the distinction from I01f2's pending Appium scenario and instrumentation execution.",
+        "Audit the existing combined real I01e public-route/handoff, unavailable-route recovery, source bytes/art origins and exact owned cleanup evidence, covering only a genuinely missing or affected seam. Preserve private administration and foreign-resource refusal. Ambient inventory changes are diagnostic, not proof of interference. Retain commands for I01f2 without another broad build/device repeat."
       ]
     },
     {
@@ -473,23 +476,12 @@
       "batch": "B1",
       "status": "pending",
       "dependsOn": ["I01f1"],
+      "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",
       "outcome": "Implement and qualify the Kotlin/JUnit host Appium/UiAutomator2 runner on one owned API29 non-GMS instance using I01f1's real controller and normal APK/Compose environment. Pin compatible client dependencies/locks and explicit serial/session/system-port capabilities, observe native startup through real UI discovery/touch where existing controls permit, retain screenshot/hierarchy/results and close sessions safely. Execute I01d's actual production Android-driver/controller/normal-launcher instrumentation, fixing evidenced failures without replacing it with a test app or counting compilation as execution. Establish fresh independent-scenario app-data setup distinct from retained in-scenario process restart.",
       "checks": [
         "Run the actual one-device Kotlin/JUnit Appium startup scenario with the real backend environment ready, production package/activity, explicit remote ADB/serial and UiAutomator2 port. Discover real native Compose startup content and use real pointer input on existing controls where available; do not add a dummy button, force a product failure merely for a touch target, inject app state or substitute the historical browser fixture. Retain normal-app screenshot/hierarchy and actual JUnit/session outcomes; explicitly distinguish startup observation from pending account/Canvas acceptance.",
         "Run androidApp connectedDebugAndroidTest selecting StorageDriverTest, StorageViewModelTest and StartupTest against the owned remote ADB/serial. Require all 14 existing production-driver/controller/launcher tests to execute without skipped/red tests; retain actual XML, per-device results and failure logs. Assert non-destructive migration/refusal/retry, off-main open/close/recreation and real SQLite behavior through the existing tests, not host-driver success or APK assembly alone.",
-        "Exercise fresh Android app data plus successful Compose reset/wait before independent scenarios, failed setup refusal and evidence-before-cleanup. Separately force-stop/relaunch the normal app within a scenario without clear/uninstall/reset and prove existing scaffold storage/host environment retention with read-only diagnostics where necessary; no fake account/game data. Qualify WSL-scoped IPv4 JVMs, locked clean host/component/normal-APK builds and affected regressions, dependency/license provenance, registered test-only paths, exact signing/configuration/test commands and owned session/device/service cleanup."
-      ]
-    },
-    {
-      "id": "I01f3",
-      "batch": "B1",
-      "status": "pending",
-      "dependsOn": ["I01f2"],
-      "outcome": "Extend and qualify the real Kotlin/JUnit/controller path with two and three simultaneously alive normal-APK API29 non-GMS instances, separate Appium sessions/UiAutomator2 ports and per-device startup/storage evidence. Repeat the one/two/three qualification after exact owned-device shutdown/cold boot and independent-scenario Compose/app-data reset, retaining in-scenario restart semantics. Complete the fresh-session command/resource/evidence/cleanup handoff; leave I01f open for its later combined parent qualification and keep account/gameplay/Canvas, physical performance and I35 compatibility/upgrade obligations explicit.",
-      "checks": [
-        "Execute one-, two- and three-instance Kotlin/JUnit startup runs with all selected sessions alive together and concurrent native UI observation/input where real startup controls exist. Prove unique serial/AVD/Appium-session/system-port assignments, no cross-device session override and no API-controlled opponent. Run the focused 14-test storage instrumentation on each of the three actual devices and retain per-device XML/results, screenshots/hierarchies, package/signer/API identities and bounded readiness output.",
-        "Stop only exact owned AVDs with Windows-native shutdown, cold boot them without snapshot reliance, explicitly reset/wait Compose and start fresh app data for each independent scenario, then repeat one/two/three startup plus Android-to-real-backend/source infrastructure probes. A failed boot/reset/readiness/mapping fails setup. Exercise failure-then-fresh-setup without stale success evidence; do not clear app/backend state during a separate in-scenario process-restart checkpoint. Retain actual per-device evidence and exact old/new resource identities.",
-        "Run controller/host/component/affected foundation regressions and final cleanup under the existing grants; verify owned AVDs, remote ADB/Appium/mapping/Compose ports and resources are stopped while unrelated devices/services remain intact. Publish the reproducible clean build/unit/integration/component/E2E/reset/evidence/cleanup commands, qualified versions and signing/configuration interfaces. Record unavailable current/tablet/physical/arm64/release resources without waivers; do not label emulator timing physical frame evidence, startup a full account/game scenario, or infrastructure probes normal downloader acceptance."
+        "Exercise fresh Android app data plus successful Compose reset/wait before these actual independent scenarios, capture evidence and close only owned sessions/resources. Use incremental locked builds and affected runner/storage/controller regressions. Reuse unchanged I01f1 reset/restart retention, IPv4/tool/provenance and foreign-resource safety evidence instead of rerunning its platform matrix. No fake account/game data, broad full-suite run or extra scaffold-certification children; then proceed toward actual account entry."
       ]
     },
     { "id": "I02", "batch": "B1", "status": "pending" },
@@ -524,7 +516,22 @@
     { "id": "I31", "batch": "B7", "status": "pending" },
     { "id": "I32", "batch": "B8", "status": "pending" },
     { "id": "I33", "batch": "B8", "status": "pending" },
-    { "id": "I34", "batch": "B8", "status": "pending" },
+    {
+      "id": "I01f3",
+      "batch": "B8",
+      "status": "pending",
+      "dependsOn": ["I01f2", "I31"],
+      "planningRecord": "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json",
+      "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",
+      "outcome": "Extend and qualify the real Kotlin/JUnit/controller path with two and three simultaneously alive normal-APK API29 non-GMS instances, separate Appium sessions/UiAutomator2 ports and per-device startup/storage evidence. Repeat the one/two/three qualification after exact owned-device shutdown/cold boot and independent-scenario Compose/app-data reset, retaining in-scenario restart semantics. Complete the command/resource/evidence/cleanup handoff as final B8 qualification before I34 under D-307; do not reopen I01f. Keep product journey, physical performance and I35 compatibility/upgrade obligations explicit. Reuse applicable feature-era multi-device evidence rather than rerunning equivalent unchanged cases.",
+      "checks": [
+        "Execute one-, two- and three-instance Kotlin/JUnit startup runs with all selected sessions alive together and concurrent native UI observation/input where real startup controls exist. Prove unique serial/AVD/Appium-session/system-port assignments, no cross-device session override and no API-controlled opponent. Run the focused 14-test storage instrumentation on each of the three actual devices and retain per-device XML/results, screenshots/hierarchies, package/signer/API identities and bounded readiness output.",
+        "Stop only exact owned AVDs with Windows-native shutdown, cold boot them without snapshot reliance, explicitly reset/wait Compose and start fresh app data for each independent scenario, then repeat one/two/three startup plus Android-to-real-backend/source infrastructure probes. A failed boot/reset/readiness/mapping fails setup. Exercise failure-then-fresh-setup without stale success evidence; do not clear app/backend state during a separate in-scenario process-restart checkpoint. Retain actual per-device evidence and exact old/new resource identities.",
+        "Run controller/host/component/affected foundation regressions and final cleanup under the existing grants; verify owned AVDs, remote ADB/Appium/mapping/Compose ports and resources are stopped while unrelated devices/services remain intact. Publish the reproducible clean build/unit/integration/component/E2E/reset/evidence/cleanup commands, qualified versions and signing/configuration interfaces. Record unavailable current/tablet/physical/arm64/release resources without waivers; do not label emulator timing physical frame evidence, startup a full account/game scenario, or infrastructure probes normal downloader acceptance."
+      ]
+    },
+    { "id": "I34", "batch": "B8", "status": "pending", "dependsOn": ["I01f3"],
+      "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md" },
     { "id": "I35", "batch": "B8", "status": "pending" },
     { "id": "I36", "batch": "B8", "status": "pending" }
   ],

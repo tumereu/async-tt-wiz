@@ -1,5 +1,12 @@
 # Host-side E2E boundary
 
+**D-307 delivery-first operation:** [run/fix affected checks](../docs/agent/delivery-first-execution.md)
+and reuse valid child evidence. Do not repeat the historical clean/full-device
+qualifications below at every task/ancestor boundary. The
+[paused application](../docs/agent/delivery-first-application-2026-10-22.md) retains
+pending three-device scaffold qualification in B8 and records the ambient-inventory
+oracle repair; one-device Appium/storage execution remains I01f2, still unperformed.
+
 Windows/WSL **I01f1a device-service lifecycle is qualified**: see
 [device commands and limits](devices-README.md). Actual owned API29/Appium
 readiness, foreign-resource/mapping refusal, timeout/service-loss invalidation,

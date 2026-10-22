@@ -6,6 +6,18 @@ resources. The model is pinned to `openai/gpt-6.1-sol#high` for every role; do n
 switch it. Runner qualification in an explicitly authorized disposable repository
 does not authorize application work in the real project.
 
+**D-307 — delivery first:** read [the current execution policy](delivery-first-execution.md).
+Optimize real time to the whole delivered R1. Implement the next usable capability,
+run/fix affected tests and continue. Do not repeat a full suite, clean/cache-disabled
+build or unchanged failure matrix "to be sure", because this is a fresh session,
+or at each ancestor closure. Broad qualification is at the end. A parent uses a
+small run-owned evidence audit plus missing affected integration checks, reusing
+exact child records/input identities without claiming old output is a new run.
+Keep independent capability reviews and fresh targeted fix verification; do not
+invent theoretical blockers or new scaffold-certification subtasks. Retain deferred
+required assertions and release gates. Apply live scheduling changes only through
+the policy's paused outside-unit procedure, never by bypassing driver guards.
+
 1. Read AGENTS.md, the state file, its task plan/loop contract and current findings.
    Confirm explicit authorization and the supplied priority selection against the
    actual repository. The driver guards priorities; you must still understand and
@@ -41,7 +53,14 @@ does not authorize application work in the real project.
    included in `changedPaths` when changed, and committed byte-for-byte. This is
    not permission to change runtime/build inputs, older reports or import these
    helpers into the application. Unlisted helpers are rejected at handoff.
-4. Run applicable checks and retain their actual output. A diagnostic reproducing
+4. Run affected checks under D-307 and retain their actual output. Identify the
+    affected scope briefly in the existing summary/selection reason; no separate
+    planning/check-in unit is needed for test selection. Stop testing once those
+    checks pass unless a changed relevant input, evidenced failure or missing
+    assertion justifies more. Use incremental builds by default. Do not run the
+    product's full suite at each task, review, fix, save or parent boundary. At final
+    qualification run the full suite, fix failures and rerun affected tests; a fix
+    alone does not require another full run. A diagnostic reproducing
     a review finding may fail; mark it `diagnostic`. Required validation must pass
     for a successful unit. No skipped/red required check may be labeled passing.
    **D-305: make your best autonomous effort to deliver the specified vision.**
@@ -262,8 +281,8 @@ redacted text outputs into this run's owned evidence paths before saving. Keep
 large private artifacts outside Git as appropriate, but do not use an incidental
 external/ignored file in place of the required committed check output.
 If validation/save/push fails, troubleshoot and repair within the authorized scope,
-then rerun applicable checks and retry the same save. Do not stop at the first
-ordinary failure. If it genuinely cannot reach a safe committed/pushed boundary
+then rerun only checks affected by the repair and retry the same save. Do not stop
+at the first ordinary failure. If it genuinely cannot reach a safe committed/pushed boundary
 after investigation, preserve evidence/work and report failure; only then does the
 driver halt. No success handoff on an unresolved failed save.
 

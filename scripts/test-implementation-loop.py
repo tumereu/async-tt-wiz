@@ -224,6 +224,40 @@ class FakeOpenCode:
 
 
 class SelectionTests(unittest.TestCase):
+    def delivery_first_state(self):
+        state = initial_state()
+        state['batches'].append({'id': 'B8', 'status': 'pending', 'reviewedCommit': None})
+        state['tasks'] = [
+            {'id': 'I01', 'batch': 'B1', 'status': 'implemented', 'children': ['I01f']},
+            {'id': 'I01f', 'batch': 'B1', 'status': 'implemented'},
+            {'id': 'I02', 'batch': 'B1', 'status': 'pending'},
+            {'id': 'I01f3', 'batch': 'B8', 'status': 'pending', 'dependsOn': ['I01f']},
+            {'id': 'I34', 'batch': 'B8', 'status': 'pending', 'dependsOn': ['I01f3']},
+        ]
+        return state
+
+    def test_delivery_first_deferred_matrix_does_not_block_account_or_group_review(self):
+        state = self.delivery_first_state()
+        self.assertEqual(loop.selection(state)['target'], 'I02')
+        state['tasks'][2]['status'] = 'implemented'
+        self.assertEqual(loop.selection(state), {'mode': 'review', 'target': 'B1', 'findingIds': []})
+        self.assertEqual(state['tasks'][3]['status'], 'pending')
+
+    def test_delivery_first_final_suite_still_requires_deferred_matrix(self):
+        state = self.delivery_first_state()
+        state['tasks'][2]['status'] = 'implemented'
+        reviewed(state['batches'][0], 'reviewed-feature-code')
+        self.assertEqual(loop.selection(state)['target'], 'I01f3')
+        state['tasks'][3]['status'] = 'implemented'
+        self.assertEqual(loop.selection(state)['target'], 'I34')
+
+    def test_delivery_first_blocked_matrix_cannot_be_skipped_for_final_completion(self):
+        state = self.delivery_first_state()
+        state['tasks'][2]['status'] = 'implemented'
+        reviewed(state['batches'][0], 'reviewed-feature-code')
+        state['tasks'][3]['status'] = 'blocked'
+        self.assertEqual(loop.selection(state)['mode'], 'blocked')
+
     def test_group_review_not_after_each_task(self):
         state = initial_state()
         self.assertEqual(loop.selection(state)["target"], "F1")

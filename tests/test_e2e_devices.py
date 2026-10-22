@@ -45,6 +45,27 @@ class DeviceControllerTest(unittest.TestCase):
     def test_explicit_config_validates_without_launch(self):
         self.assertEqual(self.config, d.validate_config(self.config))
 
+    def test_ambient_listener_disappearance_is_reported_without_false_failure(self):
+        listener = {'address': '::1', 'pid': 16360, 'port': 44379}
+        before = {'listeners': [listener], 'androidProcesses': []}
+        original = copy.deepcopy(before)
+        self.assertEqual(d.inventory_changes(before, {'listeners': [], 'androidProcesses': []}),
+                         {'listeners': {'removed': [listener], 'added': []}})
+        self.assertEqual(before, original)
+
+    def test_inventory_delta_reports_changed_process_identity_and_container_churn(self):
+        before = {'androidProcesses': [{'pid': 7, 'created': 'old'}], 'container': ['old-container']}
+        after = {'androidProcesses': [{'pid': 7, 'created': 'new'}], 'container': ['new-container']}
+        self.assertEqual(d.inventory_changes(before, after), {
+            'androidProcesses': {'removed': before['androidProcesses'], 'added': after['androidProcesses']},
+            'container': {'removed': ['old-container'], 'added': ['new-container']},
+        })
+
+    def test_inventory_order_and_dictionary_order_do_not_manufacture_changes(self):
+        before = {'listeners': [{'pid': 1, 'port': 2}, {'pid': 3, 'port': 4}]}
+        after = {'listeners': [{'port': 4, 'pid': 3}, {'port': 2, 'pid': 1}]}
+        self.assertEqual(d.inventory_changes(before, after), {})
+
     def test_duplicate_ports_default_adb_and_console_range_refused(self):
         for changes in ({'systemPort': 15038}, {'systemPort': 5565}, {'adbPort': 5037},
                         {'consolePort': 5563}, {'consolePort': 15554}, {'adbPort': True}, {'adbPort': 65535}):

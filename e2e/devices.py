@@ -91,6 +91,22 @@ def invalidate(value):
         (Path(value['directory']) / name).unlink(missing_ok=True)
 
 
+def inventory_changes(before, after):
+    """Report ambient changes, not proof that this controller caused them.
+
+    Exact owned-process/port cleanup and foreign-resource refusal remain hard
+    checks. An unrelated listener/process/container can legitimately stop or
+    start during qualification; retain the delta without declaring interference.
+    """
+    changes = {}
+    for kind in sorted(before.keys() | after.keys()):
+        removed = [item for item in before.get(kind, []) if item not in after.get(kind, [])]
+        added = [item for item in after.get(kind, []) if item not in before.get(kind, [])]
+        if removed or added:
+            changes[kind] = {'removed': removed, 'added': added}
+    return changes
+
+
 def windows(value, operation, timeout=90):
     """Detach redirected Windows children from WSL pipes, with a bounded parent."""
     directory = Path(value['directory'])

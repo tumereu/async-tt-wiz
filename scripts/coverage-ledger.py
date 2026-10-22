@@ -20,7 +20,7 @@ SOURCES = {
 # Each scope is a future assertion/check obligation in the approved parent task.
 # Exact commands/source symbols are bound when that feature exists, not invented now.
 SCOPES = {
-    1: ("foundation", "Reproducible modules/builds, actual storage/migrations, service health, synthetic data, reset/isolation and normal-APK device adapter", ["build", "integration", "device"]),
+    1: ("foundation", "Reproducible modules/builds, storage/migrations, service health, synthetic data, reset/isolation and one-device normal-APK adapter; D-307 defers broad repeated qualification to I34/I01f3", ["build", "integration", "device"]),
     2: ("credentials", "Normal registration/login, protected persistent revocable token, exact passwords, privacy and authorization failures", ["unit", "integration", "normal-app-ui"]),
     3: ("shell", "Menu/Games/navigation, native Back/rotation/restart, local Logout cleanup and old-account callback fencing", ["component", "normal-app-ui"]),
     4: ("reset", "Email/deep-link reset success/failure, session revocation for new requests and ordinary same-account recovery", ["integration", "normal-app-ui"]),
@@ -53,7 +53,7 @@ SCOPES = {
     31: ("integrated-journeys", "Normal two-player/three-instance B1-B7 journeys across lifecycle, communication, restart/relogin/background and cross-task recovery", ["normal-app-ui"]),
     32: ("usability", "Both-orientation whole-game usability/accessibility/keyboard/overflow/tooltip arbitration and cumulative F01-F88 constraints", ["component", "normal-app-ui"]),
     33: ("performance", "Measured realistic core/server/sync/scene workloads, bounded memory/replay and physical reference-phone frames distinct from emulator timing", ["performance", "device"]),
-    34: ("coverage", "Reconcile every current source assertion with repeated real full-stack synthetic journeys and required lower-layer coverage; assignments are not passes", ["unit", "property", "integration", "normal-app-ui"]),
+    34: ("coverage", "Final full-suite real full-stack journeys, deferred I01f3 multi-device/reproducibility assertions and required lower-layer coverage, with affected rechecks after fixes; assignments are not passes", ["unit", "property", "integration", "normal-app-ui"]),
     35: ("compatibility", "API29/current/tablet/non-GMS, real signed upgrades/migrations/mixed-version negotiation and amd64/arm64 image/config/health qualification", ["integration", "device", "normal-app-ui"]),
     36: ("delivery", "Whole-R1 scope/evidence/operator interface reconciliation and complete D-303 both-orientation mock/unpictured interface inventory for independent B8 review", ["document", "normal-app-ui", "independent-review"]),
 }

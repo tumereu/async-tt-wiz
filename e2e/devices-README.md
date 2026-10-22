@@ -1,5 +1,14 @@
 # Windows/WSL device controller — combined scaffold/environment handoff
 
+**Current D-307 execution:** use [affected checks and evidence reuse](../docs/agent/delivery-first-execution.md),
+not another full build/device/fault matrix at each parent or task. Historical clean
+build and strict inventory qualification snapshots below are provenance, not new
+per-unit commands. The [paused application](../docs/agent/delivery-first-application-2026-10-22.md)
+moves pending three-device scaffold qualification to B8; I01f2 retains actual
+one-device Appium/storage checks. Ambient Windows/Docker changes are now retained
+as diagnostic deltas, not frozen-host assertions. Exact owned-resource cleanup and
+foreign-resource refusal remain hard checks; no new actual-device pass is claimed.
+
 **Device-service foundation only, not product E2E.** The test-only
 [`devices.py`](devices.py) / [`windows-device.ps1`](windows-device.ps1) controller
 has actually booted API29 default non-GMS Windows WHPX guests, checked their AVD

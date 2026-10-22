@@ -1,8 +1,31 @@
 # 14. Session handoff — implementation authorized
 
-Updated 2026-10-21. This is continuation context, not a new source of requirements.
+Updated 2026-10-22. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
+
+## Latest owner execution direction — D-307
+
+The owner approves [delivery-first execution](delivery-first-execution.md): minimize
+real elapsed time to deliver the whole agreed software. Run/fix affected tests as
+features are built; reserve the full suite and its fixes for final qualification.
+No repeated green full-suite/clean-build/emulator fault-matrix runs merely to be
+sure or to close every nested parent. Reuse valid evidence, audit missing seams,
+prioritize actual user journeys and reject invented theoretical blockers. Keep
+independent capability reviews, fresh targeted fix verification, security/data
+integrity, truthful results and all release gates.
+
+The prepared branch has been applied at a safe paused boundary; see the
+[application/recovery record](delivery-first-application-2026-10-22.md). Newer I01f1b
+work is preserved. Pending I01f3 is now final B8 work before I34, not a prerequisite
+to account entry. I01f2 retains actual one-device startup/storage checks. Next is
+I01f1's short child-evidence reconciliation, I01f2, remaining foundation evidence
+closures, then I02 and the real capabilities. The stale active journal was recovered
+through the driver; **STOP remains set and no worker was started**. Do not restart
+the supervisor without owner resume or repeat global qualification during closures.
+
+Earlier "next task" statements below are historical checkpoints. Read the latest
+saved progress record for actual task status, not those historical snapshots.
 
 ## Saving edits — D-178
 

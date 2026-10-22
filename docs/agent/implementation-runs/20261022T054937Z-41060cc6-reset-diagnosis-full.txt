@@ -1,0 +1,4 @@
+{
+  "output": "resources {'database': 'running', 'adapter-init': 'exited', 'adapters': 'running', 'migrate': 'exited', 'backend': 'running'}\nbackend [('/health/live', (200, b'OK\\n')), ('/health/ready', (200, b'OK\\n'))]\nadapter {'status': 'up'}\nowner atw-e2e-41060cc611114af58b9f3861313df8c1\nepoch '1'\nlocks '1'\npublic (404, b'Not found\\n')\nsources [('/prism/Meta.json', (200, b'{\\n  \"data\": {\\n    \"date\": \"2026-10-11\",\\n    \"version\": \"5.2.2\"\\n  },\\n  \"meta\": {\\n    \"date\": \"2026-10-11\",\\n    \"version\": \"5.2.2\"\\n  }\\n}\\n')), ('/quilt/Meta.json', (200, b'{\\n  \"data\": {\\n    \"date\": \"2026-10-11\",\\n    \"version\": \"5.2.2\"\\n  },\\n  \"meta\": {\\n    \"date\": \"2026-10-11\",\\n    \"version\": \"5.2.2\"\\n  }\\n}\\n')), ('/admin/state', (404, b'{\\n  \"error\": \"not found\"\\n}\\n'))]\n",
+  "outputSha256": "ebafeaaee0e1b71b6e1b34b5d2257ae1181ee2217277b22eaf0dbc623adefaa6"
+}

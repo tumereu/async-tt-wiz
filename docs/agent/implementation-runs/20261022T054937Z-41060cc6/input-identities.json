@@ -1,0 +1,146 @@
+{
+  "androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk": {
+    "sha256": "b12f16509051fd7148ae915fa78ba3d2b743d4926b1d8f7ae8c178ae2f4cae30",
+    "bytes": 2646713
+  },
+  "androidApp/build/outputs/apk/debug/androidApp-debug.apk": {
+    "sha256": "ccb1b5160f7a5c46db8ae511af86a6a397e461d89f57b50944703215d9a515de",
+    "bytes": 32868287
+  },
+  "androidApp/build.gradle.kts": {
+    "sha256": "c6b977058325738c6e438437d4ba9f3adee6d3f65c38e99c57a09b530377e8d6",
+    "bytes": 2641
+  },
+  "androidApp/gradle.lockfile": {
+    "sha256": "38977337746a321baad6da6d4999d29e047ef8ebb8294ad41d4bc3bc0e3e4ff6",
+    "bytes": 90308
+  },
+  "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/AccountEntryTest.kt": {
+    "sha256": "c9c90e00482076f16faab134fa5f759257f284d3a94cb64ed4adfe0e7b6f0732",
+    "bytes": 2544
+  },
+  "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/AuthSavedStateTest.kt": {
+    "sha256": "268c86b374c99817341db1b5e85b285e833e14c0348cd2bc365c51b262c7f525",
+    "bytes": 1859
+  },
+  "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/ProtectedSessionStoreTest.kt": {
+    "sha256": "3a3719159f40c21f734671705dd20c159fa0c2799405837d64eadd97bf6e9d53",
+    "bytes": 2423
+  },
+  "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/RevokeSavedSessionTest.kt": {
+    "sha256": "dee6dd39593808be78f42a3c9da80919cff5e9350d551e6d125409bf4b3d1632",
+    "bytes": 1263
+  },
+  "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/StartupTest.kt": {
+    "sha256": "08fa96bde29a4bb679dbd37282da3e7ac0a3dfe877aa234c5dfb631a046bd63c",
+    "bytes": 1831
+  },
+  "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/StorageDriverTest.kt": {
+    "sha256": "d5473eb9e53cd90b0f29f6813a60542f2136136550017607aedbfe8dafcb9123",
+    "bytes": 11001
+  },
+  "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/StorageViewModelTest.kt": {
+    "sha256": "f8cfd6619f330ba402cc87ea95f323595378234487b4b5269dcd27f6f324d3a5",
+    "bytes": 5359
+  },
+  "androidApp/src/debug/AndroidManifest.xml": {
+    "sha256": "ec626f0788426883ed7a2dd808aa07c7d824588b1002aeedc236132b57858846",
+    "bytes": 201
+  },
+  "androidApp/src/debug/res/xml/debug_network_security.xml": {
+    "sha256": "d1359010b820e5f80c3eed9698d3055c2fa3e9f5c7dac2f12f0f2cdad966474e",
+    "bytes": 373
+  },
+  "androidApp/src/main/AndroidManifest.xml": {
+    "sha256": "81f4b56759fb7bbe3faa65a99525d2cfb623d2fc12c86db2ad81d2cbf51fdaee",
+    "bytes": 947
+  },
+  "androidApp/src/main/kotlin/org/asyncttwiz/android/AccountApi.kt": {
+    "sha256": "110d05f1f00cadbb6c1faa4aefd252dcc6fbefdab674397c2ae9be730618f5c7",
+    "bytes": 5672
+  },
+  "androidApp/src/main/kotlin/org/asyncttwiz/android/AccountEntry.kt": {
+    "sha256": "41ed88946449a70b6f1b38840c2591ed26b397cb0a6d3c071ccd0557835080d4",
+    "bytes": 12697
+  },
+  "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthController.kt": {
+    "sha256": "c8a52726b47103bae3723046eb9b60efb34c7679fc806a07dd1c896103f5cde0",
+    "bytes": 6279
+  },
+  "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt": {
+    "sha256": "286437e738da80c603bba0674f63f8b4787937a48cb417ecc8732afc7c6cd656",
+    "bytes": 653
+  },
+  "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt": {
+    "sha256": "16885d6baa92e34d40e9f69165e682a70b4729eed3a21239fc5636640cc5f8d8",
+    "bytes": 2969
+  },
+  "androidApp/src/main/kotlin/org/asyncttwiz/android/ProtectedSessionStore.kt": {
+    "sha256": "aef8aebdb0ac5a5aea6c03eff569f4e4e1679f67edfc6ba5dd5383199868933b",
+    "bytes": 3873
+  },
+  "androidApp/src/main/kotlin/org/asyncttwiz/android/StorageViewModel.kt": {
+    "sha256": "7b845faaa2798aeea81feb3e4caf8cc76de5cd38ed4954e2e9ac5df745b766ef",
+    "bytes": 2621
+  },
+  "androidApp/src/main/res/xml/backup_rules.xml": {
+    "sha256": "0b1bdecda75a6ccd9de38b7ad7336fe37c2406b35c0650edbfe969cb668452dc",
+    "bytes": 590
+  },
+  "androidApp/src/main/res/xml/data_extraction_rules.xml": {
+    "sha256": "2ff6da10c6ee628a5712e1d353189caf0b656f681662fcbd9e216fcfa45ae462",
+    "bytes": 1148
+  },
+  "androidApp/src/test/kotlin/org/asyncttwiz/android/AccountApiTest.kt": {
+    "sha256": "f093347c9c3589f6436a20a698ad938d189dd7b47a4252ebb4401b352a52f87e",
+    "bytes": 5199
+  },
+  "androidApp/src/test/kotlin/org/asyncttwiz/android/AuthControllerTest.kt": {
+    "sha256": "c0c8efafcf86f18f0ed7dbe2b64aa501a519e1ba1ba890d2035f604891c0f195",
+    "bytes": 6103
+  },
+  "e2e/build.gradle.kts": {
+    "sha256": "51ff1d8145cae33dc042507b8b966e82d5d26d72ab830949781c41deaec12eae",
+    "bytes": 912
+  },
+  "e2e/device_runner.py": {
+    "sha256": "6c2cfcc976e96c8e01d57c1cc81f45082a5b619de2dc1e6e8cb3b22d9b7e2c13",
+    "bytes": 7705
+  },
+  "e2e/environment.py": {
+    "sha256": "214087e65aca1c5c05068f74efc40df0d5797a94690ddad92140f12f71772e88",
+    "bytes": 29300
+  },
+  "e2e/gradle.lockfile": {
+    "sha256": "168661d0a61511b5458cbbb1b5f74c6f95c67e5a17accad89fd4b61e4d37cf8c",
+    "bytes": 7419
+  },
+  "e2e/src/test/kotlin/org/asyncttwiz/e2e/HostRuntimeTest.kt": {
+    "sha256": "367d06f616cb2e200d9b593c738c33af808bf4309e94d8f957883b6c3c0d3106",
+    "bytes": 328
+  },
+  "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeAccountsTest.kt": {
+    "sha256": "3ac072a82d89de6988a85b5acd2fae9a891e8e77fedd01a6853dd99647db30a0",
+    "bytes": 9556
+  },
+  "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeStartupTest.kt": {
+    "sha256": "81807929c888affd59398efe6aa83269048e8b163ac3a4482d95d9039b2c08bd",
+    "bytes": 5577
+  },
+  "gradle/libs.versions.toml": {
+    "sha256": "ddc2bfa761288dd5c9637870020827f775184f5bcf0a4742d71b4d7fa5207d2e",
+    "bytes": 4264
+  },
+  "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Accounts.kt": {
+    "sha256": "3e94102e827142e42b2b2a7fb29a3a7ec0e1357bbbf0ed33a6a24495b49758cf",
+    "bytes": 1034
+  },
+  "server/build/application-image.json": {
+    "sha256": "c7cadf6309ae4a2ada85edc25df554860e8fcd18c60ffacc45a90de9d6ab0cf1",
+    "bytes": 7191
+  },
+  "server/database-images.properties": {
+    "sha256": "7d9134c5ede4ddfc4b2922c249042ee0d499a9d10b934db48fd8b286cbfb01af",
+    "bytes": 263
+  }
+}

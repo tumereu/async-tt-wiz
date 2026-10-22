@@ -1,0 +1,4 @@
+{
+  "output": "{'database': ('running', 0), 'adapter-init': ('exited', 0), 'adapters': ('running', 0), 'migrate': ('exited', 0), 'backend': ('running', 0)}\nbackend health (200, b'OK\\n')\nadapter {'status': 'up'}\nepoch 1\nrelay\n(404, b'Not found\\n')\n",
+  "outputSha256": "db4aea856b25cd26a4834683d012ff4bf90b6ff8c8aae49fc2cb2cbe54e153d8"
+}

@@ -121,7 +121,8 @@ class DeviceRunnerTest(unittest.TestCase):
                 result.parent.mkdir(parents=True, exist_ok=True)
                 result.write_text('<testsuite><testcase classname="NativeStartupTest" name="startup"/></testsuite>')
                 return self.completed(code=1 if failing == 'gradle' else 0)
-            ready = {'device': {'serial': 'emulator-5564'}, 'appium': 'http://127.0.0.1:14733'}
+            ready = {'device': {'serial': 'emulator-5564'}, 'appium': 'http://127.0.0.1:14733',
+                     'routes': {'backend': 'http://127.0.0.1:18080'}}
             d.write_json(self.directory / 'ready.json', {'stale': True})
             with patch.object(d, 'ROOT', self.root), patch.object(runner, 'fresh', return_value=ready), \
                     patch.object(s, 'close', side_effect=[None, d.Refusal('close failed')] if failing == 'close' else None), \
@@ -134,3 +135,31 @@ class DeviceRunnerTest(unittest.TestCase):
             current = json.loads((self.directory / 'runner-current.json').read_text())
             self.assertEqual((self.directory / current['run'] / 'passed.json').exists(), failing is None)
             self.assertFalse((self.directory / 'ready.json').exists())
+
+    def test_auth_and_accounts_pin_endpoint_and_exact_test_scopes(self):
+        ready = {'device': {'serial': 'emulator-5564'}, 'appium': 'http://127.0.0.1:14733',
+                 'routes': {'backend': 'http://127.0.0.1:18080'}}
+        apk = self.root / 'androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk'
+        apk.parent.mkdir(parents=True, exist_ok=True)
+        apk.write_bytes(b'owned instrumentation fixture')
+        for mode in ('accounts', 'auth'):
+            def gradle(command, **kwargs):
+                self.assertIn('-PatwApiOrigin=http://127.0.0.1:18080', command)
+                if mode == 'accounts':
+                    self.assertEqual(command[-2:], ['--tests', '*NativeAccountsTest'])
+                    result = self.root / 'e2e/build/test-results/deviceTest/TEST-accounts.xml'
+                    classes = ['NativeAccountsTest']
+                else:
+                    self.assertEqual(command[-1], '-Pandroid.testInstrumentationRunnerArguments.class=' +
+                                     ','.join('org.asyncttwiz.android.' + name for name in runner.AUTH_CLASSES))
+                    result = self.root / 'androidApp/build/outputs/androidTest-results/connected/TEST-auth.xml'
+                    classes = ['StartupTest'] * 2 + ['ProtectedSessionStoreTest'] * 2 + ['AccountEntryTest']
+                result.parent.mkdir(parents=True, exist_ok=True)
+                result.write_text('<testsuite>' + ''.join(f'<testcase classname="{name}" name="{i}"/>'
+                                  for i, name in enumerate(classes)) + '</testsuite>')
+                return self.completed()
+            with patch.object(d, 'ROOT', self.root), patch.object(runner, 'fresh', return_value=ready), \
+                    patch.object(s, 'close'), patch.object(d, 'check_mappings'), \
+                    patch.object(d, 'adb', return_value=self.completed('Success')), \
+                    patch.object(runner.subprocess, 'run', side_effect=gradle):
+                self.assertEqual(runner.run(self.value, mode, 1)['tests'], 1 if mode == 'accounts' else 5)

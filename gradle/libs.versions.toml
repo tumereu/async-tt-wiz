@@ -19,6 +19,7 @@ selenium = "4.49.0"
 gson = "2.13.2"
 icu = "74.2"
 bouncycastle = "1.84"
+ktor = "3.6.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -55,6 +56,8 @@ sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 appium-client = { module = "io.appium:java-client", version.ref = "appium-client" }
 selenium-bom = { module = "org.seleniumhq.selenium:selenium-bom", version.ref = "selenium" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

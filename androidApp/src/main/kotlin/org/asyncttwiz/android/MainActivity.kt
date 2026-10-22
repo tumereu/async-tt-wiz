@@ -20,11 +20,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import org.asyncttwiz.storage.StorageOpenFailure
 
-/** Normal application entry point. Account entry replaces this scaffold in I02. */
+/** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]
+        val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -33,7 +34,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    Column(
+                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller)
+                    else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
@@ -42,7 +44,7 @@ class MainActivity : ComponentActivity() {
                         Text("Specialized tabletop simulator for asynchronous wizardry")
                         when (val state = storage.state) {
                             StorageState.Opening -> Text("Opening local storage…")
-                            StorageState.Ready -> Unit // Still the normal scaffold; account entry is I02.
+                            StorageState.Ready -> Unit
                             is StorageState.Failed -> {
                                 Text(if (state.reason == StorageOpenFailure.UNSUPPORTED_VERSION)
                                     "Local data needs a newer app. Update the app without uninstalling."

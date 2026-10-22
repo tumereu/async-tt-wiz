@@ -1,0 +1,12 @@
+{
+  "tests": [
+    "invalid/corrected registration",
+    "email/password login",
+    "visibility/clipboard paste",
+    "both orientations and lower form",
+    "native Back",
+    "protected-token force-stop/relaunch",
+    "ordinary public revocation requires login"
+  ],
+  "scope": "I02b only; no shell/reset/game journey"
+}

@@ -19,7 +19,7 @@ import java.time.Duration
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-/** Only normal native startup; not account, downloader or Canvas acceptance. */
+/** Normal signed-out native startup. NativeAccountsTest owns the account workflow. */
 @Tag("device")
 class NativeStartupTest {
     @Test
@@ -74,8 +74,9 @@ class NativeStartupTest {
             }
             Files.writeString(directory.resolve("startup.xml"), driver.pageSource)
             Files.write(directory.resolve("startup.png"), driver.getScreenshotAs(OutputType.BYTES))
-            // The healthy scaffold has no action controls. A W3C pointer tap on its
-            // real title qualifies input transport only, not a fabricated app action.
+            assertTrue(driver.findElements(AppiumBy.className("android.widget.EditText")).size >= 2)
+            // Retain the original W3C pointer transport assertion on the real title.
+            // Actual form actions are exercised in NativeAccountsTest, not a dummy UI.
             val rect = title.rect
             val finger = PointerInput(PointerInput.Kind.TOUCH, "startup-finger")
             driver.perform(listOf(Sequence(finger, 0).apply {
@@ -87,7 +88,7 @@ class NativeStartupTest {
             assertEquals("org.asyncttwiz.android", driver.currentPackage)
             record("observation.json", mapOf("serial" to serial, "sessionId" to driver.sessionId.toString(),
                 "package" to driver.currentPackage, "title" to title.text, "pointerTarget" to "real noninteractive title",
-                "scope" to "Native startup/discovery and pointer transport only; no action controls exist in the healthy scaffold"))
+                "scope" to "Normal signed-out account entry/discovery and title pointer transport; workflows use NativeAccountsTest"))
         } finally {
             driver.quit()
             record("session-closed.json", mapOf("sessionId" to session.getValue("sessionId")))

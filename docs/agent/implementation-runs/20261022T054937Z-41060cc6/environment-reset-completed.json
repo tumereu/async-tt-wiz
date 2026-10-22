@@ -1,0 +1,31 @@
+{
+  "baseline": {
+    "accountCount": 0,
+    "faults": "ok",
+    "messageCount": 0,
+    "migrations": [
+      "1",
+      "2"
+    ],
+    "sessionCount": 0,
+    "tables": [
+      "account",
+      "account_session",
+      "flyway_schema_history",
+      "service_writer"
+    ],
+    "versions": {
+      "prism": 1,
+      "quilt": 1
+    }
+  },
+  "checkedAtUnix": 1792651067.865659,
+  "instance": "atw-e2e-41060cc622224af58b9f3861313df8c1",
+  "removedContainers": {
+    "adapter-init": "ae3de8c4e19c630f30e67816324c1acaf61083cf9a185a0ef36519fa40683406",
+    "adapters": "6a9d1b89b6a0c5e12212660b06199b96e0a739167731d2989484aab73f1918fc",
+    "backend": "e1542bd1bf3011c0307925482a6391a3d59fb599386a125b739b5f376a404263",
+    "database": "7e2eb370d1a2005ec5c56857758676455ec20df9608db611bf39202f838038ca",
+    "migrate": "3024042cd8345ed5c47482559d60816fda4e90228cd40ff3c1a331e3fd481cd3"
+  }
+}

@@ -7,6 +7,7 @@ import org.junit.Rule
 import org.junit.Test
 import androidx.lifecycle.ViewModelProvider
 import org.junit.Assert.assertSame
+import androidx.compose.ui.test.onNodeWithTag
 
 /** Uses the normal launcher activity, not a test-only screen or alternate APK. */
 class StartupTest {
@@ -17,8 +18,16 @@ class StartupTest {
     fun normalAppShowsItsTitle() {
         activity.onNodeWithText("Async Tabletop Wizards").assertIsDisplayed()
         lateinit var owner: StorageViewModel
-        activity.runOnUiThread { owner = ViewModelProvider(activity.activity)[StorageViewModel::class.java] }
+        lateinit var auth: AuthViewModel
+        activity.runOnUiThread {
+            owner = ViewModelProvider(activity.activity)[StorageViewModel::class.java]
+            auth = ViewModelProvider(activity.activity)[AuthViewModel::class.java]
+        }
         activity.waitUntil(timeoutMillis = 15_000) { owner.state == StorageState.Ready }
+        activity.waitUntil(timeoutMillis = 15_000) {
+            auth.controller.state.restoring.not()
+        }
+        activity.onNodeWithTag("email").assertIsDisplayed()
     }
 
     @Test

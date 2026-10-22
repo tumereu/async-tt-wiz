@@ -1,0 +1,16 @@
+{
+  "adbPort": 15038,
+  "command": [
+    "/home/tuomas/projects/async-tt-wiz/scripts/gradle.sh",
+    "--no-daemon",
+    "--console=plain",
+    "-PatwApiOrigin=http://127.0.0.1:18080",
+    ":e2e:deviceTest",
+    "--tests",
+    "*NativeAccountsTest"
+  ],
+  "mode": "accounts",
+  "serial": "emulator-5564",
+  "startedAt": 1792650678.7503128,
+  "systemPort": 18210
+}

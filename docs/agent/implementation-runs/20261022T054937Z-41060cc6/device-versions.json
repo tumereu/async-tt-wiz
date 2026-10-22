@@ -1,0 +1,6 @@
+{
+  "appium": "3.8.0\n",
+  "drivers": "{\n    \"uiautomator2\": {\n        \"automationName\": \"UiAutomator2\",\n        \"platformNames\": [\n            \"Android\"\n        ],\n        \"mainClass\": \"AndroidUiautomator2Driver\",\n        \"scripts\": {\n            \"reset\": \"scripts/reset.mjs\"\n        },\n        \"doctor\": {\n            \"checks\": [\n                \"./build/lib/doctor/required-checks.js\",\n                \"./build/lib/doctor/optional-checks.js\"\n            ]\n        },\n        \"pkgName\": \"appium-uiautomator2-driver\",\n        \"version\": \"8.7.0\",\n        \"appiumVersion\": \"^3.0.0-rc.2\",\n        \"installType\": \"npm\",\n        \"installSpec\": \"appium-uiautomator2-driver@8.7.0\",\n        \"installPath\": \"/tmp/opencode/atw-device-tools-932550a0/driver/node_modules/appium-uiautomator2-driver\",\n        \"installed\": true,\n        \"repositoryUrl\": \"https://github.com/appium/appium-uiautomator2-driver\"\n    }\n}\n",
+  "linuxAdb": "Android Debug Bridge version 1.0.41\nVersion 37.0.1-15733141\nInstalled as /home/tuomas/.local/share/dev-env/tools/android-platform-tools/37.0.1-477254aa5f90/adb\nRunning on Linux 6.18.54.1-microsoft-standard-WSL2 (x86_64)\n",
+  "node": "v24.21.0\n"
+}

@@ -60,7 +60,8 @@
              "docs/agent/implementation-runs/20261022T051745Z-e3d640da.json",
               "docs/agent/implementation-runs/20261022T052143Z-3d124427.json",
                "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
-               "docs/agent/implementation-runs/20261022T052934Z-1c3e9277.json"
+                "docs/agent/implementation-runs/20261022T052934Z-1c3e9277.json",
+                "docs/agent/implementation-runs/20261022T054937Z-41060cc6.json"
    ],
   "findings": [],
   "batches": [
@@ -531,7 +532,10 @@
     {
       "id": "I02b",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T054937Z-41060cc6.json",
+      "buildNotes": "androidApp/README.md",
+      "qualification": "Normal APK now supplies Compose A01/A02/A02b and real Ktor3.6/serialization requests, exact password scalar/UTF8 handling, bounded errors/timeouts and safe AccountIdentity handoff. AndroidKeyStore nonexportable AES256-GCM key, fresh 96-bit nonces, atomic no-backup origin-bound ciphertext and actual startup authorization preserve valid login; missing/replaced key, damaged ciphertext and revoked tokens require login without password fallback. Eight host adapter/controller tests pass in the initial incremental build before its separate lint failure; the added network/storage-correction assertion passes alone. Six distinct actual API29 non-GMS instrumentation tests pass across the initial four green startup/Keystore tests and targeted exact-input/saved-state rechecks, plus one complete normal-APK Kotlin/JUnit/Appium registration/error/paste/visibility/both-orientation/scrolled-action/native-Back/login/force-stop/relaunch/revocation journey with its ordinary public-revoke checkpoint. Exact snapshots/JUnit/inputs, packaged backup and locked dependency provenance retained. Reset testing exposed and repaired the stale V1-only oracle: V2 and empty account/session tables are now required; focused regression and actual scenario resets pass. Original red build/lint/input/tooling/Appium outputs remain diagnostic. Exact owned device/session/routes/Compose resources are cleaned. Only I02b advances: I02 parent reconciliation, I03 shell/context/full Logout isolation, I04 reset/second device, B1 independent review, final broad qualification/UI comparison and all release gates remain open.",
       "dependsOn": ["I02a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
       "outcome": "Replace the normal APK's signed-out scaffold with native Compose A01/A02/A02b forms calling I02a through the selected Ktor/serialization HTTP adapter. Implement AES-GCM token ciphertext with unique nonces and Android Keystore key, no persisted password/secret logs/backup, protected-token reopen and explicit unavailable-key/revoked-session login handling. Preserve storage-open failure handling, fullscreen, meaningful labels/errors, password visibility/paste and exact password whitespace/Unicode. Use the same centered bounded branded login card in both orientations and scrollable full-size controls/registration lower form. Hand authenticated identity to I03's shell integration without fake users or implementing unrelated navigation/reset capabilities.",

@@ -1,0 +1,4 @@
+{
+  "output": "{\"backend\": \"http://127.0.0.1:18080\", \"checkedAtUnix\": 1792648693.9204776, \"hostBackend\": \"http://127.0.0.1:18080\", \"hostSource\": \"http://127.0.0.1:35149\", \"instance\": \"atw-e2e-41060cc611114af58b9f3861313df8c1\", \"scope\": \"Host infrastructure only. Call wait before setup; not a perpetual health lease or Android acceptance.\", \"source\": \"http://127.0.0.1:35149\", \"writerEpoch\": 1}\n",
+  "outputSha256": "efe16ebe9a99a906db92722a64b0c165a03e0727f9f7f30f6b7162193028eede"
+}

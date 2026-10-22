@@ -1,0 +1,6 @@
+{
+  "mode": "accounts",
+  "scope": "Normal UI account entry/restart/revocation",
+  "serial": "emulator-5564",
+  "tests": 1
+}

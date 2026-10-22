@@ -1,0 +1,15 @@
+{
+  "adbPort": 15038,
+  "command": [
+    "/home/tuomas/projects/async-tt-wiz/scripts/gradle.sh",
+    "--no-daemon",
+    "--console=plain",
+    "-PatwApiOrigin=http://127.0.0.1:18080",
+    ":androidApp:connectedDebugAndroidTest",
+    "-Pandroid.testInstrumentationRunnerArguments.class=org.asyncttwiz.android.StartupTest,org.asyncttwiz.android.ProtectedSessionStoreTest,org.asyncttwiz.android.AccountEntryTest"
+  ],
+  "mode": "auth",
+  "serial": "emulator-5564",
+  "startedAt": 1792649881.6242664,
+  "systemPort": 18210
+}

@@ -1,6 +1,6 @@
 # 14. Session handoff — implementation authorized
 
-Updated 2026-10-22. This is continuation context, not a new source of requirements.
+Updated 2026-10-23. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
 
@@ -19,8 +19,9 @@ Never start alongside an existing worker/controller. Preserve explicit later own
 pause, exact high model, original total ceiling, scoped grants, safe saves, reviews,
 final full-suite/fixes and release gates. Noncritical details belong to the recorded
 final/owner review, not an early detour. The latest saved state—not old snapshots
-below—selects work. Last completed supervision batch is 8; I09 invitations are
-delivered, I10 preparation is next, and 2,931 original-budget sessions remain.
+below—selects work. Last completed supervision batch is 9; native deck selection/
+immutable prepared copies are delivered, I10b transfers is next, and 2,926
+original-budget sessions remain.
 
 ## Latest owner execution direction — D-307/D-308
 

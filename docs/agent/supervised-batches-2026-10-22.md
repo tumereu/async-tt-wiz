@@ -244,3 +244,22 @@ two-player lobby/start, followed by independent B3 review. Forty resumed fresh u
 consumed; 2,931 original-budget sessions remain. The owner's latest overnight
 reaffirmation is durable above and in AGENTS.md/session-handoff.md; continue after
 compaction and each ordinary batch pause, not a routine final response.
+
+### Batch 9 — native deck selection and immutable prepared copies delivered
+
+Range `da78ae5..401c459`: the lobby now offers Choose/Change deck, a private
+border-selected draft, import/empty-collection return and one confirmation backed
+by the existing ordered durable service. Accepted/predicted/personal state remains
+separate; selected definitions/name/cover/card-copy identities survive later source
+rename/Overwrite/cover/delete, acceptance, reconnect and restart. An actual normal-
+APK both-orientation journey plus affected shared/PostgreSQL/socket/client checks
+exercises this rather than claiming Ready/start before it exists.
+
+Assessment: on track, no new actionable or invented finding. The new selection
+semantics/backend and native integration required a further bounded split, but both
+produced real behavior and closure only reconciled evidence. No extra qualification
+layers or full-suite reruns. Next is captured one/all preparation transfers (I10b),
+then Ready/start and integrated B3 completion/review. Forty-five resumed fresh units
+consumed; 2,926 original-budget sessions remain. Overnight five-unit execution and
+autonomous recovery remain active across context/compaction, not paused for daylight
+or another owner instruction. Required final tests/fixes and release gates persist.

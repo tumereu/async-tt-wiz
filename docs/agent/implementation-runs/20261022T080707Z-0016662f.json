@@ -1,0 +1,66 @@
+{
+  "runId": "20261022T080707Z-0016662f",
+  "sessionID": "ses_e9d59b577ffeN6FBsU3dHKQSUF",
+  "startCommit": "9284a77b60424f028aa58ff96aa8cbc32d167982",
+  "mode": "implement",
+  "target": "I04",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split: I04 remains in-progress with two pending B1 children, I04a actual reset API/mail worker/form and I04b native A03/A04/deep links plus two-device B1 journey. Existing service has no reset/mail implementation, AuthController still has resetNotYetAvailable and the launcher has no VIEW filter. No product/build inputs changed or feature checks claimed passed. Next fresh unit implements I04a; parent closure reuses exact child evidence and checks missing integration only. B1 independent capability review remains after I01-I04, not after children.",
+  "selectionReason": "Clean master matches supplied startCommit, explicit D-304 authorization is active, I01-I03 are implemented, findings are empty and B1 review is not yet due. I04 is therefore the earliest selected capability before B2 import. Its durable encrypted email/token delivery, transactional server reset and secure form are one coherent outcome; normal Android intent/forms integration and the first real two-device account journey are another. Split before coding into exactly these two delivery units, without scaffold-certification layers. Only existing driver schema/transition, source-accounting and owned-path/whitespace checks apply to this planning unit; no build/full-suite/device repeat is warranted.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T080707Z-0016662f-planning-check.py > docs/agent/implementation-runs/20261022T080707Z-0016662f-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T080707Z-0016662f-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T080707Z-0016662f-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",
+    "docs/agent/implementation-runs/20261022T080707Z-0016662f-planning-check.py",
+    "docs/agent/implementation-runs/20261022T080707Z-0016662f-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I04a", "I04b"],
+    "dependencies": "I04/I04a depend on implemented I03; I04b depends on I04a. No child depends on its open parent; selector must choose I04a next. Existing tasks/batches/findings, authorization/model/permission profile and external release gates remain unchanged.",
+    "sourceIds": ["P-047", "P-066", "T-421", "T-572", "T-621", "T-656", "T-657", "T-666", "F04", "F05", "F06"],
+    "sourceDisposition": "Existing source-pinned I04.reset assignments remain pending, not executed passes. I04a owns server/password/token/mail/revocation portions; I04b owns normal-app/reset-link and two-device entry/recovery portions. P-047/T-572/T-621/T-657's later game/context/retained-command assertions still need their I09-I14/I26/I31 dependencies; no game exists to certify here. T-656/T-666 follow current D-289 ordinary request authorization, not superseded reset/rehash/commit fences. F04-F06 constrain native auth presentation; cumulative F01-F88 and later full UI comparison remain intact.",
+    "contractSections": [
+      "accounts-decks-and-lobby.md: Registration, login, and account privacy; Session continuity and reauthentication; Logout and account-private downloads",
+      "authentication-and-sessions.md: Passwords and recovery; Ordinary revocation boundary; selected token mechanics",
+      "protocol-v1.md: HTTP reset request/confirmation routes",
+      "ui/review.md: A03 Password reset email; A04 Set a new password, including unpictured invalid-link state",
+      "implementation-plan.md: B1 I04 and second-device feature check; D-307 affected checks and ancestor reconciliation"
+    ],
+    "retainedObligations": [
+      "I04a: real configured SMTP/TLS/file-secret adapter, encrypted durable mail payload and retry/expiry worker; synthetic sink already exists but is not a reset sender. No production deployment, secret acquisition or paid resource.",
+      "I04b: actual normal-app cold/warm deep-link/forms and two-device journey, not server-only evidence or a second test launcher. No reset action on GET/open, no automatic login, no invention of six-digit codes or stronger ordering.",
+      "I04 parent: audit exact children and only missing integration; B1 remains pending until implemented then independent full capability review. No review after each child.",
+      "Later feature tasks retain real game/request recovery; I34/I35/I36 retain final full suite, broad device/upgrade/reproducibility qualification and complete interface-to-mock comparison. All external release gates remain unverified.",
+      "No UI documents changed, so no HTML publication/deployment is performed. No subagent or additional loop started."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/03-contracts/accounts-decks-and-lobby.md",
+    "docs/design/04-technical/authentication-and-sessions.md",
+    "docs/design/04-technical/protocol-v1.md",
+    "docs/design/02-experience/ui/review.md",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthController.kt",
+    "androidApp/src/main/AndroidManifest.xml",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountHttp.kt",
+    "e2e/adapters/README.md"
+  ]
+}

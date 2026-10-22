@@ -249,6 +249,7 @@ class DeckHttpTest {
                 val created = (1..101).map {
                     val response = post(settings, "/v1/decks", CreateDeck(id(), "Same name", listOf(
                         SavedDeckEntry(SavedDeckSection.SIDEBOARD, good.digest, Int.MAX_VALUE))), owner.token)
+                    if (response.statusCode() != 201) println("DIAGNOSTIC pagination create index=$it status=${response.statusCode()} retained=${count(db, "saved_deck")}")
                     assertEquals(201, response.statusCode(), response.body())
                     json.decodeFromString<SavedDeck>(response.body()).deck.id
                 }.toSet()
@@ -263,7 +264,124 @@ class DeckHttpTest {
         }
     }
 
-    @Test fun `explicit V3 to V4 upgrade preserves account data and routes never self migrate`() {
+    @Test fun `owned metadata deletion serialization privacy and original retries never upsert or rewrite definitions`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val owner = account(settings, "owner"); val foreign = account(settings, "foreign")
+                val first = submitted(card()); val second = submitted(card("Sideboard cover")); val outside = submitted(card("Not in deck"))
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(first, second, outside)), owner.token).statusCode())
+                val entries = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, first.digest, 12),
+                    SavedDeckEntry(SavedDeckSection.SIDEBOARD, second.digest, 3))
+                val saved = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Original", entries), owner.token).body())
+                val path = "/v1/decks/${saved.deck.id}"
+                fun update(value: UpdateDeck, token: String = owner.token, target: String = path) =
+                    request(settings, "PUT", target, json.encodeToString(value), token)
+                fun read() = json.decodeFromString<SavedDeck>(request(settings, "GET", path, token = owner.token).body())
+                assertEquals(12L, saved.deck.mainboard); assertEquals(3L, saved.deck.sideboard)
+                assertEquals(first.digest, saved.deck.cover!!.definition)
+                val rename = UpdateDeck(id(), name = " Exact renamed é 🧙 ")
+                assertEquals(401, request(settings, "PUT", path, json.encodeToString(rename)).statusCode())
+                assertEquals(404, update(rename.copy(requestId = id()), foreign.token).statusCode())
+                assertEquals(update(rename.copy(requestId = id()), foreign.token).body(), update(rename.copy(requestId = id()), target = "/v1/decks/${id()}").body())
+                val invalid = update(UpdateDeck(id(), cover = outside.digest)); assertEquals(400, invalid.statusCode())
+                assertFalse(invalid.body().contains(outside.definition.name)); assertEquals("1", read().deck.revision)
+                val original = update(rename); assertEquals(200, original.statusCode(), original.body())
+                val cover = UpdateDeck(id(), cover = second.digest)
+                val pool = Executors.newFixedThreadPool(4)
+                try {
+                    val responses = pool.invokeAll(List(4) { Callable { update(cover) } }).map { it.get(30, TimeUnit.SECONDS) }
+                    assertTrue(responses.all { it.statusCode() == 200 }); assertEquals(1, responses.map { it.body() }.distinct().size)
+                } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS)) }
+                assertEquals("3", read().deck.revision); assertEquals(second.digest, read().deck.cover!!.definition)
+                assertEquals(rename.name, read().deck.name); assertEquals(entries, read().entries)
+                assertEquals(original.body(), update(rename).body()) // older original, not current state or another mutation
+                assertEquals("3", read().deck.revision)
+                assertEquals(409, update(rename.copy(name = "changed intent")).statusCode())
+                assertEquals(409, update(rename, target = "/v1/decks/${id()}").statusCode())
+                val list = json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body())
+                assertEquals(read().deck, list.decks.single())
+                assertEquals(3, count(db, "definition")); assertEquals(2, count(db, "deck_entry"))
+                val deletion = DeleteDeck(id())
+                assertEquals(404, request(settings, "DELETE", path, json.encodeToString(DeleteDeck(id())), foreign.token).statusCode())
+                val deleted = request(settings, "DELETE", path, json.encodeToString(deletion), owner.token)
+                assertEquals(200, deleted.statusCode()); assertEquals(DeckDeleted(saved.deck.id), json.decodeFromString<DeckDeleted>(deleted.body()))
+                assertEquals(deleted.body(), request(settings, "DELETE", path, json.encodeToString(deletion), owner.token).body())
+                assertEquals(404, update(UpdateDeck(id(), name = "Do not recreate")).statusCode())
+                assertEquals(404, request(settings, "GET", path, token = owner.token).statusCode())
+                assertEquals(404, request(settings, "GET", "$path/definitions/${first.digest}", token = owner.token).statusCode())
+                assertTrue(json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body()).decks.isEmpty())
+                assertEquals(0, count(db, "saved_deck")); assertEquals(0, count(db, "deck_entry"))
+                assertEquals(3, count(db, "definition")); assertEquals(3, count(db, "account_definition"))
+                assertEquals(original.body(), update(rename).body()); assertEquals(0, count(db, "saved_deck"))
+                println("PASS actual HTTP owned rename/sideboard cover/counts, four duplicate updates/revisions, unchanged immutable entries, account/target/intent binding, private refusal, exact old outcomes after deletion and no upsert/cascade to definitions")
+            }
+        }
+    }
+
+    @Test fun `metadata and deletion effects roll back with outcome failure and retain exact retries`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val owner = account(settings, "owner"); val definition = submitted(card())
+                post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(definition)), owner.token)
+                val saved = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Retained", listOf(
+                    SavedDeckEntry(SavedDeckSection.MAINBOARD, definition.digest, 2))), owner.token).body())
+                val path = "/v1/decks/${saved.deck.id}"
+                for (method in listOf("PUT", "DELETE")) {
+                    val requestId = id()
+                    val input = if (method == "PUT") json.encodeToString(UpdateDeck(requestId, name = "Renamed")) else json.encodeToString(DeleteDeck(requestId))
+                    db.connection().use { it.createStatement().execute("""
+                        CREATE FUNCTION fail_deck_outcome() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
+                        BEGIN IF NEW.request_id = '$requestId' THEN RAISE EXCEPTION 'test-owned outcome interruption'; END IF; RETURN NEW; END ${'$'}${'$'};
+                        CREATE TRIGGER fail_deck_outcome BEFORE INSERT ON account_request FOR EACH ROW EXECUTE FUNCTION fail_deck_outcome();
+                    """.trimIndent()) }
+                    val before = request(settings, "GET", path, token = owner.token).body()
+                    val requests = count(db, "request_identity")
+                    assertEquals(503, request(settings, method, path, input, owner.token).statusCode())
+                    ready(settings)
+                    assertEquals(before, request(settings, "GET", path, token = owner.token).body())
+                    assertEquals(requests, count(db, "request_identity")); assertEquals(requests, count(db, "account_request"))
+                    db.connection().use { it.createStatement().execute("DROP TRIGGER fail_deck_outcome ON account_request; DROP FUNCTION fail_deck_outcome()") }
+                    val success = request(settings, method, path, input, owner.token)
+                    assertEquals(200, success.statusCode(), success.body())
+                    assertEquals(success.body(), request(settings, method, path, input, owner.token).body())
+                }
+                assertEquals(0, count(db, "saved_deck")); assertEquals(1, count(db, "definition"))
+                println("PASS real PostgreSQL failure after metadata/delete effects rolls back deck/entries/revision/request/outcome atomically; same original identities recover once")
+            }
+        }
+    }
+
+    @Test fun `explicit V4 cover upgrade retains existing named deck entries definitions and original outcomes`() {
+        OwnedPostgres().start().use { db ->
+            Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("4").load().migrate()
+            val account = id(); val deck = id(); val request = id(); val definition = submitted(card())
+            db.connection().use { c ->
+                c.prepareStatement("INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc) VALUES (?::uuid,'Retained','retained','retained@example.invalid','retained@example.invalid','phc')").use { it.setString(1, account); it.executeUpdate() }
+                c.prepareStatement("INSERT INTO definition VALUES (?,1,?)").use { it.setString(1, definition.digest); it.setString(2, DeckJson.canonical(definition.definition)); it.executeUpdate() }
+                c.createStatement().execute("""
+                    INSERT INTO account_definition VALUES ('$account','${definition.digest}');
+                    INSERT INTO saved_deck(id,account_id,name,revision) VALUES ('$deck','$account','Retained deck',9);
+                    INSERT INTO deck_entry VALUES ('$deck','$account',0,'MAINBOARD','${definition.digest}',7);
+                    INSERT INTO request_identity VALUES ('$request','$account','createDeck','account','${"0".repeat(64)}');
+                    INSERT INTO account_request VALUES ('$request',201,'retained original');
+                """.trimIndent())
+            }
+            assertEquals(1, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            db.connection().use { c -> c.createStatement().executeQuery("SELECT name,revision,cover_digest FROM saved_deck").use {
+                assertTrue(it.next()); assertEquals("Retained deck", it.getString(1)); assertEquals(9, it.getLong(2)); assertNull(it.getString(3))
+            } }
+            assertEquals(1, count(db, "deck_entry")); assertEquals(1, count(db, "definition")); assertEquals(1, count(db, "account_request"))
+            println("PASS explicit forward V4-to-V5 migration retains populated accepted deck/entries/definitions/revision/original outcome without destructive reset")
+        }
+    }
+
+    @Test fun `explicit V3 to current upgrade preserves account data and routes never self migrate`() {
         OwnedPostgres().start().use { db ->
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -287,7 +405,7 @@ class DeckHttpTest {
                 val process = migration.start()
                 val output = process.inputStream.bufferedReader().readText()
                 assertTrue(process.waitFor(45, TimeUnit.SECONDS)); assertEquals(0, process.exitValue(), output)
-                assertTrue(output.contains("applied=1")); println(output.trim())
+                assertTrue(output.contains("applied=2")); println(output.trim())
                 assertEquals(1, count(db, "account")); assertEquals(0, count(db, "saved_deck"))
                 assertEquals(0, FoundationMigrations.migrate(db.settings))
                 db.connection().use { connection -> connection.createStatement().executeQuery("SELECT password_phc FROM account").use {

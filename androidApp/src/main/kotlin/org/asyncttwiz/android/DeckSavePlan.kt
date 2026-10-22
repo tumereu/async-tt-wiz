@@ -42,6 +42,8 @@ data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck
 }
 
 internal fun deckError(failure: Exception): String = when ((failure as? DeckFailure)?.code) {
+    "not_found" -> "This saved deck is no longer available. Return to your collection to refresh."
+    "invalid_cover" -> "Choose a card that is still in this deck."
     "invalid_deck" -> "Enter a deck name and check the quantities. Your pasted list is kept."
     "invalid_definition", "definitions_unavailable" -> "Card metadata could not be accepted. Edit the list or update card records and retry."
     "request_too_large" -> "This import exceeds the service transfer limit. Your pasted list is kept."

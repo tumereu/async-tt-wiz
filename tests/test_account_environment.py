@@ -9,7 +9,7 @@ class AccountBaselineTest(unittest.TestCase):
         queries = {
             "SELECT string_agg(tablename,',' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'":
                 "account,account_definition,account_request,account_session,deck_entry,definition,flyway_schema_history,password_reset_token,request_identity,reset_mail,saved_deck,service_writer",
-            "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank": "1\n2\n3\n4",
+            "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank": "1\n2\n3\n4\n5",
             "SELECT count(*) FROM account": "0",
             "SELECT count(*) FROM account_session": "0",
             "SELECT count(*) FROM password_reset_token": "0",
@@ -28,7 +28,7 @@ class AccountBaselineTest(unittest.TestCase):
             with patch.object(e, 'database', side_effect=lambda _, sql: values[sql]), \
                     patch.object(e, 'admin', side_effect=lambda _, path: [] if path == '/admin/messages' else state):
                 return e.empty_baseline({'project': 'owned'})
-        self.assertEqual(check(queries)['migrations'], ['1', '2', '3', '4'])
+        self.assertEqual(check(queries)['migrations'], ['1', '2', '3', '4', '5'])
         for sql, bad in [("SELECT count(*) FROM account", "1"), ("SELECT count(*) FROM account_session", "1"),
                          ("SELECT count(*) FROM password_reset_token", "1"), ("SELECT count(*) FROM reset_mail", "1"),
                          ("SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank", "1"),

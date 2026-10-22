@@ -12,6 +12,8 @@ remains external; plaintext is for isolated local tests only.
 | `POST /v1/decks` | `CreateDeck` | 201 `SavedDeck` |
 | `GET /v1/decks?after=UUID` | none; `after` optional | 200 `DeckList` |
 | `GET /v1/decks/{id}` | none | 200 `SavedDeck` |
+| `PUT /v1/decks/{id}` | `UpdateDeck` (requestId, optional name/cover) | 200 `SavedDeck`, original mutation outcome |
+| `DELETE /v1/decks/{id}` | `DeleteDeck` (requestId) | 200 `DeckDeleted` (id), original deletion outcome |
 | `GET /v1/decks/{id}/definitions/{digest}` | none | 200 `SubmittedDefinition`, only if attached to this owned deck |
 
 Exact shared types, validation, canonical bytes and SHA-256 adapters are in
@@ -97,7 +99,7 @@ Creation then sends:
 }
 ```
 
-`SavedDeck` is `{deck:{id,name,revision,createdAt},entries:[…]}`. Revision is the
+`SavedDeck` is `{deck:{id,name,revision,createdAt,mainboard,sideboard,cover},entries:[…]}`. Revision starts at the
 decimal string `"1"`; creation time is server UTC RFC3339. Name is preserved exactly,
 must be nonblank and within the ordinary text bound; duplicate names are allowed.
 Entries preserve order, exact section/digest and positive 32-bit quantity. Consolidate
@@ -110,6 +112,61 @@ until null: pages contain at most 100 summaries in ascending unsigned UUID order
 This is normal read pagination, not a deck-count cap. Do not treat a first page as
 the complete collection. Details retain metadata and entries; attached-definition
 reads include both `digest` and the complete `definition`.
+
+## Collection management — I07a
+
+`UpdateDeck` is `{requestId,name:null|string,cover:null|digest}`. Omitted/null fields
+stay unchanged; at least one field is required. Names use the creation text rules.
+Cover must be an exact definition attached to this deck, in either section; no URL,
+upload or independent card edit is accepted. Metadata changes take that deck's row
+lock and increment its revision once when a value changes. They never modify card
+entries or immutable definitions. `DeleteDeck` removes the saved collection entry
+and its entries only, retaining definitions/account grants and the original outcome.
+Unknown, foreign or already-deleted targets return the same 404, never an upsert.
+No future prepared/game copy is linked with a cascade to its saved source.
+
+Update/delete canonical intent includes the captured path deck ID. They use the
+same global request/account/kind/intent identity and atomic writer-fenced
+effect/outcome transaction as creation. A lost-response retry returns the original
+result, even after newer metadata or deletion; it does not replay the old effect.
+Clients read current state afterward rather than install an old outcome over it.
+New requests against deleted decks cannot recreate them. An unavailable response
+is still unknown: retain the unchanged identity for same-process retry.
+
+Summary counts are exact 64-bit section totals, not legality limits. `cover` is
+`{definition,name,scryfallId,imageUri}` for the first retained face, or null for an
+empty deck. The initial presentation fallback is the first retained entry until an
+explicit in-deck choice; missing artwork remains the selected card's text rather
+than another card. List/read metadata and entries are read under shared deck row
+locks, so an update/delete cannot split their accepted snapshot. V5 explicitly adds
+the nullable `cover_digest`; populated V4 decks/entries/definitions/outcomes survive
+without reset. No dependencies or permission changes were needed.
+
+The normal Android collection has cover/name/count rows and a fixed bottom Import;
+details are read-only Mainboard/Sideboard tabs. Edit offers Rename, Choose cover and
+Delete saved deck. Cover choice is a border-only personal draft with selectable
+accessibility semantics and one bottom confirmation. Rename/cover/confirmation and
+section survive rotation in the existing ViewModel. Delete uses one title, top-right
+X, “Deletion cannot be undone” and equal Keep/Delete buttons. X/Back/Keep do not send
+a deletion. Accepted edits are not rolled back when leaving. I08 adds contextual
+Import decklist; I07b adds full inspection, not quantity editing or trash/restore.
+
+While Manage decks is composed, a five-second bounded refresh and foreground
+refresh fetch accepted account data. Dialog drafts/section/scroll remain personal;
+remote metadata does not overwrite unfinished input. A remote deletion exits an
+open detail to the collection with a safe notice. Reads preserve last accepted
+content on ordinary failure; retry keeps context. Epoch checks fence stale reads,
+queued requests and private callbacks after navigation/Logout. Relaunch reads the
+collection from the server, not an authoritative local deck or outgoing journal.
+
+Affected evidence is retained in the
+[I07a run](../docs/agent/implementation-runs/20261022T134014Z-ca978b34.json).
+The normal two-instance journey is evidenced across diagnostic core/tail segments
+and a passing persisted-deletion tail, **not** one wholly green original command.
+The first pagination 503 remains unexplained diagnostic; its unchanged-assertion
+focused recheck passes. No transient failure is declared fixed from that recheck.
+I34 retains final whole-journey/harness/full-suite qualification; I07b/I08 and
+I10/I12 selected-copy assertions, independent B2 review and I35/I36 gates remain.
 
 ## Validation, identity and recovery
 
@@ -155,7 +212,7 @@ inputs. `DeckError` is `{code,field:null|string}`:
 
 | Status | Codes / handling |
 | --- | --- |
-| 400 | `invalid_request` (including malformed/cursor/request ID), `invalid_definition`, `invalid_deck`, `definitions_unavailable`; preserve draft and correct/resubmit with new IDs for changed intent |
+| 400 | `invalid_request` (including malformed/cursor/request ID), `invalid_definition`, `invalid_deck`, `definitions_unavailable`, `invalid_cover`; preserve draft and correct/resubmit with new IDs for changed intent |
 | 401 | `authentication_required`; no private result/read-back, sign in normally |
 | 404 | `not_found`; same for absent/foreign deck or unattached definition |
 | 409 | `request_conflict`; do not retry changed intent under an old ID |

@@ -30,6 +30,11 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         if (state.destination != ShellDestination.DECKS) deckImport?.exit()
         else if (decks?.state?.selected == null) decks?.refresh()
     }
+    LaunchedEffect(state.destination, deckImport?.state?.active) {
+        if (state.destination == ShellDestination.DECKS && deckImport?.state?.active != true) {
+            while (true) { kotlinx.coroutines.delay(5_000); decks?.sync() }
+        }
+    }
     val content: @Composable () -> Unit = {
         if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
             DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
@@ -116,7 +121,8 @@ private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open
                     fontWeight = FontWeight.Bold)
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
+            if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks, catalog)
+            else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
                 verticalArrangement = if (destination == ShellDestination.MENU) Arrangement.Center else Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 if (destination == ShellDestination.MENU) {
@@ -135,7 +141,6 @@ private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open
                         Spacer(Modifier.height(12.dp))
                     }
                 } else if (destination == ShellDestination.DECKS && catalog != null) {
-                    if (decks != null) SavedDeckCollection(decks)
                     CatalogControls(catalog)
                 } else {
                     Text(when (destination) {

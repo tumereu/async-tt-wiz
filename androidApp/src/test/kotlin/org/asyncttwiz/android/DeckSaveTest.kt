@@ -92,11 +92,13 @@ class DeckSaveTest {
         var pages = 0
         private val plan = DeckSavePlan.from(result(), summary.name)
         override suspend fun list(token: String, after: String?): DeckList { pages++
-            return DeckList(listOf(summary), if (after == null) summary.id else null) }
+            return DeckList(listOf(if (after == null) summary else summary.copy(id = second)), if (after == null) summary.id else null) }
         override suspend fun read(token: String, id: String) = SavedDeck(summary, plan.deck.entries)
         override suspend fun definition(token: String, id: String, digest: String) = plan.definitions.definitions.single()
         override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(value.definitions.map { it.digest })
         override suspend fun create(token: String, value: CreateDeck) = SavedDeck(summary, value.entries)
+        override suspend fun update(token: String, id: String, value: UpdateDeck) = SavedDeck(summary, plan.deck.entries)
+        override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
         override fun close() = Unit
     }
     @Test fun httpUsesNormalCompletePostsPrivateReadsBoundedErrorsAndNoCredentialRedirect() = runBlocking {

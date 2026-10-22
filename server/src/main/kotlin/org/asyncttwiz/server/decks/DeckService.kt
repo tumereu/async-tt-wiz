@@ -11,6 +11,7 @@ import org.asyncttwiz.server.generated.tables.DeckEntry.DECK_ENTRY
 import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.asyncttwiz.server.generated.tables.SavedDeck.SAVED_DECK
+import org.asyncttwiz.server.generated.tables.records.SavedDeckRecord
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -63,9 +64,66 @@ class DeckService(private val runtime: ServiceRuntime) {
                     .set(DECK_ENTRY.POSITION, index).set(DECK_ENTRY.SECTION, entry.section.name)
                     .set(DECK_ENTRY.DEFINITION_DIGEST, entry.definition).set(DECK_ENTRY.QUANTITY, entry.quantity).execute()
             }
-            val summary = DeckSummary(id.toString(), row.name!!, row.revision.toString(), row.createdAt!!.toInstant().toString())
-            Result(201, json.encodeToString(SavedDeck(summary, input.entries)))
+            Result(201, json.encodeToString(SavedDeck(summary(sql, row, input.entries), input.entries)))
         }
+    }
+
+    fun update(principal: AccountService.Principal, id: String, input: UpdateDeck): Result {
+        if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
+        return business(principal, input.requestId, "updateDeck", intent(id, json.encodeToJsonElement(UpdateDeck.serializer(), input))) { sql, owner ->
+            val row = owned(sql, owner, id) ?: return@business error(404, "not_found")
+            val requestedName = input.name
+            val requestedCover = input.cover
+            if ((requestedName == null && requestedCover == null) ||
+                (requestedName != null && (!DeckValidation.text(requestedName) || requestedName.isBlank())))
+                return@business error(400, "invalid_deck", "name")
+            if (requestedCover != null && (!DeckValidation.digest(requestedCover) || !sql.fetchExists(sql.selectOne().from(DECK_ENTRY)
+                    .where(DECK_ENTRY.DECK_ID.eq(row.id)).and(DECK_ENTRY.DEFINITION_DIGEST.eq(requestedCover)))))
+                return@business error(400, "invalid_cover", "cover")
+            val name = input.name ?: row.name!!
+            val cover = input.cover ?: row.coverDigest
+            if (name != row.name || cover != row.coverDigest) {
+                sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.COVER_DIGEST, cover)
+                    .set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L)).where(SAVED_DECK.ID.eq(row.id)).execute()
+                row.name = name; row.coverDigest = cover; row.revision = row.revision!! + 1
+            }
+            Result(200, json.encodeToString(SavedDeck(summary(sql, row), entries(sql, row.id!!))))
+        }
+    }
+
+    fun delete(principal: AccountService.Principal, id: String, input: DeleteDeck): Result {
+        if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
+        return business(principal, input.requestId, "deleteDeck", intent(id, json.encodeToJsonElement(DeleteDeck.serializer(), input))) { sql, owner ->
+            val row = owned(sql, owner, id) ?: return@business error(404, "not_found")
+            sql.deleteFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(row.id)).execute()
+            Result(200, json.encodeToString(DeckDeleted(id)))
+        }
+    }
+
+    private fun intent(id: String, input: kotlinx.serialization.json.JsonElement) = DeckJson.canonicalElement(
+        kotlinx.serialization.json.buildJsonObject { put("deckId", kotlinx.serialization.json.JsonPrimitive(id)); put("input", input) })
+
+    private fun owned(sql: DSLContext, owner: UUID, id: String): SavedDeckRecord? {
+        if (!DeckValidation.uuid(id)) return null
+        return sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
+            .and(SAVED_DECK.ACCOUNT_ID.eq(owner)).forUpdate().fetchOne()
+    }
+
+    private fun entries(sql: DSLContext, id: UUID) = sql.selectFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(id))
+        .orderBy(DECK_ENTRY.POSITION).fetch().map {
+            SavedDeckEntry(SavedDeckSection.valueOf(it.section!!), it.definitionDigest!!, it.quantity!!)
+        }
+
+    private fun summary(sql: DSLContext, row: SavedDeckRecord, entries: List<SavedDeckEntry> = entries(sql, row.id!!)): DeckSummary {
+        val cover = (row.coverDigest?.takeIf { digest -> entries.any { it.definition == digest } } ?: entries.firstOrNull()?.definition)?.let { digest ->
+            val definition = json.decodeFromString<CardDefinition>(sql.select(DEFINITION.PAYLOAD).from(DEFINITION)
+                .where(DEFINITION.DIGEST.eq(digest)).fetchSingle(DEFINITION.PAYLOAD)!!)
+            val face = definition.faces.first()
+            DeckCover(digest, definition.name, face.scryfallId, face.imageUri)
+        }
+        return DeckSummary(row.id.toString(), row.name!!, row.revision.toString(), row.createdAt!!.toInstant().toString(),
+            entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() },
+            entries.filter { it.section == SavedDeckSection.SIDEBOARD }.sumOf { it.quantity.toLong() }, cover)
     }
 
     /** INSERT uniqueness waits for concurrent identical IDs, then reads the committed original result.
@@ -102,8 +160,8 @@ class DeckService(private val runtime: ServiceRuntime) {
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val rows = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId)))
                 .and(if (after == null) DSL.trueCondition() else SAVED_DECK.ID.gt(UUID.fromString(after)))
-                .orderBy(SAVED_DECK.ID).limit(101).fetch()
-            val decks = rows.take(100).map { DeckSummary(it.id.toString(), it.name!!, it.revision.toString(), it.createdAt!!.toInstant().toString()) }
+                .orderBy(SAVED_DECK.ID).limit(101).forShare().fetch()
+            val decks = rows.take(100).map { summary(sql, it) }
             Result(200, json.encodeToString(DeckList(decks, if (rows.size > 100) decks.last().id else null)))
         }
     }
@@ -114,7 +172,7 @@ class DeckService(private val runtime: ServiceRuntime) {
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
-                .and(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).fetchOne()
+                .and(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
             if (digest != null) {
                 val payload = sql.select(DEFINITION.PAYLOAD).from(DECK_ENTRY).join(DEFINITION)
@@ -123,10 +181,8 @@ class DeckService(private val runtime: ServiceRuntime) {
                     .limit(1).fetchOne(DEFINITION.PAYLOAD) ?: return@transaction error(404, "not_found")
                 return@transaction Result(200, json.encodeToString(SubmittedDefinition(digest, json.decodeFromString<CardDefinition>(payload))))
             }
-            val entries = sql.selectFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(row.id)).orderBy(DECK_ENTRY.POSITION)
-                .fetch().map { SavedDeckEntry(SavedDeckSection.valueOf(it.section!!), it.definitionDigest!!, it.quantity!!) }
-            Result(200, json.encodeToString(SavedDeck(DeckSummary(row.id.toString(), row.name!!,
-                row.revision.toString(), row.createdAt!!.toInstant().toString()), entries)))
+            val entries = entries(sql, row.id!!)
+            Result(200, json.encodeToString(SavedDeck(summary(sql, row, entries), entries)))
         }
     }
 }

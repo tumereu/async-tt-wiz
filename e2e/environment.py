@@ -445,7 +445,7 @@ def empty_baseline(value):
     # must extend this qualification, never silently escape the reset contract.
     require(database(value, "SELECT string_agg(tablename,',' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'")
             == "account,account_definition,account_request,account_session,deck_entry,definition,flyway_schema_history,password_reset_token,request_identity,reset_mail,saved_deck,service_writer", "Unexpected baseline tables")
-    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3\n4", "Unexpected migration baseline")
+    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3\n4\n5", "Unexpected migration baseline")
     mutable = ("account", "account_session", "password_reset_token", "reset_mail", "definition",
                "account_definition", "saved_deck", "deck_entry", "request_identity", "account_request")
     for table in mutable:
@@ -456,7 +456,7 @@ def empty_baseline(value):
             state["generation"] == 0 and state["messageCount"] == 0 and
             state["sourceFault"] == state["mailFault"] == "ok", "Nonempty adapter baseline")
     require(admin(value, "/admin/messages") == [], "Retained baseline deliveries")
-    return {"tables": list(mutable) + ["flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3", "4"],
+    return {"tables": list(mutable) + ["flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3", "4", "5"],
             "accountCount": 0, "sessionCount": 0, "resetTokenCount": 0, "resetMailCount": 0,
             "versions": state["versions"], "messageCount": 0, "faults": "ok"}
 

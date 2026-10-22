@@ -42,9 +42,15 @@ data class CardDefinition(
 @Serializable enum class SavedDeckSection { MAINBOARD, SIDEBOARD }
 @Serializable data class SavedDeckEntry(val section: SavedDeckSection, val definition: String, val quantity: Int)
 @Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<SavedDeckEntry>)
-@Serializable data class DeckSummary(val id: String, val name: String, val revision: String, val createdAt: String)
+@Serializable data class DeckCover(val definition: String, val name: String, val scryfallId: String? = null, val imageUri: String? = null)
+@Serializable data class DeckSummary(val id: String, val name: String, val revision: String, val createdAt: String,
+    val mainboard: Long = 0, val sideboard: Long = 0, val cover: DeckCover? = null)
 @Serializable data class SavedDeck(val deck: DeckSummary, val entries: List<SavedDeckEntry>)
 @Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
+/** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL. */
+@Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null)
+@Serializable data class DeleteDeck(val requestId: String)
+@Serializable data class DeckDeleted(val id: String)
 @Serializable data class DeckError(val code: String, val field: String? = null)
 
 /** RFC8785 subset: typed schemas contain only strings, booleans, null and exact 32-bit integers.

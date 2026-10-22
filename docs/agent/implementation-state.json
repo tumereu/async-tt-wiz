@@ -80,7 +80,8 @@
                                  "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f.json",
                                   "docs/agent/implementation-runs/20261022T132840Z-1bd01564.json",
                                    "docs/agent/implementation-runs/20261022T133231Z-4b656bf2.json",
-                                   "docs/agent/implementation-runs/20261022T133657Z-5e073769.json"
+                                    "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
+                                    "docs/agent/implementation-runs/20261022T134014Z-ca978b34.json"
    ],
   "findings": [],
   "batches": [
@@ -768,7 +769,9 @@
     {
       "id": "I07a",
       "batch": "B2",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T134014Z-ca978b34.json",
+      "qualification": "Delivered server-backed cover/name/count collection, read-only section tabs, rename, exact in-deck cover and confirmed deletion with same-account refresh preserving personal drafts. V5 retains populated V4 data; writer-fenced same-deck locks and immutable original outcomes preserve entries/definitions and prevent private target disclosure/upsert. Focused shared, PostgreSQL/HTTP/migration and Android management/save/account host assertions pass across retained initial XML and affected rechecks; incremental APK/lint/boundaries and real two-API29-instance native segments cover import/details/rename/cover/rotation/personal draft, selection accessibility, X/Keep/Back cancellation, seven UI-created decks/fixed Import, accepted deletion propagation and process restart. The original native commands remain diagnostic; only the retained persisted-deletion tail is a wholly green final command. Read-only accepted-state evidence confirms six remaining decks, retained definitions and original rename/cover/delete outcomes. One initial pagination 503 remains unexplained diagnostic with passing narrow unchanged-assertion recheck, not a claimed transient fix. Exact source/fixture/lock/APK/image identities and owned cleanup retained. Only I07a closes; I07b full inspection, I08 contextual import, I10/I12 selected-copy isolation, B2 independent review, I34-I36/final UI and all external gates remain open. No local collection authority, quantity editor, trash, upload, deployment or new loop.",
       "dependsOn": ["I06"],
       "planningRecord": "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
       "outcome": "Deliver usable D01/D02/D05/D06 collection management through the existing authenticated deck service and normal APK: cover/count/name collection rows, read-only mainboard/sideboard details, Edit actions for rename/in-deck cover/delete, and account synchronization of accepted metadata/deletion. Extend existing immutable definitions, request/outcome persistence and writer fencing rather than introducing a local-authority collection. Native rename/cover drafts and deletion confirmation remain personal and survive ordinary rotation appropriately; failures retain usable context and report actual outcomes. I08 supplies contextual import, I07b full inspection.",

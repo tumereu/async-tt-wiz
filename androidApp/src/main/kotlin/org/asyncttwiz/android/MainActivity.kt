@@ -54,6 +54,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         window.decorView.post { fullscreen() }
         ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
+        val auth = ViewModelProvider(this)[AuthViewModel::class.java]
+        if (auth.controller.state.destination == ShellDestination.DECKS) auth.decks.sync()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

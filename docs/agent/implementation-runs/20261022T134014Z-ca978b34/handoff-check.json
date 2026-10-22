@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T134014Z-ca978b34/handoff-check.py"
+  ],
+  "exitCode": 0,
+  "output": "PASS exact starting commit/branch/authorized high-model priority; only I07a advances; I07b next; parents/B2/review/release gates unchanged\nPASS retained 38 green initial host/shared/PostgreSQL assertions, original one-case 503 diagnostic, exact passing pagination recheck and ten affected final controller/save host assertions; not a new whole-suite run\nPASS exact current inputs, composed diagnostic native core/cover/cancel/long-list/accepted-deletion evidence plus green persisted-deletion tail and read-only original-outcome corroboration; no wholly green original native run claimed\nPASS completed exact owned cleanup, docs links/fences/whitespace, unchanged coverage ledger, report output/support paths and selected role/changed-path boundaries\nNOT CLAIMED: I07b/I07/I08, selected-copy journeys, independent B2 review, final I34-I36/full-suite/UI/compatibility and external release gates\n"
+}

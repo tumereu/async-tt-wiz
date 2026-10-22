@@ -39,16 +39,19 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             val allowed = when {
                 path == "/v1/definitions" -> "POST"
                 path == "/v1/decks" -> "GET, POST"
-                parts.size == 2 || (parts.size == 4 && parts[2] == "definitions") -> "GET"
+                parts.size == 2 -> "GET, PUT, DELETE"
+                parts.size == 4 && parts[2] == "definitions" -> "GET"
                 else -> { error(response, 404, "not_found"); return true }
             }
             if (request.method !in allowed.split(", ")) {
                 response.setHeader("Allow", allowed); error(response, 405, "method_not_allowed"); return true
             }
             val result = when {
-                request.method == "POST" -> {
+                request.method in listOf("POST", "PUT", "DELETE") -> {
                     val text = body(request, response) ?: return true
-                    if (path == "/v1/definitions") decks.submit(principal, json.decodeFromString<SubmitDefinitions>(text))
+                    if (request.method == "PUT") decks.update(principal, parts[1], json.decodeFromString<UpdateDeck>(text))
+                    else if (request.method == "DELETE") decks.delete(principal, parts[1], json.decodeFromString<DeleteDeck>(text))
+                    else if (path == "/v1/definitions") decks.submit(principal, json.decodeFromString<SubmitDefinitions>(text))
                     else decks.create(principal, json.decodeFromString<CreateDeck>(text))
                 }
                 path == "/v1/decks" -> decks.list(principal, request.getParameter("after"))

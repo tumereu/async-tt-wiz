@@ -48,7 +48,7 @@ public final class GenerateJooq {
             System.out.println("OWNED codegen PostgreSQL container=" + id + " image=" + image);
             try {
                 int migrated = FoundationMigrations.migrate(new DatabaseSettings(db.getJdbcUrl(), db.getUsername(), db.getPassword()));
-                if (migrated != 4) throw new IllegalStateException("Expected clean V1/V2/V3/V4 migrations");
+                if (migrated != 5) throw new IllegalStateException("Expected clean V1/V2/V3/V4/V5 migrations");
                 GenerationTool.generate(new Configuration()
                         .withJdbc(new Jdbc().withDriver("org.postgresql.Driver").withUrl(db.getJdbcUrl())
                                 .withUser(db.getUsername()).withPassword(db.getPassword()))
@@ -59,7 +59,7 @@ public final class GenerateJooq {
                                         .withJavadoc(false).withPojos(false).withDaos(false))
                                 .withTarget(new Target().withPackageName("org.asyncttwiz.server.generated")
                                         .withDirectory(output.toAbsolutePath().toString()).withClean(true))));
-                System.out.println("PASS generated real PostgreSQL fields from validated Flyway V1/V2/V3/V4");
+                System.out.println("PASS generated real PostgreSQL fields from validated Flyway V1/V2/V3/V4/V5");
             } finally {
                 var client = db.getDockerClient();
                 var volumes = client.inspectContainerCmd(id).exec().getMounts().stream()

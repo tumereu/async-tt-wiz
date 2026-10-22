@@ -19,6 +19,8 @@ interface Decks : Closeable {
     suspend fun list(token: String, after: String? = null): DeckList
     suspend fun read(token: String, id: String): SavedDeck
     suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition
+    suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck
+    suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted
 }
 
 /** Dedicated authenticated service transport; never shares provider caches or follows redirects. */
@@ -34,6 +36,14 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         call(token, HttpMethod.Post, "/v1/definitions", DeckJson.format.encodeToString(value))
     override suspend fun create(token: String, value: CreateDeck): SavedDeck =
         call(token, HttpMethod.Post, "/v1/decks", DeckJson.format.encodeToString(value))
+    override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Put, "/v1/decks/$id", DeckJson.format.encodeToString(value))
+    }
+    override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Delete, "/v1/decks/$id", DeckJson.format.encodeToString(value))
+    }
     override suspend fun list(token: String, after: String?): DeckList {
         if (after != null && !DeckValidation.uuid(after)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Get, "/v1/decks" + (after?.let { "?after=$it" } ?: ""))

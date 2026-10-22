@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.e2e.NativeDeckManagementTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T15:05:05.961Z" hostname="DESKTOP-B2KALVM" time="24.397">
+  <properties/>
+  <testcase name="managesAndSynchronizesAcceptedCollectionWithoutSharingUnfinishedDialogs()" classname="org.asyncttwiz.e2e.NativeDeckManagementTest" time="24.388"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

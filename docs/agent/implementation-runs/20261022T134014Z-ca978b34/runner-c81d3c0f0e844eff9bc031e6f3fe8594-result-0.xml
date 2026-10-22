@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.e2e.NativeDeckManagementTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-22T14:15:00.517Z" hostname="DESKTOP-B2KALVM" time="13.474">
+  <properties/>
+  <testcase name="managesAndSynchronizesAcceptedCollectionWithoutSharingUnfinishedDialogs()" classname="org.asyncttwiz.e2e.NativeDeckManagementTest" time="13.464">
+    <failure message="org.openqa.selenium.NoSuchElementException: An element could not be located on the page using the given search parameters.&#10;For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#nosuchelementexception&#10;Build info: version: '4.49.0', revision: 'bedb24f bedb24f6f703876e7e4c5d506f0d697eb358c720'&#10;System info: os.name: 'Linux', os.arch: 'amd64', os.version: '6.18.54.1-microsoft-standard-WSL2', java.version: '21.0.12.1'&#10;Driver info: io.appium.java_client.android.AndroidDriver&#10;Command: [087f02db-6289-41bf-b05f-0f0ddd5f2e58, findElement {value=//android.widget.EditText[.//*[@content-desc='Password']], using=xpath}]&#10;Capabilities {appium:adbPort: 15040, appium:appActivity: org.asyncttwiz.android.Main..., appium:appPackage: org.asyncttwiz.android, appium:autoLaunch: false, appium:automationName: UIAutomator2, appium:databaseEnabled: false, appium:desired: {adbPort: 15040, appActivity: org.asyncttwiz.android.Main..., appPackage: org.asyncttwiz.android, autoLaunch: false, automationName: UIAutomator2, deviceName: emulator-5566, fullReset: false, newCommandTimeout: 300, noReset: true, platformName: ANDROID, remoteAdbHost: 127.0.0.1, skipLogcatCapture: true, systemPort: 18212, udid: emulator-5566}, appium:deviceApiLevel: 29, appium:deviceManufacturer: unknown, appium:deviceModel: Android SDK built for x86_64, appium:deviceName: emulator-5566, appium:deviceScreenDensity: 320, appium:deviceScreenSize: 720x1280, appium:deviceUDID: emulator-5566, appium:fullReset: false, appium:javascriptEnabled: true, appium:locationContextEnabled: false, appium:networkConnectionEnabled: true, appium:newCommandTimeout: 300, appium:noReset: true, appium:pixelRatio: 2, appium:platformVersion: 10, appium:remoteAdbHost: 127.0.0.1, appium:skipLogcatCapture: true, appium:statBarHeight: 48, appium:systemPort: 18212, appium:takesScreenshot: true, appium:udid: emulator-5566, appium:viewportRect: {height: 1232, left: 0, top: 48, width: 720}, appium:warnings: {}, appium:webStorageEnabled: false, platformName: ANDROID}&#10;Session ID: 087f02db-6289-41bf-b05f-0f0ddd5f2e58" type="org.openqa.selenium.NoSuchElementException">org.openqa.selenium.NoSuchElementException: An element could not be located on the page using the given search parameters.
+For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#nosuchelementexception
+Build info: version: '4.49.0', revision: 'bedb24f bedb24f6f703876e7e4c5d506f0d697eb358c720'
+System info: os.name: 'Linux', os.arch: 'amd64', os.version: '6.18.54.1-microsoft-standard-WSL2', java.version: '21.0.12.1'
+Driver info: io.appium.java_client.android.AndroidDriver
+Command: [087f02db-6289-41bf-b05f-0f0ddd5f2e58, findElement {value=//android.widget.EditText[.//*[@content-desc='Password']], using=xpath}]
+Capabilities {appium:adbPort: 15040, appium:appActivity: org.asyncttwiz.android.Main..., appium:appPackage: org.asyncttwiz.android, appium:autoLaunch: false, appium:automationName: UIAutomator2, appium:databaseEnabled: false, appium:desired: {adbPort: 15040, appActivity: org.asyncttwiz.android.Main..., appPackage: org.asyncttwiz.android, autoLaunch: false, automationName: UIAutomator2, deviceName: emulator-5566, fullReset: false, newCommandTimeout: 300, noReset: true, platformName: ANDROID, remoteAdbHost: 127.0.0.1, skipLogcatCapture: true, systemPort: 18212, udid: emulator-5566}, appium:deviceApiLevel: 29, appium:deviceManufacturer: unknown, appium:deviceModel: Android SDK built for x86_64, appium:deviceName: emulator-5566, appium:deviceScreenDensity: 320, appium:deviceScreenSize: 720x1280, appium:deviceUDID: emulator-5566, appium:fullReset: false, appium:javascriptEnabled: true, appium:locationContextEnabled: false, appium:networkConnectionEnabled: true, appium:newCommandTimeout: 300, appium:noReset: true, appium:pixelRatio: 2, appium:platformVersion: 10, appium:remoteAdbHost: 127.0.0.1, appium:skipLogcatCapture: true, appium:statBarHeight: 48, appium:systemPort: 18212, appium:takesScreenshot: true, appium:udid: emulator-5566, appium:viewportRect: {height: 1232, left: 0, top: 48, width: 720}, appium:warnings: {}, appium:webStorageEnabled: false, platformName: ANDROID}
+Session ID: 087f02db-6289-41bf-b05f-0f0ddd5f2e58
+	at org.openqa.selenium.remote.ErrorCodec.decode(ErrorCodec.java:169)
+	at org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec.decode(W3CHttpResponseCodec.java:143)
+	at org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec.decode(W3CHttpResponseCodec.java:50)
+	at org.openqa.selenium.remote.HttpCommandExecutor.execute(HttpCommandExecutor.java:196)
+	at io.appium.java_client.remote.AppiumCommandExecutor.execute(AppiumCommandExecutor.java:243)
+	at org.openqa.selenium.remote.RemoteWebDriver.execute(RemoteWebDriver.java:653)
+	at org.openqa.selenium.remote.ElementLocation$ElementFinder$2.findElement(ElementLocation.java:173)
+	at org.openqa.selenium.remote.ElementLocation.findElement(ElementLocation.java:60)
+	at org.openqa.selenium.remote.RemoteWebDriver.findElement(RemoteWebDriver.java:417)
+	at org.openqa.selenium.remote.RemoteWebDriver.findElement(RemoteWebDriver.java:411)
+	at org.asyncttwiz.e2e.NativeDeckManagementTest$Ui.authField(NativeDeckManagementTest.kt:50)
+	at org.asyncttwiz.e2e.NativeDeckManagementTest$Ui.signIn(NativeDeckManagementTest.kt:58)
+	at org.asyncttwiz.e2e.NativeDeckManagementTest.managesAndSynchronizesAcceptedCollectionWithoutSharingUnfinishedDialogs(NativeDeckManagementTest.kt:97)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

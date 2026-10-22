@@ -143,3 +143,17 @@ refuse continuation. Focused deterministic regressions qualify this orchestratio
 correction; no unchanged product suite or artifact matrix is rerun. Original halted
 record is preserved and reconciled through normal recovery. Two of five units
 launched; continue only three after safe recovery, then assess delivered import.
+
+Batch 4 completion (`3f5572d..6b21046`): catalog download/consent/update retention
+and lazy exact-face artwork now feed a real native import input/error/correction/
+resolved-preview journey in both orientations. I06a's actual preview-rotation crash
+was fixed and rechecked; Save remains visibly unavailable until I06b's real server
+acceptance is implemented, rather than faked locally. Product tests remained
+affected checks; parent I05 reused evidence. The recovered CLI mismatch was an
+orchestration fault, not a product blocker or reason to redo artwork.
+
+Assessment: on track, with no speculative findings or refinement carousel. Next
+is atomic named deck save, then collection/detail management and Overwrite/Merge;
+those turn the new preview into the complete ordinary deck journey. Twenty resumed
+fresh units consumed; 2,951 sessions remain in the original ceiling. B1 independent
+review remains valid; B2 and final whole-product tests/reviews/gates remain open.

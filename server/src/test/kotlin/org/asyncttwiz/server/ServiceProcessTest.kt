@@ -220,7 +220,7 @@ class ServiceProcessTest {
             val checksum = number(db, "SELECT checksum FROM flyway_schema_history WHERE version='1'")
             for (corruption in listOf("checksum", "future")) {
                 if (corruption == "checksum") sql(db, "UPDATE flyway_schema_history SET checksum=123 WHERE version='1'")
-                else sql(db, "INSERT INTO flyway_schema_history VALUES (2,'999','future','SQL','V999__future.sql',42,current_user,now(),0,true)")
+                else sql(db, "INSERT INTO flyway_schema_history VALUES (3,'999','future','SQL','V999__future.sql',42,current_user,now(),0,true)")
                 Service(environment(db)).use { service ->
                     service.awaitStatus("/health/live", 200)
                     service.awaitStatus("/health/ready", 503)
@@ -228,7 +228,7 @@ class ServiceProcessTest {
                     Thread.sleep(1200)
                     assertEquals(503, service.request("/health/ready").statusCode())
                     assertEquals(0L, epoch(db))
-                    assertEquals(if (corruption == "future") 2L else 1L, number(db, "SELECT count(*) FROM flyway_schema_history"))
+                    assertEquals(if (corruption == "future") 3L else 2L, number(db, "SELECT count(*) FROM flyway_schema_history"))
                     println("PASS real process rejects $corruption schema unchanged")
                 }
                 if (corruption == "checksum") sql(db, "UPDATE flyway_schema_history SET checksum=$checksum WHERE version='1'")

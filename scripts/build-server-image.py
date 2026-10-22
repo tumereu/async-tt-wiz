@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a local-only runtime image from clean locked sources and disposable jOOQ DBs."""
+"""Build a local-only runtime image from locked sources and disposable jOOQ DBs."""
 import argparse
 import hashlib
 import json
@@ -27,11 +27,14 @@ def digest(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", choices=["linux/amd64", "linux/arm64"], default="linux/amd64")
+    parser.add_argument("--clean", action="store_true", help="Final reproducibility qualification only (D-307)")
     args = parser.parse_args()
     # No skip-build switch: an old installed distribution is not source provenance.
-    run("./scripts/gradle.sh", "--no-daemon", "--console=plain", "--no-build-cache",
-        ":core:clean", ":protocol:clean", ":server:clean", ":server:installDist", "verifyModuleBoundaries")
+    clean = ["--no-build-cache", ":core:clean", ":protocol:clean", ":server:clean"] if args.clean else []
+    run("./scripts/gradle.sh", "--no-daemon", "--console=plain", *clean, ":server:installDist", "verifyModuleBoundaries")
     context = ROOT / "server/build/image-context"
+    if context.exists():
+        shutil.rmtree(context)  # This script's exact disposable allowlisted build context only.
     context.mkdir()
     (context / "lib").mkdir()
     jars = sorted((ROOT / "server/build/install/server/lib").glob("*.jar"))

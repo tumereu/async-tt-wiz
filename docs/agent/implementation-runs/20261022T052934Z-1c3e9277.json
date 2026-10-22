@@ -1,0 +1,162 @@
+{
+  "runId": "20261022T052934Z-1c3e9277",
+  "sessionID": "ses_e9de9f50dffeaTnUEu4DFis7EY",
+  "startCommit": "ddf1aa71e887fe5001043e83fd8a74a8ad79596b",
+  "mode": "implement",
+  "target": "I02a",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "I02a implemented: real PostgreSQL/Flyway V2/generated-jOOQ registration, email/password login, safe authenticated identity and idempotent token revocation through stateless Spring Security. Pinned Unicode15.1 names/IDNA email keys are separate from exact whitespace/Unicode passwords; versioned Argon2id salts, two hash permits, successful legacy rehash, bounded rate limits and hashed-only random persistent nonexpiring tokens with revocation/account epochs are exercised. Twenty-seven distinct affected shared/server tests pass across the initial run and targeted rechecks, plus the actual incremental local image entry/restart/revoke journey; original failed outputs remain diagnostics, not claimed whole-suite passes. A host-only Argon2id sample averages 173ms/hash, not physical Android performance. Only I02a advances; I02b Android/Keystore is next, I02 parent/B1 review and later reset/social/game/full qualification/external release gates remain open.",
+  "selectionReason": "Clean master matched the supplied startCommit, D-304 explicitly authorizes application work, I01 is implemented and no finding/due review precedes this earliest pending I02a child. Deliver the real account API needed by I02b, not another foundation certification layer. Affected scope is shared account wire types, real credential normalization/hashing/rate/privacy/session authorization, forward PostgreSQL migration/generated queries, current writer/schema admission, HTTP service wiring and ordinary runtime image entry/restart/revocation. Run focused tests and only their failures/changed history assertions; reuse green unaffected test evidence without another full suite, clean build, device run or unchanged image fault matrix. No subagent, loop, deployment, paid resource, permission/model/authorization change or independent self-review.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --write-locks :server:dependencies :server:compileKotlin > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-compile-initial.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-compile-initial.txt"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --write-locks resolveAndLockAll :server:compileKotlin > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-compile-locks.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-compile-locks.txt"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --write-locks resolveAndLockAll :server:compileJava > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-build-locks.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-build-locks.txt"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest :server:test --tests 'org.asyncttwiz.server.accounts.*' --tests org.asyncttwiz.server.database.FoundationDatabaseTest --tests org.asyncttwiz.server.ServiceRuntimeTest --tests org.asyncttwiz.server.SpringStartupTest verifyModuleBoundaries > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-initial.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-initial.txt"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :server:test --tests '*AccountFieldsTest.rate windows*' --tests '*AccountHttpTest' --tests '*WriterOwnershipTest.non migrating*' --tests '*WriterOwnershipTest.checksum future*' --tests '*ServiceProcessTest.checksum future*' verifyModuleBoundaries > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-affected.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-affected.txt"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :server:test --tests '*ServiceProcessTest.checksum future*' verifyModuleBoundaries > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-schema.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-schema.txt"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.py > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.py"]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.py > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies-passing.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies-passing.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.py > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies-final.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies-final.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-server-image.py > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-image-build.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-image-build.txt"
+    },
+    {
+      "kind": "required",
+      "command": "python3 tests/server/accounts_image.py > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-image-accounts.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-image-accounts.txt"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T052934Z-1c3e9277-handoff.py > docs/agent/implementation-runs/20261022T052934Z-1c3e9277-handoff.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-handoff.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T052934Z-1c3e9277-handoff.py", "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-retain.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277.json",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-build-locks.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-compile-initial.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-compile-locks.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies-final.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies-passing.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.py",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-dependencies.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-handoff.py",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-handoff.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-image-accounts.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-image-build.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-retain.py",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-affected-xml.json",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-affected.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-initial-xml.json",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-initial.txt",
+    "docs/agent/implementation-runs/20261022T052934Z-1c3e9277-tests-schema.txt",
+    "gradle/libs.versions.toml",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Accounts.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/AccountsTest.kt",
+    "scripts/build-server-image.py",
+    "server/README.md",
+    "server/build.gradle.kts",
+    "server/gradle.lockfile",
+    "server/src/main/java/org/asyncttwiz/server/SpringService.java",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountFields.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountRateLimits.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/PasswordHashing.kt",
+    "server/src/main/resources/db/migration/V2__accounts_and_sessions.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/ServiceProcessTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/accounts/AccountFieldsTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/accounts/AccountHttpTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/accounts/AccountRepositoryTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/database/FoundationDatabaseTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/database/WriterOwnershipTest.kt",
+    "tests/server/accounts_image.py",
+    "tests/server/image_lifecycle.py"
+  ],
+  "evidenceNotes": "Captured command outputs retain their .txt paths but are lossless JSON envelopes with command, actual exitCode, outputSha256 and original output string, preserving trailing whitespace/CR bytes without failing staged whitespace checks; handoff.txt is plain current audit output. Initial/affected JUnit XML is retained as JSON strings; final process XML is included verbatim as a JSON string in the handoff audit. Original red commands remain red diagnostics; the audit reconciles 27 individually green tests and explicitly does not call either partial red command a full green run. No full-suite/clean-build/unchanged platform matrix was run.",
+  "diagnosticDisposition": [
+    "Initial generator expected only V1 and generated only service_writer. Add V2 explicitly to expected migrated history/generated account/session table inventory; subsequent locked JVM build and actual generated-field repository/image checks pass.",
+    "Kotlin compile identified Spring Security/encoder nullable APIs. Use explicit non-null checks at invariant boundaries; subsequent locked JVM21 compilation passes.",
+    "Initial unauthorized HTTP checks exposed Spring Security's default HttpSessionRequestCache creating Set-Cookie on error. Use NullRequestCache with NullSecurityContextRepository; all four real HTTP tests pass on recheck without cookie creation.",
+    "Rate-capacity test wrongly counted expired existing windows as permanently occupied. Use a dedicated same-window 10,000-key capacity assertion, then assert real expiry recovery; production rate limiter unchanged and targeted check passes.",
+    "Affected process-schema test still expected a one-row migration history after V2. Update exact preserved history counts and future migration rank/version; isolated process recheck passes. Corresponding full image-matrix history expectations are updated, with that unchanged broad matrix retained for I34 rather than rerun here.",
+    "New dependency provenance helper initially assumed direct POM licenses, then assumed every missing license had a parent. Retain ICU's inherited Unicode/ICU license and Bouncy Castle's exact r1rv84 upstream MIT-style license; final provenance check passes. The filename dependencies-passing.txt belongs to the second FAILED diagnostic, not a pass. No release/legal clearance is claimed."
+  ],
+  "sourceIds": ["P-043", "P-047", "T-024", "T-396", "T-419", "T-420", "T-422", "T-572", "T-573", "T-621", "T-657", "T-696", "F04", "F05", "F06", "F11", "F58"],
+  "sourcePaths": [
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/03-contracts/accounts-decks-and-lobby.md",
+    "docs/design/04-technical/authentication-and-sessions.md",
+    "docs/design/04-technical/protocol-v1.md"
+  ],
+  "retainedObligations": [
+    "I02b: actual native A01/A02/A02b, Ktor HTTP adapter, Android Keystore AES-GCM storage, normal-APK both-orientation entry/paste/restart/revocation journey. No F/UI item is claimed passed here.",
+    "I02 parent: reconcile exact child records/current identities and missing integration only. B1 independent capability review remains after I01-I04 together.",
+    "I03/I04: authenticated shell/context and complete immediate local Logout cleanup/callback/account isolation, actual reset/deep links/mail outbox/revocation and second-device B1 journeys. No stronger D-289 reset/message-order guarantees.",
+    "I09/I12/I13/I14: contacts/invitations/game privacy/object authorization and same-account request/game recovery. Safe AccountIdentity exists but full T-024/T-396/T-422/P-047/T-696 scenarios still depend on these surfaces.",
+    "I34/I35/I36/B8: full suite/deferred broad schema/image/platform failure matrices, reproducibility/compatibility/upgrade/arm64, final UI inventory/mock comparison and fresh review/fixes. Physical performance and every external release gate remain unverified."
+  ]
+}

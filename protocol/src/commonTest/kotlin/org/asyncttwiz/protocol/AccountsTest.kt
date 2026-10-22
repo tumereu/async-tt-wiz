@@ -1,0 +1,17 @@
+package org.asyncttwiz.protocol
+
+import kotlinx.serialization.encodeToString
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+
+class AccountsTest {
+    @Test fun credentialsRoundTripWithoutNormalizationOrDiagnosticDisclosure() {
+        val input = RegisterAccount("Straße", "Local@Example.invalid", " \tPäSS e\u0301😀\n")
+        val encoded = AccountJson.format.encodeToString(input)
+        assertEquals(input, AccountJson.format.decodeFromString<RegisterAccount>(encoded))
+        assertEquals("RegisterAccount[redacted]", input.toString())
+        assertFalse(AccountJson.format.encodeToString(AccountIdentity("id", "name")).contains("email"))
+        assertEquals("SessionCreated[redacted]", SessionCreated("secret", AccountIdentity("id", "name")).toString())
+    }
+}

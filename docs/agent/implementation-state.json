@@ -59,7 +59,8 @@
             "docs/agent/implementation-runs/20261022T044934Z-c307edee.json",
              "docs/agent/implementation-runs/20261022T051745Z-e3d640da.json",
               "docs/agent/implementation-runs/20261022T052143Z-3d124427.json",
-              "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json"
+               "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
+               "docs/agent/implementation-runs/20261022T052934Z-1c3e9277.json"
    ],
   "findings": [],
   "batches": [
@@ -514,7 +515,10 @@
     {
       "id": "I02a",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277.json",
+      "apiContract": "server/README.md#account-http-v1--i02a",
+      "qualification": "Real V2 PostgreSQL/Flyway/jOOQ account/session API supplies POST /accounts, POST /sessions, GET /account and idempotent DELETE /session through stateless Spring Security 7.1.1. Unicode15.1/ICU74.2 canonical names and IDNA email keys remain separate from exact scalar/UTF8-bounded passwords. Argon2id v19 64MiB/t3/p1 random PHC salts, two bounded hash permits, successful legacy rehash, generic bounded rate/error responses, canonical random 32-byte opaque tokens stored only as SHA256 verifiers, independent persisted nonexpiring sessions and account-epoch/revocation authorization are implemented. Affected real HTTP/database tests cover retained V1->V2 migration/checksums, concurrent uniqueness/rollback, exact Unicode/boundary-whitespace credentials, malformed encoding, privacy, 126-year token age and service restart, writer/schema refusal and explicit migration. Initial red tests caught Spring Security's default error request cache creating a cookie session (fixed with NullRequestCache), an expired-window capacity-test assumption and remaining V1-only process-history expectations; passing affected rechecks retain the original diagnostics. Incremental locked shared/server/image build, actual local image account/restart/revoke path, host-only hash benchmark and exact dependency provenance are retained in this run. No Android/Keystore/forms, reset/mail, contact/game object access, full product scenario, independent B1 review or external release gate is claimed. I02b is next; I03/I04/I09/I12/I13/I14 and I34/I35/I36 retain their obligations.",
       "dependsOn": ["I01"],
       "planningRecord": "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
       "outcome": "Implement real account registration/email-password login and session revocation/authentication in the existing Spring/PostgreSQL/Flyway/jOOQ service, using the selected Spring Security adapter and shared HTTP protocol types. Apply authentication-and-sessions.md's field-specific normalization, exact password bytes, versioned Argon2id verifiers, bounded hashing/rate limits and random opaque non-expiring tokens stored server-side only as hashes. Persist account/session identities and auth epoch for later reset; authorize new requests normally and expose only safe account identity to other-user projections. Qualify compatible locked dependencies and incremental migration/image inputs without adding contacts, gameplay, reset/outbox workers or stronger D-289 race guarantees.",

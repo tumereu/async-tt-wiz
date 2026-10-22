@@ -7,7 +7,8 @@ ownership/epoch-fenced transaction boundary; I01c2b supplies the real Spring Boo
 service, separate public/health listeners, runtime configuration and bounded process
 shutdown/recovery. I01c3 adds the local application OCI image and isolated image
 lifecycle qualification.** No image is published or deployed by these interfaces.
-No account/game/inbox/outbox schema, product API or durable worker exists yet.
+I02a adds the real account/session schema and public account API described below.
+No game/inbox/outbox/mail/push schema or durable worker exists yet.
 
 ## Build and test
 
@@ -93,7 +94,7 @@ or environment logging when diagnosing a secret-bearing command.
 
 The only CLI operation is `migrate`; no `clean`, `repair`, automatic baseline,
 out-of-order migration or unsupported-future-schema exception is enabled.
-An empty database receives `V1__service_writer.sql`; an unchanged supported database
+An empty database receives `V1__service_writer.sql` and `V2__accounts_and_sessions.sql`; an unchanged supported database
 is an idempotent rerun. History/checksums are validated. An unexpected nonempty
 unversioned database, altered checksum or newer applied history fails closed without
 destructive fallback. PostgreSQL transactional migration failures roll back that
@@ -146,8 +147,9 @@ Only the **health listener** serves GET/HEAD `/health/live` and `/health/ready`:
   singleton reload; otherwise HTTP 503 `Unavailable\n`. Every readiness request
   probes the dedicated session, not a cached successful poll. All responses are
   plain text and `Cache-Control: no-store`, without data/configuration detail.
-- All other paths/methods, including both health paths on the **public listener**,
-  return HTTP 404 `Not found\n`. There are no product/test-action endpoints.
+- Unknown paths, including both health paths on the **public listener**, return
+  HTTP 404 `Not found\n`. I02a's account API is public-listener-only; there are no
+  test-action endpoints. Known account paths use JSON method/error responses.
 
 `ServiceRuntime` refreshes/retries ownership every 500 ms after the preceding bounded
 attempt finishes. A competitor stays live but unready. DB/lock loss invalidates
@@ -262,9 +264,11 @@ python3 scripts/build-server-image.py
 python3 tests/server/image_lifecycle.py
 ```
 
-The build always cleans `:core`, `:protocol` and `:server`, disables the build
-cache, uses ordinary strict locks, regenerates jOOQ against an owned migrated
-PostgreSQL17 and installs the normal distribution. A small allowlisted context
+The build uses ordinary incremental Gradle tasks/strict locks, regenerates affected
+jOOQ inputs against an owned migrated PostgreSQL17 and installs the normal distribution.
+Use `--clean` only for final reproducibility qualification: it cleans `:core`,
+`:protocol` and `:server` and disables the build cache. Neither mode skips the
+source-to-distribution build. A small allowlisted context
 contains only its runtime JARs and the checked Dockerfile/ignore rules: no checkout,
 Gradle cache, test/code-generation tooling, credentials or host configuration.
 It then executes `docker build --pull --network=none --platform linux/amd64
@@ -427,3 +431,93 @@ implementation qualification, not independent B1 review or full acceptance:
 I01's SQLDelight/Compose/device/combined qualification, full product/arm64 checks
 and external release gates remain open. Future account/game/inbox/outbox/mail/push
 workers remain unimplemented and must join readiness/recovery/shutdown when added.
+
+## Account HTTP v1 — I02a
+
+The normal public listener serves these stateless JSON routes through the Spring
+Security web adapter. TLS terminates at the external trusted transport/proxy;
+plain HTTP below is only for isolated local synthetic development. Never publish
+credentials over untrusted plaintext connections. Forwarded headers are not trusted.
+No cookie login, HTTP session, guest identity, JWT, refresh token or saved password.
+
+| Method/path | Request | Success |
+| --- | --- | --- |
+| `POST /accounts` | `{"username":"…","email":"…","password":"…"}` | 201 `{"accountId":"UUID","username":"normalized display"}`; registration does **not** issue a session |
+| `POST /sessions` | `{"email":"…","password":"…"}` | 201 `{"token":"opaque bearer","account":{"accountId":"UUID","username":"…"}}` |
+| `GET /account` | `Authorization: Bearer …` | 200 current safe `AccountIdentity`; no email or other-account selector |
+| `DELETE /session` | `Authorization: Bearer …` | 204; revokes only this token, repeated/unknown well-formed tokens also return 204 |
+
+Shared types/strict JSON live in `protocol/.../Accounts.kt`. Bodies must be
+`application/json` (optional UTF-8 charset), at most 8192 bytes and strictly valid
+UTF-8/Unicode scalars. Unknown fields/type errors/missing fields are rejected.
+Responses are `Cache-Control: no-store`; credentials are body/header-only, never
+query parameters or logs. Unsupported known methods return 405 with `Allow`.
+Unknown routes keep the foundation's detail-free 404. No email is included in
+`AccountIdentity`, which is also the safe projection for future social features.
+
+Errors are `{"code":"…","field":"username|email|password"}`; `field` is optional.
+The Android adapter should translate stable codes into useful local text, never
+render raw exception/body text as an error. Retain entered values for correction
+only in volatile UI memory; do not persist passwords. Codes/statuses:
+
+- 400 `invalid_field` (with field) or `invalid_request`; no submitted value echoed.
+  Email supports ASCII dot-atom local parts (max 64 characters), not SMTPUTF8 or
+  quoted/comment mailboxes. Explain that restriction on invalid email input.
+- 409 `account_unavailable`: username or email cannot be used; no owner disclosed.
+- 401 `invalid_credentials`: generic email/password mismatch, including nonexistent
+  email; a dummy Argon2id verification follows the same costly path.
+- 401 `authentication_required`: missing/malformed/unknown/revoked bearer on private
+  reads. Ask for login; do not silently save/fall back to the reusable password.
+- 413 `request_too_large`; 415 `json_required`; 405 `method_not_allowed`.
+- 429 `try_later` plus bounded `Retry-After`: registration 5/hour/actual peer IP;
+  login 10/min/IP and 5/min/normalized email key. Fixed windows are bounded to 10,000
+  hashed keys, process-local, recover after their window; service restart resets
+  rate counters, **not sessions**. No permanent account lockout or XFF bypass.
+- 503 `authentication_busy` plus `Retry-After: 1` if both hash permits are occupied;
+  503 `unavailable` on writer/database/schema admission failure. Retry normally,
+  not as proof that an earlier response was committed or rejected.
+- 500 `internal_error`: fixed safe fallback, no driver/parser/security details.
+
+Credential semantics follow the [auth contract](../docs/design/04-technical/authentication-and-sessions.md):
+username trims Unicode boundary whitespace, NFC display and full Unicode default
+case-fold key, pinned **ICU4J 74.2 / Unicode 15.1**, 1–64 scalars and no control/bidi
+controls. Email trims independently, ASCII-local case-fold plus non-transitional
+UTS46/IDNA ASCII lowercase domain, preserves delivery spelling, max 254 UTF-8 bytes
+and 254 ASCII transport bytes. No dot/plus alias guesses. Passwords are exact
+8–256 scalar / ≤1024-byte UTF-8 strings, including whitespace/newlines/Unicode;
+no trim, NFC, case-fold, replacement or truncation.
+
+Spring Security **7.1.1** (Boot BOM), Argon2id v19 **64 MiB / t3 / p1**, random
+16-byte salt and 32-byte result store PHC verifiers, using Bouncy Castle **1.84**.
+Two immediate hashing permits bound concurrent RAM usage; saturation queues no
+additional hash work. Lower-cost verifiers rehash after successful login. Hashing
+occurs outside database transactions; reads and writes enter the existing fenced
+runtime boundary. V2 adds unique canonical account keys, account auth epoch and
+independent session IDs. Tokens are 32 secure random bytes encoded as canonical
+43-character base64url without padding; only SHA-256 verifiers persist. No secret
+response replay store, token expiry/age check or periodic eviction exists. New
+private requests join session/account epochs and revocation state, not a cached
+connection login. I04 will implement actual password reset/epoch increments;
+ordinary already-authorized work need not be retrospectively fenced (D-289).
+
+Focused development checks (ordinary incremental builds):
+
+```sh
+./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest :server:test \
+  --tests 'org.asyncttwiz.server.accounts.*' \
+  --tests org.asyncttwiz.server.database.FoundationDatabaseTest \
+  --tests org.asyncttwiz.server.ServiceRuntimeTest \
+  --tests org.asyncttwiz.server.SpringStartupTest verifyModuleBoundaries
+python3 scripts/build-server-image.py
+python3 tests/server/accounts_image.py
+```
+
+The image check reuses isolated UUID-owned network/database/cleanup helpers but runs
+only the affected real account journey, not the unchanged full lifecycle matrix.
+Normal Android A01/A02/Keystore integration is I02b; Menu/Games/Logout private-state
+cleanup is I03; email reset/multi-device entry is I04; contacts/game authorization
+and privacy remain I09/I12/I13/I14. Full-suite/compatibility/UI comparison remain
+I34/I35/I36/B8. B1 is not independently reviewed until I01–I04 together; external
+release gates remain open. These API checks are partial evidence for P-043/P-047,
+T-396/T-419/T-420/T-422/T-572/T-573/T-621/T-657 and future feature integration, not
+full-scenario or UI-feedback passes.

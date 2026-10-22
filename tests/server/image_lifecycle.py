@@ -176,7 +176,7 @@ class ImageLifecycle(unittest.TestCase):
         await_true("owned PostgreSQL ready", lambda: docker("exec", self.db, "pg_isready", "-h", "127.0.0.1", "-U", "image_fixture",
                    "-d", "foundation", check=False).returncode == 0)
 
-    def migrate(self, applied=1, success=True):
+    def migrate(self, applied=2, success=True):
         migration = self.app(("migrate",))
         self.stopped(migration, 0 if success else 1)
         if success:
@@ -349,7 +349,7 @@ class ImageLifecycle(unittest.TestCase):
             if corruption == "checksum":
                 self.sql("UPDATE flyway_schema_history SET checksum=123 WHERE version='1'")
             elif corruption == "future":
-                self.sql("INSERT INTO flyway_schema_history VALUES (2,'999','future','SQL','V999__future.sql',42,current_user,now(),0,true)")
+                self.sql("INSERT INTO flyway_schema_history VALUES (3,'999','future','SQL','V999__future.sql',42,current_user,now(),0,true)")
             else:
                 self.sql("DELETE FROM service_writer")
             service = self.app()
@@ -364,7 +364,7 @@ class ImageLifecycle(unittest.TestCase):
             if corruption == "checksum":
                 self.assertEqual(123, self.number("SELECT checksum FROM flyway_schema_history WHERE version='1'"))
             elif corruption == "future":
-                self.assertEqual(2, self.number("SELECT count(*) FROM flyway_schema_history"))
+                self.assertEqual(3, self.number("SELECT count(*) FROM flyway_schema_history"))
             else:
                 self.assertEqual(0, self.number("SELECT count(*) FROM service_writer"))
             self.term(service)

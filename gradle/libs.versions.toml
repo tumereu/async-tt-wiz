@@ -17,6 +17,8 @@ sqlite-jdbc = "3.53.4.0"
 appium-client = "10.1.1"
 selenium = "4.49.0"
 gson = "2.13.2"
+icu = "74.2"
+bouncycastle = "1.84"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -42,6 +44,10 @@ testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgr
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
 spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "spring-boot" }
 spring-boot-tomcat = { module = "org.springframework.boot:spring-boot-starter-tomcat", version.ref = "spring-boot" }
+spring-security-web = { module = "org.springframework.security:spring-security-web" }
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto" }
+icu = { module = "com.ibm.icu:icu4j", version.ref = "icu" }
+bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
 sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }

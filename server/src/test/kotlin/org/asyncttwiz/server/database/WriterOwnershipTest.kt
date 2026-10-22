@@ -40,7 +40,7 @@ class WriterOwnershipTest {
     @Test fun `non migrating validation accepts retained supported history and reloads singleton`() {
         migrated().use { db ->
             db.connection().use { it.execute("UPDATE service_writer SET epoch = 41") }
-            val checksum = FoundationMigrations.flyway(db.settings).info().applied().single().checksum
+            val checksum = FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum
             WriterOwnership(db.settings).use { owner ->
                 val token = acquired(owner)
                 assertEquals(42, token.epoch())
@@ -48,8 +48,8 @@ class WriterOwnershipTest {
                 assertSame(token, acquired(owner))
                 assertEquals(42, epoch(db))
             }
-            assertEquals(checksum, FoundationMigrations.flyway(db.settings).info().applied().single().checksum)
-            assertEquals(1, FoundationMigrations.flyway(db.settings).info().applied().size)
+            assertEquals(checksum, FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum)
+            assertEquals(2, FoundationMigrations.flyway(db.settings).info().applied().size)
             println("PASS supported retained schema validated without migration; epoch 41 -> 42 and foundation reload")
         }
     }
@@ -75,22 +75,22 @@ class WriterOwnershipTest {
 
     @Test fun `checksum future history and missing singleton are rejected without repair`() {
         migrated().use { db ->
-            val original = FoundationMigrations.flyway(db.settings).info().applied().single().checksum!!
+            val original = FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum!!
             WriterOwnership(db.settings).use { owner ->
                 db.connection().use { it.execute("UPDATE flyway_schema_history SET checksum = checksum + 1 WHERE version = '1'") }
                 assertThrows(OwnershipFailure::class.java) { owner.refresh() }
                 assertTrue(owner.token().isEmpty)
                 assertEquals(0, epoch(db))
-                assertEquals(original + 1, FoundationMigrations.flyway(db.settings).info().applied().single().checksum)
+                assertEquals(original + 1, FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum)
                 db.connection().use {
                     // Test-only restoration of deliberately damaged metadata; runtime has no repair path.
                     it.execute("UPDATE flyway_schema_history SET checksum = $original WHERE version = '1'")
-                    it.execute("INSERT INTO flyway_schema_history VALUES (2, '2', 'future', 'SQL', 'V2__future.sql', 1, current_user, now(), 1, true)")
+                    it.execute("INSERT INTO flyway_schema_history VALUES (3, '999', 'future', 'SQL', 'V999__future.sql', 1, current_user, now(), 1, true)")
                 }
                 assertThrows(OwnershipFailure::class.java) { owner.refresh() }
-                assertEquals(2, FoundationMigrations.flyway(db.settings).info().applied().size)
+                assertEquals(3, FoundationMigrations.flyway(db.settings).info().applied().size)
                 assertEquals(0, epoch(db))
-                db.connection().use { it.execute("DELETE FROM flyway_schema_history WHERE version = '2'; DELETE FROM service_writer") }
+                db.connection().use { it.execute("DELETE FROM flyway_schema_history WHERE version = '999'; DELETE FROM service_writer") }
                 assertThrows(OwnershipFailure::class.java) { owner.refresh() }
                 assertTrue(owner.token().isEmpty)
                 assertEquals(0, db.connection().use { it.number("SELECT count(*) FROM service_writer") })

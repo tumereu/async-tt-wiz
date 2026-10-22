@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.DefaultLifecycleProcessor;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
+import org.asyncttwiz.server.accounts.AccountHttp;
 
 /** Explicit Spring Boot servlet contexts; no auto-configured database, migrations, Actuator or APIs. */
 public final class SpringService implements AutoCloseable {
@@ -89,9 +90,15 @@ public final class SpringService implements AutoCloseable {
     private static final class Routes extends HttpServlet {
         private final ServiceRuntime runtime;
         private final boolean health;
-        Routes(ServiceRuntime runtime, boolean health) { this.runtime = runtime; this.health = health; }
+        private final AccountHttp accounts;
+        Routes(ServiceRuntime runtime, boolean health) {
+            this.runtime = runtime;
+            this.health = health;
+            accounts = health ? null : new AccountHttp(runtime);
+        }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
+            if (!health && accounts.handle(request, response)) return;
             int status = 404;
             String body = "Not found\n";
             if (health && (request.getMethod().equals("GET") || request.getMethod().equals("HEAD"))) {
@@ -101,8 +108,8 @@ public final class SpringService implements AutoCloseable {
                     body = status == 200 ? "OK\n" : "Unavailable\n";
                 }
             }
-            // No product command routes exist yet. Future handlers use runtime.transaction(), not
-            // a cached HTTP readiness value. Unknown paths/methods never echo request inputs.
+            // Future handlers also use runtime.transaction(), not a cached HTTP readiness value.
+            // Unknown paths/methods never echo request inputs.
             response.setStatus(status);
             response.setContentType("text/plain;charset=UTF-8");
             response.setHeader("Cache-Control", "no-store");

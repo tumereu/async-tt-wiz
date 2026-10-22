@@ -48,11 +48,11 @@ class FoundationDatabaseTest {
             db.start()
             val (exit, output) = command(db.settings, "migrate")
             assertEquals(0, exit)
-            assertTrue(output.contains("applied=1"))
+            assertTrue(output.contains("applied=2"))
             assertEquals(0, epoch(db))
             val flyway = FoundationMigrations.flyway(db.settings)
             assertTrue(flyway.validateWithResult().validationSuccessful)
-            val history = flyway.info().applied().single()
+            val history = flyway.info().applied().single { it.version.toString() == "1" }
             assertEquals("1", history.version.toString())
             assertEquals("V1__service_writer.sql", history.script)
             assertNotNull(history.checksum)
@@ -62,11 +62,11 @@ class FoundationDatabaseTest {
             assertEquals(0, second.first)
             assertTrue(second.second.contains("applied=0"))
             assertEquals(91, epoch(db))
-            assertEquals(history.checksum, flyway.info().applied().single().checksum)
+            assertEquals(history.checksum, flyway.info().applied().single { it.version.toString() == "1" }.checksum)
             db.connection().use { connection ->
                 val tables = DSL.using(connection, SQLDialect.POSTGRES).fetch("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
                     .map { it.get(0, String::class.java) }.toSet()
-                assertEquals(setOf("service_writer", "flyway_schema_history"), tables)
+                assertEquals(setOf("service_writer", "flyway_schema_history", "account", "account_session"), tables)
             }
             assertThrows(FlywayException::class.java) { flyway.clean() }
             assertEquals(91, epoch(db))
@@ -108,7 +108,7 @@ class FoundationDatabaseTest {
 
     private fun withExtraMigration(db: OwnedPostgres, sql: String): Flyway {
         val directory = Files.createDirectory(temporary.resolve("extra-migrations"))
-        Files.writeString(directory.resolve("V2__test_future.sql"), sql)
+        Files.writeString(directory.resolve("V999__test_future.sql"), sql)
         return Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration)
             .locations("classpath:db/migration", "filesystem:$directory").load()
     }
@@ -120,7 +120,7 @@ class FoundationDatabaseTest {
             val migration = withExtraMigration(db, "CREATE TABLE rollback_probe (id integer); UPDATE service_writer SET epoch = 55; SELECT 1 / 0;")
             assertThrows(FlywayException::class.java) { migration.migrate() }
             assertEquals(0, epoch(db))
-            assertEquals(listOf("1"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
+            assertEquals(listOf("1", "2"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             db.connection().use { connection ->
                 assertNull(DSL.using(connection, SQLDialect.POSTGRES).fetchValue("SELECT to_regclass('public.rollback_probe')"))
             }
@@ -134,12 +134,12 @@ class FoundationDatabaseTest {
         OwnedPostgres().use { db ->
             db.start()
             FoundationMigrations.migrate(db.settings)
-            val original = FoundationMigrations.flyway(db.settings).info().applied().single().checksum!!
+            val original = FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum!!
             db.connection().use {
                 DSL.using(it, SQLDialect.POSTGRES).execute("UPDATE flyway_schema_history SET checksum = checksum + 1 WHERE version = '1'")
             }
             assertEquals(1, command(db.settings, "migrate").first)
-            assertEquals(original + 1, FoundationMigrations.flyway(db.settings).info().applied().single().checksum)
+            assertEquals(original + 1, FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum)
             assertEquals(0, epoch(db))
             println("PASS mismatched checksum rejected and not repaired")
         }
@@ -152,7 +152,7 @@ class FoundationDatabaseTest {
             assertEquals(1, withExtraMigration(db, "CREATE TABLE future_probe (id integer); UPDATE service_writer SET epoch = 7;")
                 .migrate().migrationsExecuted)
             assertEquals(1, command(db.settings, "migrate").first)
-            assertEquals(listOf("1", "2"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
+            assertEquals(listOf("1", "2", "999"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             assertEquals(7, epoch(db))
             println("PASS unsupported future schema rejected with retained rows/history")
         }

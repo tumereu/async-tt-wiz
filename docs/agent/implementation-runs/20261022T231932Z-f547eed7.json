@@ -1,0 +1,45 @@
+{
+  "runId": "20261022T231932Z-f547eed7",
+  "sessionID": "ses_e9a165f9fffe8vyRr4Lme7xx8F",
+  "startCommit": "7cf79a9e64deb948f8732b80448d8d7b4e0ec50b",
+  "mode": "implement",
+  "target": "I10",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Closed I10 by combining exact I10a/I10b child evidence and current input identities. Normal-APK personal border-draft picker/import-return/one confirmation attaches immutable prepared copies; native captured one/all tap/drag/accessibility transfers, immediate predictions, partial reconciliation, inspection and fixed fading feedback/non-actionable row transitions use the same shared rules and ordered durable path. Current final host evidence covers selection-to-transfer composition; native retained outcomes cross real selection, transfers, conflict and restart without duplicate/substituted copies or saved-source mutation. No missing affected seam requires another build/device/full-suite run. Only I10 closes; I11 is next, B3 remains pending and later qualification/release obligations remain unverified.",
+  "selectionReason": "Clean supplied master/startCommit, D-304 authorization, reviewed B1/B2, verified B2-R01 and implemented I10a/I10b agree with earliest-ready I10 parent. No actionable finding or complete-group review outranks it. Affected scope is the combined picker-to-preparation-transfer integration and accepted/predicted/UI separation. D-307 requires a small run-owned audit of exact child reports/commits/evidence, later affected rechecks and current inputs, not repeated green suites, native journeys or a new qualification layer. No subagent, another loop, deployment, paid resource or safeguard change.",
+  "sourceIds": ["P-044", "P-045", "P-052", "P-053", "P-059", "T-400", "T-401", "T-402", "T-403", "T-404", "T-405", "T-440", "T-441", "T-442", "T-443", "T-444", "T-445", "T-608", "T-680", "T-682", "T-683", "T-684", "F20", "F21", "F30", "F31", "F32", "F34", "F35", "F36"],
+  "sourceDisposition": "Partial I10.preparation assertions under accounts-decks-and-lobby D-189/D-191/D-199/D-202/D-203/D-205/D-221/D-293/D-294 and server authority/recovery D-259/D-275/D-278/D-285/D-289. Implemented picker/copy/transfer assertions do not fabricate complete Ready/start/play-sideboard/lifecycle/rematch/final-UI scenarios; all 30 ledger assignments retain whole-scenario unexecuted accounting.",
+  "evidenceReuse": [
+    {"task": "I10a", "record": "docs/agent/implementation-runs/20261022T210618Z-60f9921b.json", "commit": "401c4597b00bb033dc4c98c46a81196d14e75037", "scope": "Exact I10a1/I10a2 records, 29 shared/server/client plus 36 distinct final host cases, V8 retained migration, ordered selection/privacy/dedup/rollback/recovery and both-orientation normal-APK picker/import/draft/cancel/confirmation/restart/source-edit-delete with retained acceptance tail. Later transfer input supersessions are audited explicitly, not called unchanged."},
+    {"task": "I10b", "record": "docs/agent/implementation-runs/20261022T230001Z-668e6673.json", "commit": "7cf79a9e64deb948f8732b80448d8d7b4e0ec50b", "scope": "Exact I10b1/I10b2 records, 41 distinct final shared/server/client cases plus 20 affected host cases; composite real two-normal-APK both-orientation gestures/conflict/delayed-ack/restart and native accessibility/fixed-feedback/row/rapid-touch checks. Final 130 input identities, executed-source reconstruction/final compile and exact cleanup retained."}
+  ],
+  "integrationReconciliation": [
+    "Current WaitingLobby routes the same controller's personal picker to one confirmed SelectDeck and the same selected-copy preparation to Prepare deck. Source/definition reads, captured round/source revision, pure PreparationRules.select and immutable UUID-derived ranges feed the existing GameAction/GameService/inbox/revision/outbox path; transfer extends that path rather than replacing its state or authority.",
+    "Later I10b changes to picker-era inputs are owned by the transfer implementations. Their final shared/server/socket checks retain selection semantics and actual selection publication; final host evidence explicitly covers one-confirmation result/revision separation, transfers after unacknowledged selection, captured multiple requests and account-switch cleanup. All final native source/build/lock/fixture/APK identities match, with the documented test-only unused shortcut reconstruction and passing final compile retained. No unexplained input drift or missing integration recheck remains.",
+    "Picker native observations retain zero-request draft, exact copy/definitions/partition through restart, saved-source rename/Overwrite/cover/delete and later invitation Accept. Transfer native outcomes begin with real SelectDeck and bind every following transfer to its exact created deck: 48 original IDs total, one exact-copy source conflict, 47 accepted revisions, 48 result publications, exact final prepared/saved 12/3 partition. Composite retained tails are not newly complete journeys or relabeled diagnostic passes.",
+    "Accepted replica, original request/prediction disposition and personal draft/gesture/inspection/feedback stay separate. Immediate per-card sends and counts never wait for animation or acknowledgement; server-first restart and same-account recovery retain their existing boundaries. No additional affected seam requires product execution in this parent unit. This is implementation reconciliation, not independent B3 review or final mock comparison."
+  ],
+  "remainingObligations": [
+    "I11/I12 retain actual starter/Ready/withdrawal/start, independent seeded shuffles/golden vectors/initial table, play-sideboard exclusion, cancellation and full two-Android preparation/acceptance/readiness/start/source-isolation/lifecycle overlaps. Lower-layer Ready/ACTIVE fixtures and native same-account conflicts are not those journeys. Independent B3 review remains after I09-I12.",
+    "I14 extends this same prediction/recovery model to gameplay; I28/I31 retain restored preparation/rematch and integrated multi-instance journeys.",
+    "I32/I34 retain explicit reduced-motion/large-text coverage; I34 retains final full suite/deferred uncommon assertions, older migration-fixture correction and I09 recovered HTTP-error correction/recheck. I33 measurement, I35 compatibility/upgrade/architecture, I36/B8 complete final interface-to-mock comparison/fixes/rechecks and every external release gate remain required/unverified. No broad qualification or release pass is claimed."
+  ],
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T231932Z-f547eed7/audit.py > docs/agent/implementation-runs/20261022T231932Z-f547eed7/audit.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T231932Z-f547eed7/audit.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T231932Z-f547eed7/audit.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json",
+    "docs/agent/implementation-runs/20261022T231932Z-f547eed7/audit.py",
+    "docs/agent/implementation-runs/20261022T231932Z-f547eed7/audit.txt",
+    "docs/agent/implementation-state.json"
+  ]
+}

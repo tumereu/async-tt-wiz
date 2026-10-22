@@ -103,7 +103,8 @@
                                                         "docs/agent/implementation-runs/20261022T211529Z-904fa077.json",
                                                          "docs/agent/implementation-runs/20261022T212809Z-652a7416.json",
                                                           "docs/agent/implementation-runs/20261022T215026Z-802a24bd.json",
-                                                          "docs/agent/implementation-runs/20261022T230001Z-668e6673.json"
+                                                           "docs/agent/implementation-runs/20261022T230001Z-668e6673.json",
+                                                           "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json"
    ],
   "findings": [
     {
@@ -941,7 +942,9 @@
     {
       "id": "I10",
       "batch": "B3",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json",
+      "qualification": "D-307 combined parent audit reconciles I10a at 401c4597b00bb033dc4c98c46a81196d14e75037 and I10b at 7cf79a9e64deb948f8732b80448d8d7b4e0ec50b, including all four exact leaf reports, saved checks/diagnostics/captures and current final 130 source/build/lock/fixture/APK identities. Picker-era supersessions belong to implemented transfers with affected rechecks: shared/server selection semantics and final host one-confirmation/result/revision separation, transfers after unacknowledged selection, captured multiple requests and account fences. Reuses real both-orientation normal-APK picker/import/draft/zero-request cancellation/one-confirmation/restart/source-edit-delete and composite two-APK tap/drag/accessibility/inspection/conflict/delayed-ack/restart plus native fixed feedback/non-actionable row/rapid-touch evidence. Exact native outcomes bind 47 transfer requests to the real selected deck, with 48 original IDs, one exact-copy source conflict, 47 revisions, 48 result publications and final 12/3 unchanged saved source. Retained tails/diagnostics remain honestly scoped, not new complete runs. Shared rules and ordered durable path preserve immutable copy/source isolation and accepted/predicted/UI separation; no missing seam requires another build/device/full-suite run. Only I10 closes; I11 is next, B3 remains pending until I11/I12 and independent review. Actual Ready/start/randomness/table/cancel/play-sideboard/two-player overlaps, I14 gameplay, I28/I31 rematch, I32/I34 reduced-motion/large-text/full-suite/deferred migration-fixture and recovered HTTP-error fixes, I33/I35/I36/B8 measurements/compatibility/complete UI comparison and all external gates remain required/unverified.",
       "dependsOn": ["I09"],
       "children": ["I10a", "I10b"],
       "planningRecord": "docs/agent/implementation-runs/20261022T194247Z-e9e3e478.json",

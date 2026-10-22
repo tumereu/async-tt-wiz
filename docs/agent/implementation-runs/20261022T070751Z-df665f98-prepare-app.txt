@@ -1,0 +1,270 @@
+{
+  "adbHost": "127.0.0.1",
+  "adbPort": 15038,
+  "app": {
+    "api": 29,
+    "apk": {
+      "activity": "org.asyncttwiz.android.MainActivity",
+      "bytes": 33121514,
+      "minSdk": 29,
+      "package": "org.asyncttwiz.android",
+      "sha256": "c0087a5265a91e0a4626e3e5c9467e09b4d990a3bc54baa2a352457707d938e1",
+      "signerSha256": [
+        "4d7973a6e1c2f3394723ddbc41d073841f20db9c2221741b1c14f5b12a476f1e"
+      ],
+      "targetSdk": 36,
+      "versionCode": 1,
+      "versionName": "0.1.0"
+    },
+    "checkedAt": 1792653821.5498807,
+    "evidenceDirectory": "/tmp/opencode/atw-device-df665f9811114af58b9f3861313df8c1/app-af14e07ee8b71ba1",
+    "foreground": {
+      "pid": "3843",
+      "resumed": "org.asyncttwiz.android/.MainActivity"
+    },
+    "hierarchy": {
+      "path": "/tmp/opencode/atw-device-df665f9811114af58b9f3861313df8c1/app-af14e07ee8b71ba1/hierarchy-1.xml",
+      "sha256": "c84eaa61560518d4b2d54eccc38b12649d57933113639efdce3ae7524dc27f86"
+    },
+    "owner": "84661c907a2a903d04c5282c54a3366413e0f229fb38ed035520cb4831d5aeb9",
+    "scope": "Visible normal scaffold startup only; no backend, account, Appium scenario or instrumentation acceptance",
+    "screenshot": {
+      "height": 1280,
+      "path": "/tmp/opencode/atw-device-df665f9811114af58b9f3861313df8c1/app-af14e07ee8b71ba1/screen.png",
+      "sha256": "c35064dca1cdc0c0113f172c4233d8bfd5d6a93d031bf37a2a6f4a4075e411fc",
+      "width": 720
+    },
+    "serial": "emulator-5564",
+    "storage": {
+      "bytes": 40960,
+      "inode": "123360",
+      "logicalSha256": "ffef22c9a82f7e47cfe134cd224ddd1379daf01142cf4f18ad76f370b55b0405",
+      "path": "no_backup/client-storage/replica.db",
+      "readOnly": true,
+      "rowCounts": {
+        "accepted_cursor": 0,
+        "accepted_record": 0,
+        "personal_state": 0,
+        "public_cache": 0
+      },
+      "scope": "Idle scaffold startup corroboration only",
+      "sha256": "669d0cc6e66b2966daee2c6bf0e099a569268c1f6ba0196dd5752faea93c86de",
+      "tables": [
+        "accepted_cursor",
+        "accepted_record",
+        "personal_state",
+        "public_cache"
+      ],
+      "userVersion": 2
+    }
+  },
+  "appium": "http://127.0.0.1:14753",
+  "appiumStatus": {
+    "value": {
+      "build": {
+        "version": "3.8.0"
+      },
+      "message": "The server is ready to accept new connections",
+      "ready": true
+    }
+  },
+  "checkedAt": 1792653823.7269156,
+  "device": {
+    "api": "29",
+    "avd": "atw-device-df665f9811114af58b9f3861313df8c1",
+    "bootCompleted": true,
+    "fingerprint": "Android/sdk_phone_x86_64/generic_x86_64:10/QSR1.210820.001/7663313:userdebug/test-keys",
+    "gms": false,
+    "mappings": {
+      "forward": [],
+      "reverse": [
+        [
+          "host-14",
+          "tcp:46277",
+          "tcp:46277"
+        ],
+        [
+          "host-14",
+          "tcp:44299",
+          "tcp:44299"
+        ]
+      ]
+    },
+    "packageManager": true,
+    "serial": "emulator-5564"
+  },
+  "owner": "84661c907a2a903d04c5282c54a3366413e0f229fb38ed035520cb4831d5aeb9",
+  "routes": {
+    "backend": "http://127.0.0.1:46277",
+    "checkedAt": 1792653819.3720884,
+    "deviceListeners": [
+      {
+        "address": "127.0.0.1",
+        "port": 46277
+      },
+      {
+        "address": "127.0.0.1",
+        "port": 44299
+      }
+    ],
+    "environment": {
+      "directory": "/tmp/opencode/atw-e2e-df665f9811114af58b9f3861313df8c1",
+      "instanceSha256": "04b2ee4f3f75a982744b3e869aa2a58583b84715e06d692191fb21bebdb01509",
+      "owner": "057e618b35a6f4200b8f37e68f28cf48834bb9df1ee0c84cf54dba5b6acdd87d",
+      "ports": {
+        "backend": 46277,
+        "source": 44299
+      }
+    },
+    "environmentRelay": {
+      "cmdline": "2f7573722f62696e2f707974686f6e33002f686f6d652f74756f6d61732f70726f6a656374732f6173796e632d74742d77697a2f6532652f72656c61792e7079002d2d6469726563746f7279002f746d702f6f70656e636f64652f6174772d6532652d6466363635663938313131313461663538623966333836313331336466386331002d2d6261636b656e642d66640034002d2d736f757263652d66640035002d2d6261636b656e642d6970003137322e31382e302e33002d2d736f757263652d6970003137322e31382e302e3400",
+      "pid": 1774785,
+      "startTicks": "10011459"
+    },
+    "owner": "84661c907a2a903d04c5282c54a3366413e0f229fb38ed035520cb4831d5aeb9",
+    "probes": [
+      {
+        "bytes": 10,
+        "path": "/",
+        "port": 46277,
+        "role": "backend",
+        "sha256": "493fda53120050f85836032324409be6c6484f90a0755ae0c6a673ba7626818b",
+        "status": 404
+      },
+      {
+        "bytes": 135,
+        "path": "/prism/Meta.json",
+        "port": 44299,
+        "role": "source",
+        "sha256": "c96278958b773b50e2612a748749221048ab1f0bef3625cd22ce7dbd7900cf50",
+        "status": 200
+      },
+      {
+        "bytes": 2493,
+        "path": "/prism/AllPrintings.json.gz",
+        "port": 44299,
+        "role": "source",
+        "sha256": "e8c408d95df80794ee50da807aa4afc0f61d024eff17dcb89794088c025b4447",
+        "status": 200
+      },
+      {
+        "bytes": 774,
+        "path": "/prism/v1/scryfall/cards/05e63a62-475f-5814-a96c-70e8b0d6a2c4.json",
+        "port": 44299,
+        "role": "source",
+        "sha256": "76527c37c9a32c75b529dedf9131948af7e382a450d4d90d73fdec846fa74248",
+        "status": 200
+      },
+      {
+        "bytes": 1111,
+        "path": "/prism/v1/art/05e63a62-475f-5814-a96c-70e8b0d6a2c4.png",
+        "port": 44299,
+        "role": "source",
+        "sha256": "53bdec4313e343bf968b10702094a3ae0035f93c178b6d54038bf47aeef7667c",
+        "status": 200
+      },
+      {
+        "bytes": 135,
+        "path": "/quilt/Meta.json",
+        "port": 44299,
+        "role": "source",
+        "sha256": "c96278958b773b50e2612a748749221048ab1f0bef3625cd22ce7dbd7900cf50",
+        "status": 200
+      },
+      {
+        "bytes": 2505,
+        "path": "/quilt/AllPrintings.json.gz",
+        "port": 44299,
+        "role": "source",
+        "sha256": "b1b4c3c88a33a8f8dfef9ce02ec303bd0c80277b925da38fdb297edf44901b12",
+        "status": 200
+      },
+      {
+        "bytes": 776,
+        "path": "/quilt/v1/scryfall/cards/23d5be28-a59d-5a43-8453-de4c884e9b1e.json",
+        "port": 44299,
+        "role": "source",
+        "sha256": "815b0d84c76d400656dda9d5f7a4235e4d6588bb65c2f1903de634fc1acb9571",
+        "status": 200
+      },
+      {
+        "bytes": 1111,
+        "path": "/quilt/v1/art/23d5be28-a59d-5a43-8453-de4c884e9b1e.png",
+        "port": 44299,
+        "role": "source",
+        "sha256": "e530f8d92fb8bcbaaadedd335b5415c9bd2e3c4a46630ca8ee9dcd0ba1f3fa59",
+        "status": 200
+      },
+      {
+        "bytes": 10,
+        "path": "/health/ready",
+        "port": 46277,
+        "role": "backend",
+        "sha256": "493fda53120050f85836032324409be6c6484f90a0755ae0c6a673ba7626818b",
+        "status": 404
+      },
+      {
+        "bytes": 10,
+        "path": "/admin/state",
+        "port": 46277,
+        "role": "backend",
+        "sha256": "493fda53120050f85836032324409be6c6484f90a0755ae0c6a673ba7626818b",
+        "status": 404
+      },
+      {
+        "bytes": 10,
+        "path": "/admin/reset",
+        "port": 46277,
+        "role": "backend",
+        "sha256": "493fda53120050f85836032324409be6c6484f90a0755ae0c6a673ba7626818b",
+        "status": 404
+      },
+      {
+        "bytes": 10,
+        "path": "/admin/messages",
+        "port": 46277,
+        "role": "backend",
+        "sha256": "493fda53120050f85836032324409be6c6484f90a0755ae0c6a673ba7626818b",
+        "status": 404
+      },
+      {
+        "bytes": 27,
+        "path": "/health/ready",
+        "port": 44299,
+        "role": "source",
+        "sha256": "7d05f683b6c28dbc4ff286100bb860be4a5d13325989aa6c9368065e8f405ad9",
+        "status": 404
+      },
+      {
+        "bytes": 27,
+        "path": "/admin/state",
+        "port": 44299,
+        "role": "source",
+        "sha256": "7d05f683b6c28dbc4ff286100bb860be4a5d13325989aa6c9368065e8f405ad9",
+        "status": 404
+      },
+      {
+        "bytes": 27,
+        "path": "/admin/reset",
+        "port": 44299,
+        "role": "source",
+        "sha256": "7d05f683b6c28dbc4ff286100bb860be4a5d13325989aa6c9368065e8f405ad9",
+        "status": 404
+      },
+      {
+        "bytes": 27,
+        "path": "/admin/messages",
+        "port": 44299,
+        "role": "source",
+        "sha256": "7d05f683b6c28dbc4ff286100bb860be4a5d13325989aa6c9368065e8f405ad9",
+        "status": 404
+      }
+    ],
+    "scope": "Transport infrastructure only; no APK/client/UI/instrumentation acceptance",
+    "serial": "emulator-5564",
+    "source": "http://127.0.0.1:44299",
+    "transport": "Same-port ADB reverse to dedicated Windows ADB loopback; measured WSL loopback forwarding; no added relay"
+  },
+  "scope": "Combined normal scaffold startup and public transport; no product HTTP, Kotlin/Appium scenario or instrumentation acceptance",
+  "systemPort": 18210
+}

@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "<?xml version='1.0' encoding='UTF-8' ?>\r\n<testsuites tests=\"2\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0.915\" timestamp=\"2026-10-22T07:26:05\" hostname=\"localhost\">\r\n  <testsuite name=\"org.asyncttwiz.android.AccountLocalDataTest\" tests=\"2\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0.317\" timestamp=\"2026-10-22T07:26:05\" hostname=\"localhost\">\r\n    <properties>\r\n      <property name=\"device\" value=\"emulator-5564 - 10\" />\r\n      <property name=\"flavor\" value=\"\" />\r\n      <property name=\"project\" value=\":androidApp\" />\r\n    </properties>\r\n    <testcase name=\"interruptedLocalLogoutFinishesBeforeStartupCanRestoreCredentials\" classname=\"org.asyncttwiz.android.AccountLocalDataTest\" time=\"0.139\" />\r\n    <testcase name=\"actualProfileContextAndPrivateReplicaAreRetainedOnlyForSameAccount\" classname=\"org.asyncttwiz.android.AccountLocalDataTest\" time=\"0.178\" />\r\n  </testsuite>\r\n</testsuites>",
+  "originalBytes": 890,
+  "originalSha256": "3b32acda4fb232d1876b9a37c96db502b544037f418828192025f34d6ee8ef68"
+}

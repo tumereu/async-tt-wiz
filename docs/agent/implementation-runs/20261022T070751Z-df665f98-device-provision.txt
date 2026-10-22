@@ -1,0 +1,31 @@
+{
+  "owner": "84661c907a2a903d04c5282c54a3366413e0f229fb38ed035520cb4831d5aeb9",
+  "checkedAt": 1792653578.9779718,
+  "device": {
+    "serial": "emulator-5564",
+    "avd": "atw-device-df665f9811114af58b9f3861313df8c1",
+    "api": "29",
+    "bootCompleted": true,
+    "packageManager": true,
+    "gms": false,
+    "fingerprint": "Android/sdk_phone_x86_64/generic_x86_64:10/QSR1.210820.001/7663313:userdebug/test-keys",
+    "mappings": {
+      "forward": [],
+      "reverse": []
+    }
+  },
+  "adbHost": "127.0.0.1",
+  "adbPort": 15038,
+  "appium": "http://127.0.0.1:14753",
+  "systemPort": 18210,
+  "appiumStatus": {
+    "value": {
+      "ready": true,
+      "message": "The server is ready to accept new connections",
+      "build": {
+        "version": "3.8.0"
+      }
+    }
+  },
+  "scope": "Device services only; no APK/UI/Compose/instrumentation acceptance"
+}

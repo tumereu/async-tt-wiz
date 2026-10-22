@@ -57,6 +57,39 @@ class ClientStorageTest {
         println("PASS actual SQLite ${scalar("SELECT sqlite_version()")} file-backed create/commit/reopen, exact signed-64-bit cursor")
     }
 
+    @Test fun accountActivationRetainsOnlySameProfileAndLogoutDeletesAllPrivateScopes() {
+        open().use { storage ->
+            storage.activateAccount("account-a")
+            storage.commitAccepted("game-a", null, 3, listOf(first))
+            storage.commitAccepted("decks-a", null, 7, listOf(second))
+            storage.savePersonal("account:account-a", "shell", StoredPayload(1, "\"GAMES\""))
+            storage.cachePublic("public-art", StoredPayload(1, "{}"))
+        }
+        open().use { storage ->
+            storage.activateAccount("account-a")
+            assertNotNull(storage.accepted("game-a"))
+            assertNotNull(storage.personal("account:account-a", "shell"))
+            storage.activateAccount("account-b")
+            assertNull(storage.accepted("game-a"))
+            assertNull(storage.accepted("decks-a"))
+            assertNull(storage.personal("account:account-a", "shell"))
+            assertEquals(StoredPayload(1, "account-b"), storage.personal("installation", "account-owner"))
+            assertNotNull(storage.publicCache("public-art"))
+            storage.commitAccepted("game-b", null, 1, listOf(second))
+            storage.clearPrivateData()
+        }
+        open().use { storage ->
+            assertNull(storage.accepted("game-b"))
+            assertNull(storage.personal("installation", "account-owner"))
+            assertNotNull(storage.publicCache("public-art"))
+            storage.activateAccount("account-a")
+            assertNull(storage.accepted("game-a"))
+        }
+        assertEquals("0", scalar("SELECT count(*) FROM accepted_record"))
+        assertEquals("0", scalar("SELECT count(*) FROM accepted_cursor"))
+        println("PASS same-account retained profile, atomic cross-account private replica/draft deletion and Logout/reopen; public cache retained")
+    }
+
     @Test fun cursorAndAllRecordChangesRollbackAfterRealSqlFailure() {
         open().use { it.commitAccepted("replica-a", null, 4, listOf(first)) }
         execute("CREATE TRIGGER fail_second BEFORE INSERT ON accepted_record WHEN NEW.record_id = 'two' BEGIN SELECT RAISE(ABORT, 'test constraint'); END")

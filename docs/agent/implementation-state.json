@@ -62,7 +62,8 @@
                "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
                 "docs/agent/implementation-runs/20261022T052934Z-1c3e9277.json",
                  "docs/agent/implementation-runs/20261022T054937Z-41060cc6.json",
-                 "docs/agent/implementation-runs/20261022T070346Z-de3cad30.json"
+                  "docs/agent/implementation-runs/20261022T070346Z-de3cad30.json",
+                  "docs/agent/implementation-runs/20261022T070751Z-df665f98.json"
    ],
   "findings": [],
   "batches": [
@@ -548,7 +549,21 @@
         "Run affected incremental Android assembly/lint and focused shared/storage/startup regressions when wiring changes affect them; update existing scaffold startup assertions to the real signed-out UI, not a second launcher/test app. Reuse qualified controller/reset/routing evidence without repeating its matrix. Record that I03 still owns Menu/Games/context/full local Logout isolation, I04 owns email-reset/second-device journeys, and I34/I35/I36 retain broad qualification/final UI comparison; no full scenario or independent B1 review is supplied here."
       ]
     },
-    { "id": "I03", "batch": "B1", "status": "pending" },
+    {
+      "id": "I03",
+      "batch": "B1",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T070751Z-df665f98.json",
+      "buildNotes": "androidApp/README.md#authenticated-navigation-and-local-logout--i03",
+      "dependsOn": ["I02"],
+      "outcome": "Deliver N01/N02 authenticated Menu/Games navigation, portrait dismissible drawer and landscape non-gameplay persistent navigation, fixed Logout, native Back/fullscreen/rotation and authorized local destination restoration. Atomically isolate the installation's private SQLite profile across accounts; explicit Logout drops volatile state, fences old callbacks/private saves and clears Keystore credentials/private replicas/personal state without waiting for remote revocation. Keep future deck/contact/game data and synchronization with I05-I14/I26/I31, reset/second-device entry with I04 and independent B1 review after I01-I04.",
+      "checks": [
+        "Run affected host controller and file-backed SQLite tests for local Back/destination persistence, same-account retention, atomic cross-account/Logout deletion, public-cache independence, late UI/private-write fencing, cleanup retry and best-effort/offline Logout. Run actual Android profile/Keystore/SQLite cleanup and interrupted-local-Logout completion tests.",
+        "Run a normal-APK Kotlin/JUnit/Appium journey against real isolated Compose with UI-created A/B accounts: Menu/Games/Manage decks/Contacts routes, portrait drawer Close/Back, landscape persistence, rotation, valid-token/destination restart, ordinary revocation/same-account reauthentication, Logout, signed-out restart and clean second-account entry. Do not seed demo games or claim later synchronized collection/game journeys.",
+        "Run affected incremental Android assembly/lint, SQLDelight retained migration verification and startup/runner regressions. Recheck observed native Back/fullscreen failures narrowly; retain real device inset/keyboard assertions for both orientations, exact output/input/APK identities, original diagnostics and owned cleanup. Reuse unchanged green evidence, not another full suite or matrix. Final visual comparison, long synchronized lists, game/outcome recovery, broad compatibility and release gates remain later obligations."
+      ],
+      "qualification": "N01/N02 and real authenticated shell replace I02's identity placeholder. Main-menu/logo/icons, clickable Menu/Games routes, fixed non-scrolling Logout, portrait Close/outside/Back drawer, landscape non-gameplay navigation and local Back/destination restoration are implemented. Private profile activation/deletion uses real SQLite; explicit Logout immediately resets volatile UI/generation then clears protected token/private records/cursors/personal state off-main, with a local interrupted-cleanup marker and login lock/retry on failure. Remote revocation is best effort on an independent bounded HTTP worker; offline startup also offers local Logout. Affected host/SQLite tests, two actual Android profile tests, one complete API29 non-GMS normal-APK/real-Compose UI A/B account/navigation/restart/reauth/Logout journey, and a targeted actual fullscreen/rotation/native Back/keyboard check pass. Native Back failure was fixed by removing mirrored drawer state; API29 required its fullscreen window flag despite decor hide flags. Original red commands, safe setup reset after diagnostic registrations hit the existing rate limit, exact lossless output/JUnit/source/APK identities and owned cleanup are retained. Final exception-shield/offline-Logout additions have passing affected host/lint/APK checks; earlier UI screenshots explicitly predate the last fullscreen fix and are not final mock acceptance. No actual deck/contact/game data/sync, request/outcome recovery, full scenario, independent B1 review or release gate is claimed; I04 is next and all later obligations remain."
+    },
     { "id": "I04", "batch": "B1", "status": "pending" },
     { "id": "I05", "batch": "B2", "status": "pending" },
     { "id": "I06", "batch": "B2", "status": "pending" },

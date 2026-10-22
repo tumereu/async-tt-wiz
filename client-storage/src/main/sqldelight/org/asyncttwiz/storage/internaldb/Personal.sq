@@ -15,3 +15,6 @@ VALUES (?, ?, ?, ?);
 
 removeState:
 DELETE FROM personal_state WHERE scope_id = ? AND state_key = ?;
+
+clearPrivateState:
+DELETE FROM personal_state;

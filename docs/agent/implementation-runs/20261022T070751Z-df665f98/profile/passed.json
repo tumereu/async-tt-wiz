@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "{\n  \"mode\": \"profile\",\n  \"scope\": \"Actual Android private profile/context/Logout isolation\",\n  \"serial\": \"emulator-5564\",\n  \"tests\": 2\n}\n",
+  "originalBytes": 137,
+  "originalSha256": "6f3f0c16485bf3fdd3fd84e4c87740f0e2be56d75bd38591964f670bb2658835"
+}

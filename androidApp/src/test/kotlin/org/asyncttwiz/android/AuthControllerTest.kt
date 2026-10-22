@@ -27,7 +27,7 @@ class AuthControllerTest {
         override fun clear() { value = StoredSession.Empty }
     }
     private class Api : Accounts {
-        val identity = AccountIdentity("id", "Wizard")
+        var identity = AccountIdentity("id", "Wizard")
         var calls = 0
         var failure: AccountFailure? = null
         var revoked = false
@@ -118,5 +118,114 @@ class AuthControllerTest {
         assertNull(controller.state.account)
         assertEquals("", controller.state.password)
         assertTrue(worker.isShutdown)
+    }
+
+    private class Local : AccountLocalData {
+        var owner: String? = null
+        var saved = ShellDestination.MENU
+        var clears = 0
+        var writes = 0
+        var failLogout = false
+        override fun activate(accountId: String): ShellDestination {
+            if (owner != accountId) { owner = accountId; saved = ShellDestination.MENU }
+            return saved
+        }
+        override fun destination(accountId: String, destination: ShellDestination) {
+            check(owner == accountId); writes++; saved = destination
+        }
+        override fun logout(store: SessionStore) {
+            if (failLogout) error("Storage unavailable")
+            store.clear(); clears++; owner = null; saved = ShellDestination.MENU
+        }
+    }
+
+    @Test fun shellBackDrawerAndSameAccountRestoreKeepPersonalContextWithoutRequests() {
+        val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
+        store.value = StoredSession.Present("A".repeat(43))
+        val controller = AuthController(api, store, worker, local) { it() }; worker.drain()
+        controller.navigate(ShellDestination.GAMES)
+        controller.navigate(ShellDestination.CONTACTS)
+        controller.drawer(true); controller.back()
+        assertFalse(controller.state.drawerOpen)
+        assertEquals(ShellDestination.CONTACTS, controller.state.destination)
+        controller.back(); assertEquals(ShellDestination.GAMES, controller.state.destination)
+        worker.drain()
+        assertEquals(0, api.calls)
+        controller.restore(); worker.drain()
+        assertEquals(ShellDestination.GAMES, controller.state.destination)
+        controller.back(); assertEquals(ShellDestination.MENU, controller.state.destination)
+    }
+
+    @Test fun logoutFencesQueuedCallbacksAndStorageAndNewAccountCannotInheritContext() {
+        val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
+        val posts = ArrayDeque<() -> Unit>(); val revoked = mutableListOf<String>()
+        val controller = AuthController(api, store, worker, local, { revoked.add(it) }) { posts.add(it) }
+        worker.drain(); posts.removeFirst()()
+        controller.edit(email = "a@example.test", password = "password")
+        controller.submit(); worker.drain() // Successful old-account callback is deliberately delayed.
+        controller.logout()
+        assertNull(controller.state.account)
+        assertEquals("", controller.state.password)
+        posts.removeFirst()(); assertNull(controller.state.account)
+        worker.drain(); posts.removeFirst()()
+        assertIs<StoredSession.Empty>(store.value)
+        assertEquals(1, local.clears); assertEquals(1, revoked.size)
+        api.identity = AccountIdentity("other", "Other")
+        controller.edit(email = "b@example.test", password = "password")
+        controller.submit(); worker.drain(); posts.removeFirst()()
+        controller.navigate(ShellDestination.DECKS) // Queued private UI save must not cross logout.
+        controller.logout(); worker.drain(); posts.removeFirst()()
+        assertEquals(0, local.writes)
+        assertEquals(ShellDestination.MENU, controller.state.destination)
+        assertEquals(emptyList(), controller.state.backStack)
+        assertEquals(2, local.clears)
+    }
+
+    @Test fun localCleanupFailureLocksSignInUntilExplicitRetryWithoutWaitingForRemoteLogout() {
+        val api = Api(); val worker = Worker(); val local = Local(); val store = Store()
+        store.value = StoredSession.Present("A".repeat(43))
+        val remote = ArrayDeque<String>()
+        val controller = AuthController(api, store, worker, local, { remote.add(it) }) { it() }; worker.drain()
+        local.failLogout = true
+        controller.logout(); worker.drain()
+        assertTrue(controller.state.logoutFailed)
+        assertNull(controller.state.account)
+        controller.submit(); worker.drain()
+        assertEquals(0, api.calls)
+        local.failLogout = false
+        controller.logout(); worker.drain()
+        assertFalse(controller.state.logoutFailed)
+        assertIs<StoredSession.Empty>(store.value)
+        // The remote callback is intentionally never processed. Local login is already usable.
+        assertEquals(1, remote.size)
+        controller.edit(email = "a@example.test", password = "password")
+        controller.submit(); worker.drain()
+        assertNotNull(controller.state.account)
+    }
+
+    @Test fun failedBestEffortRevocationDoesNotDelayOrUndoLocalLogout() {
+        val store = Store(); val worker = Worker()
+        store.value = StoredSession.Present("A".repeat(43))
+        val controller = AuthController(Api(), store, worker, Local(), { error("Offline revocation") }) { it() }
+        worker.drain(); assertNotNull(controller.state.account)
+        controller.logout(); worker.drain()
+        assertIs<StoredSession.Empty>(store.value)
+        assertNull(controller.state.account)
+        assertFalse(controller.state.busy)
+        assertFalse(controller.state.logoutFailed)
+    }
+
+    @Test fun failedOfflineStartupCanLogoutLocallyInsteadOfWaitingForConnectivity() {
+        val store = Store(); val worker = Worker(); val local = Local(); val api = Api()
+        api.failure = AccountFailure("network")
+        store.value = StoredSession.Present("A".repeat(43))
+        val controller = AuthController(api, store, worker, local) { it() }
+        worker.drain(); assertTrue(controller.state.restoreFailed)
+        controller.logout(); worker.drain()
+        assertIs<StoredSession.Empty>(store.value)
+        assertEquals(1, local.clears)
+        assertFalse(controller.state.restoring)
+        assertFalse(controller.state.busy)
+        assertNull(controller.state.account)
     }
 }

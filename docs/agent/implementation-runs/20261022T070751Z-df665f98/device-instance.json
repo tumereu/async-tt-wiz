@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "{\n  \"config\": {\n    \"adbPort\": 15038,\n    \"androidHome\": \"/home/tuomas/Android/Sdk\",\n    \"appiumHome\": \"/tmp/opencode/atw-device-tools-932550a0/driver\",\n    \"appiumMain\": \"/tmp/opencode/atw-device-tools-932550a0/appium/node_modules/appium/build/lib/main.js\",\n    \"appiumPort\": 14753,\n    \"consolePort\": 5564,\n    \"linuxAdb\": \"/home/tuomas/Android/Sdk/platform-tools/adb\",\n    \"node\": \"/home/tuomas/.local/share/fnm/node-versions/v24.21.0/installation/bin/node\",\n    \"powershell\": \"/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe\",\n    \"systemPort\": 18210,\n    \"windowsSdk\": \"C:\\\\Android\"\n  },\n  \"directory\": \"/tmp/opencode/atw-device-df665f9811114af58b9f3861313df8c1\",\n  \"formatVersion\": 1,\n  \"helperSha256\": \"09050f5cbb586203d225a863597e90d5cc34265eb707ee6378d2e10d48e8526e\",\n  \"owner\": \"84661c907a2a903d04c5282c54a3366413e0f229fb38ed035520cb4831d5aeb9\"\n}\n",
+  "originalBytes": 871,
+  "originalSha256": "28e8733a188c702395a1f54600d3299b4aff8172f4aeaf4138012b866699b708"
+}

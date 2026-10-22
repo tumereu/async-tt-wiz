@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "{\n  \"adbPort\": 15038,\n  \"command\": [\n    \"/home/tuomas/projects/async-tt-wiz/scripts/gradle.sh\",\n    \"--no-daemon\",\n    \"--console=plain\",\n    \"-PatwApiOrigin=http://127.0.0.1:46277\",\n    \":androidApp:connectedDebugAndroidTest\",\n    \"-Pandroid.testInstrumentationRunnerArguments.class=org.asyncttwiz.android.AccountLocalDataTest\"\n  ],\n  \"mode\": \"profile\",\n  \"serial\": \"emulator-5564\",\n  \"startedAt\": 1792653952.1865706,\n  \"systemPort\": 18210\n}\n",
+  "originalBytes": 444,
+  "originalSha256": "f05d2e0aa021c56119686969dc10d9fc56cab3ddfcd4425f2dd4a1d30c5b731b"
+}

@@ -14,6 +14,7 @@ from e2e import devices as d, device_app as a, device_routes as r, device_sessio
 
 CLASSES = ['StorageDriverTest', 'StorageViewModelTest', 'StartupTest']
 AUTH_CLASSES = ['StartupTest', 'ProtectedSessionStoreTest', 'AccountEntryTest']
+PROFILE_CLASSES = ['AccountLocalDataTest']
 
 
 def fresh(value, timeout):
@@ -52,7 +53,7 @@ def run(value, mode, timeout):
                       backend=ready['routes']['backend'],
                       systemPort=config['systemPort'], adbPort=config['adbPort'], linuxAdb=config['linuxAdb'])
     (directory / 'runner.properties').write_text(''.join(f'{k}={v}\n' for k, v in properties.items()))
-    if mode == 'accounts':
+    if mode in ('accounts', 'shell'):
         # Only the normal app's separately built instrumentation companion; its one
         # retained checkpoint revokes through the ordinary API, never a test endpoint.
         test_apk = d.ROOT / 'androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk'
@@ -64,15 +65,16 @@ def run(value, mode, timeout):
     env.update(ATW_DEVICE_RUN=str(directory), ANDROID_SERIAL=properties['serial'],
                ANDROID_ADB_SERVER_PORT=str(config['adbPort']), ANDROID_ADB_SERVER_ADDRESS='127.0.0.1',
                ADB_SERVER_SOCKET=f'tcp:127.0.0.1:{config["adbPort"]}')
-    native = mode in ('startup', 'accounts')
+    native = mode in ('startup', 'accounts', 'shell')
     task = ':e2e:deviceTest' if native else ':androidApp:connectedDebugAndroidTest'
     command = [str(d.ROOT / 'scripts/gradle.sh'), '--no-daemon', '--console=plain',
                '-PatwApiOrigin=' + properties['backend'], task]
     if native:
-        command += ['--tests', '*NativeStartupTest' if mode == 'startup' else '*NativeAccountsTest']
+        command += ['--tests', {'startup': '*NativeStartupTest', 'accounts': '*NativeAccountsTest', 'shell': '*NativeShellTest'}[mode]]
     else:
         command += ['-Pandroid.testInstrumentationRunnerArguments.class=' +
-                     ','.join('org.asyncttwiz.android.' + name for name in (CLASSES if mode == 'storage' else AUTH_CLASSES))]
+                     ','.join('org.asyncttwiz.android.' + name for name in
+                              (CLASSES if mode == 'storage' else PROFILE_CLASSES if mode == 'profile' else AUTH_CLASSES))]
     started = time.time()
     d.write_json(directory / 'command.json', {'command': command, 'mode': mode, 'startedAt': started,
                  'serial': properties['serial'], 'adbPort': config['adbPort'], 'systemPort': config['systemPort']})
@@ -88,11 +90,12 @@ def run(value, mode, timeout):
         d.require(result.returncode == 0, 'Device Gradle check failed; retained output: ' + str(directory))
         d.require(files, 'No current-run JUnit results')
         tests = [case for file in files for case in ET.parse(file).iter('testcase')]
-        d.require(len(tests) == (1 if native else 14 if mode == 'storage' else 5) and
+        d.require(len(tests) == (1 if native else 14 if mode == 'storage' else 2 if mode == 'profile' else 5) and
                   not any(list(case.iter(tag)) for case in tests for tag in ('failure', 'error', 'skipped')),
                   'Required actual tests missing, red or skipped')
         if not native:
-            d.require({case.attrib['classname'].rsplit('.', 1)[-1] for case in tests} == set(CLASSES if mode == 'storage' else AUTH_CLASSES),
+            d.require({case.attrib['classname'].rsplit('.', 1)[-1] for case in tests} ==
+                      set(CLASSES if mode == 'storage' else PROFILE_CLASSES if mode == 'profile' else AUTH_CLASSES),
                       'Wrong instrumentation test classes')
     finally:
         # Captures survive failures. Appium owns removal of its recorded forward;
@@ -104,6 +107,8 @@ def run(value, mode, timeout):
             r.invalidate(value)
     d.write_json(directory / 'passed.json', {'mode': mode, 'tests': len(tests), 'serial': properties['serial'],
                   'scope': {'startup': 'Native startup', 'accounts': 'Normal UI account entry/restart/revocation',
+                            'shell': 'Normal UI navigation/context/Logout/account-switch journey',
+                            'profile': 'Actual Android private profile/context/Logout isolation',
                             'auth': 'Real Android Keystore/exact-input/HTTP/startup instrumentation',
                             'storage': 'Actual Android storage/owner/launcher instrumentation'}[mode]})
     return {'directory': str(directory), 'tests': len(tests), 'mode': mode}
@@ -113,7 +118,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', required=True)
     parser.add_argument('--timeout', type=int, default=180)
-    parser.add_argument('mode', choices=('startup', 'storage', 'accounts', 'auth', 'recover-session'))
+    parser.add_argument('mode', choices=('startup', 'storage', 'accounts', 'auth', 'shell', 'profile', 'recover-session'))
     args = parser.parse_args()
     try:
         d.require(1 <= args.timeout <= 300, 'Invalid timeout')

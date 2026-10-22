@@ -142,18 +142,21 @@ class DeviceRunnerTest(unittest.TestCase):
         apk = self.root / 'androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk'
         apk.parent.mkdir(parents=True, exist_ok=True)
         apk.write_bytes(b'owned instrumentation fixture')
-        for mode in ('accounts', 'auth'):
+        for mode in ('accounts', 'auth', 'shell', 'profile'):
             def gradle(command, **kwargs):
                 self.assertIn('-PatwApiOrigin=http://127.0.0.1:18080', command)
-                if mode == 'accounts':
-                    self.assertEqual(command[-2:], ['--tests', '*NativeAccountsTest'])
+                if mode in ('accounts', 'shell'):
+                    name = 'NativeAccountsTest' if mode == 'accounts' else 'NativeShellTest'
+                    self.assertEqual(command[-2:], ['--tests', '*' + name])
                     result = self.root / 'e2e/build/test-results/deviceTest/TEST-accounts.xml'
-                    classes = ['NativeAccountsTest']
+                    classes = [name]
                 else:
                     self.assertEqual(command[-1], '-Pandroid.testInstrumentationRunnerArguments.class=' +
-                                     ','.join('org.asyncttwiz.android.' + name for name in runner.AUTH_CLASSES))
+                                     ','.join('org.asyncttwiz.android.' + name for name in
+                                              (runner.PROFILE_CLASSES if mode == 'profile' else runner.AUTH_CLASSES)))
                     result = self.root / 'androidApp/build/outputs/androidTest-results/connected/TEST-auth.xml'
-                    classes = ['StartupTest'] * 2 + ['ProtectedSessionStoreTest'] * 2 + ['AccountEntryTest']
+                    classes = ['AccountLocalDataTest'] * 2 if mode == 'profile' else \
+                        ['StartupTest'] * 2 + ['ProtectedSessionStoreTest'] * 2 + ['AccountEntryTest']
                 result.parent.mkdir(parents=True, exist_ok=True)
                 result.write_text('<testsuite>' + ''.join(f'<testcase classname="{name}" name="{i}"/>'
                                   for i, name in enumerate(classes)) + '</testsuite>')
@@ -162,4 +165,4 @@ class DeviceRunnerTest(unittest.TestCase):
                     patch.object(s, 'close'), patch.object(d, 'check_mappings'), \
                     patch.object(d, 'adb', return_value=self.completed('Success')), \
                     patch.object(runner.subprocess, 'run', side_effect=gradle):
-                self.assertEqual(runner.run(self.value, mode, 1)['tests'], 1 if mode == 'accounts' else 5)
+                self.assertEqual(runner.run(self.value, mode, 1)['tests'], 1 if mode in ('accounts', 'shell') else 2 if mode == 'profile' else 5)

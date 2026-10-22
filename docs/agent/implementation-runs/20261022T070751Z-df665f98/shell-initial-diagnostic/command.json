@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "{\n  \"adbPort\": 15038,\n  \"command\": [\n    \"/home/tuomas/projects/async-tt-wiz/scripts/gradle.sh\",\n    \"--no-daemon\",\n    \"--console=plain\",\n    \"-PatwApiOrigin=http://127.0.0.1:46277\",\n    \":e2e:deviceTest\",\n    \"--tests\",\n    \"*NativeShellTest\"\n  ],\n  \"mode\": \"shell\",\n  \"serial\": \"emulator-5564\",\n  \"startedAt\": 1792654251.4128613,\n  \"systemPort\": 18210\n}\n",
+  "originalBytes": 357,
+  "originalSha256": "e54606f8230bf36f4d19c5c3a358f81fa177fdc76a5e9097affd515934646f4b"
+}

@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "{\n  \"mode\": \"shell\",\n  \"scope\": \"Normal UI navigation/context/Logout/account-switch journey\",\n  \"serial\": \"emulator-5564\",\n  \"tests\": 1\n}\n",
+  "originalBytes": 138,
+  "originalSha256": "d520c21709cdce60578d9eb6b786a08e7da3bee3462432bae1a4a1fcb48291da"
+}

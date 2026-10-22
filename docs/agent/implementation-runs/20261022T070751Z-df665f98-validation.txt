@@ -1,0 +1,12 @@
+PASS authorized exact I03-only transition and next I04; B1/reviews/findings/model/runner/release gates unchanged
+PASS exact owned-path set, byte-preserving envelopes, retained diagnostics and required output inventory
+PASS retained non-skipped tests profile/result-0.xml 2
+PASS retained non-skipped tests shell-passing-before-final-fullscreen-fix/result-0.xml 1
+PASS retained non-skipped tests androidApp-TEST-org.asyncttwiz.android.AuthControllerTest.xml.json 9
+PASS retained non-skipped tests client-storage-TEST-org.asyncttwiz.storage.ClientStorageTest.xml.json 17
+PASS retained non-skipped tests final-presentation-TEST-emulator-5564 - 10-_androidApp-.xml.json 1
+PASS exact final source/build/lock/APK identities; whole-journey screenshots retain their earlier candidate attribution
+PASS unchanged source-pinned coverage assignments (not scenario passes) {'P': 72, 'T': 715, 'F': 88}
+PASS changed Markdown local links and balanced code fences androidApp/README.md
+PASS changed Markdown local links and balanced code fences client-storage/README.md
+PASS I03 handoff, affected evidence and documentation checks; no full-suite/clean-build/matrix rerun or later-scope pass

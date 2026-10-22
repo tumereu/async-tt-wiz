@@ -22,15 +22,33 @@ import org.asyncttwiz.storage.StorageOpenFailure
 
 /** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
+    private fun fullscreen() {
+        // API29 can retain a visible status bar after rotation despite the decor FULLSCREEN bit.
+        if (android.os.Build.VERSION.SDK_INT < 30)
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // IME/system dialogs may reveal bars. Returning to the app restores immersive presentation.
+        if (hasFocus) window.decorView.post { fullscreen() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        window.decorView.post { fullscreen() }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
+        fullscreen()
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {

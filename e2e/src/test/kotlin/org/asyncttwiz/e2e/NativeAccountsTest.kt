@@ -131,11 +131,11 @@ class NativeAccountsTest {
             field("Password").clear(); field("Password").sendKeys("wizard password")
             hideKeyboard()
             button("Sign in")
-            text("Signed in as Native Wizard")
+            field("Signed in as Native Wizard")
             capture("authenticated")
             adb("shell", "am", "force-stop", "org.asyncttwiz.android")
             adb("shell", "am", "start", "-n", "org.asyncttwiz.android/.MainActivity")
-            text("Signed in as Native Wizard")
+            field("Signed in as Native Wizard")
             capture("protected-token-relaunch")
             // Revoke the ordinary session by the public endpoint. The token is recovered
             // read-only from the running app's protected store by instrumentation below,

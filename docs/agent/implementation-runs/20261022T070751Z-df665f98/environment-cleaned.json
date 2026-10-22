@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "{\n  \"instance\": \"atw-e2e-df665f9811114af58b9f3861313df8c1\",\n  \"ownedResourcesRemoved\": true,\n  \"portsRebindable\": true,\n  \"temporarySecretsRemoved\": true\n}\n",
+  "originalBytes": 156,
+  "originalSha256": "f8767d2259584de55d054931f69c4b79f162431061d6e83b2f44fb3f69c84d43"
+}

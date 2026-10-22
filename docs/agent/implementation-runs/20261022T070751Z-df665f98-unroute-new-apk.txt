@@ -1,0 +1,4 @@
+{
+  "removed": true,
+  "scope": "Explicitly detached; call wait for fresh services-only readiness"
+}

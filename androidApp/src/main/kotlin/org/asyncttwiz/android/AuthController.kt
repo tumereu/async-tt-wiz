@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.protocol.AccountIdentity
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 enum class AuthPage { LOGIN, REGISTER }
 
@@ -21,6 +23,10 @@ data class AuthState(
     val account: AccountIdentity? = null,
     val message: String? = null,
     val error: Boolean = false,
+    val destination: ShellDestination = ShellDestination.MENU,
+    val backStack: List<ShellDestination> = emptyList(),
+    val drawerOpen: Boolean = false,
+    val logoutFailed: Boolean = false,
 ) { override fun toString() = "AuthState[redacted]" }
 
 /** Main-thread state, one bounded background worker, callbacks fenced when the owner finishes. */
@@ -28,11 +34,24 @@ class AuthController(
     private val accounts: Accounts,
     private val store: SessionStore,
     private val worker: ExecutorService,
+    private val local: AccountLocalData = object : AccountLocalData {},
+    private val revoke: (String) -> Unit = { token -> worker.execute { runCatching { runBlocking { accounts.revoke(token) } } } },
     private val post: (() -> Unit) -> Unit,
 ) {
     var state by mutableStateOf(AuthState())
         private set
     private var closed = false
+    private val generation = AtomicLong()
+    private val token = AtomicReference<String?>()
+    private val ownerLock = Any()
+
+    private fun bestEffortRevoke(value: String) { runCatching { revoke(value) } }
+
+    private fun rememberToken(value: String, epoch: Long) {
+        synchronized(ownerLock) {
+            if (generation.get() == epoch) token.set(value) else bestEffortRevoke(value)
+        }
+    }
 
     init { restore() }
 
@@ -52,8 +71,10 @@ class AuthController(
 
     fun restore() {
         if (closed || state.busy) return
+        val epoch = generation.get()
         state = AuthState(busy = true, restoring = true)
         work {
+            local.resumeLogout(store)
             when (val saved = store.load()) {
                 StoredSession.Empty -> AuthState(restoring = false)
                 StoredSession.Unavailable -> {
@@ -61,7 +82,11 @@ class AuthController(
                     AuthState(restoring = false, message = "Saved login is unavailable. Please sign in again.", error = true)
                 }
                 is StoredSession.Present -> try {
-                    AuthState(restoring = false, account = accounts.identity(saved.token))
+                    val identity = accounts.identity(saved.token)
+                    check(generation.get() == epoch)
+                    val destination = local.activate(identity.accountId)
+                    rememberToken(saved.token, epoch)
+                    AuthState(restoring = false, account = identity, destination = destination)
                 } catch (failure: AccountFailure) {
                     if (failure.code == "authentication_required") {
                         store.clear()
@@ -74,8 +99,9 @@ class AuthController(
     }
 
     fun submit() {
-        if (closed || state.busy || state.restoring || state.account != null) return
+        if (closed || state.busy || state.restoring || state.logoutFailed || state.account != null) return
         val input = state
+        val epoch = generation.get()
         state = input.copy(busy = true, message = null)
         work {
             try {
@@ -84,13 +110,19 @@ class AuthController(
                     AuthState(restoring = false, email = input.email, message = "Account created. Sign in.")
                 } else {
                     val session = accounts.login(input.email, input.password)
+                    if (generation.get() != epoch) {
+                        bestEffortRevoke(session.token)
+                        error("Account owner changed")
+                    }
                     try { store.save(session.token) }
                     catch (_: Exception) {
                         // Do not enter with an unsaved credential or retain the reusable password.
                         runCatching { accounts.revoke(session.token) }
                         throw AccountFailure("credential_storage")
                     }
-                    AuthState(restoring = false, account = session.account)
+                    val destination = local.activate(session.account.accountId)
+                    rememberToken(session.token, epoch)
+                    AuthState(restoring = false, account = session.account, destination = destination)
                 }
             } catch (failure: AccountFailure) {
                 input.copy(busy = false, message = errorMessage(failure), error = true,
@@ -100,18 +132,74 @@ class AuthController(
     }
 
     private fun work(action: suspend () -> AuthState) {
+        val epoch = generation.get()
         worker.execute {
+            if (generation.get() != epoch) return@execute
             val next = try { runBlocking { action() } } catch (_: Exception) {
                 AuthState(restoring = true, restoreFailed = true,
                     message = "Protected login storage could not be opened. Retry without uninstalling.", error = true)
             }
-            post { if (!closed) state = next }
+            post { if (!closed && generation.get() == epoch) state = next }
+        }
+    }
+
+    fun drawer(open: Boolean) {
+        if (!closed && state.account != null) state = state.copy(drawerOpen = open)
+    }
+
+    fun navigate(destination: ShellDestination) {
+        if (closed || state.account == null) return
+        val stack = if (destination == ShellDestination.MENU) emptyList()
+            else if (destination == state.destination) state.backStack
+            else state.backStack + state.destination
+        state = state.copy(destination = destination, backStack = stack, drawerOpen = false)
+        saveDestination()
+    }
+
+    fun back() {
+        if (state.drawerOpen) drawer(false)
+        else if (state.account != null && state.destination != ShellDestination.MENU) {
+            val destination = state.backStack.lastOrNull() ?: ShellDestination.MENU
+            state = state.copy(destination = destination, backStack = state.backStack.dropLast(1))
+            saveDestination()
+        }
+    }
+
+    private fun saveDestination() {
+        val epoch = generation.get()
+        val account = state.account ?: return
+        val destination = state.destination
+        worker.execute {
+            if (generation.get() == epoch) runCatching { local.destination(account.accountId, destination) }
+            // Personal navigation is best effort; never turn a failed UI save into a game request.
+        }
+    }
+
+    fun logout() {
+        if (closed) return
+        val oldToken = synchronized(ownerLock) {
+            generation.incrementAndGet() // Fence old display AND worker-side storage callbacks first.
+            token.getAndSet(null)
+        }
+        state = AuthState(restoring = false, busy = true, message = "Signing out on this device…")
+        val epoch = generation.get()
+        worker.execute {
+            val next = try {
+                local.logout(store)
+                AuthState(restoring = false)
+            } catch (_: Exception) {
+                AuthState(restoring = false, logoutFailed = true, error = true,
+                    message = "Local sign-out could not finish. Retry before signing in.")
+            }
+            if (oldToken != null) bestEffortRevoke(oldToken) // Never a local sign-out prerequisite.
+            post { if (!closed && generation.get() == epoch) state = next }
         }
     }
 
     fun close() {
         if (closed) return
         closed = true
+        synchronized(ownerLock) { generation.incrementAndGet(); token.set(null) }
         state = AuthState(restoring = false)
         worker.execute { accounts.close() }
         worker.shutdown()

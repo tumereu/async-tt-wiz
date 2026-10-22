@@ -1,0 +1,1 @@
+{"backend": "http://127.0.0.1:46277", "checkedAtUnix": 1792653536.8556287, "hostBackend": "http://127.0.0.1:46277", "hostSource": "http://127.0.0.1:44299", "instance": "atw-e2e-df665f9811114af58b9f3861313df8c1", "scope": "Host infrastructure only. Call wait before setup; not a perpetual health lease or Android acceptance.", "source": "http://127.0.0.1:44299", "writerEpoch": 1}

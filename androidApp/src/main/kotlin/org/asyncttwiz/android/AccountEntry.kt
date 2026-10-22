@@ -43,19 +43,21 @@ fun AccountEntry(controller: AuthController) {
         }
         Box(Modifier.fillMaxSize().background(Backdrop).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             when {
-                state.account != null -> Column(Modifier.align(Alignment.Center).padding(24.dp),
+                state.account != null -> AuthenticatedShell(controller, landscape)
+                state.logoutFailed -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Async Tabletop Wizards", style = MaterialTheme.typography.headlineSmall)
-                    // Real safe identity handoff; I03 replaces this boundary with the authenticated shell.
-                    Text("Signed in as ${state.account.username}", Modifier.testTag("authenticated-identity"))
+                    Text(state.message!!, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = controller::logout) { Text("Retry sign-out") }
                 }
                 state.restoring -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Async Tabletop Wizards", style = MaterialTheme.typography.headlineSmall)
                     Text("Specialized tabletop simulator for asynchronous wizardry", textAlign = TextAlign.Center)
                     Text(state.message ?: "Checking saved login…")
-                    if (state.restoreFailed) Button(onClick = controller::restore) { Text("Retry") }
-                    else CircularProgressIndicator(Modifier.size(28.dp))
+                    if (state.restoreFailed) {
+                        Button(onClick = controller::restore) { Text("Retry") }
+                        TextButton(onClick = controller::logout) { EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Logout") }
+                    } else CircularProgressIndicator(Modifier.size(28.dp))
                 }
                 state.page == AuthPage.REGISTER && landscape -> Row(Modifier.fillMaxSize().padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -152,7 +154,7 @@ private fun EntryField(label: String, value: String, enabled: Boolean, tag: Stri
 }
 
 @Composable
-private fun WizardLogo(modifier: Modifier = Modifier) {
+internal fun WizardLogo(modifier: Modifier = Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Canvas(Modifier.size(112.dp, 76.dp).semantics { contentDescription = "Wizard hat" }) {
             val hat = Path().apply { moveTo(size.width * .25f, size.height * .85f); lineTo(size.width * .55f, 0f)
@@ -172,12 +174,35 @@ private fun WizardLogo(modifier: Modifier = Modifier) {
 
 /** Small original vector glyphs; buttons carry accessible names and full native targets. */
 @Composable
-private fun EntryIcon(description: String?, kind: String) {
+internal fun EntryIcon(description: String?, kind: String) {
     val color = LocalContentColor.current
     Canvas(Modifier.size(24.dp).semantics { if (description != null) contentDescription = description }) {
         val w = size.width
         val stroke = androidx.compose.ui.graphics.drawscope.Stroke(w / 12)
         when (kind) {
+            "menu" -> for (line in listOf(.25f, .5f, .75f))
+                drawLine(color, Offset(w * .15f, w * line), Offset(w * .85f, w * line), w / 12)
+            "close" -> {
+                drawLine(color, Offset(w * .25f, w * .25f), Offset(w * .75f, w * .75f), w / 12)
+                drawLine(color, Offset(w * .75f, w * .25f), Offset(w * .25f, w * .75f), w / 12)
+            }
+            "decks" -> {
+                drawRect(color, Offset(w * .32f, w * .15f), Size(w * .5f, w * .7f), style = stroke)
+                drawLine(color, Offset(w * .18f, w * .25f), Offset(w * .1f, w * .85f), w / 12)
+                drawLine(color, Offset(w * .1f, w * .85f), Offset(w * .6f, w * .95f), w / 12)
+            }
+            "contacts" -> {
+                for (x in listOf(.35f, .65f)) {
+                    drawCircle(color, w / 8, Offset(w * x, w * .3f), style = stroke)
+                    drawArc(color, 180f, 180f, false, Offset(w * (x - .25f), w * .55f), Size(w * .5f, w * .4f), style = stroke)
+                }
+            }
+            "games" -> {
+                drawLine(color, Offset(w * .2f, w * .2f), Offset(w * .8f, w * .8f), w / 9)
+                drawLine(color, Offset(w * .8f, w * .2f), Offset(w * .2f, w * .8f), w / 9)
+                drawLine(color, Offset(w * .1f, w * .65f), Offset(w * .35f, w * .9f), w / 12)
+                drawLine(color, Offset(w * .65f, w * .9f), Offset(w * .9f, w * .65f), w / 12)
+            }
             "eye" -> { drawOval(color, Offset(1f, w / 4), Size(w - 2, w / 2), style = stroke); drawCircle(color, w / 8) }
             "person" -> { drawCircle(color, w / 7, Offset(w * .4f, w / 3), style = stroke)
                 drawArc(color, 180f, 180f, false, Offset(w * .1f, w * .6f), Size(w * .6f, w * .4f), style = stroke)

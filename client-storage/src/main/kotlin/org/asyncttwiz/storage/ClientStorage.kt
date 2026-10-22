@@ -105,6 +105,27 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
         Unit
     }
 
+    /** One installation profile; switching accounts never makes the former replica readable. */
+    fun activateAccount(accountId: String) = access {
+        require(accountId.isNotEmpty())
+        database.transaction {
+            val owner = database.personalQueries.selectState("installation", "account-owner", ::StoredPayload).executeAsOneOrNull()
+            if (owner != StoredPayload(1, accountId)) {
+                clearPrivateData()
+                database.personalQueries.putState("installation", "account-owner", 1, accountId)
+            }
+        }
+    }
+
+    /** Logical deletion, not a physical-erasure claim. Public catalog/art cache is independent. */
+    fun clearPrivateData() = access {
+        database.transaction {
+            database.replicaQueries.clearRecords()
+            database.replicaQueries.clearCursors()
+            database.personalQueries.clearPrivateState()
+        }
+    }
+
     private fun <T> access(block: () -> T): T = synchronized(lock) {
         check(!closed) { "Storage is closed" }
         block()

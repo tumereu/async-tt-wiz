@@ -36,8 +36,13 @@ Repository methods return adapter-owned values, never SQLDelight-generated types
 generated code stays in `org.asyncttwiz.storage.internaldb`, outside `:core` and
 `:protocol`. Payloads preserve exact text/version; feature decoders/semantic
 validation arrive with their owning features. Scope strings are storage keys,
-**not authentication**. Account/session callback fences, Logout clearing and
-Keystore credentials remain I02/I03; full game records/sync/staging I14/I26.
+**not authentication**. I02/I03's Android adapter now supplies authorization,
+Keystore credentials and account-generation fences. `activateAccount` retains
+same-account private state and atomically clears it when the installation's owner
+changes. `clearPrivateData` removes all accepted records/cursors and personal state
+transactionally, not public catalog/art cache. The Android adapter finishes any
+interrupted explicit Logout before restoring a token; neither API deletes server
+data or promises physical erasure. Full game records/sync/staging remain I14/I26.
 There is no full-tree coverage flag or claim in this foundation schema.
 
 ## Open/migration contract for platform adapters
@@ -99,11 +104,12 @@ directory. The manifest also keeps `allowBackup=false` and references explicit
 legacy backup plus Android12+ **cloud and device-transfer** exclusions, including
 credential-encrypted/device-encrypted databases, files, preferences and external
 app data. This is intentional defense against OEM transfer behavior, not a claim
-that every OEM transport was physically exercised. Future Keystore/token work is
-I02; no private token/draft can be opted into these rules by default. Public cache
+that every OEM transport was physically exercised. I02's Keystore/token adapter
+uses these exclusions; no private token/draft can be opted into backup by default. Public cache
 remains logically separate/refetchable even though this foundation shares one
 excluded database; system cache/no-backup directories are never backed up. This
-does not implement account Logout clearing or callback isolation (I03).
+backup policy alone does not implement Logout; I03's account adapter now owns its
+local cleanup and callback isolation as described above.
 
 ## Retained schema
 
@@ -203,9 +209,10 @@ claiming that compiled instrumentation executed. The command above remains the
 reproduction entry point. Accepted replica/cache/personal categories are distinct;
 volatile outgoing requests/predictions/exposures are not persisted.
 
-I01f retains the actual Android-driver/controller/launcher execution obligation;
-I01 retains foundation-wide integration. Account isolation, credentials and Logout
-remain I02/I03, complete tree/sync behavior I14/I26, and signed retained-data
+At that foundation qualification, I01f retained actual Android-driver/controller/
+launcher execution and I01 retained integration (both now recorded in their task
+handoffs). Account isolation, credentials and Logout are supplied by I02/I03;
+complete tree/sync behavior remains I14/I26, and signed retained-data
 upgrades/device compatibility I35. No full P-/T-/F-scenario, independent group
 review or external release gate is newly declared passed by this qualification.
 

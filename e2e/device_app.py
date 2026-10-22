@@ -133,7 +133,9 @@ def install(value, serial, apk):
 def visible(hierarchy):
     d.require(hierarchy.tag == 'hierarchy', 'Invalid native UI hierarchy')
     texts = [node.get('text', '') for node in hierarchy.iter('node') if node.get('package') == PACKAGE]
-    return TITLE in texts and SUBTITLE in texts and not any(
+    authenticated = any(node.get('package') == PACKAGE and node.get('content-desc', '').startswith('Signed in as ')
+                        for node in hierarchy.iter('node'))
+    return (authenticated or TITLE in texts and SUBTITLE in texts) and not any(
         text.startswith(('Opening local storage', 'Local storage could not', 'Local data needs', 'Retry')) for text in texts)
 
 

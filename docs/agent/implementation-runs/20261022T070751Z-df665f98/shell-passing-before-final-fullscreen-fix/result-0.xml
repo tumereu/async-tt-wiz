@@ -1,0 +1,6 @@
+{
+  "format": "lossless-utf8-output-v1",
+  "output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuite name=\"org.asyncttwiz.e2e.NativeShellTest\" tests=\"1\" skipped=\"0\" failures=\"0\" errors=\"0\" timestamp=\"2026-10-22T07:39:51.428Z\" hostname=\"DESKTOP-B2KALVM\" time=\"32.233\">\n  <properties/>\n  <testcase name=\"navigatesRestoresContextAndLogsOutBeforeChangingAccounts()\" classname=\"org.asyncttwiz.e2e.NativeShellTest\" time=\"32.223\"/>\n  <system-out><![CDATA[]]></system-out>\n  <system-err><![CDATA[]]></system-err>\n</testsuite>\n",
+  "originalBytes": 467,
+  "originalSha256": "24da75a15fc8d34202d7ec46a01d107cfdd39c794d3bc3b0de862a05fb0496c6"
+}

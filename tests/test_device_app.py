@@ -245,5 +245,16 @@ class NormalAppControllerTest(unittest.TestCase):
                     (self.serial, 'shell', 'am', 'start', '-W', '-n', a.COMPONENT)])
 
 
+    def test_authenticated_shell_is_ready_without_restoring_removed_brand_bar(self):
+        root = ET.Element('hierarchy')
+        node = ET.SubElement(root, 'node', {'package': a.PACKAGE, 'content-desc': 'Signed in as Synthetic Wizard'})
+        self.assertTrue(a.visible(root))
+        node.set('package', 'foreign.app')
+        self.assertFalse(a.visible(root))
+        node.set('package', a.PACKAGE)
+        ET.SubElement(root, 'node', {'package': a.PACKAGE, 'text': 'Local storage could not be opened.'})
+        self.assertFalse(a.visible(root))
+
+
 if __name__ == '__main__':
     unittest.main()

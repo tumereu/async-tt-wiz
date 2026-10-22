@@ -125,6 +125,8 @@ class DeviceControllerTest(unittest.TestCase):
         def reply(value, *args, **kwargs):
             if args == ('devices', '-l'):
                 return self.completed('List of devices attached\nemulator-5564 device product:test\n')
+            if args == ('forward', '--list') or args[-2:] == ('reverse', '--list'):
+                return self.completed('')
             return self.completed(responses.get(tuple(args[3:]), ''))
         return reply
 
@@ -220,6 +222,113 @@ class DeviceControllerTest(unittest.TestCase):
             with self.assertRaises(ConnectionRefusedError):
                 d.adb(self.value, 'devices')
             run.assert_not_called()
+
+    def test_foreign_forward_and_reverse_mappings_refused_without_removal(self):
+        for index, output in enumerate(('emulator-5564 tcp:18210 tcp:6790\n', 'UsbFfs tcp:18080 tcp:18080\n')):
+            with self.subTest(index=index), patch.object(d, 'adb', side_effect=[
+                    self.completed(output if index == 0 else ''), self.completed(output if index == 1 else '')]) as adb:
+                self.refuse(d.check_mappings, self.value, 'emulator-5564')
+                self.assertEqual([c.args[1:] for c in adb.call_args_list],
+                                 [('forward', '--list'), ('-s', 'emulator-5564', 'reverse', '--list')])
+
+    def test_empty_mapping_inventory_is_explicit(self):
+        with patch.object(d, 'adb', return_value=self.completed('')):
+            self.assertEqual(d.check_mappings(self.value, 'emulator-5564'), {'forward': [], 'reverse': []})
+
+    def test_foreign_adb_listener_pid_refused(self):
+        snapshot = self.snapshot()
+        snapshot['listeners'][0]['pid'] = 999
+        self.refuse(d.check_windows, self.value, snapshot)
+
+    def test_boot_and_package_manager_timeouts_record_distinct_stages(self):
+        for key, stage in ((('getprop', 'sys.boot_completed'), 'android-boot'),
+                           (('pm', 'list', 'packages'), 'package-manager')):
+            with self.subTest(stage=stage):
+                props = dict(self.ready_properties())
+                props[key] = ''
+                (self.directory / 'ready.json').write_text('stale')
+                with patch.object(d, 'windows', return_value=self.snapshot()), \
+                        patch.object(d, 'adb', side_effect=self.device_adb(props)), \
+                        patch.object(d, 'appium_status', return_value={'value': {'ready': True}}), \
+                        patch.object(d.time, 'monotonic', side_effect=[0, 0, 2]), patch.object(d.time, 'sleep'):
+                    self.refuse(d.wait, self.value, 1)
+                self.assertEqual(json.loads((self.directory / 'readiness-progress.json').read_text())['stage'], stage)
+                self.assertFalse((self.directory / 'ready.json').exists())
+
+    def test_windows_launch_failure_keeps_owner_and_never_starts_appium(self):
+        directory = self.root / 'fresh'
+        with patch.object(d, 'BASE', self.root), patch.object(d, 'linux_listening', return_value=False), \
+                patch.object(d, 'windows', side_effect=[{'listeners': []}, d.Refusal('detached launch failed')]), \
+                patch.object(d.subprocess, 'Popen') as launch:
+            self.refuse(d.provision, directory, self.config, 1)
+            launch.assert_not_called()
+        self.assertTrue((directory / 'instance.json').exists())
+        self.assertFalse((directory / 'ready.json').exists())
+
+    def test_busy_windows_and_linux_ports_refused_before_start(self):
+        for system in ('windows', 'linux'):
+            directory = self.root / system
+            baseline = {'listeners': [{'port': 15038}]} if system == 'windows' else {'listeners': []}
+            with patch.object(d, 'windows', return_value=baseline) as windows, \
+                    patch.object(d, 'linux_listening', return_value=system == 'linux'):
+                self.refuse(d.provision, directory, self.config, 1)
+                self.assertEqual(windows.call_count, 1)
+
+    def test_unfinished_instance_ports_reserved_before_start(self):
+        other = self.root / ('atw-device-' + 'b' * 32)
+        other.mkdir()
+        (other / 'instance.json').write_text(json.dumps(self.value))
+        with patch.object(d, 'BASE', self.root), patch.object(d, 'windows', return_value={'listeners': []}) as windows, \
+                patch.object(d, 'linux_listening', return_value=False):
+            self.refuse(d.provision, self.root / 'fresh', self.config, 1)
+            self.assertEqual(windows.call_count, 1)
+
+    def test_cleanup_refuses_foreign_mapping_before_any_signal(self):
+        snapshot = self.snapshot()
+        snapshot['currentProcesses'][0]['executable'] = r'C:\Android\platform-tools\adb.exe'
+        with patch.object(d, 'capture'), patch.object(d, 'windows', return_value=snapshot), \
+                patch.object(d, 'adb', side_effect=[self.completed('List of devices attached\nemulator-5564 device\n'),
+                                                 self.completed('foreign tcp:1 tcp:2\n')]), \
+                patch.object(d.os, 'kill') as kill:
+            self.refuse(d.cleanup, self.value)
+            kill.assert_not_called()
+
+    def test_cleanup_partial_windows_start_without_adb_is_recoverable(self):
+        with patch.object(d, 'capture'), patch.object(d, 'windows', return_value={'currentProcesses': []}), \
+                patch.object(d, 'appium_identity', return_value=None), patch.object(d, 'linux_listening', return_value=False), \
+                patch.object(d, 'adb') as adb:
+            d.cleanup(self.value)
+            adb.assert_not_called()
+        self.assertTrue((self.directory / 'cleaned.json').exists())
+
+    def test_detached_appium_launch_failure_retains_windows_ownership(self):
+        directory = self.root / 'fresh'
+        snapshot = self.snapshot()
+        snapshot['state']['name'] = snapshot['state']['avd'] = directory.name
+        with patch.object(d, 'BASE', self.root), patch.object(d.secrets, 'token_hex', return_value=self.value['owner']), \
+                patch.object(d, 'linux_listening', return_value=False), \
+                patch.object(d, 'windows', side_effect=[{'listeners': []}, snapshot]), \
+                patch.object(d, 'run', return_value=self.completed('version')), \
+                patch.object(d.subprocess, 'Popen', side_effect=OSError('controlled launch failure')):
+            with self.assertRaises(OSError):
+                d.provision(directory, self.config, 1)
+        self.assertTrue((directory / 'instance.json').exists())
+        self.assertTrue((directory / 'started-windows.json').exists())
+        self.assertFalse((directory / 'ready.json').exists())
+
+    def test_command_timeout_retains_partial_output(self):
+        with patch.object(d.subprocess, 'run', side_effect=subprocess.TimeoutExpired(['adb'], 1, output=b'partial\r\n')):
+            self.refuse(d.run, self.value, ['adb'], 1)
+        record = json.loads((self.directory / 'commands.jsonl').read_text())
+        self.assertEqual(record['output'], 'partial\r\n')
+        self.assertEqual(record['timedOutAfterSeconds'], 1)
+
+    def test_existing_instance_cli_refusal_preserves_ready_bytes(self):
+        (self.directory / 'ready.json').write_text('existing success')
+        with patch.object(d, 'directory_path', return_value=self.directory), patch.object(d, 'lock', contextlib.nullcontext), \
+                patch.object(d.sys, 'argv', ['controller', '--directory', str(self.directory), 'provision', '--config', 'unused']):
+            self.refuse(d.main)
+        self.assertEqual((self.directory / 'ready.json').read_text(), 'existing success')
 
 
 if __name__ == '__main__':

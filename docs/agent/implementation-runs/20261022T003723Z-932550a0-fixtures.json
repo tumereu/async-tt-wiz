@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "scripts/check-synthetic-catalogs.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "05e5d4823a05533992db4802e8f95d17120799f40281232333e09ef6abf3f605",
+  "output": "PASS prism/v1: 17 records, 2 tokens, reciprocal multiface/printing/defaults/import/art roles; sha256=103efdca17224fab23ef315260b1631cdfdd9a8d622a3359116fba731b829492\nPASS prism/v2: 18 records, 3 tokens, reciprocal multiface/printing/defaults/import/art roles; sha256=3300eed6f8cb98d912305821d0b5f04025ad2325df1ec4094e93cbd9d9b5bda5\nPASS quilt/v1: 17 records, 2 tokens, reciprocal multiface/printing/defaults/import/art roles; sha256=700b4661cdf914cd222c61ee271c24279da88560dba2c65868d9b12092804cd0\nPASS quilt/v2: 18 records, 3 tokens, reciprocal multiface/printing/defaults/import/art roles; sha256=a7b48bcb6c534e5603c7a734101ff20de63c78cf7642f5b1d6187c747cec1cc5\nPASS identity-distinct names/UUIDs/art, stable version identities, changed defaults/art/new token and unchanged art reuse\nPASS original PNG CRC/pixel decode and checksums; this is NOT normal-app downloader/import/decoder or E2E acceptance\n"
+}

@@ -1,20 +1,29 @@
-# Windows/WSL device services — I01f1a repair checkpoint
+# Windows/WSL device services — I01f1a qualified
 
-**Work in progress, not completed I01f1a or product E2E.** The test-only
+**Device-service foundation only, not product E2E.** The test-only
 [`devices.py`](devices.py) / [`windows-device.ps1`](windows-device.ps1) controller
 has actually booted API29 default non-GMS Windows WHPX guests, checked their AVD
 identity, boot completion and package manager, and checked an owned loopback
 Appium process/listener/status. Controlled owned-Appium loss fails setup and
 removes the ready handoff. Actual Windows-native console shutdown, dedicated ADB
 shutdown and native watchdog exit pass, including a fresh same-port lifecycle.
-The run report retains failures as well as the tested repairs:
-[I01f1a checkpoint](../docs/agent/implementation-runs/20261022T000413Z-fd60bcea.json).
+The [completed child record](../docs/agent/implementation-runs/20261022T003723Z-932550a0.json)
+retains checks/failures and the earlier
+[repair checkpoint](../docs/agent/implementation-runs/20261022T000413Z-fd60bcea.json).
 
-The **full Windows failure/foreign-resource matrix is still pending**. In
-particular, finish explicit forward/reverse-mapping refusal, detached-launch and
-boot/package-manager/Appium timeout regressions, live listener/instance collision
-checks and complete interruption/recovery qualification before marking this child
-implemented. Do not use this partial handoff as a completed scenario environment.
+Actual qualification covers live foreign-port/existing-instance/lock refusal,
+both real ADB mapping directions, stale Windows process identity refusal before
+shutdown, nonresponsive/lost Appium failure, interrupted caller recovery while the
+detached Windows guest survives, native cleanup and a fresh same-port cold boot.
+All **33 focused / 83 total Python tests** pass, including separate Android-boot,
+package-manager and Appium readiness timeouts, detached-launch errors, mismatched
+AVD/serial/API/GMS, logical reservations and reused Linux/Windows identities.
+Those mocked stage-specific tests are not claimed as actual induced Android boot
+failures. The actual device checks run sequentially with other socket tests stopped,
+so their unrelated-listener baseline is stable. An earlier concurrent regression
+run closed its own mirrored Linux test sockets during the device inventory check;
+that diagnostic failed, and the complete sequential rerun passes without relaxing
+the unchanged-listener assertion. This is still not a complete scenario environment.
 I01f1b still owns normal-APK launch/capture and actual public-only Compose routing;
 I01f2 owns Kotlin/Appium sessions and the 14 actual storage instrumentation tests.
 No application, Gradle, permission, authorization or global networking change is
@@ -22,21 +31,24 @@ made by these helpers. No default ADB or historical private tool archive is reus
 
 ## Explicit tools and configuration
 
-This checkpoint installed **Appium 3.8.0 / UiAutomator2 8.7.0** in a new isolated
-`/tmp/opencode/atw-device-tools` prefix/home, not a global npm/Appium installation:
+Install **Appium 3.8.0 / UiAutomator2 8.7.0** into a new isolated prefix/home,
+not a global npm/Appium installation. The two checked-in
+[`device-tools`](device-tools/) npm lockfiles pin the full test-tool graphs:
 
 ```sh
-npm install --prefix /tmp/opencode/atw-device-tools --save-exact appium@3.8.0
-APPIUM_HOME=/tmp/opencode/atw-device-tools/appium-home node \
-  /tmp/opencode/atw-device-tools/node_modules/appium/build/lib/main.js \
-  driver install uiautomator2@8.7.0
+python3 scripts/install-device-tools.py \
+  --directory /tmp/opencode/atw-device-tools-<unique-id> \
+  --node /absolute/path/to/node --npm /absolute/path/to/npm
 ```
 
-Use a fresh owned prefix for installation; do not overwrite somebody else's tool
-home. The actual package/lock hashes, package manifests/licenses and installation
-output are retained in this run. Direct versions are pinned; a checked-in
-reproducible transitive tool-installation mechanism remains qualification work,
-not an inferred guarantee from these commands. The libraries are test-only.
+The installer refuses an existing prefix, runs ordinary `npm ci` for both locks,
+checks the input bytes remain unchanged, and verifies normal Appium driver
+discovery. It does not synthesize Appium extension metadata. Its
+`qualified.json` and retained command output record package versions/licenses and
+manifest/input hashes. No product dependency is added. This run actually installed
+`/tmp/opencode/atw-device-tools-932550a0` and ran the entire device qualification
+against it. Prior checkpoint tools remain untouched. A failed installation retains
+its prefix/diagnostics, never a qualified marker; choose a fresh prefix after repair.
 
 Supply a JSON configuration with **every** field; there is no PATH/default-server
 fallback. Example values are machine-specific, not portable defaults:
@@ -44,8 +56,8 @@ fallback. Example values are machine-specific, not portable defaults:
 ```json
 {
   "node": "/absolute/path/to/node",
-  "appiumMain": "/tmp/opencode/atw-device-tools/node_modules/appium/build/lib/main.js",
-  "appiumHome": "/tmp/opencode/atw-device-tools/appium-home",
+  "appiumMain": "/tmp/opencode/atw-device-tools-932550a0/appium/node_modules/appium/build/lib/main.js",
+  "appiumHome": "/tmp/opencode/atw-device-tools-932550a0/driver",
   "androidHome": "/absolute/path/to/Android/Sdk",
   "linuxAdb": "/absolute/path/to/Android/Sdk/platform-tools/adb",
   "windowsSdk": "C:\\Android",
@@ -98,7 +110,21 @@ its loopback listener's socket ownership. Controller locks exclude concurrent
 operations. Cleanup captures first, refuses changed identities and never runs
 global `kill-server`, broad emulator termination or network reconfiguration.
 Temporary AVD/tool files are retained for diagnosis, not removed recursively.
-The full foreign-mapping and interrupted-launch recovery obligations above remain.
+This service-only controller creates **no ADB mappings** and refuses any existing
+forward/reverse mapping before a ready handoff or shutdown. It never removes
+foreign routes. I01f1b's routing extension and I01f2's driver-session ownership must
+record their exact mappings and extend that check, not disable it or run
+`--remove-all`. A preflight refusal owns no busy foreign ports: cleanup can close
+its empty metadata instance without demanding another owner's listener disappear.
+Duplicate provision and lock refusal do not invalidate an already running owner's
+handoff; actual failed readiness does. Always require a fresh successful `wait`.
+
+For a caller interrupted during detached Windows launch, retain its directory,
+allow the bounded Windows helper to release its controller lock, then run explicit
+`capture` and `cleanup`. Windows process identity/discovery and native shutdown
+remain mandatory even if Python never wrote `started-windows.json` or launched
+Appium. Use a **new** instance for the next cold boot. Do not delete ownership
+records, adopt an orphan by PID alone or terminate unrelated broker/ADB processes.
 
 ## Tested host-specific repairs and remaining caution
 

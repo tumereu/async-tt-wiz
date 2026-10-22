@@ -66,7 +66,7 @@ try {
     $emulator = "$($config.windowsSdk)\emulator\emulator.exe"
     if ($inputValue.operation -eq 'inventory') {
         @{ listeners = (Listeners); androidProcesses = @(Get-CimInstance Win32_Process | Where-Object {
-            $_.Name -match '^(adb|emulator|qemu-system-x86_64)\.exe$'
+            $_.Name -match '^(adb|emulator|qemu-system-x86_64(-headless)?)\.exe$'
         } | ForEach-Object { Identity $_.ProcessId }) } | ConvertTo-Json -Depth 12 -Compress
         exit 0
     }

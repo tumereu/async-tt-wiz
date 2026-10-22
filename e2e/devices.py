@@ -174,8 +174,16 @@ def appium_listener(value):
 
 
 def run(value, arguments, timeout=12, check=True, env=None):
-    result = subprocess.run(arguments, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, timeout=timeout, text=True, errors='replace')
+    try:
+        result = subprocess.run(arguments, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, timeout=timeout, text=True, errors='replace')
+    except subprocess.TimeoutExpired as error:
+        output = error.stdout or b''
+        if isinstance(output, bytes):
+            output = output.decode('utf-8', errors='replace')
+        with (Path(value['directory']) / 'commands.jsonl').open('a') as record:
+            record.write(json.dumps({'command': arguments, 'timedOutAfterSeconds': timeout, 'output': output}) + '\n')
+        raise Refusal('Bounded device/tool command timed out; inspect retained command output') from None
     with (Path(value['directory']) / 'commands.jsonl').open('a') as output:
         output.write(json.dumps({'command': arguments, 'exitCode': result.returncode, 'output': result.stdout}) + '\n')
     if check:
@@ -214,7 +222,18 @@ def check_windows(value, snapshot):
     listeners = snapshot['listeners']
     adb_listeners = [p for p in listeners if p['port'] == value['config']['adbPort']]
     require(len(adb_listeners) == 1 and adb_listeners[0]['address'] == '127.0.0.1', 'Non-loopback/missing dedicated ADB')
+    require(adb_listeners[0]['pid'] in {p['pid'] for p in actual}, 'Foreign dedicated ADB listener refused')
     return state
+
+
+def check_mappings(value, serial):
+    # This service-only foundation has created no mappings. Never clear/adopt a
+    # pre-existing forward/reverse route (including a foreign serial's forward).
+    # Later session/routing owners must explicitly record their exact mappings.
+    forward = adb(value, 'forward', '--list').stdout.strip()
+    reverse = adb(value, '-s', serial, 'reverse', '--list').stdout.strip()
+    require(not forward and not reverse, 'Foreign/unrecorded ADB mapping refused')
+    return {'forward': [], 'reverse': []}
 
 
 def check_device(value):
@@ -223,24 +242,30 @@ def check_device(value):
     fields = [line.split() for line in devices if line.strip()]
     require(all(f[0] == serial for f in fields), 'Foreign device on dedicated ADB refused')
     if not fields or fields[0][1] != 'device':
+        write_json(Path(value['directory']) / 'readiness-progress.json', {'stage': 'device-connection'})
         return None
     def shell(*args):
         result = adb(value, '-s', serial, 'shell', *args, check=False)
         return result.stdout.strip() if result.returncode == 0 else ''
     avd = shell('getprop', 'ro.kernel.qemu.avd_name')
     if not avd:
+        write_json(Path(value['directory']) / 'readiness-progress.json', {'stage': 'avd-identity'})
         return None
     require(avd == Path(value['directory']).name, 'Mismatched AVD identity refused')
     if shell('getprop', 'sys.boot_completed') != '1':
+        write_json(Path(value['directory']) / 'readiness-progress.json', {'stage': 'android-boot'})
         return None
     api = shell('getprop', 'ro.build.version.sdk')
     require(api == '29', 'Unexpected Android API')
     packages = shell('pm', 'list', 'packages')
     if 'package:android' not in packages.splitlines():
+        write_json(Path(value['directory']) / 'readiness-progress.json', {'stage': 'package-manager'})
         return None
     require('package:com.google.android.gms' not in packages.splitlines(), 'Unexpected GMS image')
+    mappings = check_mappings(value, serial)
+    write_json(Path(value['directory']) / 'readiness-progress.json', {'stage': 'appium'})
     return {'serial': serial, 'avd': avd, 'api': api, 'bootCompleted': True, 'packageManager': True, 'gms': False,
-            'fingerprint': shell('getprop', 'ro.build.fingerprint')}
+            'fingerprint': shell('getprop', 'ro.build.fingerprint'), 'mappings': mappings}
 
 
 def appium_status(value):
@@ -335,7 +360,7 @@ def provision(directory, config, timeout):
 def capture(value):
     snapshot = windows(value, 'snapshot')
     output = {'windows': snapshot, 'appiumProcess': appium_identity(value)}
-    for name in ('versions.json', 'ready.json', 'appium.log', 'appium-launch.log'):
+    for name in ('versions.json', 'ready.json', 'readiness-progress.json', 'appium.log', 'appium-launch.log'):
         path = Path(value['directory']) / name
         if path.exists():
             output[name] = path.read_text(errors='replace')[-16000:]
@@ -346,6 +371,18 @@ def capture(value):
 def cleanup(value):
     invalidate(value)
     capture(value)  # Diagnostics before any shutdown; never broad process cleanup.
+    snapshot = windows(value, 'snapshot')
+    if not snapshot.get('absent') and any(p and p['executable'].lower().endswith('\\adb.exe')
+                                          for p in snapshot['currentProcesses']):
+        # Even failed boot/setup can have foreign routes. A connected device is
+        # sufficient to inspect reverse mappings; package-manager readiness is not.
+        serial = 'emulator-' + str(value['config']['consolePort'])
+        listed = adb(value, 'devices', '-l').stdout.splitlines()[1:]
+        fields = [line.split() for line in listed if line.strip()]
+        require(all(f[0] == serial for f in fields), 'Foreign device at cleanup refused')
+        require(not adb(value, 'forward', '--list').stdout.strip(), 'Foreign/unrecorded ADB mapping refused')
+        if fields and fields[0][1] == 'device':
+            check_mappings(value, serial)
     actual = appium_identity(value)
     if actual:
         os.kill(actual['pid'], signal.SIGTERM)
@@ -354,7 +391,14 @@ def cleanup(value):
             time.sleep(.1)
         require(process_identity(actual['pid']) is None, 'Appium did not stop; retain for recovery')
     result = windows(value, 'stop')
-    require(not any(linux_listening(value['config'][k]) for k in ('adbPort', 'consolePort', 'appiumPort', 'systemPort')),
+    # A preflight refusal has not acquired the busy foreign sockets. Only require
+    # disappearance of ports whose services this instance actually launched.
+    ports = [] if snapshot.get('absent') else [value['config'][k] for k in ('adbPort', 'consolePort')]
+    if not snapshot.get('absent'):
+        ports.append(value['config']['consolePort'] + 1)
+    if (Path(value['directory']) / 'appium.json').exists():
+        ports.append(value['config']['appiumPort'])
+    require(not any(linux_listening(p) for p in ports),
             'Owned Linux ports remain listening')
     write_json(Path(value['directory']) / 'cleaned.json', result)
     return result
@@ -372,6 +416,8 @@ def main():
     directory = directory_path(args.directory)
     require(1 <= args.timeout <= 300, 'Readiness timeout must be 1..300 seconds')
     with lock():
+        if args.operation == 'provision':
+            require(not directory.exists(), 'Existing device instance refused; use its explicit lifecycle commands')
         try:
             if args.operation == 'provision':
                 result = provision(directory, json.loads(Path(args.config).read_text()), args.timeout)

@@ -1,10 +1,12 @@
 # Host-side E2E boundary
 
-Windows/WSL device-service implementation is at an evidenced **I01f1a repair
-checkpoint**, not complete qualification: see [device commands and limits](devices-README.md).
-Actual owned API29/Appium readiness, controlled service-loss invalidation and
-native cleanup pass; the remaining foreign-resource/failure matrix, normal APK,
-Compose routing, Kotlin sessions and instrumentation are still open.
+Windows/WSL **I01f1a device-service lifecycle is qualified**: see
+[device commands and limits](devices-README.md). Actual owned API29/Appium
+readiness, foreign-resource/mapping refusal, timeout/service-loss invalidation,
+interrupted-launch recovery, native cleanup and fresh same-port cold boot pass
+against a fresh locked tool installation. Normal APK, Compose routing, Kotlin
+sessions and instrumentation remain I01f1b/I01f2/I01f3; no parent/product E2E or
+independent B1 review is closed by this service-only child.
 
 The Kotlin/JUnit host runner's current runtime test qualifies only its Java
 toolchain. The **test-only** [Compose topology](compose.json) and

@@ -9,12 +9,13 @@ shutdown/recovery. I01c3 adds the local application OCI image and isolated image
 lifecycle qualification.** No image is published or deployed by these interfaces.
 I02a adds the real account/session schema and public account API described below.
 I04a adds password-reset tokens, an encrypted durable mail outbox, SMTP worker and
-secure browser fallback form. No game/inbox/game-outbox/push worker exists yet.
+secure browser fallback form. Push delivery remains unimplemented.
 I06b1 adds [immutable private definitions and atomic saved-deck creation/read-back](DECKS.md)
 through normal authenticated HTTP, with retained original business outcomes. Native
 Save wiring remains I06b2; collection management and contextual imports remain I07/I08.
 I09a adds [contacts, named atomic first invitation, private game listings and waiting-lobby reads](LOBBY.md).
-Existing-game invitation decisions/durable workers remain I09b; preparation/start remain I10–I12.
+I09b1 adds [ordered socket invitation decisions, durable game requests and live workers](GAMES.md).
+Native decisions/recovery remain I09b2; preparation/start remain I10–I12.
 
 ## Build and test
 
@@ -180,8 +181,11 @@ work; no shutdown guarantee is made for arbitrary uninterruptible application co
 **Implemented worker inventory:** ownership recovery and the I04a durable reset-mail
 sender. Recovery validates pending encrypted mail with the configured key before
 readiness/admission; a wrong key stays unavailable without deleting records. SMTP
-outage does not make the whole service unready: due mail retries durably. There are
-no game/inbox/game-outbox/push workers. Each future worker must join readiness,
+outage does not make the whole service unready: due mail retries durably. I09b1 adds
+the per-game FIFO ingress, durable inbox execution and committed publication workers;
+all join additive recovery/readiness and bounded shutdown without replacing mail.
+Pending game commands are validated on writer recovery; durable pending work and
+unpublished outcomes resume through polling. There is no push worker. Each future worker must join readiness,
 recovery and bounded shutdown before its routes are admitted. Historical foundation
 qualification below predates account/mail implementation; it is not current product
 coverage.

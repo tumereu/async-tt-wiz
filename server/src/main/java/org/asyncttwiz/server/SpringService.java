@@ -24,6 +24,8 @@ import org.asyncttwiz.server.accounts.ResetMailWorker;
 import org.asyncttwiz.server.accounts.SmtpResetMailer;
 import org.asyncttwiz.server.decks.DeckHttp;
 import org.asyncttwiz.server.lobby.LobbyHttp;
+import org.asyncttwiz.server.game.GameHub;
+import org.asyncttwiz.server.game.GameHttp;
 
 /** Explicit Spring Boot servlet contexts; no auto-configured database, migrations, Actuator or APIs. */
 public final class SpringService implements AutoCloseable {
@@ -31,6 +33,7 @@ public final class SpringService implements AutoCloseable {
     private final ServiceRuntime runtime;
     private final PasswordResetService resets;
     private final ResetMailWorker mail;
+    private final GameHub games;
     private ConfigurableApplicationContext health;
     private ConfigurableApplicationContext publicApi;
     private boolean closed;
@@ -41,6 +44,8 @@ public final class SpringService implements AutoCloseable {
         resets = settings.resetMail() == null ? null : new PasswordResetService(runtime, settings.resetMail());
         mail = resets == null ? null : new ResetMailWorker(runtime, resets, new SmtpResetMailer(settings.resetMail()));
         if (mail != null) runtime.attachWorker(() -> resets.validatePending(), mail::available);
+        games = new GameHub(runtime);
+        runtime.attachWorker(() -> games.validatePending(), games::available);
     }
 
     public synchronized void start() {
@@ -49,6 +54,7 @@ public final class SpringService implements AutoCloseable {
             health = context(settings.healthAddress(), settings.healthPort(), true);
             publicApi = context(settings.publicAddress(), settings.publicPort(), false);
             if (mail != null) mail.start();
+            games.start();
             runtime.start();
         } catch (RuntimeException failure) { close(); throw failure; }
     }
@@ -74,6 +80,8 @@ public final class SpringService implements AutoCloseable {
             factory.setAddress(address);
             factory.setPort(port);
             factory.setShutdown(Shutdown.GRACEFUL);
+            if (!isHealth) factory.addContextCustomizers(tomcat -> tomcat.addServletContainerInitializer(
+                    new org.apache.tomcat.websocket.server.WsSci(), java.util.Set.of()));
             factory.addConnectorCustomizers(connector -> {
                 connector.setProperty("maxThreads", isHealth ? "8" : "32");
                 connector.setProperty("minSpareThreads", "2");
@@ -84,7 +92,7 @@ public final class SpringService implements AutoCloseable {
             });
             context.getBeanFactory().registerSingleton("servletWebServerFactory", factory);
             context.getBeanFactory().registerSingleton("serviceServlet", new ServletRegistrationBean<>(
-                    new Routes(runtime, isHealth, resets, settings), "/"));
+                    new Routes(runtime, isHealth, resets, settings, games), "/"));
         });
         return application.run();
     }
@@ -104,17 +112,20 @@ public final class SpringService implements AutoCloseable {
         private final AccountHttp accounts;
         private final DeckHttp decks;
         private final LobbyHttp lobby;
-        Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings) {
+        private final GameHttp games;
+        Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings, GameHub hub) {
             this.runtime = runtime;
             this.health = health;
             accounts = health ? null : new AccountHttp(runtime, resets, settings.resetMail());
             decks = health ? null : new DeckHttp(runtime);
             lobby = health ? null : new LobbyHttp(runtime);
+            games = health ? null : new GameHttp(runtime, hub);
         }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
             if (!health && accounts.handle(request, response)) return;
             if (!health && decks.handle(request, response)) return;
+            if (!health && games.handle(request, response)) return;
             if (!health && lobby.handle(request, response)) return;
             int status = 404;
             String body = "Not found\n";
@@ -138,6 +149,7 @@ public final class SpringService implements AutoCloseable {
         if (closed) return;
         closed = true;
         runtime.close();
+        games.close();
         if (mail != null) mail.close();
         if (publicApi != null) publicApi.close();
         if (health != null) health.close();

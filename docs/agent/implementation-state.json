@@ -90,7 +90,8 @@
                                            "docs/agent/implementation-runs/20261022T162313Z-99383c98.json",
                                             "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
                                              "docs/agent/implementation-runs/20261022T163108Z-f7fc716d.json",
-                                             "docs/agent/implementation-runs/20261022T174723Z-4ae020e2.json"
+                                              "docs/agent/implementation-runs/20261022T174723Z-4ae020e2.json",
+                                              "docs/agent/implementation-runs/20261022T175129Z-7080c0f4.json"
    ],
   "findings": [
     {
@@ -894,7 +895,9 @@
     {
       "id": "I09b1",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4.json",
+      "qualification": "Delivered running authenticated /v1/socket invitation Accept/Decline/Reinvite with strict shared typed/canonical envelopes and decimal ordinals, per-game FIFO before async DB work, global request identity, committed inbox receipts, lowest-pending atomic state/outcome/revision/outbox execution, actor-private original-result recovery and committed publication. Explicit V7 retains V6 games/attempts/decks/outcomes; current-attempt pointers retain old attempts and immutable name/date/preparation. Real PostgreSQL and actual WebSocket/HTTP checks pass invitation journey, pipelining, actor/attempt/preparation privacy, pending/final dedup, global account/kind/game/intent conflicts, independent games/installations, replacement fencing, real SQL rollback/restart and additive worker readiness/ownership recovery/bounded close; prior encrypted SMTP worker recovery remains green. Initial schema-generator count, expected-refusal sanitization and revision discriminator decoding failures are repaired with retained diagnostics and passing affected checks. Shared codec tests and four I09a HTTP regressions retain passing evidence; only affected checks/incremental JVM builds ran, no full suite/device/image qualification. I09b2 native queue/controls/two-APK journey, I10-I14 preparation/start/cancel/gameplay/recovery extensions, parent evidence closures, B3 independent review and I34-I36 final assertions/UI/release gates remain open.",
       "dependsOn": ["I09a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T174723Z-4ae020e2.json",
       "outcome": "Deliver the real running server invitation capability over authenticated WebSocket: recipient-only exact-attempt Accept/Decline and inviter-only exact-existing-game Reinvite, using shared typed/canonical envelopes and decimal ordinals. Implement one extensible persistent-game FIFO ingress, PostgreSQL durable inbox, atomic execution/original outcomes/revisions/outbox and committed publication/recovery, reusing global request_identity and the writer-epoch boundary. Integrate negotiation, per-installation stream open/resume/replacement fencing, authorized status/head/update recovery and live workers into the existing service readiness/reload/shutdown alongside reset mail; no detached queue, competing HTTP mutation path or lifecycle-only replacement processor. Preserve game/name/date/preparation and original create outcomes; Accept is not Ready/start. Native decisions and the complete two-APK journey follow in I09b2, not claimed by server tests.",

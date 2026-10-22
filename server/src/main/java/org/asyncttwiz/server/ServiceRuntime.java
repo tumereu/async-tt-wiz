@@ -19,15 +19,15 @@ public final class ServiceRuntime implements AutoCloseable {
     });
     private final AtomicBoolean stopping = new AtomicBoolean();
     private final ReentrantReadWriteLock admission = new ReentrantReadWriteLock();
-    private Runnable recoveryCheck = () -> {};
-    private java.util.function.BooleanSupplier workerAvailable = () -> true;
+    private final java.util.List<Runnable> recoveryChecks = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<java.util.function.BooleanSupplier> workerAvailability = new java.util.concurrent.CopyOnWriteArrayList<>();
     private volatile long recoveredEpoch = -1;
 
     public ServiceRuntime(DatabaseSettings settings) { ownership = new WriterOwnership(settings); }
 
     public void attachWorker(Runnable check, java.util.function.BooleanSupplier available) {
-        recoveryCheck = check;
-        workerAvailable = available;
+        recoveryChecks.add(check);
+        workerAvailability.add(available);
     }
     public void invalidateWorkerRecovery() { recoveredEpoch = -1; }
 
@@ -37,7 +37,7 @@ public final class ServiceRuntime implements AutoCloseable {
             try {
                 var token = ownership.refresh();
                 if (token.isPresent() && token.get().epoch() != recoveredEpoch) {
-                    recoveryCheck.run();
+                    recoveryChecks.forEach(Runnable::run);
                     recoveredEpoch = token.get().epoch();
                 }
             } catch (RuntimeException ignored) { recoveredEpoch = -1; /* Safe retry, no secret-bearing errors. */ }
@@ -47,7 +47,7 @@ public final class ServiceRuntime implements AutoCloseable {
     public boolean ready() {
         var token = ownership.token();
         return !stopping.get() && token.isPresent() && token.get().epoch() == recoveredEpoch
-                && workerAvailable.getAsBoolean() && !stopping.get();
+                && workerAvailability.stream().allMatch(java.util.function.BooleanSupplier::getAsBoolean) && !stopping.get();
     }
 
     public <T> T transaction(WriterOwnership.Transaction<T> work) {

@@ -1,0 +1,102 @@
+{
+  "runId": "20261022T175129Z-7080c0f4",
+  "sessionID": "ses_e9b42b61fffex4cQwvlNDXH5lB",
+  "startCommit": "e4c0776cf14e019abdaa2088a1279165d497f225",
+  "mode": "implement",
+  "target": "I09b1",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented the running server invitation capability: authenticated negotiated WebSocket Accept/Decline/exact-game Reinvite, strict shared canonical envelopes/decimal ordinals, synchronous per-game FIFO before async DB work, globally bound durable inbox/receipts, atomic lowest-pending state/outcome/revision/outbox execution, actor-private original-result recovery and committed publication. Explicit V7 retains V6 games/attempts/decks/outcomes and immutable game/name/date/preparation; invitation attempts remain retained. Additive worker readiness/recovery/shutdown preserves SMTP. Fifteen distinct affected shared/PostgreSQL/socket/lobby/mail cases have retained passing evidence, with initial red commands preserved as diagnostics and only affected rechecks after repairs. Actual socket tests cover pipelining, stale attempt/preparation, actor privacy, decline/reinvite/accept, replacement/independent installations, revoked credentials, original outcomes and service restart; controlled PostgreSQL tests cover FIFO/independent games, committed pending dedup, real atomic rollback/restart, global conflicts and worker ownership recovery/close. No full suite, image/device build or native journey ran. Only I09b1 closes; I09b2 native controls/recovery/two-APK journey and subsequent B3 work/review remain pending.",
+  "selectionReason": "The clean supplied master/startCommit, active D-304 authorization, reviewed B1/B2 and no actionable findings agree with I09b1 as the earliest ready child. Deliver the complete running server path needed by I09b2, not an unserviced queue or competing HTTP mutation service. Affected scope is the new shared wire codec, explicit V7 migration/jOOQ, existing creation/current-attempt reads, game dispatcher/persistence/socket workers and additive runtime/mail integration. Reuse unchanged environment/dependency qualification; incremental JVM builds and affected tests only. Parent evidence closures and independent B3 review remain separately selected; no scheduling/model/grant/gate changes.",
+  "sourceIds": ["P-043", "P-045", "P-062", "P-072", "T-398", "T-414", "T-415", "T-416", "T-417", "T-418", "T-484", "T-636", "T-637", "T-638", "T-639", "T-667", "T-677", "T-681", "T-685", "T-690", "T-696", "F13", "F14", "F16", "F23", "F24", "F37", "F48", "F59"],
+  "sourceDisposition": "Partial I09.invitations assertions under accounts-decks-and-lobby D-195/D-208/D-209/D-259/D-287/D-294 and protocol-v1/request-ordering-and-recovery/storage-mechanics D-275/D-285/D-289. Existing ledger assignments remain unchanged/unexecuted at complete-scenario level: server capability checks do not pass later native/preparation/start/cancel/gameplay assertions or UI feedback items.",
+  "repairs": [
+    "The first incremental code-generation attempt found the existing V6-only migration count/table allowlist. Updated it to real V7 generation; no dependency/lock change was needed (Tomcat WebSocket was already locked).",
+    "Initial tests exposed expected GameProtocolFailure refusals being sanitized as ownership/database failures. GameService now returns expected refusal values through a savepoint rollback under the retained epoch lock, then raises the safe protocol error outside that boundary. Raw database errors still use unchanged sanitized ownership recovery. All five durability tests and actual resume/auth socket test passed afterward.",
+    "The first revision-recovery exercise exposed a discriminator/static-decoder mismatch. Read stored revisions through the sealed shared server-message decoder. Rechecked the affected real socket/read/restart journey; added exact actor/preparation and missing multiple-in-flight frame-order assertions, then reran that one method. No broad suite or passing unrelated fault matrix was repeated."
+  ],
+  "evidenceReuse": "initial-tests.json is an explicitly red diagnostic command containing four passing LobbyHttpTest cases plus the initial shared test execution (three green cases retained in retained-junit.json). game-tests.json is an explicitly red diagnostic command containing five passing GameDurabilityTest cases and the passing actual resume/auth socket case; its only remaining failure was the revision-read decoder subsequently repaired and rechecked by socket-and-mail-tests.json/pipelined-socket-final.json. Those lower-layer methods do not call the changed revision decoder; no output is relabelled a new run. The final protocol task was UP-TO-DATE on unchanged source/test inputs, not a new three-test execution. audit.py verifies these exact retained records, current source/artifact identities and distinct green case coverage. This is affected acceptance evidence, not a single green full-suite run.",
+  "remainingObligations": [
+    "I09b2: native P01 Accept/Decline and in-slot Reinvite, volatile ordered dispatch/reconciliation, same-account reauthentication and Logout/account-switch fences, server-first restart, and the actual two-normal-APK journey in both orientations. Server tests do not claim these native outcomes. I09b/I09 parents remain open for separately selected small evidence audits.",
+    "I10-I12: prepared copies/deck privacy/Ready/start/cancel, same processor extensions and P-072/T-669 cancellation in both orders, T-457/T-458/T-460 prepared-state preservation and the complete two-Android prepared start. Pending/declined socket participants currently receive only username-only invitation summaries; later prepared/game payloads must enforce accepted-lobby access instead of treating invitation metadata access as gameplay permission.",
+    "I13/I14 extend this same persistent-game processor and wire path for gameplay/prediction/complete replica recovery, including large-revision streaming/fallback; I26 complete tree, I28/I31 rematch and combined metadata. No parallel lifecycle queue, client outgoing journal, sequence-hole reconstruction or execution-time reset fence was introduced.",
+    "I34 retains final full-suite/deferred uncommon/resource/heartbeat/backpressure matrices, schema/OpenAPI agreement and prior foundation/account/reset migration-count fixtures documented by I09a. Current real V6-to-V7 and V5-to-current retained-data migrations pass; older full-suite checks were not run or claimed. I33 performance, I35 Android/version/image architecture and I36/B8 all-interface/both-orientation comparison and external release gates remain unverified and unchanged."
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :protocol:compileKotlinJvm :server:compileKotlin",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/initial-compile.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :server:compileKotlin :server:compileJava",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/compile.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest --tests *GameWireTest :server:test --tests *GameDurabilityTest --tests *GameSocketTest --tests *LobbyHttpTest",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/initial-tests.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :server:test --tests *GameDurabilityTest --tests *GameSocketTest",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/game-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :server:test --tests '*GameSocketTest.real authenticated sockets*' --tests '*PasswordResetHttpTest.actual Spring worker*' verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/socket-and-mail-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :protocol:jvmTest --tests *GameWireTest :server:test --tests '*GameSocketTest.real authenticated sockets*'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/pipelined-socket-final.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T175129Z-7080c0f4/audit.py > docs/agent/implementation-runs/20261022T175129Z-7080c0f4/audit.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/audit.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T175129Z-7080c0f4/audit.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4.json",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/audit.py",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/audit.txt",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/compile.json",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/game-tests.json",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/initial-compile.json",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/initial-tests.json",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/pipelined-socket-final.json",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/retained-junit.json",
+    "docs/agent/implementation-runs/20261022T175129Z-7080c0f4/socket-and-mail-tests.json",
+    "docs/agent/implementation-state.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameWireTest.kt",
+    "server/GAMES.md",
+    "server/LOBBY.md",
+    "server/README.md",
+    "server/src/main/java/org/asyncttwiz/server/ServiceRuntime.java",
+    "server/src/main/java/org/asyncttwiz/server/SpringService.java",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameDispatcher.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+    "server/src/main/resources/db/migration/V7__ordered_game_requests.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameDurabilityTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/lobby/LobbyHttpTest.kt"
+  ]
+}

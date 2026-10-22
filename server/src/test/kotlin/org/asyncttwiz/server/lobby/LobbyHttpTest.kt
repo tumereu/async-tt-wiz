@@ -202,13 +202,13 @@ class LobbyHttpTest {
                 INSERT INTO request_identity VALUES ('$request','$account','createDeck','account','${"0".repeat(64)}');
                 INSERT INTO account_request VALUES ('$request',201,'retained original');
             """.trimIndent()) }
-            assertEquals(1, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(2, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             for (table in listOf("account", "saved_deck", "deck_entry", "definition", "account_request")) assertEquals(1, count(db, table))
             for (table in listOf("contact", "game", "invitation")) assertEquals(0, count(db, table))
             db.connection().use { c -> c.createStatement().executeQuery("SELECT password_phc,name,revision,response FROM account,saved_deck,account_request").use {
                 assertTrue(it.next()); assertEquals("retained-phc", it.getString(1)); assertEquals("Retained deck", it.getString(2)); assertEquals(7L, it.getLong(3)); assertEquals("retained original", it.getString(4))
             } }
-            println("PASS explicit non-destructive V5-to-V6 migration retains accepted account/deck/definition/entry/revision/original outcome")
+            println("PASS explicit non-destructive V5-to-current migration retains accepted account/deck/definition/entry/revision/original outcome")
         }
     }
 }

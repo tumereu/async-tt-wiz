@@ -71,16 +71,17 @@ class LobbyService(private val runtime: ServiceRuntime) {
                     .where(CONTACT.ACCOUNT_ID.eq(actor)).and(CONTACT.CONTACT_ID.eq(UUID.fromString(input.recipient)))))
                 return@business error(400, "contact_required")
             val game = UUID.randomUUID()
+            val invitation = UUID.randomUUID()
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName)
                 .set(GAME.INVITER_ID, actor).set(GAME.RECIPIENT_ID, UUID.fromString(input.recipient))
-                .set(GAME.PREPARATION_ROUND, UUID.randomUUID()).execute()
-            sql.insertInto(INVITATION).set(INVITATION.ID, UUID.randomUUID()).set(INVITATION.GAME_ID, game).execute()
+                .set(GAME.PREPARATION_ROUND, UUID.randomUUID()).set(GAME.CURRENT_INVITATION, invitation).execute()
+            sql.insertInto(INVITATION).set(INVITATION.ID, invitation).set(INVITATION.GAME_ID, game).execute()
             Result(201, json.encodeToString(summary(sql, game)))
         }
 
-    private fun summary(sql: DSLContext, id: UUID): GameSummary {
+    fun summary(sql: DSLContext, id: UUID): GameSummary {
         val game = sql.selectFrom(GAME).where(GAME.ID.eq(id)).fetchSingle()
-        val invitation = sql.selectFrom(INVITATION).where(INVITATION.GAME_ID.eq(id)).fetchSingle()
+        val invitation = sql.selectFrom(INVITATION).where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
         fun identity(id: UUID) = AccountIdentity(id.toString(), sql.select(ACCOUNT.USERNAME).from(ACCOUNT)
             .where(ACCOUNT.ID.eq(id)).fetchSingle(ACCOUNT.USERNAME)!!)
         return GameSummary(id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
@@ -95,7 +96,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             val actor = owner(principal)
             val access = if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING"))
                 else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED")))
-            val ids = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.GAME_ID.eq(GAME.ID))
+            val ids = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                 .where(access).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
                 .and(if (after == null) DSL.trueCondition() else GAME.ID.gt(UUID.fromString(after)))
                 .orderBy(GAME.ID).limit(101).forShare().fetch(GAME.ID)
@@ -109,7 +110,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val actor = owner(principal)
-            val visible = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.GAME_ID.eq(GAME.ID))
+            val visible = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                 .where(GAME.ID.eq(UUID.fromString(id))).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
                 .and(GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED"))))
                 .forShare().fetchOne() != null

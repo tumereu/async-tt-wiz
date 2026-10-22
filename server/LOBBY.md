@@ -30,9 +30,9 @@ them. A lost creation response freezes that intent for Retry, rather than silent
 creating another game after editing. Process restart reads the server; no outgoing
 journal or authoritative local game is added.
 
-I09b supplies Accept/Decline/Reinvite over the **ordered socket/durable game inbox**;
-there are deliberately no competing existing-game HTTP writes or fake-success
-buttons in I09a. Preparation/Ready/start/cancellation remain I10–I12. The current
+I09b1 supplies [Accept/Decline/Reinvite over the ordered socket/durable game inbox](GAMES.md).
+There are deliberately no competing existing-game HTTP writes. Native decisions
+remain I09b2; preparation/Ready/start/cancellation remain I10–I12. The current
 waiting surface displays actual state and plainly labels unavailable preparation.
 I34–I36 retain broad qualification, compatibility and final UI comparison.
 

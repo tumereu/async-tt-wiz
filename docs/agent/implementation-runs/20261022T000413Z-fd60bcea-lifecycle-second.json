@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-4e4aa4f6959340149f8610206f1f1661",
+    "provision",
+    "--config",
+    "/tmp/opencode/atw-device-config.json"
+  ],
+  "exitCode": 1,
+  "outputSha256": "8069a7a225fa7791daac5aab044156bd2daff1bce280ef326acfc3e63fd32f40",
+  "output": "Device controller failed: Busy Windows port refused\n"
+}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-0262904813bd40eab878e4f9f0ea5c8a",
+    "provision",
+    "--config",
+    "/tmp/opencode/atw-device-config.json"
+  ],
+  "exitCode": 1,
+  "outputSha256": "5baa61f622ff19b9b4a794c8198d5b94252f1351dade99c9a58f44f92a3f60e1",
+  "output": "Device controller failed: Windows start failed; retained command logs in instance directory\n"
+}

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-4e4aa4f6959340149f8610206f1f1661",
+    "cleanup"
+  ],
+  "exitCode": 0,
+  "outputSha256": "302529ab967bb7b6dc8e1287ebe9935e0a8259fbc1aca4c633cc9e4ddabac7e3",
+  "output": "{\n  \"absent\": true\n}\n"
+}

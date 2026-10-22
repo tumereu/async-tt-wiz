@@ -1,5 +1,11 @@
 # Host-side E2E boundary
 
+Windows/WSL device-service implementation is at an evidenced **I01f1a repair
+checkpoint**, not complete qualification: see [device commands and limits](devices-README.md).
+Actual owned API29/Appium readiness, controlled service-loss invalidation and
+native cleanup pass; the remaining foreign-resource/failure matrix, normal APK,
+Compose routing, Kotlin sessions and instrumentation are still open.
+
 The Kotlin/JUnit host runner's current runtime test qualifies only its Java
 toolchain. The **test-only** [Compose topology](compose.json) and
 [host controller](environment.py) now provision the real application image,

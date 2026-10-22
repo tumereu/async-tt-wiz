@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-588f2d11cb934eb4a97e4d2ae670fd96",
+    "cleanup"
+  ],
+  "exitCode": 0,
+  "outputSha256": "51a6993fcef5d50ee79c24cdc97eb37f32b15f89f645da02ec4139f6c8e2b13a",
+  "output": "{\n  \"logs\": {\n    \"adb.out\": \"\",\n    \"adb.err\": \"10-22 03:10:22.713 22656  5500 F adb.exe : main.cpp:168 could not install *smartsocket* listener: listening on specified hostname currently unsupported\\r\\n\"\n  },\n  \"currentProcesses\": [\n    null\n  ],\n  \"listeners\": [],\n  \"state\": {\n    \"processes\": [\n      {\n        \"created\": \"2026-10-22T00:10:22.1159680Z\",\n        \"pid\": 22656,\n        \"command\": \"\\\"C:\\\\Android\\\\platform-tools\\\\adb.exe\\\" -L tcp:127.0.0.1:15038 nodaemon server \",\n        \"executable\": \"C:\\\\Android\\\\platform-tools\\\\adb.exe\"\n      }\n    ],\n    \"owner\": \"e9e0a27d5fbb22ba287eccae04466465c3bdb0ccb3cb1e69c6c7ea9973ca380e\",\n    \"config\": {\n      \"node\": \"/home/tuomas/.local/share/fnm/node-versions/v24.21.0/installation/bin/node\",\n      \"appiumMain\": \"/tmp/opencode/atw-device-tools/node_modules/appium/build/lib/main.js\",\n      \"appiumHome\": \"/tmp/opencode/atw-device-tools/appium-home\",\n      \"androidHome\": \"/home/tuomas/Android/Sdk\",\n      \"linuxAdb\": \"/home/tuomas/Android/Sdk/platform-tools/adb\",\n      \"windowsSdk\": \"C:\\\\Android\",\n      \"powershell\": \"/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe\",\n      \"adbPort\": 15038,\n      \"consolePort\": 5564,\n      \"appiumPort\": 14733,\n      \"systemPort\": 18210\n    },\n    \"name\": \"atw-device-588f2d11cb934eb4a97e4d2ae670fd96\",\n    \"avd\": \"atw-device-588f2d11cb934eb4a97e4d2ae670fd96\",\n    \"ports\": [\n      15038,\n      5564,\n      5565\n    ],\n    \"acceleration\": \"accel:\\r\\n0\\r\\nWHPX(10.0.26200) is installed and usable.\\r\\naccel\",\n    \"cleaned\": true\n  }\n}\n"
+}

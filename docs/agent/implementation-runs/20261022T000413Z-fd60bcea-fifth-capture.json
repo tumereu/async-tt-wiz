@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-f66dc58d08154120ac0bd317c1a7879f",
+    "capture"
+  ],
+  "exitCode": 1,
+  "outputSha256": "817e748ec56be8211ab7a9e174d5de8adb0b32c95cc2b0ff8f0661bf9c3e3872",
+  "output": "Device controller failed: Windows snapshot failed; retained command logs in instance directory\n"
+}

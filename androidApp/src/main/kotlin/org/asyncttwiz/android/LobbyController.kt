@@ -7,20 +7,26 @@ import java.util.UUID
 import java.util.concurrent.ExecutorService
 
 data class GameNameDraft(val recipient: AccountIdentity, val name: String)
+data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> = emptyList(),
+    val draft: DeckSummary? = null, val loading: Boolean = true, val confirming: Boolean = false,
+    val importing: Boolean = false, val error: String? = null)
 data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val query: String = "",
     val results: List<AccountIdentity> = emptyList(), val searched: Boolean = false, val searching: Boolean = false,
     val searchError: String? = null, val games: List<GameSummary> = emptyList(), val invitations: List<GameSummary> = emptyList(),
     val selected: String? = null, val detail: GameSummary? = null, val draft: GameNameDraft? = null,
     val busy: Boolean = false, val mutating: Boolean = false, val uncertain: Boolean = false,
     val error: String? = null, val loaded: Boolean = false, val connectionMessage: String? = null,
-    val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet())
+    val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet(),
+    val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
+    val preparation: LobbyPreparation? = null)
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val openGame: () -> Unit = {}, private val suggest: () -> String = ::gameNameSuggestion,
     gameConnection: GameConnection? = null, private val accountId: () -> String? = { null },
-    authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString()) : AutoCloseable {
+    authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString(),
+    private val deckApi: Decks? = null) : AutoCloseable {
     var state by mutableStateOf(LobbyState())
         private set
     @Volatile private var epoch = 0L
@@ -29,16 +35,18 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var pendingCreate: CreateInvitation? = null
     private var pendingRecipient: AccountIdentity? = null
     private val pendingAdds = mutableMapOf<String, AddContact>()
+    private var pickerVersion = 0L
     private val session: GameSession? = gameConnection?.let { GameSession(it, credential, post, authenticationRequired,
         changed = ::accepted, settled = { command, result ->
             if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted") open(command.scope.gameId)
             refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId) }
-    fun clear() { epoch++; searchVersion++; pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { epoch++; searchVersion++; pickerVersion++; pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); session?.clear(); state = LobbyState() }
     private fun connectionState() {
         val wire = session ?: return
         val ids = (state.games + state.invitations + listOfNotNull(state.detail)).map { it.id }.toSet()
-        state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet())
+        state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
+            acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = state.detail?.let(wire::preparation))
     }
     private fun accepted(game: GameSummary) {
         val mine = accountId()
@@ -56,6 +64,79 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun reinvite(game: GameSummary) {
         if (game.inviter.accountId != accountId() || game.invitationState != InvitationState.DECLINED || game.lifecycle != GameLifecycle.LOBBY) return
         session?.submit(game, GameAction.Reinvite)
+    }
+    fun chooseDeck() {
+        val game = state.detail ?: return
+        if (closed || deckApi == null || game.lifecycle != GameLifecycle.LOBBY || game.id !in state.connectedGames ||
+            game.id in state.pendingGames || (game.inviter.accountId != accountId() && game.invitationState != InvitationState.ACCEPTED)) return
+        state = state.copy(picker = DeckPickerState(game))
+        refreshPicker()
+    }
+    fun closePicker() { pickerVersion++; state = state.copy(picker = null) }
+    fun highlightDeck(deck: DeckSummary) {
+        val picker = state.picker ?: return
+        if (!picker.confirming && deck in picker.decks) state = state.copy(picker = picker.copy(draft = deck, error = null))
+    }
+    fun importForPicker() { state.picker?.takeIf { !it.confirming }?.let { state = state.copy(picker = it.copy(importing = true)) } }
+    fun importedForPicker(): Boolean {
+        if (state.picker?.importing != true) return false
+        state = state.copy(picker = state.picker!!.copy(importing = false)); refreshPicker(); return true
+    }
+    fun refreshPicker() {
+        val picker = state.picker ?: return
+        val api = deckApi ?: return
+        val token = credential() ?: return
+        if (picker.confirming) return
+        val generation = epoch; val version = ++pickerVersion
+        state = state.copy(picker = picker.copy(loading = true, error = null))
+        worker.execute {
+            val result = runCatching { runBlocking {
+                val decks = linkedMapOf<String, DeckSummary>(); val seen = mutableSetOf<String>(); var next: String? = null
+                do {
+                    check(generation == epoch)
+                    val page = api.list(token, next); page.decks.forEach { decks[it.id] = it }; next = page.next
+                    check(next == null || seen.add(next!!))
+                } while (next != null)
+                decks.values.toList()
+            } }
+            post { if (!closed && generation == epoch && version == pickerVersion) state.picker?.let {
+                // A background collection read never silently substitutes or updates the captured draft.
+                state = state.copy(picker = it.copy(decks = result.getOrDefault(it.decks), loading = false,
+                    error = result.exceptionOrNull()?.let { deckError(it as? Exception ?: DeckFailure("network")) }))
+            } }
+        }
+    }
+    fun confirmDeck() {
+        val picker = state.picker ?: return
+        val source = picker.draft ?: return
+        val api = deckApi ?: return
+        val token = credential() ?: return
+        val actor = accountId() ?: return
+        if (closed || picker.confirming || picker.loading || picker.game.id !in state.connectedGames || picker.game.id in state.pendingGames) return
+        val generation = epoch; val version = ++pickerVersion
+        state = state.copy(picker = picker.copy(confirming = true, error = null))
+        worker.execute {
+            val result = runCatching { runBlocking {
+                check(generation == epoch)
+                val saved = api.read(token, source.id)
+                if (saved.deck.revision != source.revision) throw DeckFailure("source_changed")
+                val definitions = saved.entries.map { it.definition }.distinct().map { digest ->
+                    check(generation == epoch); api.definition(token, source.id, digest)
+                }
+                saved to definitions
+            } }
+            post { if (!closed && generation == epoch && version == pickerVersion) state.picker?.let { current ->
+                val data = result.getOrNull()
+                if (data != null && state.detail?.preparationRound == picker.game.preparationRound &&
+                    session?.selectDeck(picker.game, actor, data.first, data.second) == true) closePicker()
+                else state = state.copy(picker = current.copy(confirming = false, error = when ((result.exceptionOrNull() as? DeckFailure)?.code) {
+                    "source_changed" -> "This saved deck changed. Refresh and choose it again."
+                    "not_found" -> "This saved deck was deleted. Refresh and choose another deck."
+                    null -> "This game changed or is disconnected. Reconnect and choose again."
+                    else -> deckError(result.exceptionOrNull() as? Exception ?: DeckFailure("network"))
+                }))
+            } }
+        }
     }
     fun reconnect() { session?.tick(); refresh() }
     fun query(value: String) { searchVersion++; state = state.copy(query = value, results = emptyList(), searching = false, searched = false, searchError = null) }
@@ -126,8 +207,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
         }
     }
-    fun open(id: String) { if (!state.mutating) { state = state.copy(selected = id, detail = null, error = null); openGame(); refresh() } }
-    fun back() { if (state.draft != null) dismiss() else { state = state.copy(selected = null, detail = null, error = null); refresh() } }
+    fun open(id: String) { if (!state.mutating) { closePicker(); state = state.copy(selected = id, detail = null, acceptedPreparation = null, preparation = null, error = null); openGame(); refresh() } }
+    fun back() { if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { state = state.copy(selected = null, detail = null, acceptedPreparation = null, preparation = null, error = null); refresh() } }
     fun sync() { session?.tick(); if (!state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) {
         if (closed || state.busy || state.mutating) return
@@ -168,7 +249,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
         }
     }
-    override fun close() { closed = true; clear(); session?.close(); worker.execute { api.close() }; worker.shutdown() }
+    override fun close() { closed = true; clear(); session?.close(); worker.execute { api.close(); deckApi?.close() }; worker.shutdown() }
 }
 
 internal fun gameNameSuggestion(): String = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering").random() +

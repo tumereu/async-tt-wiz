@@ -40,9 +40,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             preferences.getString("id", null) ?: java.util.UUID.randomUUID().toString().also {
                 preferences.edit().putString("id", it).apply()
             }
-        })
+        }, deckApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired))
     init {
-        deckImport.connectSave(saveApi, controller::sessionToken, saved = { decks.open(it.deck.id) })
+        deckImport.connectSave(saveApi, controller::sessionToken, saved = { if (!lobby.importedForPicker()) decks.open(it.deck.id) })
     }
     private fun clearDeckWork() { deckImport.exit(); decks.clear(); lobby.clear() }
 

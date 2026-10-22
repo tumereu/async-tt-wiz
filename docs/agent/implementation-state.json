@@ -97,7 +97,8 @@
                                                   "docs/agent/implementation-runs/20261022T193734Z-9b2c031f.json",
                                                    "docs/agent/implementation-runs/20261022T194247Z-e9e3e478.json",
                                                     "docs/agent/implementation-runs/20261022T194819Z-c1033a39.json",
-                                                    "docs/agent/implementation-runs/20261022T195604Z-aa3e4430.json"
+                                                     "docs/agent/implementation-runs/20261022T195604Z-aa3e4430.json",
+                                                     "docs/agent/implementation-runs/20261022T201612Z-f7a4a46b.json"
    ],
   "findings": [
     {
@@ -979,7 +980,9 @@
     {
       "id": "I10a2",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T201612Z-f7a4a46b.json",
+      "qualification": "Delivered normal-APK own Choose/Change deck, account-private border-only selected draft, one fixed bottom confirmation and existing contextual Import/empty-collection return without auto-selection. GameSession reuses shared pure selection for volatile provisional display while accepted revisioned preparation, original request recovery and personal draft remain separate; receipts/results cannot prematurely retire prediction or rewind newer state. Thirty-six distinct affected host cases pass across 35 initial/eight targeted executions, plus incremental APK/lint/boundaries and V8 reset-store regression. A complete real API29 non-GMS single-normal-APK both-orientation UI-created picker/import/multiple-highlight/zero-request/Back/X/one-confirmation/reopen/restart/missing-art/source-rename-Overwrite-cover-delete journey passes. Native-exposed selection accessibility override is fixed and independently observable in the same passing journey. A separate retained-state tail checks ordinary recipient acceptance preserves the exact inviter copy and recipient-private empty picker in both orientations; Accept itself succeeded in the retained diagnostic before the corrected title-label assertion, not newly repeated in the passing tail. Read-only SQL proves one selection plus one acceptance, original copies/definitions/partition and two revision/outbox effects without duplication. Compile/Review-target/tmpfs/title-oracle diagnostics retained; exact inputs/JUnit/captures/owned cleanup saved. Only I10a2 closes; I10a/I10 parent audits, transfers I10b, Ready/start/cancel/two-Android overlaps I11/I12, independent B3 review and final I33-I36/full-suite/UI/compatibility/external gates remain open.",
       "dependsOn": ["I10a1"],
       "planningRecord": "docs/agent/implementation-runs/20261022T194819Z-c1033a39.json",
       "outcome": "Deliver the complete usable normal-APK L01/L02 Choose/Change deck and L03 saved-deck picker over I10a1's real shared selection path: border-only personal row draft, one bottom Use selected deck confirmation, empty collection and contextual existing Import flow returning to the picker. Display the real retained lobby copy/name/counts with text/art fallback. Extend GameSession/LobbyController/navigation with accepted preparation replica, volatile captured original request/provisional display and separate personal draft; correlate results and revisions without stale read/result rewind or premature prediction retirement. Keep original uncertain IDs through same-process reconnect/reauthentication, clear drafts/queues and fence callbacks on Logout/account switch, and restart from server state without reconstructing outgoing work. Complete the native picker journey in both orientations, not another internal-only child; I10b then supplies transfers/feedback on this same model.",

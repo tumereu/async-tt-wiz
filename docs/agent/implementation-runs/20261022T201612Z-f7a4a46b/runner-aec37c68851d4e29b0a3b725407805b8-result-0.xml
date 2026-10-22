@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.e2e.NativePreparationPickerTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T20:46:48.847Z" hostname="DESKTOP-B2KALVM" time="68.633">
+  <properties/>
+  <testcase name="personalPickerOneConfirmationImportReturnAndImmutablePreparedCopy()" classname="org.asyncttwiz.e2e.NativePreparationPickerTest" time="68.622"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

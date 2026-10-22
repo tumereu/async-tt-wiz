@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.ArtworkReference
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -99,7 +100,7 @@ private fun LobbyFeedback(controller: LobbyController) {
         Text(message, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = controller::reconnect) { Text("Reconnect") }
     }
-    if (state.pendingGames.isNotEmpty()) Text("Checking invitation outcome…", style = MaterialTheme.typography.bodySmall)
+    if (state.pendingGames.isNotEmpty()) Text(if (state.preparation != null) "Checking game outcome…" else "Checking invitation outcome…", style = MaterialTheme.typography.bodySmall)
     if (state.draft == null) state.error?.let {
         Text(it, color = MaterialTheme.colorScheme.error)
         TextButton(onClick = { controller.refresh() }) { Text("Retry") }
@@ -143,9 +144,11 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
 }
 
 @Composable
-internal fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?) {
+internal fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean = false,
+    importDeck: (() -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
+    if (state.picker != null) { LobbyDeckPicker(controller, importDeck); return }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger != null) IconButton(onClick = hamburger) { EntryIcon("Open navigation", "menu") }
@@ -156,18 +159,91 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
             LobbyFeedback(controller)
             state.detail?.let { game ->
                 Text("${gameStatus(game)} · ${gameDate(game)}")
-                OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
-                    Text(if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, fontWeight = FontWeight.SemiBold)
-                    Text("Not ready")
-                    Text("Deck preparation is not available in this build yet.")
-                } }
-                OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
-                    Text(game.opponent(accountId).username, fontWeight = FontWeight.SemiBold)
-                    Text(gameStatus(game))
-                     if (game.invitationState == InvitationState.PENDING) Text("Waiting for ${game.recipient.username} to accept.")
-                     if (game.inviter.accountId == accountId && game.invitationState == InvitationState.DECLINED)
-                         TextButton(onClick = { controller.reinvite(game) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames) { Text("Reinvite") }
-                } }
+                val own: @Composable (Modifier) -> Unit = { modifier ->
+                    OutlinedCard(modifier) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, fontWeight = FontWeight.SemiBold)
+                        PreparedSummary(state.preparation, accountId)
+                        Button(onClick = controller::chooseDeck, enabled = game.lifecycle == GameLifecycle.LOBBY &&
+                            game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null) {
+                            EntryIcon(null, "decks"); Spacer(Modifier.width(4.dp))
+                            Text(if (state.preparation?.players?.find { it.accountId == accountId }?.deck == null) "Choose deck" else "Change deck")
+                        }
+                    } }
+                }
+                val opponent: @Composable (Modifier) -> Unit = { modifier ->
+                    OutlinedCard(modifier) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(game.opponent(accountId).username, fontWeight = FontWeight.SemiBold)
+                        if (game.invitationState == InvitationState.ACCEPTED) PreparedSummary(state.preparation, game.opponent(accountId).accountId)
+                        else Text(gameStatus(game))
+                        if (game.invitationState == InvitationState.PENDING) Text("Waiting for ${game.recipient.username} to accept.")
+                        if (game.inviter.accountId == accountId && game.invitationState == InvitationState.DECLINED)
+                            TextButton(onClick = { controller.reinvite(game) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames) { Text("Reinvite") }
+                    } }
+                }
+                if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { own(Modifier.weight(1f)); opponent(Modifier.weight(1f)) }
+                else { own(Modifier.fillMaxWidth()); opponent(Modifier.fillMaxWidth()) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreparedSummary(preparation: LobbyPreparation?, accountId: String) {
+    val player = preparation?.players?.find { it.accountId == accountId }
+    Text(if (player?.ready == true) "✓ Ready" else "Not ready",
+        color = if (player?.ready == true) androidx.compose.ui.graphics.Color(0xff287a45) else MaterialTheme.colorScheme.onSurfaceVariant)
+    val deck = player?.deck
+    if (deck == null) Text("No deck selected") else {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val definition = preparation.definitions.find { it.digest == deck.cover }?.definition
+            definition?.faces?.firstOrNull()?.let { face ->
+                CardArtwork(ArtworkReference(face.scryfallId, 0, deck.cover!!, "small", face.imageUri), definition.name,
+                    48, 68, Modifier.size(48.dp, 68.dp))
+            }
+            Column {
+                Text(deck.name, fontWeight = FontWeight.SemiBold)
+                Text("Mainboard · ${deck.count(SavedDeckSection.MAINBOARD)}")
+                Text("Sideboard · ${deck.count(SavedDeckSection.SIDEBOARD)}")
+            }
+        }
+    }
+}
+
+@Composable
+private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit)?) {
+    val picker = controller.state.picker ?: return
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Choose deck", Modifier.weight(1f).padding(16.dp), style = MaterialTheme.typography.titleLarge)
+            IconButton(onClick = controller::closePicker) { EntryIcon("Close deck picker", "close") }
+        }
+        if (picker.loading || picker.confirming) LinearProgressIndicator(Modifier.fillMaxWidth())
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                picker.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (!picker.loading && picker.decks.isEmpty()) Text("No saved decks yet.")
+            }
+            items(picker.decks, key = { it.id }) { deck ->
+                val chosen = picker.draft?.id == deck.id
+                Surface(selected = chosen, onClick = { controller.highlightDeck(deck) }, enabled = !picker.confirming,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(if (chosen) 3.dp else 1.dp,
+                        if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant), shape = MaterialTheme.shapes.medium) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        deck.cover?.let { cover -> CardArtwork(ArtworkReference(cover.scryfallId, 0, cover.definition, "small", cover.imageUri),
+                            cover.name, 48, 68, Modifier.size(48.dp, 68.dp)) } ?: EntryIcon(null, "decks")
+                        Column(Modifier.weight(1f)) { Text(deck.name, fontWeight = FontWeight.SemiBold); Text("${deck.mainboard} / ${deck.sideboard}") }
+                    }
+                }
+            }
+            item { TextButton(onClick = controller::refreshPicker, enabled = !picker.loading && !picker.confirming) { Text("Refresh saved decks") } }
+        }
+        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { importDeck?.invoke() }, enabled = importDeck != null && !picker.confirming, modifier = Modifier.weight(1f)) { Text("Import deck") }
+            Button(onClick = controller::confirmDeck, enabled = picker.draft != null && !picker.loading && !picker.confirming &&
+                picker.game.id in controller.state.connectedGames && picker.game.id !in controller.state.pendingGames, modifier = Modifier.weight(1f)) {
+                Text(if (picker.confirming) "Loading deck…" else "Use selected deck")
             }
         }
     }

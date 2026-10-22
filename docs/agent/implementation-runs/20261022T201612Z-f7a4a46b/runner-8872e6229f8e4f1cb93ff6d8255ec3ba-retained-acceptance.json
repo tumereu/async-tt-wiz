@@ -1,0 +1,5 @@
+{
+  "normalApk": true,
+  "resumedAfterAcceptedLabelDiagnostic": true,
+  "scope": "Existing UI-created pending game accepted by the recipient after ordinary Logout/login; both orientations retain inviter copy while recipient picker is private and empty. No Ready/start asserted."
+}

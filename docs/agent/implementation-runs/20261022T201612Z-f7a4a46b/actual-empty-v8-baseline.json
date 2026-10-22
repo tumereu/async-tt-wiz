@@ -1,0 +1,45 @@
+{
+  "tables": [
+    "account",
+    "account_session",
+    "password_reset_token",
+    "reset_mail",
+    "definition",
+    "account_definition",
+    "saved_deck",
+    "deck_entry",
+    "request_identity",
+    "account_request",
+    "contact",
+    "game",
+    "invitation",
+    "game_inbox",
+    "game_outbox",
+    "game_revision",
+    "game_stream",
+    "player_preparation",
+    "game_definition",
+    "flyway_schema_history",
+    "service_writer"
+  ],
+  "migrations": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8"
+  ],
+  "accountCount": 0,
+  "sessionCount": 0,
+  "resetTokenCount": 0,
+  "resetMailCount": 0,
+  "versions": {
+    "prism": 1,
+    "quilt": 1
+  },
+  "messageCount": 0,
+  "faults": "ok"
+}

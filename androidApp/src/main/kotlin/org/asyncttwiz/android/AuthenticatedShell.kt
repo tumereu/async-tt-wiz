@@ -27,8 +27,9 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     val state = controller.state
     BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
     LaunchedEffect(state.destination) {
-        if (state.destination != ShellDestination.DECKS) deckImport?.exit()
+        if (state.destination != ShellDestination.DECKS && !(state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true)) deckImport?.exit()
         else if (decks?.state?.selected == null) decks?.refresh()
+        if (state.destination != ShellDestination.GAMES) lobby?.closePicker()
         lobby?.refresh()
     }
     LaunchedEffect(state.account?.accountId) {
@@ -40,8 +41,14 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         }
     }
     val content: @Composable () -> Unit = {
-        if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null) {
-            WaitingLobby(lobby, state.account!!.accountId, if (!landscape) ({ controller.drawer(true) }) else null)
+        if (state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true && deckImport?.state?.active == true) {
+            DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
+        } else if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null) {
+            LaunchedEffect(lobby.state.picker?.importing, deckImport?.state?.active) {
+                if (lobby.state.picker?.importing == true && deckImport?.state?.active != true) lobby.importedForPicker()
+            }
+            WaitingLobby(lobby, state.account!!.accountId, if (!landscape) ({ controller.drawer(true) }) else null, landscape,
+                importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
         } else if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
             DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
         } else if (state.destination == ShellDestination.DECKS && decks?.state?.selected != null) {

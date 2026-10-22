@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T201612Z-f7a4a46b/retain.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "70e153ec4e0420ebd03a944f59b8507325c85157d83af432903d5747f3c2f76d",
+  "output": "PASS 36 distinct affected host cases (35 initial + eight targeted, seven reused), all green without skips\nPASS one original accepted selection then recipient acceptance, exact copied identities/definitions/partitions retained after source deletion\nPASS two committed revision/outbox effects, no duplicate selection; exact final normal APK/source/build/lock identities retained\n"
+}

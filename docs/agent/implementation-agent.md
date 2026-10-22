@@ -30,6 +30,12 @@ abandon a failure that prevents ordinary use/security/accepted-state integrity.
 The supervisor will assess actual delivered journeys and refocus the next batch;
 report counts and repeated green qualification are not delivery progress.
 
+Run handoff-dependent shell/build/device checks in the foreground with `timeout: 0`
+when needed. Do not end a turn waiting for a background command: the headless CLI
+can exit before that callback and leave the controller halted with dirty work.
+Finish dependent checks, exact cleanup, report/state validation and save/push before
+the final exit. A troubleshooting checkpoint must also be safely saved first.
+
 1. Read AGENTS.md, the state file, its task plan/loop contract and current findings.
    Confirm explicit authorization and the supplied priority selection against the
    actual repository. The driver guards priorities; you must still understand and

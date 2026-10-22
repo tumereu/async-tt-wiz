@@ -86,3 +86,27 @@ review into minor presentation/fault-matrix refinement. No task/prompt correctio
 is warranted by this batch's evidence. Ten resumed units consumed; 2,961 of the
 original session ceiling remain. Final B8 full-suite/mock comparison and all
 external release gates remain open.
+
+### Batch 3 — recovered asynchronous exit, same unit preserved
+
+The first two units delivered server reset/SMTP and native A03/A04 plus the real
+two-device reset flow. I04b's headless CLI exited while its device check was still
+running in the background, before report/save. The supervisor preserved the dirty
+work and halted journal, waited on the exact existing process and allowed its
+notification to resume the **same** unit/session; no second writer or new feature
+unit was launched. Narrow steering required foreground dependent commands and a
+safe truthful completed/checkpoint save, not another blanket green rerun.
+
+The existing agent saved/pushed `2672cd3`: original diagnostic journey output
+retains the passing reset/revocation/new-password/reuse/resume core and its failing
+tail, followed by an actual targeted tail recheck. It does not claim a wholly green
+full-scenario invocation. Cleanup and affected native/host/HTTP/lint evidence are
+retained; I04/B1 independent review still must reconcile these inputs. Exact pending
+handoff checks are reconciled before normal `recover`, leaving the original failure
+journal intact. The prompt now explicitly forbids ending a headless unit with a
+handoff-dependent background command. This addresses the evidenced orchestration
+detour, without adding product behavior or a qualification matrix.
+
+Two of this batch's five fresh units were launched. After safe recovery, run only
+the remaining three before the next batch assessment; the continuation of the same
+interrupted bounded unit is not a new implementation session or a fresh approval.

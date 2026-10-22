@@ -157,3 +157,21 @@ is atomic named deck save, then collection/detail management and Overwrite/Merge
 those turn the new preview into the complete ordinary deck journey. Twenty resumed
 fresh units consumed; 2,951 sessions remain in the original ceiling. B1 independent
 review remains valid; B2 and final whole-product tests/reviews/gates remain open.
+
+### Batch 5 — import now saves and reopens real private decks
+
+Range `9d2c115..24ebc1a`: the normal APK now corrects/parses/previews an import,
+names it and saves it atomically through authenticated complete-definition/deck
+requests. Saved sections/quantities and immutable account-private definitions read
+back after restart even without the public catalog pointer. Actual UI failure/
+backend-restart/retry and different-account isolation checks pass; ordinary retries
+retain one original creation outcome rather than duplicate the deck.
+
+Assessment: genuine new import-to-saved-deck delivery, no speculative findings or
+unrelated qualification. One nested split separated absent transactional server
+acceptance from native integration; both produced real behavior, while the two
+ancestor closures only audited existing evidence. Do not extend that hierarchy
+with more qualification layers. I07 collection management and I08 Overwrite/Merge
+are now the next feature work, followed by the existing B2 review and invitation/
+preparation delivery. Twenty-five resumed fresh units consumed; 2,946 sessions
+remain in the original ceiling. No current drift requires another prompt repair.

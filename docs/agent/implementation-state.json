@@ -57,7 +57,8 @@
           "docs/agent/implementation-runs/20261022T034912Z-d4685909.json",
            "docs/agent/implementation-runs/20261022T044527Z-56557333.json",
             "docs/agent/implementation-runs/20261022T044934Z-c307edee.json",
-            "docs/agent/implementation-runs/20261022T051745Z-e3d640da.json"
+             "docs/agent/implementation-runs/20261022T051745Z-e3d640da.json",
+             "docs/agent/implementation-runs/20261022T052143Z-3d124427.json"
    ],
   "findings": [],
   "batches": [
@@ -82,7 +83,9 @@
     {
       "id": "I01",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T052143Z-3d124427.json",
+      "qualification": "D-307 current-run evidence audit reconciles all six implemented children at their exact saved commits and retained check-output hashes, current source/build/lock/fixture/tool identities, 875 primary P/T/F source-pinned coverage assignments and unchanged approved review test paths. Existing real JVM21/API29-SDK36 module builds, PostgreSQL17/Flyway/jOOQ service/image/ownership, SQLDelight host and actual Android migration/controller/launcher tests, isolated synthetic Compose/reset/Testcontainers and API29 non-GMS normal-APK Appium startup/public-route integration cover the scoped foundation. Later I01e server test/build changes and I01f2 host-runner additions retain their affected passing evidence; no missing integration seam requires another build/device/fault/full-suite run. Initial audit did not decode lossless XML envelopes; corrected check-only decoder passes and original failure stays diagnostic. Only I01 closes; next is actual I02 account entry. B1 remains pending until I02-I04 and independent capability review. I01f3/I34 broad multi-device/reproducibility/full-suite qualification, I33 physical measurement, I35 compatibility/signed upgrades/arm64, I36/B8 final UI comparison and all external release gates remain unverified. No full product scenario or UI feedback item is claimed passed by scaffold qualification.",
       "children": ["I01a", "I01b", "I01c", "I01d", "I01e", "I01f"],
       "planningRecord": "docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json",
       "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",

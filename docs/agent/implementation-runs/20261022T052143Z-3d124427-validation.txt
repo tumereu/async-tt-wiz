@@ -1,0 +1,2 @@
+Checking selected I01 handoff and owned JSON/check outputs.
+PASS selected I01-only transition, next I02 selection, exact owned paths, JSON and whitespace. Authorization/model/runner/permissions/reviews/release gates unchanged. No Markdown/UI edit.

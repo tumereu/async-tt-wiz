@@ -19,9 +19,9 @@ Never start alongside an existing worker/controller. Preserve explicit later own
 pause, exact high model, original total ceiling, scoped grants, safe saves, reviews,
 final full-suite/fixes and release gates. Noncritical details belong to the recorded
 final/owner review, not an early detour. The latest saved state—not old snapshots
-below—selects work. Last completed supervision batch is 9; native deck selection/
-immutable prepared copies are delivered, I10b transfers is next, and 2,926
-original-budget sessions remain.
+below—selects work. Last completed supervision batch is 10; native deck selection/
+immutable prepared copies and one/all preparation transfers are delivered, I11
+Ready/start is next, and 2,921 original-budget sessions remain.
 
 ## Latest owner execution direction — D-307/D-308
 

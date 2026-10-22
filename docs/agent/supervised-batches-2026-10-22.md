@@ -263,3 +263,21 @@ then Ready/start and integrated B3 completion/review. Forty-five resumed fresh u
 consumed; 2,926 original-budget sessions remain. Overnight five-unit execution and
 autonomous recovery remain active across context/compaction, not paused for daylight
 or another owner instruction. Required final tests/fixes and release gates persist.
+
+### Batch 10 — preparation transfers and responsive reconciliation delivered
+
+Range `8601d3f..8369648`: lobby preparation now supports captured one/all tap, drag
+and accessible transfers, retained-definition inspection, immediate multiple-in-flight
+predictions, partial/conflicting outcomes and fixed fading feedback/row transitions.
+Actual two-normal-APK both-orientation/delayed-ack/conflict/reopen/restart assertions
+and focused native input/animation checks retain exact request/copy outcomes and an
+unchanged saved source. The same shared rules and durable processor handle selection
+and transfers; no substitute/duplicate copies or second authoritative local model.
+
+Assessment: on track, no unresolved findings or speculative blocker. Server/client
+and native work produced usable preparation; parent audits reused that evidence
+without new suites/device journeys. Recovered CLI exit 1 was accepted transparently
+with succeeded/idle metadata and all durable validations, so it did not stop progress.
+I11 Ready/start and I12 integrated lobby lifecycle are next, then B3 review. Fifty
+resumed fresh units consumed; 2,921 original-budget sessions remain. Overnight
+five-session continuation remains active after this ordinary pause and compaction.

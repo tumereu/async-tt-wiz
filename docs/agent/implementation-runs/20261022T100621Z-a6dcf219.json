@@ -1,0 +1,67 @@
+{
+  "runId": "20261022T100621Z-a6dcf219",
+  "sessionID": "ses_e9cec8db9ffenYTLtHhpEV04TN",
+  "startCommit": "a7aab7b51a345b933a6acc99635d9292dbc63c1a",
+  "mode": "implement",
+  "target": "I05",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split before coding: I05 remains in-progress with two pending B2 delivery children. I05a delivers staged durable MTGJSON records/startup checks and native download/consent controls; I05b delivers safe exact-printing/face lazy artwork with production Android loader checks. Current Manage decks is a placeholder, public_cache is only a generic JSON key/value store and no production catalog/art downloader exists. Next fresh unit is I05a. No runtime/build changes, feature-test pass or new review coverage is claimed.",
+  "selectionReason": "Clean master/index matches the supplied startCommit; D-304 authorization is active, B1 has complete independent review and findings are empty, so I05 precedes later import and deck management. Durable streaming catalog acquisition/native consent and bounded DNS/redirect/image/cache integration are distinct useful delivery outcomes requiring separate implementation units, not recursive scaffold-certification layers. This unit only validates the planning transition, exact source accounting and owned paths/whitespace. No product builds, full-suite or device repeats are justified for a state-only pre-coding split.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T100621Z-a6dcf219-planning-check.py > docs/agent/implementation-runs/20261022T100621Z-a6dcf219-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T100621Z-a6dcf219-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T100621Z-a6dcf219-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
+    "docs/agent/implementation-runs/20261022T100621Z-a6dcf219-planning-check.py",
+    "docs/agent/implementation-runs/20261022T100621Z-a6dcf219-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I05a", "I05b"],
+    "dependencies": "I05 and I05a depend on implemented I04; B1 is already independently reviewed. I05b depends on I05a, not on its open parent or future import UI. I05a supplies normal native download controls; I05b supplies the real reusable image adapter with actual Android checks, leaving full import/inspector consumers to I06/I07. B2 review remains one full-capability obligation after I05-I08.",
+    "sourceIds": ["P-056", "P-067", "T-023", "T-549", "T-550", "T-625", "T-626", "T-627", "T-628", "T-629", "T-659"],
+    "sourceDisposition": "I05.catalog assignments remain pending/unexecuted. I05a owns records, streaming/staging/install, update cadence/consent, retention and production source configuration. I05b owns exact printing/face images, safe fetching, bounded decode/cache/lifecycle and text fallback. T-549/T-625's complete import/inspection/gameplay journeys still need I06/I07/I12/I16/I31; T-023/T-550/T-626 accepted-game/history preservation still needs I08/I14/I26; T-627 stale-opponent/token/full-recovery portions retain I08/I19/I26 and T-628 import/arbitrary-definition portions retain I06/I08. No whole scenario passes merely because its I05 portion is delivered. F01-F88 remain cumulative UI constraints; complete mock comparison is I36/B8.",
+    "contractSections": [
+      "card-data-and-art.md: D-270 dynamic public downloads; D-271 lazy images and retained-definition independence; D-280 provider selection/startup update; D-284 technical downloader profile",
+      "runtime-and-verification-profile.md: Platform/module/release baseline, selected Coil adapter and resource limits for catalog definitions/images/caches",
+      "e2e-strategy.md: Synthetic dynamic catalog; same normal parser/downloader/image path and UI actions without licensed bundles or fixture-role branches",
+      "implementation-plan.md: B2 I05-I08 outcomes, D-307 parent evidence reuse and D-303 final complete interface comparison"
+    ],
+    "retainedObligations": [
+      "I05a implements consent/status/retry from existing native patterns, not a new catalog browsing destination or premature deck-management/import feature. Initial acquisition needs consent; metered refresh is not an automatic bulk download. Existing usable navigation must not wait for metadata/catalog work.",
+      "I05b must implement the real Android loader and security/cache boundaries, not leave only a host mock. Exact normal import-preview/full-art/table consumers arrive in their owning I06/I07/I15 tasks; no new art-demo screen or test-only launcher is authorized. Actual Canvas lifecycle/performance qualification is retained in I15/I33-I35.",
+      "I05 parent reconciles exact child evidence/current inputs and only missing integration, without another build/failure-matrix ritual. Independent B2 review remains after I05-I08, not after each child. I34 full suite, I35 compatibility/upgrades and I36/B8 complete visual review remain required.",
+      "Public catalogs/art are separate from account-private retained definitions; updates and cache eviction cannot redefine accepted game data. Full stale-catalog, import, saved-deck, preparation/token/history and source-outage journeys remain with their later implementation tasks and final I34 coverage reconciliation.",
+      "External provider/art rights, signing/distribution, hardware and operator readiness gates remain unchanged/unverified. No production provider calls, deployment, paid resources, subagents or another loop. No UI-document edits or publication."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/03-contracts/product.md",
+    "docs/design/03-contracts/accounts-decks-and-lobby.md",
+    "docs/design/04-technical/card-data-and-art.md",
+    "docs/design/04-technical/runtime-and-verification-profile.md",
+    "docs/design/05-verification/acceptance.md",
+    "docs/design/05-verification/e2e-strategy.md",
+    "tests/fixtures/catalogs/README.md",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt",
+    "androidApp/build.gradle.kts",
+    "client-storage/src/main/sqldelight/org/asyncttwiz/storage/internaldb/Cache.sq"
+  ]
+}

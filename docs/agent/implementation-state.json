@@ -68,7 +68,8 @@
                      "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json",
                       "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json",
                        "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json",
-                       "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa.json"
+                        "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa.json",
+                        "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json"
    ],
   "findings": [],
   "batches": [
@@ -616,7 +617,45 @@
         "Exercise A03/A04 and their errors in both orientations with keyboard, visibility/paste, native Back and reachable full-size controls; retain redacted screenshots/hierarchy/JUnit and actual input/APK identities. Run affected incremental assembly/lint, host and device assertions only, fix demonstrated failures and stop once green. Capture before exact owned two-device/Compose cleanup. I04 parent evidence reconciliation, B1 independent review, I34/I35/I36 broad/final UI qualification and later game/request recovery remain separate obligations."
       ]
     },
-    { "id": "I05", "batch": "B2", "status": "pending" },
+    {
+      "id": "I05",
+      "batch": "B2",
+      "status": "in-progress",
+      "dependsOn": ["I04"],
+      "children": ["I05a", "I05b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
+      "outcome": "Deliver the normal client's staged MTGJSON catalog acquisition/startup checks and safe lazy Scryfall printing/face artwork with text fallback. Two delivery children cover records plus native download/consent presentation, then artwork plus actual Android loader integration. The selected parent later reconciles exact child evidence and checks only missing affected integration under D-307. No bundled licensed records, mandatory backend proxy or new catalog-browsing feature; B2 independent review remains after I05-I08 together.",
+      "checks": [
+        "Reconcile I05a/I05b retained checks and exact relevant source/artifact identities for normal synthetic downloads, durable atomic catalog generations, startup cadence/consent, exact printing/face art, cache reuse and text fallback. Test only an uncovered or materially affected integration seam, not another full suite, clean build or unchanged downloader failure matrix.",
+        "Retain I05.catalog partial source-ID accounting and later I06-I08/I12/I19/I26/I31 import, saved-definition, stale-opponent and gameplay assertions. Catalog acquisition is not a whole cross-feature scenario pass; independent B2 review, I34/I35/I36 final qualification and external rights/release gates remain."
+      ]
+    },
+    {
+      "id": "I05a",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I04"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
+      "outcome": "Implement normal MTGJSON v5 Meta.json and checksum-verified AllPrintings.json.gz downloads into durable staged local catalog generations, using streaming decompression/parsing and disk-backed indexing rather than a whole JSON tree. Retain date/version/checksum, exact printing/language/face/Scryfall identities, reciprocal face relationships and plain display/default strings including supported tokens. Validate completeness/schema/relationships/resource bounds/free space before atomic install; preserve the last good generation on failure or process interruption. Add bounded nonblocking foreground metadata checks and persisted cadence/backoff, initial-download and metered-refresh size/network-cost consent, unmetered refresh scheduling and native loading/error/retry/status controls reachable from Manage decks using existing UI patterns. Keep catalog public and separate from private accepted snapshots; expose the production query boundary for I06 without implementing import/deck CRUD or a catalog browser. Configure explicit synthetic-source origins separately from production provider security, with no fixture IDs in runtime code or account credentials sent to providers.",
+      "checks": [
+        "Run focused streaming importer/downloader and real file-backed catalog tests with both existing identity-distinct synthetic families and their versions. Assert exact records/defaults/printing and explicit multiface relationships, source metadata and token coverage, query/reopen after install, valid v1-to-v2 switch and old-generation retention on checksum/schema/relationship/truncation/interruption/low-space or bounded-input failure. No partial installed catalog or destructive fallback; existing private records remain untouched.",
+        "Use controlled time/network inputs for 24-hour successful-check cadence, 10-second metadata timeout and 15-minute/1-hour/6-hour failure backoff across relaunches. Assert nonblocking existing navigation, unchanged metadata avoids bulk downloads, initial acquisition and metered refresh require explicit size/network-cost consent, and unmetered changed-catalog work uses the normal staged path. Check bounded safe provider requests/redirects and credential isolation, with an explicit synthetic-origin allowance rather than weaker production policy.",
+        "Build affected Android/storage/shared modules incrementally with qualified locked dependencies and applicable migration/lint regressions. Exercise the normal APK's catalog consent/download/status/retry and retained-catalog restart against the existing hosted synthetic source using Kotlin/JUnit/Appium; check portrait/landscape reachability and native Back without introducing a test-only launcher or fake catalog. Retain actual outputs/input identities and exact owned cleanup. I06/I07 add normal import/art-inspection journeys; no full cross-feature or independent B2 review is claimed."
+      ]
+    },
+    {
+      "id": "I05b",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I05a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
+      "outcome": "Implement the production lazy Scryfall artwork resolver/Android image-loading adapter and reusable text-fallback presentation for I06/I07 and later table consumers, using exact printing UUID/face/image-size/version keys and face-level card-object URLs, never guessed names or first-face substitution. Qualify the selected Coil adapter under API29 lifecycle/cache constraints. Bound and cache metadata/image requests, honor provider rate/Retry-After and negative/transient retry windows, enforce safe public HTTPS/DNS/each-redirect validation and credential isolation with a separately configured synthetic origin. Check compressed bytes/pixel dimensions before decode and implement bounded disk/decoded-memory LRU/downsampling. Public art failures/eviction never remove catalog records or private accepted definitions and never become a semantic/deck-save prerequisite. Integrate with I05a's real catalog identity/query path; do not add an artwork showcase, card-authoring UI or pull I07's full inspector forward.",
+      "checks": [
+        "Run focused resolver/network/cache tests against ordinary synthetic Scryfall-shaped card objects and artwork for both families: exact printing and both faces, cache/restart reuse, no eager all-art download, missing mapping/404/broken bytes/wrong face/source outage giving text rather than substitution. Use controlled time for at-most-5-per-second provider requests, 429/Retry-After, 24-hour 404 and 1-minute/5-minute/1-hour transient retries, ETag/Last-Modified where supported, and per-key request coalescing rather than per-frame fetching.",
+        "Test malicious custom URLs, DNS/private/link-local/metadata addresses, credentials/ports and each redirect including downgrade and the three-redirect limit. Assert no account bearer/cookies forwarded and explicit isolated synthetic-origin configuration cannot weaken release defaults. Enforce 10-MiB compressed, 4096x4096/16-Mpixel decode bounds and nonexecutable image handling; validate 256-MiB disk and min(64-MiB, one-eighth heap) decoded budgets/downsampling without deleting essential data. Invalid URLs/art remain text fallback, not invalid arbitrary card semantics.",
+        "Run affected incremental assembly/lint and actual Android instrumentation using the production loader/decoder/cache and reusable presentation in the normal app process, covering lifecycle cancellation/rebinding, exact face identity, bounded decode, cache reuse and visible text fallback. Exercise the normal catalog-to-art boundary with the hosted synthetic source, not fixture-role special cases or a second test app. Retain actual check output, compatible dependency/license/lock provenance and owned cleanup. Native import-preview/full-art/gameplay consumers are still I06/I07/I12/I15-I19; final Canvas/performance/interface qualification remains I33-I36, not a fabricated I05 acceptance pass."
+      ]
+    },
     { "id": "I06", "batch": "B2", "status": "pending" },
     { "id": "I07", "batch": "B2", "status": "pending" },
     { "id": "I08", "batch": "B2", "status": "pending" },

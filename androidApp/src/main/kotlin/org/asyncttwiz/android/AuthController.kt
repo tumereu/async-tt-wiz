@@ -65,8 +65,15 @@ class AuthController(
             state = state.copy(page = page, password = "", message = null, error = false)
     }
 
-    fun resetNotYetAvailable() {
-        if (!closed && !state.busy) state = state.copy(message = "Password reset is not available in this build yet.", error = false)
+    fun passwordResetCompleted() {
+        if (closed) return
+        synchronized(ownerLock) { generation.incrementAndGet(); token.set(null) }
+        state = AuthState(restoring = false, busy = true)
+        work {
+            local.resumeLogout(store) // A link cannot bypass an earlier interrupted/failed local sign-out.
+            store.clear()
+            AuthState(restoring = false, message = "Password changed. Sign in with your new password.")
+        }
     }
 
     fun restore() {

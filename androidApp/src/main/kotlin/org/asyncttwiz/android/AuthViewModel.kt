@@ -20,8 +20,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         } },
         { action -> main.post { action() } })
 
+    val reset = ResetController(AccountApi(BuildConfig.ACCOUNT_ORIGIN), BuildConfig.RESET_ORIGIN,
+        Executors.newSingleThreadExecutor { Thread(it, "password-reset") },
+        succeeded = controller::passwordResetCompleted, post = { action -> main.post { action() } })
+
     override fun onCleared() {
         controller.close()
+        reset.close()
         // Drain bounded best-effort requests without retaining credentials on disk.
         revocations.shutdown()
     }

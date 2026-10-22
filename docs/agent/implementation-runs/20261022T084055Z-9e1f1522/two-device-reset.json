@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "scripts/run-reset-devices.py",
+    "run",
+    "--directory",
+    "/tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1",
+    "--peer",
+    "/tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1"
+  ],
+  "exitCode": 1,
+  "outputSha256": "69cbcdb5e0389b31baa56ea479429e0c26a89ba17a54ba8a548616187355667e",
+  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/scripts/run-reset-devices.py\", line 10, in <module>\n    main()\n    ~~~~^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/reset_runner.py\", line 116, in main\n    print(json.dumps(run(first, second), sort_keys=True))\n                     ~~~^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/reset_runner.py\", line 85, in run\n    d.require(result.returncode == 0, 'Reset journey failed; retained output: ' + str(runs[0]))\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/environment.py\", line 39, in require\n    raise Refusal(message)\ne2e.environment.Refusal: Reset journey failed; retained output: /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1/runner-dae5fd10c369408ca90d7077ad2b141c\n"
+}

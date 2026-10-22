@@ -13,6 +13,17 @@ historical, including their then-pending instrumentation statements.
 
 ## Kotlin/Appium and connected storage tests — I01f2
 
+**I04b two-device account/reset extension:** see the [native reset commands](../androidApp/README.md#password-reset-and-email-links--i04b).
+Each device still has its own ADB/Appium/driver ports and exact live ownership.
+Windows ADB can auto-discover a neighboring emulator on another dedicated server.
+An explicit `pair` records both exact instance owners; readiness/cleanup may observe
+that peer only after live Windows process/listener and connected AVD validation.
+Unknown, changed or connected cleaned peers remain refused. An offline stale entry
+after exact peer shutdown is ignored only with the peer's retained cleanup record
+and no live recorded Windows process. Actions, forward/reverse mappings and cleanup
+continue to target only the selected serial; pairing never adopts foreign resources.
+The ordinary one-device commands below are unchanged.
+
 [I01f2's run](../docs/agent/implementation-runs/20261022T044934Z-c307edee.json)
 executes one real Kotlin/JUnit Appium startup test and all **14** existing
 `StorageDriverTest` / `StorageViewModelTest` / `StartupTest` instrumentation tests

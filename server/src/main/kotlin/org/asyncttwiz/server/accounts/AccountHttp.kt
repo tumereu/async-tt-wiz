@@ -13,6 +13,7 @@ import org.asyncttwiz.protocol.CreateSession
 import org.asyncttwiz.protocol.RegisterAccount
 import org.asyncttwiz.protocol.RequestPasswordReset
 import org.asyncttwiz.protocol.ResetPassword
+import org.asyncttwiz.protocol.CheckPasswordResetLink
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.OwnershipFailure
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -34,7 +35,7 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private val limits = AccountRateLimits()
     private val json = AccountJson.format
     private val form = if (resets != null && settings != null) ResetFormHttp(resets, settings, limits) else null
-    private val paths = setOf("/accounts", "/sessions", "/session", "/account", "/password-reset-requests", "/password-resets",
+    private val paths = setOf("/accounts", "/sessions", "/session", "/account", "/password-reset-requests", "/password-resets", "/password-reset-links",
         "/reset-password", "/reset-password/request")
     private val security = FilterChainProxy(DefaultSecurityFilterChain({ true }, listOf(
         SecurityContextHolderFilter(NullSecurityContextRepository()),
@@ -88,6 +89,13 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     private fun dispatch(request: HttpServletRequest, response: HttpServletResponse) {
         when (request.method to request.requestURI) {
+            "POST" to "/password-reset-links" -> {
+                val reset = resets ?: run { error(response, 503, "unavailable"); return }
+                if (!allow(response, "reset-check-ip", request.remoteAddr, 60, 60)) return
+                val input = json.decodeFromString<CheckPasswordResetLink>(body(request, response) ?: return)
+                if (reset.usable(input.token)) response.status = 204
+                else error(response, 400, "invalid_reset_link")
+            }
             "POST" to "/password-reset-requests" -> {
                 val reset = resets ?: run { error(response, 503, "unavailable"); return }
                 if (!allow(response, "reset-ip", request.remoteAddr, 20, 3600)) return
@@ -136,7 +144,7 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 }
             }
             else -> { response.setHeader("Allow", when (request.requestURI) {
-                "/accounts", "/sessions", "/password-reset-requests", "/password-resets" -> "POST"
+                "/accounts", "/sessions", "/password-reset-requests", "/password-resets", "/password-reset-links" -> "POST"
                 "/account" -> "GET"
                 else -> "DELETE"
             }); error(response, 405, "method_not_allowed") }

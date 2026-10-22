@@ -65,7 +65,8 @@
                   "docs/agent/implementation-runs/20261022T070346Z-de3cad30.json",
                    "docs/agent/implementation-runs/20261022T070751Z-df665f98.json",
                     "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",
-                    "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json"
+                     "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json",
+                     "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json"
    ],
   "findings": [],
   "batches": [
@@ -598,7 +599,10 @@
     {
       "id": "I04b",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json",
+      "buildNotes": "androidApp/README.md#password-reset-and-email-links--i04b",
+      "qualification": "Normal APK supplies A03/A04 real request/check/confirmation APIs, strict configured HTTPS origin/path/canonical-token handling on cold/warm intents, explicit-only confirmation, exact password input/paste/visibility, invalid/used-link request-another and retryable network errors. Reset state is volatile and generation-fenced; intents are sanitized and successful reset returns to Sign in without auto-login, retaining ordinary account/profile isolation. A small real JSON read-only link preflight avoids actionable expired/used forms. Affected host/HTTP/image/build/lint and actual Android input/saved-state checks pass. In recheck3, two normal API29 non-GMS UIs completed registration/two logins, real SMTP request/link, both-orientation reset/error/rotation/duplicate input, successful-only rejection of both original credentials, new-password logins, safe used-link refusal and protected-token resume before a landscape offscreen-label test wait failed after Logout. That original full-run result remains diagnostic. A passing targeted retained tail completes second-account login, both local Logouts and signed-out restarts without resetting/replaying the green core; accepted second-account registration is retained from the earlier tail diagnostic. Test observer UID, helper cwd, ActivityScenario intent-identity teardown and offscreen-label failures retain actual diagnostics/corrections. Remaining landscape password-field targeting assertion is explicitly I34/I35 T-572/T-621, not a proven application defect or a claimed pass. Final APK includes two isolated neutral-notice/pending-Logout guards with targeted host tests/lint/build; native captures predate those guards and are not a new final-APK run. All exact owned devices/routes/Compose processes/containers/network/volumes are cleaned. Only I04b closes: I04 child audit, first independent B1 review, full cross-feature scenarios, I34/I35/I36 qualification/UI comparison and unchanged external gates remain open. Supervisor resumed this same unit after the background-boundary CLI halt; final work was foreground only, with no second worker/controller, deployment or paid resource.",
       "dependsOn": ["I04a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",
       "outcome": "Replace the normal APK's reset placeholder with native A03 request and A04 new-password forms, real API calls and validated configured email/deep-link handling for cold and running launches. Preserve centered branded portrait/landscape forms, exact password bytes/paste/visibility, reachable keyboard/scrolled controls, native Back and no app Back arrows. A valid link opens a form, not a mutation/login; explicit successful confirmation returns to Sign in with notice, while invalid/expired/used links provide a non-actionable error and Request another link. Exercise real registration/login/reset/logout/resume across two owned normal-APK instances and UI-created accounts using the existing Kotlin/JUnit/Appium controller and synthetic mailbox observation, not action injection.",

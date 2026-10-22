@@ -1,0 +1,501 @@
+{
+  "runId": "20261022T084055Z-9e1f1522",
+  "sessionID": "ses_e9d3ac4cdffe33zqCr9nmPW7F6",
+  "startCommit": "f668bbd60232da10c7212a40e083999cf60ff2fd",
+  "mode": "implement",
+  "target": "I04b",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented I04b native A03/A04 email reset and strict cold/warm link handling with real API/SMTP integration, explicit confirmation, exact passwords, safe invalid/used/retry states and volatile/fenced secrets. Actual two-device reset/revocation/new-password/reuse/resume core assertions completed in diagnostic recheck3; a passing retained targeted tail completes Logout/restart/different-account entry. Original red full-run and fixture/viewport failures stay diagnostic, not a manufactured whole green run. Affected host/HTTP/image/native-input/saved-state/build/lint checks pass; exact owned cleanup is complete. Final two isolated notice/pending-Logout guards have targeted host/final-build evidence, not a repeated native-APK run. I04 parent audit, independent B1 review and final/external qualification remain open.",
+  "selectionReason": "Clean supplied master and exact startCommit matched D-304 active authorization. I01-I03 and I04a were implemented; findings were empty and B1 review was not yet due. I04b is the earliest dependency-ready child before parent I04/B1 and B2. Deliver real native reset rather than more foundation qualification. Affected scope is fixed-origin HTTP/reset preflight, volatile controller/intent/account callback boundaries, A03/A04 keyboard/rotation/input and two normal APK sessions against actual SMTP. Reuse I04a expiry/SMTP/transaction evidence and unchanged storage/Keystore tests; run incremental affected builds/host/HTTP/device checks only. Diagnose observed harness failures; reuse exact completed recheck3 core and accepted registration, verify only the missing retained tail under supervisor direction, then cleanup/save. No full suite, unchanged fault matrix, independent review or new scheduling loop is supplied.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug :server:test --tests '*PasswordResetHttpTest.actual HTTP*' verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/affected-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-9e1f152211114af58b9f3861313df8c1 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleanup-environment.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleanup-first.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleanup-second.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :e2e:compileTestKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/configured-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p 'test_*devices.py' -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/controller-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 provision --config /tmp/opencode/i04b-first-config.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-first-provision.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-config-first.json"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1 provision --config /tmp/opencode/i04b-second-config.json",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-second-provision.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-config-second.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1 wait",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-second-wait.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-9e1f152211114af58b9f3861313df8c1 provision",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/environment-provision.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p test_device_runner.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/existing-runner-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/final-app-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:lintDebug",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/final-lint.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-server-image.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/image-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint-identity.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint-recheck.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebugAndroidTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-cleanup-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebugAndroidTest :e2e:compileTestKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-fixture-build-recheck.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebugAndroidTest :e2e:compileTestKotlin",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-fixture-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebugAndroidTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-identity-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:testDebugUnitTest --tests '*ResetControllerTest' :e2e:compileTestKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/notice-correction-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebugAndroidTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/observer-fixture-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/run-reset-devices.py pair --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 --peer /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/peer-pair.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:testDebugUnitTest --tests '*AuthControllerTest'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/pending-logout-guard-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 prepare-app --environment /tmp/opencode/atw-e2e-9e1f152211114af58b9f3861313df8c1 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/prepare-first-update.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 prepare-app --environment /tmp/opencode/atw-e2e-9e1f152211114af58b9f3861313df8c1 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/prepare-first.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1 prepare-app --environment /tmp/opencode/atw-e2e-9e1f152211114af58b9f3861313df8c1 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/prepare-second.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug :e2e:compileTestKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/reset-presentation-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p test_reset_runner.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/reset-runner-cleanup-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p test_reset_runner.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/reset-runner-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail-portrait.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail-recheck.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retain.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retention-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retain.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retain.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retention.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retain.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/run-reset-devices.py run --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 --peer /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset-recheck.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/run-reset-devices.py run --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 --peer /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset-recheck2.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/run-reset-devices.py run --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 --peer /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset-recheck3.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/run-reset-devices.py run --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 --peer /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1 unroute",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/unroute-first-update.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T084055Z-9e1f1522/handoff-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/handoff-check.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/handoff-check.py"
+      ]
+    }
+  ],
+  "changedPaths": [
+    "androidApp/README.md",
+    "androidApp/build.gradle.kts",
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/ResetIntentTest.kt",
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/SessionAuthorizationTest.kt",
+    "androidApp/src/main/AndroidManifest.xml",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AccountApi.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AccountEntry.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ResetController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ResetLinks.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/AccountApiTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/AuthControllerTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ResetControllerTest.kt",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/affected-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/artifact-identities.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleaned-first.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleaned-second.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleanup-environment.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleanup-first.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/cleanup-second.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/configured-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/controller-tests.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-config-first.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-config-second.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-first-provision.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-second-provision.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/device-second-wait.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/environment-provision.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/existing-runner-tests.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/final-app-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/final-lint.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2142ff84c39d419d8b0312118900e15f-a03-invalid-email-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2142ff84c39d419d8b0312118900e15f-a03-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2142ff84c39d419d8b0312118900e15f-a03-submitted-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2142ff84c39d419d8b0312118900e15f-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2142ff84c39d419d8b0312118900e15f.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2f81ff7657d444b086408484fe70c040-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2f81ff7657d444b086408484fe70c040-retained-logout-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2f81ff7657d444b086408484fe70c040.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6-a03-invalid-email-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6-a03-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6-a03-submitted-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6-a04-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6-a04-password-error-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6-a04-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-45dbad1e3c7445dea16ad7015d4657a6.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a03-invalid-email-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a03-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a03-submitted-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a04-corrected-hidden-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a04-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a04-password-error-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a04-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a04-used-link-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-a04-used-link-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-new-password-resumed.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-ae698266481147a88d393d4764b5198f-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-ae698266481147a88d393d4764b5198f-retained-second-account-created-landscape.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-ae698266481147a88d393d4764b5198f.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-c2f40f4956cd451fa38a18eacac23286-clean-second-account.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-c2f40f4956cd451fa38a18eacac23286-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-c2f40f4956cd451fa38a18eacac23286-retained-second-account-sign-in.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-c2f40f4956cd451fa38a18eacac23286.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-dae5fd10c369408ca90d7077ad2b141c-a03-invalid-email-portrait.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-dae5fd10c369408ca90d7077ad2b141c-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-dae5fd10c369408ca90d7077ad2b141c.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/handoff-check.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/handoff-check.py",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/host-junit.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/image-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/image-manifest.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/initial-host-junit.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint-identity.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint-recheck.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-cleanup-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-diagnostic.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-fixture-build-recheck.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-fixture-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-identity-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/notice-correction-tests.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/observer-fixture-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/peer-pair.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/pending-logout-guard-tests.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/pending-logout-junit.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/prepare-first-update.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/prepare-first.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/prepare-second.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/reset-presentation-build.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/reset-runner-cleanup-tests.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/reset-runner-tests.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retain.py",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail-portrait.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail-recheck.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retention-final.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retention.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-0122527ff6f24b6a93742d7fe60b5cfc-peer-revoked-after-reset.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-0122527ff6f24b6a93742d7fe60b5cfc-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-0122527ff6f24b6a93742d7fe60b5cfc.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-04cf5049e1104140911945bd13bf5df5-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-04cf5049e1104140911945bd13bf5df5.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-64e0574393cb4805b0bc670e9ee244c0-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-64e0574393cb4805b0bc670e9ee244c0.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-9f81a08bdc7a46cd91fe0d7b0e33383d-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-9f81a08bdc7a46cd91fe0d7b0e33383d.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-a82ee82c25e14254b3bd03bb82ccb21b-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-a82ee82c25e14254b3bd03bb82ccb21b.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-aa77160f3151448c8a2c84f50d8bcc70-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-aa77160f3151448c8a2c84f50d8bcc70.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-cdd4101ffe8d47948f7c7e99cd176f5c-reset-final.png",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/second-runner-cdd4101ffe8d47948f7c7e99cd176f5c.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset-recheck.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset-recheck2.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset-recheck3.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/two-device-reset.json",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/unroute-first-update.json",
+    "docs/agent/implementation-state.json",
+    "docs/design/04-technical/protocol-v1.md",
+    "e2e/devices-README.md",
+    "e2e/devices.py",
+    "e2e/reset_runner.py",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativePasswordResetTest.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Accounts.kt",
+    "scripts/run-reset-devices.py",
+    "server/README.md",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountHttp.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/accounts/PasswordResetHttpTest.kt",
+    "tests/test_reset_runner.py"
+  ],
+  "sourceIds": [
+    "P-043",
+    "P-047",
+    "P-066",
+    "T-396",
+    "T-421",
+    "T-572",
+    "T-621",
+    "T-656",
+    "T-657",
+    "T-666",
+    "F04",
+    "F05",
+    "F06",
+    "F11"
+  ],
+  "sourceReferences": [
+    "docs/design/03-contracts/accounts-decks-and-lobby.md#registration-login-and-account-privacy--d-197",
+    "docs/design/04-technical/authentication-and-sessions.md#passwords-and-recovery--d-279d-284",
+    "docs/design/02-experience/ui/review.md A03/A04 and cumulative F01-F88",
+    "docs/design/04-technical/protocol-v1.md read-only native link preflight",
+    "server/README.md#password-reset-httpmail-v1--i04a"
+  ],
+  "sourceDisposition": "I04.reset native entry/link/password/session/account portions have these affected assertions. No whole cross-feature scenario or complete F/UI acceptance is declared. Expiry/transaction/SMTP guarantees reuse I04a controlled-clock/real-service evidence, not a new device expiry run. D-289 ordinary new-request revocation remains; no stronger in-flight/reset/login/game ordering was introduced. Source IDs, coverage ledger, remaining tasks and external release gates are unchanged.",
+  "nativeEvidence": {
+    "core": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-8f3cb5377c9547448659c5ee503aee32.json",
+    "acceptedRegistrationAndSignedOutRestart": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-2f81ff7657d444b086408484fe70c040.json",
+    "passingRetainedTail": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-c2f40f4956cd451fa38a18eacac23286.json",
+    "explanation": "One continuing retained scenario: no backend/app reset between core and tail, no repeated successful reset or duplicate registration. The core run stops at an offscreen landscape Forgot-password wait after local Logout; its earlier explicit reset, old-token refusals on both devices, new-password logins, used-link safety, native checkpoint and resume assertions completed. Tail registration was accepted before another offscreen notice wait. The final green tail logs in that accepted second account in portrait and verifies both Logouts/restarts. Original XML failures remain red."
+  },
+  "artifactQualification": {
+    "journeyApkSha256": "c51a1d1219a3bcb67c91e69c915953f1a3fffc955bfb20b5e99bea21cd2099ac",
+    "finalBuiltApkSha256": "9be18e7967ea90388e7324ec008cf0c2f97ae09a606b93b0fcc096ee8e94da6f",
+    "finalRuntimeDeltasAfterJourneyBuild": "Reset request success explicitly clears a prior error color; reset completion resumes any earlier local Logout cleanup before allowing Sign in. Ordinary no-pending-cleanup path is unchanged. These isolated deltas have notice-correction-tests/pending-logout-guard-tests/final-lint/final-app-build evidence; native captures are not claimed to be from the final APK."
+  },
+  "noncriticalFollowups": [
+    {
+      "sourceIds": [
+        "T-572",
+        "T-621"
+      ],
+      "owner": "I34/I35 (final UI assessment also I36/B8)",
+      "evidence": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/first-runner-ae698266481147a88d393d4764b5198f.json",
+      "finding": "Landscape UiScrollable stopped with the Password label at y=712..720 in a 720px viewport while its EditText selector was below the visible hierarchy. This is a retained test-target/viewport limitation, not a demonstrated product failure or a passed landscape password-targeting assertion. Account-switch tail completed in portrait; A03/A04 both orientations/input/rotation were already exercised."
+    }
+  ],
+  "diagnosticRepairs": [
+    "ADB auto-discovery of the first owned emulator initially failed second-device readiness. Explicit peer records now require exact owned instance, live Windows identity and connected AVD identity; unknown/replaced peers remain refused. Focused regressions and actual two-device readiness/cleanup pass without adopting peer mappings/actions.",
+    "Instrumentation runs as target UID: the synthetic authorization observer could not write the companion private directory. Its test-only fixture now uses target-private no-backup storage, never product runtime state injection.",
+    "Gradle device tests run from e2e/: mailbox observation now receives the explicit repository working directory.",
+    "ActivityScenario filters lifecycle events by equality with its original intent, including categories (android/android-test ActivityScenario.java activityMatchesIntent). The app intentionally sanitizes VIEW intents. The checkpoint restores only its original non-secret launcher identity after secrecy assertions; ordinary teardown checks remain. Actual manifest/task delivery and rotation are tested by Appium. Initial failed recreation/teardown and the protected-callback compile error remain diagnostics.",
+    "Landscape label waits now scroll before requiring the control/notice. Existing accepted registration was preserved, and the remaining tail ran in portrait instead of expanding keyboard/viewport qualification."
+  ],
+  "supervisorRecovery": "The headless CLI exited 1 at an outstanding background check/end-turn boundary. Supervisor preserved the same unit fence/work and started no second worker/controller. Original run/session/startCommit/report/model are retained; all remaining dependent commands after that steering were foreground timeout 0. No driver/config/authorization/permission change or new implementation loop was made.",
+  "evidenceEncoding": "Commands retain actual output strings/byte hashes in JSON. Native/JUnit XML and observer output are lossless base64 keyed by original filenames; PNG bytes/hashes and actual APK/image/source identities are retained. No mailbox bodies, raw token-bearing ADB/Appium logs or credential snapshots are committed. Original red checks stay diagnostics; no old output is relabeled as a new execution. No new dependency/lock/license baseline was required.",
+  "remainingObligations": [
+    "I04 parent: exact child evidence/current-input reconciliation only; B1 first independent full-capability review remains after I01-I04. Only selected I04b changes status here.",
+    "I34: final full suite/coverage/deferred assertions, including the recorded landscape field-targeting limitation and original full-journey command with corrected viewport waits. No repeated green full suite or fault matrix ran here. I04a retains controlled-clock expiry/SMTP/transaction and positive local TLS/auth pending qualification.",
+    "I09-I14/I26/I31: later real game/account context, retained requests/outcomes, synchronization and whole cross-feature P/T scenarios remain unexecuted.",
+    "I35/I36/B8: compatibility/upgrades, release interfaces and complete both-orientation mock/unpictured-interface comparison/fresh correction verification. Public domain/assetlinks association and operator HTTPS/SMTP/proxy readiness require external resources; all four existing release gates remain unchanged/unverified.",
+    "No UI packet document was edited, so no HTML publication batch was performed. No subagent, next task/controller, deployment or paid resource was started. Exact owned devices/routes/Compose processes/containers/network/volumes were cleaned; private diagnostic directories and reusable local build/image caches may remain."
+  ]
+}

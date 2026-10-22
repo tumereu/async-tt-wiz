@@ -33,16 +33,18 @@ private val Ink = Color(0xff202d3d)
 private val Backdrop = Color(0xfff6f7f8)
 
 @Composable
-fun AccountEntry(controller: AuthController) {
+fun AccountEntry(controller: AuthController, reset: ResetController) {
     val state = controller.state
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     MaterialTheme(colorScheme = lightColorScheme(primary = Teal, onPrimary = Color.White,
         background = Backdrop, surface = Color.White, onSurface = Ink)) {
-        BackHandler(enabled = state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
+        BackHandler(enabled = reset.state != null) { reset.dismiss() }
+        BackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
             controller.page(AuthPage.LOGIN)
         }
         Box(Modifier.fillMaxSize().background(Backdrop).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             when {
+                reset.state != null -> ResetEntry(reset)
                 state.account != null -> AuthenticatedShell(controller, landscape)
                 state.logoutFailed -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -65,13 +67,13 @@ fun AccountEntry(controller: AuthController) {
                         Text("ASYNC TABLETOP WIZARDS", fontWeight = FontWeight.SemiBold)
                         Text("Create your player account", style = MaterialTheme.typography.headlineSmall)
                     }
-                    FormCard(Modifier.weight(0.65f).fillMaxHeight().verticalScroll(rememberScrollState()), state, controller, branded = false)
+                    FormCard(Modifier.weight(0.65f).fillMaxHeight().verticalScroll(rememberScrollState()), state, controller, reset, branded = false)
                 }
                 else -> BoxWithConstraints(Modifier.fillMaxSize()) {
                     // minHeight centers the same bounded card when it fits; short/IME viewports scroll it.
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        FormCard(Modifier.widthIn(max = 400.dp).fillMaxWidth(), state, controller,
+                        FormCard(Modifier.widthIn(max = 400.dp).fillMaxWidth(), state, controller, reset,
                             branded = state.page == AuthPage.LOGIN)
                     }
                 }
@@ -81,7 +83,7 @@ fun AccountEntry(controller: AuthController) {
 }
 
 @Composable
-private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthController, branded: Boolean) {
+private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthController, reset: ResetController, branded: Boolean) {
     var visible by remember(state.page) { mutableStateOf(false) } // Not saveable; no secret in instance state.
     Surface(modifier, shape = RoundedCornerShape(8.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xffcdd3dc))) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -134,10 +136,64 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
                 Text(if (state.page == AuthPage.REGISTER) "Sign in" else "Create account")
             }
             if (state.page == AuthPage.LOGIN)
-                TextButton(onClick = controller::resetNotYetAvailable, enabled = !state.busy,
+                TextButton(onClick = { controller.page(AuthPage.LOGIN); reset.request(state.email) }, enabled = !state.busy,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     EntryIcon(null, "key"); Spacer(Modifier.width(8.dp)); Text("Forgot password?")
                 }
+        }
+    }
+}
+
+@Composable
+private fun ResetEntry(controller: ResetController) {
+    val state = controller.state ?: return
+    var visible by remember(state.page) { mutableStateOf(false) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            if (state.page == ResetPage.REQUEST) Text("Reset password",
+                Modifier.widthIn(max = 400.dp).fillMaxWidth().padding(bottom = 16.dp),
+                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Surface(Modifier.widthIn(max = 400.dp).fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xffcdd3dc))) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (state.page == ResetPage.REQUEST) {
+                        EntryField("Email", state.email, !state.busy, "email", KeyboardType.Email,
+                            onValueChange = { controller.edit(email = it) })
+                    } else if (state.page == ResetPage.PASSWORD && !state.checking) {
+                        Text("New password", fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(state.password, { controller.edit(password = it) },
+                            Modifier.fillMaxWidth().testTag("password").semantics { contentDescription = "New password" },
+                            enabled = !state.busy, singleLine = true,
+                            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                            trailingIcon = { IconButton(onClick = { visible = !visible }, enabled = !state.busy) {
+                                EntryIcon(if (visible) "Hide password" else "Show password", "eye")
+                            } }, shape = RoundedCornerShape(8.dp))
+                    }
+                    if (state.checking && !state.checkFailed) {
+                        Text("Checking reset link…"); CircularProgressIndicator(Modifier.size(24.dp))
+                    }
+                    state.message?.let { Text(it, Modifier.testTag("reset-message"),
+                        color = if (state.error) MaterialTheme.colorScheme.error else Teal) }
+                    when {
+                        state.checkFailed -> TextButton(onClick = controller::checkLink, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                            Text("Retry")
+                        }
+                        state.page == ResetPage.INVALID -> TextButton(onClick = { controller.request() },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Request another link") }
+                        !state.checking -> Button(onClick = controller::submit, enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(8.dp)) {
+                            EntryIcon(null, "key"); Spacer(Modifier.width(8.dp))
+                            Text(if (state.busy) "Please wait…" else if (state.page == ResetPage.REQUEST) "Send reset link" else "Change password")
+                        }
+                    }
+                    HorizontalDivider()
+                    TextButton(onClick = controller::dismiss, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Back to sign in")
+                    }
+                }
+            }
         }
     }
 }

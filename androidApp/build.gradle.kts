@@ -31,6 +31,15 @@ android {
                 (uri.scheme == "http" && uri.host == "127.0.0.1"))
     }.getOrDefault(false)) { "atwApiOrigin must be an HTTPS origin (or isolated debug IPv4 loopback)" }
     defaultConfig { buildConfigField("String", "ACCOUNT_ORIGIN", "\"$origin\"") }
+    val resetOrigin = providers.gradleProperty("atwResetOrigin").orElse("").get()
+    val resetUri = resetOrigin.takeIf(String::isNotEmpty)?.let(::URI)
+    require(resetUri == null || (resetUri.scheme == "https" && resetUri.host != null &&
+        resetUri.rawUserInfo == null && resetUri.rawPath.isNullOrEmpty() && resetUri.rawQuery == null && resetUri.rawFragment == null &&
+        (resetUri.port == -1 || resetUri.port in 1..65535))) { "atwResetOrigin must be an HTTPS origin" }
+    defaultConfig {
+        buildConfigField("String", "RESET_ORIGIN", "\"$resetOrigin\"")
+        manifestPlaceholders["resetHost"] = resetUri?.host ?: "unconfigured.invalid"
+    }
     buildTypes.getByName("release") {
         // The release manifest also forbids cleartext, even if misconfigured.
         buildConfigField("String", "ACCOUNT_ORIGIN", "\"${origin.takeIf { it.startsWith("https://") }.orEmpty()}\"")

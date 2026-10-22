@@ -22,6 +22,18 @@ import org.asyncttwiz.storage.StorageOpenFailure
 
 /** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
+    private fun consumeResetIntent(intent: android.content.Intent?) {
+        if (intent?.action != android.content.Intent.ACTION_VIEW) return
+        val link = intent.dataString
+        // Retain only the parsed volatile controller secret, never the raw URI/extras in Activity state.
+        setIntent(android.content.Intent(android.content.Intent.ACTION_MAIN).setClass(this, MainActivity::class.java))
+        ViewModelProvider(this)[AuthViewModel::class.java].reset.open(link)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        consumeResetIntent(intent)
+    }
     private fun fullscreen() {
         // API29 can retain a visible status bar after rotation despite the decor FULLSCREEN bit.
         if (android.os.Build.VERSION.SDK_INT < 30)
@@ -47,12 +59,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
+        consumeResetIntent(intent)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         fullscreen()
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller)
+                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller, auth.reset)
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,

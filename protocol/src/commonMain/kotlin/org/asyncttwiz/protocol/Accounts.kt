@@ -20,6 +20,11 @@ data class RequestPasswordReset(val email: String) {
 }
 
 @Serializable
+data class CheckPasswordResetLink(val token: String) {
+    override fun toString() = "CheckPasswordResetLink[redacted]"
+}
+
+@Serializable
 data class ResetPassword(val token: String, val password: String) {
     override fun toString() = "ResetPassword[redacted]"
 }

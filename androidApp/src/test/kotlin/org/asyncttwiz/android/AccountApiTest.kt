@@ -11,10 +11,41 @@ import kotlinx.serialization.decodeFromString
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CreateSession
 import org.asyncttwiz.protocol.RegisterAccount
+import org.asyncttwiz.protocol.RequestPasswordReset
+import org.asyncttwiz.protocol.ResetPassword
+import org.asyncttwiz.protocol.CheckPasswordResetLink
 import org.junit.Test
 import kotlin.test.*
 
 class AccountApiTest {
+    @Test fun resetSecretsUseOnlyUnauthenticatedJsonBodiesAndKeepExactPassword() = runBlocking {
+        val token = "A".repeat(43)
+        val secret = " \tnew Cafe\u0301 🧙\n "
+        val paths = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            paths += request.url.encodedPath
+            assertEquals("", request.url.encodedQuery)
+            assertNull(request.headers["Authorization"]); assertNull(request.headers["Cookie"])
+            val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            when (request.url.encodedPath) {
+                "/password-reset-requests" -> assertEquals(" x@example.test ", AccountJson.format.decodeFromString<RequestPasswordReset>(body).email)
+                "/password-reset-links" -> assertEquals(token, AccountJson.format.decodeFromString<CheckPasswordResetLink>(body).token)
+                "/password-resets" -> {
+                    val fields = AccountJson.format.decodeFromString<ResetPassword>(body)
+                    assertEquals(token, fields.token); assertEquals(secret, fields.password)
+                }
+                else -> fail("Unexpected route")
+            }
+            respond("", HttpStatusCode.NoContent)
+        })
+        AccountApi("https://accounts.example", client).use {
+            it.requestReset(" x@example.test "); it.checkResetLink(token); it.resetPassword(token, secret)
+            assertEquals("invalid_reset_link", assertFailsWith<AccountFailure> { it.checkResetLink(token.dropLast(1) + "B") }.code)
+            assertEquals("invalid_field", assertFailsWith<AccountFailure> { it.resetPassword(token, "short") }.code)
+        }
+        assertEquals(listOf("/password-reset-requests", "/password-reset-links", "/password-resets"), paths)
+    }
+
     @Test fun exactPasswordBytesAndBodyOnlyAuthentication() = runBlocking {
         val secret = " \tCafe\u0301 🧙\n "
         val requests = mutableListOf<String>()

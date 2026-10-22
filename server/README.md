@@ -535,6 +535,7 @@ The public listener adds these unauthenticated **JSON** routes, using the same
 | --- | --- | --- |
 | `POST /password-reset-requests` | `{"email":"…"}` / `RequestPasswordReset` | 202, empty body, identical for known/unknown email; no session changes |
 | `POST /password-resets` | `{"token":"…","password":"…"}` / `ResetPassword` | 204, empty body; password changed, **no login token issued** |
+| `POST /password-reset-links` | `{"token":"…"}` / `CheckPasswordResetLink` | 204 if currently usable, otherwise 400 `invalid_reset_link`; read-only native form preflight, never consumption/session changes |
 
 Use the existing exact password grammar and email canonicalization, including IDNA
 domains. Confirmation errors: 400 `invalid_reset_link` for invalid/expired/used
@@ -544,6 +545,10 @@ safe JSON/media/size/busy/unavailable errors apply. Reset requests are bounded a
 at 20/minute/peer plus the shared process-wide **two** Argon2 permits. 429 carries
 `Retry-After`. Counters are bounded process-local windows, not account lockout.
 Do not infer delivery or successful password change from a request's 202.
+I04b's link preflight is bounded at 60/minute/peer, uses the same strict JSON/error/
+no-store boundary and discloses no account identity. It keeps reset tokens in POST
+bodies rather than native HTTP URLs. A passing preflight is not a reservation;
+confirmation still checks expiry/consumption in its original atomic transaction.
 
 V3 stores random 32-byte canonical base64url token verifiers (SHA-256), creation,
 30-minute expiry and consumption. Multiple links remain usable concurrently.

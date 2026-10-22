@@ -255,11 +255,38 @@ def check_mappings(value, serial):
     return {'forward': forward, 'reverse': []}
 
 
+def selected_devices(value, fields):
+    """ADB auto-discovers other emulator consoles. Observe only explicitly paired, live owned peers."""
+    serial = 'emulator-' + str(value['config']['consolePort'])
+    extras = [field for field in fields if field[0] != serial]
+    if extras:
+        file = Path(value['directory']) / 'observed-peers.json'
+        require(file.is_file() and not file.is_symlink(), 'Foreign device on dedicated ADB refused')
+        peers = json.loads(file.read_text())
+        require(peers['owner'] == value['owner'], 'Foreign peer observation record')
+        for field in extras:
+            expected = peers['peers'].get(field[0])
+            require(expected is not None, 'Unrecorded foreign device refused')
+            peer = load(directory_path(expected['directory']))
+            require(peer['owner'] == expected['owner'] and peer['owner'] != value['owner'] and
+                    field[0] == 'emulator-' + str(peer['config']['consolePort']), 'Changed peer device identity')
+            snapshot = windows(peer, 'snapshot')
+            if (Path(peer['directory']) / 'cleaned.json').exists():
+                # ADB can retain a disconnected transport after the owned peer was shut down.
+                require(field[1] == 'offline' and not any(snapshot.get('currentProcesses', [])), 'Cleaned peer is not an offline stale transport')
+            else:
+                check_windows(peer, snapshot)
+                if field[1] == 'device':
+                    avd = adb(value, '-s', field[0], 'shell', 'getprop', 'ro.kernel.qemu.avd_name').stdout.strip()
+                    require(avd == Path(peer['directory']).name, 'Peer AVD identity differs from recorded owner')
+    # Every operation still targets only this installation's explicit -s serial.
+    return [field for field in fields if field[0] == serial]
+
+
 def check_device(value):
     serial = 'emulator-' + str(value['config']['consolePort'])
     devices = adb(value, 'devices', '-l').stdout.splitlines()[1:]
-    fields = [line.split() for line in devices if line.strip()]
-    require(all(f[0] == serial for f in fields), 'Foreign device on dedicated ADB refused')
+    fields = selected_devices(value, [line.split() for line in devices if line.strip()])
     if not fields or fields[0][1] != 'device':
         write_json(Path(value['directory']) / 'readiness-progress.json', {'stage': 'device-connection'})
         return None
@@ -444,8 +471,7 @@ def cleanup(value):
         # sufficient to inspect reverse mappings; package-manager readiness is not.
         serial = 'emulator-' + str(value['config']['consolePort'])
         listed = adb(value, 'devices', '-l').stdout.splitlines()[1:]
-        fields = [line.split() for line in listed if line.strip()]
-        require(all(f[0] == serial for f in fields), 'Foreign device at cleanup refused')
+        fields = selected_devices(value, [line.split() for line in listed if line.strip()])
         require(not adb(value, 'forward', '--list').stdout.strip(), 'Foreign/unrecorded ADB mapping refused')
         if fields and fields[0][1] == 'device':
             check_mappings(value, serial)

@@ -227,7 +227,7 @@ create competing unordered HTTP write ingress. HTTP registration/reset/login/log
 follow the authentication contract, not generic replay of secret-bearing responses.
 
 Core routes: `POST /accounts`, `POST /sessions`, `DELETE /session`,
-`POST /password-reset-requests`, `POST /password-resets`, `GET /me`,
+`POST /password-reset-requests`, `POST /password-resets`, `POST /password-reset-links`, `GET /me`,
 `GET /contacts`, `POST /contacts`, `GET/POST /decks`, `GET/PUT/DELETE /decks/{id}`,
 `POST /definitions` (complete account-private card-metadata set),
 `GET /decks/{id}/definitions/{digest}` (owned-deck accepted definitions),
@@ -244,6 +244,12 @@ use that persistent game's serialized command domain. If cancellation wins first
 discard reinvitation as missing/cancelled; if it wins afterward, the game and its
 invitation leave current listings together. No revival/replacement (D-287).
 Deck updates are approved import/metadata operations, not a card-builder API.
+The native reset form's `POST /password-reset-links` is read-only preflight with a
+token-only JSON body: 204 currently usable or 400 `invalid_reset_link`, no account
+projection, consumption or session changes. It keeps the token out of native HTTP
+queries; explicit confirmation still rechecks expiry/consumption atomically. The
+implemented account HTTP/error/configuration details are in the
+[server interface](../../../server/README.md#password-reset-httpmail-v1--i04a).
 Under D-293, create-import uses `POST /decks`; contextual import through
 `PUT /decks/{id}` binds `overwrite` (default) or `merge`, complete resolved entries
 and the exact existing target to the original request. Serialize at that saved

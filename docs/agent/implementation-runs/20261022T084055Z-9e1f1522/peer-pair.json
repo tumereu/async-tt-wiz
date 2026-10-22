@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    "scripts/run-reset-devices.py",
+    "pair",
+    "--directory",
+    "/tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1",
+    "--peer",
+    "/tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1"
+  ],
+  "exitCode": 0,
+  "outputSha256": "76dc066de3068a9484721a96261f3b55220846a5884b1477c56f200e5ee2b72a",
+  "output": "Paired exact owned emulator identities for read-only ADB discovery; no peer actions/mappings adopted\n"
+}

@@ -18,6 +18,9 @@ import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CreateSession
 import org.asyncttwiz.protocol.RegisterAccount
 import org.asyncttwiz.protocol.SessionCreated
+import org.asyncttwiz.protocol.RequestPasswordReset
+import org.asyncttwiz.protocol.ResetPassword
+import org.asyncttwiz.protocol.CheckPasswordResetLink
 import java.io.Closeable
 import java.net.URI
 
@@ -31,7 +34,13 @@ interface Accounts : Closeable {
     suspend fun revoke(token: String)
 }
 
-class AccountApi(private val origin: String, private val client: HttpClient = client()) : Accounts {
+interface PasswordResets : Closeable {
+    suspend fun requestReset(email: String)
+    suspend fun checkResetLink(token: String)
+    suspend fun resetPassword(token: String, password: String)
+}
+
+class AccountApi(private val origin: String, private val client: HttpClient = client()) : Accounts, PasswordResets {
     init {
         require(origin.isEmpty() || URI(origin).let {
             it.host != null && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null &&
@@ -58,6 +67,22 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
 
     override suspend fun identity(token: String): AccountIdentity = decode(call(HttpMethod.Get, "/account", token = token))
     override suspend fun revoke(token: String) { call(HttpMethod.Delete, "/session", token = token) }
+
+    override suspend fun requestReset(email: String) {
+        validateScalars(email, "email")
+        call(HttpMethod.Post, "/password-reset-requests", AccountJson.format.encodeToString(RequestPasswordReset(email)))
+    }
+
+    override suspend fun checkResetLink(token: String) {
+        if (!ResetLinks.canonicalToken(token)) throw AccountFailure("invalid_reset_link")
+        call(HttpMethod.Post, "/password-reset-links", AccountJson.format.encodeToString(CheckPasswordResetLink(token)))
+    }
+
+    override suspend fun resetPassword(token: String, password: String) {
+        if (!ResetLinks.canonicalToken(token)) throw AccountFailure("invalid_reset_link")
+        validatePassword(password)
+        call(HttpMethod.Post, "/password-resets", AccountJson.format.encodeToString(ResetPassword(token, password)))
+    }
 
     private suspend fun call(method: HttpMethod, path: String, body: String? = null, token: String? = null): String {
         if (origin.isEmpty()) throw AccountFailure("not_configured")

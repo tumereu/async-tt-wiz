@@ -8,6 +8,35 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class AuthControllerTest {
+    @Test fun successfulResetReturnsToSignInAndFencesEarlierLoginWithoutDeletingSameAccountContext() {
+        val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
+        val posts = ArrayDeque<() -> Unit>()
+        val controller = AuthController(api, store, worker, local) { posts.add(it) }
+        worker.drain(); posts.removeFirst()()
+        controller.edit(email = "a@example.test", password = "old password")
+        controller.submit(); worker.drain()
+        controller.passwordResetCompleted(); posts.removeFirst()(); assertNull(controller.state.account)
+        worker.drain(); posts.removeFirst()()
+        assertIs<StoredSession.Empty>(store.value)
+        assertNull(controller.state.account); assertEquals("", controller.state.password)
+        assertEquals("Password changed. Sign in with your new password.", controller.state.message)
+        assertEquals(0, local.clears)
+    }
+
+    @Test fun resetCompletionCannotBypassPendingLocalLogoutCleanup() {
+        val worker = Worker(); var pending = false
+        val local = object : AccountLocalData {
+            override fun resumeLogout(store: SessionStore) { check(!pending) }
+        }
+        val controller = AuthController(Api(), Store(), worker, local) { it() }; worker.drain()
+        pending = true
+        controller.passwordResetCompleted(); worker.drain()
+        assertTrue(controller.state.restoreFailed)
+        controller.submit(); assertNull(controller.state.account)
+        pending = false; controller.restore(); worker.drain()
+        assertFalse(controller.state.restoring)
+    }
+
     private class Worker : AbstractExecutorService() {
         val jobs = ArrayDeque<Runnable>()
         private var stopped = false

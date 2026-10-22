@@ -1,11 +1,10 @@
-# Native account entry and authenticated shell — I02/I03
+# Native account entry, shell and reset — I02–I04
 
 The normal `MainActivity` now opens A01/A02/A02b with actual account HTTP v1.
 Registration returns to Sign in with the email populated and password cleared;
 login opens the authenticated Menu/Games shell using the server's safe identity.
-The normal app now supplies N01/N02, personal destination restoration and local Logout;
-Forgot password currently explains that reset is not available in this build,
-and real reset/deep links/mail remain **I04**. There is no guest or fake user.
+The normal app supplies N01/N02, personal destination restoration and local Logout,
+plus A03/A04 reset requests and configured HTTPS email links. There is no guest or fake user.
 
 ## Configure and build
 
@@ -14,6 +13,7 @@ Use an explicit origin, without a path, user info, query or fragment:
 ```sh
 ./scripts/gradle.sh --no-daemon --console=plain \
   -PatwApiOrigin=https://your-account-host.example \
+  -PatwResetOrigin=https://your-reset-host.example \
   :androidApp:assembleDebug :androidApp:lintDebug :androidApp:testDebugUnitTest
 ```
 
@@ -23,6 +23,12 @@ redirect following, cookie login, network logging and disk HTTP caching are not
 enabled. Authorization is attached only to the fixed account read/revoke routes,
 never to URLs, artwork or a global HTTP client header. Responses are bounded to
 16 KiB and connect/socket/whole-request timeouts are bounded.
+
+`atwResetOrigin` must match the server's `RESET_BASE_URL` (an HTTPS origin, optionally
+with an explicit port). It is independent of the API origin: a link cannot select
+an API endpoint. Unconfigured builds reject links safely. Public verified app links
+also require the operator's domain/assetlinks association for the actual package
+and signing certificate; synthetic app-targeted intents do not qualify that gate.
 
 For the isolated synthetic environment only, a **debug** build may use
 `-PatwApiOrigin=http://127.0.0.1:<owned-backend-port>` with the existing public-only
@@ -94,6 +100,57 @@ are not yet available; they do **not** present fabricated empty server collectio
 I05–I12 add the actual data and synchronized game rows; gameplay drawer behavior,
 game/request context, recovery and offline review remain with I13/I14/I26/I31.
 The current shell does not claim those later journeys are implemented.
+
+## Password reset and email links — I04b
+
+- Forgot password opens A03; success is deliberately neutral about account existence.
+  The email stays editable after errors. A04 has one exact New password field,
+  native paste/visibility, explicit Change password, Sign in and native Back.
+  Both compact forms stay centered/bounded and scroll with short/keyboard viewports.
+- `MainActivity` is the normal single-task browsable entry. Cold and warm VIEW
+  intents accept only configured HTTPS origin/effective port, exact `/reset-password`,
+  a single canonical 32-byte base64url `token` query, and no credentials/fragment.
+  Raw intents are replaced immediately. No link can change the API host, carry
+  authorization, auto-submit a password, auto-login or revoke existing sessions.
+- The independent volatile `ResetController` checks the token by an ordinary
+  body-only read API before showing an actionable password form. Invalid, expired
+  and used links have only an error/Request another link route. Network failure
+  during checking offers Retry; confirmation failures retain input for correction.
+  Server confirmation rechecks validity atomically, not a client check's promise.
+- Duplicate delivery preserves the active form/input; replacement, dismissal and
+  finishing fence old reset callbacks and clear its token/password. Neither goes
+  into saved state, personal SQLite, preferences or logs. Rotation retains only
+  the ViewModel. Signed-in identity/profile remain separate while requesting or
+  opening a link. Successful confirmation clears this installation's protected
+  credential, fences older login callbacks and returns to Sign in with a notice;
+  server reset revokes other sessions for new requests. Already-authorized work
+  may finish (D-289). Same-account profile/context is not deleted by reset.
+  Any earlier interrupted local Logout must still finish before login can reopen;
+  a reset link is not a bypass of the existing private-cleanup gate.
+
+Build the synthetic APK with the current owned backend origin and
+`-PatwResetOrigin=https://reset.synthetic.invalid`, prepare two owned devices against
+that same environment, then run:
+
+```sh
+python3 scripts/run-reset-devices.py pair --directory /tmp/opencode/atw-device-<first-32-hex> --peer /tmp/opencode/atw-device-<second-32-hex>
+python3 scripts/run-reset-devices.py run --directory /tmp/opencode/atw-device-<first-32-hex> --peer /tmp/opencode/atw-device-<second-32-hex>
+```
+
+Pairing only allows read-only discovery of those exact live owned emulator identities
+when ADB auto-discovers adjacent consoles; it does not adopt peer mappings/actions,
+an unknown device, a replaced owner or another controller. The runner resets the
+shared synthetic environment **once** and both app stores only at scenario start.
+Kotlin/JUnit/Appium uses native player controls on both normal APKs, observes real
+SMTP delivery, opens the real browsable intent and tests new-request rejection of
+both old UI-created credentials. The test-only `SessionAuthorizationTest` uses a
+private test-only synthetic snapshot only to observe authorization; it
+cannot inject login/reset/game state. `ResetIntentTest` supplies actual native
+exact Unicode/whitespace, duplicate warm callback and saved-instance-state checks;
+Appium checks cold/warm manifest routing and rotation with retained password input.
+No production token/mail body is committed, and public HTTPS/SMTP/verified-domain
+hosting remains an external gate. Expiry uses I04a's controlled-clock assertions,
+not a runtime test hook or a half-hour sleep. Final full UI comparison remains B8.
 
 ## Focused checks
 
@@ -170,3 +227,20 @@ and owned cleanup. The shell portions of P-043/P-047/P-065, T-397/T-480/T-543/
 T-621/T-666/T-676/T-677/T-682 and F03/F07–F09/F12/F14/F25/F26 are exercised here,
 not the full cross-feature scenarios. I04 still owns reset/second-device B1 entry;
 B1's independent capability review follows I01–I04 together.
+
+[I04b's run](../docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json)
+retains the real two-device reset core (including both old-session refusals, exact
+input, both-orientation A03/A04, used-link safety and valid-token resume) in the
+original diagnostic full-run output, followed by a passing targeted retained
+Logout/restart/different-account tail. The original red result is **not** relabeled
+a wholly green journey. Offscreen landscape label waits were corrected; accepted
+registration was not repeated. Account-switch login completed in portrait. The
+remaining landscape password-field targeting/viewport assertion goes to I34/I35
+(T-572/T-621), not a fabricated pass or a proven application defect; complete UI
+comparison remains I36/B8. The native checkpoint preserves ActivityScenario's
+non-secret launcher identity for teardown only after actual saved-state secrecy
+assertions. Test-observer UID and helper working-directory failures are retained
+as diagnostics. The final neutral-notice/pending-Logout guards have targeted host
+checks and a final incremental APK build; the device APK predates those two isolated
+guards, so its captures are not a new run on the final APK. I04's child audit and
+the first independent B1 review remain separate.

@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "ce5e5b605d9b6354de0d2f46b686ba12f552ffb0e1a8d4acd314272dec85a636",
+  "output": "PASS affected retained two-device Logout/restart/different-account tail only; no fresh reset/confirmation/core journey rerun\nEVIDENCE /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1/runner-c2f40f4956cd451fa38a18eacac23286 /tmp/opencode/atw-device-9e1f152222224af58b9f3861313df8c1/runner-cdd4101ffe8d47948f7c7e99cd176f5c\n"
+}

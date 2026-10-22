@@ -21,6 +21,14 @@
   not product scope or safe-save rules. Apply scheduling/oracle repairs only after
   the owning controller/worker pause; a separate preparation worktree must not
   migrate their live state or start another loop.
+  **Five-session supervision — D-308:** the owner has resumed the repaired workflow.
+  Run at most five fresh units per invocation with a 86,400-second per-session
+  ceiling, retaining the original total session budget and exact high model. At
+  each idle boundary inspect delivered journeys and actual diffs/checks for drift;
+  refocus instructions/tasks if needed before the next five. Prefer broad functional
+  delivery over minor-detail/fault-matrix detours. Record noncritical findings for
+  final qualification or later owner review, not repeated early fix/audit loops;
+  do not waive required behavior, final full-suite fixes, reviews or release gates.
 - **Authorized implementation loop — D-300–D-304.** Read the
   [task plan](docs/agent/implementation-plan.md),
   [fresh-session/review contract](docs/agent/implementation-loop.md) and

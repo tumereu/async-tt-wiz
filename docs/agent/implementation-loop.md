@@ -241,6 +241,16 @@ report. Every resolved gate retains its authority/evidence record.
 
 ## Runner lifecycle and stop rules
 
+**Current invocation policy — D-308:** the owner has explicitly resumed under D-307.
+Use five-session invocations with a 24-hour (86,400-second) per-session ceiling and
+no blocking shell-tool timeout. Inspect delivered journeys/diffs and drift at every
+idle batch boundary, refocus if needed, then continue without owner checkpoints.
+Noncritical findings go to explicit final-qualification/owner-review records rather
+than lengthy early detail loops; no required outcome/final check/review/release gate
+is waived. This supersedes D-306's invocation size and per-unit time below, not the
+original total session ceiling or autonomous safe repair/continuation assignment.
+See the [supervision record](supervised-batches-2026-10-22.md).
+
 **Current supervised run — D-306:** the owner selected 3,000 sessions and a
 two-week (1,209,600-second) per-session ceiling, invoked with no shell-tool timeout
 as a blocking call. A controller validation failure is a boundary to diagnose and

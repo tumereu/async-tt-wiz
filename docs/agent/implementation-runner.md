@@ -30,6 +30,18 @@ that contract; it is not a general multi-agent framework or a product scaffold.
 
 ## Commands
 
+**Current owner-directed invocation — D-308:** after checking the owning checkout,
+free writer lock, inactive previous worker and a clean/pushed handoff, use the
+documented `recover` command only if a retained run exists; then `clear-stop`.
+Run `python3 scripts/implementation-loop.py run --max-runs 5 --timeout-seconds 86400`
+as a blocking shell call with no shell-tool timeout. Assess the saved work for
+delivered journeys and sidetracking after every invocation, refocusing tasks/prompts
+when justified, and repeat until main delivery and final tests/fixes are done.
+The five-unit pause is a supervisor checkpoint, not an owner-approval checkpoint.
+Do not rerun qualification simply to perform that assessment. The original total
+session ceiling, exact model, scope, independent reviews and release gates remain;
+see the [supervision record](supervised-batches-2026-10-22.md).
+
 From the repository root, inspect without starting an agent:
 
 ```sh

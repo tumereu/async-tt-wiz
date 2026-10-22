@@ -2,6 +2,20 @@
 
 ## 9.1 Confirmed owner decisions
 
+**D-308 — resumed five-session delivery batches (2026-10-22):** the owner explicitly
+resumes the repaired committed D-307 workflow, after ownership/no-controller checks
+and documented stop-clear/recovery. Invoke at most five fresh units at a time with
+86,400 seconds per unit, preserving the original total session budget, scope, exact
+high model, independent reviews and release gates. Between invocations assess real
+delivered journeys and sidetracking, correcting instructions/task focus as needed.
+Develop broad capabilities before minor details; retain noncritical findings for
+final qualification or later owner review rather than expensive early repair loops.
+Required final full-suite execution/fixes and agreed outcomes are not waived. Keep
+batch-looping through main delivery without routine owner approval. This supersedes
+D-306's single 3,000-unit invocation/two-week per-unit setting, not its total ceiling
+or autonomous repair/continuation assignment. See the
+[supervision record](supervised-batches-2026-10-22.md).
+
 **Current delivery authorization — D-304:** the owner has explicitly authorized
 stage-4 implementation of the agreed entire R1. See the
 [authorization record](implementation-authorization.md). Earlier no-implementation

@@ -6,6 +6,18 @@ and acceptance scenarios take precedence over this summary.
 
 ## Latest owner execution direction — D-307
 
+**Owner resume — D-308:** the owner explicitly resumed after the committed workflow
+repair. Run five-session batches, each unit capped at 86,400 seconds, with no shell
+tool timeout. At each controller exit inspect actual delivered user journeys and
+sidetracking, refocus the next tasks/prompt when needed, and continue automatically
+through main delivery including final full-suite testing/fixes. Preserve the original
+scope/model/total ceiling/reviews/release gates. Noncritical findings should be
+retained for final qualification or later owner review rather than trapping early
+agents in detail loops; do not falsify completion or waive required outcomes. See
+[current supervision/batch assessments](supervised-batches-2026-10-22.md). This resume
+supersedes the paused/no-restart state recorded below. Check actual stop/ownership
+state before any launch; recover only a retained, safely reconciled owned run.
+
 The owner approves [delivery-first execution](delivery-first-execution.md): minimize
 real elapsed time to deliver the whole agreed software. Run/fix affected tests as
 features are built; reserve the full suite and its fixes for final qualification.

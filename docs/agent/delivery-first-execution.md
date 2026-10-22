@@ -24,6 +24,21 @@ adoption against the latest saved state, not permission for concurrent writers.
 
 ## During implementation: affected checks, then continue
 
+**Current owner resume — D-308:** run in five-session batches with 86,400 seconds
+per session, not one uninterrupted 3,000-session controller invocation. At each
+idle boundary the supervisor checks real journey/code progress and drift, then
+continues without asking. Record/refocus a sidetrack before launching the next
+batch. Prefer the complete functional path before minor refinements; retain
+noncritical findings with sources/evidence and a final I34/I36 or owner-review
+destination rather than starting a prolonged early fix cycle. Optional improvements
+may wait for owner review. Required behavior and failing final acceptance still
+need truthful resolution; do not silently turn a required defect into polish or
+claim its assertion passed. Serious evidenced privacy/security/accepted-state loss,
+unsafe saves and failures that prevent the next real journey still need a bounded
+repair. This does not add an obligation to search for more edge cases. The original
+model/scope/total ceiling/reviews/release gates remain; see the
+[batch supervision record](supervised-batches-2026-10-22.md).
+
 1. Select the next real user-facing capability in the approved B1–B8 order, with
    only the infrastructure needed to implement and exercise it. Work toward normal
    entry → import → invitation/preparation → shared table → the complete manual

@@ -18,6 +18,18 @@ invent theoretical blockers or new scaffold-certification subtasks. Retain defer
 required assertions and release gates. Apply live scheduling changes only through
 the policy's paused outside-unit procedure, never by bypassing driver guards.
 
+**D-308 — broad delivery before minor detail:** the resumed controller runs five
+fresh units per batch under supervisor review, with 24 hours per unit as a ceiling,
+not a work-duration target. Complete the selected usable capability and affected
+checks, then save/exit promptly. Do not expand the unit into a speculative problem
+search, new scaffold-certification layers or prolonged minor-issue repair. Record
+noncritical findings/remaining assertions with concrete evidence, source and final
+I34/I36 or owner-review destination; optional polish can await owner review. Do not
+silently omit agreed behavior, label a required defect optional, fake a pass or
+abandon a failure that prevents ordinary use/security/accepted-state integrity.
+The supervisor will assess actual delivered journeys and refocus the next batch;
+report counts and repeated green qualification are not delivery progress.
+
 1. Read AGENTS.md, the state file, its task plan/loop contract and current findings.
    Confirm explicit authorization and the supplied priority selection against the
    actual repository. The driver guards priorities; you must still understand and

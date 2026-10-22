@@ -66,3 +66,23 @@ No new instruction/state correction needed. The tree is clean/pushed, no retaine
 run or stop request remains. Five resumed units consumed; original ceiling has
 2,966 sessions left. Optional issues/required final matrices remain with their
 existing owner; no full-product suite or release gate is claimed complete.
+
+### Batch 2 — real account entry and authenticated navigation delivered
+
+Range `ddf1aa7..0da60c5`: the normal APK now registers/signs in through real
+PostgreSQL-backed HTTP, protects/restores session credentials with Android Keystore,
+and provides portrait/landscape Menu/Games navigation, native Back, restart/context
+restoration and local Logout/account-private cleanup. Actual API29 Appium/account/
+shell journeys plus affected host/storage/Keystore assertions provide the evidence;
+these are newly delivered capabilities, not an inference from report counts.
+
+Assessment: on track. Rechecks were tied to observed client/reset-oracle/drawer/
+presentation failures and narrowed after passing, not a global green recertification.
+No new speculative findings or infrastructure layers. I04 is split once into actual
+reset/mail delivery and native/two-device integration; reset is not yet delivered.
+Next batch should finish that ordinary journey, reconcile I04 and perform the
+existing B1 capability review before moving to catalog/import. Avoid turning that
+review into minor presentation/fault-matrix refinement. No task/prompt correction
+is warranted by this batch's evidence. Ten resumed units consumed; 2,961 of the
+original session ceiling remain. Final B8 full-suite/mock comparison and all
+external release gates remain open.

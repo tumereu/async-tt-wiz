@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.sqldelight.runtime)
     implementation(libs.sqldelight.android.driver)
     implementation(libs.gson)
+    implementation(libs.okhttp)
     testImplementation(libs.sqldelight.sqlite.driver)
     testRuntimeOnly(libs.sqlite.jdbc)
     testImplementation(platform(libs.junit.bom))

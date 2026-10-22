@@ -43,10 +43,17 @@ android {
     defaultConfig {
         buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"\"")
         buildConfigField("String", "CATALOG_BASE", "\"https://mtgjson.com/api/v5/\"")
+        buildConfigField("String", "ART_TEST_ORIGIN", "\"\"")
+        buildConfigField("String", "ART_BASE", "\"https://api.scryfall.com/cards/\"")
+        val contact = providers.gradleProperty("atwArtContact").orElse("").get()
+        require(contact.length <= 200 && contact.all { it.code in 32..126 && it != '"' && it != '\\' })
+        buildConfigField("String", "ART_CONTACT", "\"$contact\"")
     }
     buildTypes.getByName("debug") {
         buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"$catalogOrigin\"")
         buildConfigField("String", "CATALOG_BASE", "\"${if (catalogOrigin.isEmpty()) "https://mtgjson.com/api/v5/" else catalogOrigin + catalogPath}\"")
+        buildConfigField("String", "ART_TEST_ORIGIN", "\"$catalogOrigin\"")
+        buildConfigField("String", "ART_BASE", "\"${if (catalogOrigin.isEmpty()) "https://api.scryfall.com/cards/" else catalogOrigin + catalogPath + "scryfall/cards/"}\"")
     }
     val resetOrigin = providers.gradleProperty("atwResetOrigin").orElse("").get()
     val resetUri = resetOrigin.takeIf(String::isNotEmpty)?.let(::URI)
@@ -78,6 +85,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.ktor.client.android)
     implementation(libs.serialization.json)
+    implementation(libs.coil.compose)
     testImplementation(libs.kotlin.test)
     testImplementation("junit:junit:4.13.2")
     testImplementation(libs.ktor.client.mock)

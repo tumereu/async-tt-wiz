@@ -70,7 +70,8 @@
                        "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json",
                         "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa.json",
                          "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
-                         "docs/agent/implementation-runs/20261022T101044Z-1d047a5f.json"
+                          "docs/agent/implementation-runs/20261022T101044Z-1d047a5f.json",
+                          "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3.json"
    ],
   "findings": [],
   "batches": [
@@ -650,7 +651,10 @@
     {
       "id": "I05b",
       "batch": "B2",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3.json",
+      "buildNotes": "client-storage/ARTWORK.md",
+      "qualification": "Production lazy exact-printing/face/size/version Scryfall resolution, dedicated credential-free public-HTTPS/DNS/redirect transport, persisted negative/transient/decode retry windows, conditional validators/coalescing and bounded disposable disk LRU are implemented. Android's Coil3 custom fetcher checks raster byte/pixel bounds before BitmapFactory allocation, downsamples under min(64MiB, heap/8), limits concurrency, trims on memory pressure and supplies identity-safe native text fallback/cancellation. Nine initial focused host cases plus affected cache-recovery/decoder-retry rechecks and 22 Android account/controller host cases pass; strict both-variant locks, incremental normal/test APK assembly, release compilation, lint and module boundaries pass. Real API29 non-GMS instrumentation covers hosted catalog-to-both-faces/cache/reopen/downsampling/bounds/presentation and a delayed real HTTP disposal/rebind. Final hosted check covers the last decode-cache success seam; original ContextWrapper recursion and test-clock failures remain diagnostics with passing narrow corrections. Exact retained output/JUnit/APK/source/fixture/lock identities and owned device/Compose cleanup are saved. No real licensed provider calls, fixture-role runtime logic, showcase, import/inspector/table consumer or complete scenario is claimed. I05 parent evidence reconciliation is next; first B2 review follows I05-I08. I33-I36 retain real-scene pressure, broader HTTPS/compatibility/full-suite/final UI and all release gates; operator must supply public User-Agent contact and rights before real provider/release use.",
       "dependsOn": ["I05a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
       "outcome": "Implement the production lazy Scryfall artwork resolver/Android image-loading adapter and reusable text-fallback presentation for I06/I07 and later table consumers, using exact printing UUID/face/image-size/version keys and face-level card-object URLs, never guessed names or first-face substitution. Qualify the selected Coil adapter under API29 lifecycle/cache constraints. Bound and cache metadata/image requests, honor provider rate/Retry-After and negative/transient retry windows, enforce safe public HTTPS/DNS/each-redirect validation and credential isolation with a separately configured synthetic origin. Check compressed bytes/pixel dimensions before decode and implement bounded disk/decoded-memory LRU/downsampling. Public art failures/eviction never remove catalog records or private accepted definitions and never become a semantic/deck-save prerequisite. Integrate with I05a's real catalog identity/query path; do not add an artwork showcase, card-authoring UI or pull I07's full inspector forward.",

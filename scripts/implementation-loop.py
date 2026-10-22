@@ -578,7 +578,14 @@ class OpenCode:
                         require(not pending, "Agent needs an interactive permission decision")
                         next_check = time.monotonic() + 5
                     time.sleep(0.2)
-                require(process.returncode == 0, f"OpenCode exited {process.returncode}; see {log}")
+                require(process.returncode in {0, 1}, f"OpenCode exited {process.returncode}; see {log}")
+                # The CLI can retain exit 1 after a recovered provider transport
+                # error. Final server metadata, then the full durable handoff
+                # validation below, decide success; neither exit code suffices.
+                info = self.info(session)
+                require(info.get("model") == MODEL_REF, "Session model/variant changed")
+                require(info.get("outcome") == "succeeded" and not self.is_active(session),
+                        "Session did not finish successfully/idle")
             except BaseException:
                 try:
                     self.interrupt(session)  # Stopping the CLI alone does not stop server-owned work.
@@ -591,11 +598,7 @@ class OpenCode:
                             os.killpg(process.pid, signal.SIGKILL)
                             process.wait()
                 raise
-        info = self.info(session)
-        require(info.get("model") == MODEL_REF, "Session model/variant changed")
-        require(info.get("outcome") == "succeeded" and not self.is_active(session),
-                "Session did not finish successfully/idle")
-        return info
+        return {**info, "cliExitCode": process.returncode}
 
 
 class Runner:
@@ -740,6 +743,7 @@ class Runner:
             context = {**record, "state": self.state_relative, "wallTimeSeconds": seconds}
             prompt = repo_path(self.root, PROMPT).read_text() + "\n\nTHIS RUN:\n" + json.dumps(context, indent=2)
             info = self.client.execute(session, prompt, directory / "agent.jsonl", seconds)
+            record["cliExitCode"] = info.get("cliExitCode", 0)
             require(info.get("model") == MODEL_REF, "Wrong model in completed session")
             atomic_json(directory / "session.json", info)
             after = load(self.state_path)

@@ -844,6 +844,67 @@ class RunnerTests(unittest.TestCase):
             client.execute("ses_owned", "fixture", self.fixture.base / "timeout.log", 0.05)
         self.assertIn(("post", "/api/session/ses_owned/interrupt"), calls)
 
+    def cli_client(self, exit_code=1, *, outcome="succeeded", active=False, model=None):
+        executable = self.fixture.base / "fake-opencode"
+        executable.write_text("#!/usr/bin/env python3\nimport sys\n"
+                              "print('{\"type\":\"error\",\"error\":{\"type\":\"provider.transport\","
+                              "\"message\":\"WebSocket closed with code 1012\"}}')\n"
+                              f"sys.exit({exit_code})\n")
+        executable.chmod(0o755)
+        client = loop.OpenCode(self.fixture.root, str(executable))
+        client.info = lambda session: {"model": model or loop.MODEL_REF, "outcome": outcome}
+        client.is_active = lambda session: active
+        calls = []
+        client.api = lambda *args, **kwargs: calls.append(args) or {}
+        return client, calls
+
+    def test_recovered_provider_error_uses_successful_idle_server_not_sticky_cli_exit(self):
+        for code in (0, 1):
+            with self.subTest(code=code):
+                client, calls = self.cli_client(code)
+                log = self.fixture.base / "provider.log"
+                info = client.execute("ses_owned", "fixture", log, 30)
+                self.assertEqual(info["cliExitCode"], code)
+                self.assertEqual(info["outcome"], "succeeded")
+                self.assertIn("provider.transport", log.read_text())
+                self.assertFalse(calls)
+
+    def test_cli_exit_one_does_not_accept_failed_active_or_wrong_model_session(self):
+        for settings in ({"outcome": "failed"}, {"outcome": "interrupted"},
+                         {"outcome": None}, {"active": True},
+                         {"model": {**loop.MODEL_REF, "variant": "low"}}):
+            with self.subTest(settings=settings):
+                client, calls = self.cli_client(**settings)
+                with self.assertRaises(loop.Halt):
+                    client.execute("ses_owned", "fixture", self.fixture.base / "provider.log", 30)
+                self.assertIn(("post", "/api/session/ses_owned/interrupt"), calls)
+
+    def test_other_cli_exit_and_signals_still_halt(self):
+        client, calls = self.cli_client(2)
+        with self.assertRaisesRegex(loop.Halt, "OpenCode exited 2"):
+            client.execute("ses_owned", "fixture", self.fixture.base / "provider.log", 30)
+        self.assertIn(("post", "/api/session/ses_owned/interrupt"), calls)
+        (self.fixture.base / "fake-opencode").write_text(
+            "#!/usr/bin/env python3\nimport os,signal\nos.kill(os.getpid(), signal.SIGTERM)\n")
+        with self.assertRaisesRegex(loop.Halt, "OpenCode exited -15"):
+            client.execute("ses_owned", "fixture", self.fixture.base / "signal.log", 30)
+
+    def test_cli_exit_one_still_requires_durable_report_and_passing_required_checks(self):
+        for fault, message in (("missing-report", "durable run report"), ("failed-check", "Required check failed")):
+            with self.subTest(fault=fault):
+                fixture = GitFixture()
+                try:
+                    client = FakeOpenCode(fixture, fault)
+                    execute = client.execute
+                    client.execute = lambda *args: {**execute(*args), "cliExitCode": 1}
+                    runner = loop.Runner(fixture.root, client=client)
+                    client.runner = runner
+                    with self.assertRaisesRegex(loop.Halt, message):
+                        runner.run(1, 30)
+                    self.assertTrue((runner.journal / "active.json").exists())
+                finally:
+                    fixture.close()
+
     def test_last_task_discovery_still_gets_first_group_review(self):
         runner, client = self.runner(issue=False)
         def discover(context, state, report):

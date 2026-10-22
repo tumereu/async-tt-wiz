@@ -94,6 +94,18 @@ share one cooperative writer lock. This is not a lock on arbitrary human editors
 
 ## What drives each iteration
 
+Recovered provider transport errors may leave `opencode run` at exit 1 even after
+the server-owned session finishes successfully. The controller accepts CLI 0/1
+only with exact-high, succeeded, inactive server metadata **and** every existing
+report/state/check/role/commit/upstream validation. It retains the actual
+`cliExitCode` in its private session/result journal and leaves error events in the
+raw log. Failed/interrupted/active/wrong-model sessions, other exit codes, missing
+reports and red required checks still halt; this is not an exit-code bypass or a
+success claim for an unfinished background unit. Evidence: I05b's saved `f13b5cf`
+followed an earlier `provider.transport: WebSocket closed with code 1012` event,
+but its server outcome is succeeded/idle. No product test is rerun for this
+controller-only repair; deterministic regressions cover the changed boundary.
+
 1. Obtain the nonblocking writer lock. Refuse an unacknowledged interrupted/failed
    run. Check the stop flag, explicit owner authorization, active state and pinned
    model. Require a clean tree/index and HEAD equal to the **actual** configured

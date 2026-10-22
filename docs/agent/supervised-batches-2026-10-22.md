@@ -126,3 +126,20 @@ once into those concrete outcomes. No speculative finding/fix carousel or additi
 refocusing change is justified. Fifteen resumed fresh units consumed; 2,956 sessions
 remain in the original ceiling. No main-game/full-suite/final-UI/release completion
 is claimed; continue the next five without owner approval.
+
+### Batch 4 — provider transport recovery at a completed handoff
+
+I05a/I05b delivered actual normal-app catalog consent/acquisition/restart/retry,
+durable staged records and production exact-face artwork/decoder/cache/text fallback
+with real API29 evidence. At I05b the CLI returned 1 after an earlier recovered
+`provider.transport` WebSocket 1012 event, despite a succeeded/idle exact-high
+session and a clean/pushed report/state at `f13b5cf`.
+
+The controller now distinguishes that sticky client exit from final server/unit
+success: CLI 0/1 still needs exact-high succeeded/idle metadata and the unchanged
+complete handoff/save/upstream checks. Actual exit code and raw error remain in
+private journals. Failed/active/wrong-model/missing-report/red-check paths still
+refuse continuation. Focused deterministic regressions qualify this orchestration
+correction; no unchanged product suite or artifact matrix is rerun. Original halted
+record is preserved and reconciled through normal recovery. Two of five units
+launched; continue only three after safe recovery, then assess delivered import.

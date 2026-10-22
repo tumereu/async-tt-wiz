@@ -1,0 +1,72 @@
+{
+  "runId": "20261022T133657Z-5e073769",
+  "sessionID": "ses_e9c2bbccbffeF0Sx06qpzQsIyy",
+  "startCommit": "69cf5bd7952c80b7765d99032d3ef87844af2e3e",
+  "mode": "implement",
+  "target": "I07",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split before coding: I07 is in-progress with two pending B2 delivery children. I07a delivers server-backed collection/details/rename/in-deck cover/delete and same-account synchronization with native journeys; I07b delivers reusable full-card/art inspection from saved/import rows. Existing I06 supplies create/list/read and immutable definitions, but no management mutation API, cover metadata or inspector. No runtime changes, product pass or independent review is claimed. Next fresh selection is I07a.",
+  "selectionReason": "Clean master/index matches the supplied startCommit; D-304 authorization is active, B1 is independently reviewed, findings are empty and I05/I06 are implemented, so I07 precedes I08 and B2 review. Collection management spans missing server persistence/protocol mutations, native metadata controls and second-instance synchronization; full inspection adds a distinct reusable face/text/art UI and its normal-row integration. These are two vertical delivery capabilities, not server-only scaffolds or qualification layers. This unit checks only the pre-coding planning transition, source accounting and owned documentation paths; no product build, device or full-suite rerun is justified by state-only edits.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T133657Z-5e073769-planning-check.py > docs/agent/implementation-runs/20261022T133657Z-5e073769-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T133657Z-5e073769-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T133657Z-5e073769-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
+    "docs/agent/implementation-runs/20261022T133657Z-5e073769-planning-check.py",
+    "docs/agent/implementation-runs/20261022T133657Z-5e073769-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I07a", "I07b"],
+    "dependencies": "I07 and I07a depend on implemented I06; I07b depends on I07a, never its open parent or future I08. I07a is an end-to-end collection-management delivery, not an API-only intermediate; I07b is the reusable inspection delivery. Parent closure audits their evidence/missing seams only. Keep one complete independent B2 review after I05-I08, with no per-child reviews or new qualification children.",
+    "sourceIds": ["P-044", "P-049", "T-399", "T-428", "T-429", "T-483", "T-491", "T-492", "T-542", "T-680", "T-682", "T-685", "T-690", "F18", "F19", "F21", "F29", "F38", "F48", "F59"],
+    "sourceDisposition": "Unchanged I07.collection ledger assignments remain pending/unexecuted. I07a owns collection/details, rename, in-deck cover, delete, synchronized accepted metadata and management keyboard/list/rotation checks; I07b owns row/thumbnail full inspection and its text/face/art lifecycle. P-044/T-399 import and P-049/F18/F19 contextual Overwrite/Merge retain I06/I08; T-491/T-492/T-542 lobby/game selected-copy journeys retain I10/I12 and I31/I34 integration. T-680 preparation/Ready stays I10; T-682/T-685 other screens retain their owning tasks; T-690/F48/F59 constrain existing searches but do not authorize adding collection search. F01-F88 continue cumulatively; none is claimed executed by planning.",
+    "contractSections": [
+      "accounts-decks-and-lobby.md: D-189 import-only lists; D-199 names/in-deck covers; D-218 synchronization versus personal drafts; D-221 copy isolation/deletion; D-241 privacy/no trash; D-293/D-294 title rows, bottom import, thumbnail inspection and cover/delete presentation",
+      "card-data-and-art.md: retained accepted definitions independent of public catalogs, exact printing/faces, lazy art/text fallback and safe untrusted references",
+      "protocol-v1.md: owned deck reads/mutations; HTTP request/account/kind/scope/canonical-intent binding, serialized same-deck writes and atomic original outcomes; no delete-to-upsert",
+      "storage-mechanics.md: account-owned saved_deck/deck_entry metadata/revision, independent prepared copies and existing writer-fenced transactions",
+      "ui/review.md: D01/D02/D05/D06/D08 controls, long/short layouts, native Back, 48x48 thumbnail target, border-only cover selection and one-title cannot-undo dialog",
+      "implementation-plan.md and delivery-first-execution.md: bounded delivery children, affected checks, evidence-only parent closure, grouped B2 review and final B8 interface comparison"
+    ],
+    "retainedObligations": [
+      "I07a must deliver native management plus the real authenticated persistence/synchronization path, not fake local edits or a detached API. Same-account changes need no manual re-import; unfinished input is not cross-device shared. Reuse and extend I06 create/read/definitions/dedup/writer fencing. Use the existing name validation unless a concrete contradiction is found; do not infer unique deck names, upload/crop, authoring or individual card-count editing from mocks.",
+      "I07b must deliver a usable normal inspector, not merely package an image component. Use exact retained definition/face references even without a public catalog; preserve missing-art text and face content. Connect existing saved and resolved-preview row/thumbnail routes; later prepared rows and hidden-face gameplay semantics remain I10/I17/I18. Inspection is personal and does not mutate collection/game/history.",
+      "I08 retains D07 contextual Overwrite(default)/additive Merge and its validation/retry/copy attachment checks. I07a may prepare the contextual Edit affordance but must not claim that I08 is implemented or expose a fake-success update flow. Cover behavior after list replacement is reconciled with I08 rather than invented in this split.",
+      "Existing selected-copy isolation remains required even before lobby/game copies exist. I07a tests the available saved-deck/definition boundary and retains actual selected-copy edit/delete journeys for I10/I12/I31/I34; do not fabricate those scenario passes or cascade-delete future game definitions.",
+      "Parent closure reuses exact child records/current relevant input identities and checks only uncovered affected integration. I34 full suite/deferred broad assertions, I35 compatibility/upgrades, I36/B8 complete interface comparison and all external rights/signing/hardware/operator gates remain unchanged and unverified. No subagents, parallel loop, production provider contact, paid resource, deployment, permission/model/authorization change or UI-document edit/publication."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/02-experience/gaps.md",
+    "docs/design/03-contracts/accounts-decks-and-lobby.md",
+    "docs/design/04-technical/card-data-and-art.md",
+    "docs/design/04-technical/protocol-v1.md",
+    "docs/design/04-technical/storage-mechanics.md",
+    "docs/design/05-verification/acceptance.md",
+    "docs/design/02-experience/ui/review.md",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Decks.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/decks/DeckService.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckApi.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckLibraryController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/SavedDeckScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt"
+  ]
+}

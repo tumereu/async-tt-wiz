@@ -79,7 +79,8 @@
                                 "docs/agent/implementation-runs/20261022T122241Z-22388f73.json",
                                  "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f.json",
                                   "docs/agent/implementation-runs/20261022T132840Z-1bd01564.json",
-                                  "docs/agent/implementation-runs/20261022T133231Z-4b656bf2.json"
+                                   "docs/agent/implementation-runs/20261022T133231Z-4b656bf2.json",
+                                   "docs/agent/implementation-runs/20261022T133657Z-5e073769.json"
    ],
   "findings": [],
   "batches": [
@@ -751,7 +752,46 @@
         "Run affected incremental Android/shared/server integration tests, normal/test APK assembly and applicable lint/boundary checks. Reconcile the minimal creation/list/detail integration seam; do not pull I07 rename/cover/delete/full inspector or I08 Overwrite/Merge into this unit. Retain I34 full-suite/deferred assertions, I35 compatibility and I36/B8 complete interface comparison; I06b and I06 each remain open until their separately selected child-evidence closures, with no new child reviews."
       ]
     },
-    { "id": "I07", "batch": "B2", "status": "pending" },
+    {
+      "id": "I07",
+      "batch": "B2",
+      "status": "in-progress",
+      "dependsOn": ["I06"],
+      "children": ["I07a", "I07b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
+      "outcome": "Deliver D01/D02/D05/D06/D08 saved-deck collection/details, rename, in-deck cover, deletion, same-account synchronization and full-card/art inspection. I07a delivers real server-backed collection management and native controls; I07b delivers reusable full inspection from the existing deck/import rows. Both include their affected ordinary-use checks. Parent closure reconciles exact child evidence and only missing affected integration; B2 independent review remains after I05-I08. No card-count editor, export, trash or cover upload.",
+      "checks": [
+        "Reconcile exact I07a/I07b reports, retained outputs and current relevant source/artifact identities for metadata persistence/privacy/retry, same-account collection synchronization, native list/detail/cover/delete and full-inspector journeys. Run only missing or materially affected integration under D-307, not another child build, unchanged fault matrix or full suite.",
+        "Retain I07.collection source accounting and partial cross-task obligations: I08 contextual Overwrite/Merge, I10/I12 selected-copy isolation/preparation and I34-I36 final qualification/interface comparison remain required. No whole cross-feature scenario, independent B2 review or external release gate is passed by child/parent implementation alone."
+      ]
+    },
+    {
+      "id": "I07a",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I06"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
+      "outcome": "Deliver usable D01/D02/D05/D06 collection management through the existing authenticated deck service and normal APK: cover/count/name collection rows, read-only mainboard/sideboard details, Edit actions for rename/in-deck cover/delete, and account synchronization of accepted metadata/deletion. Extend existing immutable definitions, request/outcome persistence and writer fencing rather than introducing a local-authority collection. Native rename/cover drafts and deletion confirmation remain personal and survive ordinary rotation appropriately; failures retain usable context and report actual outcomes. I08 supplies contextual import, I07b full inspection.",
+      "checks": [
+        "Run affected protocol and real PostgreSQL/HTTP tests for owned rename, in-deck cover validation, list/detail metadata and deletion; ordinary authenticated access/privacy, same-deck serialization, atomic revision/effect/outcome, original retry results and changed-intent conflict. Unknown/foreign/deleted targets must not become upserts or disclose private definitions. Preserve existing immutable entry definitions and create/read behavior; qualify any required explicit forward migration without destructive reset.",
+        "Run affected client controller/transport tests for management, synchronization/reopen, error/retry, captured deck/cover identities, stale reads and Logout/account-switch callback fencing. Same-account accepted changes synchronize without re-import; unfinished dialogs/navigation remain personal. Do not silently replace quantities or lose current user input during refresh.",
+        "Exercise normal-APK import/open/rename/select-cover/cancel/confirm-delete/reopen and same-account second-instance synchronization using synthetic records and real backend requests. Check D01 fixed bottom Import with long scrolling collection, D02 read-only section counts/tabs, D05 in-deck border-only selection and D06 one-title cannot-undo warning/equal buttons/top-right X; missing art, keyboard, native Back and both orientations remain usable. Reuse existing device/setup evidence and run only affected journeys, not a fresh infrastructure certification matrix.",
+        "Retain T-491/T-492/T-542 selected lobby/game copy assertions for I10/I12 when copies exist, plus I08 contextual Overwrite/Merge and final I34-I36 obligations. Establish deletion/metadata boundaries without cascade links to future prepared/game copies; do not claim absent lobby/game journeys executed."
+      ]
+    },
+    {
+      "id": "I07b",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I07a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
+      "outcome": "Deliver D08 reusable full-card/art inspection from saved-deck and existing resolved-import rows using exact retained definitions/printing faces and I05's production artwork adapter. Quantity-art-name rows expose a full-sized thumbnail target and larger row alternative. Full text, all faces, lazy art/text fallback and close/native Back are usable in both orientations without changing the deck/import draft or sending gameplay inspection events. Prepare presentation reuse, not a second gameplay disclosure policy or a new catalog browser.",
+      "checks": [
+        "Run affected controller/component tests for captured definition/face identity, face navigation, retained text/defaults, close/Back and rotation, delayed-art rebind/disposal and account cleanup. Missing/broken art or absent public catalog cannot substitute definitions, block inspection or change saved quantities/metadata; use existing safe artwork transport rather than a new downloader.",
+        "Exercise normal-APK saved-deck and resolved-preview row/thumbnail inspection with synthetic single/multiface records, readable scrollable full text, lazy full art and unavailable-art fallback; close/Back restores the same list/section or preserved import draft without save or mutation. Check 48x48 thumbnail hit allocation, accessible row action, long lists, both orientations and large-text/short-viewport reachability for the delivered inspector; retain final broad device/performance/UI qualification in I33-I36.",
+        "Retain I07.collection/F21/T-680 partial accounting: preparation rows/Ready and gameplay hidden-face permissions/events belong to I10/I17/I18; inspector presentation does not grant covered-opponent disclosure. B2 review stays grouped after I05-I08 and full interface-to-mock comparison remains I36/B8, not an extra review after this child."
+      ]
+    },
     { "id": "I08", "batch": "B2", "status": "pending" },
     { "id": "I09", "batch": "B3", "status": "pending" },
     { "id": "I10", "batch": "B3", "status": "pending" },

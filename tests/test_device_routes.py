@@ -102,7 +102,7 @@ class DeviceRoutesTest(unittest.TestCase):
                 return self.completed()
             self.assertEqual(args[-2:], ('reverse', '--list'))
             return self.completed('\n'.join(made))
-        with patch.object(d, 'wait', return_value={'scope': 'mock'}), patch.object(d, 'check_mappings'), \
+        with patch.object(d, 'wait', return_value={'scope': 'mock'}), patch.object(d, 'infrastructure'), patch.object(d, 'check_mappings'), \
                 patch.object(r, 'target', return_value=self.env), patch.object(r, 'listeners', return_value=[]), \
                 patch.object(e, 'locked', return_value=contextlib.nullcontext()), patch.object(e, 'wait'), \
                 patch.object(d, 'adb', side_effect=adb):
@@ -111,7 +111,7 @@ class DeviceRoutesTest(unittest.TestCase):
         self.assertTrue(all(m['state'] == 'created' for m in r.load(self.value)['mappings']))
 
     def test_partial_creation_failure_retains_only_successful_owned_mapping(self):
-        with patch.object(d, 'wait'), patch.object(d, 'check_mappings'), patch.object(r, 'target', return_value=self.env), \
+        with patch.object(d, 'infrastructure'), patch.object(d, 'check_mappings'), patch.object(r, 'target', return_value=self.env), \
                 patch.object(r, 'listeners', return_value=[]), patch.object(e, 'locked', return_value=contextlib.nullcontext()), \
                 patch.object(e, 'wait'), patch.object(d, 'adb', side_effect=[self.completed(),
                     self.completed('host-14 tcp:19080 tcp:19080'), self.completed('busy', 1)]):
@@ -122,7 +122,7 @@ class DeviceRoutesTest(unittest.TestCase):
         self.assertFalse((self.directory / 'routes-ready.json').exists())
 
     def test_command_timeout_retains_ambiguous_intent_and_never_adopts_matching_mapping(self):
-        with patch.object(d, 'wait'), patch.object(d, 'check_mappings'), patch.object(r, 'target', return_value=self.env), \
+        with patch.object(d, 'infrastructure'), patch.object(d, 'check_mappings'), patch.object(r, 'target', return_value=self.env), \
                 patch.object(r, 'listeners', return_value=[]), patch.object(e, 'locked', return_value=contextlib.nullcontext()), \
                 patch.object(e, 'wait'), patch.object(d, 'adb', side_effect=d.Refusal('bounded timeout')):
             self.refuse(r.route, self.value, self.envdir, 1)
@@ -132,7 +132,7 @@ class DeviceRoutesTest(unittest.TestCase):
 
     def test_busy_guest_port_and_unavailable_environment_create_no_routes(self):
         for busy in (True, False):
-            with self.subTest(busy=busy), patch.object(d, 'wait'), patch.object(d, 'check_mappings'), \
+            with self.subTest(busy=busy), patch.object(d, 'infrastructure'), patch.object(d, 'check_mappings'), \
                     patch.object(r, 'target', return_value=self.env), \
                     patch.object(r, 'listeners', return_value=[{'address': '127.0.0.1', 'port': 19080}] if busy else []), \
                     patch.object(e, 'locked', return_value=contextlib.nullcontext()), \
@@ -143,7 +143,7 @@ class DeviceRoutesTest(unittest.TestCase):
 
     def test_service_port_collision_fails_before_persisting_attachment(self):
         self.env['ports']['source'] = self.config['systemPort']
-        with patch.object(d, 'wait'), patch.object(d, 'check_mappings'), patch.object(r, 'target', return_value=self.env), \
+        with patch.object(d, 'infrastructure'), patch.object(d, 'check_mappings'), patch.object(r, 'target', return_value=self.env), \
                 patch.object(r, 'listeners', return_value=[]), patch.object(e, 'locked', return_value=contextlib.nullcontext()), \
                 patch.object(e, 'wait'), patch.object(d, 'adb') as adb:
             self.refuse(r.route, self.value, self.envdir, 1)

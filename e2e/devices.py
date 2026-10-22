@@ -87,7 +87,8 @@ def load(directory):
 
 
 def invalidate(value):
-    (Path(value['directory']) / 'ready.json').unlink(missing_ok=True)
+    for name in ('ready.json', 'combined-ready.json'):
+        (Path(value['directory']) / name).unlink(missing_ok=True)
 
 
 def windows(value, operation, timeout=90):
@@ -286,7 +287,8 @@ def appium_status(value):
         connection.close()
 
 
-def wait(value, timeout):
+def infrastructure(value, timeout):
+    """Validate services/attached transport without publishing a partial handoff."""
     invalidate(value)
     from e2e import device_routes
     if device_routes.file(value).exists():
@@ -311,12 +313,25 @@ def wait(value, timeout):
                     result['routes'] = device_routes.validate(value, timeout)
                     result['scope'] = 'Device services plus measured public transport only; no combined APK/client/UI acceptance'
                 result['checkedAt'] = time.time()
-                write_json(Path(value['directory']) / 'ready.json', result)
                 return result
         except (ConnectionError, TimeoutError, OSError, http.client.HTTPException) as error:
             last = type(error).__name__
         time.sleep(.25)
     raise Refusal('Bounded device/Appium readiness timeout: ' + last)
+
+
+def wait(value, timeout):
+    try:
+        result = infrastructure(value, timeout)
+        from e2e import device_handoff
+        if device_handoff.file(value).exists():
+            result = device_handoff.validate(value, result, timeout)
+        write_json(Path(value['directory']) / 'ready.json', result)
+        return result
+    except BaseException:
+        from e2e import device_routes
+        device_routes.invalidate(value)
+        raise
 
 
 def provision(directory, config, timeout):
@@ -371,7 +386,8 @@ def capture(value):
     output = {'windows': snapshot, 'appiumProcess': appium_identity(value)}
     for name in ('versions.json', 'ready.json', 'readiness-progress.json', 'appium.log', 'appium-launch.log',
                  'app-installed.json', 'app-ready.json', 'app-progress.json',
-                 'routes.json', 'routes-ready.json', 'routes-removed.json'):
+                 'routes.json', 'routes-ready.json', 'routes-removed.json',
+                 'combined.json', 'combined-ready.json', 'combined-detached.json'):
         path = Path(value['directory']) / name
         if path.exists():
             output[name] = path.read_text(errors='replace')[-16000:]
@@ -432,6 +448,8 @@ def cleanup(value):
             'Owned Linux ports remain listening')
     drain_launchers(value)
     write_json(Path(value['directory']) / 'cleaned.json', result)
+    from e2e import device_handoff
+    device_handoff.detach(value)
     return result
 
 
@@ -447,6 +465,9 @@ def main():
     for operation in ('launch-app', 'capture-app'):
         sub.add_parser(operation)
     sub.add_parser('route-environment').add_argument('--environment', required=True)
+    combined = sub.add_parser('prepare-app')
+    combined.add_argument('--environment', required=True)
+    combined.add_argument('--apk', required=True)
     for operation in ('validate-routes', 'unroute'):
         sub.add_parser(operation)
     args = parser.parse_args()
@@ -461,7 +482,10 @@ def main():
             else:
                 value = load(directory)
                 require(not (directory / 'cleaned.json').exists(), 'Cleaned instance cannot be reused')
-                if args.operation in ('install-app', 'launch-app', 'capture-app'):
+                if args.operation == 'prepare-app':
+                    from e2e import device_handoff
+                    result = device_handoff.prepare(value, args.environment, args.apk, args.timeout)
+                elif args.operation in ('install-app', 'launch-app', 'capture-app'):
                     from e2e import device_app
                     result = device_app.operation(value, args.operation, args.timeout, getattr(args, 'apk', None))
                 elif args.operation in ('route-environment', 'validate-routes', 'unroute'):

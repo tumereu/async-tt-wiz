@@ -223,8 +223,9 @@ def observe(value, serial, directory, timeout):
 def operation(value, name, timeout, apk=None):
     root = Path(value['directory'])
     (root / 'app-ready.json').unlink(missing_ok=True)
+    d.invalidate(value)
     try:
-        ready = d.wait(value, timeout)  # Actual owned guest/service checks, no default ADB.
+        ready = d.infrastructure(value, timeout)  # No partial combined-ready publication.
         serial = ready['device']['serial']
         if name == 'install-app':
             return install(value, serial, apk)
@@ -237,7 +238,13 @@ def operation(value, name, timeout, apk=None):
             d.adb(value, '-s', serial, 'shell', 'am', 'force-stop', PACKAGE)
             output = d.adb(value, '-s', serial, 'shell', 'am', 'start', '-W', '-n', COMPONENT, timeout=30).stdout
             d.require('Status: ok' in output and 'Error:' not in output, 'Production MainActivity launch failed')
-        return observe(value, serial, directory, timeout)
+        result = observe(value, serial, directory, timeout)
+        from e2e import device_handoff
+        if device_handoff.file(value).exists():
+            # Recheck the complete attachment after launch/capture, never just UI.
+            return d.wait(value, timeout)['app']
+        return result
     except BaseException:
-        (root / 'app-ready.json').unlink(missing_ok=True)
+        from e2e import device_routes
+        device_routes.invalidate(value)
         raise

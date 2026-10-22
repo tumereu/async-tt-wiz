@@ -1,4 +1,4 @@
-# Windows/WSL device controller — services, startup and public transport
+# Windows/WSL device controller — combined scaffold/environment handoff
 
 **Device-service foundation only, not product E2E.** The test-only
 [`devices.py`](devices.py) / [`windows-device.ps1`](windows-device.ps1) controller
@@ -24,8 +24,8 @@ so their unrelated-listener baseline is stable. An earlier concurrent regression
 run closed its own mirrored Linux test sockets during the device inventory check;
 that diagnostic failed, and the complete sequential rerun passes without relaxing
 the unchanged-listener assertion. This is still not a complete scenario environment.
-I01f1b1 qualifies normal-APK launch/capture as described below. I01f1b2a now
-qualifies public-only Compose transport; I01f1b2b still owns the combined APK handoff;
+I01f1b1 qualifies normal-APK launch/capture as described below. I01f1b2a
+qualifies public-only Compose transport; I01f1b2b now qualifies the combined APK handoff;
 I01f2 owns Kotlin/Appium sessions and the 14 actual storage instrumentation tests.
 No application, Gradle, permission, authorization or global networking change is
 made by these helpers. No default ADB or historical private tool archive is reused.
@@ -222,10 +222,110 @@ preflight followed by the unchanged passing services suite are retained.
 collision/foreign state, changed targets, framing, failed-handoff and launcher
 drain. Full actual services-only regression still covers interrupted detached
 launch, stale PID refusal, service loss/recovery and same-port cold boot. No new
-product dependency/runtime/build input was added. The combined normal-APK/environment
-handoff and reset/restart/startup qualification remain **I01f1b2b**; Kotlin sessions,
+product dependency/runtime/build input was added. The transport-only child leaves
+combined normal-APK/environment qualification to **I01f1b2b**, now completed below; Kotlin sessions,
 all 14 actual storage instrumentation tests, multi-device repeats, account/downloader/
 gameplay/Canvas acceptance, parent/group reviews and release gates remain open.
+
+## Combined normal-APK/environment handoff — I01f1b2b
+
+The [combined child record](../docs/agent/implementation-runs/20261022T022920Z-43e21a50.json)
+retains one complete passing actual API29 non-GMS WHPX/real-Compose qualification:
+ordinary debug APK install and production `MainActivity`, current branded native
+startup and real empty no-backup SQLite v2, and all 17 public/private-path transport
+probes through the same-port routes. The committed synthetic screenshot/XML are
+readable; APK/DB/AVD artifacts stay private with exact hashes. A subsequent clean,
+cache-disabled, strictly locked build reproduces the installed APK hash and runs
+all 23 shared/storage/host JVM tests. All **134 Python regressions** pass, including
+13 combined-handoff checks. This is **not product networking acceptance**: the
+scaffold has no HTTP client/account/downloader yet. No app/build/trust/security
+input, alternative screen or dummy control was added.
+
+After the build above, build the images **after** any `:e2e:clean`/`:server:clean`.
+Use one explicitly owned fresh environment/device (paths/config as below):
+
+```sh
+python3 scripts/build-server-image.py
+python3 scripts/build-synthetic-adapters.py
+python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-<32-hex> provision
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> \
+  provision --config /tmp/opencode/device-config.json
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> \
+  prepare-app --environment /tmp/opencode/atw-e2e-<32-hex> \
+  --apk /absolute/repository/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> wait
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> capture-app
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> capture
+python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-<32-hex> capture
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> cleanup
+python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-<32-hex> cleanup
+python3 -m unittest discover -s tests -p test_device_handoff.py -v
+python3 scripts/check-device-handoff.py \
+  --directory /tmp/opencode/atw-device-<fresh-32-hex> \
+  --environment /tmp/opencode/atw-e2e-<fresh-32-hex> \
+  --config /tmp/opencode/device-config.json \
+  --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk
+```
+
+`prepare-app` persists `combined.json` intent **before** endpoint validation, route
+mutation or APK installation. It pins the selected environment's exact identity
+and the verified normal APK, attaches only that environment's public routes,
+installs with `-r` (never uninstall/clear) and launches the production activity.
+It also accepts already-attached routes only for that exact environment. Retrying
+the same preparation can repair a failed source/install/launch; changed environment
+or APK requires explicit `unroute` first. Missing routes are not silently recreated
+by `wait`; broken mapping recovery is explicit `unroute` then `prepare-app`.
+
+With combined intent, **every** `wait` and `validate-routes` requires current owned
+services, attached environment identity/readiness and relay, complete device
+loopback mappings and actual HTTP bytes, plus a freshly read-back/verified installed
+APK/launcher and new foreground UI/screenshot/storage observation. It never trusts
+an old `app-ready.json`. App launch/capture likewise recheck the complete handoff;
+install alone is not startup success. No intermediate services/transport-only
+`ready.json` is published. Success writes `combined-ready.json` and `ready.json`
+with `app`, `routes`, exact serial/service ports and timestamps. Endpoints come from
+`routes.backend`/`routes.source`, unchanged from the environment's loopback origins;
+they are future runner/client inputs, not hard-coded product URLs or credentials.
+These checked snapshots are **not enduring leases**: require exit 0 from fresh
+`wait` before use, especially after an externally invoked reset/restart.
+
+Failed source/setup, stopped/stale startup, route loss, relay suspension, backend
+unavailability and foreign mapping all fail nonzero and remove **all** ready/app/
+route/combined-success markers. Intent/evidence/resources remain for diagnosis;
+no implicit reset, replacement APK, default ADB or services-only fallback. Explicit
+`unroute` removes only recorded routes and detaches combined intent after strict
+foreign-map checks, recording `combined-detached.json`. This also safely detaches a
+failed preparation with no routes, but never clears a foreign mapping. A subsequent
+`wait` can then certify services only. Cleanup captures first, automatically unroutes,
+stops exact native/service identities and removes combined intent/success.
+
+**Retained checkpoint:** `launch-app` force-stops/relaunches without clear/uninstall;
+`e2e-environment.py ... restart --service backend` reuses containers/stores without
+migration/reset. Follow each with fresh combined `wait`. Actual checks preserve the
+Android database inode/schema/logical digest and all bytes except SQLite header
+counters, a lower-layer host-only sentinel, selected source edition and container
+identities; backend writer epoch advances. No account/game state is injected.
+
+**Independent host reset:** explicitly run `e2e-environment.py ... reset`, require
+exit 0, then device `wait`. Current environment identity/ports/art origins persist,
+but all old producer/store/container identities are replaced and an empty baseline
+is freshly qualified. Actual combined checks revalidate the new backend/relay and
+unchanged Android PID/storage. This is deliberately **host reset only**, not a fresh
+Android-data scenario: I01f2 must implement that separate precondition. Never use
+reset/clear during an in-scenario restart or call an old descriptor current.
+
+Actual qualification also checks only two public IPv4 loopback routes, private
+health/admin/reset/mailbox 404s, no DB/SMTP publication and blocked external IP/DNS
+egress from real service namespaces. Captures precede exact route/native AVD/ADB/
+Appium/watchdog/WSL-launcher/Compose/relay cleanup; unchanged unrelated Windows and
+Docker inventory is asserted without exclusions. Run sequentially and retain the
+passive mirrored-proxy-drain precaution above. No extra relay was needed here.
+
+The **14 actual Android storage instrumentation tests, Kotlin/Appium sessions/input,
+multi-device repeats and parent qualifications remain pending** in I01f2/I01f3 and
+their ancestors. B1 account journeys/review, B4 Canvas targeting, physical frame
+measurement, I35 compatibility/upgrade/arm64 and every external release gate remain
+open. Startup is not F01–F88/full T-551/T-630/T-662 acceptance.
 
 ## Explicit tools and configuration
 

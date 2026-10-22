@@ -201,10 +201,10 @@ def validate(value, timeout):
     return result
 
 
-def route(value, directory, timeout):
+def attach(value, directory, timeout):
     invalidate(value)
     d.require(not file(value).exists(), 'Routes already attached or partial; explicitly unroute before reattaching')
-    d.wait(value, timeout)
+    d.infrastructure(value, timeout)
     invalidate(value)  # Never keep the services-only marker after attachment begins.
     env = target(directory)
     serial = 'emulator-' + str(value['config']['consolePort'])
@@ -233,13 +233,23 @@ def route(value, directory, timeout):
             d.require(len(matches) == 1, 'Created route not observable; ambiguous intent retained for diagnosis')
             mapping.update(state='created', transport=matches[0][0])
             d.write_json(file(value), record)
+
+
+def route(value, directory, timeout):
+    attach(value, directory, timeout)
     return d.wait(value, timeout)
 
 
 def unroute(value):
     invalidate(value)
     record = load(value)
-    d.require(record is not None, 'No routes attached')
+    from e2e import device_handoff
+    if record is None:
+        d.require(device_handoff.file(value).exists(), 'No routes attached')
+        d.check_windows(value, d.windows(value, 'snapshot'))
+        d.check_mappings(value, 'emulator-' + str(value['config']['consolePort']))
+        device_handoff.detach(value)
+        return {'removed': True, 'scope': 'Failed preparation detached; call wait for fresh services-only readiness'}
     d.check_windows(value, d.windows(value, 'snapshot'))
     # No environment availability requirement for recovery/removal. Refuse foreign
     # mappings BEFORE touching even our own routes; never --remove-all.
@@ -253,4 +263,5 @@ def unroute(value):
     mappings(value, record['serial'])
     d.write_json(Path(value['directory']) / 'routes-removed.json', record)
     file(value).unlink()
+    device_handoff.detach(value)
     return {'removed': True, 'scope': 'Explicitly detached; call wait for fresh services-only readiness'}

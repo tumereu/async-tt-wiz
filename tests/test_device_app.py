@@ -76,7 +76,7 @@ class NormalAppControllerTest(unittest.TestCase):
     def test_install_failure_revokes_prior_install_and_ui_success(self):
         self.record()
         (self.root / 'app-ready.json').write_text('stale')
-        with patch.object(d, 'wait', return_value={'device': {'serial': self.serial}}), \
+        with patch.object(d, 'infrastructure', return_value={'device': {'serial': self.serial}}), \
                 patch.object(a, 'verify_apk', side_effect=d.Refusal('invalid APK')), patch.object(d, 'adb') as adb:
             with self.assertRaises(d.Refusal):
                 a.operation(self.value, 'install-app', 1, str(self.apk))
@@ -98,7 +98,7 @@ class NormalAppControllerTest(unittest.TestCase):
             else:
                 record[field] = 'foreign'
                 d.write_json(self.root / 'app-installed.json', record)
-            with patch.object(d, 'wait', return_value={'device': {'serial': self.serial}}), patch.object(d, 'adb') as adb:
+            with patch.object(d, 'infrastructure', return_value={'device': {'serial': self.serial}}), patch.object(d, 'adb') as adb:
                 with self.assertRaises(d.Refusal):
                     a.operation(self.value, 'launch-app', 1)
                 adb.assert_not_called()
@@ -122,7 +122,7 @@ class NormalAppControllerTest(unittest.TestCase):
         self.record()
         for operation in ('launch-app', 'capture-app'):
             (self.root / 'app-ready.json').write_text('stale')
-            with patch.object(d, 'wait', return_value={'device': {'serial': self.serial}}), patch.object(a, 'installed'), \
+            with patch.object(d, 'infrastructure', return_value={'device': {'serial': self.serial}}), patch.object(a, 'installed'), \
                     patch.object(d, 'adb', return_value=self.reply('Error: unable to resolve Intent')), \
                     patch.object(a, 'observe', side_effect=d.Refusal('failed capture')):
                 with self.assertRaises(d.Refusal):
@@ -236,7 +236,7 @@ class NormalAppControllerTest(unittest.TestCase):
     def test_launch_retains_data_and_capture_does_not_launch(self):
         self.record()
         for operation in ('launch-app', 'capture-app'):
-            with patch.object(d, 'wait', return_value={'device': {'serial': self.serial}}), patch.object(a, 'installed'), \
+            with patch.object(d, 'infrastructure', return_value={'device': {'serial': self.serial}}), patch.object(a, 'installed'), \
                     patch.object(d, 'adb', return_value=self.reply('Status: ok\n')) as adb, patch.object(a, 'observe', return_value={'ok': True}):
                 a.operation(self.value, operation, 1)
                 commands = [c.args[2:] for c in adb.call_args_list]

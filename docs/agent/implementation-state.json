@@ -51,7 +51,8 @@
      "docs/agent/implementation-runs/20261022T010018Z-6fa0ca94.json",
      "docs/agent/implementation-runs/20261022T010348Z-d9861514.json",
       "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json",
-      "docs/agent/implementation-runs/20261022T013255Z-043555f3.json"
+       "docs/agent/implementation-runs/20261022T013255Z-043555f3.json",
+       "docs/agent/implementation-runs/20261022T022920Z-43e21a50.json"
    ],
   "findings": [],
   "batches": [
@@ -447,7 +448,10 @@
     {
       "id": "I01f1b2b",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T022920Z-43e21a50.json",
+      "buildNotes": "e2e/devices-README.md",
+      "qualification": "Combined prepare-app/wait/launch/capture handoff passes one complete actual fresh API29 non-GMS WHPX/real-Compose qualification. Persistent preparation intent prevents services-only fallback even after failed setup; every combined wait freshly checks environment identity/readiness/relay, exact two loopback mappings, 17 device HTTP status/bytes/hash/origin/private-path probes, installed normal APK/signer/launcher and current native UI/read-only empty no-backup SQLite v2. Actual unavailable source, stopped app, removed route, suspended exact relay, stopped backend and foreign mapping fail with no stale success; explicit recovery/unroute/reprepare pass. Retained force-stop/relaunch and same-container backend restart preserve Android inode/logical data and host sentinel/source edition, while epoch advances. Explicit successful host reset replaces old containers/stores and fresh combined validation preserves device PID/storage without silent clear/reset. Exact capture-before-route/native/ADB/Appium/watchdog/WSL/Compose/relay/port cleanup and unchanged unrelated inventories pass. 134 Python regressions (13 combined), 23 clean cache-disabled strictly locked JVM/shared/storage/host tests, actual normal/test APK assembly/lint/backup/package checks, identical installed/rebuilt APK hash and unchanged 875-item coverage/fixtures pass. Actual screenshot/XML, JUnit and command outputs retained; an accidental unsupported capture-check --help invocation is diagnostic only. No product app/build/trust/security changes, seeded account/game state, Kotlin/Appium sessions/input, actual instrumentation, product HTTP/account/downloader/gameplay/Canvas, parent/group review or release gate passed. I01f2 retains all 14 actual storage instrumentation tests; multi-device/parent and later hardware/upgrade/architecture qualification remain open.",
       "dependsOn": ["I01f1b2a"],
       "outcome": "Integrate the qualified owned route lifecycle with I01f1b1's normal-APK install/production-launch/capture path and publish the fail-closed combined device/environment handoff. Actually qualify the ordinary scaffold on one API29 non-GMS guest with the real isolated Compose instance and public routes ready. Repeated wait must revalidate attached environment identity/readiness, owned routes/device transport and current normal-APK startup before combined success, never reverting to a services-only descriptor. Qualify unavailable-route failure/recovery and environment-reset versus retained in-scenario restart revalidation; remove combined success on failure or explicit unroute. Publish complete reproducible setup/wait/capture/unroute/cleanup and endpoint/evidence commands for I01f2. No product HTTP client, trust relaxation, seeded state, Kotlin scenario, instrumentation, account/downloader/gameplay/Canvas or parent/review completion is claimed.",
       "checks": [

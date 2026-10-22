@@ -1,0 +1,154 @@
+{
+  "runId": "20261022T022920Z-43e21a50",
+  "sessionID": "ses_e9e8ef597ffeVyIJ3bi6jE2ZVG",
+  "startCommit": "9de142edb38fbb1a84b20746e61c90488659b21a",
+  "mode": "implement",
+  "target": "I01f1b2b",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Completed only I01f1b2b: persistent fail-closed combined normal-scaffold/public-transport handoff and reproducible I01f2 commands. One full actual API29 non-GMS WHPX/real-Compose run passes normal APK/signer/production launcher/native startup/storage, all 17 device HTTP probes, actual failed setup/stopped app/broken mapping/relay/backend/foreign-route invalidation and explicit recovery. Retained app/backend restarts preserve state; explicit Compose reset requalifies new host services without clearing Android data. Exact owned cleanup preserves unrelated inventory. 134 Python and 23 clean locked JVM tests, APK/lint/backup checks and unchanged 875-item coverage/fixtures pass; actual PNG/XML/JUnit/command output retained. No product networking, Kotlin/Appium session, instrumentation, parent/group review or release claim; all later obligations remain open.",
+  "selectionReason": "Clean master matched the supplied startCommit. D-304 explicitly authorizes the application plan; current findings are empty and B1 review follows I01-I04, not individual children. I01f1b2b is the earliest ready pending child after implemented I01f1b2a and completes the combined handoff needed by parent qualification and I01f2. No priority discrepancy, independent lane, finding or parent/batch advancement was introduced.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-python-initial.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/capture-check.py --help",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:jvmTest :protocol:jvmTest :client-storage:testDebugUnitTest :client-storage:verifySqlDelightMigration :e2e:clean :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :client-storage:lintDebug :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build-foundation.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-synthetic-adapters.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build-adapters.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-device-handoff.py --directory /tmp/opencode/atw-device-43e21a5011114af58b9f3861313df8c1 --environment /tmp/opencode/atw-e2e-43e21a5011114af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-actual-first.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:clean :protocol:clean :client-storage:clean :androidApp:clean :core:jvmTest :protocol:jvmTest :client-storage:testDebugUnitTest :client-storage:verifySqlDelightMigration :e2e:test --rerun-tasks :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :client-storage:lintDebug :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build-clean.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T022920Z-43e21a50-artifacts.py --write",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-artifacts.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py", "docs/agent/implementation-runs/20261022T022920Z-43e21a50-artifacts.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-python-final.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-android-storage.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-android-check.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-coverage.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-synthetic-catalogs.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-fixtures.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T022920Z-43e21a50-validation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T022920Z-43e21a50-validation.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py", "docs/agent/implementation-runs/20261022T022920Z-43e21a50-validation.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-actual-first.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-android-check.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-artifacts.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-artifacts.py",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build-adapters.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build-clean.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build-foundation.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-build.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-coverage.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-fixtures.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-hierarchy.xml",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-python-final.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-python-initial.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-record.py",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-screen.png",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-validation.json",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50-validation.py",
+    "docs/agent/implementation-runs/20261022T022920Z-43e21a50.json",
+    "docs/agent/implementation-state.json",
+    "e2e/README.md",
+    "e2e/device_app.py",
+    "e2e/device_handoff.py",
+    "e2e/device_routes.py",
+    "e2e/devices-README.md",
+    "e2e/devices.py",
+    "scripts/check-device-handoff.py",
+    "tests/test_device_app.py",
+    "tests/test_device_handoff.py",
+    "tests/test_device_routes.py"
+  ],
+  "sourceIds": {
+    "infrastructurePortionsOnly": ["P-001", "T-551", "T-630", "T-662"],
+    "laterBehaviorConstraints": ["P-059", "P-063", "P-065", "P-066", "T-632", "T-647", "T-649"],
+    "accounting": "The unchanged source-pinned ledger accounts for P-001-P-072/T-001-T-715/F01-F88; no full product scenario or UI feedback outcome is marked executed by scaffold/shell diagnostics."
+  },
+  "contractSections": [
+    "AGENTS.md, docs/agent/implementation-authorization.md and implementation-loop.md: explicit D-304 authorization, one writer/unit, earliest-ready selection, owned save and independent group reviews",
+    "docs/agent/implementation-plan.md I01 and state I01f1b2b: normal APK, measured owned public routes, fail-closed combined wait, retained restart versus explicit host reset, exact cleanup; parents remain open",
+    "docs/design/04-technical/test-architecture.md full-stack acceptance execution/environment ownership: explicit per-device required endpoints only, real normal app versus diagnostic boundary, Compose/Testcontainers ownership and failure evidence",
+    "docs/design/05-verification/e2e-strategy.md isolation/reset lifecycle and synthetic infrastructure controls: no product-action injection or app data reset inside retained checkpoints; failed setup cannot proceed",
+    "e2e/README.md and e2e/devices-README.md: explicit tool/signing/endpoint/evidence configuration, loopback/private-administration limits, same-port art origins, no production trust change"
+  ],
+  "diagnostics": [
+    "An exploratory python3 scripts/capture-check.py --help returned exit1 because that existing positional recording helper does not implement --help. Output remains diagnostic in -build.json. Actual commands were then recorded with this run's explicit stdlib helper; all required actual build/check commands pass. No tool or validation bypass/repair was needed.",
+    "The first foundation invocation reused some Gradle up-to-date outputs. A subsequent clean, no-build-cache --rerun-tasks invocation executes all 23 shared/storage/host JVM tests and rebuilds/lints normal/test APKs under ordinary strict locks; actual JUnit XML and reproduced installed APK hash retained.",
+    "Known pre-existing Python SQLite ResourceWarning output appears in the normal-app mock tests; all 134 tests execute and pass with no skipped/red checks relabeled. No unrelated storage/product change was made."
+  ],
+  "limitations": [
+    "Combined normal scaffold startup and shell transport qualification only, not a working product HTTP client, account/downloader UI, gameplay/Canvas acceptance or full T-551/T-630/T-662/F01-F88 scenario. No alternate app, dummy control, seeded account/game state, test-action API, production security/TLS/build input or global networking change.",
+    "Current startup/storage observation targets the idle branded foundation and must evolve with later ordinary account UI. No Appium driver session/Kotlin UI/touch or actual Android instrumentation ran; I01f2 still owns the 14 existing driver/controller/launcher device tests and fresh independent-scenario Android data, and I01f3 owns multi-device/cold-boot repeats.",
+    "Environment reset is explicitly host-only here; fresh combined validation observes unchanged Android PID/inode/logical data. Runtime descriptors are checked snapshots, never leases; after an externally invoked host reset/restart require a fresh successful device wait. Broken/ambiguous/foreign mappings require explicit checked recovery, never remove-all/adoption.",
+    "All this run's owned route/native/ADB/Appium/watchdog/WSL-launcher/Compose/relay resources are cleaned; strict unrelated inventories pass. Synthetic captures and actual textual outputs are committed, large APK/DB/AVD artifacts remain private with hashes, and image caches may remain without deployment/publication. No additional relay was needed on this measured host.",
+    "Only selected I01f1b2b advances. Parents, all other tasks, B1 review, findings, model/grants/authorization and external release gates remain unchanged. No subagent, additional loop, deployment, paid resource, physical/current/tablet/upgrade/arm64 or release claim. UI packet was not edited; same-URL UI publication is not applicable."
+  ]
+}

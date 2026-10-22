@@ -6,8 +6,9 @@ readiness, foreign-resource/mapping refusal, timeout/service-loss invalidation,
 interrupted-launch recovery, native cleanup and fresh same-port cold boot pass
 against a fresh locked tool installation. I01f1b1 additionally qualifies normal-APK
 install/production-launcher startup capture and read-only idle storage evidence;
-I01f1b2a now qualifies measured public-only device-to-real-Compose transport and
-fail-closed owned route lifecycle; the combined APK handoff remains I01f1b2b,
+I01f1b2a qualifies measured public-only device-to-real-Compose transport and
+fail-closed owned route lifecycle. I01f1b2b now qualifies the combined normal-scaffold
+startup/environment handoff, failure recovery, host reset and retained restart;
 Kotlin sessions and instrumentation remain I01f2/I01f3;
 no parent/product E2E or independent B1 review is closed by these foundation checks.
 

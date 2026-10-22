@@ -1,0 +1,54 @@
+{
+  "runId": "20261022T230001Z-668e6673",
+  "sessionID": "ses_e9a283b0affe2K1Wrd038X5gak",
+  "startCommit": "0b4585483143efc62601caab9d666f62501d162b",
+  "mode": "implement",
+  "target": "I10b",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Closed I10b by reconciling exact implemented I10b1/I10b2 evidence and current inputs. Native captured one/all tap/drag/accessibility transfers, inspection, immediate multiple-in-flight prediction/partial reconciliation and fixed fading feedback/non-actionable row reflow share the existing per-card ordered durable path. Reused shared/client/real PostgreSQL/socket checks, composite two-normal-APK both-orientation journey, native timing/geometry/rapid-touch checks and original-outcome/source-isolation observations; initial red diagnostics remain red and retained tails are not called new complete runs. No missing integration seam requires another product/build/device/full-suite run. Only I10b closes; I10 remains open for its selected combined audit, B3 awaits I11/I12 and independent review, and final obligations/external gates remain unverified.",
+  "selectionReason": "Clean supplied master/startCommit, D-304 active authorization, reviewed B1/B2, verified B2-R01 and implemented I10b1/I10b2 agree with earliest-ready I10b parent closure. No actionable finding or complete-group review precedes it. Affected scope is combined native transfer/presentation and existing ordered per-copy execution/reconciliation. D-307 requires a small run-owned child-evidence/current-input/transition audit, reusing already exercised unchanged integration rather than child builds or journeys again. Do not skip this parent or advance I10/I11 inside it; no subagent, other loop, deployment, paid resource or safeguard change.",
+  "sourceIds": ["P-044", "P-045", "P-052", "P-053", "P-059", "T-400", "T-401", "T-402", "T-403", "T-404", "T-405", "T-440", "T-441", "T-442", "T-443", "T-444", "T-445", "T-608", "T-680", "T-682", "T-683", "T-684", "F20", "F21", "F30", "F31", "F32", "F34", "F35", "F36"],
+  "sourceDisposition": "Partial I10.preparation assertions under accounts-decks-and-lobby D-189/D-191/D-202/D-203/D-221/D-293/D-294 and server authority/recovery D-259/D-275/D-278/D-285/D-289. Exact child assertions cover the implemented transfers, not whole-scenario Ready/start/play-sideboard/lifecycle/rematch/final UI/measurement assertions. All 30 ledger assignments retain unexecuted whole-scenario accounting.",
+  "evidenceReuse": [
+    {"task": "I10b1", "record": "docs/agent/implementation-runs/20261022T212809Z-652a7416.json", "commit": "e2d9bfaf4aee00b8dfca2fd66d93b794409edb6c", "scope": "41 distinct final affected cases: 14 shared semantics/codec, 3 real PostgreSQL/socket, 24 production client. Exact captured identities/guards/partition, own-only Ready, independent partial outcomes, dedup/rollback/restart/stream recovery, multiple-in-flight prediction/accepted correlation, withdrawal/late acceptance, auth/account fences and compact oversized-all recovery. Initial overall red remains diagnostic; only failed rollback harness and final changed controller inputs were rechecked. Native presentation/APK supersessions are explicit."},
+    {"task": "I10b2", "record": "docs/agent/implementation-runs/20261022T215026Z-802a24bd.json", "commit": "0b4585483143efc62601caab9d666f62501d162b", "scope": "20 affected final host cases; incremental APK/lint/boundaries; real composite two-normal-APK both-orientation taps/drags/cancel/inspection/conflict/delayed-ack/reopen/restart; actual native accessibility/fixed visible-faded bounds/non-actionable row/rapid-touch checks. Read-only outcomes retain 48 original requests, one exact-copy source conflict, 47 revisions, 48 result outbox records and final exact 12/3 unchanged source. Exact source/APK/image/capture/JUnit and cleanup evidence retained; test-only unused done-shortcut removal reconstructs executed source and has final compile evidence."}
+  ],
+  "integrationReconciliation": [
+    "I10b2 uses I10b1's unchanged GameSession/shared PreparationRules/GameAction/server processor/V8 persistence. Native capture binds exact copies at gesture start, recognized drag suppresses tap and valid release invokes existing individual requests; no competing endpoint, all-command, acknowledgement barrier or animation-gated sending.",
+    "Accepted preparation, immutable original requests/prediction disposition and personal editor/inspection/feedback remain separate. Child shared/server/session checks exercise captured-all excluding arrivals, per-copy partial conflict without substitution, revision/result order, old read/ack protection, reconnect/reauthentication/account fencing, compact queued tails and server-first restart. The native two-instance journey crosses these same interfaces with an actual conflicting copy and paused socket before accepted reconciliation.",
+    "Feedback compares actual displayed membership including reconciliation; a permanent 40dp slot fades at 1.5s, and 180ms standard Compose row fade/placement has no actionable ghost or count/request delay. Actual Android retained bounds at 32/1632ms, row-removal semantics, rapid taps and held pointer through disappearance cover the presentation seam. Explicit reduced-motion/large-text matrices remain I32/I34, not fabricated passes.",
+    "Retained native diagnostics contain successful setup/portrait taps and later portrait drags before check-only failures; the passing retained tail continues without reset and covers remaining assertions. Parent does not relabel those red commands green or copy them as a new execution. Final read-only original outcomes and prepared/saved partitions show no duplicate or substituted transfer; no missing affected seam warrants another run.",
+    "Initial parent audit mistakenly included an earlier failed native runner XML in its expected-green list. Retained output is diagnostic; corrected audit checks the actual successful retained-tail XML and separately checks the successful Android instrumentation commands, without relabeling the earlier runner red or repeating any product test."
+  ],
+  "remainingObligations": [
+    "I10 closes separately through combined I10a/I10b evidence and missing-seam audit only. I11/I12 retain actual Ready/starter/start/randomness/shuffles/initial table/cancel/play-sideboard exclusion and full two-Android preparation/start/source-isolation/lifecycle overlaps. Lower-layer Ready/ACTIVE fixtures and same-account native conflict are not those journeys. B3 independent review remains after I09-I12.",
+    "I14 extends this same prediction/recovery model to gameplay; I28/I31 retain restored-preparation/rematch and integrated multi-instance recovery.",
+    "I32/I34 retain explicit reduced-motion/large-text checks; I34 retains full suite/deferred uncommon assertions, older migration-fixture reconciliation and I09 recovered HTTP-error correction/recheck. I33 measurement, I35 compatibility/upgrade/architecture, I36/B8 complete final interface-to-mock comparison/fixes/rechecks and every external gate remain required/unverified. No full-suite, independent review or release pass is claimed."
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.py > docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T230001Z-668e6673/audit-initial-diagnostic.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.py > docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T230001Z-668e6673.json",
+    "docs/agent/implementation-runs/20261022T230001Z-668e6673/audit-initial-diagnostic.txt",
+    "docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.py",
+    "docs/agent/implementation-runs/20261022T230001Z-668e6673/audit.txt",
+    "docs/agent/implementation-state.json"
+  ]
+}

@@ -1,0 +1,57 @@
+PASS exact baseline/master, authorization/model/priority, state/transition; only I10b closes, I10 next
+PASS I10 parent/B3 independent review/findings/grants/external gates unchanged
+REUSE I10b1 e2d9bfaf4aee00b8dfca2fd66d93b794409edb6c reportSha256=f5bb8652398b4affa6251503950a0bb7e90273b01d595acd05c387aed4349b33 savedEvidencePaths=12
+REUSED_CHECK diagnostic 1 a58fd372e6232ec55441ab1a51ca33f87e1180ff62b0a56d48f02b0bcc66eab1 docs/agent/implementation-runs/20261022T212809Z-652a7416/affected-tests.json
+REUSED_CHECK required 0 d41eac33488f93b9a5ed8a7ff56a0eb9713b8d7560cd10156b589529e783ffee docs/agent/implementation-runs/20261022T212809Z-652a7416/rollback-recheck.json
+REUSED_CHECK required 0 b8f90035f9f759bc6fdb136f2d36148b7576c670eb28168ff54c65b33086ec57 docs/agent/implementation-runs/20261022T212809Z-652a7416/controller-recheck.json
+REUSED_CHECK required 0 be2ab19665dece66d7f2a198088bed001881ee2cec79cbfece7c0fa9d448f92c docs/agent/implementation-runs/20261022T212809Z-652a7416/audit.txt
+REUSE I10b2 0b4585483143efc62601caab9d666f62501d162b reportSha256=fa3957531c019a33da229d01cf20f7deec7c00ec8fab0ca82aee51e1c6e54400 savedEvidencePaths=134
+REUSED_CHECK required 0 3c9fbef285b8f810123609eac1f24160ee19868f30264a942ee2371ec467859d docs/agent/implementation-runs/20261022T215026Z-802a24bd/affected-host.json
+REUSED_CHECK required 0 76aa48aeb52babe572df9012208e9faa3802c88be64b3a6c973655030c074cec docs/agent/implementation-runs/20261022T215026Z-802a24bd/cleanup-environment.json
+REUSED_CHECK required 0 c1b96fd34e782a1e3a2d5077c95ec870d13ebef5954b3a9ca83a60f724864b3e docs/agent/implementation-runs/20261022T215026Z-802a24bd/cleanup-first.json
+REUSED_CHECK required 0 7d9b5dc344ba6f8d5ecdc104a5b3c4aac76ddda65c461e196782b0843189760c docs/agent/implementation-runs/20261022T215026Z-802a24bd/cleanup-peer.json
+REUSED_CHECK required 0 a21132fe3f582fa16c308bb6eed41238921ede26c53d573661d6f781e2b3a6be docs/agent/implementation-runs/20261022T215026Z-802a24bd/final-e2e-compile.json
+REUSED_CHECK required 0 dd1830c03caeea812a9b9ad2f05daddc3479594592fa93aa55d1f54f0ab8e0f1 docs/agent/implementation-runs/20261022T215026Z-802a24bd/interaction-navigation-test-apk.json
+REUSED_CHECK required 0 dd1830c03caeea812a9b9ad2f05daddc3479594592fa93aa55d1f54f0ab8e0f1 docs/agent/implementation-runs/20261022T215026Z-802a24bd/interaction-test-apk.json
+REUSED_CHECK required 0 eaf2c5b40268169c69b9b8b15c8d39ab9dd6898177635b4213d4fd4ee4ff1ff5 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-apk.json
+REUSED_CHECK required 0 d7b48e08cd63a68b07c6b2f8746e1bead9330bf59cadea4397ba0eebcba4fc65 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-catalog-configured-apk.json
+REUSED_CHECK required 0 d37567da6efbb338e165cca516e32b00d11973a68904d2b868e317394da39c76 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-interaction-navigation.json
+REUSED_CHECK diagnostic 1 5a0e5f0167e4c9cef8284b073e177dfd312fabb3956cf0a703e6f052a2062b6e docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-interaction.json
+REUSED_CHECK diagnostic 1 ea1d463381ac955994389eba0fb2807db85bd352da45c4b66bce42cc165f1dd5 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-journey-catalog-check.json
+REUSED_CHECK diagnostic 1 e5e8dbfbaa366430306ed59f975a86052f52020004290316ae0570956af7e2dc docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-journey-configured.json
+REUSED_CHECK diagnostic 1 80fce2553b50446af0f0d2e43f82ce6ff306d5b5bf22c2b00b98b5442024e848 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-journey.json
+REUSED_CHECK required 0 cca628906e52339989b7b7602a26f913aff05dc690bbfdc8c9203cb2f6ddbb99 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-rapid-interaction.json
+REUSED_CHECK diagnostic 1 98d1435234efed86adfbc62db266225829ec4c4e4878c4c3a8c4809870299f05 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-retained-handle-target.json
+REUSED_CHECK required 0 229a9dc93933cc1884504639ae707a49d232ed845218b3290275d96c2258756b docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-retained-observer-cwd.json
+REUSED_CHECK diagnostic 1 7d089556895d78b91217bd5342450a44e80e0ef920260457aca0e4f79bc8e3b6 docs/agent/implementation-runs/20261022T215026Z-802a24bd/native-retained-scroll.json
+REUSED_CHECK required 0 1bd39fc9cc798e2d25c7a40e828c1fe2bfd3876517fbe78c05c5a524e53571ce docs/agent/implementation-runs/20261022T215026Z-802a24bd/paired-peer.json
+REUSED_CHECK required 0 17dd147ce32ae8d9469a7918dc669d8d5a43aa1a194d4cb27d85d63bd1b17746 docs/agent/implementation-runs/20261022T215026Z-802a24bd/prepare-first.json
+REUSED_CHECK required 0 27b0913aa43e8d795e5aa4b10bbad1ecdb0b78fccabe20d336af1abc2832fd08 docs/agent/implementation-runs/20261022T215026Z-802a24bd/prepare-peer-repaired.json
+REUSED_CHECK diagnostic 1 4c162c2a922ce4944ef64aaf5b0aa19d214a0f03cbc3f94fa56b3232b763b3ff docs/agent/implementation-runs/20261022T215026Z-802a24bd/prepare-peer.json
+REUSED_CHECK required 0 d12b967127684f978fac55505fa5f0e320f5e0a55c7968a584d88e9ab22ae2f9 docs/agent/implementation-runs/20261022T215026Z-802a24bd/preserved-readbacks.json
+REUSED_CHECK required 0 161dc4935ac65ef0490d8c9ef575d5b52ac23f89354a2f1e1126f0829ded0953 docs/agent/implementation-runs/20261022T215026Z-802a24bd/provision-device.json
+REUSED_CHECK required 0 3d0ea220854bedc9271b8b9cfcd58fce374202ac098931c4ee2216fba6c4be90 docs/agent/implementation-runs/20261022T215026Z-802a24bd/provision-environment.json
+REUSED_CHECK diagnostic 1 9375c16f10690e0f48dba2ea4c7fc3d2bf8d6e335863d2a98310e23de17e6245 docs/agent/implementation-runs/20261022T215026Z-802a24bd/provision-peer.json
+REUSED_CHECK required 0 dd1830c03caeea812a9b9ad2f05daddc3479594592fa93aa55d1f54f0ab8e0f1 docs/agent/implementation-runs/20261022T215026Z-802a24bd/rapid-test-apk.json
+REUSED_CHECK required 0 08baec66ad7c0378179d971e972e490f568df0fd0d1cff5fa0f84ecd4f6cc161 docs/agent/implementation-runs/20261022T215026Z-802a24bd/reattached-catalog-config.json
+REUSED_CHECK required 0 3de24e3cb9c86ba9a2fa9ffab2a18766525fc06fabbe061073dbec89927dc8eb docs/agent/implementation-runs/20261022T215026Z-802a24bd/retained-results-outbox-corrected.json
+REUSED_CHECK diagnostic 1 af4bb38dc93f17915bb35cb0d71a1c485c51505d458cf1fe23cafc1bfc4d1ff0 docs/agent/implementation-runs/20261022T215026Z-802a24bd/retained-results-schema-corrected.json
+REUSED_CHECK diagnostic 1 2e21092d8fac04826b191eccb1f54c15701f1f761542e2b83b0c23381cbc9a69 docs/agent/implementation-runs/20261022T215026Z-802a24bd/retained-results.json
+REUSED_CHECK required 0 9f16aa74925f66cb14c389c846d32996a76b3b06bdb304c5efb4edcd42a3141f docs/agent/implementation-runs/20261022T215026Z-802a24bd/server-image.json
+REUSED_CHECK required 0 2a9e5d546102828a9685df9f22be71482003ac24b96bd5e33c2cd28edb5d45c9 docs/agent/implementation-runs/20261022T215026Z-802a24bd/handoff.txt
+PASS reuse 41 distinct final I10b1 cases: 14 shared, 3 real PostgreSQL/socket, 24 client; initial red remains diagnostic
+PASS reuse 20 affected host cases, composite both-orientation two-normal-APK journey, native accessibility/animation/rapid-touch checks and exact cleanup
+SCOPE setup/portrait tap and drag assertions ran in retained diagnostics; passing tail continues retained state, not a new full journey
+PASS final test-only unused done-shortcut deletion reconstructs exact executed-stage input; final compile retained
+PASS 130 final source/build/lock/fixture/APK identities matched, with explicit executed E2E source provenance
+SUPERSEDED_I10b1_INPUT androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt c9bd7f2fb60244aa416272652576a56e75373a93b1740fc09bb66558a8eec901 -> ce51352056725f8ff1273d2f3e1f43f9c6007cd2872f1eee0048ddff016bbf64
+SUPERSEDED_I10b1_INPUT androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyPreparationTest.kt 7f0340385b180acb912f28dd0b56b081f543ef4a44f6ea430fafd626e954f1de -> dcf088d7db9ae335186d43a1604fdd21ab3596dfa998ffba74c1de3e0e460e39
+SUPERSEDED_I10b1_INPUT androidApp/build/outputs/apk/debug/androidApp-debug.apk 23256bc63a0376a5d0bea082cfaa835a5b78e035095ece03b1d7f531a09b01de -> 87d0a41f03ec2e00c3ce8c23c6240261ec4c4a47b610243f3c23c4b3134fc08b
+INTEGRATION I10b2 changes native presentation/controller only; same GameSession, shared rules/wire, server processor and V8 persistence remain unchanged
+PASS retained exact copy/source/round original outcomes: 48 IDs, one source conflict without substitution, 47 revisions, 48 results, final 12/3 source isolation
+INTEGRATION normal APK crosses gesture capture -> controller -> multi-in-flight shared prediction -> ordered server -> accepted reconciliation; fixed slot/row transitions never gate requests
+PASS 30 I10 source assignments unchanged; partial assertions are not whole-scenario passes
+RETAIN I11/I12 Ready/start/randomness/table/cancel/play-sideboard/two-player overlaps; I14 gameplay; I28/I31 rematch; B3 independent review
+RETAIN I32/I34 reduced-motion/large-text/full suite/deferred/migration fixtures/recovered HTTP error; I33/I35/I36/B8 measurements/compatibility/UI comparison and external gates
+PASS no missing affected integration seam; no new product test/build/device/fault/full-suite run needed
+PASS exact owned paths, JSON/references/whitespace and role guards; no runtime/build/UI-document/review/release changes

@@ -100,7 +100,8 @@
                                                      "docs/agent/implementation-runs/20261022T195604Z-aa3e4430.json",
                                                       "docs/agent/implementation-runs/20261022T201612Z-f7a4a46b.json",
                                                        "docs/agent/implementation-runs/20261022T210618Z-60f9921b.json",
-                                                       "docs/agent/implementation-runs/20261022T211529Z-904fa077.json"
+                                                        "docs/agent/implementation-runs/20261022T211529Z-904fa077.json",
+                                                        "docs/agent/implementation-runs/20261022T212809Z-652a7416.json"
    ],
   "findings": [
     {
@@ -1016,7 +1017,9 @@
     {
       "id": "I10b1",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T212809Z-652a7416.json",
+      "qualification": "Implemented ordinary per-copy prepared Mainboard/Library-to-Sideboard and reverse transfers on the existing shared rules/GameAction/ordered inbox/revision/outbox. Exact prepared-deck/card/index/source-section/round/actor/lobby guards preserve concrete UUIDs, immutable definitions/source metadata and other-player Ready; free partitions, independent partial outcomes, dedup/changed-intent refusal and actual SQL rollback/restart/stream recovery pass. V8 compact ranges split/recompact without a persistence format change. Production GameSession/LobbyController capture gesture-start row ranges and pipeline per-card originals without invitation single-pending, receipt or animation barriers. Accepted state, volatile originals/withdrawn predictions and personal captures stay distinct; correlated revisions/results retire only their predictions, remote changes rebase without substitution, old reads/acks do not rewind, and late acceptance after withdrawal is ordinary accepted work. Same-account reconnect/reauthentication retains original order/IDs; different-account login/Logout clears and fences; new process reads accepted state only. Oversized captured all retains a compact tail behind the existing 256-ID recovery window, exposes queued count, previews immediately and drains all constituents without truncation; 300-card drain and Int.MAX_VALUE compact tests pass. Actual authenticated socket pipeline and affected shared/client/real-PostgreSQL checks pass, with final controller/APK recheck. Initial overall red is retained: fault-injection test tried service head while ownership was correctly unavailable; corrected direct persisted-state assertion plus exact failed-test-only rerun passes. Only I10b1 closes. Native L04/L04b one/all tap/drag/accessibility/inspection/feedback/row animations and both-orientation journey remain I10b2; I10b/I10 parents, I11/I12 Ready/start/play-sideboard/two-Android overlaps, independent B3 review, I14 gameplay and final I33-I36/B8/external gates remain required/unverified.",
       "dependsOn": ["I10a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T211529Z-904fa077.json",
       "outcome": "Implement real lobby per-copy Mainboard/Library-to-Sideboard and reverse transfers through the existing shared preparation semantics and ordered GameAction/GameService/inbox/revision/outbox, plus the production GameSession/controller transfer interface with multiple in-flight predictions. Preserve stable concrete identities from I10a's compact copy ranges as section membership changes; capture prepared-deck/copy/source-section/round intent rather than consulting a saved source or substituting a row quantity. Each card is an independent immediate request, with normal partial outcomes, own-only Ready clearing and immutable saved-source isolation. Rebase accepted state before surviving original predictions, retain uncertain identities across reconnect/reauthentication and keep withdrawal distinct from server recall. This is substantive transfer execution/recovery implementation; I10b2 completes its native gesture/presentation journey, not a separate processor or certification layer.",

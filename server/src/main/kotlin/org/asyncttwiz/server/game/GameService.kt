@@ -160,6 +160,7 @@ class GameService(private val runtime: ServiceRuntime) {
         val before = game.revision!!
         val rejection = when (command.action) {
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
+            is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
             else -> applyInvitation(sql, game, inbox.accountId!!, command)
         }
         val revision = if (rejection == null) Math.addExact(before, 1) else null
@@ -204,6 +205,14 @@ class GameService(private val runtime: ServiceRuntime) {
         return change.reason
     }
 
+    private fun applyTransfer(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
+        val summary = lobby.summary(sql, game.id!!)
+        val change = PreparationRules.transfer(summary, PreparationStore.read(sql, summary), account.toString(),
+            command.scope, command.action as GameAction.TransferPreparedCard)
+        change.state?.let { PreparationStore.saveSelection(sql, account, it) }
+        return change.reason
+    }
+
     private fun applyInvitation(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
         if (game.lifecycle != "LOBBY") return "lifecycleEnded"
         if (command.scope.preparationId != game.preparationRound.toString() || command.scope.invitationId != game.currentInvitation.toString())
@@ -224,7 +233,7 @@ class GameService(private val runtime: ServiceRuntime) {
                 sql.insertInto(INVITATION).set(INVITATION.ID, next).set(INVITATION.GAME_ID, game.id).execute()
                 sql.update(GAME).set(GAME.CURRENT_INVITATION, next).where(GAME.ID.eq(game.id)).execute()
             }
-            is GameAction.SelectDeck -> error("Selection uses the shared preparation processor")
+            is GameAction.SelectDeck, is GameAction.TransferPreparedCard -> error("Preparation uses the shared preparation processor")
         }
         return null
     }

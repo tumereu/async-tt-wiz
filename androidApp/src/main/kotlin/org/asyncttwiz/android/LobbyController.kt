@@ -18,7 +18,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val error: String? = null, val loaded: Boolean = false, val connectionMessage: String? = null,
     val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet(),
     val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
-    val preparation: LobbyPreparation? = null)
+    val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0)
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
@@ -46,7 +46,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val wire = session ?: return
         val ids = (state.games + state.invitations + listOfNotNull(state.detail)).map { it.id }.toSet()
         state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
-            acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = state.detail?.let(wire::preparation))
+            acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = state.detail?.let(wire::preparation),
+            queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0)
     }
     private fun accepted(game: GameSummary) {
         val mine = accountId()
@@ -139,6 +140,19 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }
     }
     fun reconnect() { session?.tick(); refresh() }
+    /** Capture on pointer/accessibility start; release must use this exact object, not a fresh row count. */
+    fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? {
+        val game = state.detail ?: return null
+        val actor = accountId() ?: return null
+        if (closed || game.lifecycle != GameLifecycle.LOBBY || game.id !in state.connectedGames) return null
+        val preparation = state.preparation ?: return null
+        return PreparationRules.capture(preparation, actor, definition, source, all)
+    }
+    fun transfer(captured: PreparedTransfer): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        return !closed && session?.transfer(game, actor, captured) == true
+    }
     fun query(value: String) { searchVersion++; state = state.copy(query = value, results = emptyList(), searching = false, searched = false, searchError = null) }
     fun search() {
         if (closed) return

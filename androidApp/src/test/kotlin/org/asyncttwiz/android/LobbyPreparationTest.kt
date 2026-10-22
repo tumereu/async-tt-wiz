@@ -226,4 +226,44 @@ class LobbyPreparationTest {
         val active = next.copy(lifecycle = GameLifecycle.ACTIVE, revision = "3")
         f.head(active, PreparationRules.empty(active)); f.lobby.chooseDeck(); assertNull(f.lobby.state.picker)
     }
+
+    @Test fun productionControllerCapturesGestureStartThenSubmitsMultiplePerCardTransfersWithoutInvitationPendingGate() = Fixture().use { f ->
+        val selection = f.choose(); val accepted = f.accepted(selection)
+        f.head(game.copy(revision = "1"), accepted); f.result(selection)
+        val captured = f.lobby.captureTransfer(submitted.digest, SavedDeckSection.MAINBOARD, true)!!
+        assertEquals(4L, captured.count)
+        val side = PreparationRules.capture(accepted, owner.accountId, submitted.digest, SavedDeckSection.SIDEBOARD, false)!!
+        val arrival = PreparationRules.transfer(game, accepted, owner.accountId, GameScope(game.id, game.preparationRound),
+            side.action(side.entries.single(), 0)).state!!
+        f.head(game.copy(revision = "2"), arrival)
+        assertTrue(f.lobby.transfer(captured))
+        val commands = f.wire.frames.filterIsInstance<GameCommand>().drop(1)
+        assertEquals(4, commands.size)
+        assertEquals(listOf("0", "1", "2", "3"), commands.map { (it.action as GameAction.TransferPreparedCard).cardIndex })
+        assertEquals(1L, f.lobby.state.preparation!!.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+        assertEquals(arrival, f.lobby.state.acceptedPreparation)
+        val next = f.lobby.captureTransfer(submitted.digest, SavedDeckSection.MAINBOARD, false)!!
+        assertTrue(f.lobby.transfer(next)); assertEquals(6, f.wire.frames.filterIsInstance<GameCommand>().size)
+        assertEquals(0L, f.lobby.state.preparation!!.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+        val stale = f.wire.listener; f.auth.logout(); f.drain()
+        stale.message(GameHead(game.id, "99", game.copy(revision = "99"), preparation = accepted)); f.drain()
+        assertNull(f.lobby.state.preparation); assertFalse(f.lobby.transfer(captured))
+    }
+
+    @Test fun transfersComposeAfterUnacknowledgedSelectionAndAccountSwitchClearsOriginalsAndCapturedTail() = Fixture().use { f ->
+        val selection = f.choose() // No receipt, result or revision yet.
+        val selected = f.accepted(selection)
+        val captured = f.lobby.captureTransfer(submitted.digest, SavedDeckSection.MAINBOARD, true)!!
+        assertTrue(f.lobby.transfer(captured))
+        val transfers = f.wire.frames.filterIsInstance<GameCommand>().drop(1)
+        assertEquals(4, transfers.size); assertEquals(f.base, f.lobby.state.acceptedPreparation)
+        assertEquals(0L, f.lobby.state.preparation!!.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+        f.head(game.copy(revision = "1"), selected)
+        assertEquals(0L, f.lobby.state.preparation!!.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+        val old = f.wire.listener
+        f.message(GameAdmissionError("unauthorized", false)); f.identity = other; f.login()
+        assertNull(f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
+        old.message(GameHead(game.id, "99", game.copy(revision = "99"), preparation = selected)); f.drain()
+        assertNull(f.lobby.state.preparation); assertFalse(f.lobby.transfer(captured))
+    }
 }

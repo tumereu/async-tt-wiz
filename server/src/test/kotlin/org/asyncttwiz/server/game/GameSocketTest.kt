@@ -280,9 +280,40 @@ class GameSocketTest {
                     val ownRead = json.decodeFromString<GameRevisions>(request(settings, "GET", "/v1/games/${game.id}/revisions?after=0", a.token).body())
                     assertEquals(listOf("1", "2"), ownRead.revisions.map { it.resultRevision })
                     assertEquals(preparation, ownRead.revisions[0].preparation)
+                    val captured = PreparationRules.capture(preparation, a.account.accountId, submitted.digest,
+                        SavedDeckSection.MAINBOARD, true)!!
+                    val moves = (0..3).map { offset -> GameCommand(id(), GameScope(game.id, game.preparationRound),
+                        captured.action(captured.entries.single(), offset), aStream.streamId, aStream.generation) }
+                    // Actual authenticated socket pipeline: release sends all constituents before any acknowledgement.
+                    moves.forEach(owner::send)
+                    var expected = preparation
+                    for ((index, move) in moves.withIndex()) {
+                        owner.receipt(move.requestId)
+                        assertEquals("accepted", owner.result(move.requestId).outcome)
+                        expected = PreparationRules.transfer(game, expected, a.account.accountId, move.scope,
+                            move.action as GameAction.TransferPreparedCard).state!!
+                        assertEquals(expected, owner.revision(move.requestId).preparation)
+                        assertEquals(expected, recipient.revision(move.requestId).preparation)
+                        assertEquals((index + 3).toString(), owner.resultFromRead(settings, a.token, game.id, move.requestId).commitRevision)
+                    }
+                    assertEquals(0L, expected.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+                    assertEquals(5L, expected.players[0].deck!!.count(SavedDeckSection.SIDEBOARD))
+                    val reverse = PreparationRules.capture(expected, a.account.accountId, submitted.digest, SavedDeckSection.SIDEBOARD, false)!!
+                    val back = GameCommand(id(), GameScope(game.id, game.preparationRound), reverse.action(reverse.entries.single(), 0),
+                        aStream.streamId, aStream.generation)
+                    owner.send(back); assertEquals("accepted", owner.result(back.requestId).outcome)
+                    val backState = owner.revision(back.requestId).preparation!!
+                    assertEquals(1L, backState.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+                    owner.send(moves[0]); assertEquals("3", owner.result(moves[0].requestId).commitRevision)
+                    owner.send(SubscribeGame(game.id, "7")); assertEquals(backState, owner.next<GameHead>().preparation)
+                    assertEquals(source, json.decodeFromString<SavedDeck>(request(settings, "GET", "/v1/decks/${source.deck.id}", a.token).body()))
+                    assertEquals(404, post(settings, "/v1/games/${game.id}/transferPreparedCard", LookupGameResults(emptyList()), a.token).statusCode())
                 } }
             }
             println("PASS actual authenticated HTTP saved source plus ordered socket select/receipt/result/revision, exact shared predicted equivalence and copy counts/definitions; pending-recipient socket and HTTP preparation redacted, accepted recipient receives retained game definitions without catalog/saved-deck access; stranger denied and no competing write endpoint")
         }
     }
+
+    private fun Socket.resultFromRead(settings: ServiceSettings, token: String, gameId: String, requestId: String) =
+        json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/$gameId/results/$requestId", token).body()).result!!
 }

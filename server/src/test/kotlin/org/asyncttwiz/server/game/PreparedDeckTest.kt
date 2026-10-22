@@ -55,12 +55,136 @@ class PreparedDeckTest {
         val stream = games.open(actor, hello, connection, game.id, UUID.randomUUID().toString())
         fun selection(source: SavedDeck) = GameCommand(UUID.randomUUID().toString(), GameScope(game.id, game.preparationRound),
             GameAction.SelectDeck(source.deck.id, source.deck.revision), stream.streamId, stream.generation)
+        fun transfer(captured: PreparedTransfer, entry: PreparedEntry = captured.entries.first(), offset: Int = 0) =
+            GameCommand(UUID.randomUUID().toString(), GameScope(game.id, captured.roundId), captured.action(entry, offset), stream.streamId, stream.generation)
         fun invitation(summary: GameSummary, action: GameAction) = GameCommand(UUID.randomUUID().toString(),
             GameScope(summary.id, summary.preparationRound, summary.invitationId), action, stream.streamId, stream.generation)
         fun admit(input: GameCommand) = games.admit(actor, hello, connection, input)
         fun execute(input: GameCommand): GameResult {
             assertTrue(admit(input) is GameReceipt); assertTrue(games.executeOne())
             return games.results(actor, game.id, listOf(input.requestId)).statuses.single().result!!
+        }
+    }
+
+    @Test fun `per copy transfers retain identities source isolation independent partial outcomes and own Ready on ordered path`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                val a = account(runtime, "TransferA"); val b = account(runtime, "TransferB"); val outsider = account(runtime, "TransferOther")
+                val summary = game(runtime, a, b); val defs = definitions(); val source = deck(runtime, a, defs)
+                val games = GameService(runtime); val stream = Stream(games, a, summary); val recipient = Stream(games, b, summary)
+                stream.execute(stream.selection(source))
+                val initial = games.head(a, summary.id).preparation!!
+                val captured = PreparationRules.capture(initial, a.account.accountId, defs[0].digest, SavedDeckSection.MAINBOARD, true)!!
+                val commands = (0..2).map { stream.transfer(captured, offset = it) }
+                // A second installation consumes exactly one constituent before the captured invocation.
+                val independent = Stream(games, a, summary)
+                assertEquals("accepted", independent.execute(independent.transfer(captured, offset = 1)).outcome)
+                assertEquals("accessDenied", recipient.execute(recipient.transfer(captured)).reason)
+                assertEquals(200, DeckService(runtime).delete(a, source.deck.id, DeleteDeck(id())).status)
+                sql(db, "UPDATE player_preparation SET ready=true WHERE game_id='${summary.id}'")
+                // Model the other Ready with a lower-layer fixture; Ready/start remain I11.
+                sql(db, "INSERT INTO player_preparation(game_id,account_id,ready) VALUES ('${summary.id}','${b.account.accountId}',true)")
+                val before = games.head(a, summary.id)
+                for (command in commands) assertTrue(stream.admit(command) is GameReceipt)
+                assertEquals(before.preparation, games.head(a, summary.id).preparation) // Admission is not execution.
+                for (command in commands) assertTrue(games.executeOne())
+                val outcomes = games.results(a, summary.id, commands.map { it.requestId }).statuses.map { it.result!! }
+                assertEquals(listOf("accepted", "rejected", "accepted"), outcomes.map { it.outcome })
+                assertEquals("sourceSectionChanged", outcomes[1].reason); assertNull(outcomes[1].commitRevision)
+                assertEquals(listOf("3", null, "4"), outcomes.map { it.commitRevision })
+                val final = games.head(a, summary.id).preparation!!
+                assertEquals(0L, final.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+                assertEquals(5L, final.players[0].deck!!.count(SavedDeckSection.SIDEBOARD))
+                assertFalse(final.players[0].ready); assertTrue(final.players[1].ready)
+                val originalIds = initial.players[0].deck!!.let { d -> d.entries.flatMap { e -> List(e.quantity) { d.card(e, it).id } } }.toSet()
+                val finalIds = final.players[0].deck!!.let { d -> d.entries.flatMap { e -> List(e.quantity) { d.card(e, it).id } } }.toSet()
+                assertEquals(originalIds, finalIds); assertEquals(initial.definitions, final.definitions)
+                assertEquals(initial.players[0].deck!!.sourceId, final.players[0].deck!!.sourceId)
+                for ((index, command) in commands.withIndex()) assertEquals(outcomes[index], stream.admit(command))
+                assertEquals("requestIdentityMismatch", assertThrows(GameProtocolFailure::class.java) {
+                    stream.admit(commands[0].copy(action = (commands[0].action as GameAction.TransferPreparedCard).copy(source = SavedDeckSection.SIDEBOARD))) }.code)
+                assertEquals("requestIdentityMismatch", assertThrows(GameProtocolFailure::class.java) {
+                    games.results(b, summary.id, listOf(commands[0].requestId)) }.code)
+                assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) { games.head(outsider, summary.id) }.code)
+                assertEquals(4, number(db, "SELECT count(*) FROM game_revision"))
+                assertEquals(6, number(db, "SELECT count(*) FROM game_outbox")) // Selection, independent, denied, three constituents.
+                // Neither invitation replacement nor saved-source deletion invalidates captured same-round copies.
+                recipient.execute(recipient.invitation(summary, GameAction.DeclineInvitation))
+                val declined = games.head(a, summary.id).summary
+                stream.execute(stream.invitation(declined, GameAction.Reinvite))
+                val reverse = PreparationRules.capture(final, a.account.accountId, defs[0].digest, SavedDeckSection.SIDEBOARD, true)!!
+                for (offset in 0..2) assertEquals("accepted", stream.execute(stream.transfer(reverse, offset = offset)).outcome)
+                assertEquals(3L, games.head(a, summary.id).preparation!!.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
+            }
+            assertEquals(0, number(db, "SELECT count(*) FROM pg_locks WHERE locktype='advisory'"))
+            println("PASS actual PostgreSQL ordered per-card admission/execution, multi-installation partial outcomes without substitution, stable copies/definitions after saved-source deletion, own-only Ready, independent revisions/outbox, original dedup/private recovery and same-round invitation replacement; reverse transfers remain free")
+        }
+    }
+
+    @Test fun `transfer guards and transactional rollback preserve retained V8 copies and restart recovers pending original once`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            lateinit var a: AccountService.Principal; lateinit var summary: GameSummary; lateinit var original: GameCommand
+            lateinit var hello: GameHello; lateinit var before: GameHead; lateinit var expected: LobbyPreparation
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                a = account(runtime, "TransferRecoverA"); val b = account(runtime, "TransferRecoverB")
+                summary = game(runtime, a, b); val source = deck(runtime, a, definitions()); val games = GameService(runtime)
+                val stream = Stream(games, a, summary); hello = stream.hello
+                stream.execute(stream.selection(source)); before = games.head(a, summary.id)
+                val captured = PreparationRules.capture(before.preparation!!, a.account.accountId, source.entries[0].definition,
+                    SavedDeckSection.MAINBOARD, false)!!
+                original = stream.transfer(captured)
+                val action = original.action as GameAction.TransferPreparedCard
+                for ((command, reason) in listOf(
+                    original.copy(requestId = id(), scope = original.scope.copy(preparationId = id())) to "inapplicable",
+                    original.copy(requestId = id(), action = action.copy(deckId = id())) to "preparedDeckChanged",
+                    original.copy(requestId = id(), action = action.copy(cardId = id())) to "copyUnavailable",
+                    original.copy(requestId = id(), action = action.copy(source = SavedDeckSection.SIDEBOARD)) to "sourceSectionChanged")) {
+                    assertEquals(reason, stream.execute(command).reason)
+                    assertEquals(before, games.head(a, summary.id))
+                }
+                val receipt = stream.admit(original); assertEquals(receipt, stream.admit(original))
+                expected = PreparationRules.transfer(summary, before.preparation!!, a.account.accountId, original.scope, action).state!!
+                sql(db, """CREATE FUNCTION fail_transfer_commit() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
+                    BEGIN RAISE EXCEPTION 'owned transfer rollback after preparation revision result'; END ${'$'}${'$'};
+                    CREATE TRIGGER fail_transfer_commit BEFORE INSERT ON game_outbox FOR EACH ROW EXECUTE FUNCTION fail_transfer_commit();""")
+                assertThrows(Exception::class.java) { games.executeOne() }
+                // An actual SQL error suspends runtime ownership. Inspect the committed rows
+                // directly, then exercise the ordinary runtime recovery below after restart.
+                db.connection().use { connection -> connection.createStatement().executeQuery(
+                    "SELECT deck FROM player_preparation WHERE game_id='${summary.id}' AND account_id='${a.account.accountId}'").use {
+                    assertTrue(it.next()); assertEquals(before.preparation!!.players[0].deck, json.decodeFromString<PreparedDeck>(it.getString(1)))
+                } }
+                assertEquals(1, number(db, "SELECT revision FROM game"))
+                assertEquals(1, number(db, "SELECT count(*) FROM game_revision"))
+                assertEquals(5, number(db, "SELECT count(*) FROM game_outbox"))
+                assertEquals(1, number(db, "SELECT count(*) FROM game_inbox WHERE result IS NULL"))
+                sql(db, "DROP TRIGGER fail_transfer_commit ON game_outbox; DROP FUNCTION fail_transfer_commit()")
+            }
+            ServiceRuntime(db.settings).use { runtime ->
+                val games = GameService(runtime); runtime.attachWorker({ games.validatePending() }, { true }); runtime.start(); ready(runtime)
+                assertEquals(before, games.head(a, summary.id)) // Actual stored pre-transfer V8 JSON reopens unchanged.
+                val connection = UUID.randomUUID()
+                val resumed = games.open(a, hello, connection, summary.id, original.streamId, listOf(original.requestId))
+                assertEquals("pending", resumed.statuses.single().status)
+                assertTrue(games.admit(a, hello, connection, original.copy(generation = resumed.generation)) is GameReceipt)
+                assertTrue(games.executeOne()); assertFalse(games.executeOne())
+                assertEquals(expected, games.head(a, summary.id).preparation)
+                val result = games.results(a, summary.id, listOf(original.requestId)).statuses.single().result!!
+                assertEquals("2", result.commitRevision)
+                assertEquals(result, games.admit(a, hello, connection, original.copy(generation = resumed.generation)))
+                assertEquals(2, number(db, "SELECT count(*) FROM game_revision")); assertEquals(6, number(db, "SELECT count(*) FROM game_outbox"))
+                val active = original.copy(requestId = id(), generation = resumed.generation)
+                sql(db, "UPDATE game SET lifecycle='ACTIVE' WHERE id='${summary.id}'")
+                games.admit(a, hello, connection, active); games.executeOne()
+                assertEquals("lifecycleEnded", games.results(a, summary.id, listOf(active.requestId)).statuses.single().result!!.reason)
+                assertEquals(expected, games.head(a, summary.id).preparation)
+            }
+            assertEquals(0, number(db, "SELECT count(*) FROM pg_locks WHERE locktype='advisory'"))
+            println("PASS retained V8 prepared-copy encoding, exact deck/card/source-section/round/lobby guards without revision on refusal, real SQL rollback, pending identity survives runtime restart/stream renewal, one final state/revision/result/outbox and late-active refusal")
         }
     }
 

@@ -13,6 +13,8 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
     @Serializable @SerialName("selectDeck") data class SelectDeck(val deckId: String, val sourceRevision: String) : GameAction
+    @Serializable @SerialName("transferPreparedCard") data class TransferPreparedCard(val deckId: String,
+        val cardId: String, val cardIndex: String, val source: SavedDeckSection) : GameAction
 }
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,
@@ -74,6 +76,10 @@ object GameWire {
             is GameAction.SelectDeck -> {
                 require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
                 require(ordinal(action.sourceRevision) > 0)
+            }
+            is GameAction.TransferPreparedCard -> {
+                require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId) && DeckValidation.uuid(action.cardId))
+                ordinal(action.cardIndex)
             }
             else -> require(command.scope.invitationId != null)
         }

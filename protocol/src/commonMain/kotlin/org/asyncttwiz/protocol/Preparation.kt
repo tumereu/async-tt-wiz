@@ -20,12 +20,91 @@ import kotlinx.serialization.Serializable
 @Serializable data class LobbyPreparation(val gameId: String, val roundId: String,
     val players: List<PlayerPreparation>, val definitions: List<SubmittedDefinition> = emptyList())
 
+/** Personal captured gesture intent; compact even for large rows. Never a bulk server command. */
+data class PreparedTransfer(val gameId: String, val roundId: String, val deckId: String,
+    val selectionRequestId: String, val source: SavedDeckSection, val entries: List<PreparedEntry>) {
+    val count get() = entries.sumOf { it.quantity.toLong() }
+    fun action(entry: PreparedEntry, offset: Int) = (GameWire.ordinal(entry.firstIndex) + offset).let { index ->
+        GameAction.TransferPreparedCard(deckId, CommandIds.output(selectionRequestId, "prepared-card", index), index.toString(), source)
+    }
+}
+
 data class PreparationChange(val state: LobbyPreparation? = null, val reason: String? = null)
 
 /** Pure selection semantics shared by durable execution and volatile provisional display. */
 object PreparationRules {
     fun empty(game: GameSummary) = LobbyPreparation(game.id, game.preparationRound,
         listOf(PlayerPreparation(game.inviter.accountId), PlayerPreparation(game.recipient.accountId)))
+
+    fun capture(current: LobbyPreparation, actor: String, definition: String, section: SavedDeckSection,
+        all: Boolean): PreparedTransfer? {
+        val deck = current.players.find { it.accountId == actor }?.deck ?: return null
+        val entries = deck.entries.filter { it.definition == definition && it.section == section }
+        if (entries.isEmpty()) return null
+        return PreparedTransfer(current.gameId, current.roundId, deck.id, deck.selectionRequestId, section,
+            if (all) entries.toList() else listOf(entries.first().copy(quantity = 1)))
+    }
+
+    fun transfer(game: GameSummary, current: LobbyPreparation, actor: String, scope: GameScope,
+        action: GameAction.TransferPreparedCard): PreparationChange {
+        fun reject(reason: String) = PreparationChange(reason = reason)
+        if (game.lifecycle != GameLifecycle.LOBBY) return reject("lifecycleEnded")
+        if (scope.gameId != game.id || scope.preparationId != game.preparationRound || scope.playId != null ||
+            current.gameId != game.id || current.roundId != game.preparationRound) return reject("inapplicable")
+        if (actor != game.inviter.accountId && (actor != game.recipient.accountId || game.invitationState != InvitationState.ACCEPTED))
+            return reject("accessDenied")
+        val deck = current.players.find { it.accountId == actor }?.deck ?: return reject("preparedDeckChanged")
+        if (deck.id != action.deckId) return reject("preparedDeckChanged")
+        val index = runCatching { GameWire.ordinal(action.cardIndex) }.getOrNull() ?: return reject("inapplicable")
+        if (action.cardId != CommandIds.output(deck.selectionRequestId, "prepared-card", index)) return reject("copyUnavailable")
+        val entry = deck.entries.find { index >= GameWire.ordinal(it.firstIndex) &&
+            index - GameWire.ordinal(it.firstIndex) < it.quantity } ?: return reject("copyUnavailable")
+        if (entry.section != action.source) return reject("sourceSectionChanged")
+        val captured = PreparedTransfer(game.id, current.roundId, deck.id, deck.selectionRequestId, action.source,
+            listOf(entry.copy(firstIndex = index.toString(), quantity = 1)))
+        return PreparationChange(previewTransfer(current, actor, captured))
+    }
+
+    /** Same range membership update as an individual transfer, used only for unsent captured display. */
+    fun previewTransfer(current: LobbyPreparation, actor: String, captured: PreparedTransfer): LobbyPreparation {
+        if (current.gameId != captured.gameId || current.roundId != captured.roundId) return current
+        var moved = false
+        val players = current.players.map { player ->
+            val deck = player.deck
+            if (player.accountId != actor || deck == null || deck.id != captured.deckId) player else {
+                var entries = deck.entries
+                for (range in captured.entries) {
+                    val start = GameWire.ordinal(range.firstIndex); val end = start + range.quantity
+                    entries = entries.flatMap { entry ->
+                        val first = GameWire.ordinal(entry.firstIndex); val last = first + entry.quantity
+                        val low = maxOf(first, start); val high = minOf(last, end)
+                        if (entry.section != captured.source || entry.definition != range.definition || low >= high) listOf(entry)
+                        else {
+                            moved = true
+                            buildList {
+                                if (first < low) add(entry.copy(quantity = (low - first).toInt()))
+                                add(entry.copy(firstIndex = low.toString(), quantity = (high - low).toInt(),
+                                    section = if (captured.source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD))
+                                if (high < last) add(entry.copy(firstIndex = high.toString(), quantity = (last - high).toInt()))
+                            }
+                        }
+                    }
+                }
+                // Canonical contiguous runs keep identity order and avoid permanent per-move fragmentation.
+                val compact = mutableListOf<PreparedEntry>()
+                for (entry in entries.sortedBy { GameWire.ordinal(it.firstIndex) }) {
+                    val previous = compact.lastOrNull()
+                    if (previous != null && previous.definition == entry.definition && previous.section == entry.section &&
+                        GameWire.ordinal(previous.firstIndex) + previous.quantity == GameWire.ordinal(entry.firstIndex) &&
+                        previous.quantity.toLong() + entry.quantity <= Int.MAX_VALUE)
+                        compact[compact.lastIndex] = previous.copy(quantity = previous.quantity + entry.quantity)
+                    else compact.add(entry)
+                }
+                player.copy(ready = if (moved) false else player.ready, deck = deck.copy(entries = compact))
+            }
+        }
+        return if (moved) current.copy(players = players) else current
+    }
 
     fun select(game: GameSummary, current: LobbyPreparation, actor: String, requestId: String,
         scope: GameScope, action: GameAction.SelectDeck, source: SavedDeck?,

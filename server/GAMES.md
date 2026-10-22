@@ -1,7 +1,7 @@
-# Ordered game service — invitations and prepared selection
+# Ordered game service — invitations and preparation
 
 The running Spring service now implements recipient **Accept/Decline** and inviter
-**Reinvite**, plus **Select deck**, through `GET /v1/socket` WebSocket upgrade. Use the normal bearer
+**Reinvite**, plus **Select deck** and individual **prepared-card transfers**, through `GET /v1/socket` WebSocket upgrade. Use the normal bearer
 Authorization header, never a URL credential; TLS is supplied by the normal HTTPS
 boundary (`wss` outside isolated local tests). There is no HTTP game-write route.
 Initial create+first-invite remains the [account HTTP exception](LOBBY.md).
@@ -114,6 +114,42 @@ the original request and cannot attach a second copy, revision or publication.
 The accepted preparation is in socket heads and revision payloads for coherent
 restart/recovery; picker drafts and outgoing/provisional work are not persisted here.
 
+## Individual prepared-card transfer — I10b1
+
+`transferPreparedCard` captures `deckId` (the prepared copy, not the saved source),
+`cardId`, decimal `cardIndex` and `source` (`MAINBOARD` or `SIDEBOARD`). Scope is
+game/preparation with null invitation/play. The server derives the destination as
+the opposite section, validates the concrete identity against the selection seed
+and current source membership, and uses the same pure `PreparationRules.transfer`
+as client prediction. Range splitting/recompaction preserves every concrete UUID,
+definition and selected metadata; the existing V8 encoding needs no migration.
+
+Each card is an independent ordinary ordered request. Its prepared state, own-only
+Ready clearing, result, revision and outbox are transactional. Wrong prepared deck,
+copy, source section, preparation round, actor or lifecycle refuses without a
+substitute or accepted revision. Independent constituents still execute; retries
+recover original results. Saved-source edits/deletion and unrelated invitation
+attempts/revisions are not transfer guards. No bulk write endpoint or size,
+exchange or format-legality rule is added.
+
+The production `GameSession` and `LobbyController` expose immutable gesture-start
+capture and release submission. Captured row ranges exclude later arrivals; the
+controller does not apply the invitation single-pending gate to transfers. Accepted
+state, volatile original requests/prediction disposition and personal capture stay
+separate. Rebase applies accepted changes first and surviving originals afterward;
+correlated revisions or commit-revision results retire only their own predictions.
+Withdrawn display does not recall a request; late acceptance remains accepted work.
+Receipt is not acceptance, and old reads/results cannot reinstall an old snapshot.
+
+Ordinary captures pipeline immediately. The existing 256-ID recovery window bounds
+active uncertain requests; a larger captured tail stays compact in process memory,
+previews immediately and drains in captured order as capacity returns. Its remaining
+count is exposed separately (`queuedTransferCards`), never silently truncated.
+Reconnect/reauthentication retains original IDs and captures; Logout/account switch
+clears them and fences callbacks. Restart reads accepted server state, never a
+durable outgoing journal. Native one/all tap/drag/accessibility, inspection and
+feedback/row transitions remain I10b2, not a native pass from these host interfaces.
+
 ## Persistence and workers
 
 Explicit migration `V7__ordered_game_requests.sql` retains V6 games/attempts and adds
@@ -163,6 +199,8 @@ native journey or final qualification. I09b2 supplied native invitation controls
 volatile recovery and the two-APK decline/reinvite/accept journey on this path.
 I10a1 adds pure/server selection, retained V7 migration, exact source isolation,
 actor-only Ready fixtures and actual socket preparation/privacy checks. I10a2 still
-owns the native picker and accepted/predicted/UI wiring; I10b owns transfers,
+owns its saved native picker/accepted-predicted-UI evidence; I10b1 adds per-copy
+transfer semantics, durable socket execution and multi-in-flight session/controller
+prediction/recovery; I10b2 owns native transfer controls and presentation,
 I11/I12 Ready/start/cancel, and I13/I14 gameplay/complete replica extensions on this
 same domain. I34–I36 retain full-suite, compatibility and final UI/release obligations.

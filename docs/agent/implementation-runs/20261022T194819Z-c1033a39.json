@@ -1,0 +1,61 @@
+{
+  "runId": "20261022T194819Z-c1033a39",
+  "sessionID": "ses_e9ad7bc19ffebes6xy2b6qswcX",
+  "startCommit": "b67b47aba32c267da28bbfb49fa679e3b1f50c6a",
+  "mode": "implement",
+  "target": "I10a",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split before coding. I10a remains in-progress with two pending B3 children: I10a1 implements shared preparation semantics and atomic immutable selected-copy persistence on the existing ordered game path; I10a2 completes the production native picker/import-return, provisional display/recovery and real-APK journey. Original I10a outcome/checks remain verbatim, I10b is unchanged, and there is no child review or added qualification task. No application behavior or product assertion is claimed delivered by this unit. Next selection is I10a1.",
+  "selectionReason": "Exact supplied clean master baseline is D-304 active/authorized; B1/B2 are independently reviewed, B2-R01 verified and I09 implemented, so I10a precedes I10b/I11 with no finding or review due. Inspection shows GameSummary has no preparation payload, GameAction only has invitation actions, GameService only applies invitations, and WaitingLobby still has an unavailable-preparation placeholder. I10a therefore spans a new shared semantic/retained-schema/definition attachment boundary plus production session/navigation/picker/native journey. Split those two substantive implementation scopes before coding rather than leave a partial implementation checkpoint or add certification-only children. This refines the previous split's one-unit size assumption, not its outcome or scope. Only state/transition/priority, preserved source obligations and owned documentation checks are affected; no product build/device/full-suite rerun is warranted.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T194819Z-c1033a39-planning-check.py > docs/agent/implementation-runs/20261022T194819Z-c1033a39-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T194819Z-c1033a39-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T194819Z-c1033a39-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T194819Z-c1033a39.json",
+    "docs/agent/implementation-runs/20261022T194819Z-c1033a39-planning-check.py",
+    "docs/agent/implementation-runs/20261022T194819Z-c1033a39-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I10a1", "I10a2"],
+    "dependencies": "I10a1 depends on implemented I09, I10a2 on I10a1. Both inherit B3 and have concrete outcome/checks. I10a remains open; I10b still depends on I10a. Selected parent closures are small exact-child evidence reconciliations, not new qualification layers. Independent B3 review remains after I09-I12 together.",
+    "sourceIds": ["P-044", "P-045", "P-052", "P-053", "P-059", "T-400", "T-401", "T-402", "T-403", "T-404", "T-405", "T-440", "T-441", "T-442", "T-443", "T-444", "T-445", "T-608", "T-680", "T-682", "T-683", "T-684", "F20", "F21", "F30", "F31", "F32", "F34", "F35", "F36"],
+    "sourceDisposition": "All 30 I10.preparation assignments stay pending/unexecuted in the unchanged ledger. I10a1 implements shared selection/retained copies and source-isolation assertions; I10a2 implements personal draft/one confirmation, native import-return/display/recovery and affected UI isolation. I10b retains captured transfers/multiple-in-flight partial reconciliation/feedback and gesture assertions. No Ready/start/play, complete two-player overlap, rematch or final-qualification claim is made. Existing I11/I12/I14/I28/I31/I34-I36 cross-task obligations are unchanged.",
+    "contractPaths": [
+      "docs/design/03-contracts/accounts-decks-and-lobby.md",
+      "docs/design/03-contracts/domain-model.md",
+      "docs/design/04-technical/protocol-v1.md",
+      "docs/design/04-technical/prediction-and-playback.md",
+      "docs/design/04-technical/request-ordering-and-recovery.md",
+      "docs/design/02-experience/ui/review.md",
+      "docs/design/02-experience/ui/feedback.md"
+    ],
+    "retainedObligations": [
+      "D-189/D-191/D-199/D-202/D-221/D-271: immutable game-local captured source/definitions, stable concrete copy identities and separate mainboard/Library versus Sideboard; account privacy; later source changes/deletion preserve the chosen preparation. No legality/size rules, automatic default/blank source, live saved-source reference or new Send step.",
+      "D-294/T-683: personal border-only picker draft, one bottom confirmation, Back/close with no shared request/Ready change, ordinary contextual Import returning to picker, captured preparation-round/source guards and useful stale-source errors. Native both-orientation/restart/isolation journeys remain required in I10a2, not replaced by server checks.",
+      "D-259/D-275/D-278/D-285/D-289: extend the current shared semantic/socket/durable inbox/atomic outcome/revision/outbox implementation. Accepted replica, volatile original intent/prediction and personal UI remain separate. Only correlated accepted state changes the replica; original uncertain intent survives same-process reconnect/reauthentication; Logout/account switch clears and fences, restart synchronizes server state without an outgoing journal. Invitation attempts do not gratuitously invalidate same-round preparation.",
+      "D-191/D-205: selection changes clear only the actor's Ready and reject after start or for an old preparation round. I10a1 supplies lower-layer semantics/fixtures, not Ready/start UI or a claim that actual readiness/start races passed. I11 owns actual starter/readiness/randomness/start/initial table; I12 owns cancellation and prepared two-player/native overlap assertions, including preparation before invitation acceptance.",
+      "I10b retains all D-293/D-294/T-680/T-684/F20/F34-F36 per-card immediate one/all tap/drag/accessibility, captured-all/no-substitution, partial reconciliation, fixed fading feedback and disappearing-row obligations. It extends I10a rather than replaces the model or durable request processor. I14 extends gameplay prediction and I28/I31 retain rematch copy restoration.",
+      "D-307/D-308: no new scaffold/fault certification or independent child review; affected incremental implementation checks only. Parent evidence audits must not replay unchanged child paths. I34 retains full-suite/deferred assertions and I09's recorded recovered-HTTP-error correction/recheck; I35 compatibility and I36/B8 complete interface comparison/fixes/rechecks stay required. No external release gate, model, authorization, grant or operating budget changes. No subagent, loop, deployment, paid resource or UI-document edit/publication in this unit."
+    ]
+  },
+  "sourcePaths": [
+    "docs/agent/coverage/ledger.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Lobby.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/decks/DeckService.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt"
+  ]
+}

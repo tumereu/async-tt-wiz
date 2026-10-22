@@ -52,7 +52,8 @@
      "docs/agent/implementation-runs/20261022T010348Z-d9861514.json",
       "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json",
        "docs/agent/implementation-runs/20261022T013255Z-043555f3.json",
-       "docs/agent/implementation-runs/20261022T022920Z-43e21a50.json"
+        "docs/agent/implementation-runs/20261022T022920Z-43e21a50.json",
+        "docs/agent/implementation-runs/20261022T025919Z-a5658aee.json"
    ],
   "findings": [],
   "batches": [
@@ -419,9 +420,12 @@
     {
       "id": "I01f1b2",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
       "children": ["I01f1b2a", "I01f1b2b"],
       "planningRecord": "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T025919Z-a5658aee.json",
+      "buildNotes": "e2e/devices-README.md",
+      "qualification": "Combined I01f1b2a/I01f1b2b outcome qualified from clean cache-disabled strictly locked normal/test APK and real server/adapter image builds without product/build/lock/controller/test-source changes. Fresh API29 non-GMS WHPX normal-APK production startup, exact APK/signer/launcher/UI/read-only empty SQLite v2, all 17 device public/source/private-path probes with unchanged art origins, failed source/stopped app/missing route/suspended relay/stopped backend/foreign mapping invalidation and explicit recovery pass. Retained app/backend restarts preserve Android inode/logical data and host sentinel/source edition; explicit Compose reset replaces old stores/containers while fresh combined wait revalidates unchanged device data. Initial full behavioral run fails final inventory because two pre-existing broker listeners disappear, retained as diagnostic with read-only diagnosis (original socket provenance unknown); passive drain and complete unchanged fresh repeat pass strict unrelated inventory plus exact route/native/ADB/Appium/watchdog/WSL/Compose/relay/port cleanup. 134 Python and 23 repeated clean JVM tests, migration/APK/lint/backup/module checks, pinned tool provenance, actual PNG/XML/JUnit and complete unchanged 875-item coverage accounting retained. Only I01f1b2 closes; I01f1b/I01f1/I01f/I01 combined qualifications, I01f2 Kotlin/Appium input and all 14 actual Android instrumentation tests, I01f3 multi-device/cold-boot, normal product networking/account/downloader/gameplay/Canvas, independent B1 review, physical/upgrade/arm64 and all release gates remain open.",
       "dependsOn": ["I01f1b1", "I01e"],
       "outcome": "Extend the same owned device controller with explicit per-device public-only routing to a real isolated I01e Compose environment and a fail-closed combined normal-APK/environment handoff. Measure the Windows/WSL boundary instead of assuming Windows ADB reverse reaches Linux loopback; preserve the source's configured loopback art origins. Record exact mapping and any required loopback relay identities before mutation, refuse foreign/busy resources and clean up only owned routes/services. Actually qualify normal-APK startup together with device-originated backend/source diagnostics, failed routing and recovery; document endpoints/evidence/cleanup for I01f2. No private administration exposure, wildcard listener, production trust relaxation, Kotlin UI/instrumentation or absent downloader/account/gameplay acceptance.",
       "checks": [

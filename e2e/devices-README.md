@@ -327,6 +327,31 @@ their ancestors. B1 account journeys/review, B4 Canvas targeting, physical frame
 measurement, I35 compatibility/upgrade/arm64 and every external release gate remain
 open. Startup is not F01–F88/full T-551/T-630/T-662 acceptance.
 
+### I01f1b2 combined parent qualification
+
+The [parent qualification record](../docs/agent/implementation-runs/20261022T025919Z-a5658aee.json)
+checks the transport and combined-handoff children together using clean strictly
+locked normal/test APK and real server/adapter image builds. The complete fresh
+API29 non-GMS run passes current startup/installed-artifact/storage observation,
+all 17 device transport probes, controlled failure/recovery, retained app/backend
+restarts, explicit host reset and exact cleanup. All 134 Python and 23 JVM tests,
+migration/lint/backup/module checks and unchanged 875-item accounting pass; actual
+synthetic PNG/XML, JUnit and tool/image/APK identities are retained.
+
+The initial run passed the behavioral checkpoints but **failed** its final strict
+inventory assertion: two pre-existing Windows broker loopback listeners disappeared.
+Read-only diagnosis retains the original inventories, disjoint owned ports and
+passive observations; the original Linux socket provenance is unknown. No broker
+was stopped, networking changed or inventory assertion relaxed. After passive
+drain, a full fresh unchanged repeat passes, including unrelated inventory checks.
+The first output remains diagnostic, not a passing run or a claimed root-cause fix.
+
+Only **I01f1b2** closes here. Ancestor combined qualifications remain open; I01f2
+still owns Kotlin/Appium UI/input and all 14 actual storage instrumentation tests,
+I01f3 owns multi-device/cold-boot repeats, and product networking, account/gameplay/
+Canvas acceptance, independent B1 review and release gates remain unpassed.
+No runtime/build/controller/lock/test-source change was needed.
+
 ## Explicit tools and configuration
 
 Install **Appium 3.8.0 / UiAutomator2 8.7.0** into a new isolated prefix/home,

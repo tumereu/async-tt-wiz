@@ -9,8 +9,13 @@ install/production-launcher startup capture and read-only idle storage evidence;
 I01f1b2a qualifies measured public-only device-to-real-Compose transport and
 fail-closed owned route lifecycle. I01f1b2b now qualifies the combined normal-scaffold
 startup/environment handoff, failure recovery, host reset and retained restart;
-Kotlin sessions and instrumentation remain I01f2/I01f3;
-no parent/product E2E or independent B1 review is closed by these foundation checks.
+Kotlin sessions and instrumentation remain I01f2/I01f3.
+[I01f1b2 parent qualification](../docs/agent/implementation-runs/20261022T025919Z-a5658aee.json)
+now checks its two children together: clean locked builds, full actual-emulator
+failure/recovery/reset/retention, exact cleanup and strict unrelated inventory
+pass. An initial transient-listener inventory failure is retained as diagnostic;
+the unchanged fresh repeat passes. Only that parent closes, not its ancestors,
+product E2E, independent B1 review or any release gate.
 
 The Kotlin/JUnit host runner's current runtime test qualifies only its Java
 toolchain. The **test-only** [Compose topology](compose.json) and
@@ -210,7 +215,8 @@ Only the **two loopback public/source ports** are allowed for the now-qualified
 (same host/device port numbers preserve art URLs). The actual API29 non-GMS
 transport check passes backend public 404 and both synthetic catalogs/art, private
 separation, unavailable transport/environment failure/recovery and exact cleanup.
-It does not supply the pending combined normal-APK handoff or product HTTP client.
+That transport-only check is not the combined normal-APK handoff (supplied by
+I01f1b2b and qualified together in I01f1b2) or a product HTTP client.
 Do not bind them to 0.0.0.0, expose private admin/DB/SMTP, change production TLS
 trust or claim physical/emulator reachability from these host HTTP tests. The
 normal backend currently returns 404 on public routes because product APIs are

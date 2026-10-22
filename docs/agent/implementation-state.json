@@ -74,7 +74,8 @@
                            "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3.json",
                             "docs/agent/implementation-runs/20261022T113642Z-ea0d8fde.json",
                              "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
-                             "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json"
+                              "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json",
+                              "docs/agent/implementation-runs/20261022T121920Z-442a17be.json"
    ],
   "findings": [],
   "batches": [
@@ -700,7 +701,9 @@
     {
       "id": "I06b",
       "batch": "B2",
-      "status": "pending",
+      "status": "in-progress",
+      "children": ["I06b1", "I06b2"],
+      "deliverySplitRecord": "docs/agent/implementation-runs/20261022T121920Z-442a17be.json",
       "dependsOn": ["I06a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
       "outcome": "Complete the normal new-import Deck name/Save deck journey with real authenticated HTTP/PostgreSQL acceptance, immutable content-addressed account-private definitions and atomic deck/entry attachment. Establish protocol-v1's ordinary complete POST /definitions and POST /decks plus owned read-back needed for D02 success/reopen, using existing authorization/writer-epoch transactions and explicit Flyway/jOOQ conventions. No game, official-provider lookup, image fetch, extra Upload/Send or application chunk/upload session is required. Validate the entire definition set, face/reference structure and resource bounds before retaining it; names/external printing IDs never overwrite distinct content. Bind stable request/account/kind/intent identity and atomically persist deck creation with its original outcome so uncertain retries cannot duplicate the deck or alter sections/name. Wire native Save/Edit controls, actionable failure retaining editable input, and success to the actual saved deck; support server read-back after restart independently of public catalog/art eviction. Keep local data/callbacks account-isolated. Establish only the minimal creation/read presentation needed here; I07 extends collection/details/rename/cover/delete/sync, and I08 extends the same definitions/deck service with contextual Overwrite/Merge and its complete conflict/copy-isolation checks.",
@@ -708,6 +711,32 @@
         "Run focused real PostgreSQL migration/jOOQ and authenticated definition/deck HTTP integration tests: complete valid set/new named mainboard+sideboard save and owned read-back, invalid/interrupted set or missing/foreign definition refusal without partial deck changes, private reads/attachment, distinct contents sharing external name/ID, missing optional defaults and no provider/art dependency. Use existing writer fencing and ordinary authorization; no stronger reset/in-flight ordering or alternate unguarded mutation path.",
         "Prove atomic creation and stable original-outcome retry, including a lost response/repeated request and changed intent under one ID; one saved deck with exact quantities/sections/name survives server restart. Invalid or failed new imports preserve any existing good deck. Confirm server reads supply retained definitions despite missing/updated public catalog. Exercise affected account/Logout isolation, not the entire account/reset fault suite.",
         "Run the normal installed APK against the real isolated backend and hosted synthetic source: incorrect import then correction, review/name/save, actual saved-deck display, Edit/Exit without saving, save transport failure/input retention/retry and restart/reopen. Check both orientations, keyboard and long preview reachability; missing artwork never blocks save. Use UI-created accounts and normal actions, with actual output/input identities/captures and exact owned cleanup. Run affected incremental server/client tests/build/lint only; no full-suite repeat. I07/I08/lobby isolation, independent B2 review and final I34-I36 obligations remain unclaimed."
+      ]
+    },
+    {
+      "id": "I06b1",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I06a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T121920Z-442a17be.json",
+      "outcome": "Deliver the real authenticated definition/deck creation and owned read-back service that I06b2's normal Save uses. Add shared versioned semantic/protocol types, explicit Flyway migration and real jOOQ bindings for immutable content-addressed definitions/account access, saved decks/section entries and shared business-request identity/original non-secret outcomes. Implement ordinary complete POST /v1/definitions and POST /v1/decks plus owned deck/list/attached-definition reads, using the existing account authentication and writer-epoch transaction boundary. Validate the full set's supported schema/digests/face references and resource bounds before atomic retention; distinct contents sharing external names/printing IDs remain distinct. Atomically attach accepted owned definitions and exact name/quantities/sections with the creation outcome, so lost-response/concurrent duplicate retries create one deck and changed account/kind/intent cannot reuse an ID. No game/provider/art dependency, upload-session protocol, temporary local authority or contextual Overwrite/Merge. Document the concrete wire interface for the next client child; existing native Save remains honestly unavailable until I06b2.",
+      "checks": [
+        "Run focused real PostgreSQL explicit migration/retained-schema and generated jOOQ integration checks, plus authenticated HTTP valid definition-set/new named mainboard+sideboard creation and owned list/detail/attached-definition read-back. Assert missing/foreign/incomplete definitions and malformed/interrupted sets cannot partly install/attach; invalid imports preserve an existing good deck. Test missing optional defaults and distinct contents claiming one external name/printing ID without official lookup/art fetch or content overwrite.",
+        "Prove atomic original-outcome persistence and request/account/kind/canonical-intent binding with concurrent duplicate/lost-response retry and changed-intent conflict, retaining one exact deck through actual service restart. Confirm unauthenticated/cross-account access and attachment fail without existence/outcome disclosure, supported retained definitions read independently of public catalogs, and mutations use existing writer fencing. Exercise affected auth/runtime integration only, not the complete password-reset/fault suite.",
+        "Run affected shared protocol/definition validation and server tests/build incrementally with strict locks and module boundaries. Retain actual HTTP/PostgreSQL output, source/artifact identities and exact owned cleanup; document request/response/error/retry contracts for I06b2. This service delivery does not claim native Save/reopen, complete I06b/I06, I07/I08, first B2 review or final I34-I36/release qualification."
+      ]
+    },
+    {
+      "id": "I06b2",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I06b1"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T121920Z-442a17be.json",
+      "outcome": "Complete the normal Android new-import name/Save/Edit/failure/retry journey using I06b1's actual authenticated definition submission and atomic server deck service. Map I06a's complete resolved faces/defaults into the shared definition format off the UI thread, submit metadata then attach it without an extra user Upload/Send action, and retain stable immutable request IDs/payloads for same-process uncertain retries. Input/name/preview survive failure and rotation; editing changed intent creates a new identity rather than replaying changed data under an old ID. Success exits to the actual saved-deck read presentation; minimal collection/read/reopen is server-backed and supplies retained definitions independently of public catalog/art eviction. Restart synchronizes accepted decks, not a crash-durable outgoing queue. Fence old-account saves/reads and clear private drafts on Logout; accepted in-flight work may finish normally under D-289. Deliver only creation/read presentation needed for I06b; I07 extends management/full inspector/sync and I08 contextual Overwrite/Merge on the same service.",
+      "checks": [
+        "Run focused definition mapping/HTTP client/controller tests for exact sections/quantities/faces/defaults, name validation, successful save/read, lost-response stable retry without duplicate creation, changed intent identity, editable transport/validation failure, rotation and Logout/old-account callback fencing. Verify public catalog/art failure is not a save/read-back prerequisite and no local accepted deck is fabricated.",
+        "Exercise the normal installed APK against the real isolated backend/hosted synthetic source with UI-created accounts: incorrect import then correction, review/name/save to actual saved details, Edit/Exit without saving, transport failure retaining text/name/preview and successful retry, then restart/reopen from server definitions. Check portrait/landscape, keyboard/long-preview controls and missing-art save. Reuse I06a's unchanged parser/catalog evidence rather than repeating its complete matrix; retain actual command/capture/input identities and exact owned device/Compose cleanup.",
+        "Run affected incremental Android/shared/server integration tests, normal/test APK assembly and applicable lint/boundary checks. Reconcile the minimal creation/list/detail integration seam; do not pull I07 rename/cover/delete/full inspector or I08 Overwrite/Merge into this unit. Retain I34 full-suite/deferred assertions, I35 compatibility and I36/B8 complete interface comparison; I06b and I06 each remain open until their separately selected child-evidence closures, with no new child reviews."
       ]
     },
     { "id": "I07", "batch": "B2", "status": "pending" },

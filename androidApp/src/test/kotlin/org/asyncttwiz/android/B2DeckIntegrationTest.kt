@@ -119,7 +119,7 @@ class B2DeckIntegrationTest {
         importer.close(); library.close(); deckWorker.drain(); auth.close(); authWorker.drain()
     }
 
-    /** B2-R01 regression: intentionally red until a fresh fixing session adds ordinary reauthentication. */
+    /** B2-R01: real transport invalidation reaches the same auth callback wired by AuthViewModel. */
     @Test fun revokedDeckSessionMustExposeSignInWithoutExplicitLogout() {
         val authWorker = Worker(); val deckWorker = Worker(); val store = Store()
         val auth = AuthController(AccountsApi(), store, authWorker) { it() }
@@ -127,10 +127,11 @@ class B2DeckIntegrationTest {
         val api = DeckApi("https://review.example", HttpClient(MockEngine {
             respond("""{"code":"authentication_required","field":null}""", HttpStatusCode.Unauthorized,
                 headersOf("Content-Type", "application/json"))
-        }) { followRedirects = false })
+        }) { followRedirects = false }, authenticationRequired = auth::authenticationRequired)
         val library = DeckLibraryController(api, auth::sessionToken, deckWorker) { it() }
         try {
             library.refresh(); deckWorker.drain()
+            authWorker.drain()
             assertTrue(library.state.error!!.contains("Sign in again"))
             println("HTTP 401 reached deck UI; authAccountPresent=${auth.state.account != null}; " +
                 "oldTokenStillAvailable=${auth.sessionToken() != null}; destination=${auth.state.destination}")

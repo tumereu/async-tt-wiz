@@ -24,7 +24,8 @@ interface Decks : Closeable {
 }
 
 /** Dedicated authenticated service transport; never shares provider caches or follows redirects. */
-class DeckApi(private val origin: String, private val client: HttpClient = AccountApi.client()) : Decks {
+class DeckApi(private val origin: String, private val client: HttpClient = AccountApi.client(),
+    private val authenticationRequired: (String) -> Unit = {}) : Decks {
     init {
         require(origin.isEmpty() || URI(origin).let {
             it.host != null && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null &&
@@ -69,12 +70,17 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
                 header("Accept", "application/json"); header("Authorization", "Bearer $token")
                 if (body != null) { header("Content-Type", "application/json; charset=UTF-8"); setBody(body) }
             }
+            // Status is authoritative even if a gateway supplies a missing/malformed error body.
+            if (response.status.value == 401) {
+                authenticationRequired(token)
+                throw DeckFailure("authentication_required")
+            }
             val bytes = response.bodyAsChannel().readRemaining(MAX_BODY.toLong() + 1).readByteArray()
             if (bytes.size > MAX_BODY) throw DeckFailure("invalid_response")
             val text = bytes.decodeToString(throwOnInvalidSequence = true)
             if (response.status.value !in 200..299) {
                 val error = runCatching { DeckJson.format.decodeFromString<DeckError>(text) }.getOrNull()
-                throw DeckFailure(if (response.status.value == 401) "authentication_required" else error?.code ?: "unavailable")
+                throw DeckFailure(error?.code ?: "unavailable")
             }
             return try { DeckJson.format.decodeFromString<T>(text) } catch (_: Exception) { throw DeckFailure("invalid_response") }
         } catch (failure: DeckFailure) { throw failure

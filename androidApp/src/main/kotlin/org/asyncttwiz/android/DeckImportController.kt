@@ -33,6 +33,22 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     fun connectSave(action: () -> ((DeckSavePlan) -> SavedDeck)?, saved: (SavedDeck) -> Unit) {
         saveAction = action; this.saved = saved
     }
+    /** Shared production wiring: reacquire credentials on retry, never regenerate retained intent. */
+    fun connectSave(api: Decks, credential: () -> String?, saved: (SavedDeck) -> Unit) {
+        connectSave(action = {
+            credential()?.let { token -> { plan: DeckSavePlan -> kotlinx.coroutines.runBlocking {
+                val accepted = api.submit(token, plan.definitions)
+                if (accepted.digests.toSet() != plan.definitions.definitions.map { it.digest }.toSet())
+                    throw DeckFailure("invalid_response")
+                if (plan.target == null) api.create(token, plan.deck)
+                else {
+                    api.update(token, plan.target, plan.update())
+                    // Uncertain retries return original outcomes; reopen current accepted state.
+                    api.read(token, plan.target)
+                }
+            } } }
+        }, saved = saved)
+    }
     fun open() { if (!closed) { epoch++; inspection.close(); retryPlan = null; state = DeckImportState(active = true) } }
     fun openExisting(deck: DeckSummary) {
         open()

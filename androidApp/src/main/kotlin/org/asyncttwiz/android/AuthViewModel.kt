@@ -27,26 +27,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         } },
         post = { action -> main.post { action() } }, clearPrivateWork = ::clearDeckWork)
 
-    val decks = DeckLibraryController(DeckApi(BuildConfig.ACCOUNT_ORIGIN), controller::sessionToken,
+    val decks = DeckLibraryController(DeckApi(BuildConfig.ACCOUNT_ORIGIN,
+        authenticationRequired = controller::authenticationRequired), controller::sessionToken,
         Executors.newSingleThreadExecutor { Thread(it, "saved-decks") }, { action -> main.post { action() } })
-    private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN)
+    private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired)
     init {
-        deckImport.connectSave(action = {
-            controller.sessionToken()?.let { token ->
-                { plan: DeckSavePlan -> kotlinx.coroutines.runBlocking {
-                    val accepted = saveApi.submit(token, plan.definitions)
-                    if (accepted.digests.toSet() != plan.definitions.definitions.map { it.digest }.toSet())
-                        throw DeckFailure("invalid_response")
-                    if (plan.target == null) saveApi.create(token, plan.deck)
-                    else {
-                        saveApi.update(token, plan.target, plan.update())
-                        // An uncertain retry may return an older original outcome. Reopen current
-                        // server state, never reapply additive quantities or install that old result.
-                        saveApi.read(token, plan.target)
-                    }
-                } }
-            }
-        }, saved = { decks.open(it.deck.id) })
+        deckImport.connectSave(saveApi, controller::sessionToken, saved = { decks.open(it.deck.id) })
     }
     private fun clearDeckWork() { deckImport.exit(); decks.clear() }
 

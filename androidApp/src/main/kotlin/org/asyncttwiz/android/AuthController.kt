@@ -45,11 +45,29 @@ class AuthController(
     private val generation = AtomicLong()
     private val token = AtomicReference<String?>()
     private val ownerLock = Any()
+    private var reauthenticationContext: AuthState? = null
 
     private fun bestEffortRevoke(value: String) { runCatching { revoke(value) } }
 
     /** Capture on the UI thread for one ordinary private request; never expose it in display state. */
     fun sessionToken(): String? = if (!closed && state.account != null && !state.busy) token.get() else null
+
+    /** Transport callback: only an explicit rejection of the current credential asks for login.
+     * Invalidation is not Logout: same-process drafts and uncertain request identities survive. */
+    fun authenticationRequired(rejectedToken: String) {
+        post {
+            if (!closed && state.account != null && token.get() == rejectedToken) {
+                reauthenticationContext = state.copy(password = "", drawerOpen = false)
+                synchronized(ownerLock) { generation.incrementAndGet(); token.set(null) }
+                state = AuthState(restoring = false, busy = true)
+                work {
+                    store.clear()
+                    AuthState(restoring = false,
+                        message = "Your session is no longer valid. Please sign in again.", error = true)
+                }
+            }
+        }
+    }
 
     private fun rememberToken(value: String, epoch: Long) {
         synchronized(ownerLock) {
@@ -71,6 +89,7 @@ class AuthController(
 
     fun passwordResetCompleted() {
         if (closed) return
+        reauthenticationContext = null
         clearPrivateWork()
         synchronized(ownerLock) { generation.incrementAndGet(); token.set(null) }
         state = AuthState(restoring = false, busy = true)
@@ -151,7 +170,15 @@ class AuthController(
                 AuthState(restoring = true, restoreFailed = true,
                     message = "Protected login storage could not be opened. Retry without uninstalling.", error = true)
             }
-            post { if (!closed && generation.get() == epoch) state = next }
+            post { if (!closed && generation.get() == epoch) {
+                val context = reauthenticationContext
+                if (next.account != null && context != null) {
+                    if (next.account.accountId != context.account?.accountId) clearPrivateWork()
+                    reauthenticationContext = null
+                    state = if (next.account.accountId == context.account?.accountId)
+                        next.copy(destination = context.destination, backStack = context.backStack) else next
+                } else state = next
+            } }
         }
     }
 
@@ -189,6 +216,7 @@ class AuthController(
 
     fun logout() {
         if (closed) return
+        reauthenticationContext = null
         clearPrivateWork()
         val oldToken = synchronized(ownerLock) {
             generation.incrementAndGet() // Fence old display AND worker-side storage callbacks first.
@@ -211,6 +239,7 @@ class AuthController(
 
     fun close() {
         if (closed) return
+        reauthenticationContext = null
         closed = true
         synchronized(ownerLock) { generation.incrementAndGet(); token.set(null) }
         state = AuthState(restoring = false)

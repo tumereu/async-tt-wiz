@@ -1,0 +1,9 @@
+Checking exact B2-R01 fix handoff, affected evidence and unchanged external obligations.
+PASS retained JUnit org.asyncttwiz.android.AuthControllerTest 12
+PASS retained JUnit org.asyncttwiz.android.B2DeckIntegrationTest 3
+PASS retained JUnit org.asyncttwiz.android.DeckImportControllerTest 3
+PASS retained JUnit org.asyncttwiz.android.DeckManagementTest 5
+PASS retained JUnit org.asyncttwiz.android.DeckReauthenticationTest 4
+PASS retained JUnit org.asyncttwiz.android.DeckSaveTest 6
+PASS retained JUnit org.asyncttwiz.android.DeckReauthenticationTest 5
+PASS fix-only state transition, production read/save callback wiring, exact owned paths, JSON/whitespace. No design-document links changed; authorization/model/grants/tasks/review coverage/release gates retained. Fresh independent verification is next; no native/full-suite/final UI/release pass claimed.

@@ -33,7 +33,7 @@ private val Ink = Color(0xff202d3d)
 private val Backdrop = Color(0xfff6f7f8)
 
 @Composable
-fun AccountEntry(controller: AuthController, reset: ResetController) {
+fun AccountEntry(controller: AuthController, reset: ResetController, catalog: CatalogViewModel? = null) {
     val state = controller.state
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     MaterialTheme(colorScheme = lightColorScheme(primary = Teal, onPrimary = Color.White,
@@ -45,7 +45,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController) {
         Box(Modifier.fillMaxSize().background(Backdrop).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             when {
                 reset.state != null -> ResetEntry(reset)
-                state.account != null -> AuthenticatedShell(controller, landscape)
+                state.account != null -> AuthenticatedShell(controller, landscape, catalog)
                 state.logoutFailed -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(state.message!!, color = MaterialTheme.colorScheme.error)

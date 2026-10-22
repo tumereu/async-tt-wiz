@@ -53,19 +53,21 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         window.decorView.post { fullscreen() }
+        ViewModelProvider(this)[CatalogViewModel::class.java].foreground()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
+        val catalog = ViewModelProvider(this)[CatalogViewModel::class.java]
         consumeResetIntent(intent)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         fullscreen()
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller, auth.reset)
+                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller, auth.reset, catalog)
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,

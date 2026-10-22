@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-environment.py",
+    "--directory",
+    "/tmp/opencode/atw-e2e-1d047a5f11114af58b9f3861313df8c1",
+    "provision"
+  ],
+  "exitCode": 0,
+  "outputSha256": "1fd3c6073117a936947eaf740020c09b7363e49d2d4d26fd0830cd20836e3b53",
+  "output": "{\"backend\": \"http://127.0.0.1:46745\", \"checkedAtUnix\": 1792664539.9503589, \"hostBackend\": \"http://127.0.0.1:46745\", \"hostSource\": \"http://127.0.0.1:35691\", \"instance\": \"atw-e2e-1d047a5f11114af58b9f3861313df8c1\", \"scope\": \"Host infrastructure only. Call wait before setup; not a perpetual health lease or Android acceptance.\", \"source\": \"http://127.0.0.1:35691\", \"writerEpoch\": 1}\n"
+}

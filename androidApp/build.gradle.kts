@@ -31,6 +31,23 @@ android {
                 (uri.scheme == "http" && uri.host == "127.0.0.1"))
     }.getOrDefault(false)) { "atwApiOrigin must be an HTTPS origin (or isolated debug IPv4 loopback)" }
     defaultConfig { buildConfigField("String", "ACCOUNT_ORIGIN", "\"$origin\"") }
+    // Explicit isolated source configuration exists only in debug; release always uses provider HTTPS.
+    val catalogOrigin = providers.gradleProperty("atwCatalogTestOrigin").orElse("").get()
+    require(catalogOrigin.isEmpty() || runCatching {
+        val uri = URI(catalogOrigin)
+        uri.scheme == "http" && uri.host == "127.0.0.1" && uri.port in 1..65535 &&
+            uri.rawUserInfo == null && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null
+    }.getOrDefault(false)) { "atwCatalogTestOrigin must be an explicit isolated IPv4 loopback origin" }
+    val catalogPath = providers.gradleProperty("atwCatalogPath").orElse("/api/v5/").get()
+    require(Regex("/(?:[A-Za-z0-9_-]+/)+").matches(catalogPath))
+    defaultConfig {
+        buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"\"")
+        buildConfigField("String", "CATALOG_BASE", "\"https://mtgjson.com/api/v5/\"")
+    }
+    buildTypes.getByName("debug") {
+        buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"$catalogOrigin\"")
+        buildConfigField("String", "CATALOG_BASE", "\"${if (catalogOrigin.isEmpty()) "https://mtgjson.com/api/v5/" else catalogOrigin + catalogPath}\"")
+    }
     val resetOrigin = providers.gradleProperty("atwResetOrigin").orElse("").get()
     val resetUri = resetOrigin.takeIf(String::isNotEmpty)?.let(::URI)
     require(resetUri == null || (resetUri.scheme == "https" && resetUri.host != null &&

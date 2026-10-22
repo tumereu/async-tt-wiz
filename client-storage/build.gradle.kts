@@ -16,6 +16,7 @@ android {
     testOptions.unitTests.all {
         it.useJUnitPlatform()
         it.systemProperty("storage.fixture", file("src/main/sqldelight/databases/1.db").absolutePath)
+        it.systemProperty("catalog.fixtures", rootProject.file("tests/fixtures/catalogs").absolutePath)
     }
 }
 
@@ -37,6 +38,7 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.sqldelight.runtime)
     implementation(libs.sqldelight.android.driver)
+    implementation(libs.gson)
     testImplementation(libs.sqldelight.sqlite.driver)
     testRuntimeOnly(libs.sqlite.jdbc)
     testImplementation(platform(libs.junit.bom))

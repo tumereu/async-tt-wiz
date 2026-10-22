@@ -69,7 +69,8 @@
                       "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json",
                        "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json",
                         "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa.json",
-                        "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json"
+                         "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
+                         "docs/agent/implementation-runs/20261022T101044Z-1d047a5f.json"
    ],
   "findings": [],
   "batches": [
@@ -633,7 +634,10 @@
     {
       "id": "I05a",
       "batch": "B2",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T101044Z-1d047a5f.json",
+      "buildNotes": "client-storage/CATALOG.md",
+      "qualification": "Delivered normal Manage decks catalog consent/size/network-cost/progress/error/retry/status and nonblocking public worker acquisition. Strict bounded streaming MTGJSON v5 parser and dedicated credential-free source fetch checksum-verify compressed input and stage a disk-backed indexed SQLite generation separate from private accepted data; date/version/checksum/exact printing/face/token/default JSON survive atomic switch/reopen. Both identity-distinct fixture families/versions, checksum/schema/relationship/truncation/UTF-8/size/space/interruption retention, persisted 24-hour cadence/15-minute-1-hour-6-hour backoff, actual ten-second metadata timeout and initial/metered consent policy pass focused host tests. Eight final catalog and 22 affected Android host cases, locked incremental normal/debug-test APK assembly, app/library lint and module boundaries pass. Actual API29 non-GMS instrumentation reproduced then verified the Android row-returning PRAGMA correction. UI-created account/initial consent in both orientations and retained native rechecks complete real hosted-source failure/retry, installed records, native Back/navigation, force-stop/restart and v2 failure-preservation/successful retry; original helper-path, missing-foreground-Activity and wrong main-menu-title oracles remain diagnostic, not relabeled full-run passes. Exact outputs/JUnit/captures/APK/source/fixture/lock identities and completed owned device/Compose cleanup retained. Only I05a closes; I05b artwork, I05 parent, B2 independent review, I06-I08/lobby/token/history cross-feature assertions, I34 realistic full-size/abrupt-kill/full-suite, I35 device/upgrade and I36/B8 final UI qualification plus all external gates remain open. No licensed provider call, bundled data, authoritative public catalog, private-schema migration, test-only launcher or product action injection.",
       "dependsOn": ["I04"],
       "planningRecord": "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
       "outcome": "Implement normal MTGJSON v5 Meta.json and checksum-verified AllPrintings.json.gz downloads into durable staged local catalog generations, using streaming decompression/parsing and disk-backed indexing rather than a whole JSON tree. Retain date/version/checksum, exact printing/language/face/Scryfall identities, reciprocal face relationships and plain display/default strings including supported tokens. Validate completeness/schema/relationships/resource bounds/free space before atomic install; preserve the last good generation on failure or process interruption. Add bounded nonblocking foreground metadata checks and persisted cadence/backoff, initial-download and metered-refresh size/network-cost consent, unmetered refresh scheduling and native loading/error/retry/status controls reachable from Manage decks using existing UI patterns. Keep catalog public and separate from private accepted snapshots; expose the production query boundary for I06 without implementing import/deck CRUD or a catalog browser. Configure explicit synthetic-source origins separately from production provider security, with no fixture IDs in runtime code or account credentials sent to providers.",

@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T101044Z-1d047a5f/retain.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "855ac1f5029e29e68ade127774c117c1aca90243a306fdef36ccf7c1bcec216d",
+  "output": "Retained native run runner-084fd122bfae433faca52d69685f41d2 passed marker: True\nRetained native run runner-8426568689aa49d584d04f88730dbf22 passed marker: False\nRetained native run runner-968da9b65c05429cb659935a90549195 passed marker: False\nRetained native run runner-aa657b7d636a4327b89062e6bd0ca597 passed marker: False\nCurrent affected host results: TEST-org.asyncttwiz.storage.CatalogTest.xml 8 passing\nCurrent affected host results: TEST-org.asyncttwiz.android.AccountApiTest.xml 5 passing\nCurrent affected host results: TEST-org.asyncttwiz.android.AuthControllerTest.xml 11 passing\nCurrent affected host results: TEST-org.asyncttwiz.android.ResetControllerTest.xml 4 passing\nCurrent affected host results: TEST-org.asyncttwiz.android.B1EntryIntegrationTest.xml 2 passing\nPASS retained actual host/native outputs, screenshot bytes, APK/source/lock/fixture identities and served-source inventory\n"
+}

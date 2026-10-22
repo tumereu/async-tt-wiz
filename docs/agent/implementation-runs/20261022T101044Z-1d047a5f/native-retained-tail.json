@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T101044Z-1d047a5f/native-check.py",
+    "--retained",
+    "--tail"
+  ],
+  "exitCode": 0,
+  "outputSha256": "1f897ab78e9315243fa57d276638ba69b63a5bf8ab86d6b65a1a593d13841218",
+  "output": "PASS normal APK catalog journey /tmp/opencode/atw-device-1d047a5f11114af58b9f3861313df8c1/runner-084fd122bfae433faca52d69685f41d2\nRetained native output /tmp/opencode/atw-device-1d047a5f11114af58b9f3861313df8c1/runner-084fd122bfae433faca52d69685f41d2\n"
+}

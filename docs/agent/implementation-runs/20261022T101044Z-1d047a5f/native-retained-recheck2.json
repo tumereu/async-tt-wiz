@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T101044Z-1d047a5f/native-check.py",
+    "--retained"
+  ],
+  "exitCode": 1,
+  "outputSha256": "9b75d574c88f0f08e4f0569f0190e388ea29c0466ec1d0dd0def6b4370313646",
+  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T101044Z-1d047a5f/native-check.py\", line 22, in <module>\n    ready = d.wait(value, 180)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/devices.py\", line 372, in wait\n    result = device_handoff.validate(value, result, timeout)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_handoff.py\", line 80, in validate\n    app = a.observe(value, serial, directory, timeout)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 222, in observe\n    raise d.Refusal('Bounded normal-app visible/storage-ready startup observation timed out; evidence retained')\ne2e.environment.Refusal: Bounded normal-app visible/storage-ready startup observation timed out; evidence retained\n"
+}

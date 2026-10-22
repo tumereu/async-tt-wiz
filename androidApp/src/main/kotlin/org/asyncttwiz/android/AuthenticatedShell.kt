@@ -22,11 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean) {
+internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null) {
     val state = controller.state
     BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
     val content: @Composable () -> Unit = {
-        ShellContent(state.destination, !landscape, { controller.drawer(true) }, controller::navigate)
+        ShellContent(state.destination, !landscape, { controller.drawer(true) }, controller::navigate, catalog)
     }
     Box(Modifier.fillMaxSize().testTag("authenticated-identity")
         .semantics { contentDescription = "Signed in as ${state.account!!.username}" }) {
@@ -97,7 +97,8 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
 }
 
 @Composable
-private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit) {
+private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
+    catalog: CatalogViewModel?) {
     Column(Modifier.fillMaxSize()) {
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
@@ -124,6 +125,8 @@ private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open
                         }
                         Spacer(Modifier.height(12.dp))
                     }
+                } else if (destination == ShellDestination.DECKS && catalog != null) {
+                    CatalogControls(catalog)
                 } else {
                     Text(when (destination) {
                         ShellDestination.GAMES -> "Games and invitations are not available in this build yet."

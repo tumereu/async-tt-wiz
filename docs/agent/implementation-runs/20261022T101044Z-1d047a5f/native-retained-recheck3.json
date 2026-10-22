@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T101044Z-1d047a5f/native-check.py",
+    "--retained"
+  ],
+  "exitCode": 1,
+  "outputSha256": "3b912995a7b15fdcfbabd9c30d2f1d473750a52ea7818960b09e1d96b14d60e5",
+  "output": "Retained native output /tmp/opencode/atw-device-1d047a5f11114af58b9f3861313df8c1/runner-8426568689aa49d584d04f88730dbf22\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T101044Z-1d047a5f/native-check.py\", line 45, in <module>\n    assert result.returncode == 0, str(run)\n           ^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: /tmp/opencode/atw-device-1d047a5f11114af58b9f3861313df8c1/runner-8426568689aa49d584d04f88730dbf22\n"
+}

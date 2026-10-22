@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T101044Z-1d047a5f/handoff-check.py"
+  ],
+  "exitCode": 1,
+  "outputSha256": "63cba21810b17846ba234598a83d1c036dbffaee41d5af35391f375eabb350fd",
+  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T101044Z-1d047a5f/handoff-check.py\", line 28, in <module>\n    assert after['activeRun'] is None and after['runs'] == before['runs'] + [report_path]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+}

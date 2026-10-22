@@ -94,7 +94,8 @@
                                                "docs/agent/implementation-runs/20261022T175129Z-7080c0f4.json",
                                                 "docs/agent/implementation-runs/20261022T181701Z-19a34527.json",
                                                  "docs/agent/implementation-runs/20261022T193210Z-618299c4.json",
-                                                 "docs/agent/implementation-runs/20261022T193734Z-9b2c031f.json"
+                                                  "docs/agent/implementation-runs/20261022T193734Z-9b2c031f.json",
+                                                  "docs/agent/implementation-runs/20261022T194247Z-e9e3e478.json"
    ],
   "findings": [
     {
@@ -929,7 +930,47 @@
         "Keep parent I09b/I09 open for their separately selected small child-evidence audits; no extra child review or scaffold-certification task. Retain P-072/T-669 cancellation/reinvite orders and prepared-copy/Ready/start T-457/T-458/T-460 with I10-I12, name/date across rematch T-681 with I28/I31, and gameplay/rebase/full-tree extensions with I13/I14/I26. I34 owns final full-suite/deferred assertions, I35 compatibility and I36/B8 complete interface-to-mock comparison. B3 independent review still follows all I09-I12; no unexecuted cross-task scenario or external gate is passed."
       ]
     },
-    { "id": "I10", "batch": "B3", "status": "pending" },
+    {
+      "id": "I10",
+      "batch": "B3",
+      "status": "in-progress",
+      "dependsOn": ["I09"],
+      "children": ["I10a", "I10b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T194247Z-e9e3e478.json",
+      "outcome": "Deliver L01-L04/L04b native saved-deck selection and game-local mainboard/sideboard preparation through I09's existing ordered durable game path. I10a supplies the personal border-draft picker/one bottom confirmation and immutable prepared copies with stable copy identities and accepted/predicted/UI separation. I10b supplies immediate captured one/all tap/drag/accessibility transfers, honest partial reconciliation and fixed fading feedback/disappearing-row presentation. Parent closes by exact child-evidence audit and only missing affected integration, not repeated green suites or another qualification layer. B3 independent review still follows I09-I12 together.",
+      "checks": [
+        "Reconcile exact I10a/I10b reports, retained commands/captures and current relevant source/build/artifact identities for normal-APK picker/import-return/confirmation, immutable preparation, captured per-card transfers and accepted/predicted/UI separation. Reuse exercised unchanged integration; run only a missing or materially affected seam under D-307.",
+        "Retain all I10.preparation source assignments and distinguish actual assertions from pending cross-task ones: Ready/starter/start/initial table and random vectors I11, full two-Android prepared-start/cancel/acceptance overlaps I12, gameplay prediction I14, rematch I28/I31 and final I34-I36/B8 comparison/qualification. No child review, fake future control or external gate pass."
+      ]
+    },
+    {
+      "id": "I10a",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I09"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T194247Z-e9e3e478.json",
+      "outcome": "Deliver usable normal-APK L01/L02 own Choose/Change deck and L03 saved-deck picker, with border-only personal selection, one bottom Use selected deck confirmation and existing Import route returning to the picker. Extend the same GameAction/GameService/durable inbox/revision/outbox and GameSession, not a new preparation mutation endpoint or queue. Attach an immutable game-local snapshot of the captured account-owned saved source and definitions with stable concrete copy IDs, mainboard/Library versus Sideboard partition and accepted replica distinct from volatile original intent/predicted display and personal draft. Preserve chosen copies through invitation decisions/Reinvite and later saved-source edits/deletion. Establish preparation-round/source/lifecycle applicability and own-only Ready-clearing semantics without prematurely implementing I11's Ready/start UI.",
+      "checks": [
+        "Run affected shared codec/pure preparation semantics and real PostgreSQL/authenticated ordered-path tests for atomic source/definition attachment, stable copy identity/partition, account privacy, stale/changed/deleted source and wrong-round/non-lobby refusal without substitution. Retry recovers the original copy/outcome without a second attachment, revision or outbox effect; rollback leaves no partial preparation. Qualify the actual retained-schema forward migration and affected deck/invitation integration only.",
+        "Use the same semantic preparation model for server application and provisional client display; test accepted-base/result/revision correlation, no result-as-state overwrite or stale read rewind, original uncertain request recovery and server-first process restart. Do not persist an outgoing journal. Same-account reauthentication preserves surviving intent; Logout/account switch clears private drafts/queues and fences callbacks. Invitation-attempt changes must not gratuitously invalidate same-round preparation.",
+        "Run affected production controller/navigation tests and a normal-APK real-backend UI journey: import or choose existing synthetic decks, highlight multiple rows without requests, Back/close unchanged, confirm once and observe the real named lobby copy/counts, leave/reopen/rotate/restart. Exercise empty collection and contextual Import return; no automatic default/blank deck, per-row Select or extra Send. Check portrait/landscape, reachable bottom equal-width actions, text/art fallback and selected accessibility semantics.",
+        "Prove selected-copy isolation with affected source edit/delete checks and lower-layer own-only Ready clearing where readiness is not yet exposed; retain exact assertion scope. I11 owns real Ready/starter/start and I12 owns their two-player overlaps/native isolation/start integration. Run only affected incremental tests/builds and retain actual output, native captures/input identities and exact owned cleanup; no full-suite/device-fault recertification."
+      ]
+    },
+    {
+      "id": "I10b",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I10a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T194247Z-e9e3e478.json",
+      "outcome": "Deliver L04/L04b lobby-only mainboard/sideboard preparation in the normal APK, extending I10a's model and the existing ordered request path. Compact distinct 24px 1/infinity controls support direct one/all tap, drag to the opposite section and native accessible equivalents. Capture concrete copies/source/round at gesture start; all excludes later arrivals. Release sends ordinary per-card requests immediately, not an atomic bulk or per-frame writes, with no double dispatch, substituted copies, Save/Send or animation/acknowledgement barrier. Extend accepted/predicted/UI separation to multiple in-flight transfers and difference-only reconciliation; show actual partial outcomes, fixed-space fading latest-transfer text and a short non-actionable disappearing-row transition. Preserve saved sources and the other player's Ready; no Sideboard play access.",
+      "checks": [
+        "Run affected shared preparation semantics and real ordered PostgreSQL/socket tests for both-direction per-copy transfers, unequal/free partitions, original-source/copy/round guards, same-ID dedup, changed-intent refusal, own-only Ready clearing and atomic individual outcome/revision/outbox effects. Captured all excludes later arrivals; a conflicting constituent does not substitute another copy or cancel independent valid work. No invented whole-lobby revision lock, format/size/exchange rule or second processor.",
+        "Run production session/controller tests for rapid multiple-in-flight requests without the existing invitation single-pending gate; receipt is not acceptance. Rebase accepted changes before surviving original predictions, retire effects only when correlated accepted state/rejection permits, avoid old-ack rewind/double application and retain uncertain IDs through same-process reconnect/reauthentication. Withdrawn prediction is not server recall; restart synchronizes accepted state with no outgoing journal. Preserve preparation identities across invite Accept/Decline/Reinvite and keep stale callbacks fenced.",
+        "Exercise the normal APK against the real isolated backend in portrait and landscape: tap one/all both ways, drag the same controls, cancel/outside drop, scroll/rapid repeat during row removal, native accessible one/all, thumbnail inspection and missing art fallback. Check concrete captured identities and exactly one dispatch per recognized gesture, no inspector activation from transfer controls, prompt counts with delayed acknowledgements, partial/conflicting other-device results and reopen/restart convergence. Use synthetic UI-created decks/games, not API-controlled opponent business state.",
+        "Retain actual visible/faded feedback and row-transition evidence: a permanently reserved slot, replacement/restart on new move, roughly 1-2s fade without layout shift, emptied-row fade/slide independent of sending, non-actionable ghosts and current-geometry retargeting. Reduced-motion/accessibility preserve understandable results/identity. Run affected incremental checks/builds, save captures/output/identities and exact cleanup. I11/I12 retain actual play-sideboard exclusion/start/Ready/cancel overlaps; I14 extends this same prediction model to gameplay and I34-I36 retain broad/final qualification."
+      ]
+    },
     { "id": "I11", "batch": "B3", "status": "pending" },
     { "id": "I12", "batch": "B3", "status": "pending" },
     { "id": "I13", "batch": "B4", "status": "pending" },

@@ -1,0 +1,33 @@
+PASS exact supplied baseline/master, empty index, D-304 authorization and I10 priority
+PASS existing driver state/transition validators; no controller/product execution
+PASS implemented I09, two pending B3 vertical delivery children; next I10a
+PASS unrelated tasks/reviews/findings, runner/model/grants, authorization and release gates unchanged
+PASS 30 exact I10 assignments pending; unchanged ledger SHA256 0948d490744d4fc94edd5f1b31cf8e5d058c67150f1ec5ebf94efaed3075f364
+UNCHANGED SOURCE AGENTS.md SHA256 dd7a3dc6ff396e8353b2af1839889d126c601865b82b0a46faa8dab01bc8cbb9
+UNCHANGED SOURCE docs/README.md SHA256 c2e786d3fc4d5c775fbc40eaed04b9085043f39d8d1bb77e30d4294048f59847
+UNCHANGED SOURCE docs/agent/session-handoff.md SHA256 18b4f921f1789494fa3dc03979d1dfb8e70c579b61b209868bf7384aafc8afbb
+UNCHANGED SOURCE docs/agent/implementation-authorization.md SHA256 acedceded16ab9b8cb8a4588e3e4de46e301f25bd840a12c031e3a8d0d449af9
+UNCHANGED SOURCE docs/agent/implementation-plan.md SHA256 3b872e3bf0b3ddceaa05ea4d89a6dde8d7ccdd63cc20d33a777606e13b1aebcd
+UNCHANGED SOURCE docs/agent/implementation-loop.md SHA256 9d965181da7b0cce96a6f6ce506538da2c478f80c6a6571314261c417f826ea7
+UNCHANGED SOURCE docs/agent/delivery-first-execution.md SHA256 0494f1b3c107a57eec60789011b87b02f2cd0cfb4d6884b90d8d48590328f9ec
+UNCHANGED SOURCE docs/agent/coverage/ledger.json SHA256 0948d490744d4fc94edd5f1b31cf8e5d058c67150f1ec5ebf94efaed3075f364
+UNCHANGED SOURCE protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt SHA256 d8cee9fdabc642f478f30afd518318156d8f51f26862e3d41910a6bc5950ddf5
+UNCHANGED SOURCE protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Lobby.kt SHA256 f6460856e901d718a4da35719f8ae83659bf190d678af7d005e081d18d71ac73
+UNCHANGED SOURCE server/src/main/resources/db/migration/V6__contacts_and_named_games.sql SHA256 5050ba5d005d86762ac51308df6a11b262fce666e1642fec1523c4cb185e5c08
+UNCHANGED SOURCE server/src/main/resources/db/migration/V7__ordered_game_requests.sql SHA256 1cbffe97a4aa923141fbe7157beceb8c52310421a41d0925d21273300568af3e
+UNCHANGED SOURCE server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt SHA256 e80790478a74e46e124fb117b0d6d68a91ed66dad797f61f93d8298fe9c5d007
+UNCHANGED SOURCE server/src/main/kotlin/org/asyncttwiz/server/decks/DeckService.kt SHA256 490cd687ea05d4186d33ebcfb9869ec5351d6176921446268cf3cddda6603927
+UNCHANGED SOURCE androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt SHA256 aa8546ebea0e918e61d2f7f22a5cabe74d6df82eb9a2e8a908d7718d98a39b93
+UNCHANGED SOURCE androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt SHA256 ee9d1a4abb4b66fdd172ab8dbd651bb6c4e1e6bd9907c3e66fa85dc8ab571fce
+UNCHANGED SOURCE androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt SHA256 01967cab69739a8107dc126cbd7ded3897b9b06b448bf63893b29e2d6426319a
+UNCHANGED SOURCE docs/design/03-contracts/accounts-decks-and-lobby.md SHA256 769a5e24432df9a0dce87fab1c9764d263e5cdd14ff50cfb1f3d2b33cfcdd8c5
+UNCHANGED SOURCE docs/design/03-contracts/domain-model.md SHA256 459300a7f498306eeab48060b0c8591b13814da0ec04928765e08c827547dcc4
+UNCHANGED SOURCE docs/design/04-technical/protocol-v1.md SHA256 983786c41aa8f0612e0a01821a559f7c96b8b762b3b677548118624c642e73ec
+UNCHANGED SOURCE docs/design/04-technical/storage-mechanics.md SHA256 bad30d802053b91f2e13a4326286a70a82af5eb607f543541f77ceab63f2306d
+UNCHANGED SOURCE docs/design/04-technical/request-ordering-and-recovery.md SHA256 824cba33aff8740b01d532525e68d70bf724172b0156ee8bea6415a446569633
+UNCHANGED SOURCE docs/design/04-technical/prediction-and-playback.md SHA256 3656da2776b9549175c16f503090044301c0dfd43487bc0c25c3af9a5834bb18
+UNCHANGED SOURCE docs/design/05-verification/acceptance.md SHA256 a86b7dc95e04eaddef0c7814b9fd7b159c7af65152192929f626410a22732817
+UNCHANGED SOURCE docs/design/02-experience/ui/review.md SHA256 b85987315198d3f37f92aa40651d3650580cd77902bcd9204bb0b52674383121
+UNCHANGED SOURCE docs/design/02-experience/ui/feedback.md SHA256 d6368f536855b10514f7c0be129ea5b8a3a4a16fe8da8437d6cb9e94e834bdb2
+PASS exact owned state/report/evidence/support paths, JSON/source references and whitespace
+NOT RUN: product builds/tests/device journeys; planning-only, no runtime or UI-document edits

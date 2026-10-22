@@ -1,0 +1,86 @@
+{
+  "runId": "20261022T095915Z-36a5f0aa",
+  "sessionID": "ses_e9cf30ce6ffenR3pWBvEIvNCry",
+  "startCommit": "5283daee31ac94d53c2c9c92e2b9c6a0abc1f92a",
+  "mode": "review",
+  "target": "B1",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": ["capability"],
+  "outcome": "progress",
+  "summary": "Completed B1's first independent full-capability review at the supplied starting commit with no actionable findings. Inspected the delivered source and retained real account/navigation/reset/two-device/native evidence, including its red-run limitations; added and passed two focused tests coupling the production auth/reset controllers. B1 is reviewed and I05 is next. No runtime/build repair, new native run, full-suite pass, final mock acceptance or external release clearance is claimed.",
+  "selectionReason": "Clean master/index matched startCommit; D-304 active authorization, all B1 tasks/children implemented and no findings make the first B1 grouped review due before B2. Review scope is ordinary entry, private credentials/account switching, Menu/Games/Back/rotation, reset and resume plus the storage/server foundations they use. D-307 reuses exact retained real device/HTTP/storage/image evidence and independently inspects current source instead of rerunning unchanged green matrices. New tests address the missing coupled-controller integration seam, including the final notice/pending-Logout guard interactions, not speculative fault permutations. No other task or review scope advances.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-controller-seams.json -- ./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:44187 -PatwResetOrigin=https://reset.synthetic.invalid :androidApp:testDebugUnitTest --tests '*B1EntryIntegrationTest'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-controller-seams.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-junit.json"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review-evidence.json -- python3 docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review.py review",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review-evidence.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review.py validate > docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-validation.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-validation.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review.py"]
+    }
+  ],
+  "changedPaths": [
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/B1EntryIntegrationTest.kt",
+    "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-controller-seams.json",
+    "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-junit.json",
+    "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review-evidence.json",
+    "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-review.py",
+    "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa-validation.txt",
+    "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa.json",
+    "docs/agent/implementation-state.json"
+  ],
+  "reviewAssessment": [
+    {
+      "scope": "Normal APK and backend/storage foundation integration (I01)",
+      "result": "No actionable finding. Normal MainActivity, retained off-main storage owner and explicit non-destructive SQLite open/migration gate are used by real account entry, not an alternate test launcher. Inspected ServiceRuntime/SpringService and writer shared-epoch transaction fencing, explicit forward Flyway runner and worker/readiness attachment. Account/reset mutations use the same fenced transaction boundary; new mail recovery joins readiness. Child evidence already exercises actual PostgreSQL/jOOQ/image lifecycle, real Android SQLite/Keystore and normal APK/Compose routing. Reused I01's exact evidence reconciliation rather than another scaffold matrix. Future gameplay/inbox/outbox features are not represented as implemented."
+    },
+    {
+      "scope": "Registration/login, credential handling and ordinary privacy (I02)",
+      "result": "No actionable finding. Inspected server field-specific Unicode/email equivalence versus exact password bytes, Argon2id permits/cost, hashed-only random persistent tokens, account identity projection, strict bounded JSON/stateless authorization and generic errors/rate limits. Inspected fixed-origin Ktor transport/no redirects, bounded bodies/timeouts, no global bearer header, AES-GCM origin-bound Keystore/AtomicFile storage and no-backup policy. Native registration/error/correction/paste/visibility/login/protected-token restart/revocation evidence has a real green journey, not fabricated account injection. Scope excludes later contact/game projections; those retain their own privacy tests."
+    },
+    {
+      "scope": "Authenticated shell, native navigation, Logout and account/profile isolation (I03)",
+      "result": "No actionable finding. Inspected portrait drawer/Back/outside dismissal and landscape persistent navigation, fixed non-scrolling Logout, local destination restoration and real SQLite cross-account deletion. UI generation changes before queued cleanup, old results/writes are fenced, interrupted cleanup gates startup/login and remote revoke remains independent/best effort. New coupled-controller tests verify same-account destination retention after reset, explicit Logout and clean second-account entry. Independently inspected retained N02/Games screenshots and the green actual native shell journey; its visible status bar is from the explicitly pre-fix capture, not a fresh defect: existing later actual fullscreen/rotation/keyboard/native-Back instrumentation and current API29 fullscreen flag cover that repair. Deck/contact/game destination placeholders are truthful future scope, not fake empty server lists."
+    },
+    {
+      "scope": "Reset request/mail/deep-link/confirmation and two-device recovery (I04)",
+      "result": "No actionable finding. Inspected hashed canonical expiring reset tokens, encrypted durable mail payload deletion/backoff, actual SMTP TLS settings, atomic successful-only password/epoch/session/all-token transition and CSRF-protected no-referrer self-contained fallback form. Native origin/path/token parsing cannot choose an API host; cold/warm intents are sanitized and secrets remain volatile. Read-only preflight and explicit confirmation recheck are distinct. Fresh coupled-controller tests show request/invalid/open preserves the signed-in session, successful confirmation alone returns to sign-in without auto-login, exact password bytes survive, delayed old login UI cannot reopen and an interrupted Logout cannot be bypassed. Independently inspected retained A03/A04/used-link screenshots and the two-device reset core plus passing retained Logout/restart/account-switch tail. Original core command failed after its completed reset/revocation/resume assertions, and remains diagnostic; no whole green run is invented."
+    },
+    {
+      "scope": "Credible ordinary failures and responsiveness across the delivered capability",
+      "result": "No actionable finding. Correction/retry, revoked credentials, unavailable network/protection/storage, safe invalid reset links and owner lifecycle fences are covered by inspected current branches plus retained real and focused test evidence. Blocking SQLite/Keystore/network/hash work stays off Android UI; no authoritative local game or crash-durable outgoing work was introduced. Explicit D-289 already-authorized in-flight completion is allowed, not a reset scheduling bug. No speculative enterprise/fault permutation, naming/style preference or new scope was promoted to a blocker."
+    }
+  ],
+  "sourceIds": ["P-001", "P-043", "P-047", "P-059", "P-065", "P-066", "T-396", "T-397", "T-419", "T-420", "T-421", "T-422", "T-543", "T-572", "T-573", "T-621", "T-656", "T-657", "T-666", "T-676", "T-677", "F03", "F04", "F05", "F06", "F07", "F08", "F09", "F11", "F12", "F14", "F25", "F26", "F58"],
+  "sourcePaths": [
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/design/03-contracts/accounts-decks-and-lobby.md",
+    "docs/design/03-contracts/android-experience.md",
+    "docs/design/04-technical/authentication-and-sessions.md",
+    "androidApp/README.md",
+    "server/README.md"
+  ],
+  "retainedObligations": [
+    "This is independent review coverage of delivered B1, not execution/completion of every whole P/T/F scenario. Cross-feature game/request/context/recovery/social privacy assertions remain I09-I14/I26/I31, with complete coverage reconciliation in I34.",
+    "I34/I35: retain the recorded T-572/T-621 landscape password-field targeting/viewport assertion and corrected whole native journey qualification. It is not a proven application defect or a claimed pass. Existing A03/A04 both-orientation assertions and green retained tail are not a wholly green final-APK two-device run.",
+    "I34: positive local TLS/auth SMTP and other recorded deferred bounded-rate/encoding/security/foundation/reproducibility assertions, full suite, and B8 I01f3 multi-device/cold-boot obligations remain. Fail-closed TLS plus synthetic plaintext delivery is not positive TLS/auth qualification.",
+    "I35/I36/B8: supported compatibility/normal signed upgrades and complete all-interface/mock comparison in both orientations remain. Historical screenshots are independently reviewed evidence, not newly captured current-final-APK or exhaustive mock acceptance. Two late isolated notice/pending-Logout guards now additionally pass coupled production-controller checks; no native rerun is implied.",
+    "All external release gates remain unchanged/unverified, including rights/attribution, release signing/distribution, reference-device measurement and operator HTTPS/assetlinks/mail readiness. No deployment, paid resource, new loop, subagent or model/permission/authorization change."
+  ]
+}

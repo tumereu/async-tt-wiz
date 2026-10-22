@@ -1,0 +1,2 @@
+Checking the B1 review handoff and owned output paths.
+PASS B1-only independent review transition and exact owned test/report/evidence paths; I05 next. Tasks, authorization, model, runner, permission profile and external gates unchanged. No Markdown/UI-document edits.

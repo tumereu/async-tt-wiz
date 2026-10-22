@@ -67,12 +67,13 @@
                     "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",
                      "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json",
                       "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json",
-                      "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json"
+                       "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json",
+                       "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa.json"
    ],
   "findings": [],
   "batches": [
-    { "id": "B1", "status": "ready-for-review", "reviewedCommit": null,
-      "review": { "units": [{ "id": "capability", "scope": "Full B1 entry/navigation/reset/resume journey, privacy, failures and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B1", "status": "reviewed", "reviewedCommit": "5283daee31ac94d53c2c9c92e2b9c6a0abc1f92a",
+      "review": { "units": [{ "id": "capability", "scope": "Full B1 entry/navigation/reset/resume journey, privacy, failures and integration against the plan/contracts" }], "completed": { "capability": "5283daee31ac94d53c2c9c92e2b9c6a0abc1f92a" }, "blocked": {} } },
     { "id": "B2", "status": "pending", "reviewedCommit": null,
       "review": { "units": [{ "id": "capability", "scope": "Full B2 catalog/import/deck-management journey, failures, retained definitions and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
     { "id": "B3", "status": "pending", "reviewedCommit": null,

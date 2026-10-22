@@ -18,7 +18,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val error: String? = null, val loaded: Boolean = false, val connectionMessage: String? = null,
     val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet(),
     val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
-    val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0)
+    val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0,
+    val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null)
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
@@ -36,17 +37,20 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var pendingRecipient: AccountIdentity? = null
     private val pendingAdds = mutableMapOf<String, AddContact>()
     private var pickerVersion = 0L
+    val inspection = CardInspectionController()
     private val session: GameSession? = gameConnection?.let { GameSession(it, credential, post, authenticationRequired,
         changed = ::accepted, settled = { command, result ->
             if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted") open(command.scope.gameId)
             refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId) }
-    fun clear() { epoch++; searchVersion++; pickerVersion++; pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { epoch++; searchVersion++; pickerVersion++; inspection.close(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); session?.clear(); state = LobbyState() }
     private fun connectionState() {
         val wire = session ?: return
         val ids = (state.games + state.invitations + listOfNotNull(state.detail)).map { it.id }.toSet()
+        val next = state.detail?.let(wire::preparation)
+        val feedback = preparationFeedback(state.preparation, next, accountId(), state.transferFeedback)
         state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
-            acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = state.detail?.let(wire::preparation),
+            acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0)
     }
     private fun accepted(game: GameSummary) {
@@ -140,6 +144,15 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }
     }
     fun reconnect() { session?.tick(); refresh() }
+    fun prepareDeck() {
+        if (state.detail?.lifecycle == GameLifecycle.LOBBY && state.preparation?.players?.any { it.accountId == accountId() && it.deck != null } == true)
+            state = state.copy(preparing = true, transferFeedback = null)
+    }
+    fun inspectPrepared(definition: String) {
+        if (state.preparing) state.preparation?.definitions?.find { it.digest == definition }?.let {
+            inspection.open(InspectedCard.retained(it.digest, it.definition))
+        }
+    }
     /** Capture on pointer/accessibility start; release must use this exact object, not a fresh row count. */
     fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? {
         val game = state.detail ?: return null
@@ -221,8 +234,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
         }
     }
-    fun open(id: String) { if (!state.mutating) { closePicker(); state = state.copy(selected = id, detail = null, acceptedPreparation = null, preparation = null, error = null); openGame(); refresh() } }
-    fun back() { if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { state = state.copy(selected = null, detail = null, acceptedPreparation = null, preparation = null, error = null); refresh() } }
+    fun open(id: String) { if (!state.mutating) { closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, acceptedPreparation = null, preparation = null, preparing = false, transferFeedback = null, error = null); openGame(); refresh() } }
+    fun back() { if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
+        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { state = state.copy(selected = null, detail = null, acceptedPreparation = null, preparation = null, transferFeedback = null, error = null); refresh() } }
     fun sync() { session?.tick(); if (!state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) {
         if (closed || state.busy || state.mutating) return

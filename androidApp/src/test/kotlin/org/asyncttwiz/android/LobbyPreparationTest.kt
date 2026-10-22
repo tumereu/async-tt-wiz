@@ -237,6 +237,7 @@ class LobbyPreparationTest {
             side.action(side.entries.single(), 0)).state!!
         f.head(game.copy(revision = "2"), arrival)
         assertTrue(f.lobby.transfer(captured))
+        assertEquals("4× Retained card → Sideboard", f.lobby.state.transferFeedback?.text)
         val commands = f.wire.frames.filterIsInstance<GameCommand>().drop(1)
         assertEquals(4, commands.size)
         assertEquals(listOf("0", "1", "2", "3"), commands.map { (it.action as GameAction.TransferPreparedCard).cardIndex })
@@ -246,6 +247,7 @@ class LobbyPreparationTest {
         assertTrue(f.lobby.transfer(next)); assertEquals(6, f.wire.frames.filterIsInstance<GameCommand>().size)
         assertEquals(0L, f.lobby.state.preparation!!.players[0].deck!!.count(SavedDeckSection.MAINBOARD))
         val stale = f.wire.listener; f.auth.logout(); f.drain()
+        assertNull(f.lobby.state.transferFeedback); assertNull(f.lobby.inspection.state)
         stale.message(GameHead(game.id, "99", game.copy(revision = "99"), preparation = accepted)); f.drain()
         assertNull(f.lobby.state.preparation); assertFalse(f.lobby.transfer(captured))
     }

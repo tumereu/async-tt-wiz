@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.e2e.NativePreparationTransferTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-22T22:36:43.954Z" hostname="DESKTOP-B2KALVM" time="7.1">
+  <properties/>
+  <testcase name="capturedTapDragAndSharedPartialReconciliationBothOrientations()" classname="org.asyncttwiz.e2e.NativePreparationTransferTest" time="7.092">
+    <failure message="java.lang.IllegalStateException: Traceback (most recent call last):&#10;  File &quot;/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T215026Z-802a24bd/control.py&quot;, line 6, in &lt;module&gt;&#10;    from e2e import environment as e&#10;ModuleNotFoundError: No module named 'e2e'&#10;" type="java.lang.IllegalStateException">java.lang.IllegalStateException: Traceback (most recent call last):
+  File &quot;/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T215026Z-802a24bd/control.py&quot;, line 6, in &lt;module&gt;
+    from e2e import environment as e
+ModuleNotFoundError: No module named 'e2e'
+
+	at org.asyncttwiz.e2e.NativePreparationTransferTest.capturedTapDragAndSharedPartialReconciliationBothOrientations$control(NativePreparationTransferTest.kt:29)
+	at org.asyncttwiz.e2e.NativePreparationTransferTest.capturedTapDragAndSharedPartialReconciliationBothOrientations(NativePreparationTransferTest.kt:89)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

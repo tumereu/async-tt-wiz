@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-802a24bd000000000000000000000002",
+    "prepare-app",
+    "--environment",
+    "/tmp/opencode/atw-e2e-802a24bd000000000000000000000001",
+    "--apk",
+    "/home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
+  ],
+  "exitCode": 1,
+  "outputSha256": "0b4eb05165d4e26784260d1264ee95e3e6116ef10a887e8c288bb9ee00c49735",
+  "output": "Device controller failed: [Errno 28] No space left on device\n"
+}

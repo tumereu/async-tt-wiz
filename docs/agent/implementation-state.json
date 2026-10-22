@@ -101,7 +101,8 @@
                                                       "docs/agent/implementation-runs/20261022T201612Z-f7a4a46b.json",
                                                        "docs/agent/implementation-runs/20261022T210618Z-60f9921b.json",
                                                         "docs/agent/implementation-runs/20261022T211529Z-904fa077.json",
-                                                        "docs/agent/implementation-runs/20261022T212809Z-652a7416.json"
+                                                         "docs/agent/implementation-runs/20261022T212809Z-652a7416.json",
+                                                         "docs/agent/implementation-runs/20261022T215026Z-802a24bd.json"
    ],
   "findings": [
     {
@@ -1032,7 +1033,9 @@
     {
       "id": "I10b2",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T215026Z-802a24bd.json",
+      "qualification": "Delivered native L04/L04b Prepare deck with distinct 24dp one/all tap/drag controls, captured-copy/source binding, opposite-section release and cancelled/outside-drop suppression on I10b1's unchanged per-card path. Two independently owned normal API29 non-GMS APKs use UI-created synthetic accounts/deck/game and ordinary same-account moves. Both-orientation tap/drag, scroll-to-control, missing-art inspection, four-copy capture versus another device's one-copy conflict, immediate counts while the established backend socket is paused, Back/reopen and server-first restart execute. Native setup/config/scroll/observer diagnostics remain retained; successful retained tails reuse earlier assertions rather than repeating the green setup. Production native instrumentation separately passes full-row accessibility/OnClick, 32ms immediate counts, fixed visible/faded 40dp feedback/list bounds at 32/1632ms, non-actionable removed-row ghost/reflow, actual touch cancellation, rapid taps and pointer cancellation through row removal. Twenty affected host cases plus incremental APK/lint/module boundaries pass. Read-only SQL proves 48 original ordered requests, one exact-copy source conflict rejection without substitution, 47 accepted revisions, 48 result outbox records, final exact 12/3 preparation and unchanged saved source. Final sources/APKs/images/captures/JUnit and exact two-device/environment cleanup retained. Only I10b2 closes; I10b/I10 parent audits and B3 first review remain pending. I11/I12 own Ready/start/cancel/play-sideboard/two-player lifecycle, I14 gameplay prediction, I28/I31 rematch, I32/I34 remaining reduced-motion/large-text and final full suite/deferred assertions, I33/I35/I36/B8 measurements/compatibility/complete UI comparison and all external gates remain required/unverified.",
       "dependsOn": ["I10b1"],
       "planningRecord": "docs/agent/implementation-runs/20261022T211529Z-904fa077.json",
       "outcome": "Complete usable normal-APK L04/L04b preparation on I10b1's same shared/ordered/session implementation. Add compact distinct approximately 24px 1/infinity tap buttons and drag origins, opposite-section drop targets and native accessible one/all equivalents; capture concrete identities at gesture start and suppress tap after a recognized drag. Dispatch individual captured moves immediately on valid release, never per-frame or after Save/Send/animation/acknowledgement. Provide art-after-quantity inspection/text fallback, permanently reserved fading latest-actual-transfer text and a short non-actionable emptied-row fade/slide with current-geometry retargeting. Finish the real backend/native both-orientation transfer/reconciliation/reopen journey; do not add another qualification-only child or child review.",

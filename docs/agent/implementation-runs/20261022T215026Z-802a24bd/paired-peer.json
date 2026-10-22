@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T215026Z-802a24bd/pair.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "90a3273c66e80b71e72b20b303dd98616c38212070c7bf310db2e35ff98ca722",
+  "output": "{'owner': 'dc7804525627fce354e35d91fcea1a2779bf7105dcdece7f0a0efbb1c5ca0fc2', 'checkedAt': 1792706129.4441264, 'device': {'serial': 'emulator-5566', 'avd': 'atw-device-802a24bd000000000000000000000002', 'api': '29', 'bootCompleted': True, 'packageManager': True, 'gms': False, 'fingerprint': 'Android/sdk_phone_x86_64/generic_x86_64:10/QSR1.210820.001/7663313:userdebug/test-keys', 'mappings': {'forward': [], 'reverse': []}}, 'adbHost': '127.0.0.1', 'adbPort': 15040, 'appium': 'http://127.0.0.1:14755', 'systemPort': 18212, 'appiumStatus': {'value': {'ready': True, 'message': 'The server is ready to accept new connections', 'build': {'version': '3.8.0'}}}, 'scope': 'Device services only; no APK/UI/Compose/instrumentation acceptance'}\n"
+}

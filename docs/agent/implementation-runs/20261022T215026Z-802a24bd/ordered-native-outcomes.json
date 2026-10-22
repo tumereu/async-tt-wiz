@@ -1,0 +1,1970 @@
+[
+  {
+    "requestId": "318cc59d-2e3d-4a88-bed7-839a879e76dc",
+    "ordinal": 1,
+    "command": {
+      "type": "command",
+      "requestId": "318cc59d-2e3d-4a88-bed7-839a879e76dc",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "selectDeck",
+        "deckId": "29503eac-d8d0-4682-9e2e-ecc2e24ee513",
+        "sourceRevision": "1"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "318cc59d-2e3d-4a88-bed7-839a879e76dc",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "1",
+      "commitRevision": "1",
+      "createdIds": [
+        "4de8fd09-de83-5dcd-adb8-a80d87cde1e2"
+      ]
+    }
+  },
+  {
+    "requestId": "c8c7c516-7222-43b9-92a9-fe730d5be421",
+    "ordinal": 2,
+    "command": {
+      "type": "command",
+      "requestId": "c8c7c516-7222-43b9-92a9-fe730d5be421",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "c8c7c516-7222-43b9-92a9-fe730d5be421",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "2",
+      "commitRevision": "2",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "b3b4d9e6-c222-4c60-88c8-f65dbe86e56c",
+    "ordinal": 3,
+    "command": {
+      "type": "command",
+      "requestId": "b3b4d9e6-c222-4c60-88c8-f65dbe86e56c",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "b3b4d9e6-c222-4c60-88c8-f65dbe86e56c",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "3",
+      "commitRevision": "3",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "4cb27ebd-740c-4bea-a59d-6b71e9b3d7c4",
+    "ordinal": 4,
+    "command": {
+      "type": "command",
+      "requestId": "4cb27ebd-740c-4bea-a59d-6b71e9b3d7c4",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "4cb27ebd-740c-4bea-a59d-6b71e9b3d7c4",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "4",
+      "commitRevision": "4",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "d65a6ab5-15cd-48b6-96cd-5b552f7c4f20",
+    "ordinal": 5,
+    "command": {
+      "type": "command",
+      "requestId": "d65a6ab5-15cd-48b6-96cd-5b552f7c4f20",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "d65a6ab5-15cd-48b6-96cd-5b552f7c4f20",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "5",
+      "commitRevision": "5",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "2bffd9b4-67d8-401f-9036-093904233ec9",
+    "ordinal": 6,
+    "command": {
+      "type": "command",
+      "requestId": "2bffd9b4-67d8-401f-9036-093904233ec9",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "2bffd9b4-67d8-401f-9036-093904233ec9",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "6",
+      "commitRevision": "6",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "896b5393-c2b0-4d20-89d7-9492d43bbb58",
+    "ordinal": 7,
+    "command": {
+      "type": "command",
+      "requestId": "896b5393-c2b0-4d20-89d7-9492d43bbb58",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "896b5393-c2b0-4d20-89d7-9492d43bbb58",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "7",
+      "commitRevision": "7",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "64fa5254-ebdd-4381-a535-bbcc432353d3",
+    "ordinal": 8,
+    "command": {
+      "type": "command",
+      "requestId": "64fa5254-ebdd-4381-a535-bbcc432353d3",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "64fa5254-ebdd-4381-a535-bbcc432353d3",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "8",
+      "commitRevision": "8",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "3a589111-6193-4e4a-9a25-bb31375a4013",
+    "ordinal": 9,
+    "command": {
+      "type": "command",
+      "requestId": "3a589111-6193-4e4a-9a25-bb31375a4013",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "1",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "3a589111-6193-4e4a-9a25-bb31375a4013",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "9",
+      "commitRevision": "9",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "f9e8bd6c-27fe-4c20-80e8-a7f5303ea9d0",
+    "ordinal": 10,
+    "command": {
+      "type": "command",
+      "requestId": "f9e8bd6c-27fe-4c20-80e8-a7f5303ea9d0",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "6",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "f9e8bd6c-27fe-4c20-80e8-a7f5303ea9d0",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "10",
+      "commitRevision": "10",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "aef1982d-a968-477c-8a39-eac3bf3c1cd9",
+    "ordinal": 11,
+    "command": {
+      "type": "command",
+      "requestId": "aef1982d-a968-477c-8a39-eac3bf3c1cd9",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "6",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "aef1982d-a968-477c-8a39-eac3bf3c1cd9",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "11",
+      "commitRevision": "11",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "d1ac2ac1-1528-435f-8537-a60573dea736",
+    "ordinal": 12,
+    "command": {
+      "type": "command",
+      "requestId": "d1ac2ac1-1528-435f-8537-a60573dea736",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "d1ac2ac1-1528-435f-8537-a60573dea736",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "12",
+      "commitRevision": "12",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "5a07a7c1-9ab1-4bb9-ba37-b46d8059fb4f",
+    "ordinal": 13,
+    "command": {
+      "type": "command",
+      "requestId": "5a07a7c1-9ab1-4bb9-ba37-b46d8059fb4f",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "5a07a7c1-9ab1-4bb9-ba37-b46d8059fb4f",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "13",
+      "commitRevision": "13",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "082582d1-e4bf-4465-8823-d31cac3d0aa1",
+    "ordinal": 14,
+    "command": {
+      "type": "command",
+      "requestId": "082582d1-e4bf-4465-8823-d31cac3d0aa1",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "082582d1-e4bf-4465-8823-d31cac3d0aa1",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "14",
+      "commitRevision": "14",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "45a79d22-8620-4714-8ea7-a5d07886df22",
+    "ordinal": 15,
+    "command": {
+      "type": "command",
+      "requestId": "45a79d22-8620-4714-8ea7-a5d07886df22",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "45a79d22-8620-4714-8ea7-a5d07886df22",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "15",
+      "commitRevision": "15",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "78196edb-fd83-4689-a1a5-909ee6f8aa3b",
+    "ordinal": 16,
+    "command": {
+      "type": "command",
+      "requestId": "78196edb-fd83-4689-a1a5-909ee6f8aa3b",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "78196edb-fd83-4689-a1a5-909ee6f8aa3b",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "16",
+      "commitRevision": "16",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "29c9f95f-c389-4f18-9895-8797c944427d",
+    "ordinal": 17,
+    "command": {
+      "type": "command",
+      "requestId": "29c9f95f-c389-4f18-9895-8797c944427d",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "29c9f95f-c389-4f18-9895-8797c944427d",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "17",
+      "commitRevision": "17",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "7474da3e-d902-4719-81f2-cfb00618eec3",
+    "ordinal": 18,
+    "command": {
+      "type": "command",
+      "requestId": "7474da3e-d902-4719-81f2-cfb00618eec3",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "7474da3e-d902-4719-81f2-cfb00618eec3",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "18",
+      "commitRevision": "18",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "c18532e3-2d09-4818-9a39-16c4a65d7560",
+    "ordinal": 19,
+    "command": {
+      "type": "command",
+      "requestId": "c18532e3-2d09-4818-9a39-16c4a65d7560",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "c18532e3-2d09-4818-9a39-16c4a65d7560",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "19",
+      "commitRevision": "19",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "2b915237-e311-43b8-9d11-574d5e04165e",
+    "ordinal": 20,
+    "command": {
+      "type": "command",
+      "requestId": "2b915237-e311-43b8-9d11-574d5e04165e",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "2b915237-e311-43b8-9d11-574d5e04165e",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "20",
+      "commitRevision": "20",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "5aadf48a-2faf-4ed4-bc0e-bc9e9d070cee",
+    "ordinal": 21,
+    "command": {
+      "type": "command",
+      "requestId": "5aadf48a-2faf-4ed4-bc0e-bc9e9d070cee",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "5aadf48a-2faf-4ed4-bc0e-bc9e9d070cee",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "21",
+      "commitRevision": "21",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "f1dc81fe-af8e-4053-a7d2-43b4a968dfb1",
+    "ordinal": 22,
+    "command": {
+      "type": "command",
+      "requestId": "f1dc81fe-af8e-4053-a7d2-43b4a968dfb1",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "9c5ff643-fb48-45c8-ab18-892b3baf7abe",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "f1dc81fe-af8e-4053-a7d2-43b4a968dfb1",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "22",
+      "commitRevision": "22",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "a8e175ad-9369-446d-8b2e-eb9248c42806",
+    "ordinal": 23,
+    "command": {
+      "type": "command",
+      "requestId": "a8e175ad-9369-446d-8b2e-eb9248c42806",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "a8e175ad-9369-446d-8b2e-eb9248c42806",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "rejected",
+      "reason": "sourceSectionChanged",
+      "ingressOrdinal": "23",
+      "commitRevision": null,
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "b311b672-88a5-4425-a731-8d5ddd0a9846",
+    "ordinal": 24,
+    "command": {
+      "type": "command",
+      "requestId": "b311b672-88a5-4425-a731-8d5ddd0a9846",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "b311b672-88a5-4425-a731-8d5ddd0a9846",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "24",
+      "commitRevision": "23",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "61ce11c7-5eed-4960-b8c9-845f98ac6568",
+    "ordinal": 25,
+    "command": {
+      "type": "command",
+      "requestId": "61ce11c7-5eed-4960-b8c9-845f98ac6568",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "61ce11c7-5eed-4960-b8c9-845f98ac6568",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "25",
+      "commitRevision": "24",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "1116864f-6e18-42b6-8045-167bb23c42f8",
+    "ordinal": 26,
+    "command": {
+      "type": "command",
+      "requestId": "1116864f-6e18-42b6-8045-167bb23c42f8",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "1116864f-6e18-42b6-8045-167bb23c42f8",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "26",
+      "commitRevision": "25",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "679ec0af-7366-4dfc-a318-2ef44640253e",
+    "ordinal": 27,
+    "command": {
+      "type": "command",
+      "requestId": "679ec0af-7366-4dfc-a318-2ef44640253e",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "679ec0af-7366-4dfc-a318-2ef44640253e",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "27",
+      "commitRevision": "26",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "d89c47a7-df9b-407e-aadd-cc7712b04f2a",
+    "ordinal": 28,
+    "command": {
+      "type": "command",
+      "requestId": "d89c47a7-df9b-407e-aadd-cc7712b04f2a",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "d89c47a7-df9b-407e-aadd-cc7712b04f2a",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "28",
+      "commitRevision": "27",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "2cb3e884-290e-4c52-a19e-ffd0ea0dbf6f",
+    "ordinal": 29,
+    "command": {
+      "type": "command",
+      "requestId": "2cb3e884-290e-4c52-a19e-ffd0ea0dbf6f",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "2cb3e884-290e-4c52-a19e-ffd0ea0dbf6f",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "29",
+      "commitRevision": "28",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "d235d9cb-1179-4c41-a106-575ebf06a9f7",
+    "ordinal": 30,
+    "command": {
+      "type": "command",
+      "requestId": "d235d9cb-1179-4c41-a106-575ebf06a9f7",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "d235d9cb-1179-4c41-a106-575ebf06a9f7",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "30",
+      "commitRevision": "29",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "f2e3c66a-0368-493a-8ba1-d383e9f5be8c",
+    "ordinal": 31,
+    "command": {
+      "type": "command",
+      "requestId": "f2e3c66a-0368-493a-8ba1-d383e9f5be8c",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "f2e3c66a-0368-493a-8ba1-d383e9f5be8c",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "31",
+      "commitRevision": "30",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "b1bb812d-2ad3-471a-adcd-1a5698103b94",
+    "ordinal": 32,
+    "command": {
+      "type": "command",
+      "requestId": "b1bb812d-2ad3-471a-adcd-1a5698103b94",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "eaaceef0-04b6-49d5-9c85-97f24dbf54e3",
+      "generation": "8",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "b1bb812d-2ad3-471a-adcd-1a5698103b94",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "32",
+      "commitRevision": "31",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "2135d6b3-7d18-4e81-bf67-293ea47844ed",
+    "ordinal": 33,
+    "command": {
+      "type": "command",
+      "requestId": "2135d6b3-7d18-4e81-bf67-293ea47844ed",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "2135d6b3-7d18-4e81-bf67-293ea47844ed",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "33",
+      "commitRevision": "32",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "dab75298-a2a4-4f15-b76a-9d22effbc2bf",
+    "ordinal": 34,
+    "command": {
+      "type": "command",
+      "requestId": "dab75298-a2a4-4f15-b76a-9d22effbc2bf",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "MAINBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "dab75298-a2a4-4f15-b76a-9d22effbc2bf",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "34",
+      "commitRevision": "33",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "de75356c-0d68-4aae-a559-873eb4e71979",
+    "ordinal": 35,
+    "command": {
+      "type": "command",
+      "requestId": "de75356c-0d68-4aae-a559-873eb4e71979",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "MAINBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "de75356c-0d68-4aae-a559-873eb4e71979",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "35",
+      "commitRevision": "34",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "41126418-db50-453a-9fd3-b4740c49b59f",
+    "ordinal": 36,
+    "command": {
+      "type": "command",
+      "requestId": "41126418-db50-453a-9fd3-b4740c49b59f",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "MAINBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "41126418-db50-453a-9fd3-b4740c49b59f",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "36",
+      "commitRevision": "35",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "313fd80a-ee10-48ca-b36b-f9215ae5050e",
+    "ordinal": 37,
+    "command": {
+      "type": "command",
+      "requestId": "313fd80a-ee10-48ca-b36b-f9215ae5050e",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "313fd80a-ee10-48ca-b36b-f9215ae5050e",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "37",
+      "commitRevision": "36",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "3b2e503a-3a8c-4d6c-b971-8117c08c0366",
+    "ordinal": 38,
+    "command": {
+      "type": "command",
+      "requestId": "3b2e503a-3a8c-4d6c-b971-8117c08c0366",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "3b2e503a-3a8c-4d6c-b971-8117c08c0366",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "38",
+      "commitRevision": "37",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "2b4ab75f-6285-4d06-a650-1b61af1256e8",
+    "ordinal": 39,
+    "command": {
+      "type": "command",
+      "requestId": "2b4ab75f-6285-4d06-a650-1b61af1256e8",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "2b4ab75f-6285-4d06-a650-1b61af1256e8",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "39",
+      "commitRevision": "38",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "241784b1-0d04-4eef-94ef-0c52ca380b6c",
+    "ordinal": 40,
+    "command": {
+      "type": "command",
+      "requestId": "241784b1-0d04-4eef-94ef-0c52ca380b6c",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "0a5b686e-ce83-41c5-9095-15e576dbd3c0",
+      "generation": "10",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "241784b1-0d04-4eef-94ef-0c52ca380b6c",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "40",
+      "commitRevision": "39",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "1e5f0aee-047e-49bb-844b-c23f2f569093",
+    "ordinal": 41,
+    "command": {
+      "type": "command",
+      "requestId": "1e5f0aee-047e-49bb-844b-c23f2f569093",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "MAINBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "1e5f0aee-047e-49bb-844b-c23f2f569093",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "41",
+      "commitRevision": "40",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "32ce6b83-5e64-49f7-a4f6-1ef5fae0bd24",
+    "ordinal": 42,
+    "command": {
+      "type": "command",
+      "requestId": "32ce6b83-5e64-49f7-a4f6-1ef5fae0bd24",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "MAINBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "32ce6b83-5e64-49f7-a4f6-1ef5fae0bd24",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "42",
+      "commitRevision": "41",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "1653c7ce-51d8-4d17-9548-2ff537bd4e45",
+    "ordinal": 43,
+    "command": {
+      "type": "command",
+      "requestId": "1653c7ce-51d8-4d17-9548-2ff537bd4e45",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "MAINBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "1653c7ce-51d8-4d17-9548-2ff537bd4e45",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "43",
+      "commitRevision": "42",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "cccb2a24-88a6-4aba-a070-e2d1cd93a367",
+    "ordinal": 44,
+    "command": {
+      "type": "command",
+      "requestId": "cccb2a24-88a6-4aba-a070-e2d1cd93a367",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "MAINBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "cccb2a24-88a6-4aba-a070-e2d1cd93a367",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "44",
+      "commitRevision": "43",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "93be0af3-bd2e-42e4-8b6b-ad74657d68cd",
+    "ordinal": 45,
+    "command": {
+      "type": "command",
+      "requestId": "93be0af3-bd2e-42e4-8b6b-ad74657d68cd",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "78736213-94f6-5fb0-8dee-ec101113b62d",
+        "cardIndex": "0",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "93be0af3-bd2e-42e4-8b6b-ad74657d68cd",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "45",
+      "commitRevision": "44",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "3020b8a4-0b55-4691-a4c4-c9259bd64c93",
+    "ordinal": 46,
+    "command": {
+      "type": "command",
+      "requestId": "3020b8a4-0b55-4691-a4c4-c9259bd64c93",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "0eba5566-e36d-567a-b8ff-b8741a95feac",
+        "cardIndex": "1",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "3020b8a4-0b55-4691-a4c4-c9259bd64c93",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "46",
+      "commitRevision": "45",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "4be8677c-e31c-4250-b02c-4ed421ba4248",
+    "ordinal": 47,
+    "command": {
+      "type": "command",
+      "requestId": "4be8677c-e31c-4250-b02c-4ed421ba4248",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "3bf92461-e17f-5912-8fd3-23e62596d34c",
+        "cardIndex": "2",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "4be8677c-e31c-4250-b02c-4ed421ba4248",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "47",
+      "commitRevision": "46",
+      "createdIds": []
+    }
+  },
+  {
+    "requestId": "637469d2-1b04-4e3b-90b7-3dc1f1359fd4",
+    "ordinal": 48,
+    "command": {
+      "type": "command",
+      "requestId": "637469d2-1b04-4e3b-90b7-3dc1f1359fd4",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "action": {
+        "type": "transferPreparedCard",
+        "deckId": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+        "cardId": "2ee17be5-0bdc-5838-aad2-a9500ad21e5f",
+        "cardIndex": "3",
+        "source": "SIDEBOARD"
+      },
+      "streamId": "720da41f-fd8c-4117-8ae2-19f9eb999b67",
+      "generation": "11",
+      "commandVersion": 1,
+      "invocationId": null,
+      "continuation": null,
+      "inlineDefinitions": []
+    },
+    "result": {
+      "requestId": "637469d2-1b04-4e3b-90b7-3dc1f1359fd4",
+      "scope": {
+        "gameId": "6f29233f-7270-4195-b9e6-8b7854907ce0",
+        "preparationId": "9a2c86ab-474c-4ce5-a05e-c20671dcd85e",
+        "invitationId": null,
+        "playId": null
+      },
+      "outcome": "accepted",
+      "reason": null,
+      "ingressOrdinal": "48",
+      "commitRevision": "47",
+      "createdIds": []
+    }
+  }
+]

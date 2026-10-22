@@ -149,6 +149,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     val state = controller.state
     BackHandler { controller.back() }
     if (state.picker != null) { LobbyDeckPicker(controller, importDeck); return }
+    if (state.preparing && state.detail?.lifecycle == GameLifecycle.LOBBY) {
+        PreparationScreen(controller, accountId, landscape); return
+    }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger != null) IconButton(onClick = hamburger) { EntryIcon("Open navigation", "menu") }
@@ -168,6 +171,8 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                             EntryIcon(null, "decks"); Spacer(Modifier.width(4.dp))
                             Text(if (state.preparation?.players?.find { it.accountId == accountId }?.deck == null) "Choose deck" else "Change deck")
                         }
+                        if (state.preparation?.players?.find { it.accountId == accountId }?.deck != null && game.lifecycle == GameLifecycle.LOBBY)
+                            OutlinedButton(onClick = controller::prepareDeck) { Text("Prepare deck") }
                     } }
                 }
                 val opponent: @Composable (Modifier) -> Unit = { modifier ->

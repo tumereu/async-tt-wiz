@@ -1,0 +1,76 @@
+{
+  "requests": 31,
+  "rejectedTransfers": 1,
+  "prepared": {
+    "id": "4de8fd09-de83-5dcd-adb8-a80d87cde1e2",
+    "sourceId": "29503eac-d8d0-4682-9e2e-ecc2e24ee513",
+    "sourceRevision": "1",
+    "name": "Transfer source",
+    "cover": "sha256:3e9dc098a7b5c1f0f17ec01bb404fc02a5984754a3cc85da8d97079c8d699dff",
+    "selectionRequestId": "318cc59d-2e3d-4a88-bed7-839a879e76dc",
+    "entries": [
+      {
+        "definition": "sha256:3e9dc098a7b5c1f0f17ec01bb404fc02a5984754a3cc85da8d97079c8d699dff",
+        "section": "SIDEBOARD",
+        "firstIndex": "0",
+        "quantity": 1
+      },
+      {
+        "definition": "sha256:3e9dc098a7b5c1f0f17ec01bb404fc02a5984754a3cc85da8d97079c8d699dff",
+        "section": "MAINBOARD",
+        "firstIndex": "1",
+        "quantity": 3
+      },
+      {
+        "definition": "sha256:cc30aa8070d3774c5bac32582a26d2712904434bc6fefbc2f456c03128fb2f31",
+        "section": "MAINBOARD",
+        "firstIndex": "4",
+        "quantity": 2
+      },
+      {
+        "definition": "sha256:7802dcfeeb1d0e4030c5a3037826c711f92190984b790bf9d561a41a424150dc",
+        "section": "MAINBOARD",
+        "firstIndex": "6",
+        "quantity": 1
+      },
+      {
+        "definition": "sha256:748190cafdd5e6d7fb65a386af179a0a9994bf9887842e0e2dc7171d7b614718",
+        "section": "MAINBOARD",
+        "firstIndex": "7",
+        "quantity": 1
+      },
+      {
+        "definition": "sha256:1cd0916cde8127cb19aa69c396d6c75c1969c7ed5f3b6221b7ef5af98a5be3be",
+        "section": "MAINBOARD",
+        "firstIndex": "8",
+        "quantity": 1
+      },
+      {
+        "definition": "sha256:77eb67a65fa2022347926fd07f421ae8ee5de036d285177c71347463e59479c7",
+        "section": "MAINBOARD",
+        "firstIndex": "9",
+        "quantity": 1
+      },
+      {
+        "definition": "sha256:26fab1d9b8702ca637fd3613ebc3d71ec9a317eb63ebe874f60039f3daa43298",
+        "section": "MAINBOARD",
+        "firstIndex": "10",
+        "quantity": 1
+      },
+      {
+        "definition": "sha256:b6c22eaca1a70fc7ac402346505982c2ba53ea4e0167e19f6905c665bb0b2888",
+        "section": "MAINBOARD",
+        "firstIndex": "11",
+        "quantity": 1
+      },
+      {
+        "definition": "sha256:71c5270ce3711c1ded91602fc43ca451f636cb070a32b8fcecf6eb4dd8493c3a",
+        "section": "SIDEBOARD",
+        "firstIndex": "12",
+        "quantity": 3
+      }
+    ]
+  },
+  "sources": 1,
+  "revision": 30
+}

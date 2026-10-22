@@ -66,11 +66,12 @@
                    "docs/agent/implementation-runs/20261022T070751Z-df665f98.json",
                     "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",
                      "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json",
-                     "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json"
+                      "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json",
+                      "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json"
    ],
   "findings": [],
   "batches": [
-    { "id": "B1", "status": "pending", "reviewedCommit": null,
+    { "id": "B1", "status": "ready-for-review", "reviewedCommit": null,
       "review": { "units": [{ "id": "capability", "scope": "Full B1 entry/navigation/reset/resume journey, privacy, failures and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
     { "id": "B2", "status": "pending", "reviewedCommit": null,
       "review": { "units": [{ "id": "capability", "scope": "Full B2 catalog/import/deck-management journey, failures, retained definitions and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
@@ -570,7 +571,9 @@
     {
       "id": "I04",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json",
+      "qualification": "D-307 parent audit reconciles I04a at f668bbd60232da10c7212a40e083999cf60ff2fd and I04b at e9b51a762c680a99f38a98aeebda1973abfc233f, exact committed check/support/source bytes, source/APK/image/library hashes and actual retained JUnit/native outputs. Qualified reset-token/password/epoch/session/mail storage and SMTP behavior remains unchanged; I04b's sole server/protocol production delta is the read-only link preflight, covered by affected HTTP/image/native evidence. The real two-device core exercised request/open/invalid-input non-revocation, explicit confirmation, both original session refusals, exact new-password logins, safe used-link refusal and protected-token resume before its diagnostic offscreen Logout label failure; a passing retained targeted tail completes both local Logouts/signed-out restarts and different-account entry. No wholly green core-command or final-APK native run is claimed. Final notice/pending-Logout guards have passing targeted host/lint/build checks; their captures predate those guards. No missing ordinary integration seam needs another build/device/full-suite run. Only I04 closes; B1 is ready for its first fresh independent capability review, with no review coverage supplied here. Landscape field-targeting, positive local TLS/auth SMTP and final full-journey/suite/UI/compatibility assertions remain explicitly I34/I35/I36; later game/request recovery and whole cross-feature scenarios remain pending. All external release gates unchanged/unverified.",
       "dependsOn": ["I03"],
       "children": ["I04a", "I04b"],
       "planningRecord": "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",

@@ -1,0 +1,80 @@
+{
+  "runId": "20261022T095434Z-3f5c6c3a",
+  "sessionID": "ses_e9cf75621ffeisGYZDh72XOvRN",
+  "startCommit": "e9b51a762c680a99f38a98aeebda1973abfc233f",
+  "mode": "implement",
+  "target": "I04",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Closed only I04 through a passing run-owned child-evidence/current-input audit. Actual reset API/token/password/session/mail behavior and native A03/A04/cold-warm-link/two-device integration are evidenced by the children, including the diagnostic core's completed assertions and passing retained Logout/account-switch tail. Original red runs stay red; final APK's two isolated guards have affected host/build checks, not new native captures. No missing ordinary seam requires another build/device/full-suite run. B1 is ready for its first independent review; final deferred assertions and external gates remain open.",
+  "selectionReason": "Clean master/index matched the supplied starting commit. D-304 is active, findings are empty, I03 and both I04 children are implemented, and the driver selects I04 before B1 review or B2. This parent reconciles exact saved evidence/source/artifact identities and already-exercised server-mail-native integration under D-307, rather than repeating the device journey, unchanged fault matrix or full suite. Affected check scope is evidence integrity, relevant I04b preflight/final guard deltas, truthful partial coverage, and I04-only state handoff to fresh B1 review.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py validate > docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-validation.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-validation-initial.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py audit > docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py validate > docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-validation.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-validation.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py",
+    "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.txt",
+    "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-validation-initial.txt",
+    "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-validation.txt",
+    "docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a.json",
+    "docs/agent/implementation-state.json"
+  ],
+  "reusedEvidence": [
+    {
+      "task": "I04a",
+      "record": "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json",
+      "savedCommit": "f668bbd60232da10c7212a40e083999cf60ff2fd",
+      "scope": "Actual V3 PostgreSQL/Flyway/jOOQ reset tokens/encrypted outbox, atomic successful-only password/epoch/all-session/all-token change, concurrent single winner, expiry/invalid/reuse safety, secure fallback POST/CSRF form, actual SMTP/retry/permanent failure/expiry/restart/readiness and isolated OCI/Compose delivery/reset-store integration. Original compile/setup failures and actual red JUnit remain diagnostic; passing affected assertions are reused, not rerun. Runtime storage/mail/reset sources and locks remain unchanged through I04b."
+    },
+    {
+      "task": "I04b",
+      "record": "docs/agent/implementation-runs/20261022T084055Z-9e1f1522.json",
+      "savedCommit": "e9b51a762c680a99f38a98aeebda1973abfc233f",
+      "scope": "Normal A03/A04 and strict configured cold/warm HTTPS intent handling, real fixed-origin reset/check APIs and read-only server preflight, volatile/fenced exact input and explicit-only reset. Actual two-device core reset/new-request revocation/reuse/resume assertions precede a diagnostic offscreen Logout label failure; a green retained targeted tail completes different-account entry and both Logouts/restarts without resetting the scenario or replaying accepted registration. Final notice/pending-Logout guards have targeted passing host/lint/build output. Exact sources/final APK/image/runtime libraries and retained native input/session/PNG/XML hashes reconcile; native captures are from the earlier journey APK, not the final APK. Exact owned cleanup passes."
+    }
+  ],
+  "sourceIds": ["P-043", "P-047", "P-066", "T-396", "T-421", "T-572", "T-621", "T-656", "T-657", "T-666", "F04", "F05", "F06", "F11"],
+  "sourcePaths": [
+    "docs/agent/implementation-plan.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/03-contracts/accounts-decks-and-lobby.md",
+    "docs/design/04-technical/authentication-and-sessions.md",
+    "docs/design/04-technical/protocol-v1.md",
+    "androidApp/README.md",
+    "server/README.md"
+  ],
+  "sourceDisposition": "I04.reset server/mail/native/session/account portions have child evidence; the source-pinned ledger remains partial assertion assignment, not a whole P/T/F scenario or final UI pass. Preserve D-279 successful-reset-only revocation and D-289 ordinary new-request authorization; no stronger in-flight/reset/login/game-commit ordering is introduced.",
+  "diagnosticRepair": "Initial handoff validator checked its still-empty redirected output before printing anything, failing its own newline assertion. Flush a start line before self-inspection; preserve the initial output and rerun only this affected validator, not the passing child audit or product tests.",
+  "retainedObligations": [
+    "B1's first independent full-capability review is now due. This implementation parent supplies no independent review, completed review leaf or reviewedCommit.",
+    "I34/I35: recorded T-572/T-621 landscape password-field selector/viewport limitation and corrected whole native journey/full-suite qualification. A03/A04 both orientations were exercised, but the later landscape account-switch password targeting assertion is not a pass or proven runtime defect. Preserve original red output and targeted green tail separately.",
+    "I34: I04a's positive local TLS/auth SMTP and remaining bounded-rate/encoding/security assertions, final full suite/coverage/deferred matrices. Existing fail-closed TLS and isolated plaintext SMTP checks are not positive TLS/auth evidence. No broad qualification rerun at this parent boundary.",
+    "I09-I14/I26/I31: actual game/account/request/outcome synchronization/recovery and full cross-feature P/T scenarios remain pending; account/reset evidence does not implement them.",
+    "I35/I36/B8: compatibility/upgrades, complete current mocked/unpictured UI comparison in both orientations, fresh discrepancy fixes/checks. Final native UI qualification must use the delivered final APK; earlier child captures predate its isolated notice/pending-Logout guards.",
+    "All rights/signing/operator/reference-hardware gates remain unchanged/unverified. Public HTTPS/assetlinks/proxy token-query redaction and real SMTP delivery require external operator resources, not deployment by this unit.",
+    "No runtime/build/UI-document edit, new dependency, subagent, second loop, next unit, deployment or paid resource. No authorization/runner/model/permission/release-gate change. No owned service/device was started by this evidence-only closure."
+  ]
+}

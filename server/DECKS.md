@@ -183,8 +183,10 @@ transactional rollback, installed V3→V4 migration, affected account/foundation
 regressions, Android shared-artifact assembly/lint and exact owned cleanup evidence.
 No public catalog/art endpoint is needed by those service checks.
 
-I06b2 still owns native Save/failure/retry/success/restart and private callback
-fences. Native Save is not enabled here. I07 owns collection metadata/cover/delete/
+The [I06b2 run](../docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f.json)
+wires native Save/failure/retry/success/restart and private callback fences to these
+unchanged service interfaces, including server-definition reopening without an
+installed public catalog. I07 owns collection metadata/cover/delete/
 full inspection/synchronization, I08 extends **this same** service with contextual
 Overwrite/Merge and full conflict/copy-isolation checks. I06b/I06 parents and B2
 independent review remain open. I34 retains final full-suite/fault assertions, I35

@@ -48,6 +48,9 @@ class AuthController(
 
     private fun bestEffortRevoke(value: String) { runCatching { revoke(value) } }
 
+    /** Capture on the UI thread for one ordinary private request; never expose it in display state. */
+    fun sessionToken(): String? = if (!closed && state.account != null && !state.busy) token.get() else null
+
     private fun rememberToken(value: String, epoch: Long) {
         synchronized(ownerLock) {
             if (generation.get() == epoch) token.set(value) else bestEffortRevoke(value)

@@ -100,7 +100,7 @@ class NativeImportTest {
             text("Mainboard · 18"); capture("d04-preview-portrait")
             previewBottom()
             assertTrue(listField().text.contains("Personal import draft"))
-            assertFalse(enabled("Save deck"))
+            assertTrue(enabled("Save deck"))
             capture("d04b-controls-portrait")
             button("Edit pasted list")
             // Return to the input top after the preview's separate scroll position.
@@ -121,9 +121,9 @@ class NativeImportTest {
             text("Manage decks").click(); button("Import deck")
             assertFalse(listField().text.contains("Private account draft"))
             capture("logout-clears-import")
-            record("import-observation.json", mapOf("scope" to "I06a input/errors/correction/preview only; save disabled until I06b",
+            record("import-observation.json", mapOf("scope" to "Input/errors/correction/preview only; save is not pressed in this test",
                 "journeys" to listOf("UI-created account", "real hosted catalog", "blocking exact line error", "correction and retry",
-                    "section quantities and read-only art/text", "rotation retains text/name/preview", "long-preview reachable Edit/disabled Save",
+                    "section quantities and read-only art/text", "rotation retains text/name/preview", "long-preview reachable Edit/Save",
                     "native Back preview-to-input and input-to-decks", "Exit discards", "Logout clears private draft")))
         } finally {
             runCatching { capture("import-final") }; driver.quit(); record("session-closed.json", mapOf("closed" to true))

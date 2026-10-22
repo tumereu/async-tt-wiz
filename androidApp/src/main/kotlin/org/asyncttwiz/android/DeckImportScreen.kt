@@ -48,12 +48,15 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                 }
                 if (state.result?.issues?.isNotEmpty() == true && catalog != null) CatalogControls(catalog)
             } else {
-                OutlinedTextField(state.name, controller::name, label = { Text("Deck name") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("deck-name"))
-                Text("Saving decks is not available in this build yet.", Modifier.padding(vertical = 12.dp))
+                 OutlinedTextField(state.name, controller::name, label = { Text("Deck name") }, singleLine = true,
+                    enabled = !state.saving, modifier = Modifier.fillMaxWidth().testTag("deck-name"))
+                if (state.saving) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Saving deck…") }
+                state.error?.let { Text(it, Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.error) }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("Save deck") }
-                    OutlinedButton(onClick = { keyboard?.hide(); controller.editList() }, modifier = Modifier.weight(1f).testTag("edit-pasted-list")) {
+                    Button(onClick = { keyboard?.hide(); controller.save() }, enabled = !state.saving,
+                        modifier = Modifier.weight(1f).testTag("save-deck")) { EntryIcon(null, "decks"); Text("Save deck") }
+                    OutlinedButton(onClick = { keyboard?.hide(); controller.editList() }, enabled = !state.saving,
+                        modifier = Modifier.weight(1f).testTag("edit-pasted-list")) {
                         Text("Edit pasted list")
                     }
                 }

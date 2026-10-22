@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.e2e.NativeDeckSaveTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-22T12:59:46.300Z" hostname="DESKTOP-B2KALVM" time="18.1">
+  <properties/>
+  <testcase name="savesRetriesAndReopensRetainedDefinitions()" classname="org.asyncttwiz.e2e.NativeDeckSaveTest" time="18.09">
+    <failure message="java.lang.IllegalStateException: Owned command failed: python3: can't open file '/home/tuomas/projects/async-tt-wiz/e2e/scripts/e2e-environment.py': [Errno 2] No such file or directory&#10;" type="java.lang.IllegalStateException">java.lang.IllegalStateException: Owned command failed: python3: can't open file '/home/tuomas/projects/async-tt-wiz/e2e/scripts/e2e-environment.py': [Errno 2] No such file or directory
+
+	at org.asyncttwiz.e2e.NativeDeckSaveTest.savesRetriesAndReopensRetainedDefinitions$command(NativeDeckSaveTest.kt:34)
+	at org.asyncttwiz.e2e.NativeDeckSaveTest.savesRetriesAndReopensRetainedDefinitions(NativeDeckSaveTest.kt:130)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

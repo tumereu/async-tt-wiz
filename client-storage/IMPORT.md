@@ -1,4 +1,4 @@
-# Deck text import — I06a
+# Deck text import and new saved decks — I06a/I06b2
 
 `DeckTextParser` preserves the exact input string and 1-based source lines. It
 accepts positive integer quantity/name entries (also `4x Name`), optional exact
@@ -27,9 +27,20 @@ ViewModel owns the volatile draft; Logout/reset clears it synchronously and fenc
 old lookup callbacks. Nothing is written as an authoritative local saved deck.
 Process death may lose unfinished personal input; rotation does not.
 
-**Save deck is deliberately disabled in I06a.** I06b must wire the real authenticated
-definition submission/atomic named save and read-back into this same result and
-screen. I07 adds collection/inspector management; I08 adds contextual Overwrite/Merge.
+**Save deck now uses the real authenticated service.** `DeckSavePlan` maps every
+ordered face, explicit links, raw provider provenance and plain display/default
+strings into shared content-addressed definitions on the import worker. One Save
+submits complete metadata and atomically creates the named server deck without an
+extra Upload action. Name/text/preview stay editable after failure; same-process
+unchanged retries retain both immutable requests and IDs. Changing input or name
+creates new identities. No crash-durable outgoing queue is added.
+
+Success opens a server-read saved detail. The minimal collection follows all list
+pages and reads the exact attached definitions, independent of public catalog/art
+availability. Restart fetches accepted decks again; it does not recreate an uncertain
+draft. Logout clears draft/list/detail memory immediately and fences queued work
+and late callbacks. Already-authorized in-flight work may finish under D-289.
+I07 adds collection/inspector management; I08 adds contextual Overwrite/Merge.
 The full suite, broad device matrix and final mock comparison remain I34–I36/B8.
 
 Focused host checks:
@@ -43,3 +54,6 @@ Focused host checks:
 The [run record](../docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json)
 retains actual native Appium input/error/correction/preview/rotation/Exit/Logout
 evidence and the incremental builds, with diagnostics kept separate from passes.
+The [save run](../docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f.json)
+adds focused mapping/HTTP/controller/private-read tests and normal API29 Appium
+save/failure/retry/restart/public-catalog-eviction/account-isolation evidence.

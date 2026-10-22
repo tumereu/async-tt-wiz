@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/retain.py"
+  ],
+  "exitCode": 1,
+  "output": "PASS retained affected JUnit DeckSaveTest 5 cases\nPASS retained affected JUnit DeckImportControllerTest 3 cases\nPASS retained affected JUnit AuthControllerTest 12 cases\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/retain.py\", line 31, in <module>\n    write('artifact-identities.json', {str(p): dict(bytes=p.stat().st_size, sha256=sha(p.read_bytes())) for p in sorted(set(paths))})\n                                                          ~~~~~~^^\n  File \"/usr/lib/python3.14/pathlib/__init__.py\", line 655, in stat\n    return os.stat(self, follow_symlinks=follow_symlinks)\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: 'e2e/build/synthetic-adapter-image.json'\n"
+}

@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/recover-native.py"
+  ],
+  "exitCode": 0,
+  "output": "{\"instance\": \"atw-e2e-3bc7cb2f202610220000000000000001\", \"backend\": \"http://127.0.0.1:46867\", \"source\": \"http://127.0.0.1:33827\", \"hostBackend\": \"http://127.0.0.1:46867\", \"hostSource\": \"http://127.0.0.1:33827\", \"writerEpoch\": 2, \"checkedAtUnix\": 1792674056.4071267, \"scope\": \"Host infrastructure only. Call wait before setup; not a perpetual health lease or Android acceptance.\"}\nPASS exact interrupted session/forward recovered and retained backend restarted\n"
+}

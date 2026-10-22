@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-3bc7cb2f20261022",
+    "provision",
+    "--config",
+    "/tmp/opencode/i04b-first-config.json"
+  ],
+  "exitCode": 1,
+  "output": "Device controller failed: Instance must be /tmp/opencode/atw-device-<32 lowercase hex digits>\n"
+}

@@ -25,7 +25,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { it.revoke(token) }
             } }
         } },
-        post = { action -> main.post { action() } }, clearPrivateWork = deckImport::exit)
+        post = { action -> main.post { action() } }, clearPrivateWork = ::clearDeckWork)
+
+    val decks = DeckLibraryController(DeckApi(BuildConfig.ACCOUNT_ORIGIN), controller::sessionToken,
+        Executors.newSingleThreadExecutor { Thread(it, "saved-decks") }, { action -> main.post { action() } })
+    private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN)
+    init {
+        deckImport.connectSave(action = {
+            controller.sessionToken()?.let { token ->
+                { plan: DeckSavePlan -> kotlinx.coroutines.runBlocking {
+                    val accepted = saveApi.submit(token, plan.definitions)
+                    if (accepted.digests.toSet() != plan.definitions.definitions.map { it.digest }.toSet())
+                        throw DeckFailure("invalid_response")
+                    saveApi.create(token, plan.deck)
+                } }
+            }
+        }, saved = { decks.open(it.deck.id) })
+    }
+    private fun clearDeckWork() { deckImport.exit(); decks.clear() }
 
     val reset = ResetController(AccountApi(BuildConfig.ACCOUNT_ORIGIN), BuildConfig.RESET_ORIGIN,
         Executors.newSingleThreadExecutor { Thread(it, "password-reset") },
@@ -34,6 +51,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         controller.close()
         deckImport.close()
+        decks.close()
+        saveApi.close()
         catalogStore.clear()
         reset.close()
         // Drain bounded best-effort requests without retaining credentials on disk.

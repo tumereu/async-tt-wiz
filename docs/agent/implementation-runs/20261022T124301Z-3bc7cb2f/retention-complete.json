@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/retain.py"
+  ],
+  "exitCode": 0,
+  "output": "PASS retained affected JUnit DeckSaveTest 5 cases\nPASS retained affected JUnit DeckImportControllerTest 3 cases\nPASS retained affected JUnit AuthControllerTest 12 cases\nPASS exact current source/fixtures/locks/APK/image identities and hosted provider inventory\n"
+}

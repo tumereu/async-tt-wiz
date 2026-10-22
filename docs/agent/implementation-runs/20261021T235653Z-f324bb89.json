@@ -1,0 +1,100 @@
+{
+  "runId": "20261021T235653Z-f324bb89",
+  "sessionID": "ses_e9f1a89d4ffeOTJBw1gtYAcIjj",
+  "startCommit": "aae6e02cc6393eb53e1d8037cdd58fcf72b6ca6f",
+  "mode": "implement",
+  "target": "I01f",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split of I01f into three pending same-B1 children: owned WSL/Windows device-service controller and actual one-device normal-APK/routing qualification; Kotlin/JUnit Appium one-device runner plus actual storage instrumentation; concurrent two/three-device and cold-boot/reset/failure-repeat qualification. I01f stays in-progress with its original outcome and all four checks unchanged for a later combined parent unit. No runtime/build/UI/controller input changed, device/service started, acceptance result recorded or review/release gate closed.",
+  "selectionReason": "Clean master matches the supplied starting commit, D-304 authorization is active, findings are empty and no capability review is due. I01f is the earliest eligible pending child with I01a/I01c/I01d/I01e implemented. The repository already has a real scaffold APK, 14 compiled but unexecuted Android storage/controller/launcher tests and qualified real-image Compose lifecycle; e2e currently has only a host-runtime Kotlin test, not a device controller or Appium client runner. Reusable cross-host resource ownership, first actual Kotlin/device execution, and simultaneous multi-device/reset qualification are distinct bounded outcomes. Splitting before coding preserves all obligations instead of skipping to I01 parent/accounts or treating the historical browser smoke as product execution.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T235653Z-f324bb89-coverage-check.json -- python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T235653Z-f324bb89-coverage-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T235653Z-f324bb89-fixture-check.json -- python3 scripts/check-synthetic-catalogs.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T235653Z-f324bb89-fixture-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261021T235653Z-f324bb89-planning-check.json -- python3 docs/agent/implementation-runs/20261021T235653Z-f324bb89-planning-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261021T235653Z-f324bb89-planning-check.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261021T235653Z-f324bb89-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json",
+    "docs/agent/implementation-runs/20261021T235653Z-f324bb89-planning-check.py",
+    "docs/agent/implementation-runs/20261021T235653Z-f324bb89-planning-check.json",
+    "docs/agent/implementation-runs/20261021T235653Z-f324bb89-coverage-check.json",
+    "docs/agent/implementation-runs/20261021T235653Z-f324bb89-fixture-check.json"
+  ],
+  "planning": {
+    "children": {
+      "I01f1": "Owned AVD/remote-ADB/Appium service lifecycle/controller, bounded actual readiness/failure refusal, one-device normal APK launch/capture, real Compose public/source routing diagnostics and exact cleanup.",
+      "I01f2": "Qualified pinned Kotlin/JUnit Appium/UiAutomator2 runner, one-device real native startup observation/input where available, actual 14-test Android instrumentation, independent app-data setup versus retained in-scenario restart, exact focused build/test commands.",
+      "I01f3": "One/two/three concurrently alive sessions with explicit serial/system-port ownership, instrumentation per device, cold-boot/Compose/app-data clean repeat and failed-setup recovery, final resource/command/evidence/cleanup handoff."
+    },
+    "dependencies": "I01f1 inherits I01f's completed I01a/I01c/I01d/I01e prerequisites. I01f2 depends on I01f1; I01f3 depends on I01f2. None depends on its open ancestor. After all children, a fresh I01f parent unit checks their unchanged combined outcome and all four original checks; then I01 qualifies the whole foundation before I02. No existing dependencies, child lists, outcomes or checks outside I01f are changed.",
+    "reviewBoundary": "All three children inherit B1. Its pending full capability obligation and independent review after I01-I04 remain unchanged; no child-level independent reviews or review/release passes are added. Authorization, runner/model/permissions, findings, review anchors/coverage, external gates and activeRun=null are preserved.",
+    "coverage": [
+      "I01f1 owns the reusable measured WSL/Windows service bridge, not a presumed Linux emulator: explicit dedicated ADB server, detached Windows AVD launch, actual boot/package readiness, isolated Appium executable/driver home and status. Collision/foreign-identity/readiness failures must fail setup; cleanup validates exact ownership before Windows-native emulator shutdown and stops only owned services/mappings/ports. Existing tools/AVDs may be reused only with checked ownership, never an unrelated running instance.",
+      "I01f1 launches the actual production package/MainActivity and captures visible startup; it does not introduce a test screen/button or account/game endpoint. Device backend/source probes are separately labeled infrastructure diagnostics. The backend public API currently correctly returns 404; source bytes/art hashes provide meaningful real network checks without claiming an absent downloader. Preserve I01e's loopback/public-only/private-admin boundary, measure the viable cross-host mapping and retain actual failure evidence rather than assuming historical routing still works.",
+      "I01f2 supplies actual Kotlin/JUnit native Appium session execution and compatible locked dependency provenance, with explicit remote ADB/serial/system-port capabilities, native discovery and real pointer input where existing controls permit. A startup label or shell HTTP probe is not a full UI journey. Do not invent controls solely to make a tap pass or add a production failure hook. Account forms/gestures and Canvas acceptance remain their later tasks.",
+      "I01f2 executes the existing normal-app StorageDriverTest/StorageViewModelTest/StartupTest classes, all 14 tests, against the production Android driver/controller/launcher. Retain actual per-device results/XML, including any failed attempts; compilation and host SQLite success do not satisfy them. I01f3 repeats instrumentation across the three API29 non-GMS instances and records separate identities/results, never inferring a per-device pass from the first device.",
+      "I01f2 establishes fresh app-data plus real Compose reset/wait before independent scenarios and fail-closed setup, while a separate force-stop/relaunch checkpoint preserves actual app/backend state. Read-only storage/epoch diagnostics can establish scaffold retention without injecting a game or claiming missing auth/sync outcomes. I01f3 extends the same lifecycle to two/three concurrent sessions, failed-setup recovery, exact shutdown/cold boot without snapshots and clean one/two/three repeats. No reset/uninstall/clear at in-scenario recovery checkpoints.",
+      "I01f3 and the later I01f parent retain exact reproducible build/unit/integration/component/E2E/reset/capture/cleanup commands and qualified executable/dependency/APK/signer/configuration identities for fresh sessions. WSL IPv4 stays scoped to host build/test JVMs. Keep test source paths within the unchanged reviewTestPaths and collect safe per-device hierarchy/screenshots before cleanup. Do not expose secrets/mailbox administration or publish private artifacts via the UI review service.",
+      "Original I01f outcome/checks remain verbatim, and I01 foundation-wide integration still follows. Unavailable physical/current/tablet/arm64/release resources remain explicit affected-work limitations, not reasons to abandon available API29 tests or claim a waived release gate. Physical frame measurement stays I33; full device/mixed-version/signed upgrade/image compatibility stays I35; B1 account journeys and B4 Canvas targeting remain pending. No P/T/F item is marked executed by this plan."
+    ],
+    "sourceIds": {
+      "directScenarioPortions": ["P-001", "T-551", "T-630", "T-662"],
+      "laterBehaviorConstraints": ["P-059", "P-063", "P-065", "P-066", "T-632", "T-647", "T-649"],
+      "feedback": "No F-specific UI or UI document is changed. All F01-F88 feature obligations and D-303 final both-orientation comparison remain assigned to the existing feature/B8 tasks; no new document publication is needed.",
+      "accounting": "Unchanged I01 ledger accounting covers infrastructure portions only. Full reset with product stores, account/sync/retained tree behavior, signed APK process replacement and complete T-551/T-630/T-662 scenarios depend on later implemented features/qualification. This planning unit records no product execution."
+    },
+    "contractSections": [
+      "docs/agent/implementation-plan.md: Work-unit and dependency rules; B1 I01-I04; I33-I35 qualification and release gates",
+      "docs/agent/implementation-loop.md: Implement; Durable records; planning-only splits and full B1 capability review",
+      "docs/agent/e2e-environment-smoke-2026-10-21.md: measured cross-host topology, scoped IPv4, detached launch, actual readiness and Windows-native shutdown; historical browser fixture is not normal-app acceptance",
+      "docs/design/04-technical/test-architecture.md: Real full-stack boundary; Kotlin/JUnit/Appium; one/two/three instances and component tests",
+      "docs/design/05-verification/e2e-strategy.md: Real system boundary; Initialization exception and scenario boundary; Isolation and reset lifecycle",
+      "e2e/README.md: real Compose readiness/reset/retention, public loopback endpoint handoff/private administration and absent-worker inventory",
+      "client-storage/README.md: Android adapter and normal launcher; pending I01f actual 14-test instrumentation and non-destructive migration obligations",
+      "docs/agent/foundation-build.md: normal APK/module boundaries, scoped IPv4 tooling, signing/build commands and unavailable resource inventory"
+    ],
+    "limitations": [
+      "Planning/state/transition/dependency/coverage/fixture validation only. No device, ADB/Appium/Compose service, Gradle build, Android instrumentation, runtime adapter or product acceptance test is started or executed by this unit.",
+      "The children must implement and actually run their listed runtime checks. I01f and I01 combined parent qualification remain mandatory before I02, with independent B1 review only after the capability is complete.",
+      "No subagent, new loop/session, deployment, paid resource, unrelated private file, permission/authorization/runner change or release-gate update. External tool access or hardware found unavailable later requires retained evidence and D-305 repair/affected-work blocking, not silent omission."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-workflow.md",
+    "docs/agent/implementation-permissions.json",
+    "docs/agent/coverage/ledger.json",
+    "docs/agent/e2e-environment-smoke-2026-10-21.md",
+    "docs/agent/foundation-build.md",
+    "docs/design/04-technical/test-architecture.md",
+    "docs/design/05-verification/e2e-strategy.md",
+    "docs/design/05-verification/acceptance.md",
+    "e2e/README.md",
+    "e2e/build.gradle.kts",
+    "client-storage/README.md"
+  ]
+}

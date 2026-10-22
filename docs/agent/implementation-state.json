@@ -21,7 +21,7 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json", "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json", "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json", "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json", "docs/agent/implementation-runs/20261021T210831Z-b3901e8c.json", "docs/agent/implementation-runs/20261021T211210Z-833b516d.json", "docs/agent/implementation-runs/20261021T212906Z-37001bdf.json", "docs/agent/implementation-runs/20261021T213239Z-2c5339a5.json", "docs/agent/implementation-runs/20261021T220006Z-199d4d9d.json", "docs/agent/implementation-runs/20261021T223211Z-d5a50a9e.json", "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6.json"],
+  "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json", "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json", "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json", "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json", "docs/agent/implementation-runs/20261021T210831Z-b3901e8c.json", "docs/agent/implementation-runs/20261021T211210Z-833b516d.json", "docs/agent/implementation-runs/20261021T212906Z-37001bdf.json", "docs/agent/implementation-runs/20261021T213239Z-2c5339a5.json", "docs/agent/implementation-runs/20261021T220006Z-199d4d9d.json", "docs/agent/implementation-runs/20261021T223211Z-d5a50a9e.json", "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6.json", "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json"],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -313,7 +313,9 @@
     {
       "id": "I01f",
       "batch": "B1",
-      "status": "pending",
+      "status": "in-progress",
+      "children": ["I01f1", "I01f2", "I01f3"],
+      "planningRecord": "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json",
       "dependsOn": ["I01a", "I01c", "I01d", "I01e"],
       "outcome": "Qualify the measured WSL/Windows remote-ADB/Appium adapter and Kotlin/JUnit host-side runner against the normal scaffold APK and real isolated backend environment, with explicit serial/port ownership, bounded actual readiness, device-visible startup evidence and cleanup. Publish exact reproducible build/unit/integration/component/E2E commands and resource limitations for fresh sessions; early startup qualification is not account/gameplay/Canvas acceptance.",
       "checks": [
@@ -321,6 +323,42 @@
         "Check actual Android-to-backend/catalog endpoint reachability as infrastructure diagnostics, separately from user-visible acceptance. Repeat after owned-device cold boot and Compose reset; preserve app/backend state during an in-scenario process restart.",
         "Qualify WSL IPv4-scoped build/test JVMs, detached Windows launch/readiness and Windows-native shutdown of exact owned AVDs under existing permissions; collect evidence before cleanup and verify owned services/ports stop without affecting unrelated devices.",
         "Document and execute the exact available commands, versions, reset/evidence paths and normal-APK signing/configuration interfaces. Carry unavailable hardware/permission checks as retained blockers, keep physical frame measurement in I33 and API/current/tablet/upgrade/image qualification in I35, and leave B1 account journeys plus B4 Canvas targeting pending."
+      ]
+    },
+    {
+      "id": "I01f1",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01a", "I01c", "I01d", "I01e"],
+      "outcome": "Implement the reusable test-only WSL/Windows device-service controller: explicit owned AVD/serial/port identities, dedicated remote ADB and isolated Appium executable/driver home, detached Windows launch, bounded actual Android/Appium readiness, safe capture and exact Windows-native shutdown. Qualify one API29 non-GMS device by installing/launching the normal scaffold APK and capturing its real visible startup. Measure device-to-real-Compose backend/source routing separately as infrastructure diagnostics, preserving private administration and loopback isolation. Do not implement Kotlin UI scenarios, alternate app screens or account/gameplay APIs in this child.",
+      "checks": [
+        "Run controller unit/failure regressions for busy/foreign serials, AVD identities, ports and service processes; require nonzero failed setup/readiness without adopting or stopping unrelated resources. Record explicit tool paths/versions and owned PID/serial/AVD/mapping identities under the unchanged session permissions; do not silently reuse another ADB/Appium server.",
+        "Start a dedicated Windows ADB service, one detached WHPX API29 non-GMS AVD and isolated Appium service; bound readiness using actual boot completion/package manager and Appium status rather than launcher PID or sleeps. Install the normal APK, launch its production MainActivity and retain screenshot/hierarchy plus package/signer/API/storage-startup evidence. This is adapter/startup qualification, not a passing Appium UI scenario or instrumentation run.",
+        "Provision/wait the real I01e environment and measure an explicit per-device route to only its public backend/source ports, including synthetic source bytes/art origin and the real backend's currently expected public HTTP response. Treat shell/network probes as infrastructure diagnostics, not app downloader/auth acceptance. Check unavailable/broken routing fails setup, retain safe evidence before exact cleanup, verify owned mappings/listeners/AVD/ADB/Appium/Compose resources stop and unrelated inventory is unchanged. Document fresh setup, capture and cleanup commands for I01f2."
+      ]
+    },
+    {
+      "id": "I01f2",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01f1"],
+      "outcome": "Implement and qualify the Kotlin/JUnit host Appium/UiAutomator2 runner on one owned API29 non-GMS instance using I01f1's real controller and normal APK/Compose environment. Pin compatible client dependencies/locks and explicit serial/session/system-port capabilities, observe native startup through real UI discovery/touch where existing controls permit, retain screenshot/hierarchy/results and close sessions safely. Execute I01d's actual production Android-driver/controller/normal-launcher instrumentation, fixing evidenced failures without replacing it with a test app or counting compilation as execution. Establish fresh independent-scenario app-data setup distinct from retained in-scenario process restart.",
+      "checks": [
+        "Run the actual one-device Kotlin/JUnit Appium startup scenario with the real backend environment ready, production package/activity, explicit remote ADB/serial and UiAutomator2 port. Discover real native Compose startup content and use real pointer input on existing controls where available; do not add a dummy button, force a product failure merely for a touch target, inject app state or substitute the historical browser fixture. Retain normal-app screenshot/hierarchy and actual JUnit/session outcomes; explicitly distinguish startup observation from pending account/Canvas acceptance.",
+        "Run androidApp connectedDebugAndroidTest selecting StorageDriverTest, StorageViewModelTest and StartupTest against the owned remote ADB/serial. Require all 14 existing production-driver/controller/launcher tests to execute without skipped/red tests; retain actual XML, per-device results and failure logs. Assert non-destructive migration/refusal/retry, off-main open/close/recreation and real SQLite behavior through the existing tests, not host-driver success or APK assembly alone.",
+        "Exercise fresh Android app data plus successful Compose reset/wait before independent scenarios, failed setup refusal and evidence-before-cleanup. Separately force-stop/relaunch the normal app within a scenario without clear/uninstall/reset and prove existing scaffold storage/host environment retention with read-only diagnostics where necessary; no fake account/game data. Qualify WSL-scoped IPv4 JVMs, locked clean host/component/normal-APK builds and affected regressions, dependency/license provenance, registered test-only paths, exact signing/configuration/test commands and owned session/device/service cleanup."
+      ]
+    },
+    {
+      "id": "I01f3",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01f2"],
+      "outcome": "Extend and qualify the real Kotlin/JUnit/controller path with two and three simultaneously alive normal-APK API29 non-GMS instances, separate Appium sessions/UiAutomator2 ports and per-device startup/storage evidence. Repeat the one/two/three qualification after exact owned-device shutdown/cold boot and independent-scenario Compose/app-data reset, retaining in-scenario restart semantics. Complete the fresh-session command/resource/evidence/cleanup handoff; leave I01f open for its later combined parent qualification and keep account/gameplay/Canvas, physical performance and I35 compatibility/upgrade obligations explicit.",
+      "checks": [
+        "Execute one-, two- and three-instance Kotlin/JUnit startup runs with all selected sessions alive together and concurrent native UI observation/input where real startup controls exist. Prove unique serial/AVD/Appium-session/system-port assignments, no cross-device session override and no API-controlled opponent. Run the focused 14-test storage instrumentation on each of the three actual devices and retain per-device XML/results, screenshots/hierarchies, package/signer/API identities and bounded readiness output.",
+        "Stop only exact owned AVDs with Windows-native shutdown, cold boot them without snapshot reliance, explicitly reset/wait Compose and start fresh app data for each independent scenario, then repeat one/two/three startup plus Android-to-real-backend/source infrastructure probes. A failed boot/reset/readiness/mapping fails setup. Exercise failure-then-fresh-setup without stale success evidence; do not clear app/backend state during a separate in-scenario process-restart checkpoint. Retain actual per-device evidence and exact old/new resource identities.",
+        "Run controller/host/component/affected foundation regressions and final cleanup under the existing grants; verify owned AVDs, remote ADB/Appium/mapping/Compose ports and resources are stopped while unrelated devices/services remain intact. Publish the reproducible clean build/unit/integration/component/E2E/reset/evidence/cleanup commands, qualified versions and signing/configuration interfaces. Record unavailable current/tablet/physical/arm64/release resources without waivers; do not label emulator timing physical frame evidence, startup a full account/game scenario, or infrastructure probes normal downloader acceptance."
       ]
     },
     { "id": "I02", "batch": "B1", "status": "pending" },

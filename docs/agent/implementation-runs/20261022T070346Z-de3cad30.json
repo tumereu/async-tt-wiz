@@ -1,0 +1,68 @@
+{
+  "runId": "20261022T070346Z-de3cad30",
+  "sessionID": "ses_e9d93b761ffepvnkm6T8tF0WFQ",
+  "startCommit": "96f12440cd47d6124aa8e7e810445287b324631e",
+  "mode": "implement",
+  "target": "I02",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Closed only I02 through a passing run-owned child-evidence/current-input audit. Both implemented children cover actual server registration/login/privacy/revocation and native forms/Keystore/token restart. The retained complete normal-APK/real-Compose account journey already exercises their integration; exact server/shared/storage/client/protocol/lock/APK/image identities reconcile, so no missing seam requires another build or device run. Next eligible work is I03. B1 remains pending until I03/I04 and independent capability review; final qualification and all release gates remain open.",
+  "selectionReason": "Clean master/index and HEAD match this run; D-304 explicitly authorizes implementation, no finding or due capability review precedes I02, and I02a/I02b are implemented. This selected parent must close before I03. Affected scope is their saved command evidence, exact current source/build/artifact identities and already-exercised Android-to-real-server account integration, plus truthful partial coverage/state handoff. D-307 requires evidence reuse rather than an unchanged account journey, clean build, fault matrix or full-suite rerun. No unselected task/review advances.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.py audit > docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.py validate > docs/agent/implementation-runs/20261022T070346Z-de3cad30-validation.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T070346Z-de3cad30-validation.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.py",
+    "docs/agent/implementation-runs/20261022T070346Z-de3cad30-audit.txt",
+    "docs/agent/implementation-runs/20261022T070346Z-de3cad30-validation.txt",
+    "docs/agent/implementation-runs/20261022T070346Z-de3cad30.json",
+    "docs/agent/implementation-state.json"
+  ],
+  "reusedEvidence": [
+    {
+      "task": "I02a",
+      "record": "docs/agent/implementation-runs/20261022T052934Z-1c3e9277.json",
+      "savedCommit": "db9e1f9da76211a3eb9d92658ba4ad2ad040965e",
+      "scope": "Actual PostgreSQL V2/Flyway/generated-jOOQ account/session API, exact credentials/normalization/privacy/Argon2id/rate limits, ordinary authentication/revocation and persisted nonexpiring sessions; 27 individually green shared/server assertions across retained original runs and affected rechecks, plus actual local image account/restart/revoke journey. Server/shared/storage/build inputs unchanged through I02b. Original red commands are not whole passing runs; historical output is not a new execution."
+    },
+    {
+      "task": "I02b",
+      "record": "docs/agent/implementation-runs/20261022T054937Z-41060cc6.json",
+      "savedCommit": "96f12440cd47d6124aa8e7e810445287b324631e",
+      "scope": "Real Ktor/serialization adapter, A01/A02/A02b forms and errors, exact Unicode/whitespace passwords, actual Android Keystore ciphertext/reopen/key-loss/tamper and no-secret saved state. Complete real API29 non-GMS normal-APK/Compose registration/error/login/paste/visibility/both-orientation/scroll/Back/restart/revocation journey has passing JUnit XML and matching APK identity; account-aware independent reset and exact owned cleanup evidence retained. Client/build/protocol/lock/image inputs match retained hashes. No fresh device execution or full UI acceptance claim."
+    }
+  ],
+  "sourceIds": ["P-043", "P-047", "T-024", "T-396", "T-419", "T-420", "T-422", "T-572", "T-573", "T-621", "T-657", "T-696", "F04", "F05", "F06", "F11", "F58"],
+  "sourcePaths": [
+    "docs/agent/implementation-plan.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/design/03-contracts/accounts-decks-and-lobby.md",
+    "docs/design/03-contracts/android-experience.md",
+    "docs/design/04-technical/authentication-and-sessions.md",
+    "docs/design/02-experience/ui/review.md",
+    "docs/design/02-experience/ui/feedback.md"
+  ],
+  "retainedObligations": [
+    "I03 owns Menu/Games navigation, context recovery and immediate full local Logout/private-download/callback/account isolation. I04 owns email reset/deep links/mail and second-device B1 journeys. The current authenticated identity boundary and unavailable reset message do not claim those later capabilities.",
+    "I09/I12/I13/I14 and later own social/game object authorization, same-account synchronization and game/outcome recovery. Source IDs retain partial assertion accounting; the 875-item ledger validates assignments, not completed full-scenario/UI passes.",
+    "B1's first independent capability review still follows I01-I04 together. This implementation parent does not supply independent review or advance another task.",
+    "I34 owns final full suite and deferred broad foundation/reproducibility/fault/device assertions; I35 owns remaining compatibility/signed upgrade/arm64; I36/B8 owns complete final interface-to-mock inventory/comparison and verified discrepancies. I33 physical reference-device evidence and all external release gates remain unverified.",
+    "No runtime/build source changed, no new build/device/full-suite run, subagent, second loop, deployment, paid resource, UI-document edit, or authorization/permission/model/runner/release-gate change. Only run-owned evidence/state/report validation executed."
+  ]
+}

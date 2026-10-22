@@ -5,6 +5,14 @@ Owner direction D-300/D-303/D-304; prepared under D-301 and executable driver wo
 the [task plan](implementation-plan.md), [state record](implementation-state.json)
 and [delivery authorization gates](delivery-workflow.md) before any execution.
 
+**Delivery-first execution — D-307:** [current testing/scheduling policy](delivery-first-execution.md).
+Minimize elapsed time to deliver R1: implement real capabilities, run/fix affected
+checks, save and continue. Full-suite qualification is at the end, not an automatic
+per-session/parent/review ritual. Reuse valid child evidence; ancestor closure runs
+an evidence audit and only missing affected integration checks. This supersedes
+older broad repetition wording. Keep independent capability reviews, fresh targeted
+fix verification, security/data integrity, truthful evidence and release gates.
+
 ## Operating brief for every session
 
 > A casual, cooperative game simulator—not a mission-critical service or a
@@ -42,10 +50,24 @@ authorization, task/evidence state and current findings, then selects **one** mo
 | 3 | Otherwise select the earliest ready pending implementation task/child. Complete it and its checks; no independent review after every task. |
 | 4 | If blocked, record evidence and select safe independent approved work where it exists. No runnable work but unmet criteria means blocked, **not complete**. Completion requires the plan's actual completion criteria. |
 
+D-307 prioritizes common delivered user journeys over speculative fault/tooling
+work inside those selections. Rare required assertions deferred to final
+qualification keep explicit ownership; they do not become false passes. Apply
+the policy's one-time scheduling correction outside an active unit before relying
+on it to bypass the old foundation dependency. No live state is changed by preparing
+the separate documentation branch.
+
 Every selection records why it outranks the alternatives. Initially follow the
 listed batch/task order; do not repeatedly implement new features to avoid a due
 review or fix. A new genuine critical defect may interrupt a batch immediately;
 this is not a routine per-task review policy.
+
+Do not split merely to add more qualification layers. For already split tasks,
+the selected parent reconciles exact child evidence and the integrated outcome;
+it does not automatically rerun the children's clean builds or failure matrices.
+Use a real, small run-owned audit as its required check, with affected integration
+tests only where evidence or changed relevant inputs show a gap. Do not advance
+unselected ancestors or copy old check output as a new execution.
 
 `reviewedCommit` anchors what was checked; **do not compare it with every new HEAD
 and automatically rereview**. A report-only commit or an unrelated later task does
@@ -64,9 +86,12 @@ do not start another implementation/reviewer session until the previous one exit
 Read current contracts and the task's exact P/T/F IDs, complete necessary technical
 details, implement and write/run relevant executable tests in that unit. Record
 code/test traceability, limitations and the next state. The full regression suite
-need not run on every small task; focused tests/builds are mandatory, and batch/
-cross-cutting changes run the applicable integration/E2E regression set. Do not
-defer all verification to reviewers or mark unexecuted checks passing.
+is reserved for final qualification, not routine tasks or batch closure. Focused
+affected tests/builds are mandatory; a cross-cutting change expands that scope only
+where its impact warrants it. Run the delivered journey and affected integration
+checks, fix actual failures and continue once green. No extra clean/cache-disabled
+build or passing journey repeat just for confidence or because a fresh agent starts.
+Do not defer all verification to reviewers or mark unexecuted checks passing.
 
 ### Review a group
 
@@ -170,7 +195,10 @@ During authorized execution, each run adds a durable report under the
 - Changed paths, next status and remaining dependencies/blockers.
 
 Tasks use `pending → in-progress → implemented` (or `blocked`); `implemented`
-means task outcomes/tests passed, not independently reviewed. A batch uses
+means the current scoped task outcome and affected checks passed, not independently
+reviewed or globally qualified. D-307 deferrals retain their final owning tasks;
+unperformed required assertions are not silently included in an implemented claim.
+A batch uses
 `pending → ready-for-review → changes-requested/fixes-awaiting-check → reviewed`.
 Issue records retain `open → fixed-awaiting-check → verified`, plus explicit
 withdrawal/duplicate/blocked dispositions. The state may add child IDs before

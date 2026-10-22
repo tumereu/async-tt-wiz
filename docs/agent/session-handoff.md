@@ -1,8 +1,31 @@
 # 14. Session handoff — implementation authorized
 
-Updated 2026-10-21. This is continuation context, not a new source of requirements.
+Updated 2026-10-22. This is continuation context, not a new source of requirements.
 Confirmed decisions are in [the register](decisions.md); detailed contracts
 and acceptance scenarios take precedence over this summary.
+
+## Latest owner execution direction — D-307
+
+The owner approves [delivery-first execution](delivery-first-execution.md): minimize
+real elapsed time to deliver the whole agreed software. Run/fix affected tests as
+features are built; reserve the full suite and its fixes for final qualification.
+No repeated green full-suite/clean-build/emulator fault-matrix runs merely to be
+sure or to close every nested parent. Reuse valid evidence, audit missing seams,
+prioritize actual user journeys and reject invented theoretical blockers. Keep
+independent capability reviews, fresh targeted fix verification, security/data
+integrity, truthful results and all release gates.
+
+This documentation is prepared in a **separate worktree/branch**, not applied to
+the running checkout's state or harness. The supervisor must pause and let the
+owned worker/controller reach a safe saved exit before adoption. Follow the linked
+policy's exact paused migration: retain pending I01f3 as final B8 work before I34,
+keep I01f2's one-device startup/storage checks, reconcile parents without global
+reruns, then implement account entry and the remaining real capabilities. Preserve
+any newer completed work when applying; never replace live state with this branch's
+snapshot. Do not restart a paused supervisor without owner resume.
+
+Earlier "next task" statements below are historical checkpoints. Read the latest
+saved progress record for actual task status, not those historical snapshots.
 
 ## Saving edits — D-178
 

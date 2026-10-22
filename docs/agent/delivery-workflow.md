@@ -12,6 +12,13 @@ are preparation history, not a requirement to obtain the same authorization agai
 This does not certify every checklist assertion, executable test or external gate
 passed; actual qualification and honest blockers remain required.
 
+**Current execution policy — D-307:** [delivery first](delivery-first-execution.md).
+Minimize time to the whole delivered game: implement user-facing capabilities,
+run/fix affected tests as work proceeds, and run the full suite in final
+qualification. No repeated green global checks at every session/ancestor/batch
+boundary. Earlier broad repetition instructions are superseded as upfront gates;
+required scenarios, independent capability reviews and release obligations remain.
+
 ## Saving edits (D-178)
 
 After every completed edit batch, run the applicable checks and then
@@ -137,7 +144,10 @@ starting work outside D-304's approved scope or bypassing actual verification.
    reset between independent tests, setup-only user/deck helpers and otherwise
    UI-only user actions (D-243/D-244).
 3. Implement the slice without broadening scope.
-4. Check behavior, failure recovery, accessibility, and compatibility.
+4. Run the affected behavior/integration/recovery/accessibility/compatibility
+   checks under D-307. Fix failures and rerun affected tests, then continue once
+   green. Broad matrices/full-suite qualification belong at the end, not at each
+   slice or parent closure; reuse valid evidence for unchanged inputs.
 5. If a documentation gap or technical detail is resolved by approved rules and
    constraints, make the derivation explicit and update contracts/tests/code
    together autonomously. If an actual product choice or blocker remains, preserve

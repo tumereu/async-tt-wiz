@@ -7,6 +7,16 @@ under the [owner record](implementation-authorization.md). The real
 [state](implementation-state.json) is `active` / `authorized`. No session starts
 until the operator invokes `run` with positive budgets.
 
+**D-307 delivery-first operation:** [execution policy and paused migration](delivery-first-execution.md).
+Fresh implement/fix sessions run affected checks, not a global suite at every
+boundary. Parent sessions audit reusable child evidence and only missing affected
+integration; full-suite qualification is at the end. The supervisor must not
+restore repeated green certification as a condition of continuing. Existing
+driver role/state/save guards remain: changing test scope does not waive an actual
+failed required check or authorize unrelated task advancement. This documentation
+branch does not change the controller code or live state; apply the documented
+scheduling correction only after the owning controller/worker have exited safely.
+
 Every role is pinned to **`openai/gpt-6.1-sol#high`**. There is no model override
 flag or fallback. The driver checks the recorded model, creates a fresh top-level
 session with that exact provider/model/variant, passes it explicitly to

@@ -91,3 +91,22 @@ The driver still validates every handoff; the supervisor repairs failed boundari
 outside the exited unit, acknowledges only a safe handoff, then starts one driver.
 An explicit later owner stop still takes precedence. The large timeout is a ceiling,
 not a reason for a unit to idle or postpone ordinary bounded checkpoints.
+
+## Delivery-first execution clarification — D-307
+
+On 2026-10-22 the owner approved the discussed delivery-first correction:
+
+> the goal should be to minimize the real time to deliver the software, so lets
+> avoid "ill run thr full tests one more time to be sure" kinda deals. run and fix
+> affected tests, at the very end we run full suite and fix issues
+
+The owner explicitly requested preparing the documentation in a separate worktree.
+The [execution policy and paused application procedure](delivery-first-execution.md)
+record this approved change: affected tests during implementation, evidence reuse
+instead of recursive recertification, and comprehensive qualification at the end.
+It refines D-305/D-306 continuation toward delivered capabilities, not repeated
+green checks or speculative hardening. Required behavior/tests remain accounted
+for, final acceptance and independent reviews remain, and all original grants,
+model/budgets, resource safety and external release gates are unchanged. Do not
+merge/apply the scheduling correction against an actively owned checkout or resume
+an explicitly paused supervisor merely because this preparation is committed.

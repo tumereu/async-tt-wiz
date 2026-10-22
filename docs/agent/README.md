@@ -7,6 +7,9 @@ support continuity and traceability; they are not another competing specificatio
 - [Implementation authorization — D-304](implementation-authorization.md): explicit
   owner approval for the agreed entire-R1 loop; stage 4 and active/authorized state,
   with operator budgets, tests/reviews and remaining resource/release gates retained.
+- [Delivery-first execution — D-307](delivery-first-execution.md): affected checks
+  while building, evidence-based ancestor closure and full-suite qualification at
+  the end; approved scheduling correction with a paused application procedure.
 - [Session handoff](session-handoff.md): current work state, continuation context and constraints.
 - [Touch-action review](touch-action-review.md): capability inventory and review worklist.
 - [Specification audit](specification-audit.md): known wording/status drift and interpretation risks.

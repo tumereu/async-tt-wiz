@@ -9,6 +9,18 @@
   [design index](docs/README.md) and [session handoff](docs/agent/session-handoff.md).
 - Preserve unrelated user work. Inspect Git status before editing and include
   only the files belonging to the current task when saving.
+- **Delivery-first execution — D-307.** Minimize real elapsed time to deliver the
+  whole agreed R1. Follow the [delivery-first policy](docs/agent/delivery-first-execution.md):
+  implement real user-facing capabilities, run/fix affected tests, save and move on.
+  No full-suite/clean-build/fault-matrix reruns merely "to be sure", on a fresh
+  session or at each ancestor closure. Reuse valid child evidence and audit the
+  missing integration seam only. Broad qualification moves to the final B8 phase;
+  final full-suite acceptance, independent capability reviews, security/data
+  integrity, truthful deferred obligations and release gates remain. No invented
+  theoretical blockers. This supersedes earlier per-boundary repetition wording,
+  not product scope or safe-save rules. Apply scheduling/oracle repairs only after
+  the owning controller/worker pause; a separate preparation worktree must not
+  migrate their live state or start another loop.
 - **Authorized implementation loop — D-300–D-304.** Read the
   [task plan](docs/agent/implementation-plan.md),
   [fresh-session/review contract](docs/agent/implementation-loop.md) and

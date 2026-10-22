@@ -194,3 +194,22 @@ final I34 still owns the whole-suite/combined qualification. No speculative find
 or unneeded prompt correction. B2's existing independent review is due next, then
 real contacts/invitations/preparation. Thirty resumed fresh units consumed; 2,941
 sessions remain. Scope, exact model, reviews and external gates remain unchanged.
+
+### Batch 7 — bounded real recovery fix, then contacts/named invitation
+
+Range `3ba4099..1787c7e`: B2's independent review reproduced one ordinary-use defect:
+a revoked deck session left users in the authenticated shell with no sign-in route
+without losing the draft via Logout/restart. One bounded fix and fresh verification
+(about nine minutes together, targeted host checks) now preserve same-account
+uncertain create/Merge identities and context while reopening Sign in; account
+switch/Logout still clears private work. B2 review is complete, not repeatedly
+restarted. This was a checkable normal-recovery problem, not a speculative detail
+or prolonged early refinement loop.
+
+The remaining work delivered native contacts/search/unilateral add, personal
+suggested/editable names, actual atomic game+invitation creation, persistent server
+date/identity, Games/Invitations and waiting-lobby routing across two normal APKs.
+Accept/Decline/Reinvite and the shared durable ordered request processor are next
+in I09b, then deck preparation/Ready/start. Assessment: on track; no extra refocusing
+or theoretical blockers. Thirty-five resumed fresh units consumed; 2,936 sessions
+remain. Full final test/fix/UI/compatibility obligations and release gates persist.

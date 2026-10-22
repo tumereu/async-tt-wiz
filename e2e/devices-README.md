@@ -7,7 +7,84 @@ per-unit commands. The [paused application](../docs/agent/delivery-first-applica
 moves pending three-device scaffold qualification to B8; I01f2 retains actual
 one-device Appium/storage checks. Ambient Windows/Docker changes are now retained
 as diagnostic deltas, not frozen-host assertions. Exact owned-resource cleanup and
-foreign-resource refusal remain hard checks; no new actual-device pass is claimed.
+foreign-resource refusal remain hard checks. I01f2's actual one-device results and
+runner commands are recorded next; the named earlier qualifications below remain
+historical, including their then-pending instrumentation statements.
+
+## Kotlin/Appium and connected storage tests — I01f2
+
+[I01f2's run](../docs/agent/implementation-runs/20261022T044934Z-c307edee.json)
+executes one real Kotlin/JUnit Appium startup test and all **14** existing
+`StorageDriverTest` / `StorageViewModelTest` / `StartupTest` instrumentation tests
+on the owned **API29 default non-GMS** WHPX guest. Actual JUnit XML, Appium session
+ID/capabilities/exact forward, PNG/native hierarchy, Gradle output, normal APK and
+signer identities, real Compose readiness/reset and exact cleanup are retained.
+Raw tool output with trailing spaces and Android CRLF XML are retained in lossless
+JSON envelopes (original UTF-8 text, byte length and SHA-256), not whitespace-check
+exemptions. Decode `output` to recover the exact original bytes; the retained audit
+checks the envelopes and parses all actual XML test cases.
+No product code, test-only activity, fake account/game or product failure hook
+was needed. The healthy scaffold has no action controls: the W3C touch taps the
+real noninteractive title to test input transport, not an invented app action.
+
+Appium Java client **10.1.1**, Selenium **4.49.0** (upstream compatibility matrix),
+Gson **2.13.2**, JUnit **6.1.3**, JVM21 and the existing Appium3.8.0/UiAutomator2-8.7.0
+installation pass together. The host-only dependency graphs are strictly locked;
+none enters the Android/server runtime. Normal host `:e2e:test` excludes device
+tests rather than reporting an unavailable device as a skipped/passing scenario.
+
+After the existing `provision` / `prepare-app` commands above/below, run:
+
+```sh
+python3 scripts/run-device-tests.py --directory /tmp/opencode/atw-device-<32-hex> startup
+python3 scripts/run-device-tests.py --directory /tmp/opencode/atw-device-<32-hex> storage
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> capture
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> cleanup
+python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-<32-hex> cleanup
+```
+
+Each runner command is an **independent fresh scenario**. Under the device lock
+and the attached environment's own reset lock it requires successful real Compose
+reset, clears only `org.asyncttwiz.android` on that exact owned serial, verifies
+the old private database is absent, and relaunches/revalidates the normal combined
+APK/environment before the check. Never use these commands for an in-scenario
+retained restart; existing `launch-app` and backend `restart` retain their semantics.
+The wrapper exports explicit remote ADB host/port/serial for connected Gradle and
+explicit Appium URL, remote ADB and UiAutomator2 system port for Kotlin. It retains
+the exact commands/results under `runner-<id>` in the private device directory,
+requires 1/14 fresh non-skipped passing test cases respectively, and invalidates
+precondition handoffs after tests. Require a new successful `wait` before reuse.
+
+Sessions use no session override, no Appium-managed app reset/uninstall and no
+default ADB adoption. The exact session ID is saved before observation; the
+observed forward must be exactly `serial tcp:systemPort tcp:6790`. The controller
+allows that forward only with the matching recorded/live session transport;
+unknown mappings still refuse readiness/cleanup. Kotlin quits in `finally`; the
+wrapper verifies the forward is gone before publishing success. After interruption,
+`run-device-tests.py ... recover-session` (also invoked by device cleanup) can
+delete only the recorded ID after checking its live capabilities and exact mapping.
+It does not discover/delete arbitrary sessions, enable insecure Appium features or
+remove all mappings. An unrecorded/ambiguous survivor is a diagnosed refusal, not
+permission to adopt or forcibly remove it. Actual ordinary session close passes;
+interrupted-client/changed-owner recovery is focused host regression coverage,
+with further device fault/multi-instance qualification retained for I01f3/I34.
+
+Initial missing adapter build metadata, a Java option API mismatch, obsolete
+Appium `/sessions` discovery and read-count test-oracle failures are retained as
+diagnostics. Rebuilding only the required adapter and correcting the client/API
+and ownership tests resolved them without weakened assertions or security flags.
+The remote connected runner emits a Linux emulator-console warning but executes
+all 14 tests successfully on the explicit Windows-owned remote serial. No console
+shutdown fallback is used; exact native shutdown and owned resource cleanup pass.
+
+Scope: Android production-driver creation/transactions/reopen, populated migration,
+non-destructive refusal/rollback/retry, worker ownership/drain and launcher
+recreation are now executed, not merely compiled. This supplies I01d's deferred
+device assertions and part of T-662; it does **not** finish that whole scenario,
+P-059/P-060/P-063/P-065, F01–F88, account/Keystore/Logout/full-tree/Canvas behavior,
+physical measurements or signed upgrades. Reuse unchanged I01f1 lifecycle/routing/
+retained-restart evidence. I01f/I01 closures, B1 independent review, pending B8
+I01f3/I34/I35 and all external release gates remain separate obligations.
 
 **Device-service foundation only, not product E2E.** The test-only
 [`devices.py`](devices.py) / [`windows-device.ps1`](windows-device.ps1) controller

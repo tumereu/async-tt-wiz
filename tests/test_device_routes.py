@@ -55,7 +55,7 @@ class DeviceRoutesTest(unittest.TestCase):
             with self.subTest(forward=forward, reverse=reverse), patch.object(d, 'adb', side_effect=[
                     self.completed(forward), self.completed(reverse)]) as adb:
                 self.refuse(r.mappings, self.value, 'emulator-5564')
-                self.assertEqual(adb.call_count, 2)  # No removal or replacement.
+                self.assertEqual(adb.call_count, 1 if forward else 2)  # Reads only; no removal/replacement.
 
     def test_changed_owner_serial_ports_and_service_collision_refused(self):
         original = copy.deepcopy(self.record)

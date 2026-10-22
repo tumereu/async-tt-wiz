@@ -5,7 +5,18 @@ and reuse valid child evidence. Do not repeat the historical clean/full-device
 qualifications below at every task/ancestor boundary. The
 [paused application](../docs/agent/delivery-first-application-2026-10-22.md) retains
 pending three-device scaffold qualification in B8 and records the ambient-inventory
-oracle repair; one-device Appium/storage execution remains I01f2, still unperformed.
+oracle repair. One-device Appium/storage execution now passes in I01f2 below.
+
+**I01f2:** the Kotlin/JUnit runner now opens a real explicitly owned UiAutomator2
+session on the normal API29 non-GMS APK alongside the ready real Compose backend.
+Native title discovery, screenshot/hierarchy and W3C pointer transport pass; all
+**14 existing Android storage/controller/launcher instrumentation tests execute
+without failures or skips**. Fresh scenarios explicitly reset Compose and clear
+only the owned synthetic app's data; retained restart commands never clear it.
+See [runner commands and evidence](devices-README.md#kotlinappium-and-connected-storage-tests--i01f2).
+Account/game/Canvas acceptance, parent closures, independent review and B8's
+multi-device/compatibility/release obligations are still pending. Older paragraphs
+below retain the historical scope of their named runs.
 
 Windows/WSL **I01f1a device-service lifecycle is qualified**: see
 [device commands and limits](devices-README.md). Actual owned API29/Appium
@@ -34,8 +45,8 @@ fresh device repeat and clean rebuild/artifact recheck pass respectively.
 Only I01f1b closes; I01f1/I01f/I01, Kotlin/Appium/instrumentation, multi-device,
 product E2E, independent review and release obligations remain pending.
 
-The Kotlin/JUnit host runner's current runtime test qualifies only its Java
-toolchain. The **test-only** [Compose topology](compose.json) and
+The ordinary host test qualifies its Java toolchain; `:e2e:deviceTest` is a separate
+explicit opt-in for the native startup journey above. The **test-only** [Compose topology](compose.json) and
 [host controller](environment.py) now provision the real application image,
 PostgreSQL17 and the [synthetic HTTP/art/SMTP adapters](adapters/README.md).
 No alternate backend/APK, account/game/action injection or production deployment

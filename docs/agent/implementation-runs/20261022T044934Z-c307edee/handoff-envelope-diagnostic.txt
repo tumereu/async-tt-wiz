@@ -1,0 +1,18 @@
+COMMAND ['python3', 'docs/agent/implementation-runs/20261022T044934Z-c307edee/audit.py']
+PASS authorized selection/one-task transition/no review or release-gate advancement; next: {'mode': 'implement', 'target': 'I01f', 'findingIds': []}
+PASS retained actual non-skipped JUnit cases startup-runner-bcfab0f045374b6fa795766155a75820 1
+PASS retained actual non-skipped JUnit cases storage-runner-3eb0bbd561c14c8abce03759397925de 14
+PASS actual startup PNG, both exact fresh-data clears and owned environment cleanup retained
+PASS unchanged tested Kotlin/app/storage/APK inputs; later helper-only refinements: ['e2e/device_runner.py']
+PASS documentation local links/fences client-storage/README.md
+PASS documentation local links/fences e2e/README.md
+PASS documentation local links/fences e2e/devices-README.md
+Traceback (most recent call last):
+  File "/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T044934Z-c307edee/audit.py", line 72, in <module>
+    envelope = json.loads(raw)
+  File "/usr/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.14/json/decoder.py", line 348, in decode
+    raise JSONDecodeError("Extra data", s, end)
+json.decoder.JSONDecodeError: Extra data: line 2 column 1 (char 280)

@@ -50,10 +50,10 @@ def validate_record(value, result):
 
 
 def mappings(value, serial, *, complete=False):
-    """No forward mappings are ours; reverse transport IDs come from adbd."""
-    forward = d.adb(value, 'forward', '--list').stdout.strip()
+    """Only an exact recorded live Appium forward; reverse IDs come from adbd."""
+    from e2e import device_session
+    forward = device_session.forwards(value, serial)
     raw = d.adb(value, '-s', serial, 'reverse', '--list').stdout.strip()
-    d.require(not forward, 'Foreign/unrecorded ADB mapping refused')
     record = load(value)
     allowed = {} if record is None else {
         (m['local'], m['remote']): m for m in record['mappings'] if m['state'] == 'created'}
@@ -69,7 +69,7 @@ def mappings(value, serial, *, complete=False):
     if complete:
         d.require(record is not None and len(record['mappings']) == len(actual) == 2 and
                   all(m['state'] == 'created' for m in record['mappings']), 'Owned public routes missing/incomplete')
-    return {'forward': [], 'reverse': actual}
+    return {'forward': forward, 'reverse': actual}
 
 
 def target(directory):

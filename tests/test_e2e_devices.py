@@ -250,7 +250,8 @@ class DeviceControllerTest(unittest.TestCase):
                     self.completed(output if index == 0 else ''), self.completed(output if index == 1 else '')]) as adb:
                 self.refuse(d.check_mappings, self.value, 'emulator-5564')
                 self.assertEqual([c.args[1:] for c in adb.call_args_list],
-                                 [('forward', '--list'), ('-s', 'emulator-5564', 'reverse', '--list')])
+                                 [('forward', '--list')] + ([] if index == 0 else
+                                 [('-s', 'emulator-5564', 'reverse', '--list')]))
 
     def test_empty_mapping_inventory_is_explicit(self):
         with patch.object(d, 'adb', return_value=self.completed('')):

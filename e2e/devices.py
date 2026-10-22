@@ -248,10 +248,11 @@ def check_mappings(value, serial):
     if device_routes.file(value).exists():
         return device_routes.mappings(value, serial)
     # No attachment owns mappings. Never clear/adopt a pre-existing route.
-    forward = adb(value, 'forward', '--list').stdout.strip()
+    from e2e import device_session
+    forward = device_session.forwards(value, serial)
     reverse = adb(value, '-s', serial, 'reverse', '--list').stdout.strip()
-    require(not forward and not reverse, 'Foreign/unrecorded ADB mapping refused')
-    return {'forward': [], 'reverse': []}
+    require(not reverse, 'Foreign/unrecorded ADB mapping refused')
+    return {'forward': forward, 'reverse': []}
 
 
 def check_device(value):
@@ -430,6 +431,9 @@ def cleanup(value):
     invalidate(value)
     (Path(value['directory']) / 'app-ready.json').unlink(missing_ok=True)
     capture(value)  # Diagnostics before any shutdown; never broad process cleanup.
+    if (Path(value['directory']) / 'runner-current.json').exists():
+        from e2e import device_session
+        device_session.close(value)
     from e2e import device_routes
     if device_routes.file(value).exists():
         device_routes.unroute(value)

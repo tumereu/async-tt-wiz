@@ -1,0 +1,2 @@
+COMMAND ['python3', 'scripts/run-device-tests.py', '--directory', '/tmp/opencode/atw-device-c307edee11114af58b9f3861313df8c1', 'startup']
+Device runner refused: Appium session request failed

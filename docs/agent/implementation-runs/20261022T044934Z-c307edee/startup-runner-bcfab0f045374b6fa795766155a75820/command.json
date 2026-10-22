@@ -1,0 +1,13 @@
+{
+  "adbPort": 15038,
+  "command": [
+    "/home/tuomas/projects/async-tt-wiz/scripts/gradle.sh",
+    "--no-daemon",
+    "--console=plain",
+    ":e2e:deviceTest"
+  ],
+  "mode": "startup",
+  "serial": "emulator-5564",
+  "startedAt": 1792645397.5931363,
+  "systemPort": 18210
+}

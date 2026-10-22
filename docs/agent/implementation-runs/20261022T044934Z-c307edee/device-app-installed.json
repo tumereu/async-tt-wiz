@@ -1,0 +1,20 @@
+{
+  "apk": {
+    "activity": "org.asyncttwiz.android.MainActivity",
+    "bytes": 29770087,
+    "minSdk": 29,
+    "package": "org.asyncttwiz.android",
+    "sha256": "bfc4a4a9203544c4b62588076d2079572b223891107174b2bc86844b730eef21",
+    "signerSha256": [
+      "4d7973a6e1c2f3394723ddbc41d073841f20db9c2221741b1c14f5b12a476f1e"
+    ],
+    "targetSdk": 36,
+    "versionCode": 1,
+    "versionName": "0.1.0"
+  },
+  "checkedAt": 1792645067.5339694,
+  "evidenceDirectory": "/tmp/opencode/atw-device-c307edee11114af58b9f3861313df8c1/app-259ba3e96a46ee07",
+  "owner": "bf81e11fcd46f2c8fea81a2d08532efea4bb0220c46a698e94ccba7eea021556",
+  "scope": "Verified normal APK install only; no startup observation",
+  "serial": "emulator-5564"
+}

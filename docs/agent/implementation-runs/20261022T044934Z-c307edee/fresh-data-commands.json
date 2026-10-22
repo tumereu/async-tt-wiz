@@ -1,0 +1,72 @@
+[
+  {
+    "command": [
+      "/home/tuomas/Android/Sdk/platform-tools/adb",
+      "-H",
+      "127.0.0.1",
+      "-P",
+      "15038",
+      "-s",
+      "emulator-5564",
+      "shell",
+      "pm",
+      "clear",
+      "org.asyncttwiz.android"
+    ],
+    "exitCode": 0,
+    "output": "Success\n"
+  },
+  {
+    "command": [
+      "/home/tuomas/Android/Sdk/platform-tools/adb",
+      "-H",
+      "127.0.0.1",
+      "-P",
+      "15038",
+      "-s",
+      "emulator-5564",
+      "shell",
+      "run-as",
+      "org.asyncttwiz.android",
+      "ls",
+      "no_backup/client-storage/replica.db"
+    ],
+    "exitCode": 1,
+    "output": "ls: no_backup/client-storage/replica.db: No such file or directory\n"
+  },
+  {
+    "command": [
+      "/home/tuomas/Android/Sdk/platform-tools/adb",
+      "-H",
+      "127.0.0.1",
+      "-P",
+      "15038",
+      "-s",
+      "emulator-5564",
+      "shell",
+      "pm",
+      "clear",
+      "org.asyncttwiz.android"
+    ],
+    "exitCode": 0,
+    "output": "Success\n"
+  },
+  {
+    "command": [
+      "/home/tuomas/Android/Sdk/platform-tools/adb",
+      "-H",
+      "127.0.0.1",
+      "-P",
+      "15038",
+      "-s",
+      "emulator-5564",
+      "shell",
+      "run-as",
+      "org.asyncttwiz.android",
+      "ls",
+      "no_backup/client-storage/replica.db"
+    ],
+    "exitCode": 1,
+    "output": "ls: no_backup/client-storage/replica.db: No such file or directory\n"
+  }
+]

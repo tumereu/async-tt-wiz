@@ -1,0 +1,24 @@
+{
+  "baseline": {
+    "faults": "ok",
+    "messageCount": 0,
+    "migration": "1",
+    "tables": [
+      "flyway_schema_history",
+      "service_writer"
+    ],
+    "versions": {
+      "prism": 1,
+      "quilt": 1
+    }
+  },
+  "checkedAtUnix": 1792645457.890435,
+  "instance": "atw-e2e-c307edee11114af58b9f3861313df8c1",
+  "removedContainers": {
+    "adapter-init": "c0b8ff1302a9338a5a062824c2dc159a8753e85a22d40a60161b2edc51d673f6",
+    "adapters": "4bb946bc4078eba79ac3119329d715e1f087d310c2a24aa911e51e3df2d371fb",
+    "backend": "eafef993b9d449c8a90d55dda93a51c823e2f19e685ddea3abcbafac519ed521",
+    "database": "d3d1dd6a3e527b36626c405d0ed1658996999687c6ff768e1c16d220733dacfb",
+    "migrate": "cafbb2e0fb623e9ed5830d7bb3884dbf5680a9c8b98f161b13b6e60a96f7115e"
+  }
+}

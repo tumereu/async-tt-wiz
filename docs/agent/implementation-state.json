@@ -55,7 +55,8 @@
         "docs/agent/implementation-runs/20261022T022920Z-43e21a50.json",
          "docs/agent/implementation-runs/20261022T025919Z-a5658aee.json",
           "docs/agent/implementation-runs/20261022T034912Z-d4685909.json",
-          "docs/agent/implementation-runs/20261022T044527Z-56557333.json"
+           "docs/agent/implementation-runs/20261022T044527Z-56557333.json",
+           "docs/agent/implementation-runs/20261022T044934Z-c307edee.json"
    ],
   "findings": [],
   "batches": [
@@ -477,7 +478,10 @@
     {
       "id": "I01f2",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T044934Z-c307edee.json",
+      "buildNotes": "e2e/devices-README.md",
+      "qualification": "One owned API29 default non-GMS WHPX guest passes the real Kotlin/JUnit Appium3.8.0/UiAutomator2-8.7.0 normal-APK startup scenario with explicit remote ADB/serial/system-port capabilities, native title discovery, actual PNG/XML, a W3C touch on the real noninteractive title and exact session/forward close. All 14 existing StorageDriverTest/StorageViewModelTest/StartupTest instrumentation tests execute with zero failures/skips through connectedDebugAndroidTest on that remote serial, qualifying production SQLite non-destructive migration/refusal/rollback/retry, worker ownership/drain and launcher recreation. Each independent scenario successfully resets/waits the real Compose environment, clears only the exact synthetic app data, proves the prior private DB absent and freshly revalidates normal startup/public routing. Compatible Appium Java10.1.1/Selenium4.49.0/Gson2.13.2 are host-only and strictly locked; incremental assembly and strict host/module-boundary checks pass. 98 affected controller/runner regressions pass, plus 11 focused rechecks for final reset-lock/fail-closed-marker refinements without another device run. Initial option API, obsolete Appium discovery, missing adapter metadata and read-count oracle failures remain diagnostics; no insecure flags or weakened checks. Actual session/JUnit/command/artifact identities and exact native/device/Compose cleanup retained. This closes only I01f2; I01f/I01 evidence closures, I02-I04/B1 independent review, B8 I01f3/I34/I35, physical measurements and all release gates remain pending. No account, downloader, Canvas, full-scenario T-662 or F01-F88 pass claimed.",
       "dependsOn": ["I01f1"],
       "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",
       "outcome": "Implement and qualify the Kotlin/JUnit host Appium/UiAutomator2 runner on one owned API29 non-GMS instance using I01f1's real controller and normal APK/Compose environment. Pin compatible client dependencies/locks and explicit serial/session/system-port capabilities, observe native startup through real UI discovery/touch where existing controls permit, retain screenshot/hierarchy/results and close sessions safely. Execute I01d's actual production Android-driver/controller/normal-launcher instrumentation, fixing evidenced failures without replacing it with a test app or counting compilation as execution. Establish fresh independent-scenario app-data setup distinct from retained in-scenario process restart.",

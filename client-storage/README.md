@@ -9,6 +9,14 @@ Android-driver instrumentation execution remains **I01f**, after device-adapter
 qualification. I01d combined host/build qualification is complete; B1 independent
 review remains open.
 
+**Runtime update — I01f2:** all 14 existing production Android-driver/controller/
+normal-launcher tests have now executed successfully on an owned API29 non-GMS
+guest, with zero failures/skips. See [actual results and reproducible runner](../e2e/devices-README.md#kotlinappium-and-connected-storage-tests--i01f2)
+and [run report](../docs/agent/implementation-runs/20261022T044934Z-c307edee.json).
+The I01d qualification statements below describe that earlier build-only unit;
+this later execution satisfies its deferred device foundation assertions, not
+account isolation/full sync, the I35 upgrade/device matrix or a release gate.
+
 ## Boundaries
 
 - `accepted_cursor` and `accepted_record`: downloaded accepted records with

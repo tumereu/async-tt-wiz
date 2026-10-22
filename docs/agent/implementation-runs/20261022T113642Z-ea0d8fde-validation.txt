@@ -1,0 +1,2 @@
+Checking I05 evidence-only handoff.
+PASS I05-only closure, exact owned JSON/text/Python outputs and whitespace. No Markdown/UI edit. B2 pending, next I06; authorization/model/runner/permissions/reviews/findings/external gates unchanged.

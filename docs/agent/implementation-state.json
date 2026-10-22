@@ -71,7 +71,8 @@
                         "docs/agent/implementation-runs/20261022T095915Z-36a5f0aa.json",
                          "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
                           "docs/agent/implementation-runs/20261022T101044Z-1d047a5f.json",
-                          "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3.json"
+                           "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3.json",
+                           "docs/agent/implementation-runs/20261022T113642Z-ea0d8fde.json"
    ],
   "findings": [],
   "batches": [
@@ -622,7 +623,9 @@
     {
       "id": "I05",
       "batch": "B2",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T113642Z-ea0d8fde.json",
+      "qualification": "D-307 parent audit reconciles I05a at e41785b32522ba47ffb3bf6a4567bbf9936c0feb and I05b at f13b5cf01b263d99ebb6496a21c6dda7c10729a5, exact committed check/support/source bytes, lossless green host XML and current source/test/fixture/lock/APK/image identities. Record/parser/scheduling/navigation inputs remain unchanged after I05a; I05b adds only the artwork production sources plus qualified dependencies. Existing actual API29 hosted MTGJSON-to-disk-catalog-to-exact-both-faces/Coil/BitmapFactory/cache/text and delayed HTTP disposal/rebind evidence covers the integration seam. Normal catalog consent/failure/retry/restart/update is evidenced across retained native segments, not a wholly green original command; diagnostics stay diagnostic. Final hosted artwork recheck covers the last decode-success change, not every earlier native assertion on the final binary. No missing ordinary seam requires a new build/device/full-suite run. Only I05 closes; I06 import is next, B2 stays pending until I06-I08 and independent capability review. Later native import/inspector/table consumers, immutable saved/game definitions, real-scene pressure/full-size/mid-import-kill/HTTPS/compatibility/full-suite/final UI qualification in I33-I36 and all external release gates remain unverified; provider contact and rights still require the operator. No whole P/T/F scenario or independent review is claimed.",
       "dependsOn": ["I04"],
       "children": ["I05a", "I05b"],
       "planningRecord": "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",

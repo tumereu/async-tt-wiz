@@ -31,10 +31,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         authenticationRequired = controller::authenticationRequired), controller::sessionToken,
         Executors.newSingleThreadExecutor { Thread(it, "saved-decks") }, { action -> main.post { action() } })
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired)
+    val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired),
+        controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },
+        { action -> main.post { action() } }, openGame = { controller.navigate(ShellDestination.GAMES) })
     init {
         deckImport.connectSave(saveApi, controller::sessionToken, saved = { decks.open(it.deck.id) })
     }
-    private fun clearDeckWork() { deckImport.exit(); decks.clear() }
+    private fun clearDeckWork() { deckImport.exit(); decks.clear(); lobby.clear() }
 
     val reset = ResetController(AccountApi(BuildConfig.ACCOUNT_ORIGIN), BuildConfig.RESET_ORIGIN,
         Executors.newSingleThreadExecutor { Thread(it, "password-reset") },
@@ -45,6 +48,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         deckImport.close()
         decks.close()
         saveApi.close()
+        lobby.close()
         catalogStore.clear()
         reset.close()
         // Drain bounded best-effort requests without retaining credentials on disk.

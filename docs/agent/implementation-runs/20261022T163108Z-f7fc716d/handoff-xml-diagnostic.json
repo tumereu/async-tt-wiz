@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T163108Z-f7fc716d/finish.py"
+  ],
+  "exitCode": 1,
+  "output": "PASS exact initial baseline/authorization/priority; only I09a completes; current driver state/transition guards; next I09b\nPASS all other tasks/batches/reviews/findings/model/authorization/permissions/external gates unchanged\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T163108Z-f7fc716d/finish.py\", line 77, in <module>\n    assert b'\\r' not in data and (not data or data.endswith(b'\\n')), path\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: docs/agent/implementation-runs/20261022T163108Z-f7fc716d/runner-cfd0081448e24cd2bb4922c841f2c324-recipient-invitation-portrait.xml\n",
+  "diagnosis": "Native hierarchy XML has no final newline; preserve exact retained bytes, do not impose authored-source newline rule on tool artifacts. Staged whitespace checks remain."
+}

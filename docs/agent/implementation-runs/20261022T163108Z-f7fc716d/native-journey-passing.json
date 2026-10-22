@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T163108Z-f7fc716d/native-check.py"
+  ],
+  "startedAt": 1792690280.2313519,
+  "elapsedSeconds": 137.79785776138306,
+  "exitCode": 1,
+  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T163108Z-f7fc716d/native-check.py\", line 31, in <module>\n    a.operation(value, 'launch-app', 180)\n    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 247, in operation\n    return d.wait(value, timeout)['app']\n           ~~~~~~^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/devices.py\", line 372, in wait\n    result = device_handoff.validate(value, result, timeout)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_handoff.py\", line 79, in validate\n    a.installed(value, serial, record['apk'], directory)\n    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 85, in installed\n    actual = verify_apk(value, path)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 39, in verify_apk\n    badging = d.run(value, [str(tools / 'aapt2'), 'dump', 'badging', str(path)], timeout=30).stdout\n              ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/devices.py\", line 207, in run\n    require(result.returncode == 0, 'Device/tool command failed; inspect retained command output')\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/environment.py\", line 39, in require\n    raise Refusal(message)\ne2e.environment.Refusal: Device/tool command failed; inspect retained command output\n"
+}

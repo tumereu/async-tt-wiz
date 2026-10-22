@@ -1,0 +1,14 @@
+{
+  "images": {
+    "adapters": "sha256:f8941bc13e53ce0ce930c3290d714ae2c48d23209b8629b33a52656c4a17660e",
+    "postgres": "postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27",
+    "server": "sha256:f268fcbc0d1b6c5e1d062f48eb11fc0c3aaba5470c72ca7e1e922e2ea18bca54"
+  },
+  "inputs": {
+    "e2e/build/adapters/image.json": "a42a497e8c0aaeca6736f626f02200cc9a58bac0bfe0dad9c7be6723481e5c73",
+    "e2e/compose.json": "b601dfdcf329e62e32d6cff2f919cfe373c1379412e404f06095bfe6bcf99ee7",
+    "e2e/environment.py": "e1e0eb2ced0079264e8aaa98228d79b90d4a137df61697434506740679527f3d",
+    "e2e/relay.py": "b40f1f980664417e0c35d962451a06be6e881f08743dbd2a765e04199802bdd0",
+    "server/build/application-image.json": "38c774022bf8b66080b51918102051cd0a4da8f1da6b694ec94bdc5e544c10e5"
+  }
+}

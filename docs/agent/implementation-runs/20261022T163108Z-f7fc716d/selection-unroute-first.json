@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-f7fc716d000000000000000000000001",
+    "unroute"
+  ],
+  "startedAt": 1792688664.4493108,
+  "elapsedSeconds": 2.307347536087036,
+  "exitCode": 0,
+  "output": "{\n  \"removed\": true,\n  \"scope\": \"Explicitly detached; call wait for fresh services-only readiness\"\n}\n"
+}

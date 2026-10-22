@@ -1,0 +1,118 @@
+{
+  "reason": "tmpfs exhausted; move only current-unit duplicate verified-install/readback artifacts, never normal.apk, ownership state, other runs or required committed outputs",
+  "files": [
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-55c69557d5adab39/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-55c69557d5adab39/installed.apk",
+      "bytes": 36518161,
+      "sha256": "dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-08197b697de7f22b/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-08197b697de7f22b/installed.apk",
+      "bytes": 36518161,
+      "sha256": "dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-44211b3ddb28cd1f/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-44211b3ddb28cd1f/installed.apk",
+      "bytes": 36518161,
+      "sha256": "dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-3287095f1ee63642/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-3287095f1ee63642/installed.apk",
+      "bytes": 36518161,
+      "sha256": "dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-1ca1b0cdf8b95272/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-1ca1b0cdf8b95272/installed.apk",
+      "bytes": 36518161,
+      "sha256": "dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-3f1a6483b65f589a/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-3f1a6483b65f589a/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-0b945de0d769d28d/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-0b945de0d769d28d/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-d58fd87dceb46224/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-d58fd87dceb46224/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-a7852f9be4e91bce/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-a7852f9be4e91bce/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000001/app-a499b58a0afd4e0f/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000001/app-a499b58a0afd4e0f/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-75518d89e11fa56b/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-75518d89e11fa56b/installed.apk",
+      "bytes": 5021696,
+      "sha256": "93805d14be9a43fbebb7b49ae82942ab2df4cd70b1ffc823eb3a96f3bd41e80c"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-6a4d395c963abc72/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-6a4d395c963abc72/installed.apk",
+      "bytes": 36518161,
+      "sha256": "dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-e974aeb18ded9387/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-e974aeb18ded9387/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-a63cea2e131b9418/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-a63cea2e131b9418/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-7d7399d557e9e2b3/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-7d7399d557e9e2b3/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-861d9b1d8e5c0e23/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-861d9b1d8e5c0e23/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-c5a97b83514e285c/installed.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-c5a97b83514e285c/installed.apk",
+      "bytes": 36516485,
+      "sha256": "378407c51e578a4c2086f3e6da9c93524000da9b267d1cc829b47824efeaef5d"
+    },
+    {
+      "source": "/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-75518d89e11fa56b/input.apk",
+      "retainedIgnoredCopy": "e2e/build/20261022T163108Z-f7fc716d-offloaded/atw-device-f7fc716d000000000000000000000002/app-75518d89e11fa56b/input.apk",
+      "bytes": 36518161,
+      "sha256": "dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076"
+    }
+  ],
+  "tmpDiskAfter": [
+    12601151488,
+    11975290880,
+    625860608
+  ]
+}

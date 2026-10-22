@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks)
+                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby)
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,

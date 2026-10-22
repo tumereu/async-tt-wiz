@@ -48,18 +48,18 @@ public final class GenerateJooq {
             System.out.println("OWNED codegen PostgreSQL container=" + id + " image=" + image);
             try {
                 int migrated = FoundationMigrations.migrate(new DatabaseSettings(db.getJdbcUrl(), db.getUsername(), db.getPassword()));
-                if (migrated != 5) throw new IllegalStateException("Expected clean V1/V2/V3/V4/V5 migrations");
+                if (migrated != 6) throw new IllegalStateException("Expected clean V1/V2/V3/V4/V5/V6 migrations");
                 GenerationTool.generate(new Configuration()
                         .withJdbc(new Jdbc().withDriver("org.postgresql.Driver").withUrl(db.getJdbcUrl())
                                 .withUser(db.getUsername()).withPassword(db.getPassword()))
                         .withGenerator(new Generator()
                                 .withDatabase(new Database().withName("org.jooq.meta.postgres.PostgresDatabase")
-                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry"))
+                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry|contact|game|invitation"))
                                 .withGenerate(new Generate().withGeneratedAnnotation(false).withComments(false)
                                         .withJavadoc(false).withPojos(false).withDaos(false))
                                 .withTarget(new Target().withPackageName("org.asyncttwiz.server.generated")
                                         .withDirectory(output.toAbsolutePath().toString()).withClean(true))));
-                System.out.println("PASS generated real PostgreSQL fields from validated Flyway V1/V2/V3/V4/V5");
+                System.out.println("PASS generated real PostgreSQL fields from validated Flyway V1/V2/V3/V4/V5/V6");
             } finally {
                 var client = db.getDockerClient();
                 var volumes = client.inspectContainerCmd(id).exec().getMounts().stream()

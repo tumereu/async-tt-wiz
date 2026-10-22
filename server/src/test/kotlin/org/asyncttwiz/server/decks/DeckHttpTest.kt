@@ -495,7 +495,7 @@ class DeckHttpTest {
                     INSERT INTO account_request VALUES ('$request',201,'retained original');
                 """.trimIndent())
             }
-            assertEquals(1, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(2, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             db.connection().use { c -> c.createStatement().executeQuery("SELECT name,revision,cover_digest FROM saved_deck").use {
                 assertTrue(it.next()); assertEquals("Retained deck", it.getString(1)); assertEquals(9, it.getLong(2)); assertNull(it.getString(3))
             } }
@@ -528,7 +528,7 @@ class DeckHttpTest {
                 val process = migration.start()
                 val output = process.inputStream.bufferedReader().readText()
                 assertTrue(process.waitFor(45, TimeUnit.SECONDS)); assertEquals(0, process.exitValue(), output)
-                assertTrue(output.contains("applied=2")); println(output.trim())
+                assertTrue(output.contains("applied=3")); println(output.trim())
                 assertEquals(1, count(db, "account")); assertEquals(0, count(db, "saved_deck"))
                 assertEquals(0, FoundationMigrations.migrate(db.settings))
                 db.connection().use { connection -> connection.createStatement().executeQuery("SELECT password_phc FROM account").use {

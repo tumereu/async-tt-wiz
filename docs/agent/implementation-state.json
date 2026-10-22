@@ -88,7 +88,8 @@
                                          "docs/agent/implementation-runs/20261022T161016Z-466155fc.json",
                                           "docs/agent/implementation-runs/20261022T161719Z-49745d6b.json",
                                            "docs/agent/implementation-runs/20261022T162313Z-99383c98.json",
-                                           "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json"
+                                            "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
+                                            "docs/agent/implementation-runs/20261022T163108Z-f7fc716d.json"
    ],
   "findings": [
     {
@@ -860,7 +861,9 @@
     {
       "id": "I09a",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T163108Z-f7fc716d.json",
+      "qualification": "Delivered native username search/unilateral synchronized contacts, fantasy-name/reroll/select-all dialog, atomic real game+first-invitation/preparation identity/server UTC creation date and private paged Games/Invitations/read-only waiting-lobby routing. Four real PostgreSQL/HTTP tests pass current V6 migration, bounded Unicode-key literal search, complete contacts paging, privacy, six concurrent original-outcome creates, account/kind/intent conflicts and actual transaction rollback/same-ID recovery. Shared codec, five production client/controller/auth-wiring and twelve auth regressions plus ten affected deck HTTP tests pass; incremental normal APK/lint/module boundaries pass. One complete two-normal-APK/API29 non-GMS real-backend journey passes both orientations, Cancel/Back/blank validation/touch-select-all and edited-text replacement, draft rotation, exact waiting-lobby row/navigation reopen/process restart, recipient metadata and second same-account installation synchronization. Initial select-all defect repaired; retained diagnostics distinguish native IME/scroll harness corrections and exhausted tmpfs/guarded APK reattachment repairs. Actual outputs/JUnit/captures/input identities and exact two-device/environment cleanup retained. I09b ordered decisions/Reinvite, I10-I12 preparation/Ready/start/cancellation, independent B3 review and I34-I36 full-suite/compatibility/UI/external gates remain open; no fake-success future controls or existing-game HTTP writes.",
       "dependsOn": ["I08"],
       "planningRecord": "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
       "outcome": "Deliver the normal-APK P02 contact search/add and P05 named create+first invitation journey, plus P01 owned game/pending-invitation summaries and opening the inviter's real waiting lobby. Extend existing account authentication, request_identity/account_request atomic HTTP outcomes and writer fencing with persistent contacts/game/preparation/invitation identities, name and server UTC creation instant. Search exposes usernames, not email; adding is unilateral and account-synchronized. Native suggestions/reroll/select-all/dismissal remain personal and create nothing until Create & invite; retries retain original name/recipient/ID/time. Preserve exact-game lobby routing for later preparation and I09b decisions; do not expose fake-success Accept/Ready/deck controls or add competing HTTP existing-game writes.",

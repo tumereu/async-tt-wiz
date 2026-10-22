@@ -13,6 +13,8 @@ secure browser fallback form. No game/inbox/game-outbox/push worker exists yet.
 I06b1 adds [immutable private definitions and atomic saved-deck creation/read-back](DECKS.md)
 through normal authenticated HTTP, with retained original business outcomes. Native
 Save wiring remains I06b2; collection management and contextual imports remain I07/I08.
+I09a adds [contacts, named atomic first invitation, private game listings and waiting-lobby reads](LOBBY.md).
+Existing-game invitation decisions/durable workers remain I09b; preparation/start remain I10–I12.
 
 ## Build and test
 

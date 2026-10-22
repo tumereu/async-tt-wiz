@@ -34,7 +34,7 @@ private val Backdrop = Color(0xfff6f7f8)
 
 @Composable
 fun AccountEntry(controller: AuthController, reset: ResetController, catalog: CatalogViewModel? = null,
-    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null) {
+    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
     val state = controller.state
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     MaterialTheme(colorScheme = lightColorScheme(primary = Teal, onPrimary = Color.White,
@@ -46,7 +46,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
         Box(Modifier.fillMaxSize().background(Backdrop).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             when {
                 reset.state != null -> ResetEntry(reset)
-                state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks)
+                state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby)
                 state.logoutFailed -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(state.message!!, color = MaterialTheme.colorScheme.error)
@@ -259,6 +259,15 @@ internal fun EntryIcon(description: String?, kind: String) {
                 drawLine(color, Offset(w * .8f, w * .2f), Offset(w * .2f, w * .8f), w / 9)
                 drawLine(color, Offset(w * .1f, w * .65f), Offset(w * .35f, w * .9f), w / 12)
                 drawLine(color, Offset(w * .65f, w * .9f), Offset(w * .9f, w * .65f), w / 12)
+            }
+            "search" -> {
+                drawCircle(color, w * .25f, Offset(w * .4f, w * .4f), style = stroke)
+                drawLine(color, Offset(w * .58f, w * .58f), Offset(w * .88f, w * .88f), w / 12)
+            }
+            "refresh" -> {
+                drawArc(color, 30f, 300f, false, Offset(w * .2f, w * .2f), Size(w * .6f, w * .6f), style = stroke)
+                drawLine(color, Offset(w * .8f, w * .15f), Offset(w * .8f, w * .4f), w / 12)
+                drawLine(color, Offset(w * .8f, w * .4f), Offset(w * .55f, w * .4f), w / 12)
             }
             "eye" -> { drawOval(color, Offset(1f, w / 4), Size(w - 2, w / 2), style = stroke); drawCircle(color, w / 8) }
             "person" -> { drawCircle(color, w / 7, Offset(w * .4f, w / 3), style = stroke)

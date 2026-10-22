@@ -1,0 +1,17 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-f7fc716d000000000000000000000002",
+    "prepare-app",
+    "--environment",
+    "/tmp/opencode/atw-e2e-f7fc716d000000000000000000000001",
+    "--apk",
+    "/home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
+  ],
+  "startedAt": 1792688847.4540503,
+  "elapsedSeconds": 64.50355219841003,
+  "exitCode": 1,
+  "output": "Device controller failed: Device/tool command failed; inspect retained command output\n"
+}

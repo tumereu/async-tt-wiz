@@ -1,0 +1,15 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-f7fc716d000000000000000000000002",
+    "provision",
+    "--config",
+    "/tmp/opencode/i04b-second-config.json"
+  ],
+  "startedAt": 1792687522.5443609,
+  "elapsedSeconds": 14.823942422866821,
+  "exitCode": 1,
+  "output": "Device controller failed: Foreign device on dedicated ADB refused\n"
+}

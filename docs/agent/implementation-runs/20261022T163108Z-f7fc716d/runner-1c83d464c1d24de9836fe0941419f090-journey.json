@@ -1,0 +1,15 @@
+{
+  "journeys": [
+    "two UI registrations/logins",
+    "empty/unknown/case-fold prefix username search",
+    "unilateral add",
+    "dialog reroll/touch replacement/blank validation/Cancel/native Back",
+    "rotation retains edited draft",
+    "atomic named creation to actual waiting lobby",
+    "Games browser and exact row/navigation reopen",
+    "retained process restart",
+    "recipient pending invitation/name/date",
+    "other same-account installation contacts/game synchronization"
+  ],
+  "remaining": "I09b decisions/ordered game processing; I10-I12 preparation/start/cancel; I34-I36 final qualification/UI"
+}

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "python3",
+    "scripts/e2e-devices.py",
+    "--directory",
+    "/tmp/opencode/atw-device-f7fc716d000000000000000000000002",
+    "install-app",
+    "--apk",
+    "/home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
+  ],
+  "startedAt": 1792688470.9364455,
+  "elapsedSeconds": 50.110873222351074,
+  "exitCode": 0,
+  "output": "{\n  \"owner\": \"cdbf048b055f76a27d8f0c3916a7757d09c8712c3ca8904bd511feb1bd7cf87d\",\n  \"serial\": \"emulator-5566\",\n  \"apk\": {\n    \"sha256\": \"dc8ceede30b68d4bf4bbe775a2168a53c8b02ea1a15934b2e54f03a00d16f076\",\n    \"bytes\": 36518161,\n    \"package\": \"org.asyncttwiz.android\",\n    \"versionCode\": 1,\n    \"versionName\": \"0.1.0\",\n    \"activity\": \"org.asyncttwiz.android.MainActivity\",\n    \"minSdk\": 29,\n    \"targetSdk\": 36,\n    \"signerSha256\": [\n      \"4d7973a6e1c2f3394723ddbc41d073841f20db9c2221741b1c14f5b12a476f1e\"\n    ]\n  },\n  \"checkedAt\": 1792688521.0298963,\n  \"evidenceDirectory\": \"/tmp/opencode/atw-device-f7fc716d000000000000000000000002/app-6a4d395c963abc72\",\n  \"scope\": \"Verified normal APK install only; no startup observation\"\n}\n"
+}

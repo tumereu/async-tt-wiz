@@ -1,0 +1,175 @@
+{
+  "runId": "20261022T034912Z-d4685909",
+  "sessionID": "ses_e9e45d56cffeOXEv0joBD6aPiW",
+  "startCommit": "77e47c8dadb372dc87ce9fab4532219349a23d7a",
+  "mode": "implement",
+  "target": "I01f1b",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Completed only I01f1b combined parent qualification of implemented normal-APK startup and public-routing/handoff children. Clean locked builds,134 Python/23 JVM tests, migration/lint/backup/module/coverage checks and fresh actual API29 non-GMS/real Compose startup, transport, failure recovery, retained restart, explicit host reset and exact cleanup pass. Initial inventory failure and missing-XML supplemental artifact check remain diagnostics; read-only diagnosis/passive drain/full fresh unchanged device repeat and clean test rebuild/artifact recheck pass respectively. Actual synthetic captures/JUnit/command/tool/image/APK identities retained. Ancestors, Kotlin/Appium sessions/input, all14 actual instrumentation tests, multi-device, product networking/account/gameplay/Canvas, independent B1 review and release gates remain open.",
+  "selectionReason": "Clean master matched supplied startCommit; D-304 explicitly authorizes the entire-R1 plan. Actual findings are empty, no group review is due because B1 review follows I01-I04 together, and both I01f1b children plus I01f1a dependency are implemented. Their in-progress parent's combined qualification is the earliest ready unit before I01f1/I01f and I01f2. No priority discrepancy, skipped-ahead task, independent lane or unrelated state advancement.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:clean :protocol:clean :client-storage:clean :androidApp:clean :e2e:clean :core:jvmTest :protocol:jvmTest :client-storage:testDebugUnitTest :client-storage:verifySqlDelightMigration :client-storage:assembleRelease :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :client-storage:lintDebug :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-python.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-server-image.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-server-image.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-synthetic-adapters.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-adapter-image.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-android-storage.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-android.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-storage-foundation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-storage.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-coverage.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-synthetic-catalogs.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-fixtures.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py preflight",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-preflight.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py"]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/check-device-handoff.py --directory /tmp/opencode/atw-device-d468590911114af58b9f3861313df8c1 --environment /tmp/opencode/atw-e2e-d468590911114af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-actual.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py diagnosis",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-diagnosis.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py preflight",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-preflight-repeat.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-device-handoff.py --directory /tmp/opencode/atw-device-d468590922224af58b9f3861313df8c1 --environment /tmp/opencode/atw-e2e-d468590922224af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json --apk androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-actual-repeat.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py artifacts --write",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-artifacts.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:clean :protocol:clean :client-storage:clean :androidApp:clean :e2e:clean :core:jvmTest :protocol:jvmTest :client-storage:testDebugUnitTest :client-storage:verifySqlDelightMigration :client-storage:assembleRelease :e2e:test :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :client-storage:lintDebug :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-build-repeat.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py artifacts",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-artifacts-repeat.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py validate",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T034912Z-d4685909-validation.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-actual-repeat.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-actual.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-adapter-image.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-android.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-artifacts-repeat.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-artifacts.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-build-repeat.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-build.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-check.py",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-coverage.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-diagnosis.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-fixtures.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-hierarchy.xml",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-preflight-repeat.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-preflight.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-python.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-screen.png",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-server-image.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-storage.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909-validation.json",
+    "docs/agent/implementation-runs/20261022T034912Z-d4685909.json",
+    "docs/agent/implementation-state.json",
+    "e2e/README.md",
+    "e2e/devices-README.md"
+  ],
+  "sourceIds": {
+    "infrastructurePortionsOnly": ["P-001", "T-551", "T-630", "T-662"],
+    "laterBehaviorConstraints": ["P-059", "P-063", "P-065", "P-066", "T-632", "T-647", "T-649"],
+    "accounting": "Unchanged source-pinned ledger accounts for all P-001-P-072/T-001-T-715/F01-F88 with dispositions, supersessions and future dependencies. Scaffold observation and shell infrastructure diagnostics do not mark any complete product/UI scenario passed. No UI packet edit."
+  },
+  "contractSections": [
+    "AGENTS.md; implementation-authorization.md D-304-D-306; implementation-plan.md I01; state I01f1b outcome/checks; implementation-loop.md selected-parent-only advancement and independent B1 review boundary",
+    "docs/design/04-technical/test-architecture.md full-stack ownership/execution: normal APK, real isolated backend, explicit required device endpoints only, diagnostics not product acceptance; Kotlin UI/instrumentation remain I01f2",
+    "docs/design/05-verification/e2e-strategy.md real system boundary and reset lifecycle: failed setup cannot proceed, no action injection, explicit independent host reset versus retained recovery checkpoints; fresh Android-data scenarios remain I01f2",
+    "e2e/README.md and e2e/devices-README.md current build/image/install/prepare/wait/capture/unroute/cleanup commands, tool/signing/endpoint ownership and loopback/private-administration/unchanged-source-origin limits"
+  ],
+  "diagnostics": [
+    "First actual run passes all behavioral checkpoints and exact owned cleanup but fails final strict unrelated-listener comparison: pre-existing broker PID16360 loopback ports37921 and33283 disappear. Run-owned read-only diagnosis confirms both ports disjoint from owned device/Compose ports, absent on Linux and not controller command targets; three passive Windows observations confirm continued absence. Original socket provenance/root cause remains unknown; no broker shutdown, global networking change, assertion relaxation or defect-fix claim. Passive drain then full fresh unchanged run passes strict unrelated Windows/Android/Docker inventory and exact cleanup. The initial exit1 remains diagnostic, not a pass.",
+    "Supplemental artifact collection copies exact synthetic PNG/XML successfully, then fails because core/protocol JUnit XML was removed by the intervening server-image builder's normal clean/recompile. Existing client-storage/e2e XML remains. Repeated ordinary clean no-build-cache locked tests regenerate all23 JVM test results and rebuild the normal APK; the exact artifact collector without --write passes and verifies retained captures plus installed/rebuilt APK identity. Both failed/passing outputs retained; no source/build/test/assertion change or fabricated XML.",
+    "Known pre-existing Python SQLite mock ResourceWarning output remains visible in134 passing Python tests. No required check is skipped/red-labeled passing. The final clean :e2e:clean removes ignored adapter-image build metadata; future fresh setup must run the documented image builders after cleans, as already required. Actual local image IDs/input hashes from the exercised environment are retained."
+  ],
+  "qualification": {
+    "startupAndTransport": "Fresh actual API29 default non-GMS WHPX guest runs ordinary org.asyncttwiz.android.MainActivity from the normal debug APK. Readable720x1280 branded screenshot/hierarchy, exact package/version/API29-valid signer/read-back installed APK, foreground process and read-only empty no-backup SQLite v2 corroborate completed startup. All17 actual device HTTP status/bytes/hash/MIME/origin/private-path probes pass through only two exact loopback same-port routes to real isolated Compose backend/source; public backend404 is currently expected because product APIs are not implemented. No extra Windows relay, source-origin rewriting, product HTTP client or trust/security change.",
+    "failureRetentionReset": "Failed source setup, stopped app, missing owned mapping, suspended exact relay, stopped backend and foreign mapping invalidate every combined success marker and fail nonzero without services-only fallback. Explicit recovery passes. Actual retained app relaunch preserves Android inode/schema/logical content and only SQLite header counters change; same-container backend restart advances writer epoch and preserves lower-layer host sentinel/source edition. Explicit host-only independent-scenario reset replaces old stores/producers, removes sentinel and restores empty source/deliveries; fresh combined wait revalidates new services and unchanged Android data/PID. No user/game records seeded or Android clear/uninstall during checkpoints.",
+    "isolationCleanupBuild": "Private health/admin/reset/mailbox404s, no DB/SMTP/private-port publication and actual container external-IP/DNS egress refusal pass. Captures precede exact automatic route/native guest/ADB/Appium/watchdog/WSL-launcher/Compose/relay/port cleanup; successful fresh repeat preserves strict unrelated inventories. Repeated clean cache-disabled strictly locked builds execute23 JVM tests with no skips,134 Python regressions pass, and normal/test APK assembly/lint/backup/module/migration/debug-release SQLDelight and unchanged875-item coverage/fixtures pass. Actual JUnit XML, tool-input/package/license manifest hashes and exact image/APK/signing identities retained. No runtime/build/controller/test-source change needed."
+  },
+  "limitations": [
+    "Only selected I01f1b advances to implemented after its children/dependency. I01f1/I01f/I01 combined qualifications, all other tasks/batches/reviews/findings, authorization/runner/grants/model and externalReleaseGates remain unchanged; activeRun null. No independent review supplied.",
+    "Infrastructure/scaffold only, not product networking/account/downloader/gameplay/Canvas or full T-551/T-630/T-662/F01-F88 acceptance. No Appium driver session/Kotlin scenario/input, actual Android instrumentation, alternate app/activity, dummy control or seeded account/game state. I01f2 retains all14 existing Android storage-driver/controller/launcher tests and fresh independent-scenario Android-data setup; I01f3 retains multi-device/cold-boot repeats.",
+    "No subagent/second loop/deployment/paid resource/production data/global networking/unrelated shutdown. Synthetic captures/text retained in Git; large APK/DB/AVD artifacts remain private with hashes. Physical frame measurement I33, current/tablet/mixed-version/upgrade/arm64 I35, independent B1 review and rights/signing/operator/hardware release obligations remain unverified. No UI-document edit/publication obligation triggered."
+  ]
+}

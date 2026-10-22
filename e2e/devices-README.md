@@ -352,6 +352,36 @@ I01f3 owns multi-device/cold-boot repeats, and product networking, account/gamep
 Canvas acceptance, independent B1 review and release gates remain unpassed.
 No runtime/build/controller/lock/test-source change was needed.
 
+### I01f1b startup/routing parent qualification
+
+The [I01f1b record](../docs/agent/implementation-runs/20261022T034912Z-d4685909.json)
+qualifies its completed startup and routing/handoff children together. A fresh
+API29 default non-GMS guest installs the normal debug APK, launches production
+`MainActivity` and produces readable branded native screenshot/hierarchy plus
+read-only empty SQLite v2 evidence. All 17 actual device-originated transport
+probes, unchanged art origins, private-route/egress isolation, failed-handoff
+recovery, retained app/backend restart, explicit host reset and exact cleanup pass.
+Clean cache-disabled strictly locked builds pass 23 JVM tests and reproduce the
+installed APK; 134 Python regressions, migration/lint/backup/module checks and
+unchanged 875-item coverage/fixture accounting pass. Tool/image/signer/port/process
+identities and actual captures/JUnit/command output are retained.
+
+The first actual attempt passed its behavioral checkpoints and owned cleanup but
+failed the final inventory assertion when two pre-existing broker listeners
+disappeared. Read-only diagnosis confirms the missing ports are disjoint from all
+owned ports and were not command targets; their original socket provenance/root
+cause is unknown. After passive drain, a full fresh run passes the **unchanged**
+assertions. No inventory exclusions, broker shutdown or networking changes were
+made. A supplemental artifact check also initially lacked core/protocol JUnit XML
+removed by the intervening server-image build; the subsequent clean test build
+and exact artifact check pass. Both failed outputs remain diagnostics, not passes.
+
+Only **I01f1b** closes. I01f1/I01f/I01 combined qualifications, I01f2 Kotlin/Appium
+sessions/input and all 14 actual storage instrumentation tests, I01f3 multi-device
+repeats, product networking/account/downloader/gameplay/Canvas, independent B1
+review and all release gates remain open. No product/build/controller/test-source
+change was needed; the documented setup/wait/capture/cleanup commands are unchanged.
+
 ## Explicit tools and configuration
 
 Install **Appium 3.8.0 / UiAutomator2 8.7.0** into a new isolated prefix/home,

@@ -17,6 +17,16 @@ pass. An initial transient-listener inventory failure is retained as diagnostic;
 the unchanged fresh repeat passes. Only that parent closes, not its ancestors,
 product E2E, independent B1 review or any release gate.
 
+[I01f1b startup/routing parent qualification](../docs/agent/implementation-runs/20261022T034912Z-d4685909.json)
+now checks the completed normal-APK startup and public-routing/handoff children
+together: fresh actual API29 non-GMS startup/transport, fail-closed recovery,
+retained restart, explicit host reset and strict inventory/owned cleanup pass,
+with clean locked builds and retained evidence. The initial inventory failure
+and supplemental missing-XML artifact failure remain diagnostic; their full
+fresh device repeat and clean rebuild/artifact recheck pass respectively.
+Only I01f1b closes; I01f1/I01f/I01, Kotlin/Appium/instrumentation, multi-device,
+product E2E, independent review and release obligations remain pending.
+
 The Kotlin/JUnit host runner's current runtime test qualifies only its Java
 toolchain. The **test-only** [Compose topology](compose.json) and
 [host controller](environment.py) now provision the real application image,

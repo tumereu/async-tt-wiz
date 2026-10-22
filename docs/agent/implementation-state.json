@@ -53,7 +53,8 @@
       "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json",
        "docs/agent/implementation-runs/20261022T013255Z-043555f3.json",
         "docs/agent/implementation-runs/20261022T022920Z-43e21a50.json",
-        "docs/agent/implementation-runs/20261022T025919Z-a5658aee.json"
+         "docs/agent/implementation-runs/20261022T025919Z-a5658aee.json",
+         "docs/agent/implementation-runs/20261022T034912Z-d4685909.json"
    ],
   "findings": [],
   "batches": [
@@ -391,9 +392,12 @@
     {
       "id": "I01f1b",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
       "children": ["I01f1b1", "I01f1b2"],
       "planningRecord": "docs/agent/implementation-runs/20261022T010018Z-6fa0ca94.json",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T034912Z-d4685909.json",
+      "buildNotes": "e2e/devices-README.md",
+      "qualification": "Combined I01f1b1/I01f1b2 outcome qualified without product/build/controller/test-source changes: fresh actual API29 default non-GMS WHPX normal-APK production MainActivity startup, exact installed/rebuilt APK/signer/package identity, readable native screenshot/hierarchy and read-only empty no-backup SQLite v2 pass alongside real Compose public routing. All17 device HTTP status/bytes/hash/origin/private-path probes, exact two loopback mappings, internal-container egress refusal, failed source/stopped app/missing route/suspended relay/stopped backend/foreign mapping invalidation and explicit recovery pass. Retained app/backend restarts preserve Android inode/logical content and host sentinel/source edition; explicit host reset replaces old producers/stores and fresh combined validation preserves Android data. First complete attempt fails final inventory when two pre-existing broker listeners disappear; disjoint owned ports/no command targets and passive absence documented, original socket provenance/root cause unknown. Full fresh unchanged repeat passes strict unrelated inventories and exact route/native/ADB/Appium/watchdog/WSL/Compose/relay/port cleanup. Clean strictly locked cache-disabled builds,134 Python/23 JVM tests, APK assembly/lint/backup/module/migration checks and unchanged875-item accounting pass. Supplemental artifact check initially lacks core/protocol XML removed by server-image build; clean test rebuild and exact check pass, reproducing installed APK; both diagnostic outputs retained. Actual synthetic PNG/XML/JUnit and tool/image/signing identities committed. Only I01f1b closes; ancestor qualifications, I01f2 Kotlin/Appium sessions/input and all14 actual instrumentation tests, I01f3 multi-device, product networking/account/downloader/gameplay/Canvas, B1 review and all release gates remain open.",
       "dependsOn": ["I01f1a"],
       "outcome": "Extend I01f1a's owned device controller with normal-APK install/production MainActivity launch and safe per-device screenshot/hierarchy/package/signer/API/storage-startup evidence, plus a measured explicit per-device route to only the real I01e Compose backend/source public loopback ports. Preserve source art origins and private administration isolation; broken or unavailable routing must fail setup. Actually qualify one normal scaffold APK and real Compose instance, publish the endpoint/evidence/cleanup handoff for I01f2, and retain future account/downloader/Canvas/Kotlin/instrumentation obligations without claiming them passed.",
       "checks": [

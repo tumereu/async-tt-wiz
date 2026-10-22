@@ -72,7 +72,8 @@
                          "docs/agent/implementation-runs/20261022T100621Z-a6dcf219.json",
                           "docs/agent/implementation-runs/20261022T101044Z-1d047a5f.json",
                            "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3.json",
-                           "docs/agent/implementation-runs/20261022T113642Z-ea0d8fde.json"
+                            "docs/agent/implementation-runs/20261022T113642Z-ea0d8fde.json",
+                            "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json"
    ],
   "findings": [],
   "batches": [
@@ -667,7 +668,45 @@
         "Run affected incremental assembly/lint and actual Android instrumentation using the production loader/decoder/cache and reusable presentation in the normal app process, covering lifecycle cancellation/rebinding, exact face identity, bounded decode, cache reuse and visible text fallback. Exercise the normal catalog-to-art boundary with the hosted synthetic source, not fixture-role special cases or a second test app. Retain actual check output, compatible dependency/license/lock provenance and owned cleanup. Native import-preview/full-art/gameplay consumers are still I06/I07/I12/I15-I19; final Canvas/performance/interface qualification remains I33-I36, not a fabricated I05 acceptance pass."
       ]
     },
-    { "id": "I06", "batch": "B2", "status": "pending" },
+    {
+      "id": "I06",
+      "batch": "B2",
+      "status": "in-progress",
+      "dependsOn": ["I05"],
+      "children": ["I06a", "I06b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
+      "outcome": "Deliver common quantity/name/optional-printing and mainboard/sideboard import with preserved input, actionable errors, native D03/D04/D04b resolved preview and atomic named server save. I06a delivers the normal client parsing/resolution/preview journey; I06b completes real account-private definition submission and atomic new-deck save plus the integrated normal-APK journey. Reuse I05 catalog/art adapters, existing authentication and writer fencing. The selected parent later reconciles child evidence/current inputs and checks only missing affected integration. I07 collection management and I08 contextual Overwrite/Merge extend this same saved-definition foundation; no alternate local-authority deck store or temporary save API.",
+      "checks": [
+        "Reconcile exact I06a/I06b retained evidence and relevant input identities for parsing/resolution, preserved corrections, native review/edit/exit, lazy art/text fallback and atomic named save/retry/reopen. Run only missing or materially affected integration under D-307, not another clean build, whole suite or unchanged failure matrix.",
+        "Retain I06.import source accounting for P-044/P-048, T-423-T-427, T-573 and T-628 without claiming whole cross-feature scenarios passed. B2 independent review remains after I05-I08; I34 full-suite/deferred assertions, I35 compatibility and I36/B8 complete interface comparison plus all external gates remain."
+      ]
+    },
+    {
+      "id": "I06a",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I05"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
+      "outcome": "Implement common MTG text parsing and exact catalog resolution, wired into a normal Manage decks bottom Import deck route and native D03/D04/D04b input/error/read-only preview. Support quantity/name, optional (SET) collector-number, Deck/Sideboard headings, SB: and headerless blank-line separation without overriding explicit sections. Preserve original pasted text and line identities; unknown/ambiguous/malformed or unsupported extra-section input blocks review/save without substitution, partial dropping or Arena/legality filtering. Resolve complete explicit face relationships and retained display/default metadata through I05's production catalog, with optional missing corners blank and art failure as text. Offer correction and lookup retry through existing catalog acquisition, not a card-authoring/editor UI. Preserve unfinished personal input and preview across rotation, keep lookup off the UI thread and fence old-account callbacks. Review/Edit/Exit/native Back and scroll/keyboard controls follow current mocks; no successful/fake/local-only save is exposed before I06b completes real persistence.",
+      "checks": [
+        "Run focused parser/resolver tests against real file-backed I05 catalogs from both synthetic families, covering plain/printing/section dialects, explicit-heading blank spacing, duplicate entries/quantity arithmetic, unknown versus genuinely ambiguous matches, exact printing mismatch, multiface identities, missing optional defaults and absent catalog. Unsupported sections and invalid/overflowing quantities must be actionable errors, not silent truncation, partial results or invented deck-legality limits. Preserve source text/interior whitespace and exact correction line numbers (T-423-T-427/T-573/T-628).",
+        "Exercise the normal APK's import input, blocking errors, correction/retry, resolved section quantities/art-name preview, Edit pasted list and Exit/native Back against the hosted synthetic catalog. Check both orientations, rotation/keyboard/reachable D04b actions and missing-art text fallback using the production adapters, without test-action endpoints, special fixture IDs or alternate launchers. Confirm leaving never saves and old-account lookup callbacks cannot publish after Logout.",
+        "Run affected incremental client/shared compilation, focused controller tests and applicable Android lint/assembly; retain actual command output/captures and owned-resource cleanup. I06b still owns server acceptance/save failure/retry/reopen and saved-deck success routing. Broad fault/device/UI comparison matrices remain I34-I36; do not repeat unaffected I05 qualification."
+      ]
+    },
+    {
+      "id": "I06b",
+      "batch": "B2",
+      "status": "pending",
+      "dependsOn": ["I06a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
+      "outcome": "Complete the normal new-import Deck name/Save deck journey with real authenticated HTTP/PostgreSQL acceptance, immutable content-addressed account-private definitions and atomic deck/entry attachment. Establish protocol-v1's ordinary complete POST /definitions and POST /decks plus owned read-back needed for D02 success/reopen, using existing authorization/writer-epoch transactions and explicit Flyway/jOOQ conventions. No game, official-provider lookup, image fetch, extra Upload/Send or application chunk/upload session is required. Validate the entire definition set, face/reference structure and resource bounds before retaining it; names/external printing IDs never overwrite distinct content. Bind stable request/account/kind/intent identity and atomically persist deck creation with its original outcome so uncertain retries cannot duplicate the deck or alter sections/name. Wire native Save/Edit controls, actionable failure retaining editable input, and success to the actual saved deck; support server read-back after restart independently of public catalog/art eviction. Keep local data/callbacks account-isolated. Establish only the minimal creation/read presentation needed here; I07 extends collection/details/rename/cover/delete/sync, and I08 extends the same definitions/deck service with contextual Overwrite/Merge and its complete conflict/copy-isolation checks.",
+      "checks": [
+        "Run focused real PostgreSQL migration/jOOQ and authenticated definition/deck HTTP integration tests: complete valid set/new named mainboard+sideboard save and owned read-back, invalid/interrupted set or missing/foreign definition refusal without partial deck changes, private reads/attachment, distinct contents sharing external name/ID, missing optional defaults and no provider/art dependency. Use existing writer fencing and ordinary authorization; no stronger reset/in-flight ordering or alternate unguarded mutation path.",
+        "Prove atomic creation and stable original-outcome retry, including a lost response/repeated request and changed intent under one ID; one saved deck with exact quantities/sections/name survives server restart. Invalid or failed new imports preserve any existing good deck. Confirm server reads supply retained definitions despite missing/updated public catalog. Exercise affected account/Logout isolation, not the entire account/reset fault suite.",
+        "Run the normal installed APK against the real isolated backend and hosted synthetic source: incorrect import then correction, review/name/save, actual saved-deck display, Edit/Exit without saving, save transport failure/input retention/retry and restart/reopen. Check both orientations, keyboard and long preview reachability; missing artwork never blocks save. Use UI-created accounts and normal actions, with actual output/input identities/captures and exact owned cleanup. Run affected incremental server/client tests/build/lint only; no full-suite repeat. I07/I08/lobby isolation, independent B2 review and final I34-I36 obligations remain unclaimed."
+      ]
+    },
     { "id": "I07", "batch": "B2", "status": "pending" },
     { "id": "I08", "batch": "B2", "status": "pending" },
     { "id": "I09", "batch": "B3", "status": "pending" },

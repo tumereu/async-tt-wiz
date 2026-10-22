@@ -87,7 +87,8 @@
                                         "docs/agent/implementation-runs/20261022T154754Z-ad37196f.json",
                                          "docs/agent/implementation-runs/20261022T161016Z-466155fc.json",
                                           "docs/agent/implementation-runs/20261022T161719Z-49745d6b.json",
-                                          "docs/agent/implementation-runs/20261022T162313Z-99383c98.json"
+                                           "docs/agent/implementation-runs/20261022T162313Z-99383c98.json",
+                                           "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json"
    ],
   "findings": [
     {
@@ -843,7 +844,47 @@
       ],
       "qualification": "Delivered contextual normal-APK Overwrite/Merge on the existing complete definition POST and UpdateDeck PUT. Same-deck row locks serialize execution-state additive sections; replacement/revision/original outcome are atomic, duplicate Merge adds once, changed target/mode/account conflicts and deleted targets never upsert. Immutable digests distinguish conflicting external names/printing IDs; accepted payloads and account grants are never rewritten. Pre-I08 metadata canonical retries remain compatible. Forty affected shared/PostgreSQL HTTP/client/controller/account tests and incremental locked assembly/lint/boundaries pass. One wholly green actual API29 non-GMS Appium/real-Compose journey covers UI-created account/catalog/save, invalid correction, both orientations/rotation, stopped-backend failure preserving mode/draft, restart/retry, 4+2 main-only Merge preserving sideboard, Back cancellation/new default, Overwrite clearing sideboard, accepted process restart and separate bottom new import. Exact JUnit/captures/final source/APK/image/fixture/lock identities and owned cleanup retained. No clean/full-suite/fault-matrix repeat, new upload protocol, local saved authority, provider/deployment/subagent/new loop or gate change. Only I08 advances and B2 is ready for first fresh independent review. Actual prepared/game copies and later combined two-device content-edit/stale-opponent/full-suite/compatibility/final UI assertions remain I10/I12/I26/I31/I34-I36; external release gates unchanged/unverified."
     },
-    { "id": "I09", "batch": "B3", "status": "pending" },
+    {
+      "id": "I09",
+      "batch": "B3",
+      "status": "in-progress",
+      "dependsOn": ["I08"],
+      "children": ["I09a", "I09b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
+      "outcome": "Deliver P01/P02/P05 contacts/search/add, atomic named create+first invitation, personal fantasy-name suggestions/reroll/select-all, immutable server creation date and retained game identity. I09a delivers the native contacts/create/waiting-lobby path with real account HTTP persistence. I09b delivers recipient Accept/Decline and inviter Reinvite to that exact game through the real shared ordered socket/durable inbox/outcome path, extended by I10-I14 rather than replaced. No mutual contact approval, presence gate, automatic invitation expiry or temporary unordered existing-game writes. Parent closure reuses exact child evidence and checks only missing affected integration; B3 review remains after I09-I12 together.",
+      "checks": [
+        "Reconcile exact I09a/I09b reports, committed evidence and current relevant source/artifact identities for native contact discovery, atomic named creation, participant-private listings, waiting-lobby identity, invitation decisions and durable ordered recovery. Run only missing or materially affected integration under D-307, not repeated child builds/device journeys/full suites.",
+        "Retain all I09.invitations P/T/F assignments with partial cross-task accounting: I10 preparation, I11 readiness/start/randomness, I12 cancellation/list/start/preparation overlaps and real two-Android prepared start, I13/I14 gameplay/rebase, I28 rematch and I34-I36 final qualification/UI comparison remain required. Neither this split nor child completion supplies independent B3 review or passes an external gate."
+      ]
+    },
+    {
+      "id": "I09a",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I08"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
+      "outcome": "Deliver the normal-APK P02 contact search/add and P05 named create+first invitation journey, plus P01 owned game/pending-invitation summaries and opening the inviter's real waiting lobby. Extend existing account authentication, request_identity/account_request atomic HTTP outcomes and writer fencing with persistent contacts/game/preparation/invitation identities, name and server UTC creation instant. Search exposes usernames, not email; adding is unilateral and account-synchronized. Native suggestions/reroll/select-all/dismissal remain personal and create nothing until Create & invite; retries retain original name/recipient/ID/time. Preserve exact-game lobby routing for later preparation and I09b decisions; do not expose fake-success Accept/Ready/deck controls or add competing HTTP existing-game writes.",
+      "checks": [
+        "Run affected shared/protocol and real PostgreSQL/HTTP tests for username-key bounded search, unilateral idempotent contact add/list, account isolation/no email disclosure, nonblank game naming and atomic game+first-invitation+original-outcome creation. Qualify the explicit forward migration on retained account/deck data. Concurrent duplicates/lost-response retry recover one original game/preparation/invitation/name/time; changed recipient/name/account/kind conflicts cannot leak another outcome or create a replacement. Equal names remain distinct games.",
+        "Run affected production transport/controller/auth/navigation tests for captured contact identity, name suggestions/reroll, nonblank validation, focus/touch/keyboard select-all, ordinary subsequent editing, cancel/X/Back without creation, stable uncertain create intent, list refresh and exact waiting-lobby routing. Rotation preserves appropriate personal input; same-account reauthentication recovers retained requests, while Logout/different-account login clears private context and fences stale callbacks using the existing auth boundary.",
+        "Exercise the normal installed APK against the isolated real backend with UI-created synthetic users: search/add, open/cancel/reroll/edit/submit naming, enter the named waiting lobby, return/reopen from Games/navigation and process restart. Observe pending invitation/name/date from the recipient account and synchronized contacts/games from another same-account instance without API-created business state. Check portrait/landscape, keyboard/scroll/reachable controls, search feedback in the same panel with subordinate results label, Games before Invitations, title/date/opponent metadata and no app Back arrows. Retain actual outputs/captures/input identities and exact owned cleanup; reuse the qualified device environment, not its fault matrix.",
+        "Keep recipient decisions/Reinvite and ordered socket/durable game execution explicitly pending in I09b. Initial create+invite remains the contract's account HTTP exception, never a temporary existing-game mutation service. Inviter deck/preparation/Ready, setup Cancel and lifecycle overlaps remain I10-I12; no fake gameplay or whole B3 start pass. Run affected incremental builds/tests only; full-suite/compatibility/final UI gates remain I34-I36."
+      ]
+    },
+    {
+      "id": "I09b",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I09a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
+      "outcome": "Deliver recipient Accept/Decline from P01 and inviter Reinvite inside the exact existing lobby's opponent slot, integrated end-to-end with the real shared per-persistent-game FIFO socket ingress, PostgreSQL durable inbox, atomic execution/original outcomes/revisions/outbox and stream replacement fencing. Reuse the global request identity and current writer-epoch transaction boundary; introduce one extensible game command processor, not lifecycle-only unguarded HTTP writes or a second future gameplay queue. Decline retains the inviter's game, acceptance is not Ready/start and Reinvite never creates a replacement. Client ordered same-process recovery preserves original intent/attempt/round/IDs; restart synchronizes server state without an outgoing journal. Real workers join readiness/recovery/shutdown; no detached unserviced inbox.",
+      "checks": [
+        "Run focused shared envelope/canonical-intent/decimal-ordinal codecs and actual PostgreSQL plus authenticated WebSocket/HTTP integration checks for recipient-only exact-attempt decisions, inviter-only exact-game Reinvite, stable name/date, no email/private outcome disclosure, persistent pending/declined listing and absence of age expiry. Existing-game operations use only ordered socket ingress; create retries still return their original IDs after later lifecycle changes. No acceptance-as-Ready, mutual contacts or online-presence prerequisite.",
+        "Prove the implemented durable path with affected integration tests: FIFO ingress per persistent game before asynchronous DB work, different-game independence, receipt only after committed admission, duplicate pending/final identity without a second ordinal, changed-intent conflict, lowest-pending execution and atomic state/outcome/revision/outbox rollback. Restart resumes admitted pending work and recovers committed original results without reapplication. Stream replace/resume fences new old-connection admissions while preserving already admitted work and independent devices; a rejected/unadmitted message leaves no sequence-hole gate. Include worker readiness/ownership loss/reload/close checks only for the newly implemented workers, not an unchanged whole service fault matrix.",
+        "Run affected client transport/controller tests and a real two-normal-APK synthetic journey: invite, recipient Decline, inviter sees retained lobby and Reinvite there, recipient Accept enters that same named/date-stamped game. Retry an uncertain original across same-process reconnect/reauthentication; verify refresh/restart converges without double decision/reinvite or stale outcome rewind. Capture attempt/round/game IDs rather than row indexes; Logout/account switching fences callbacks and clears private queues. Check both orientations and native Back without adding an extra Send/host Start or API-controlled opponent. Retain actual outputs/captures/input identities and exact owned cleanup.",
+        "Establish game/preparation/invitation applicability boundaries now and reuse them in I10-I14. P-072/T-669 cancellation in both orders, T-457/T-458/T-460 preserved actual prepared copies/Ready, T-681 start/rematch metadata and full two-Android prepared-start assertions remain I10-I12/I28/I31/I34, not claimed executed before those features exist. I12 must extend this same processor for cancellation, I13 gameplay and I14 prediction/recovery; no replacement queue, durable client outgoing journal, sequence reconstruction, disclosure side channel or stronger reset ordering. B3 independent review remains after I09-I12; broad final qualification/release gates unchanged."
+      ]
+    },
     { "id": "I10", "batch": "B3", "status": "pending" },
     { "id": "I11", "batch": "B3", "status": "pending" },
     { "id": "I12", "batch": "B3", "status": "pending" },

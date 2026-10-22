@@ -58,7 +58,8 @@
            "docs/agent/implementation-runs/20261022T044527Z-56557333.json",
             "docs/agent/implementation-runs/20261022T044934Z-c307edee.json",
              "docs/agent/implementation-runs/20261022T051745Z-e3d640da.json",
-             "docs/agent/implementation-runs/20261022T052143Z-3d124427.json"
+              "docs/agent/implementation-runs/20261022T052143Z-3d124427.json",
+              "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json"
    ],
   "findings": [],
   "batches": [
@@ -497,7 +498,45 @@
         "Exercise fresh Android app data plus successful Compose reset/wait before these actual independent scenarios, capture evidence and close only owned sessions/resources. Use incremental locked builds and affected runner/storage/controller regressions. Reuse unchanged I01f1 reset/restart retention, IPv4/tool/provenance and foreign-resource safety evidence instead of rerunning its platform matrix. No fake account/game data, broad full-suite run or extra scaffold-certification children; then proceed toward actual account entry."
       ]
     },
-    { "id": "I02", "batch": "B1", "status": "pending" },
+    {
+      "id": "I02",
+      "batch": "B1",
+      "status": "in-progress",
+      "dependsOn": ["I01"],
+      "children": ["I02a", "I02b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
+      "outcome": "Deliver actual registration/login, ordinary account authorization/privacy, persistent revocable server sessions and Android Keystore-protected credentials with native A01/A02/A02b forms/errors. Two implementation children cover the server API and its normal-app integration; the parent reconciles their exact evidence and checks only missing affected integration under D-307. I03 owns the authenticated shell/context and complete local Logout isolation; I04 owns reset and multi-device B1 journeys. B1 independent review remains after I01-I04 together.",
+      "checks": [
+        "Reconcile I02a/I02b source identities and retained affected checks for real PostgreSQL account/session requests, exact password handling, ordinary authorization/revocation/privacy and Keystore-backed normal-app registration/login/restart. Run only a missing or materially affected integration seam, not repeated clean builds or an unchanged fault matrix.",
+        "Retain partial source-ID accounting from I02.credentials without claiming future contact/game privacy, shell/context recovery, reset or full cross-feature scenarios passed. Preserve I03/I04/I13/I14 and final I34/I35/I36 obligations and the single B1 capability review."
+      ]
+    },
+    {
+      "id": "I02a",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
+      "outcome": "Implement real account registration/email-password login and session revocation/authentication in the existing Spring/PostgreSQL/Flyway/jOOQ service, using the selected Spring Security adapter and shared HTTP protocol types. Apply authentication-and-sessions.md's field-specific normalization, exact password bytes, versioned Argon2id verifiers, bounded hashing/rate limits and random opaque non-expiring tokens stored server-side only as hashes. Persist account/session identities and auth epoch for later reset; authorize new requests normally and expose only safe account identity to other-user projections. Qualify compatible locked dependencies and incremental migration/image inputs without adding contacts, gameplay, reset/outbox workers or stronger D-289 race guarantees.",
+      "checks": [
+        "Run focused real PostgreSQL migration/repository and actual HTTP tests for POST /accounts, POST /sessions, DELETE /session and the minimal authenticated identity/read boundary used by Android. Check retained-schema forward migration, uniqueness/rollback, invalid/missing/revoked bearer refusal, independent sessions and valid-token continuity across service restart/large ages. Keep explicit migration, writer-fenced mutations and health admission intact; run affected foundation regressions only.",
+        "Test username NFC/Unicode15.1 case-fold keys and email domain/local equivalence separately from passwords; exact boundary whitespace/newline/Unicode passwords must authenticate only with identical bytes. Check scalar/UTF-8 bounds and malformed encoding, random salts/versioned Argon2id cost and bounded workers, generic credential failures/rate-limit responses, hashed-only stored tokens and safe errors/logs without passwords/email disclosure to other users. Benchmark the selected hash cost on the actual host without inventing a physical-device performance pass.",
+        "Build affected shared/server modules and real local application image incrementally with qualified locks; exercise its ordinary registration/login/authorized read/revocation path against owned synthetic PostgreSQL. Retain API/check outputs and dependency provenance, no deployment or production provider. Publish the exact HTTP/configuration/error contract for I02b; normal Android UI/Keystore checks belong to that child and reset belongs to I04."
+      ]
+    },
+    {
+      "id": "I02b",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I02a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T052549Z-e0f4d269.json",
+      "outcome": "Replace the normal APK's signed-out scaffold with native Compose A01/A02/A02b forms calling I02a through the selected Ktor/serialization HTTP adapter. Implement AES-GCM token ciphertext with unique nonces and Android Keystore key, no persisted password/secret logs/backup, protected-token reopen and explicit unavailable-key/revoked-session login handling. Preserve storage-open failure handling, fullscreen, meaningful labels/errors, password visibility/paste and exact password whitespace/Unicode. Use the same centered bounded branded login card in both orientations and scrollable full-size controls/registration lower form. Hand authenticated identity to I03's shell integration without fake users or implementing unrelated navigation/reset capabilities.",
+      "checks": [
+        "Run focused adapter/state/credential-store tests and actual Android Keystore instrumentation for encrypt/reopen, distinct nonces, missing/invalidated key or damaged ciphertext requiring login, and packaged backup exclusion. Keep password input out of disk/saved-state/logs and auth out of URLs/art requests. Check rejected credentials/network/storage failure keeps correction/retry usable without guest access, duplicate submits or silent normalization; no plaintext saved-password fallback.",
+        "Run a one-device normal-APK Kotlin/JUnit/Appium journey against the real synthetic Compose backend: fresh entry, invalid then corrected registration, email/password login, safe authenticated identity, force-stop/relaunch retaining protected token, revoked token requiring login. Exercise A01/A02/A02b in portrait and landscape with keyboard, password visibility/paste, native Back and reachable scrolled actions; retain screenshots/hierarchy/results. Include exact Unicode/boundary-whitespace credential assertions through the actual client/server path, using instrumentation for input sequences Appium cannot represent rather than a fake auth transport.",
+        "Run affected incremental Android assembly/lint and focused shared/storage/startup regressions when wiring changes affect them; update existing scaffold startup assertions to the real signed-out UI, not a second launcher/test app. Reuse qualified controller/reset/routing evidence without repeating its matrix. Record that I03 still owns Menu/Games/context/full local Logout isolation, I04 owns email-reset/second-device journeys, and I34/I35/I36 retain broad qualification/final UI comparison; no full scenario or independent B1 review is supplied here."
+      ]
+    },
     { "id": "I03", "batch": "B1", "status": "pending" },
     { "id": "I04", "batch": "B1", "status": "pending" },
     { "id": "I05", "batch": "B2", "status": "pending" },

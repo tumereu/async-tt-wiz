@@ -8,7 +8,8 @@ service, separate public/health listeners, runtime configuration and bounded pro
 shutdown/recovery. I01c3 adds the local application OCI image and isolated image
 lifecycle qualification.** No image is published or deployed by these interfaces.
 I02a adds the real account/session schema and public account API described below.
-No game/inbox/outbox/mail/push schema or durable worker exists yet.
+I04a adds password-reset tokens, an encrypted durable mail outbox, SMTP worker and
+secure browser fallback form. No game/inbox/game-outbox/push worker exists yet.
 
 ## Build and test
 
@@ -94,7 +95,8 @@ or environment logging when diagnosing a secret-bearing command.
 
 The only CLI operation is `migrate`; no `clean`, `repair`, automatic baseline,
 out-of-order migration or unsupported-future-schema exception is enabled.
-An empty database receives `V1__service_writer.sql` and `V2__accounts_and_sessions.sql`; an unchanged supported database
+An empty database receives V1 service writer, V2 accounts/sessions and V3 password
+reset/mail migrations; an unchanged supported database
 is an idempotent rerun. History/checksums are validated. An unexpected nonempty
 unversioned database, altered checksum or newer applied history fails closed without
 destructive fallback. PostgreSQL transactional migration failures roll back that
@@ -122,7 +124,8 @@ HEALTH_ADDRESS=127.0.0.1 HEALTH_PORT=8081 \
   server/build/install/server/bin/server serve
 ```
 
-`DB_URL`, `DB_USER`, `DB_PASSWORD_FILE` and `PUBLIC_BASE_URL` are required. The latter
+`DB_URL`, `DB_USER`, `DB_PASSWORD_FILE`, `PUBLIC_BASE_URL` and the reset-mail inputs
+[below](#password-reset-httpmail-v1--i04a) are required by `serve`. The latter URL
 is an absolute HTTP(S) base URL without user info/query/fragment, retained for future
 public link generation; this foundation does not fetch it or implement account links.
 The UTF-8 secret must be a readable regular file, at most 64 KiB, with a nonempty
@@ -169,12 +172,14 @@ tested within the **30-second** contract, along with exact listener rebind/sessi
 cleanup and restart with retained epoch. Future callbacks remain bounded local DB
 work; no shutdown guarantee is made for arbitrary uninterruptible application code.
 
-**Implemented worker inventory:** only the ownership recovery scheduler/singleton
-reload. There are **no account/game/durable inbox/outbox/mail/push workers** to resume,
-flush or claim healthy. SMTP/MAIL/FCM credentials are not required/parsed before those
-adapters exist. Every future implemented worker must join recovery/readiness and
-shutdown before its command routes are admitted; this foundation does not claim
-future durable recovery. The local image tests below exercise this same foundation.
+**Implemented worker inventory:** ownership recovery and the I04a durable reset-mail
+sender. Recovery validates pending encrypted mail with the configured key before
+readiness/admission; a wrong key stays unavailable without deleting records. SMTP
+outage does not make the whole service unready: due mail retries durably. There are
+no game/inbox/game-outbox/push workers. Each future worker must join readiness,
+recovery and bounded shutdown before its routes are admitted. Historical foundation
+qualification below predates account/mail implementation; it is not current product
+coverage.
 
 Focused real-process/admission checks (Linux signals, Testcontainers-owned PostgreSQL):
 
@@ -250,9 +255,8 @@ Run just this scope with:
   --tests org.asyncttwiz.server.database.WriterOwnershipTest verifyModuleBoundaries
 ```
 
-No account/game/inbox/outbox/mail/push worker exists. Each future durable worker
-must join recovery/readiness before the real service can accept commands; this
-singleton-only foundation does not claim those workers have reloaded.
+The current reset-mail worker also joins recovery/readiness. Each future durable
+game/push worker must do the same; older singleton qualification is not their test.
 
 ## Local application image — I01c3
 
@@ -497,7 +501,7 @@ independent session IDs. Tokens are 32 secure random bytes encoded as canonical
 43-character base64url without padding; only SHA-256 verifiers persist. No secret
 response replay store, token expiry/age check or periodic eviction exists. New
 private requests join session/account epochs and revocation state, not a cached
-connection login. I04 will implement actual password reset/epoch increments;
+connection login. I04a implements actual password reset/epoch increments below;
 ordinary already-authorized work need not be retrospectively fenced (D-289).
 
 Focused development checks (ordinary incremental builds):
@@ -521,3 +525,114 @@ I34/I35/I36/B8. B1 is not independently reviewed until I01–I04 together; exter
 release gates remain open. These API checks are partial evidence for P-043/P-047,
 T-396/T-419/T-420/T-422/T-572/T-573/T-621/T-657 and future feature integration, not
 full-scenario or UI-feedback passes.
+
+## Password reset HTTP/mail v1 — I04a
+
+The public listener adds these unauthenticated **JSON** routes, using the same
+8192-byte strict UTF-8/JSON boundary and safe `AccountError` format as account entry:
+
+| Method/path | Request | Success |
+| --- | --- | --- |
+| `POST /password-reset-requests` | `{"email":"…"}` / `RequestPasswordReset` | 202, empty body, identical for known/unknown email; no session changes |
+| `POST /password-resets` | `{"token":"…","password":"…"}` / `ResetPassword` | 204, empty body; password changed, **no login token issued** |
+
+Use the existing exact password grammar and email canonicalization, including IDNA
+domains. Confirmation errors: 400 `invalid_reset_link` for invalid/expired/used
+tokens; 400 `invalid_field` with `password` for invalid password input. Existing
+safe JSON/media/size/busy/unavailable errors apply. Reset requests are bounded at
+20/hour/actual peer and 3/hour/canonical email (also unknown email); confirmation
+at 20/minute/peer plus the shared process-wide **two** Argon2 permits. 429 carries
+`Retry-After`. Counters are bounded process-local windows, not account lockout.
+Do not infer delivery or successful password change from a request's 202.
+
+V3 stores random 32-byte canonical base64url token verifiers (SHA-256), creation,
+30-minute expiry and consumption. Multiple links remain usable concurrently.
+Only successful confirmation, under an account-row lock in **one writer-fenced
+transaction**, changes PHC, increments auth epoch, revokes all current sessions,
+consumes every outstanding token and deletes/cancels pending token-bearing mail.
+Failed/expired/reused links, request/delivery and GET never revoke sessions. New
+requests using old sessions then fail normally; already-authorized work may finish
+(D-289). Do not add reset-vs-login/admitted-game serialization machinery.
+
+### Required `serve` configuration
+
+In addition to DB/listener inputs, supply:
+
+- `RESET_BASE_URL`: explicit **HTTPS origin**, no credentials/path/query/fragment.
+  Emails contain exactly `<origin>/reset-password?token=<43-char token>`. Android
+  I04b must configure and validate this origin/path, extract only a canonical token,
+  and open its native A04 form on cold/warm intents; opening is not confirmation.
+- `RESET_MAIL_KEY_FILE`: readable regular UTF-8 file, max 64 KiB, containing canonical
+  base64 for **32 random bytes**. One terminal LF/CRLF is removed. Keep it external
+  and stable across service restarts/upgrades while pending mail exists. Loss/wrong
+  key blocks readiness, not destructive recovery. Do not reuse a DB or SMTP password.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` (ASCII transport mailbox), `SMTP_TLS`:
+  `starttls` (required upgrade, never opportunistic), `tls` (implicit TLS), or
+  **`local-plaintext` only for isolated synthetic/local development**, never a public
+  mail host. TLS uses normal JDK trust and hostname verification; no trust-all mode.
+- Optional paired `SMTP_USERNAME_FILE` and `SMTP_PASSWORD_FILE`, same bounded UTF-8
+  file contract; password whitespace is exact except one final line ending. They
+  must occur together and are forbidden in `local-plaintext`. No credential values
+  in environment variables, logs, URLs or image layers. Missing/invalid required
+  configuration fails `serve` promptly with its fixed safe message; `migrate` still
+  needs only DB configuration. Embedded foundation tests can omit mail explicitly;
+  the real CLI has no implicit disabled-mail fallback.
+
+For local synthetic development add the isolated sink host/port, explicit
+`SMTP_TLS=local-plaintext`, synthetic From, HTTPS `.invalid` reset origin and a
+generated **external** key-file mount to the example service commands above.
+The normal [E2E Compose environment](../e2e/README.md) already supplies these inputs.
+It does not deploy an HTTPS frontend or provide production SMTP/operator readiness.
+
+### Durable delivery and browser fallback
+
+The single bounded worker polls every 500 ms, up to eight due messages per poll.
+SMTP (Eclipse Angus Jakarta Mail **2.0.5**) uses 3-second connect/read/write limits,
+no library debug and no raw delivery errors. Payloads contain only the transport
+recipient and token, encrypted using AES-256-GCM, fresh 96-bit nonce and token-row
+UUID as associated data. Randomness, token verifier and encrypted mail insert are
+atomic. Recipient local spelling comes from the stored delivery address; its domain
+is IDNA ASCII for SMTP. No SMTPUTF8 requirement or commercial provider is introduced.
+
+Before sending, persist attempt/backoff: temporary/network failure retries after
+**1, 5, then 15 minutes**, repeating the bounded final delay until token expiry.
+5xx permanent rejection ends retries. Success, permanent failure, expiry or successful
+reset removes the encrypted token-bearing payload. A crash after SMTP acceptance
+but before DB acknowledgement may repeat the **same** email/link; it cannot issue
+another token or reset a password. No DB transaction holds network I/O. Recovery
+validates pending ciphertext before readiness; HTTP routes check readiness and
+every DB mutation still enters the epoch fence. Close stops admission/polling and
+retains uncertain/pending mail for restart, not an unbounded flush.
+
+`GET /reset-password?token=…` serves a self-contained password form for a usable
+link; GET without a query serves Request another link. Invalid/expired/used links
+have no actionable password form and link to that request route. The fallback uses
+no scripts/third-party assets, `Cache-Control: no-store`, `Referrer-Policy:
+no-referrer`, restrictive CSP and `nosniff`. Tomcat access logging is not enabled;
+the external HTTPS proxy must also omit/redact reset queries and mail bodies.
+
+Browser confirmation is explicit URL-encoded `POST /reset-password` with token,
+password and HMAC CSRF hidden field bound to a fresh Secure/HttpOnly/SameSite=Strict
+cookie. The form posts to a query-free same-origin path; foreign Origin or missing/
+invalid cookie/CSRF is rejected. Browser `POST /reset-password/request` uses the same
+protection for email requests. Success instructs returning to the app to sign in;
+it never auto-logs in. JSON API is stateless/header/body-only, with no cookie auth.
+
+Affected checks (incremental, not the full suite):
+
+```sh
+./scripts/gradle.sh --no-daemon --console=plain :server:test \
+  --tests 'org.asyncttwiz.server.accounts.PasswordReset*'
+python3 scripts/build-server-image.py
+python3 tests/server/password_reset_compose.py
+python3 -m unittest discover -s tests -p 'test_*environment.py' -v
+```
+
+These cover real PostgreSQL, actual synthetic SMTP, controlled-clock long backoff/
+expiry, HTTP/CSRF/form and local OCI/Compose delivery/restart/new-store reset. They
+are partial I04.reset evidence for P-047/P-066/T-421/T-572/T-621/T-656/T-657/T-666,
+not full cross-feature scenarios or Android F04–F06 passes. I04b retains native
+A03/A04, configured deep links and the two-device journey; B1 review still follows
+I01–I04. I34 retains broad/final suite plus positive local TLS/auth transport
+qualification; real external HTTPS/SMTP credentials/delivery and proxy logging
+readiness remain operator-owned, not claimed by a plaintext synthetic sink.

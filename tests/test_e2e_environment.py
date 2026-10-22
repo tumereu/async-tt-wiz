@@ -65,9 +65,9 @@ class EnvironmentUnitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir="/tmp/opencode") as name:
             path = Path(name)
             value = {"project": path.name, "directory": name, "owner": "a" * 64, "formatVersion": 1}
-            for file in ("db-password", "harness-token", "compose.json"):
+            for file in ("db-password", "harness-token", "reset-mail-key", "compose.json"):
                 (path / file).write_text("synthetic\n")
-            value["secretHashes"] = {n: e.sha(path / n) for n in ("db-password", "harness-token")}
+            value["secretHashes"] = {n: e.sha(path / n) for n in ("db-password", "harness-token", "reset-mail-key")}
             value["composeSha256"] = e.sha(path / "compose.json")
             e.write_json(path / "instance.json", value)
             self.assertEqual(e.load(path), value)
@@ -119,7 +119,7 @@ class EnvironmentUnitTests(unittest.TestCase):
 
     def test_capture_redacts_both_file_secrets(self):
         with tempfile.TemporaryDirectory(dir="/tmp/opencode") as name:
-            for file in ("db-password", "harness-token"):
+            for file in ("db-password", "harness-token", "reset-mail-key"):
                 (Path(name) / file).write_text(file + "-sentinel\n")
             self.assertEqual(e.redact({"directory": name}, "db-password-sentinel harness-token-sentinel"),
                              "[REDACTED] [REDACTED]")

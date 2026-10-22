@@ -14,6 +14,16 @@ data class CreateSession(val email: String, val password: String) {
     override fun toString() = "CreateSession[redacted]"
 }
 
+@Serializable
+data class RequestPasswordReset(val email: String) {
+    override fun toString() = "RequestPasswordReset[redacted]"
+}
+
+@Serializable
+data class ResetPassword(val token: String, val password: String) {
+    override fun toString() = "ResetPassword[redacted]"
+}
+
 /** The only identity projection exposed to clients/other accounts; deliberately no email. */
 @Serializable
 data class AccountIdentity(val accountId: String, val username: String)

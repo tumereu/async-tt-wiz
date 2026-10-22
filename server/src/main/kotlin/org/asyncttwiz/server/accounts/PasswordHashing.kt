@@ -8,7 +8,7 @@ class HashingBusy : RuntimeException("Authentication busy")
 /** Work runs on bounded servlet threads, at most two memory-hard operations, with no hash queue. */
 class PasswordHashing {
     private val encoder = Argon2PasswordEncoder(16, 32, 1, 65536, 3)
-    private val permits = Semaphore(2)
+    private companion object { val permits = Semaphore(2) }
     private val dummy = encoder.encode("not-an-account-password")
 
     internal fun <T> bounded(work: () -> T): T {

@@ -5,10 +5,16 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.util.Map;
 import org.asyncttwiz.server.database.DatabaseSettings;
+import org.asyncttwiz.server.accounts.ResetMailSettings;
 
 /** Explicit runtime inputs only; Spring's arbitrary environment/property binding is not enabled. */
 public record ServiceSettings(DatabaseSettings database, URI publicBaseUrl, InetAddress publicAddress,
-                              int publicPort, InetAddress healthAddress, int healthPort) {
+                              int publicPort, InetAddress healthAddress, int healthPort, ResetMailSettings resetMail) {
+    // Embedded foundation checks may omit adapters; the actual serve command requires mail configuration.
+    public ServiceSettings(DatabaseSettings database, URI base, InetAddress address, int port,
+                           InetAddress healthAddress, int healthPort) {
+        this(database, base, address, port, healthAddress, healthPort, null);
+    }
     public static ServiceSettings fromEnvironment(Map<String, String> environment) throws IOException {
         var database = DatabaseSettings.fromEnvironment(environment);
         var base = URI.create(required(environment, "PUBLIC_BASE_URL"));
@@ -22,7 +28,8 @@ public record ServiceSettings(DatabaseSettings database, URI publicBaseUrl, Inet
         if (port == healthPort) throw new IllegalArgumentException("Public and health ports must differ");
         return new ServiceSettings(database, base,
                 address(environment, "SERVER_ADDRESS", "0.0.0.0"), port,
-                address(environment, "HEALTH_ADDRESS", "127.0.0.1"), healthPort);
+                address(environment, "HEALTH_ADDRESS", "127.0.0.1"), healthPort,
+                ResetMailSettings.fromEnvironment(environment));
     }
 
     private static InetAddress address(Map<String, String> values, String key, String fallback) throws IOException {

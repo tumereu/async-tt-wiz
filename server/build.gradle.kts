@@ -38,6 +38,7 @@ dependencies {
     implementation(libs.icu)
     implementation(libs.bouncycastle)
     implementation(libs.serialization.json)
+    implementation(libs.angus.mail)
     add(schemaTools.implementationConfigurationName, libs.flyway.core)
     add(schemaTools.implementationConfigurationName, libs.flyway.postgresql)
     add(schemaTools.implementationConfigurationName, libs.postgresql)
@@ -99,6 +100,7 @@ tasks.register<Test>("composeIsolationTest") {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     systemProperty("asyncttwiz.postgresImage", postgresImage)
+    systemProperty("asyncttwiz.root", rootDir.absolutePath)
     // Launch the real installed executable, not a second test-only migration CLI.
     dependsOn(tasks.installDist)
     systemProperty("asyncttwiz.migrationExecutable", layout.buildDirectory.file("install/server/bin/server").get().asFile.absolutePath)

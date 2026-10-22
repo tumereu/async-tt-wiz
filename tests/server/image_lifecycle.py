@@ -61,13 +61,19 @@ class ImageLifecycle(unittest.TestCase):
         self.pg_secret = Path(self.temp.name, "postgres-password")
         self.pg_secret.write_text(self.password)
         self.pg_secret.chmod(0o444)
+        self.mail_key = Path(self.temp.name, "reset-mail-key")
+        self.mail_key.write_text("CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCws=")
+        self.mail_key.chmod(0o444)
         self.inputs = {"DB_URL": "jdbc:postgresql://database:5432/foundation", "DB_USER": "image_fixture",
                        "DB_PASSWORD_FILE": "/run/secrets/database-password",
                        "PUBLIC_BASE_URL": "https://synthetic.invalid/base",
                        "SERVER_ADDRESS": "0.0.0.0", "SERVER_PORT": "8080",
                        "HEALTH_ADDRESS": "0.0.0.0", "HEALTH_PORT": "8081",
                        "SPRING_APPLICATION_JSON": '{"logging":{"level":{"root":"TRACE"}},"server":{"port":1}}',
-                       "SPRING_CONFIG_LOCATION": "file:/not-an-application-configuration"}
+                       "SPRING_CONFIG_LOCATION": "file:/not-an-application-configuration",
+                       "SMTP_HOST": "127.0.0.1", "SMTP_PORT": "9", "SMTP_TLS": "local-plaintext",
+                       "SMTP_FROM": "reset@synthetic.invalid", "RESET_BASE_URL": "https://reset.synthetic.invalid",
+                       "RESET_MAIL_KEY_FILE": "/run/secrets/reset-mail-key"}
         self.addCleanup(self.cleanup)
         docker("network", "create", "--internal", "--label", self.label, self.network)
         docker("volume", "create", "--label", self.label, self.volume)
@@ -95,7 +101,8 @@ class ImageLifecycle(unittest.TestCase):
         env = self.inputs if inputs is None else inputs
         options = ["--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
                    "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777",
-                   "--mount", f"type=bind,src={secret or self.secret},dst=/run/secrets/database-password,readonly"]
+                   "--mount", f"type=bind,src={secret or self.secret},dst=/run/secrets/database-password,readonly",
+                   "--mount", f"type=bind,src={self.mail_key},dst=/run/secrets/reset-mail-key,readonly"]
         for key, value in env.items():
             options.extend(["--env", key + "=" + value])
         container = self.create(MANIFEST["imageId"], *options, command=command)
@@ -176,7 +183,7 @@ class ImageLifecycle(unittest.TestCase):
         await_true("owned PostgreSQL ready", lambda: docker("exec", self.db, "pg_isready", "-h", "127.0.0.1", "-U", "image_fixture",
                    "-d", "foundation", check=False).returncode == 0)
 
-    def migrate(self, applied=2, success=True):
+    def migrate(self, applied=3, success=True):
         migration = self.app(("migrate",))
         self.stopped(migration, 0 if success else 1)
         if success:

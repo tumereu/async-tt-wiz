@@ -11,6 +11,8 @@ import org.asyncttwiz.protocol.AccountError
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CreateSession
 import org.asyncttwiz.protocol.RegisterAccount
+import org.asyncttwiz.protocol.RequestPasswordReset
+import org.asyncttwiz.protocol.ResetPassword
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.OwnershipFailure
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -26,11 +28,14 @@ import org.springframework.security.web.savedrequest.NullRequestCache
 import org.springframework.web.filter.OncePerRequestFilter
 
 /** Explicit stateless Spring Security chain on the public listener; no cookie login/CSRF session. */
-class AccountHttp(runtime: ServiceRuntime) {
+class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
+    private val resets: PasswordResetService? = null, settings: ResetMailSettings? = null) {
     private val service = AccountService(runtime)
     private val limits = AccountRateLimits()
     private val json = AccountJson.format
-    private val paths = setOf("/accounts", "/sessions", "/session", "/account")
+    private val form = if (resets != null && settings != null) ResetFormHttp(resets, settings, limits) else null
+    private val paths = setOf("/accounts", "/sessions", "/session", "/account", "/password-reset-requests", "/password-resets",
+        "/reset-password", "/reset-password/request")
     private val security = FilterChainProxy(DefaultSecurityFilterChain({ true }, listOf(
         SecurityContextHolderFilter(NullSecurityContextRepository()),
         object : OncePerRequestFilter() {
@@ -58,6 +63,8 @@ class AccountHttp(runtime: ServiceRuntime) {
         response.setHeader("X-Content-Type-Options", "nosniff")
         // Secrets are header/POST-body only. No cookie authentication or forwarded-IP trust.
         try {
+            if (!runtime.ready()) { error(response, 503, "unavailable"); return true }
+            if (form?.handle(request, response) == true) return true
             security.doFilter(request, response) { _, _ -> dispatch(request, response) }
         } catch (failure: InvalidAccountField) {
             error(response, 400, "invalid_field", failure.field)
@@ -81,6 +88,22 @@ class AccountHttp(runtime: ServiceRuntime) {
 
     private fun dispatch(request: HttpServletRequest, response: HttpServletResponse) {
         when (request.method to request.requestURI) {
+            "POST" to "/password-reset-requests" -> {
+                val reset = resets ?: run { error(response, 503, "unavailable"); return }
+                if (!allow(response, "reset-ip", request.remoteAddr, 20, 3600)) return
+                val input = json.decodeFromString<RequestPasswordReset>(body(request, response) ?: return)
+                val email = AccountFields.email(input.email)
+                if (!allow(response, "reset-email", email.key, 3, 3600)) return
+                reset.request(input.email)
+                response.status = 202
+            }
+            "POST" to "/password-resets" -> {
+                val reset = resets ?: run { error(response, 503, "unavailable"); return }
+                if (!allow(response, "reset-confirm-ip", request.remoteAddr, 20, 60)) return
+                val input = json.decodeFromString<ResetPassword>(body(request, response) ?: return)
+                if (reset.confirm(input.token, input.password)) response.status = 204
+                else error(response, 400, "invalid_reset_link")
+            }
             "POST" to "/accounts" -> {
                 if (!allow(response, "register-ip", request.remoteAddr, 5, 3600)) return
                 val body = body(request, response) ?: return
@@ -113,7 +136,7 @@ class AccountHttp(runtime: ServiceRuntime) {
                 }
             }
             else -> { response.setHeader("Allow", when (request.requestURI) {
-                "/accounts", "/sessions" -> "POST"
+                "/accounts", "/sessions", "/password-reset-requests", "/password-resets" -> "POST"
                 "/account" -> "GET"
                 else -> "DELETE"
             }); error(response, 405, "method_not_allowed") }

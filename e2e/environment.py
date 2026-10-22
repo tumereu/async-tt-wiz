@@ -6,6 +6,7 @@ Only public backend and
 source listeners get loopback forwarding; all container networks are internal.
 """
 import argparse
+import base64
 import contextlib
 import fcntl
 import hashlib
@@ -90,7 +91,7 @@ def directory_path(path):
 def load(directory):
     require(directory.is_dir() and directory.stat().st_uid == os.getuid() and
             directory.stat().st_mode & 0o077 == 0, "Private owned instance directory required")
-    for name in ("instance.json", "compose.json", "db-password", "harness-token"):
+    for name in ("instance.json", "compose.json", "db-password", "harness-token", "reset-mail-key"):
         path = directory / name
         require(path.is_file() and not path.is_symlink(), "Missing or unsafe instance input")
     value = json.loads((directory / "instance.json").read_text())
@@ -99,7 +100,7 @@ def load(directory):
             "Invalid instance identity")
     require(value["composeSha256"] == sha(directory / "compose.json"), "Changed topology snapshot refused")
     for name, expected in value["secretHashes"].items():
-        require(name in ("db-password", "harness-token") and sha(directory / name) == expected,
+        require(name in ("db-password", "harness-token", "reset-mail-key") and sha(directory / name) == expected,
                 "Changed secret file refused")
     return value
 
@@ -331,7 +332,7 @@ def wait(value, timeout, *, completing_reset=False):
 
 
 def redact(value, text):
-    for name in ("db-password", "harness-token"):
+    for name in ("db-password", "harness-token", "reset-mail-key"):
         file = Path(value["directory"]) / name
         if file.exists():
             text = text.replace(file.read_text().strip(), "[REDACTED]")
@@ -342,8 +343,8 @@ def capture(value):
     resources = owned(value)
     output = {"instance": value["project"], "images": value["images"], "inputs": value["inputs"],
               "composeVersion": docker("compose", "version"), "containers": {},
-              "implementedWorkers": ["backend writer ownership/singleton recovery", "synthetic source/mail sink"],
-              "absentWorkers": ["account", "game", "inbox", "outbox", "mail sender", "push"]}
+               "implementedWorkers": ["backend writer ownership/recovery", "encrypted reset-mail outbox/SMTP sender", "synthetic source/mail sink"],
+               "absentWorkers": ["game", "game inbox/outbox", "push"]}
     for service, info in resources.items():
         logs = docker("logs", "--tail", "150", info["Id"])
         output["containers"][service] = {"id": info["Id"], "image": info["Image"],
@@ -396,12 +397,12 @@ def provision(directory, backend_port, source_port, timeout):
                  "owner": secrets.token_hex(32), "images": images, "inputs": inputs, "ports": ports,
                  "backendOrigin": "http://127.0.0.1:" + str(ports["backend"]),
                  "sourceOrigin": "http://127.0.0.1:" + str(ports["source"])}
-        for name in ("db-password", "harness-token"):
+        for name in ("db-password", "harness-token", "reset-mail-key"):
             path = directory / name
-            path.write_text(secrets.token_hex(32) + "\n")
+            path.write_text((base64.b64encode(secrets.token_bytes(32)).decode() if name == "reset-mail-key" else secrets.token_hex(32)) + "\n")
             # Directory is 0700; file mounts must be readable by image UID 10001.
             path.chmod(0o444)
-        value["secretHashes"] = {n: sha(directory / n) for n in ("db-password", "harness-token")}
+        value["secretHashes"] = {n: sha(directory / n) for n in ("db-password", "harness-token", "reset-mail-key")}
         replacements = {"PROJECT": value["project"], "OWNER": value["owner"], "DIRECTORY": str(directory),
                         "SERVER_IMAGE": images["server"], "ADAPTER_IMAGE": images["adapters"],
                         "POSTGRES_IMAGE": images["postgres"], "SOURCE_ORIGIN": value["sourceOrigin"],
@@ -443,9 +444,9 @@ def empty_baseline(value):
     # Deliberately explicit implemented-store inventory. New migrations/workers
     # must extend this qualification, never silently escape the reset contract.
     require(database(value, "SELECT string_agg(tablename,',' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'")
-            == "account,account_session,flyway_schema_history,service_writer", "Unexpected baseline tables")
-    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2", "Unexpected migration baseline")
-    for table in ("account", "account_session"):
+            == "account,account_session,flyway_schema_history,password_reset_token,reset_mail,service_writer", "Unexpected baseline tables")
+    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3", "Unexpected migration baseline")
+    for table in ("account", "account_session", "password_reset_token", "reset_mail"):
         require(database(value, "SELECT count(*) FROM " + table) == "0", "Retained account/session baseline")
     require(database(value, "SELECT count(*) FROM service_writer WHERE singleton AND epoch > 0") == "1", "Missing baseline writer")
     state = admin(value, "/admin/state")
@@ -453,8 +454,8 @@ def empty_baseline(value):
             state["generation"] == 0 and state["messageCount"] == 0 and
             state["sourceFault"] == state["mailFault"] == "ok", "Nonempty adapter baseline")
     require(admin(value, "/admin/messages") == [], "Retained baseline deliveries")
-    return {"tables": ["account", "account_session", "flyway_schema_history", "service_writer"], "migrations": ["1", "2"],
-            "accountCount": 0, "sessionCount": 0,
+    return {"tables": ["account", "account_session", "password_reset_token", "reset_mail", "flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3"],
+            "accountCount": 0, "sessionCount": 0, "resetTokenCount": 0, "resetMailCount": 0,
             "versions": state["versions"], "messageCount": 0, "faults": "ok"}
 
 
@@ -530,7 +531,7 @@ def cleanup(value):
     for port in value["ports"].values():
         with reserve(port):
             pass
-    for name in ("db-password", "harness-token"):
+    for name in ("db-password", "harness-token", "reset-mail-key"):
         (Path(value["directory"]) / name).unlink()
     write_json(Path(value["directory"]) / "cleaned.json", {"instance": value["project"], "ownedResourcesRemoved": True,
                                                             "portsRebindable": True, "temporarySecretsRemoved": True})

@@ -14,7 +14,7 @@ class ServiceSettingsTest {
         Files.writeString(secret, "  ä synthetic password \r\n")
         val settings = ServiceSettings.fromEnvironment(mapOf("DB_URL" to "jdbc:postgresql://127.0.0.1:1/private_db",
             "DB_USER" to "private_username", "DB_PASSWORD_FILE" to secret.toString(),
-            "PUBLIC_BASE_URL" to "https://synthetic.invalid/base"))
+            "PUBLIC_BASE_URL" to "https://synthetic.invalid/base") + org.asyncttwiz.server.accounts.SyntheticMailbox.environment(temporary))
         assertEquals("  ä synthetic password ", settings.database().password())
         assertEquals(8080, settings.publicPort())
         assertEquals(8081, settings.healthPort())

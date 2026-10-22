@@ -19,11 +19,16 @@ import org.springframework.context.support.DefaultLifecycleProcessor;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 import org.asyncttwiz.server.accounts.AccountHttp;
+import org.asyncttwiz.server.accounts.PasswordResetService;
+import org.asyncttwiz.server.accounts.ResetMailWorker;
+import org.asyncttwiz.server.accounts.SmtpResetMailer;
 
 /** Explicit Spring Boot servlet contexts; no auto-configured database, migrations, Actuator or APIs. */
 public final class SpringService implements AutoCloseable {
     private final ServiceSettings settings;
     private final ServiceRuntime runtime;
+    private final PasswordResetService resets;
+    private final ResetMailWorker mail;
     private ConfigurableApplicationContext health;
     private ConfigurableApplicationContext publicApi;
     private boolean closed;
@@ -31,6 +36,9 @@ public final class SpringService implements AutoCloseable {
     public SpringService(ServiceSettings settings) {
         this.settings = settings;
         runtime = new ServiceRuntime(settings.database());
+        resets = settings.resetMail() == null ? null : new PasswordResetService(runtime, settings.resetMail());
+        mail = resets == null ? null : new ResetMailWorker(runtime, resets, new SmtpResetMailer(settings.resetMail()));
+        if (mail != null) runtime.attachWorker(() -> resets.validatePending(), mail::available);
     }
 
     public synchronized void start() {
@@ -38,6 +46,7 @@ public final class SpringService implements AutoCloseable {
         try {
             health = context(settings.healthAddress(), settings.healthPort(), true);
             publicApi = context(settings.publicAddress(), settings.publicPort(), false);
+            if (mail != null) mail.start();
             runtime.start();
         } catch (RuntimeException failure) { close(); throw failure; }
     }
@@ -73,7 +82,7 @@ public final class SpringService implements AutoCloseable {
             });
             context.getBeanFactory().registerSingleton("servletWebServerFactory", factory);
             context.getBeanFactory().registerSingleton("serviceServlet", new ServletRegistrationBean<>(
-                    new Routes(runtime, isHealth), "/"));
+                    new Routes(runtime, isHealth, resets, settings), "/"));
         });
         return application.run();
     }
@@ -91,10 +100,10 @@ public final class SpringService implements AutoCloseable {
         private final ServiceRuntime runtime;
         private final boolean health;
         private final AccountHttp accounts;
-        Routes(ServiceRuntime runtime, boolean health) {
+        Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings) {
             this.runtime = runtime;
             this.health = health;
-            accounts = health ? null : new AccountHttp(runtime);
+            accounts = health ? null : new AccountHttp(runtime, resets, settings.resetMail());
         }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -121,6 +130,7 @@ public final class SpringService implements AutoCloseable {
         if (closed) return;
         closed = true;
         runtime.close();
+        if (mail != null) mail.close();
         if (publicApi != null) publicApi.close();
         if (health != null) health.close();
     }

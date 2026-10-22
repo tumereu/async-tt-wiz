@@ -34,7 +34,8 @@ class ServiceProcessTest {
             "HEALTH_ADDRESS" to "127.0.0.1", "HEALTH_PORT" to port("127.0.0.1").toString(),
             // These are deliberately NOT an alternate configuration channel.
             "SPRING_APPLICATION_JSON" to """{"logging":{"level":{"root":"TRACE"}},"server":{"port":1}}""",
-            "SPRING_CONFIG_LOCATION" to "file:/not-an-application-configuration")
+            "SPRING_CONFIG_LOCATION" to "file:/not-an-application-configuration") +
+            org.asyncttwiz.server.accounts.SyntheticMailbox.environment(temporary)
     }
 
     private fun launch(inputs: Map<String, String>, command: String, log: Path): Process {
@@ -368,7 +369,8 @@ class ServiceProcessTest {
         Files.setPosixFilePermissions(unreadable, PosixFilePermissions.fromString("---------"))
         assertFalse(Files.isReadable(unreadable), "Unreadable file check must actually be unavailable to this user")
         val valid = mapOf("DB_URL" to "jdbc:postgresql://127.0.0.1:1/private_db", "DB_USER" to "private_username",
-            "DB_PASSWORD_FILE" to secret.toString(), "PUBLIC_BASE_URL" to "https://synthetic.invalid")
+            "DB_PASSWORD_FILE" to secret.toString(), "PUBLIC_BASE_URL" to "https://synthetic.invalid") +
+            org.asyncttwiz.server.accounts.SyntheticMailbox.environment(temporary)
         val cases = listOf(emptyMap(), valid - "DB_URL", valid - "DB_USER", valid - "DB_PASSWORD_FILE",
             valid - "PUBLIC_BASE_URL", valid + ("PUBLIC_BASE_URL" to "https://secret:password@host/"),
             valid + ("PUBLIC_BASE_URL" to "not-a-url"), valid + ("SERVER_PORT" to "-1"),

@@ -24,7 +24,7 @@ class AccountRepositoryTest {
             assertEquals(1, v1.migrate().migrationsExecuted)
             val checksum = v1.info().applied().single().checksum
             db.connection().use { it.createStatement().execute("UPDATE service_writer SET epoch=79") }
-            assertEquals(1, FoundationMigrations.migrate(db.settings))
+            assertEquals(2, FoundationMigrations.migrate(db.settings))
             assertEquals(checksum, FoundationMigrations.flyway(db.settings).info().applied().first().checksum)
             db.connection().use { connection -> connection.createStatement().executeQuery("SELECT epoch FROM service_writer").use {
                 assertTrue(it.next()); assertEquals(79, it.getLong(1))

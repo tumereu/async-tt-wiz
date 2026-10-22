@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "tests/server/password_reset_compose.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "51941c462554f50a9068d44148b8e20c3735f4ab132966b22fc7f9ea137ee575",
+  "output": "PASS local real OCI/Compose V3 readiness, ordinary account/reset APIs, actual synthetic SMTP configured HTTPS link, payload deletion, retained backend restart, successful-only revocation, reuse refusal and exact new-password login; no secret logs\nPASS scenario reset quiesces actual reset sender and independently empties account/session/reset-token/reset-mail stores and mailbox under V1/V2/V3\nINPUT IDENTITIES {\"adapters\": \"sha256:f8941bc13e53ce0ce930c3290d714ae2c48d23209b8629b33a52656c4a17660e\", \"inputs\": {\"e2e/build/adapters/image.json\": \"a42a497e8c0aaeca6736f626f02200cc9a58bac0bfe0dad9c7be6723481e5c73\", \"e2e/compose.json\": \"b601dfdcf329e62e32d6cff2f919cfe373c1379412e404f06095bfe6bcf99ee7\", \"e2e/environment.py\": \"4c970fe870b9c1299a322392835825fecf1212618a9a3e4d7041aa6a13f8c7df\", \"e2e/relay.py\": \"b40f1f980664417e0c35d962451a06be6e881f08743dbd2a765e04199802bdd0\", \"server/build/application-image.json\": \"a69166e443924d4d799dda0ceaa82f03736bc99660c722adca1a8b0ca6997268\"}, \"server\": \"sha256:0a3fba2d1dd2d81b24977fd1e7c1a1009f0139223d9714fc2fb8f2382ef6f48c\"}\nSAFE FINAL CAPTURE {\"absentWorkers\": [\"game\", \"game inbox/outbox\", \"push\"], \"images\": {\"adapters\": \"sha256:f8941bc13e53ce0ce930c3290d714ae2c48d23209b8629b33a52656c4a17660e\", \"postgres\": \"postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27\", \"server\": \"sha256:0a3fba2d1dd2d81b24977fd1e7c1a1009f0139223d9714fc2fb8f2382ef6f48c\"}, \"implementedWorkers\": [\"backend writer ownership/recovery\", \"encrypted reset-mail outbox/SMTP sender\", \"synthetic source/mail sink\"]}\nCLEANUP exact owned Compose processes/relay/containers/network/volumes removed; no external resources or devices used\n"
+}

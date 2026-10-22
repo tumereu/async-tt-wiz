@@ -64,7 +64,8 @@
                  "docs/agent/implementation-runs/20261022T054937Z-41060cc6.json",
                   "docs/agent/implementation-runs/20261022T070346Z-de3cad30.json",
                    "docs/agent/implementation-runs/20261022T070751Z-df665f98.json",
-                   "docs/agent/implementation-runs/20261022T080707Z-0016662f.json"
+                    "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",
+                    "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json"
    ],
   "findings": [],
   "batches": [
@@ -581,7 +582,10 @@
     {
       "id": "I04a",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T081112Z-e11debb6.json",
+      "apiContract": "server/README.md#password-reset-httpmail-v1--i04a",
+      "qualification": "Real V3 PostgreSQL/Flyway/jOOQ reset-token and encrypted mail-outbox schema, shared reset DTOs, actual JSON request/confirmation API, self-contained HTTPS-link fallback form with POST/CSRF/no-referrer/CSP and Angus SMTP delivery are implemented. Successful confirmation alone atomically updates exact-password PHC, increments epoch, revokes current sessions, consumes all outstanding tokens and clears pending mail; concurrent distinct links have one winner. Actual synthetic SMTP/controlled-clock checks cover encrypted pending recovery, 1/5/15-minute temporary retry, permanent rejection, 30-minute expiry, payload removal, wrong-key refusal and no pre-confirmation/session changes. Actual Spring restart/readiness and secure form/JSON journeys pass; initial affected run has 22 green existing assertions and five mailbox-setup failures, all five corrected reset tests pass in targeted recheck, with a further passing cancellation assertion and installed-service migration/restart check. Incremental locked local OCI build and real Compose SMTP/reset/restart journey plus new-store empty-baseline reset pass; source/artifact/JUnit/provenance output retained. Initial V3 codegen inventory and noncanonical synthetic mailbox-token failures remain diagnostics. Only I04a advances; I04b owns native A03/A04/deep links/two-device journey, I04 parent owns evidence reconciliation and B1 independent review remains pending. Full cross-feature P/T/F acceptance, final I34/I35/I36 suite/UI/compatibility, positive local TLS/auth transport qualification and real external HTTPS/SMTP/operator release gates remain unclaimed. No UI-document publication, deployment, subagent or extra loop occurred.",
       "dependsOn": ["I03"],
       "planningRecord": "docs/agent/implementation-runs/20261022T080707Z-0016662f.json",
       "outcome": "Implement the real Spring/PostgreSQL password-reset request/confirmation API, configured HTTPS email-link/form surface and replaceable SMTP delivery using the existing synthetic sink. Add forward schema/generated bindings for hashed 32-byte reset tokens and a durable encrypted token-bearing mail outbox, bounded delivery/retry/expiry and file-secret/TLS configuration. Use existing email/password rules, bounded hashing/rate limits and writer ownership/readiness. Requesting, delivery or opening a link never changes credentials/sessions; successful explicit confirmation atomically changes the password, consumes all outstanding tokens and revokes existing sessions for new requests, without auto-login or special D-289 in-flight ordering.",

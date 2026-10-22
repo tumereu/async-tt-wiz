@@ -197,11 +197,12 @@ stores rather than truncating known tables while workers can repopulate them.
 Real tests hold PostgreSQL and SMTP DATA connections across reset and prove they
 terminate without late writes/delivery into the new stores.
 
-Current baseline: normal Flyway V1 history and service-writer singleton with newly
-acquired epoch, no infrastructure probe or product records; source **prism v1 and
+Current baseline: normal Flyway V1/V2/V3 history and service-writer singleton with newly
+acquired epoch, empty account/session/password-reset-token/reset-mail stores,
+no infrastructure probe or product records; source **prism v1 and
 quilt v1**, zero captured deliveries and default `ok` source/mail controls. Fixtures
 are the pinned immutable image data. The exact current store/schema inventory is
-checked, not a claim that future account/game/outbox workers already exist. Those
+checked, not a claim that future game/game-outbox/push workers already exist. Those
 features must extend baseline/readiness/reset checks as they are implemented.
 
 `reset-pending.json` records an incomplete reset. A failed rebuilding reset exits
@@ -235,7 +236,7 @@ origins; source printing/face image URIs use that same source loopback origin.
 Private database 5432, backend health 8081, adapter admin 8081 and SMTP 2525 are
 not forwarded or published. Host administration uses their direct private bridge
 IPs and the separate adapter token-file interface; normal client paths return
-404 for health/admin/reset/mail inspection, and private adapter admin rejects
+404 for health/admin/mail inspection, and private adapter admin rejects
 missing tokens. Co-resident host administrators are trusted, not sandboxed.
 
 Only the **two loopback public/source ports** are allowed for the now-qualified
@@ -247,8 +248,8 @@ That transport-only check is not the combined normal-APK handoff (supplied by
 I01f1b2b and qualified together in I01f1b2) or a product HTTP client.
 Do not bind them to 0.0.0.0, expose private admin/DB/SMTP, change production TLS
 trust or claim physical/emulator reachability from these host HTTP tests. The
-normal backend currently returns 404 on public routes because product APIs are
-not implemented yet; its separate real health/ownership boundary is what is tested.
+normal backend supplies real account/reset APIs; unknown paths still return 404.
+Its separate health boundary includes writer ownership and reset-mail recovery.
 
 ## Evidence, ownership and future workers
 
@@ -269,8 +270,16 @@ qualification also checks unchanged unrelated inventories and foreign-target
 refusal. If cleanup fails, repair its concrete cause and retry; do not force or
 discard another owner's resources. An instance lock excludes concurrent commands.
 
-Only the writer-ownership scheduler/singleton reload exists in the backend.
-There are **no account/game/inbox/outbox/mail-sender/push workers** to certify.
+The backend includes writer recovery and the encrypted reset-mail outbox/SMTP
+sender. Compose supplies a stable per-instance `reset-mail-key` file (also checked,
+redacted and removed at cleanup), isolated `adapters:2525`, explicit
+`SMTP_TLS=local-plaintext` and `https://reset.synthetic.invalid` link origin.
+That `.invalid` origin is for link observation/native intent tests, not a deployed
+HTTPS website or relaxed production TLS. Native I04b must explicitly allow it in
+its synthetic configuration. There are no game/inbox/game-outbox/push workers yet.
+The affected `python3 tests/server/password_reset_compose.py` check exercises real
+image delivery, retained backend restart, reset confirmation and an independently
+empty account/session/token/mail/mailbox baseline after scenario reset.
 Future implemented workers/stores must join readiness, retained recovery,
 quiescence/reset and safe capture before their routes/scenarios are admitted.
 Reset stops and verifies old implemented producers/connections before replacing

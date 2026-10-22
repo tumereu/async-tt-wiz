@@ -19,20 +19,35 @@ public final class ServiceRuntime implements AutoCloseable {
     });
     private final AtomicBoolean stopping = new AtomicBoolean();
     private final ReentrantReadWriteLock admission = new ReentrantReadWriteLock();
+    private Runnable recoveryCheck = () -> {};
+    private java.util.function.BooleanSupplier workerAvailable = () -> true;
+    private volatile long recoveredEpoch = -1;
 
     public ServiceRuntime(DatabaseSettings settings) { ownership = new WriterOwnership(settings); }
+
+    public void attachWorker(Runnable check, java.util.function.BooleanSupplier available) {
+        recoveryCheck = check;
+        workerAvailable = available;
+    }
+    public void invalidateWorkerRecovery() { recoveredEpoch = -1; }
 
     public void start() {
         recovery.scheduleWithFixedDelay(() -> {
             if (stopping.get()) return;
-            try { ownership.refresh(); }
-            catch (OwnershipFailure ignored) { /* Safe unavailable state; next cycle revalidates/reloads. */ }
+            try {
+                var token = ownership.refresh();
+                if (token.isPresent() && token.get().epoch() != recoveredEpoch) {
+                    recoveryCheck.run();
+                    recoveredEpoch = token.get().epoch();
+                }
+            } catch (RuntimeException ignored) { recoveredEpoch = -1; /* Safe retry, no secret-bearing errors. */ }
         }, 0, 500, TimeUnit.MILLISECONDS);
     }
 
     public boolean ready() {
-        // Future implemented inbox/outbox/mail/push workers must join this predicate after reload.
-        return !stopping.get() && ownership.token().isPresent() && !stopping.get();
+        var token = ownership.token();
+        return !stopping.get() && token.isPresent() && token.get().epoch() == recoveredEpoch
+                && workerAvailable.getAsBoolean() && !stopping.get();
     }
 
     public <T> T transaction(WriterOwnership.Transaction<T> work) {

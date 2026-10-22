@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T081112Z-e11debb6/run-check.py"
+  ],
+  "exitCode": 1,
+  "outputSha256": "35ad177e031c4de2bdc65635d669a6fbadf94d599e94d186ef17b8d9e003cfb5",
+  "output": "PASS supplied baseline/master, D-304 authorization/priority, I04a-only implemented transition, next I04b; all other tasks/reviews/findings/model/grants/release gates unchanged\nPASS exact owned paths, role scope, Markdown local links/fences, newline/whitespace and unchanged UI packet (no publication needed)\nPASS lossless actual JUnit: {\"affected-recheck-junit.json\": {\"failures\": 0, \"tests\": 2}, \"initial-junit.json\": {\"failures\": 5, \"tests\": 27}, \"reset-junit.json\": {\"failures\": 0, \"tests\": 5}}\nPASS 28 distinct server green assertions across original and affected rechecks; initial five failures retained, no skips or full-suite rerun claim\nPASS passing required build/Compose/environment/affected output bytes and retained immutable local image manifest\nPASS tested local image payload matches current installed locked runtime JARs (not a new image run): sha256:0a3fba2d1dd2d81b24977fd1e7c1a1009f0139223d9714fc2fb8f2382ef6f48c\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T081112Z-e11debb6/run-check.py\", line 115, in <module>\n    assert licenses\n           ^^^^^^^^\nAssertionError\n"
+}

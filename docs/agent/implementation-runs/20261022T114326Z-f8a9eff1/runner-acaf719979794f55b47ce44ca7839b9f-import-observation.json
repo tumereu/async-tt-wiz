@@ -1,0 +1,15 @@
+{
+  "scope": "I06a input/errors/correction/preview only; save disabled until I06b",
+  "journeys": [
+    "UI-created account",
+    "real hosted catalog",
+    "blocking exact line error",
+    "correction and retry",
+    "section quantities and read-only art/text",
+    "rotation retains text/name/preview",
+    "long-preview reachable Edit/disabled Save",
+    "native Back preview-to-input and input-to-decks",
+    "Exit discards",
+    "Logout clears private draft"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.py"
+  ],
+  "exitCode": 0,
+  "output": "PASS D-304/high-model/commit/priority and only I06a implemented; next I06b, reviews/gates unchanged\nPASS retained actual command outcomes, 5 parser/3 controller current XML and final normal-APK journey/captures\nPASS current source/fixture/lock/APK/image identities and exact completed owned-resource cleanup\nPASS docs links/fences/whitespace, unchanged partial ledger, exact owned changed paths and role boundary\nNOT CLAIMED: saved-deck/server acceptance, complete P/T/F scenarios, independent B2 review, full suite or release gates\n"
+}

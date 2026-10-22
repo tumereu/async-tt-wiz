@@ -27,7 +27,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "public-catalog") }
     private val connectivity = application.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val directory = AndroidCatalogStorage.directory(application)
-    private val repository = AndroidCatalogStorage.repository(application)
+    internal val repository = AndroidCatalogStorage.repository(application)
     private val cadence = CatalogCadence(File(directory, "cadence.properties"))
     private val preferences = application.getSharedPreferences("public-catalog-update", Context.MODE_PRIVATE)
     private val source = if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())

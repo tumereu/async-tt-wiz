@@ -8,6 +8,19 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class AuthControllerTest {
+    @Test fun logoutClearsImportBeforeAnyOldAccountLookupCanPublish() {
+        val worker = Worker(); val lookups = Worker(); val posts = mutableListOf<() -> Unit>()
+        val importer = DeckImportController({ text -> org.asyncttwiz.storage.DeckImportResult(text,
+            emptyList(), emptyList(), null) }, lookups) { posts += it }
+        val auth = AuthController(Api(), Store(), worker, clearPrivateWork = importer::exit, post = { it() })
+        worker.drain()
+        importer.open(); importer.edit("private pasted list"); importer.lookup(); lookups.drain()
+        auth.logout()
+        assertFalse(importer.state.active); assertEquals("", importer.state.text)
+        posts.single()()
+        assertNull(importer.state.result); assertEquals("", importer.state.text)
+        worker.drain(); auth.close(); importer.close()
+    }
     @Test fun successfulResetReturnsToSignInAndFencesEarlierLoginWithoutDeletingSameAccountContext() {
         val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
         val posts = ArrayDeque<() -> Unit>()

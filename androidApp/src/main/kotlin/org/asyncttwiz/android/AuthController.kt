@@ -36,6 +36,7 @@ class AuthController(
     private val worker: ExecutorService,
     private val local: AccountLocalData = object : AccountLocalData {},
     private val revoke: (String) -> Unit = { token -> worker.execute { runCatching { runBlocking { accounts.revoke(token) } } } },
+    private val clearPrivateWork: () -> Unit = {},
     private val post: (() -> Unit) -> Unit,
 ) {
     var state by mutableStateOf(AuthState())
@@ -67,6 +68,7 @@ class AuthController(
 
     fun passwordResetCompleted() {
         if (closed) return
+        clearPrivateWork()
         synchronized(ownerLock) { generation.incrementAndGet(); token.set(null) }
         state = AuthState(restoring = false, busy = true)
         work {
@@ -184,6 +186,7 @@ class AuthController(
 
     fun logout() {
         if (closed) return
+        clearPrivateWork()
         val oldToken = synchronized(ownerLock) {
             generation.incrementAndGet() // Fence old display AND worker-side storage callbacks first.
             token.getAndSet(null)

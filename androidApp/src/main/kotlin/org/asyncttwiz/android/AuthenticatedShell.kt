@@ -22,11 +22,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null) {
+internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
+    deckImport: DeckImportController? = null) {
     val state = controller.state
     BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
+    LaunchedEffect(state.destination) {
+        if (state.destination != ShellDestination.DECKS) deckImport?.exit()
+    }
     val content: @Composable () -> Unit = {
-        ShellContent(state.destination, !landscape, { controller.drawer(true) }, controller::navigate, catalog)
+        if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
+            DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
+        } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, controller::navigate, catalog, deckImport)
     }
     Box(Modifier.fillMaxSize().testTag("authenticated-identity")
         .semantics { contentDescription = "Signed in as ${state.account!!.username}" }) {
@@ -98,7 +104,7 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
 
 @Composable
 private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
-    catalog: CatalogViewModel?) {
+    catalog: CatalogViewModel?, deckImport: DeckImportController?) {
     Column(Modifier.fillMaxSize()) {
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
@@ -134,6 +140,11 @@ private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open
                         else -> "Contact search and invitations are not available in this build yet."
                     }, Modifier.widthIn(max = 540.dp).fillMaxWidth())
                 }
+            }
+        }
+        if (destination == ShellDestination.DECKS && deckImport != null) {
+            Button(onClick = deckImport::open, modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("import-deck")) {
+                EntryIcon(null, "decks"); Spacer(Modifier.width(8.dp)); Text("Import deck")
             }
         }
     }

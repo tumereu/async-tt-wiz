@@ -38,6 +38,11 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         CatalogIndex(openDriver(file)).use { it.printing(id) }
     }
 
+    /** Keep every line/face of an import on one generation while a refresh waits. */
+    @Synchronized internal fun <T> snapshot(read: (CatalogIndex?) -> T): T = activeFile()?.let { file ->
+        CatalogIndex(openDriver(file)).use { read(it) }
+    } ?: read(null)
+
     /** Unpublished generations may survive process death; only the atomic pointer is readable. */
     @Synchronized fun stage(block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata {
         val file = File(directory, "${UUID.randomUUID()}.db")

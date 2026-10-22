@@ -1,0 +1,283 @@
+{
+  "runId": "20261022T114326Z-f8a9eff1",
+  "sessionID": "ses_e9c93abbcffeyZswRXHGrxrCJ7",
+  "startCommit": "405dcd3e82e703fb3fa47fd4cd95778ea1381db8",
+  "mode": "implement",
+  "target": "I06a",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented common text parsing/exact installed-catalog printing and complete-face resolution, preserved corrections/actionable line errors and native D03/D04/D04b input/read-only preview/Edit/Exit/Back. Focused real file-backed tests cover both fixture families, all their existing import cases, optional metadata, ambiguity and quantity/section arithmetic. Affected incremental host/account/controller tests, assembly/lint/boundaries pass. Complete final-binary API29 non-GMS Appium journey passes hosted catalog, correction/retry, section art/text preview, both orientations/rotation, long-preview controls and Logout/relogin cleanup. Reproduced preview-rotation crash is fixed with a regression; original test-selector/scroll/sign-in failures and crash output remain diagnostics. Exact current identities/JUnit/captures and owned cleanup retained. Only I06a closes; Save is visibly disabled until I06b real atomic persistence. No fake/local save, first B2 review, full-suite or release claim.",
+  "selectionReason": "Clean supplied master/startCommit matches; D-304 authorization is active, B1 reviewed, findings empty and I05 implemented. I06a is the earliest ready child and delivers the usable import input/error/preview path before I06b persistence. Affected scope is new catalog resolution and native personal draft/account/navigation/rotation integration; focused parser/controller/account checks and actual normal-APK journey exercise it. Rechecks follow concrete new assertions or observed failures, not a full-suite/clean-build/unchanged I05 matrix ritual.",
+  "sourceIds": [
+    "P-044",
+    "P-048",
+    "T-423",
+    "T-424",
+    "T-425",
+    "T-426",
+    "T-427",
+    "T-573",
+    "T-628"
+  ],
+  "sourceDisposition": "I06.import partial syntax/resolution/correction/preview assertions only; unchanged ledger retains I06b/I07/I08 and later saved-definition/copy/recovery obligations. D-198/D-199/D-271/D-289 and current D03/D04/D04b plus cumulative F01-F88 constrain presentation; no whole cross-feature scenario or feedback acceptance is claimed.",
+  "remainingObligations": [
+    "I06b must replace the disabled Save with authenticated complete definitions/atomic named save, stable original-outcome retry and owned read-back, then exercise failure/restart/reopen. I06 parent reconciles children; B2 first independent review follows I05-I08.",
+    "I07/I08 extend this same definition/result foundation with real collection/inspector and contextual Overwrite/Merge. No authoring UI, local-authority saved deck or temporary save endpoint was added.",
+    "I34 retains full suite/broader fault assertions; I35 device/upgrade and I36/B8 complete final interface comparison remain. Current XML contains the final five parser and three import-controller cases; earlier complete Android host and Logout-regression passes are command records, not a fabricated new full XML run.",
+    "I32/I36 should assess narrow missing-art thumbnail name fragments against the existing fallback rule; full adjacent names remain readable. Existing NativeShellTest lines 115/117 still contain pre-I05 unavailable-decks copy; I07 should update this older integration oracle and I34 must not claim it green beforehand. These concrete noncritical follow-ups are recorded in README, not silently waived.",
+    "All external rights/signing/operator/hardware gates remain unchanged/unverified. No deployment, paid resources, licensed provider call, subagents, new loop, model/grant/runner change or UI-packet edit/publication occurred."
+  ],
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :client-storage:testDebugUnitTest --tests org.asyncttwiz.storage.DeckImportTest :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lint :client-storage:lint verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/affected-host.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-f8a9eff111114b3e99d382647521e8ff provision",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/environment-provision.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-f8a9eff111114b3e99d382647521e8ff provision --config /tmp/opencode/i04b-first-config.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/device-provision.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:41669 -PatwCatalogTestOrigin=http://127.0.0.1:37279 -PatwCatalogPath=/prism/ :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :e2e:compileTestKotlin :client-storage:testDebugUnitTest --tests org.asyncttwiz.storage.DeckImportTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.AuthControllerTest.logoutClearsImportBeforeAnyOldAccountLookupCanPublish",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/hosted-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-f8a9eff111114b3e99d382647521e8ff prepare-app --environment /tmp/opencode/atw-e2e-f8a9eff111114b3e99d382647521e8ff --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/prepare-app.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-journey.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-selector-recheck.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-container-recheck.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:41669 -PatwCatalogTestOrigin=http://127.0.0.1:37279 -PatwCatalogPath=/prism/ :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.DeckImportControllerTest :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lint",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/rotation-fix-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-f8a9eff111114b3e99d382647521e8ff unroute",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/unroute-for-update.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-f8a9eff111114b3e99d382647521e8ff prepare-app --environment /tmp/opencode/atw-e2e-f8a9eff111114b3e99d382647521e8ff --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/prepare-rotation-fix.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-rotation-recheck.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-scroll-recheck.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/retain.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/retention.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/retain.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-f8a9eff111114b3e99d382647521e8ff cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/cleanup-device.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-f8a9eff111114b3e99d382647521e8ff cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/cleanup-environment.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-initial.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "/home/tuomas/Android/Sdk/platform-tools/adb -H 127.0.0.1 -P 15038 -s emulator-5564 logcat -d -s AndroidRuntime:E",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/rotation-crash.txt"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.py"
+      ]
+    }
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AccountEntry.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CatalogViewModel.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckImportController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckImportScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/AuthControllerTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/DeckImportControllerTest.kt",
+    "client-storage/IMPORT.md",
+    "client-storage/src/main/kotlin/org/asyncttwiz/storage/CatalogDatabase.kt",
+    "client-storage/src/main/kotlin/org/asyncttwiz/storage/DeckImport.kt",
+    "client-storage/src/test/kotlin/org/asyncttwiz/storage/DeckImportTest.kt",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/README.md",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/affected-host.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/artifact-identities.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/capture.py",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/cleanup-device.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/cleanup-environment.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/device-provision.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/environment-provision.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.py",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-initial.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/host-junit.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/hosted-build.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-check.py",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-container-recheck.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-final.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-journey.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-rotation-recheck.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-scroll-recheck.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/native-selector-recheck.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/prepare-app.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/prepare-rotation-fix.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/report.py",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/retain.py",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/retention.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/rotation-crash.txt",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/rotation-fix-build.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-0b1c86a5523f485aacd4b8894b9a5272-import-final.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-0b1c86a5523f485aacd4b8894b9a5272-import-final.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-0b1c86a5523f485aacd4b8894b9a5272-result-0.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-0b1c86a5523f485aacd4b8894b9a5272-session-closed.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-0b1c86a5523f485aacd4b8894b9a5272-session.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-3d9e48c9b43e46c08e1ac92da421ae8b-import-final.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-3d9e48c9b43e46c08e1ac92da421ae8b-import-final.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-3d9e48c9b43e46c08e1ac92da421ae8b-result-0.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-3d9e48c9b43e46c08e1ac92da421ae8b-session-closed.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-3d9e48c9b43e46c08e1ac92da421ae8b-session.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d03-error-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d03-error-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d03-error-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d03-error-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d04-preview-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d04-preview-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d04-preview-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-d04-preview-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-import-final.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-import-final.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-result-0.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-session-closed.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-85ebd494d1df42c3b2caaf6c3a4be407-session.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-d03-error-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-d03-error-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-d03-error-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-d03-error-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-d04-preview-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-d04-preview-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-import-final.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-import-final.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-result-0.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-session-closed.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-96c6b9e08ccd426cade57858253d106c-session.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d03-error-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d03-error-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d03-error-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d03-error-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04-preview-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04-preview-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04-preview-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04-preview-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04b-controls-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04b-controls-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04b-controls-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-d04b-controls-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-import-final.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-import-final.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-import-observation.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-logout-clears-import.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-logout-clears-import.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-passed.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-result-0.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-session-closed.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-acaf719979794f55b47ce44ca7839b9f-session.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d03-error-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d03-error-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d03-error-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d03-error-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04-preview-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04-preview-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04-preview-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04-preview-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04b-controls-landscape.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04b-controls-landscape.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04b-controls-portrait.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-d04b-controls-portrait.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-import-final.png",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-import-final.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-result-0.xml",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-session-closed.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/runner-d3dfb048493f4d52864e8460ac2634be-session.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/served-inventory.json",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/unroute-for-update.json",
+    "docs/agent/implementation-state.json",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeImportTest.kt"
+  ]
+}

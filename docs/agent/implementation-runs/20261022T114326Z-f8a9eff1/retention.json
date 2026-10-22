@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/retain.py"
+  ],
+  "exitCode": 0,
+  "output": "PASS retained current affected JUnit TEST-org.asyncttwiz.storage.DeckImportTest.xml 5 cases\nPASS retained current affected JUnit TEST-org.asyncttwiz.android.DeckImportControllerTest.xml 3 cases\nPASS exact source/test/fixture/lock/APK/image identities and actual hosted provider inventory\n"
+}

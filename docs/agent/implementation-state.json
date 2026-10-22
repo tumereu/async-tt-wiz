@@ -73,7 +73,8 @@
                           "docs/agent/implementation-runs/20261022T101044Z-1d047a5f.json",
                            "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3.json",
                             "docs/agent/implementation-runs/20261022T113642Z-ea0d8fde.json",
-                            "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json"
+                             "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
+                             "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json"
    ],
   "findings": [],
   "batches": [
@@ -684,7 +685,9 @@
     {
       "id": "I06a",
       "batch": "B2",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json",
+      "qualification": "Delivered common quantity/name/printing/section parsing and exact installed-catalog resolution, complete explicit faces/raw defaults, actionable line errors without partial preview, duplicate quantity arithmetic and normal bottom Import/input/error/read-only preview/Edit/Exit/Back controls. Both real file-backed fixture families and their existing import cases pass; affected incremental host/account/controller tests, APK/test-APK assembly, lint and boundaries pass. Complete actual API29 non-GMS Appium journey on final binary passes UI-created account/hosted catalog, correction/retry, 18 mainboard/2 sideboard art/text preview, both orientations, retained draft/name/preview on rotation, long-preview controls, native Back/Exit and Logout/relogin cleanup. A reproduced preview-rotation crash is repaired with a controller regression; original selector/scroll/sign-in helper failures and crash output stay diagnostic. Exact current source/fixture/lock/APK/JUnit/capture evidence and owned device/Compose cleanup retained. Save is honestly disabled until I06b; no fake or authoritative local saved deck. Only I06a closes; I06b persistence, I06 parent, I07/I08 integration, independent B2 review, I34-I36 qualification and all external gates remain open. Narrow missing-art thumbnail presentation and the older NativeShellTest pre-I05 copy oracle are retained for I32/I36 and I07/I34, not claimed green or new product blockers.",
       "dependsOn": ["I05"],
       "planningRecord": "docs/agent/implementation-runs/20261022T113957Z-b8934ba1.json",
       "outcome": "Implement common MTG text parsing and exact catalog resolution, wired into a normal Manage decks bottom Import deck route and native D03/D04/D04b input/error/read-only preview. Support quantity/name, optional (SET) collector-number, Deck/Sideboard headings, SB: and headerless blank-line separation without overriding explicit sections. Preserve original pasted text and line identities; unknown/ambiguous/malformed or unsupported extra-section input blocks review/save without substitution, partial dropping or Arena/legality filtering. Resolve complete explicit face relationships and retained display/default metadata through I05's production catalog, with optional missing corners blank and art failure as text. Offer correction and lookup retry through existing catalog acquisition, not a card-authoring/editor UI. Preserve unfinished personal input and preview across rotation, keep lookup off the UI thread and fence old-account callbacks. Review/Edit/Exit/native Back and scroll/keyboard controls follow current mocks; no successful/fake/local-only save is exposed before I06b completes real persistence.",

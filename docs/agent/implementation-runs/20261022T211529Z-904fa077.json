@@ -1,0 +1,62 @@
+{
+  "runId": "20261022T211529Z-904fa077",
+  "sessionID": "ses_e9a87ef4cffeP52gZEbc2E1z2M",
+  "startCommit": "8601d3f8b310d23bf4dcc3c82611a865dd0e3a45",
+  "mode": "implement",
+  "target": "I10b",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split before coding. I10b is in-progress with two pending B3 implementation children: I10b1 delivers shared/ordered per-copy transfers plus production multi-in-flight session prediction/recovery; I10b2 completes native one/all tap/drag/accessibility, inspection, fixed fading feedback/disappearing rows and the real both-orientation journey. Original I10b outcome/checks are preserved verbatim. No runtime input, UI document, coverage assignment, review or external gate changed; no transfer behavior is claimed delivered by planning. Next selection is I10b1, then I10b2, followed by small parent evidence audits and I11/I12.",
+  "selectionReason": "Clean master/index and exact supplied startCommit agree with D-304 active authorization. B1/B2 are independently reviewed, B2-R01 verified and I09/I10a implemented; no actionable finding or complete-group review precedes I10b. Source inspection confirms PreparedDeck currently encodes original compact ranges, PreparationRules and GameAction implement selection only, GameService dispatches only selection/invitations, GameSession.command still gates on any pending game action and WaitingLobby displays counts without transfer lists. I10b therefore needs substantive per-copy membership/guards and multi-request reconciliation as well as native gesture/animated-list/native acceptance work. Bound these two implementation scopes before coding, not extra scaffold-certification layers. This refines the earlier one-unit size assumption without narrowing the capability. Affected checks in this planning unit are state/transition/priority, unchanged source obligations and exact owned documentation paths only; no product build/device/full-suite rerun is warranted.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T211529Z-904fa077-planning-check.py > docs/agent/implementation-runs/20261022T211529Z-904fa077-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T211529Z-904fa077-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T211529Z-904fa077-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T211529Z-904fa077.json",
+    "docs/agent/implementation-runs/20261022T211529Z-904fa077-planning-check.py",
+    "docs/agent/implementation-runs/20261022T211529Z-904fa077-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I10b1", "I10b2"],
+    "dependencies": "I10b1 depends on implemented I10a; I10b2 depends on I10b1. Both inherit B3. I10b stays open until both children complete; I10 remains unchanged. Parent closures reuse exact child evidence and audit only missing affected integration. No independent child reviews; full B3 capability review still follows I09-I12 together.",
+    "sourceIds": ["P-044", "P-045", "P-052", "P-053", "P-059", "T-400", "T-401", "T-402", "T-403", "T-404", "T-405", "T-440", "T-441", "T-442", "T-443", "T-444", "T-445", "T-608", "T-680", "T-682", "T-683", "T-684", "F20", "F21", "F30", "F31", "F32", "F34", "F35", "F36"],
+    "sourceDisposition": "All 30 existing I10.preparation assignments and their pending/unexecuted ledger accounting remain unchanged. Actual I10a assertions retain their exact child reports, not a new planning pass. I10b1 owns transfer semantics/durability/multi-in-flight original-intent prediction; I10b2 owns native gestures/accessibility/inspection/feedback/row transition and real native integration. Ready/start/play-sideboard exclusion and complete two-player lifecycle overlaps remain partial until I11/I12; broader gameplay prediction I14, rematch I28/I31 and full/final I34-I36/B8 assertions remain required/unverified.",
+    "contractPaths": [
+      "docs/design/03-contracts/accounts-decks-and-lobby.md",
+      "docs/design/03-contracts/domain-model.md",
+      "docs/design/04-technical/protocol-v1.md",
+      "docs/design/04-technical/storage-mechanics.md",
+      "docs/design/04-technical/request-ordering-and-recovery.md",
+      "docs/design/04-technical/prediction-and-playback.md",
+      "docs/design/05-verification/acceptance.md",
+      "docs/design/02-experience/ui/review.md",
+      "docs/design/02-experience/ui/feedback.md"
+    ],
+    "retainedObligations": [
+      "D-189/D-191/D-202/D-203/D-221: operate only on immutable game-local prepared copies/definitions; retain source snapshot isolation and concrete identities while section membership changes. Freely transfer in either direction without format legality, size or exchange rules; clear only the editing player's Ready. Guard exact prepared-deck/copy/source-section/preparation-round/lobby applicability rather than unrelated invitation attempts, saved-source changes or whole-lobby revisions. Actual Ready/start overlaps and no Sideboard during play remain I11/I12, not a pass from absent play UI.",
+      "D-293/D-294/T-680/T-684/F20/F32/F34-F36: about-24px 1/infinity controls are taps and drag origins, with native accessible equivalents and nonoverlapping targets. Capture copies at gesture start; all excludes later arrivals; cancel/outside drop sends nothing; recognized drag consumes tap. Submit independent per-card requests immediately, no bulk-atomic fiction, substituted copies, per-frame writes, Save/Send or acknowledgement/animation barrier. Ordinary partial outcomes remain visible and do not cancel independent valid constituents.",
+      "D-259/D-275/D-277/D-278/D-285/D-289: extend the existing pure preparation model, durable processor and GameSession; no second queue/model/endpoint. Accepted replica changes only from correlated revisioned state; retain original volatile intent, predictions and personal presentation separately. Apply accepted remote work then rebase surviving originals, avoiding old-result rewind/double application. Withdrawn prediction is not recall: late acceptance is normal accepted work. Same-process reconnect/reauthentication keeps uncertain IDs; Logout/account switch clears/fences; restart is server-first with no outgoing journal, offline shared mutation, sequence-hole or special reset guarantee.",
+      "L04/L04b/T-684/F35-F36: reserved latest-actual-display plain text fades around 1-2s, new transfers replace/restart, no feedback-driven layout shift or acceptance claim. A genuinely emptied row briefly fades/slides but is no longer actionable/counted; quantity changes retain rows. Dispatch/count changes do not wait, hit identity follows current geometry and reflow cannot redirect a held gesture. Native reduced-motion/accessibility retain clear result/identity; art after quantity opens personal inspection with missing-art text fallback.",
+      "D-307/D-308: finish these two substantive implementation scopes and affected incremental checks promptly, not recursive qualification-only splits or early minor-detail fault searches. I10b/I10 parent closures reconcile exact evidence and missing seams only; no child review. I11/I12 readiness/randomness/start/cancel/two-Android overlaps, I14 gameplay prediction, I28/I31 rematch, I34 deferred full suite/rare assertions and recorded HTTP-error/migration-fixture corrections, I35 compatibility and I36/B8 complete both-orientation interface-to-mock fix/rechecks stay owned and required. Authorization, exact high model, grants, budgets, one writer, independent reviews and all external release gates remain unchanged. No loop, subagent, deployment, paid resource or UI-document edit/publication in this unit."
+    ]
+  },
+  "sourcePaths": [
+    "docs/agent/coverage/ledger.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Preparation.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/PreparationStore.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt"
+  ]
+}

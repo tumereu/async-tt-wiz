@@ -1,0 +1,27 @@
+PASS exact baseline/master, D-304 authorization, original priority and existing state/transition validators
+PASS two pending B3 implementation children; next I10b1; original I10b outcome/checks preserved verbatim
+PASS unrelated tasks/reviews/findings, authorization/model/grants and external release gates unchanged
+UNCHANGED SOURCE docs/agent/coverage/ledger.json SHA256 0948d490744d4fc94edd5f1b31cf8e5d058c67150f1ec5ebf94efaed3075f364
+UNCHANGED SOURCE protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Preparation.kt SHA256 3745da95e462516ca40601be32e47205eb97840e6817d1cf6bbc21f96cba1f22
+UNCHANGED SOURCE protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt SHA256 d8c733a1a12b51250103b68eacf8864e774a1d9fe092c54ab4d729195ae0f3fe
+UNCHANGED SOURCE server/src/main/kotlin/org/asyncttwiz/server/game/PreparationStore.kt SHA256 201b4007c0aab0059385133c2614013a38eda3e24ca47ef986d2df3047575591
+UNCHANGED SOURCE server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt SHA256 a905f3a13ce921f5c784c65bcf25f5ba727971c2e389da983322d520ef4176d1
+UNCHANGED SOURCE androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt SHA256 3279b048375af031bf5a0916e0dcee7904168954657ee0d2d61db5c06db594c8
+UNCHANGED SOURCE androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt SHA256 5f7c95cead9870035b9ddeb6d65350bd7a8cd3834aa9097d6905df6130e82e50
+UNCHANGED SOURCE androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt SHA256 2f4d01e75d8cff92fcf61e9477d12deb90883811b272f76463e24b34418ca3a3
+UNCHANGED SOURCE docs/design/03-contracts/accounts-decks-and-lobby.md SHA256 769a5e24432df9a0dce87fab1c9764d263e5cdd14ff50cfb1f3d2b33cfcdd8c5
+UNCHANGED SOURCE docs/design/03-contracts/domain-model.md SHA256 459300a7f498306eeab48060b0c8591b13814da0ec04928765e08c827547dcc4
+UNCHANGED SOURCE docs/design/04-technical/protocol-v1.md SHA256 983786c41aa8f0612e0a01821a559f7c96b8b762b3b677548118624c642e73ec
+UNCHANGED SOURCE docs/design/04-technical/storage-mechanics.md SHA256 bad30d802053b91f2e13a4326286a70a82af5eb607f543541f77ceab63f2306d
+UNCHANGED SOURCE docs/design/04-technical/request-ordering-and-recovery.md SHA256 824cba33aff8740b01d532525e68d70bf724172b0156ee8bea6415a446569633
+UNCHANGED SOURCE docs/design/04-technical/prediction-and-playback.md SHA256 3656da2776b9549175c16f503090044301c0dfd43487bc0c25c3af9a5834bb18
+UNCHANGED SOURCE docs/design/05-verification/acceptance.md SHA256 a86b7dc95e04eaddef0c7814b9fd7b159c7af65152192929f626410a22732817
+UNCHANGED SOURCE docs/design/02-experience/ui/review.md SHA256 b85987315198d3f37f92aa40651d3650580cd77902bcd9204bb0b52674383121
+UNCHANGED SOURCE docs/design/02-experience/ui/feedback.md SHA256 d6368f536855b10514f7c0be129ea5b8a3a4a16fe8da8437d6cb9e94e834bdb2
+PASS 30 exact I10 source assignments retained with unchanged pending/unexecuted ledger accounting
+CONFIRMED implementation seam: original copy ranges/selection-only actions and per-game single-pending gate
+PLANNED I10b1: per-copy ordered transfers, identity membership/guards and multiple-in-flight original prediction/recovery
+PLANNED I10b2: native taps/drags/accessibility/inspection, fixed fade/row transition and real both-orientation journey
+PASS exact owned state/report/evidence/support paths, JSON/references and whitespace
+NOT RUN: product/build/device/full-suite checks; no product input or UI document changed
+NOT CLAIMED: transfer delivery, Ready/start/play, independent review, final qualification or release clearance

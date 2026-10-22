@@ -56,7 +56,8 @@
          "docs/agent/implementation-runs/20261022T025919Z-a5658aee.json",
           "docs/agent/implementation-runs/20261022T034912Z-d4685909.json",
            "docs/agent/implementation-runs/20261022T044527Z-56557333.json",
-           "docs/agent/implementation-runs/20261022T044934Z-c307edee.json"
+            "docs/agent/implementation-runs/20261022T044934Z-c307edee.json",
+            "docs/agent/implementation-runs/20261022T051745Z-e3d640da.json"
    ],
   "findings": [],
   "batches": [
@@ -350,7 +351,9 @@
     {
       "id": "I01f",
       "batch": "B1",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T051745Z-e3d640da.json",
+      "qualification": "D-307 run-owned evidence audit reconciles I01f1 at a6dbeed7f2fa322490a9af44822a780927ec13ed and I01f2 at dfae6f876fb30ab14f9d7b5174a7fded9bb33e30, immutable reports/check outputs, current committed module/build/fixture/tool identities and actual API29 non-GMS normal-APK Appium/UiAutomator2 startup plus all 14 Android storage/controller/launcher tests without skips/failures. Existing public-only 17-probe routes, reset versus retained restart, IPv4, detached/native ownership and exact session/device/Compose cleanup reconcile; I01f2's final runner-only lock/marker refinements retain their 11 focused passing host regressions, not another device claim. Distinct preflight-installed and post-connected-build APK hashes remain separately identified; no fabricated byte-identical rebuild or later installed-APK read-back. No uncovered integration seam requires another build/device/fault run. Initial audit used adb-style node tags on Appium's widget-tag XML; corrected run-owned parser passes and failed output stays diagnostic. Only I01f closes: I01 parent audit, I02-I04/B1 independent review, I01f3/I34 final matrices, I33 physical measurement, I35 compatibility/upgrades/architecture and all external gates remain pending. Startup is not account/downloader/gameplay/Canvas or full T-551/T-630/T-662/F01-F88 acceptance.",
       "children": ["I01f1", "I01f2"],
       "planningRecord": "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json",
       "schedulingRecord": "docs/agent/delivery-first-application-2026-10-22.md",

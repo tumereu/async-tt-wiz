@@ -77,7 +77,8 @@
                               "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1.json",
                                "docs/agent/implementation-runs/20261022T121920Z-442a17be.json",
                                 "docs/agent/implementation-runs/20261022T122241Z-22388f73.json",
-                                "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f.json"
+                                 "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f.json",
+                                 "docs/agent/implementation-runs/20261022T132840Z-1bd01564.json"
    ],
   "findings": [],
   "batches": [
@@ -703,7 +704,9 @@
     {
       "id": "I06b",
       "batch": "B2",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T132840Z-1bd01564.json",
+      "qualification": "D-307 current-run read-only audit reconciles both implemented children at exact saved commits, all retained passing/diagnostic outputs and support bytes, 291 current source/build/fixture/lock/APK/image identities and 104 earlier service identities. Only the older client APK and native-wiring documentation are superseded by I06b2; service/shared/generated/runtime/fixture/lock inputs remain unchanged. Reused lossless evidence covers seven shared/five real PostgreSQL HTTP cases, twenty native mapping/transport/import/account host cases and the final actual API29 non-GMS Appium journey through real catalog correction, named save, stopped-backend failure/retained draft/rotation/restart/retry, exact mainboard/sideboard server details, Edit/Exit, process restart after public-catalog eviction and A/B/A privacy. Native child exercised the unchanged real service/image; no missing changed integration seam warrants a build/device/full-suite rerun. Original red diagnostics remain red, owned cleanup passes, and no broader scenario/review/release claim is made. Only I06b closes; selected I06 parent reconciliation follows, then I07 management/full inspector/sync and I08 Overwrite/Merge. B2 first independent review, I34-I36/final UI and all external gates remain open; prior thumbnail/stale-shell-oracle obligations retain their recorded final owners.",
       "children": ["I06b1", "I06b2"],
       "deliverySplitRecord": "docs/agent/implementation-runs/20261022T121920Z-442a17be.json",
       "dependsOn": ["I06a"],

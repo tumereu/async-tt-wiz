@@ -1,0 +1,274 @@
+{
+  "result": "PASS",
+  "startCommit": "0cf1b77ce1ffdbc6f7e97705af0d989e22396f59",
+  "selected": {
+    "mode": "implement",
+    "target": "I06b",
+    "findingIds": []
+  },
+  "completed": "I06b only",
+  "nextSelection": {
+    "mode": "implement",
+    "target": "I06",
+    "findingIds": []
+  },
+  "children": [
+    {
+      "id": "I06b1",
+      "record": "docs/agent/implementation-runs/20261022T122241Z-22388f73.json",
+      "commit": "c1696a57beef3be240aba20ae62a5e94b04fb749",
+      "reportSha256": "07252eeda98d995e76173567628196f48663c5365d7019f507322944be9d2b8f",
+      "checks": [
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-compile.json",
+          "sha256": "0fd1446dd43d35a2b80693bb3c372298ea9187829d4daf4aa4144c9d21a6e3b0"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-compile2.json",
+          "sha256": "a81a7225cd0af36d36c05b24000f374881e2eb0058ab53c71a38c773c9d6c3ff"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-tests1.json",
+          "sha256": "92d4f934c80a9071d7eab61994f9d17b692b2a6f322ee3307d350c2ce18fc14d"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-tests2.json",
+          "sha256": "50bbd7846223f4baddeb5ebfe7818445f87a948503f71cbc658c2a76815291e5"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-tests3.json",
+          "sha256": "5592b865725c3a39523286c408cad141399b93f68c596625480f15f768b68810"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-android-build.json",
+          "sha256": "916a65bb462935d8261d567e78002e554e379efd0c41f71cc679bcbfc8d86ebf"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-android-final.json",
+          "sha256": "6a3687ee4bf5a3105b90bdfb6d0f61c549a80862e9ed57a1109393c9d1e7ff12"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-environment-tests.json",
+          "sha256": "179afc54447e6240fbeaddce6174115afbaa6a2b4bb85a83a075b821d088f841"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-retention-initial.json",
+          "sha256": "3eb907cd00dd8358b81fc1608369e5d3655904c1c9b881c0ca58d75a2460f79f"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-retention.json",
+          "sha256": "aea73d0ca2fe2b7a0b9fb669ed1fc4e5e15c493e998e545191c1824bc0c2a977"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-handoff-initial.json",
+          "sha256": "a53e1ce48c00d8aaca9294f7ecb441ba9649b5d51352ca2edf2ace0a3d106729"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-handoff-capture-diagnostic.json",
+          "sha256": "afe80239bb67068bb394abd39be8f97f3b793522772be9255044763d8ab06ae9"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T122241Z-22388f73-handoff.json",
+          "sha256": "58ecc199d8354fa7b1f76a3b84d9bf8a48460aff301e91243e71a13b8ba6e56e"
+        }
+      ]
+    },
+    {
+      "id": "I06b2",
+      "record": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f.json",
+      "commit": "0cf1b77ce1ffdbc6f7e97705af0d989e22396f59",
+      "reportSha256": "b6117215042aacf2a4dade9ad3a8ea5f8be0aef62883550f5668d062218c2c01",
+      "checks": [
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/affected-host.json",
+          "sha256": "457b4362b5730a0f6aba0263679dfd35bd7c80352e35ff136579ec1ba41a9d51"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/image-build.json",
+          "sha256": "3ff6aa55a5221ea83cb81ce1f3bb5e78be08255cfcada6eacf4da8a6e7b0dd94"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/environment-provision.json",
+          "sha256": "b01859f5e0b2fbe1b6319b726fe18759a1a1daef3d154802eadd7316d76a40df"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/device-provision.json",
+          "sha256": "28aa804859eb5a500bd678baea6cddb0de69c0d79c3b8966d1c808077193a004"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/environment-provision-valid.json",
+          "sha256": "7b3624b46d1ab7a9d4982c9eec20146ce134306175822dcec9f10b00a58cc58c"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/device-provision-valid.json",
+          "sha256": "84079670fb493feaa0736d87cdc20725294c4698e9e43a6297d62cae02993743"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/hosted-build.json",
+          "sha256": "6ba283b5de9ffa4c98a380a6660120aa0d002ba8163142f49db31988f6acf12d"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/prepare-app.json",
+          "sha256": "62ca548f3ff348d712e6f1949aad068db03d839ba87af510e7cffd8e8cbea29b"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-journey.json",
+          "sha256": "559c1cc183682e794d771da893f1c2b34c6f9995182120d19502b698f124582e"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-enabled-recheck.json",
+          "sha256": "045058fc312805957ea544b2e7825c9f007146542ed8eacbc70f9075972dc829"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-recovery.json",
+          "sha256": "23a076ab842f373524f858b3382c5ecde7683fcd7d02b2c2ad5679faa2a067f0"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-root-recheck.json",
+          "sha256": "5eaae5f0e20cf614154261acb1f910d2ec792e95ea766c089d6f4d9efeb64289"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-final.json",
+          "sha256": "4035a0fdfb631093372a4890b78a036dd97cf9e23b0283c614aeb3b062616c2a"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-auth-recheck.json",
+          "sha256": "94d3901342500e771fc0b04d27973f61e462de333e20cfc0fa0248fca1c085e4"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-complete.json",
+          "sha256": "1a9d7be80954a97014334222beb2c3c2aee3558665d335a81ffd6d18161bf134"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/native-ready-recheck.json",
+          "sha256": "55e0806fdb9d3f375621a12129f851cae27846639b431f34c9ca78628c97b8cb"
+        },
+        {
+          "kind": "diagnostic",
+          "exitCode": 1,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/retention.json",
+          "sha256": "35c44647f4bb08dd507a3af7e86046020ece26c463f5e0d84410a76ec5675c36"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/retention-complete.json",
+          "sha256": "119924ccb8a773490adf8b89034e407eb54537f842e443063705dcf18ec5f236"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/cleanup-device.json",
+          "sha256": "8805be8ecc6b702f8d860f579b9f0bc4e9b576eb834042a1288b0b5cf34504e2"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/cleanup-environment.json",
+          "sha256": "76c692a094a1fca66113f1e9df90809a628291042c53a6f5105c800a09701fb7"
+        },
+        {
+          "kind": "required",
+          "exitCode": 0,
+          "evidence": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/handoff-check.json",
+          "sha256": "6eaf40e50f592215f3d6496d3f526675c763fc644ba94e3cb5f22650b608e134"
+        }
+      ]
+    }
+  ],
+  "inputAudit": {
+    "latestManifest": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/artifact-identities.json",
+    "manifestSha256": "aa92d86a9e59a776118ad90cc301a6af5887515c83a2fa897b8f1fc640ec324e",
+    "currentIdentitiesMatched": 291,
+    "earlierIdentities": 104,
+    "earlierReplacedByNativeChild": [
+      "androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "server/DECKS.md"
+    ],
+    "unchangedServerSharedGeneratedRuntimeFixtureLocks": true
+  },
+  "reusedResults": {
+    "sharedAndPostgresTests": 12,
+    "mappingTransportImportAccountTests": 20,
+    "nativeTest": 1,
+    "nativeXml": "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/runner-597854085e4f4790b19bd6ad052b8b88-result-0.xml",
+    "journeys": [
+      "UI-created A/B",
+      "real catalog correction",
+      "long preview/name and both orientations",
+      "stopped real backend failure retains draft/name/preview",
+      "retained backend restart and immutable retry",
+      "actual atomic save/detail",
+      "one server list row",
+      "Edit/Exit without save",
+      "process restart server definitions/mainboard/sideboard",
+      "Logout/account-private list"
+    ],
+    "retainedCleanupPassed": true
+  },
+  "integration": "I06b2 final normal APK exercised I06b1 unchanged service/image and shared wire types; no uncovered changed integration input. No build/device/full-suite rerun.",
+  "handoff": "State/transition/role/exact paths/JSON/whitespace pass; authorization, findings, ledger, batches, review coverage and external gates unchanged.",
+  "remaining": [
+    "I06 remains in-progress until its separately selected reconciliation of I06a/I06b; this unit does not advance the ancestor. I07 extends collection/details/rename/cover/delete/full inspection/sync; I08 extends the same persistent service with Overwrite/Merge and complete conflict/copy-isolation checks.",
+    "B2 remains pending until I07/I08 finish and then receives its first independent capability review. Prior missing-art-thumbnail presentation remains I32/I36; the prior NativeShellTest pre-I05 copy oracle remains I07/I34, not silently passed or waived.",
+    "I34 retains full-suite/broad deferred failure/reset/reproducibility assertions; I35 retains compatibility/upgrades/architecture/device obligations; I36/B8 retains complete final interface-to-mock comparison. All external release gates remain unchanged and unverified. No subagent, loop, deployment, paid resources, provider request, model/grant/authorization/runner change or UI-document edit occurred."
+  ]
+}

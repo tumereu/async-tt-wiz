@@ -92,7 +92,8 @@
                                              "docs/agent/implementation-runs/20261022T163108Z-f7fc716d.json",
                                               "docs/agent/implementation-runs/20261022T174723Z-4ae020e2.json",
                                                "docs/agent/implementation-runs/20261022T175129Z-7080c0f4.json",
-                                               "docs/agent/implementation-runs/20261022T181701Z-19a34527.json"
+                                                "docs/agent/implementation-runs/20261022T181701Z-19a34527.json",
+                                                "docs/agent/implementation-runs/20261022T193210Z-618299c4.json"
    ],
   "findings": [
     {
@@ -880,7 +881,9 @@
     {
       "id": "I09b",
       "batch": "B3",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T193210Z-618299c4.json",
+      "qualification": "D-307 run-owned parent audit reconciles I09b1 at 8158e42e98404eda9357389129c210d5f12102c7 and I09b2 at 7fcfe73058e6090b7920f6339f84439495e2019f: exact child reports/checks/diagnostics/captures and unchanged runtime/test inputs, plus final source/build/lock/APK identities. Reuses 15 distinct affected server/shared green cases, 23 host cases and the integrated two-normal-APK both-orientation decline/exact-game Reinvite/interrupted-Accept/fenced reconnect/Back/restart journey, stable game/name/date/preparation and three original durable outcomes without duplication. No missing integration seam or changed input calls for another build/device/fault/full-suite run. Only I09b closes; I09 parent remains open, B3 remains pending. Existing I34 recovered HTTP-error correction/recheck remains explicitly required, not passed. Preparation/copies/Ready/start/cancel I10-I12, same-path gameplay/rebase/tree I13/I14/I26, rematch I28/I31, independent B3 and final I33-I36/UI/release gates remain unverified.",
       "dependsOn": ["I09a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
       "children": ["I09b1", "I09b2"],

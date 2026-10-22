@@ -50,7 +50,8 @@
      "docs/agent/implementation-runs/20261022T003723Z-932550a0.json",
      "docs/agent/implementation-runs/20261022T010018Z-6fa0ca94.json",
      "docs/agent/implementation-runs/20261022T010348Z-d9861514.json",
-     "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json"
+      "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json",
+      "docs/agent/implementation-runs/20261022T013255Z-043555f3.json"
    ],
   "findings": [],
   "batches": [
@@ -431,7 +432,10 @@
     {
       "id": "I01f1b2a",
       "batch": "B1",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T013255Z-043555f3.json",
+      "buildNotes": "e2e/devices-README.md",
+      "qualification": "Public-only route-environment/validate-routes/unroute lifecycle passes two complete fresh API29 non-GMS WHPX/real Compose transport qualifications: same-port ADB reverse reaches the existing WSL public forwarder through dedicated Windows ADB without an added relay, preserving both source art origins. Exact intent/confirmed mapping/transport IDs, environment owner/input/ports, guest loopback listeners and host relay process identity retained. Device-originated backend 404, both metadata/gzip/printing/PNG byte hashes/MIME and eight private-route 404s pass; internal-container external IP/DNS egress remains blocked with no DB/SMTP/health/admin publication. Actual lost mapping, suspended exact relay, stopped backend and foreign routes fail without stale or services-only fallback, recover explicitly, and exact unroute/native/Compose cleanup preserves unrelated inventory. Twenty focused/121 total Python tests, clean locked host/shared JVM build/tests and unchanged 875-item coverage/fixtures pass. Missing build manifests, stale mirrored-broker baseline expiry, disproved initial listener diagnosis and delayed WSL launcher-exit failures remain diagnostic; ordinary image rebuild, passive proxy-drain preflight and bounded exact-launcher drain with unit/full native lifecycle regressions pass without inventory exclusions or global process/network changes. Only this transport child closes: no APK/combined handoff, Appium/Kotlin UI/input/instrumentation/product networking/account/downloader/gameplay/Canvas, parent/group review or release gate passed; I01f1b2b and all later obligations remain open.",
       "dependsOn": ["I01f1b1", "I01e"],
       "outcome": "Implement and actually qualify the public-route lifecycle in the existing owned device controller: attach only the two public loopback endpoints of one explicitly owned real I01e Compose environment, measure the Windows/WSL transport, and use exact same-port device routes so configured synthetic art origins remain unchanged. Record environment/serial/port/mapping identities and any required loopback-only relay process/start identity before mutation; refuse foreign/busy resources without adoption or rebind. Extend existing mapping checks and cleanup to recognize only this recorded owned set, retaining strict refusal of all other forward/reverse mappings. Supply explicit route validation/removal and safe failed/partial-setup recovery; attaching routes must invalidate services-only readiness and subsequent wait must validate the attachment, not silently downgrade. This child supplies transport infrastructure, not the final normal-APK/environment handoff or product networking acceptance.",
       "checks": [

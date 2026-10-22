@@ -1,4 +1,4 @@
-# Windows/WSL device controller — services and normal scaffold startup
+# Windows/WSL device controller — services, startup and public transport
 
 **Device-service foundation only, not product E2E.** The test-only
 [`devices.py`](devices.py) / [`windows-device.ps1`](windows-device.ps1) controller
@@ -24,8 +24,8 @@ so their unrelated-listener baseline is stable. An earlier concurrent regression
 run closed its own mirrored Linux test sockets during the device inventory check;
 that diagnostic failed, and the complete sequential rerun passes without relaxing
 the unchanged-listener assertion. This is still not a complete scenario environment.
-I01f1b1 now qualifies normal-APK launch/capture as described below. I01f1b2 still
-owns actual public-only Compose routing and the combined environment handoff;
+I01f1b1 qualifies normal-APK launch/capture as described below. I01f1b2a now
+qualifies public-only Compose transport; I01f1b2b still owns the combined APK handoff;
 I01f2 owns Kotlin/Appium sessions and the 14 actual storage instrumentation tests.
 No application, Gradle, permission, authorization or global networking change is
 made by these helpers. No default ADB or historical private tool archive is reused.
@@ -89,7 +89,8 @@ Each attempt has a private `app-<id>` evidence directory, with actual XML/PNG,
 installed APK copy, read-only idle database copy and timestamped `observed.json`.
 `app-progress.json` points to the latest attempt even on failure; `app-ready.json`
 exists only after successful observation, and failures/cleanup remove it. It is a
-**snapshot**, not an enduring health lease: `wait` still certifies services only;
+**snapshot**, not an enduring health lease: without an environment attachment,
+`wait` still certifies services only;
 require new `capture-app` or `launch-app` for fresh startup evidence. Capture uses
 only a UUID-like exact temporary guest XML path and removes only that file. Binary
 transfer logs retain actual exit/error/size/hash, never decode APK/DB/PNG as text.
@@ -115,10 +116,116 @@ Committed synthetic screenshot/hierarchy and command outputs are in the run;
 large APK/DB/AVD artifacts remain private with hashes. Never publish raw future
 account/token/message/DB/log captures without checking/redacting private content.
 
-No normal backend connection, routing, Kotlin/Appium UI scenario, real touch,
+No normal-app backend connection, routing, Kotlin/Appium UI scenario, real touch,
 instrumentation, downloader/account/gameplay/Canvas acceptance, physical frame
 measurement, parent/group review or release gate is passed by startup observation.
 I01f1b2/I01f2/I01f3 and the later parent qualifications retain those obligations.
+
+## Public-only environment routes — I01f1b2a
+
+The [transport child record](../docs/agent/implementation-runs/20261022T013255Z-043555f3.json)
+retains **two complete passing** fresh-device/real-image transport qualifications,
+controlled failures/recovery, strict unrelated-inventory and exact cleanup checks.
+An intervening repeat failed its inventory baseline when stale Windows mirrored
+loopback entries expired; that output and diagnosis remain diagnostic, not a pass.
+The final repeat retains the same strict assertion without exclusions. No extra
+relay was needed: measured Windows loopback HTTP and actual device HTTP prove that
+the dedicated Windows ADB reverse reaches I01e's existing WSL public forwarder on
+this host. This result does not assume the same topology on another host.
+
+The test-only [`device_routes.py`](device_routes.py) permits **only** the two public
+loopback origins from an explicit owned [`environment.py`](environment.py) instance.
+It validates the private instance/topology/secret-file hashes, current real backend
+health/schema/writer and adapter readiness using the existing environment controller.
+It does not accept a supplied arbitrary URL/private service port. Source/backend
+origins must be exactly `http://127.0.0.1:<allocated-port>`; the same device/host
+port numbers preserve source image URLs without rewriting, wildcard publication or
+changing the app's TLS/trust inputs. Guest listeners are checked as IPv4 loopback.
+
+After building images and provisioning a fresh owned environment/device:
+
+```sh
+python3 scripts/build-server-image.py
+python3 scripts/build-synthetic-adapters.py
+python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-<32-hex> provision
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> \
+  provision --config /tmp/opencode/device-config.json
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> \
+  route-environment --environment /tmp/opencode/atw-e2e-<32-hex>
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> validate-routes
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> wait
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> capture
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> unroute
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> wait
+python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-<32-hex> cleanup
+python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-<32-hex> cleanup
+python3 -m unittest discover -s tests -p test_device_routes.py -v
+python3 scripts/check-device-routes.py \
+  --directory /tmp/opencode/atw-device-<fresh-32-hex> \
+  --environment /tmp/opencode/atw-e2e-<fresh-32-hex> \
+  --config /tmp/opencode/device-config.json
+```
+
+Run clean Gradle work **before** image builds: `:e2e:clean` removes the adapter image
+manifest under `e2e/build`, and `:server:clean` removes the installed server manifest.
+The retained missing-manifest failures were repaired by the ordinary builders,
+never by bypassing image-input validation or fabricating a manifest.
+
+`routes.json` records exact device owner/serial, environment instance hash/owner/ports
+and per-route intent **before** `adb reverse --no-rebind`. Only positively observed
+successful mappings become owned, including adbd's transport ID. A rejected
+no-rebind cannot adopt the competitor. Other forward/reverse mappings, including
+another serial's forward, still refuse readiness **and cleanup** before removal.
+Busy guest/service-port collisions, foreign/cleaned/changed targets and incomplete
+routes refuse setup. Partial successful routes stay recorded for explicit `unroute`;
+missing owned routes can be removed idempotently without a healthy environment.
+An interrupted/timeout creation with a matching but unconfirmed `creating` intent
+is ambiguous: it refuses adoption/removal, retaining evidence for diagnosis. If no
+mapping exists for that intent, ordinary `unroute` safely clears it. Never edit the
+record or remove an unconfirmed mapping merely to make cleanup pass.
+
+Once attached, `wait`/`validate-routes` invalidate old success and validate the
+**attachment**, not just ADB/Appium. Success includes current environment ownership,
+the exact two loopback routes, device-originated backend public 404, prism/quilt
+metadata/gzip/printing/PNG bytes/hashes/MIME and unchanged art origins. Eight device
+probes require 404 for public health/admin/reset/mailbox paths. No DB/SMTP/private
+port is mapped; real container namespace IP/DNS egress remains blocked. These are
+shell infrastructure diagnostics, **not** a downloader/auth/product UI pass.
+
+`routes-ready.json` and the `routes` member of `ready.json` are checked snapshots,
+not health leases. Route/service/environment loss exits nonzero and removes these
+and any app/combined success markers. Explicit `unroute` detaches and removes only
+the recorded routes; a subsequent fresh `wait` restores services-only readiness.
+Cleanup captures first, automatically unroutes and uses the original exact native
+shutdown. It now also waits at most 15 seconds for recorded WSL interop launchers
+to exit after native shutdown, without signalling reused/foreign PIDs. Actual
+failure plus passing delayed-exit/reuse/timeout regressions and full native
+lifecycle repeat retain the diagnosis; there is no ignored surviving launcher.
+
+Route checks have bounded work beyond `--timeout`: Windows operations retain their
+own bounds, current Compose readiness uses at most 120 seconds and each of 17
+device HTTP diagnostics has a 12-second command bound. A successful local validation
+typically takes about 45 seconds. Toybox netcat input stays open for two seconds
+to avoid its EOF half-close and the existing relay's close-on-EOF behavior; the
+**parsed complete HTTP response**, not that delay, proves reachability. The
+synthetic adapter requires HTTP/1.1. Initial empty HTTP/1.0/EOF experiments remain
+diagnostics; no app networking or relay semantics were changed to hide them.
+
+Run actual device suites sequentially, not alongside host socket regressions.
+Also let already-closed **known synthetic** mirrored-loopback proxy entries drain
+before recording the next unrelated-listener baseline. Read-only observation is
+allowed; do not kill DllHost, change global networking, omit baseline entries or
+relax the inventory assertion. Both the stale-broker diagnostic and a passive
+preflight followed by the unchanged passing services suite are retained.
+
+**20 focused / 121 total Python regressions** cover route ownership/partial failure,
+collision/foreign state, changed targets, framing, failed-handoff and launcher
+drain. Full actual services-only regression still covers interrupted detached
+launch, stale PID refusal, service loss/recovery and same-port cold boot. No new
+product dependency/runtime/build input was added. The combined normal-APK/environment
+handoff and reset/restart/startup qualification remain **I01f1b2b**; Kotlin sessions,
+all 14 actual storage instrumentation tests, multi-device repeats, account/downloader/
+gameplay/Canvas acceptance, parent/group reviews and release gates remain open.
 
 ## Explicit tools and configuration
 
@@ -201,11 +308,12 @@ its loopback listener's socket ownership. Controller locks exclude concurrent
 operations. Cleanup captures first, refuses changed identities and never runs
 global `kill-server`, broad emulator termination or network reconfiguration.
 Temporary AVD/tool files are retained for diagnosis, not removed recursively.
-This service-only controller creates **no ADB mappings** and refuses any existing
-forward/reverse mapping before a ready handoff or shutdown. It never removes
-foreign routes. I01f1b's routing extension and I01f2's driver-session ownership must
-record their exact mappings and extend that check, not disable it or run
-`--remove-all`. A preflight refusal owns no busy foreign ports: cleanup can close
+Without an explicit attachment this controller creates **no ADB mappings** and
+refuses any existing forward/reverse mapping before a ready handoff or shutdown.
+The routing extension permits only its recorded exact set; it never removes foreign
+routes. I01f2's driver-session ownership must likewise record its exact mappings
+and extend that check, not disable it or run `--remove-all`.
+A preflight refusal owns no busy foreign ports: cleanup can close
 its empty metadata instance without demanding another owner's listener disappear.
 Duplicate provision and lock refusal do not invalidate an already running owner's
 handoff; actual failed readiness does. Always require a fresh successful `wait`.

@@ -6,7 +6,9 @@ readiness, foreign-resource/mapping refusal, timeout/service-loss invalidation,
 interrupted-launch recovery, native cleanup and fresh same-port cold boot pass
 against a fresh locked tool installation. I01f1b1 additionally qualifies normal-APK
 install/production-launcher startup capture and read-only idle storage evidence;
-Compose routing, Kotlin sessions and instrumentation remain I01f1b2/I01f2/I01f3;
+I01f1b2a now qualifies measured public-only device-to-real-Compose transport and
+fail-closed owned route lifecycle; the combined APK handoff remains I01f1b2b,
+Kotlin sessions and instrumentation remain I01f2/I01f3;
 no parent/product E2E or independent B1 review is closed by these foundation checks.
 
 The Kotlin/JUnit host runner's current runtime test qualifies only its Java
@@ -202,8 +204,12 @@ IPs and the separate adapter token-file interface; normal client paths return
 404 for health/admin/reset/mail inspection, and private adapter admin rejects
 missing tokens. Co-resident host administrators are trusted, not sandboxed.
 
-Only the **two loopback public/source ports** are candidates for I01f's measured
-per-device ADB reverse mapping (same host/device port numbers preserve art URLs).
+Only the **two loopback public/source ports** are allowed for the now-qualified
+[I01f1b2a per-device ADB reverse mapping](devices-README.md#public-only-environment-routes--i01f1b2a)
+(same host/device port numbers preserve art URLs). The actual API29 non-GMS
+transport check passes backend public 404 and both synthetic catalogs/art, private
+separation, unavailable transport/environment failure/recovery and exact cleanup.
+It does not supply the pending combined normal-APK handoff or product HTTP client.
 Do not bind them to 0.0.0.0, expose private admin/DB/SMTP, change production TLS
 trust or claim physical/emulator reachability from these host HTTP tests. The
 normal backend currently returns 404 on public routes because product APIs are

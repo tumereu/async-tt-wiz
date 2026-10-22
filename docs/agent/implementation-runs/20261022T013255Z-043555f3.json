@@ -1,0 +1,444 @@
+{
+  "runId": "20261022T013255Z-043555f3",
+  "sessionID": "ses_e9ec29c1bffer68kQmuY4aj5nw",
+  "startCommit": "82932bf9978a8218868fde311d82f4b6aa983c5d",
+  "mode": "implement",
+  "target": "I01f1b2a",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Completed I01f1b2a public-only owned route lifecycle. Two complete fresh API29 non-GMS WHPX/real-Compose transport qualifications pass backend 404, both catalogs/metadata/printing/PNG byte hashes/MIME and unchanged art origins, eight private-route 404s, blocked container egress, actual broken/unavailable/foreign-route failure/recovery and exact cleanup/unrelated inventory. Same-port reverse reaches the existing WSL public forwarder through dedicated Windows ADB; no added relay or product trust/networking change. Twenty focused/121 total Python tests, locked shared/host JVM tests/build/boundaries, full actual native services regression and unchanged 875-item coverage/fixtures pass. Missing manifests, initial HTTP probe mistakes, stale Windows broker baselines, a disproved diagnosis and delayed WSL proxy-exit failures remain diagnostic with concrete repairs/passing qualification. Only this child closes; combined APK handoff I01f1b2b, all ancestors, Kotlin/instrumentation/UI/product journeys, B1 review and release gates remain open.",
+  "selectionReason": "Clean master matched the supplied startCommit; D-304 explicitly authorizes the application plan. Findings are empty and B1 review is not due until I01-I04. I01f1b2a is the earliest ready child after implemented I01f1b1 and I01e; its measured exact-owned transport is a prerequisite to I01f1b2b combined normal-APK/environment handoff and I01f2 Kotlin/device tests. No priority skipped or parent/review obligation reduced.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/check-device-routes.py --directory /tmp/opencode/atw-device-043555f322224af58b9f3861313df8c1 --environment /tmp/opencode/atw-e2e-043555f322224af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-device-routes.py --directory /tmp/opencode/atw-device-043555f333334af58b9f3861313df8c1 --environment /tmp/opencode/atw-e2e-043555f333334af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes-pass.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/check-device-routes.py --directory /tmp/opencode/atw-device-043555f322224af58b9f3861313df8c1 --environment /tmp/opencode/atw-e2e-043555f322224af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes-repeat.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-device-routes.py --directory /tmp/opencode/atw-device-043555f311114af58b9f3861313df8c1 --environment /tmp/opencode/atw-e2e-043555f311114af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-artifacts.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-artifacts.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-artifacts.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis-pass.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-synthetic-adapters.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-build-adapters.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --no-build-cache :core:jvmTest :protocol:jvmTest :e2e:clean :e2e:test verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-build-host.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-server-image.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-build-server.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/coverage-ledger.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-coverage.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-043555f300004af58b9f3861313df8c1 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-experimental-device-cleanup.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-043555f300004af58b9f3861313df8c1 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-experimental-env-cleanup.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-synthetic-catalogs.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-fixtures.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import json; from pathlib import Path; from e2e import devices as d; p=Path('\"'\"'/tmp/opencode/atw-device-043555f355554af58b9f3861313df8c1/launchers.jsonl'\"'\"'); live=[v for v in map(json.loads,p.read_text().splitlines()) if d.process_identity(v['\"'\"'pid'\"'\"'])==v]; print(json.dumps({'\"'\"'stillLiveExactLaunchers'\"'\"':live},indent=2)); assert not live, '\"'\"'A recorded owned launcher still lives after native stop'\"'\"''",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-launcher-diagnosis.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-listener-diagnosis.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-listener-diagnosis.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-listener-diagnosis.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-043555f300004af58b9f3861313df8c1 provision --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-provision-device.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-043555f300004af58b9f3861313df8c1 provision",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-provision-env-built.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-043555f300004af58b9f3861313df8c1 provision",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-provision-env.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-python-regressions-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-python-regressions.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-synthetic-adapters.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-rebuild-adapters.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'from pathlib import Path; import json; paths=['\"'\"'server/build/application-image.json'\"'\"','\"'\"'e2e/build/adapters/image.json'\"'\"']; print(json.dumps({p:Path(p).exists() for p in paths})); assert Path(paths[0]).is_file() and not Path(paths[1]).exists(), '\"'\"'Diagnosis differs: inspect image inputs'\"'\"''",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-repeat-input-diagnosis.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-043555f300004af58b9f3861313df8c1 route-environment --environment /tmp/opencode/atw-e2e-043555f300004af58b9f3861313df8c1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-route-first.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p test_device_routes.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-route-units-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p test_device_routes.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-route-units.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/check-e2e-devices.py --directory /tmp/opencode/atw-device-043555f366664af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-services-regression-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/check-e2e-devices.py --directory /tmp/opencode/atw-device-043555f355554af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-services-regression-pass.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/check-e2e-devices.py --directory /tmp/opencode/atw-device-043555f344444af58b9f3861313df8c1 --config /tmp/opencode/atw-device-config-932550a0.json",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-services-regression.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-stable-preflight.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-stable-preflight.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-stable-preflight.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology-held-input.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology-http11.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology-q.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-handoff.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-handoff.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-handoff.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T013255Z-043555f3-validation.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T013255Z-043555f3-validation.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+        "docs/agent/implementation-runs/20261022T013255Z-043555f3-validation.py"
+      ]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes-final.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes-pass.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes-repeat.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-actual-routes.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-artifacts.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-artifacts.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis-pass.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-build-adapters.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-build-host.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-build-server.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-coverage.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-experimental-device-cleanup.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-experimental-env-cleanup.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-fixtures.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-handoff.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-handoff.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-launcher-diagnosis.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-listener-diagnosis.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-listener-diagnosis.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-provision-device.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-provision-env-built.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-provision-env.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-python-regressions-final.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-python-regressions.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-rebuild-adapters.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-record.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-repeat-input-diagnosis.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-route-first.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-route-units-final.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-route-units.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-services-regression-final.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-services-regression-pass.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-services-regression.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-stable-preflight.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-stable-preflight.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology-held-input.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology-http11.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology-q.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-validation.json",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-validation.py",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3.json",
+    "docs/agent/implementation-state.json",
+    "e2e/README.md",
+    "e2e/device_routes.py",
+    "e2e/devices-README.md",
+    "e2e/devices.py",
+    "scripts/check-device-routes.py",
+    "tests/test_device_routes.py"
+  ],
+  "sourceIds": {
+    "infrastructurePortionsOnly": [
+      "P-001",
+      "T-551",
+      "T-630",
+      "T-662"
+    ],
+    "laterBehaviorConstraints": [
+      "P-059",
+      "P-063",
+      "P-065",
+      "P-066",
+      "T-632",
+      "T-647",
+      "T-649"
+    ],
+    "accounting": "Unchanged P-001-P-072/T-001-T-715/F01-F88 ledger; no product scenario/UI requirement is marked executed by these infrastructure checks."
+  },
+  "contractSections": [
+    "AGENTS.md and docs/agent/implementation-authorization.md: D-304 authorization, D-305 repair, exact owned save and one bounded unit",
+    "docs/agent/implementation-plan.md: I01 foundation, B1 independent review after I01-I04 and retained parent qualification",
+    "docs/agent/implementation-loop.md: earliest-ready selection, truthful evidence and independent review boundaries",
+    "docs/design/04-technical/test-architecture.md: required device endpoints only, explicit ports and real-system versus lower-layer checks",
+    "docs/design/05-verification/e2e-strategy.md: synthetic data, no product-action injection, retained restart and evidence before cleanup",
+    "e2e/README.md and e2e/devices-README.md: same-port loopback origins, private administration, ownership and reset versus restart"
+  ],
+  "diagnostics": [
+    "Initial provisioning had no server/adapter build manifests. Ordinary strictly locked real-server build and pinned adapter builder supplied them. The later :e2e:clean intentionally removed the adapter manifest again; existence probe established this and the ordinary builder repaired it. No hand-written manifest or bypass.",
+    "Initial shell HTTP measurements used HTTP/1.0 (synthetic adapter requires 1.1) and netcat EOF half-close (existing relay closes both directions on EOF). HTTP/1.1 plus bounded held stdin produced real device responses. Runtime relay/app code was not changed; actual complete transport checks assert complete framing/bytes/hashes.",
+    "An intermediate transport repeat failed its unchanged unrelated Windows-listener assertion after prior Python socket regressions. The first guess that only two owned Compose ports disappeared was disproved and retained. Read-only diagnosis found expired mirrored-loopback entries on the still-alive dllhost broker with no Linux listeners; a diagnosis-script process-name casing error is retained too. No broker/network mutation or inventory exclusion was made. A fresh sequential complete transport repeat passes the identical strict assertion.",
+    "The first native services regression saw the just-cleaned synthetic source proxy expire during its unrelated baseline. Passive exact-known-endpoint drain preflight passes; no listener is removed by the preflight. A subsequent native repeat then exposed delayed WSL launcher exit immediately after native processes stopped. Post-failure observation showed the exact proxies exited naturally. Cleanup now waits at most 15 seconds for recorded identity exit without signalling any process; delayed/reused/timeout unit checks and the complete unchanged native lifecycle checker pass.",
+    "Existing normal-app mock tests print Python ResourceWarning for two test SQLite connections; all 121 tests execute and pass, with no skipped/red test relabeled. No unrelated storage/product change was made."
+  ],
+  "limitations": [
+    "Transport infrastructure only: no APK installed by this child, combined normal-APK/environment handoff, Kotlin/Appium driver session/input, Android instrumentation, normal downloader/auth/gameplay/Canvas acceptance or seeded product state. I01f1b2b owns combined startup/reset/restart qualification; I01f2 still owns all 14 actual storage instrumentation tests.",
+    "No additional relay is necessary on the measured host. Existing I01e relay PID/start/command remains recorded and checked by its owner. Other hosts must qualify actual connectivity; no global networking, wildcard listener, private DB/SMTP/admin route or production TLS-trust relaxation.",
+    "A timeout/interruption after route intent but before positive creation confirmation cannot authorize adopting/removing a matching ambiguous mapping. Such an intent fails closed for evidence-backed recovery; absent intents/ordinary partial successful sets can be explicitly unrouted safely. No remove-all or default ADB adoption.",
+    "All owned device/native/watchdog/WSL/Appium/Compose/relay resources are cleaned, including failed checks and checker-created sibling instances; actual XML/command outputs retained. Synthetic owner IDs are not production credentials. Build caches/private AVD evidence may remain. Stale mirrored-loopback broker behavior remains a host caveat; never kill or reconfigure that unrelated broker.",
+    "All parent outcomes/checks, other tasks, batch review coverage/findings, runner/model/grants/authorization and externalReleaseGates remain unchanged. No UI document changed, so same-URL UI publication is not applicable. No subagent, second loop, deployment, paid resource, physical/current/tablet/upgrade/arm64 or release claim."
+  ]
+}

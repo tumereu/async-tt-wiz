@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "from pathlib import Path; import json; paths=['server/build/application-image.json','e2e/build/adapters/image.json']; print(json.dumps({p:Path(p).exists() for p in paths})); assert Path(paths[0]).is_file() and not Path(paths[1]).exists(), 'Diagnosis differs: inspect image inputs'"
+  ],
+  "exitCode": 0,
+  "output": "{\"server/build/application-image.json\": true, \"e2e/build/adapters/image.json\": false}\n"
+}

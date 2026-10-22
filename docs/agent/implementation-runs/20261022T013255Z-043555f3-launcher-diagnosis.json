@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import json; from pathlib import Path; from e2e import devices as d; p=Path('/tmp/opencode/atw-device-043555f355554af58b9f3861313df8c1/launchers.jsonl'); live=[v for v in map(json.loads,p.read_text().splitlines()) if d.process_identity(v['pid'])==v]; print(json.dumps({'stillLiveExactLaunchers':live},indent=2)); assert not live, 'A recorded owned launcher still lives after native stop'"
+  ],
+  "exitCode": 0,
+  "output": "{\n  \"stillLiveExactLaunchers\": []\n}\n"
+}

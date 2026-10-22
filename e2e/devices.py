@@ -227,9 +227,10 @@ def check_windows(value, snapshot):
 
 
 def check_mappings(value, serial):
-    # This service-only foundation has created no mappings. Never clear/adopt a
-    # pre-existing forward/reverse route (including a foreign serial's forward).
-    # Later session/routing owners must explicitly record their exact mappings.
+    from e2e import device_routes
+    if device_routes.file(value).exists():
+        return device_routes.mappings(value, serial)
+    # No attachment owns mappings. Never clear/adopt a pre-existing route.
     forward = adb(value, 'forward', '--list').stdout.strip()
     reverse = adb(value, '-s', serial, 'reverse', '--list').stdout.strip()
     require(not forward and not reverse, 'Foreign/unrecorded ADB mapping refused')
@@ -287,6 +288,9 @@ def appium_status(value):
 
 def wait(value, timeout):
     invalidate(value)
+    from e2e import device_routes
+    if device_routes.file(value).exists():
+        device_routes.invalidate(value)
     check_windows(value, windows(value, 'snapshot'))
     until = time.monotonic() + timeout
     last = 'Not ready'
@@ -302,6 +306,11 @@ def wait(value, timeout):
                           'scope': 'Device services only; no APK/UI/Compose/instrumentation acceptance'}
                 # Recheck Windows ownership after actual Android readiness, before handoff.
                 check_windows(value, windows(value, 'snapshot'))
+                from e2e import device_routes
+                if device_routes.file(value).exists():
+                    result['routes'] = device_routes.validate(value, timeout)
+                    result['scope'] = 'Device services plus measured public transport only; no combined APK/client/UI acceptance'
+                result['checkedAt'] = time.time()
                 write_json(Path(value['directory']) / 'ready.json', result)
                 return result
         except (ConnectionError, TimeoutError, OSError, http.client.HTTPException) as error:
@@ -361,7 +370,8 @@ def capture(value):
     snapshot = windows(value, 'snapshot')
     output = {'windows': snapshot, 'appiumProcess': appium_identity(value)}
     for name in ('versions.json', 'ready.json', 'readiness-progress.json', 'appium.log', 'appium-launch.log',
-                 'app-installed.json', 'app-ready.json', 'app-progress.json'):
+                 'app-installed.json', 'app-ready.json', 'app-progress.json',
+                 'routes.json', 'routes-ready.json', 'routes-removed.json'):
         path = Path(value['directory']) / name
         if path.exists():
             output[name] = path.read_text(errors='replace')[-16000:]
@@ -369,10 +379,28 @@ def capture(value):
     return output
 
 
+def drain_launchers(value):
+    # A native Windows exit can precede WSL's interop-proxy exit briefly. These
+    # are only our recorded detached launchers, not arbitrary Windows processes.
+    # Wait without signalling anything; PID reuse means the original is gone.
+    file = Path(value['directory']) / 'launchers.jsonl'
+    if not file.exists():
+        return
+    require(not file.is_symlink(), 'Unsafe launcher record')
+    recorded = [json.loads(line) for line in file.read_text().splitlines()]
+    until = time.monotonic() + 15
+    while any(process_identity(p['pid']) == p for p in recorded):
+        require(time.monotonic() < until, 'Owned WSL launchers did not exit after native shutdown; retain for recovery')
+        time.sleep(.1)
+
+
 def cleanup(value):
     invalidate(value)
     (Path(value['directory']) / 'app-ready.json').unlink(missing_ok=True)
     capture(value)  # Diagnostics before any shutdown; never broad process cleanup.
+    from e2e import device_routes
+    if device_routes.file(value).exists():
+        device_routes.unroute(value)
     snapshot = windows(value, 'snapshot')
     if not snapshot.get('absent') and any(p and p['executable'].lower().endswith('\\adb.exe')
                                           for p in snapshot['currentProcesses']):
@@ -402,6 +430,7 @@ def cleanup(value):
         ports.append(value['config']['appiumPort'])
     require(not any(linux_listening(p) for p in ports),
             'Owned Linux ports remain listening')
+    drain_launchers(value)
     write_json(Path(value['directory']) / 'cleaned.json', result)
     return result
 
@@ -416,6 +445,9 @@ def main():
         sub.add_parser(operation)
     sub.add_parser('install-app').add_argument('--apk', required=True)
     for operation in ('launch-app', 'capture-app'):
+        sub.add_parser(operation)
+    sub.add_parser('route-environment').add_argument('--environment', required=True)
+    for operation in ('validate-routes', 'unroute'):
         sub.add_parser(operation)
     args = parser.parse_args()
     directory = directory_path(args.directory)
@@ -432,6 +464,16 @@ def main():
                 if args.operation in ('install-app', 'launch-app', 'capture-app'):
                     from e2e import device_app
                     result = device_app.operation(value, args.operation, args.timeout, getattr(args, 'apk', None))
+                elif args.operation in ('route-environment', 'validate-routes', 'unroute'):
+                    from e2e import device_routes
+                    if args.operation == 'route-environment':
+                        result = device_routes.route(value, args.environment, args.timeout)
+                    elif args.operation == 'validate-routes':
+                        # Includes current device/services ownership, not only sockets.
+                        require(device_routes.file(value).exists(), 'No attached routes')
+                        result = wait(value, args.timeout)['routes']
+                    else:
+                        result = device_routes.unroute(value)
                 else:
                     result = wait(value, args.timeout) if args.operation == 'wait' else globals()[args.operation](value)
             print(json.dumps(result, indent=2))
@@ -439,6 +481,8 @@ def main():
             if directory.is_dir():
                 (directory / 'ready.json').unlink(missing_ok=True)
                 (directory / 'app-ready.json').unlink(missing_ok=True)
+                (directory / 'routes-ready.json').unlink(missing_ok=True)
+                (directory / 'combined-ready.json').unlink(missing_ok=True)
             raise
 
 

@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-handoff.py"
+  ],
+  "exitCode": 0,
+  "output": "Generated report from 36 actual retained/check-output obligations and 52 exact owned paths; only I01f1b2a marked implemented.\n"
+}

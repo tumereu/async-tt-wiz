@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T013255Z-043555f3-stable-preflight.py"
+  ],
+  "exitCode": 0,
+  "output": "{\"alreadyCleanedOwnedPorts\": [33813, 34639, 38947, 39869, 41683, 43145, 46065, 46275], \"remainingWindowsProxyEntries\": []}\nPASS passive preflight: no just-cleaned synthetic endpoint is misclassified as unrelated in the next strict native-services baseline. No listener/process stopped or networking changed.\n"
+}

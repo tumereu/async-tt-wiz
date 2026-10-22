@@ -1,0 +1,67 @@
+{
+  "runId": "20261022T174723Z-4ae020e2",
+  "sessionID": "ses_e9b467439ffeI1v4JsaSLOg1ER",
+  "startCommit": "00b7c7ec2e96ec2f5da5d62fc0242f80433b958c",
+  "mode": "implement",
+  "target": "I09b",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split before coding: I09b is in-progress with two pending B3 children. I09b1 delivers the running authenticated socket invitation service with the reusable durable ordered ingress/execution/outcome/publication path; I09b2 delivers native Accept/Decline/in-slot Reinvite, volatile ordered recovery and the two-normal-APK journey on that same service. Inspection confirms I09a supplies only account HTTP creation/read surfaces, with no game inbox/stream/publication worker or socket client yet. Original I09b outcome/checks and I09 parent are preserved. No runtime/build/test-input change, product scenario pass, review or release-gate claim; next fresh selection is I09b1.",
+  "selectionReason": "Clean master/index at the supplied commit agrees with active D-304 authorization, reviewed B1/B2 and no actionable finding. I09a is implemented, making I09b the earliest ready task. Its first full game socket/durable server path plus native FIFO/recovery and two-device UI integration is too broad for one bounded implementation unit; split by running service capability then native delivery, not per-layer certification. Both children retain ordinary recovery/data-integrity checks and all existing scope; no further qualification children or reviews are added. This unit runs only the existing state/transition/selection guards and a read-only source/coverage/owned-path audit; unchanged product inputs justify no build/device/full-suite rerun.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T174723Z-4ae020e2-planning-check.py > docs/agent/implementation-runs/20261022T174723Z-4ae020e2-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T174723Z-4ae020e2-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T174723Z-4ae020e2-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T174723Z-4ae020e2.json",
+    "docs/agent/implementation-runs/20261022T174723Z-4ae020e2-planning-check.py",
+    "docs/agent/implementation-runs/20261022T174723Z-4ae020e2-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I09b1", "I09b2"],
+    "dependencies": "I09b1 depends on implemented I09a, I09b2 depends on I09b1; neither depends on open I09b/I09 or later preparation/start tasks. I09b1 is a complete service path implementing actual invitation decisions, not an unserviced inbox scaffold. I09b2 is the complete native delivery/recovery/journey, reusing and extending it. Later I09b and I09 closure units reconcile exact child records/current inputs and only missing affected integration under D-307; independent B3 review remains after I09-I12 together.",
+    "sourceIds": ["P-043", "P-045", "P-062", "P-072", "T-398", "T-414", "T-415", "T-416", "T-417", "T-418", "T-484", "T-636", "T-637", "T-638", "T-639", "T-667", "T-677", "T-681", "T-685", "T-690", "T-696", "F13", "F14", "F16", "F23", "F24", "F37", "F48", "F59"],
+    "sourceDisposition": "Keep all original I09.invitations ledger assignments and partial accounting. I09a's existing contact/create/native evidence remains its original record, not a new execution. I09b1 owns D-275/D-285/D-287/D-289 durable ordered invitation operations and service recovery; I09b2 owns native P01/L01 decisions/Reinvite, account fences and same-process recovery. Both retain D-294 game name/date and cumulative F01-F88 constraints. Cross-feature scenarios remain pending until their remaining dependencies execute; no coverage status is relabeled by planning.",
+    "contractPaths": [
+      "docs/design/03-contracts/accounts-decks-and-lobby.md",
+      "docs/design/04-technical/protocol-v1.md",
+      "docs/design/04-technical/request-ordering-and-recovery.md",
+      "docs/design/04-technical/storage-mechanics.md",
+      "docs/design/04-technical/authentication-and-sessions.md",
+      "docs/design/02-experience/ui/review.md"
+    ],
+    "retainedObligations": [
+      "All four original I09b checks and its outcome remain byte-for-byte unchanged. The two children divide execution ownership, not scope: shared canonical envelopes/ordinals, authenticated socket/HTTP privacy/applicability, FIFO admission/durable receipts/dedup, atomic lowest-pending execution/outcomes/revisions/outbox, worker startup/reload/close, stream fencing, native ordered recovery and actual two-APK decisions remain required.",
+      "Reuse request_identity and ServiceRuntime writer fencing; extend worker composition so the new game workers do not replace reset-mail readiness/recovery. The existing attachWorker method currently stores one callback pair; integrate multiple implemented workers rather than silently dropping one. This is an evidenced integration seam for I09b1, not an independently filed defect in the still-unimplemented capability.",
+      "Initial game+first invitation is the existing account HTTP exception. Existing-game decisions/Reinvite use only the shared ordered socket/processor. Same-attempt original outcomes remain recoverable after Reinvite without installing stale snapshots. Decline preserves the inviter lobby; Accept is not Ready/start; no presence gate, mutual contacts, automatic expiry, replacement game or invented lifecycle policy.",
+      "I10-I12 retain preparation/copy isolation/Ready/start/cancel and P-072/T-669 cancellation in both orders, including T-457/T-458/T-460 actual prepared-state assertions. I13/I14 extend this same processor/queue/recovery; no competing queue, outgoing journal, disclosure side channel, sequence reconstruction or execution-time reset fence. I28/I31 retain T-681 rematch/combined metadata and I26 full-tree recovery.",
+      "I34 retains full-suite/deferred infrastructure and combined scenarios, I35 compatibility and I36/B8 all interfaces/orientations against mocks. No external gate, authorization, grants, exact high model or runner configuration changes. No subagent, new loop, deployment, paid resource or UI-document publication."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "docs/agent/implementation-runs/20261022T163108Z-f7fc716d.json",
+    "server/LOBBY.md",
+    "server/src/main/resources/db/migration/V6__contacts_and_named_games.sql",
+    "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+    "server/src/main/java/org/asyncttwiz/server/SpringService.java",
+    "server/src/main/java/org/asyncttwiz/server/ServiceRuntime.java",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Lobby.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt"
+  ]
+}

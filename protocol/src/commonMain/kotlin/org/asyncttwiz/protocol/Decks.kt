@@ -48,7 +48,10 @@ data class CardDefinition(
 @Serializable data class SavedDeck(val deck: DeckSummary, val entries: List<SavedDeckEntry>)
 @Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
 /** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL. */
-@Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null)
+@Serializable enum class DeckImportMode { OVERWRITE, MERGE }
+@Serializable data class DeckContentsImport(val entries: List<SavedDeckEntry>, val mode: DeckImportMode = DeckImportMode.OVERWRITE)
+@Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null,
+    val contents: DeckContentsImport? = null)
 @Serializable data class DeleteDeck(val requestId: String)
 @Serializable data class DeckDeleted(val id: String)
 @Serializable data class DeckError(val code: String, val field: String? = null)
@@ -117,7 +120,8 @@ object DeckValidation {
         return !host.endsWith(".localhost") && !host.endsWith(".local") && !host.endsWith(".internal") &&
             host.any { it in 'a'..'z' }
     }
-    fun create(value: CreateDeck): Boolean = text(value.name) && value.name.isNotBlank() &&
-        value.entries.isNotEmpty() && value.entries.all { digest(it.definition) && it.quantity > 0 } &&
-        value.entries.map { it.section to it.definition }.distinct().size == value.entries.size
+    fun entries(value: List<SavedDeckEntry>): Boolean = value.isNotEmpty() &&
+        value.all { digest(it.definition) && it.quantity > 0 } &&
+        value.map { it.section to it.definition }.distinct().size == value.size
+    fun create(value: CreateDeck): Boolean = text(value.name) && value.name.isNotBlank() && entries(value.entries)
 }

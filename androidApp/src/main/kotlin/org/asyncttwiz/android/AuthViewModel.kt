@@ -37,7 +37,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     val accepted = saveApi.submit(token, plan.definitions)
                     if (accepted.digests.toSet() != plan.definitions.definitions.map { it.digest }.toSet())
                         throw DeckFailure("invalid_response")
-                    saveApi.create(token, plan.deck)
+                    if (plan.target == null) saveApi.create(token, plan.deck)
+                    else {
+                        saveApi.update(token, plan.target, plan.update())
+                        // An uncertain retry may return an older original outcome. Reopen current
+                        // server state, never reapply additive quantities or install that old result.
+                        saveApi.read(token, plan.target)
+                    }
                 } }
             }
         }, saved = { decks.open(it.deck.id) })

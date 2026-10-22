@@ -168,6 +168,62 @@ focused recheck passes. No transient failure is declared fixed from that recheck
 I34 retains final whole-journey/harness/full-suite qualification; I07b/I08 and
 I10/I12 selected-copy assertions, independent B2 review and I35/I36 gates remain.
 
+## Contextual Overwrite / Merge — I08
+
+The same `PUT /v1/decks/{id}` now accepts optional `contents`:
+
+```json
+{
+  "requestId": "00000000-0000-4000-8000-000000000005",
+  "contents": {
+    "mode": "MERGE",
+    "entries": [
+      {"section": "MAINBOARD", "definition": "sha256:<accepted digest>", "quantity": 2}
+    ]
+  }
+}
+```
+
+`contents.mode` defaults to `OVERWRITE`. It replaces both sections atomically;
+an omitted sideboard is empty. `MERGE` adds positive quantities to execution-state
+entries by **section + immutable resolved definition digest** (4 + 2 = 6), retaining
+untouched entries and order and appending new entries. Equal names or claimed
+external printing IDs never substitute different metadata or rewrite an older
+snapshot. Quantities beyond the existing signed 32-bit representation return
+400 `quantity_overflow` without changing anything; this is not a legality limit.
+Complete validated definitions still use the ordinary automatic POST above.
+
+The existing deck row lock serializes import/metadata/delete. All supplied digests
+must be granted to the authenticated account; missing/foreign/deleted targets
+never become upserts. Replacement entries, revision and original outcome commit
+together. The immutable request includes target, mode and exact entries. Concurrent
+duplicates and unknown-response retries return the original outcome, not another
+additive application, even after later overwrites, service restart or deletion.
+The new optional field preserves pre-I08 metadata-only canonical retry identities.
+No schema/dependency/permission change is needed.
+
+Name, creation time and deck ID stay unchanged by contextual import. A chosen
+cover remains if attached; otherwise the existing first-entry/text fallback applies.
+Neither import mode mutates definition payloads/grants or any future independent
+prepared/game copy. Actual lobby/game copy isolation remains I10/I12, not a pass
+claimed before those copies exist.
+
+Normal Android entry is **saved deck → Edit → Import decklist**, captured to that
+deck with Overwrite selected on each new invocation. Both input and preview expose
+the mode; the target is not a chooser and contextual import does not rename.
+Bottom collection Import still creates a new named entry with no replacement
+selector. Error correction, Exit/Back, rotation, account cleanup and same-process
+immutable retry use the existing import controller. A retried accepted update is
+followed by current server reads, never installation of its possibly old outcome.
+
+The [I08 run](../docs/agent/implementation-runs/20261022T154754Z-ad37196f.json)
+retains passing affected shared/HTTP/PostgreSQL/client tests and one wholly green
+API29 non-GMS normal-APK journey through invalid correction, Merge, backend-stop
+failure/draft/restart/retry, both orientations, cancelled/default Overwrite,
+sideboard clearing, process restart and separate bottom import. No full-suite,
+second-device content-edit journey, independent B2 review or final mock comparison
+is claimed here; I34–I36 retain final qualification and all external gates remain.
+
 ## Validation, identity and recovery
 
 - Bodies: strict UTF-8 `application/json` (optional UTF-8 charset), unknown typed

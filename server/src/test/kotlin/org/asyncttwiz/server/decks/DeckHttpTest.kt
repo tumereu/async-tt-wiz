@@ -357,6 +357,129 @@ class DeckHttpTest {
         }
     }
 
+    @Test fun `contextual imports serialize additive sections preserve immutable content and recover original outcomes`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = settings(db)
+            lateinit var owner: SessionCreated
+            lateinit var saved: SavedDeck
+            lateinit var merge: UpdateDeck
+            lateinit var original: String
+            val first = submitted(card())
+            // Same claimed name, printing and face IDs, distinct actual content. Never rewrite the old snapshot.
+            val changed = submitted(card().copy(faces = card().faces.map { it.copy(rulesText = "Changed external record") }))
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                owner = account(settings, "owner"); val foreign = account(settings, "foreign")
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(first)), owner.token).statusCode())
+                val initial = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, first.digest, 4),
+                    SavedDeckEntry(SavedDeckSection.SIDEBOARD, first.digest, 3))
+                saved = json.decodeFromString(post(settings, "/v1/decks", CreateDeck(id(), "Retained name", initial), owner.token).body())
+                val path = "/v1/decks/${saved.deck.id}"
+                fun put(input: UpdateDeck, token: String = owner.token, target: String = path) =
+                    request(settings, "PUT", target, json.encodeToString(input), token)
+                fun read() = json.decodeFromString<SavedDeck>(request(settings, "GET", path, token = owner.token).body())
+                val add = DeckContentsImport(listOf(initial.first().copy(quantity = 2)), DeckImportMode.MERGE)
+                merge = UpdateDeck(id(), contents = add)
+                assertEquals(401, request(settings, "PUT", path, json.encodeToString(merge)).statusCode())
+                assertEquals(404, put(merge.copy(requestId = id()), foreign.token).statusCode())
+                val pool = Executors.newFixedThreadPool(4)
+                try {
+                    val replies = pool.invokeAll(List(4) { Callable { put(merge) } }).map { it.get(30, TimeUnit.SECONDS) }
+                    assertTrue(replies.all { it.statusCode() == 200 }, replies.map { it.body() }.toString())
+                    original = replies.first().body(); assertTrue(replies.all { it.body() == original })
+                    assertEquals(listOf(6, 3), read().entries.map { it.quantity })
+                    val independent = pool.invokeAll(List(2) { Callable { put(merge.copy(requestId = id())) } })
+                        .map { it.get(30, TimeUnit.SECONDS) }
+                    assertTrue(independent.all { it.statusCode() == 200 })
+                } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS)) }
+                assertEquals(listOf(10, 3), read().entries.map { it.quantity })
+                assertEquals(409, put(merge.copy(contents = add.copy(mode = DeckImportMode.OVERWRITE))).statusCode())
+                assertEquals(409, put(merge, target = "/v1/decks/${id()}").statusCode())
+                assertEquals(409, put(merge, foreign.token).statusCode())
+                assertEquals(400, put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest))))).statusCode())
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(changed)), foreign.token).statusCode())
+                assertEquals(400, put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest))))).statusCode())
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(changed)), owner.token).statusCode())
+                val both = put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest)), DeckImportMode.MERGE)))
+                assertEquals(200, both.statusCode()); assertEquals(3, read().entries.size)
+                assertEquals(listOf(10, 3, 4), read().entries.map { it.quantity })
+                val firstRead = request(settings, "GET", "$path/definitions/${first.digest}", token = owner.token)
+                assertEquals(first, json.decodeFromString<SubmittedDefinition>(firstRead.body()))
+                assertEquals(changed, json.decodeFromString<SubmittedDefinition>(request(settings, "GET", "$path/definitions/${changed.digest}", token = owner.token).body()))
+                put(UpdateDeck(id(), cover = first.digest))
+                val overwrite = put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest, quantity = 7)))))
+                assertEquals(200, overwrite.statusCode(), overwrite.body())
+                val current = read(); assertEquals(7L, current.deck.mainboard); assertEquals(0L, current.deck.sideboard)
+                assertEquals(saved.deck.id, current.deck.id); assertEquals(saved.deck.createdAt, current.deck.createdAt)
+                assertEquals("Retained name", current.deck.name); assertEquals(changed.digest, current.deck.cover!!.definition)
+                assertEquals(original, put(merge).body()); assertEquals(current, read())
+                assertEquals(2, count(db, "definition"))
+                // Pre-I08 metadata canonical identity is unchanged by the new optional contents field.
+                val renameId = id()
+                val oldCanonical = "{\"deckId\":\"${saved.deck.id}\",\"input\":{\"cover\":null,\"name\":\"Old metadata\",\"requestId\":\"$renameId\"}}"
+                db.connection().use { c -> c.createStatement().execute("""
+                    INSERT INTO request_identity VALUES ('$renameId','${owner.account.accountId}','updateDeck','account','${DeckJson.intent("updateDeck", oldCanonical)}');
+                    INSERT INTO account_request VALUES ('$renameId',200,'original pre-I08 outcome');
+                """.trimIndent()) }
+                assertEquals("original pre-I08 outcome", put(UpdateDeck(renameId, name = "Old metadata")).body())
+                assertEquals(current, read())
+                println("PASS four duplicate Merges add once, concurrent independent Merges serialize, section/untouched retention, target/mode/account intent binding, private attachment, conflicting external names/IDs retain both snapshots, default Overwrite clears sideboard and retains deck metadata, legacy retry identity")
+            }
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val path = "/v1/decks/${saved.deck.id}"
+                assertEquals(original, request(settings, "PUT", path, json.encodeToString(merge), owner.token).body())
+                val current = json.decodeFromString<SavedDeck>(request(settings, "GET", path, token = owner.token).body())
+                assertEquals(listOf(7), current.entries.map { it.quantity })
+                assertEquals(200, request(settings, "DELETE", path, json.encodeToString(DeleteDeck(id())), owner.token).statusCode())
+                assertEquals(original, request(settings, "PUT", path, json.encodeToString(merge), owner.token).body())
+                assertEquals(404, request(settings, "PUT", path, json.encodeToString(merge.copy(requestId = id())), owner.token).statusCode())
+                assertEquals(0, count(db, "saved_deck")); assertEquals(2, count(db, "definition"))
+                println("PASS actual service restart and deleted-target old Merge outcome recovery without reapplication/upsert; immutable snapshots retained")
+            }
+        }
+    }
+
+    @Test fun `invalid overflowing and interrupted contextual imports preserve the entire accepted deck`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val owner = account(settings, "owner"); val definition = submitted(card())
+                post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(definition)), owner.token)
+                val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, definition.digest, 4)
+                val saved = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Good", listOf(entry)), owner.token).body())
+                val path = "/v1/decks/${saved.deck.id}"
+                fun put(input: UpdateDeck) = request(settings, "PUT", path, json.encodeToString(input), owner.token)
+                fun current() = request(settings, "GET", path, token = owner.token).body()
+                val before = current()
+                for (entries in listOf(emptyList(), listOf(entry, entry), listOf(entry.copy(quantity = -1)),
+                    listOf(entry.copy(definition = "sha256:${"0".repeat(64)}")), listOf(entry.copy(quantity = Int.MAX_VALUE)))) {
+                    val bad = UpdateDeck(id(), contents = DeckContentsImport(entries, DeckImportMode.MERGE))
+                    val result = put(bad); assertEquals(400, result.statusCode()); assertEquals(result.body(), put(bad).body())
+                    assertEquals(before, current())
+                }
+                val input = UpdateDeck(id(), contents = DeckContentsImport(listOf(entry, entry.copy(section = SavedDeckSection.SIDEBOARD))))
+                assertEquals(400, request(settings, "PUT", path, json.encodeToString(input).dropLast(10), owner.token).statusCode())
+                val count = count(db, "request_identity")
+                db.connection().use { it.createStatement().execute("""
+                    CREATE FUNCTION fail_import_outcome() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
+                    BEGIN IF NEW.request_id = '${input.requestId}' THEN RAISE EXCEPTION 'test-owned interruption'; END IF; RETURN NEW; END ${'$'}${'$'};
+                    CREATE TRIGGER fail_import_outcome BEFORE INSERT ON account_request FOR EACH ROW EXECUTE FUNCTION fail_import_outcome();
+                """.trimIndent()) }
+                assertEquals(503, put(input).statusCode()); ready(settings)
+                assertEquals(before, current()); assertEquals(count, count(db, "request_identity"))
+                db.connection().use { it.createStatement().execute("DROP TRIGGER fail_import_outcome ON account_request; DROP FUNCTION fail_import_outcome()") }
+                val accepted = put(input); assertEquals(200, accepted.statusCode(), accepted.body())
+                assertEquals(accepted.body(), put(input).body())
+                assertEquals(listOf(4, 4), json.decodeFromString<SavedDeck>(current()).entries.map { it.quantity })
+                println("PASS invalid/unavailable/duplicate/negative/overflow/truncated imports preserve whole deck; real SQL failure after replacement rolls back entries/revision/identity/outcome; same identity recovers atomically")
+            }
+        }
+    }
+
     @Test fun `explicit V4 cover upgrade retains existing named deck entries definitions and original outcomes`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("4").load().migrate()

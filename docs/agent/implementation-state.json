@@ -83,13 +83,14 @@
                                     "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
                                      "docs/agent/implementation-runs/20261022T134014Z-ca978b34.json",
                                       "docs/agent/implementation-runs/20261022T151433Z-3ad15f39.json",
-                                      "docs/agent/implementation-runs/20261022T154455Z-39d908f9.json"
+                                       "docs/agent/implementation-runs/20261022T154455Z-39d908f9.json",
+                                       "docs/agent/implementation-runs/20261022T154754Z-ad37196f.json"
    ],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "reviewed", "reviewedCommit": "5283daee31ac94d53c2c9c92e2b9c6a0abc1f92a",
       "review": { "units": [{ "id": "capability", "scope": "Full B1 entry/navigation/reset/resume journey, privacy, failures and integration against the plan/contracts" }], "completed": { "capability": "5283daee31ac94d53c2c9c92e2b9c6a0abc1f92a" }, "blocked": {} } },
-    { "id": "B2", "status": "pending", "reviewedCommit": null,
+    { "id": "B2", "status": "ready-for-review", "reviewedCommit": null,
       "review": { "units": [{ "id": "capability", "scope": "Full B2 catalog/import/deck-management journey, failures, retained definitions and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
     { "id": "B3", "status": "pending", "reviewedCommit": null,
       "review": { "units": [{ "id": "capability", "scope": "Full B3 two-player invitation/preparation/start journey, lifecycle overlaps and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
@@ -801,7 +802,20 @@
         "Retain I07.collection/F21/T-680 partial accounting: preparation rows/Ready and gameplay hidden-face permissions/events belong to I10/I17/I18; inspector presentation does not grant covered-opponent disclosure. B2 review stays grouped after I05-I08 and full interface-to-mock comparison remains I36/B8, not an extra review after this child."
       ]
     },
-    { "id": "I08", "batch": "B2", "status": "pending" },
+    {
+      "id": "I08",
+      "batch": "B2",
+      "status": "implemented",
+      "dependsOn": ["I07"],
+      "implementationRecord": "docs/agent/implementation-runs/20261022T154754Z-ad37196f.json",
+      "outcome": "Deliver D07 contextual saved-deck Edit → Import decklist with Overwrite default and additive Merge, extending the same complete private definition POST and atomic writer-fenced deck service. Capture target/mode/entries to immutable same-process retry identities; retain accepted definition snapshots independently of claimed external names/IDs/public catalogs. Both modes preserve prepared/game-copy boundaries for I10/I12 rather than linking future copies to mutable saved entries. Independent B2 review follows I05-I08 together.",
+      "checks": [
+        "Run affected shared/real PostgreSQL HTTP tests for exact sections, additive quantities and untouched entries, serialized independent/concurrent duplicate saves, original outcomes through newer overwrite/service restart/deletion, changed target/mode/account conflicts and no deleted-target upsert. Invalid/missing/foreign definitions, overflow and actual SQL interruption must leave the whole deck/revision/outcome atomic; conflicting external identities retain distinct immutable content. Preserve pre-I08 metadata retry identities.",
+        "Run affected native controller/transport/account tests and a normal installed APK journey against the real isolated backend/hosted synthetic source: contextual captured target/default Overwrite, invalid correction, Merge, backend failure/draft/rotation/restart/retry, Back without save, fresh default, omitted-sideboard overwrite, process restart and separate bottom new import. Retain actual output/JUnit/captures/source/APK/image identities and exact owned cleanup; no repeated full suite or unchanged infrastructure matrix.",
+        "Keep T-431/T-491/T-492/T-542 and T-679 selected-copy/stale-opponent assertions with I10/I12/I26/I31; I34 retains final combined multi-device/deferred/full-suite checks, I35 compatibility and I36/B8 complete interface comparison. No independent review, whole cross-feature scenario or external release gate is supplied by this implementation."
+      ],
+      "qualification": "Delivered contextual normal-APK Overwrite/Merge on the existing complete definition POST and UpdateDeck PUT. Same-deck row locks serialize execution-state additive sections; replacement/revision/original outcome are atomic, duplicate Merge adds once, changed target/mode/account conflicts and deleted targets never upsert. Immutable digests distinguish conflicting external names/printing IDs; accepted payloads and account grants are never rewritten. Pre-I08 metadata canonical retries remain compatible. Forty affected shared/PostgreSQL HTTP/client/controller/account tests and incremental locked assembly/lint/boundaries pass. One wholly green actual API29 non-GMS Appium/real-Compose journey covers UI-created account/catalog/save, invalid correction, both orientations/rotation, stopped-backend failure preserving mode/draft, restart/retry, 4+2 main-only Merge preserving sideboard, Back cancellation/new default, Overwrite clearing sideboard, accepted process restart and separate bottom new import. Exact JUnit/captures/final source/APK/image/fixture/lock identities and owned cleanup retained. No clean/full-suite/fault-matrix repeat, new upload protocol, local saved authority, provider/deployment/subagent/new loop or gate change. Only I08 advances and B2 is ready for first fresh independent review. Actual prepared/game copies and later combined two-device content-edit/stale-opponent/full-suite/compatibility/final UI assertions remain I10/I12/I26/I31/I34-I36; external release gates unchanged/unverified."
+    },
     { "id": "I09", "batch": "B3", "status": "pending" },
     { "id": "I10", "batch": "B3", "status": "pending" },
     { "id": "I11", "batch": "B3", "status": "pending" },

@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T154754Z-ad37196f/retain.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "2f2c8ef8dd2a8b1bcc111a01b89b93e83d5a97ae35c2fca25f3f08d06c0f4721",
+  "output": "AuthControllerTest 12 passed\nDeckHttpTest 10 passed\nDeckImportControllerTest 3 passed\nDeckManagementTest 5 passed\nDeckSaveTest 6 passed\nDecksTest 4 passed\nPASS 40 affected host cases, one complete native journey and actual command outputs; final tested source/APK/image/fixture/lock identities retained\nNOT CLAIMED: selected lobby/game copies, second-device content-edit journey, whole cross-feature scenarios, full suite/compatibility/final mock comparison, independent B2 review or external release gates\n"
+}

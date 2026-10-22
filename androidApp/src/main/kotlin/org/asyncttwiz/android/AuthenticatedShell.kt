@@ -39,7 +39,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
             DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
         } else if (state.destination == ShellDestination.DECKS && decks?.state?.selected != null) {
-            SavedDeckScreen(decks, if (!landscape) ({ controller.drawer(true) }) else null)
+            SavedDeckScreen(decks, if (!landscape) ({ controller.drawer(true) }) else null,
+                importDeck = deckImport?.let { importer -> { summary -> decks.dismiss(); importer.openExisting(summary) } })
         } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, controller::navigate, catalog, deckImport, decks)
     }
     Box(Modifier.fillMaxSize().testTag("authenticated-identity")

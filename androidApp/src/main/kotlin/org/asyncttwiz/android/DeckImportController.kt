@@ -6,11 +6,14 @@ import androidx.compose.runtime.setValue
 import org.asyncttwiz.storage.DeckImportResult
 import org.asyncttwiz.storage.ImportIssue
 import org.asyncttwiz.protocol.SavedDeck
+import org.asyncttwiz.protocol.DeckSummary
+import org.asyncttwiz.protocol.DeckImportMode
 import java.util.concurrent.ExecutorService
 
 data class DeckImportState(val active: Boolean = false, val text: String = "", val busy: Boolean = false,
     val result: DeckImportResult? = null, val preview: Boolean = false, val name: String = "",
-    val saving: Boolean = false, val error: String? = null)
+    val saving: Boolean = false, val error: String? = null, val target: String? = null,
+    val mode: DeckImportMode = DeckImportMode.OVERWRITE)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
@@ -31,6 +34,15 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         saveAction = action; this.saved = saved
     }
     fun open() { if (!closed) { epoch++; inspection.close(); retryPlan = null; state = DeckImportState(active = true) } }
+    fun openExisting(deck: DeckSummary) {
+        open()
+        if (!closed) state = state.copy(target = deck.id, name = deck.name)
+    }
+    fun mode(value: DeckImportMode) {
+        if (!closed && state.target != null && !state.saving && state.mode != value) {
+            retryPlan = null; state = state.copy(mode = value, error = null)
+        }
+    }
     fun exit() { epoch++; inspection.close(); retryPlan = null; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active && !state.saving) { epoch++; retryPlan = null
@@ -70,7 +82,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             if (generation != epoch) return@execute
             var plan = previous
             try {
-                if (plan == null) plan = DeckSavePlan.from(checkNotNull(input.result), input.name)
+                 if (plan == null) plan = DeckSavePlan.from(checkNotNull(input.result), input.name, input.target, input.mode)
                 val result = action(checkNotNull(plan))
                 post { if (!closed && generation == epoch && state.active) { exit(); saved(result) } }
             } catch (failure: Exception) {

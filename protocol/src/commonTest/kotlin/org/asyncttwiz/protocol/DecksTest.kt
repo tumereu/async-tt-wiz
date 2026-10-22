@@ -55,4 +55,16 @@ class DecksTest {
         assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry.copy(quantity = 0)))))
         assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry, entry))))
     }
+    @Test fun contextualImportWireDefaultsAndExactContentIdentities() {
+        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 2)
+        val input = """{"requestId":"$id","contents":{"entries":[{"section":"MAINBOARD","definition":"${entry.definition}","quantity":2}]}}"""
+        val decoded = DeckJson.format.decodeFromString<UpdateDeck>(input)
+        assertEquals(DeckImportMode.OVERWRITE, decoded.contents!!.mode)
+        assertNull(decoded.name); assertNull(decoded.cover)
+        assertEquals(listOf(entry), decoded.contents!!.entries)
+        val changed = card().copy(faces = listOf(card().faces.single().copy(corner = "3/4")))
+        assertNotEquals(DeckJson.digest(card()), DeckJson.digest(changed))
+        assertTrue(DeckValidation.entries(listOf(entry, entry.copy(section = SavedDeckSection.SIDEBOARD))))
+        assertFailsWith<SerializationException> { DeckJson.format.decodeFromString<UpdateDeck>(input.replace("\"entries\"", "\"unknown\"")) }
+    }
 }

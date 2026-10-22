@@ -8,9 +8,12 @@ import org.asyncttwiz.storage.ResolvedDeckEntry
 import java.util.UUID
 
 /** Immutable, volatile retry payload. Built on the import worker, not the UI thread. */
-data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck) {
+data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck,
+    val target: String? = null, val mode: DeckImportMode = DeckImportMode.OVERWRITE) {
+    fun update() = UpdateDeck(deck.requestId, contents = DeckContentsImport(deck.entries, mode))
     companion object {
-        fun from(result: DeckImportResult, name: String): DeckSavePlan {
+        fun from(result: DeckImportResult, name: String, target: String? = null,
+            mode: DeckImportMode = DeckImportMode.OVERWRITE): DeckSavePlan {
             if (!result.resolved || name.isBlank() || !DeckValidation.text(name)) throw DeckFailure("invalid_deck")
             val definitions = linkedMapOf<String, SubmittedDefinition>()
             val entries = result.entries.map { entry ->
@@ -25,7 +28,7 @@ data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck
                 rows.first().copy(quantity = quantity.toInt())
             }
             return DeckSavePlan(SubmitDefinitions(UUID.randomUUID().toString(), definitions.values.toList()),
-                CreateDeck(UUID.randomUUID().toString(), name, entries))
+                CreateDeck(UUID.randomUUID().toString(), name, entries), target, mode)
         }
     }
 }
@@ -51,6 +54,7 @@ internal fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefini
 internal fun deckError(failure: Exception): String = when ((failure as? DeckFailure)?.code) {
     "not_found" -> "This saved deck is no longer available. Return to your collection to refresh."
     "invalid_cover" -> "Choose a card that is still in this deck."
+    "quantity_overflow" -> "Merged quantities exceed the supported number range. Edit the list or choose Overwrite. Your pasted list is kept."
     "invalid_deck" -> "Enter a deck name and check the quantities. Your pasted list is kept."
     "invalid_definition", "definitions_unavailable" -> "Card metadata could not be accepted. Edit the list or update card records and retry."
     "request_too_large" -> "This import exceeds the service transfer limit. Your pasted list is kept."

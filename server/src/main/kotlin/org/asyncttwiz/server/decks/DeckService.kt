@@ -2,6 +2,7 @@ package org.asyncttwiz.server.decks
 
 import java.util.UUID
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
@@ -70,24 +71,56 @@ class DeckService(private val runtime: ServiceRuntime) {
 
     fun update(principal: AccountService.Principal, id: String, input: UpdateDeck): Result {
         if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
-        return business(principal, input.requestId, "updateDeck", intent(id, json.encodeToJsonElement(UpdateDeck.serializer(), input))) { sql, owner ->
+        // Preserve canonical intent for pre-I08 metadata retries: the newly optional null field
+        // was absent from their typed schema, not a change to the original request.
+        val encoded = json.encodeToJsonElement(UpdateDeck.serializer(), input).jsonObject
+        val canonical = if (input.contents == null) JsonObject(encoded.filterKeys { it != "contents" }) else encoded
+        return business(principal, input.requestId, "updateDeck", intent(id, canonical)) { sql, owner ->
             val row = owned(sql, owner, id) ?: return@business error(404, "not_found")
             val requestedName = input.name
             val requestedCover = input.cover
-            if ((requestedName == null && requestedCover == null) ||
+            val contents = input.contents
+            if ((requestedName == null && requestedCover == null && contents == null) ||
                 (requestedName != null && (!DeckValidation.text(requestedName) || requestedName.isBlank())))
                 return@business error(400, "invalid_deck", "name")
-            if (requestedCover != null && (!DeckValidation.digest(requestedCover) || !sql.fetchExists(sql.selectOne().from(DECK_ENTRY)
-                    .where(DECK_ENTRY.DECK_ID.eq(row.id)).and(DECK_ENTRY.DEFINITION_DIGEST.eq(requestedCover)))))
+            val previous = entries(sql, row.id!!)
+            val next = if (contents == null) previous else {
+                if (!DeckValidation.entries(contents.entries)) return@business error(400, "invalid_deck")
+                val needed = contents.entries.map { it.definition }.toSet()
+                val owned = sql.select(ACCOUNT_DEFINITION.DIGEST).from(ACCOUNT_DEFINITION)
+                    .where(ACCOUNT_DEFINITION.ACCOUNT_ID.eq(owner)).and(ACCOUNT_DEFINITION.DIGEST.`in`(needed))
+                    .fetchSet(ACCOUNT_DEFINITION.DIGEST)
+                if (owned != needed) return@business error(400, "definitions_unavailable")
+                if (contents.mode == DeckImportMode.OVERWRITE) contents.entries else {
+                    // Content identity, never a guessed name/external-ID match. Preserve existing order.
+                    val merged = linkedMapOf<Pair<SavedDeckSection, String>, SavedDeckEntry>()
+                    for (entry in previous + contents.entries) {
+                        val key = entry.section to entry.definition
+                        val quantity = (merged[key]?.quantity?.toLong() ?: 0L) + entry.quantity
+                        if (quantity > Int.MAX_VALUE) return@business error(400, "quantity_overflow")
+                        merged[key] = entry.copy(quantity = quantity.toInt())
+                    }
+                    merged.values.toList()
+                }
+            }
+            if (requestedCover != null && (!DeckValidation.digest(requestedCover) || next.none { it.definition == requestedCover }))
                 return@business error(400, "invalid_cover", "cover")
             val name = input.name ?: row.name!!
-            val cover = input.cover ?: row.coverDigest
-            if (name != row.name || cover != row.coverDigest) {
+            val cover = (input.cover ?: row.coverDigest)?.takeIf { digest -> next.any { it.definition == digest } }
+            if (next != previous) {
+                sql.deleteFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(row.id)).execute()
+                next.forEachIndexed { index, entry ->
+                    sql.insertInto(DECK_ENTRY).set(DECK_ENTRY.DECK_ID, row.id).set(DECK_ENTRY.ACCOUNT_ID, owner)
+                        .set(DECK_ENTRY.POSITION, index).set(DECK_ENTRY.SECTION, entry.section.name)
+                        .set(DECK_ENTRY.DEFINITION_DIGEST, entry.definition).set(DECK_ENTRY.QUANTITY, entry.quantity).execute()
+                }
+            }
+            if (name != row.name || cover != row.coverDigest || next != previous) {
                 sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.COVER_DIGEST, cover)
                     .set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L)).where(SAVED_DECK.ID.eq(row.id)).execute()
                 row.name = name; row.coverDigest = cover; row.revision = row.revision!! + 1
             }
-            Result(200, json.encodeToString(SavedDeck(summary(sql, row), entries(sql, row.id!!))))
+            Result(200, json.encodeToString(SavedDeck(summary(sql, row, next), next)))
         }
     }
 

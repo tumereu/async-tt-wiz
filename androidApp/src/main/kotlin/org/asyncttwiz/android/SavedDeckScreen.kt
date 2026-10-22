@@ -22,7 +22,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 
 @Composable
-internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?) {
+internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?,
+    importDeck: ((DeckSummary) -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
     if (state.dialog == DeckDialog.COVER && state.detail != null) {
@@ -38,6 +39,9 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                     EntryIcon(null, "edit"); Text("Edit")
                 }
                 DropdownMenu(expanded = state.dialog == DeckDialog.EDIT, onDismissRequest = controller::dismiss) {
+                    if (importDeck != null) DropdownMenuItem(text = { Text("Import decklist") }, onClick = {
+                        state.detail?.saved?.deck?.let(importDeck)
+                    })
                     DropdownMenuItem(text = { Text("Rename") }, onClick = { controller.edit(DeckDialog.RENAME) })
                     DropdownMenuItem(text = { Text("Choose cover") }, onClick = { controller.edit(DeckDialog.COVER) })
                     DropdownMenuItem(text = { Text("Delete saved deck") }, onClick = { controller.edit(DeckDialog.DELETE) })

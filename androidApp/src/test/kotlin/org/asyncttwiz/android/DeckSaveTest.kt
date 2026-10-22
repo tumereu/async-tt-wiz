@@ -77,6 +77,32 @@ class DeckSaveTest {
         assertTrue(library.state.decks.isEmpty()); assertFalse(library.state.loaded)
         library.refresh(); library.clear(); worker.drain(); assertEquals(2, api.pages)
     }
+    @Test fun contextualImportCapturesTargetDefaultsOverwriteAndRetriesMergeWithoutChangingIdentity() {
+        val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
+        val controller = DeckImportController({ result() }, worker) { posts += it }
+        controller.connectSave({ { plan -> attempts += plan; throw DeckFailure("network") } }, { error("not accepted") })
+        controller.openExisting(summary)
+        assertEquals(summary.id, controller.state.target); assertEquals(summary.name, controller.state.name)
+        assertEquals(DeckImportMode.OVERWRITE, controller.state.mode)
+        controller.edit(result().text); controller.lookup(); worker.drain(); posts.removeAt(0)(); controller.review()
+        controller.mode(DeckImportMode.MERGE); controller.save(); controller.mode(DeckImportMode.OVERWRITE)
+        worker.drain(); posts.removeAt(0)()
+        assertEquals(DeckImportMode.MERGE, controller.state.mode) // cannot retarget an in-flight save
+        controller.save(); worker.drain(); posts.removeAt(0)()
+        assertEquals(attempts[0], attempts[1]); assertEquals(summary.id, attempts[0].target)
+        assertEquals(DeckImportMode.MERGE, attempts[0].update().contents!!.mode)
+        assertNull(attempts[0].update().name); assertNull(attempts[0].update().cover)
+        assertEquals(listOf(4, 2), attempts[0].update().contents!!.entries.map { it.quantity })
+        controller.editList(); controller.review(); controller.mode(DeckImportMode.OVERWRITE)
+        controller.save(); worker.drain(); posts.removeAt(0)()
+        assertNotEquals(attempts[1].deck.requestId, attempts[2].deck.requestId)
+        assertEquals(DeckImportMode.OVERWRITE, attempts[2].update().contents!!.mode)
+        controller.back(); assertEquals(summary.id, controller.state.target); controller.back()
+        controller.openExisting(summary.copy(id = second))
+        assertEquals(second, controller.state.target); assertEquals(DeckImportMode.OVERWRITE, controller.state.mode)
+        assertEquals("", controller.state.text)
+        controller.open(); assertNull(controller.state.target)
+    }
     @Test fun libraryFollowsPagesAndReadsServerDefinitionsWithoutCatalog() {
         val worker = Worker(); val api = FakeDecks()
         val library = DeckLibraryController(api, { "token" }, worker) { it() }
@@ -117,7 +143,11 @@ class DeckSaveTest {
                     assertEquals(plan.deck, DeckJson.format.decodeFromString<CreateDeck>(body))
                     DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
                 } else DeckJson.format.encodeToString(DeckList(listOf(summary)))
-                else -> if ("/definitions/" in request.url.encodedPath)
+                else -> if (request.method == HttpMethod.Put) {
+                    assertEquals(plan.copy(target = summary.id, mode = DeckImportMode.MERGE).update(),
+                        DeckJson.format.decodeFromString<UpdateDeck>(body!!))
+                    DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
+                } else if ("/definitions/" in request.url.encodedPath)
                     DeckJson.format.encodeToString(plan.definitions.definitions.single())
                     else DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
             }
@@ -126,8 +156,9 @@ class DeckSaveTest {
         api.use { val token = "A".repeat(43)
             it.submit(token, plan.definitions); it.create(token, plan.deck); it.list(token)
             it.read(token, summary.id); it.definition(token, summary.id, plan.deck.entries.first().definition)
+            it.update(token, summary.id, plan.copy(target = summary.id, mode = DeckImportMode.MERGE).update())
         }
-        assertEquals(5, paths.size)
+        assertEquals(6, paths.size)
         for (status in listOf(401, 409, 503, 307)) {
             var calls = 0
             DeckApi("https://decks.example", HttpClient(MockEngine { calls++

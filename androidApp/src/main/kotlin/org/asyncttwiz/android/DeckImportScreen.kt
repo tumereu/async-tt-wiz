@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.*
+import org.asyncttwiz.protocol.DeckImportMode
 
 @Composable
 internal fun DeckImportScreen(controller: DeckImportController, landscape: Boolean,
@@ -32,11 +33,23 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (openNavigation != null) IconButton(onClick = openNavigation) { EntryIcon("Open navigation", "menu") }
-            Text("Import deck", Modifier.weight(1f).padding(12.dp).testTag("import-title"),
+            Text(if (state.target == null) "Import deck" else "Import · ${state.name}", Modifier.weight(1f).padding(12.dp).testTag("import-title"),
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             IconButton(onClick = { keyboard?.hide(); controller.exit() }) { EntryIcon("Exit without saving", "close") }
         }
         val feedback: @Composable ColumnScope.() -> Unit = {
+            if (state.target != null) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    DeckImportMode.entries.forEachIndexed { index, mode ->
+                        SegmentedButton(selected = state.mode == mode, onClick = { controller.mode(mode) },
+                            enabled = !state.saving, shape = SegmentedButtonDefaults.itemShape(index, 2)) {
+                            Text(if (mode == DeckImportMode.OVERWRITE) "Overwrite" else "Merge")
+                        }
+                    }
+                }
+                Text(if (state.mode == DeckImportMode.OVERWRITE) "Replace both sections with this list."
+                    else "Add quantities in each section; keep existing cards.", Modifier.padding(vertical = 8.dp))
+            }
             if (!state.preview) {
                 if (state.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Looking up card records…") }
                 state.result?.issues?.forEach { issue ->
@@ -51,7 +64,7 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                 }
                 if (state.result?.issues?.isNotEmpty() == true && catalog != null) CatalogControls(catalog)
             } else {
-                 OutlinedTextField(state.name, controller::name, label = { Text("Deck name") }, singleLine = true,
+                 if (state.target == null) OutlinedTextField(state.name, controller::name, label = { Text("Deck name") }, singleLine = true,
                     enabled = !state.saving, modifier = Modifier.fillMaxWidth().testTag("deck-name"))
                 if (state.saving) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Saving deck…") }
                 state.error?.let { Text(it, Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.error) }

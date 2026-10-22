@@ -49,3 +49,20 @@ the suites. Record a concise assessment when it adds meaningful delivery/deferra
 refocusing context. Retain task/run evidence in its existing records, not a new
 parallel tracking framework. Check stop requests before every restart; a later
 owner pause still overrides this autonomous continuation assignment.
+
+### Batch 1 — foundation exit, account entry next
+
+Range `0c5c77d..98fa7b3`: actual one-device normal-APK Appium startup plus all 14
+Android storage/controller/launcher tests are now exercised. Existing ancestor
+closures used evidence audits, not repeated clean builds or platform fault matrices.
+Normal accounts are **not yet delivered**: I02 was split once into server API and
+Android forms/Keystore integration, both concrete feature outcomes. No findings
+or extra qualification layers were invented. The small audit-format repairs were
+local to their checks; I01 is closed and the next unit is I02a.
+
+Assessment: on track out of the historical foundation tree. Next batch must deliver
+the account path rather than polish the harness; I03 shell and I04 reset follow.
+No new instruction/state correction needed. The tree is clean/pushed, no retained
+run or stop request remains. Five resumed units consumed; original ceiling has
+2,966 sessions left. Optional issues/required final matrices remain with their
+existing owner; no full-product suite or release gate is claimed complete.

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.e2e.NativeInvitationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T19:22:20.053Z" hostname="DESKTOP-B2KALVM" time="69.256">
+  <properties/>
+  <testcase name="declineReinviteAndAcceptSameGameWithUncertainReconnect()" classname="org.asyncttwiz.e2e.NativeInvitationTest" time="69.246"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

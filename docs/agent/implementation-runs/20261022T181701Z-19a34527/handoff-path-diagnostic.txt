@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py", line 58, in <module>
+    assert after['activeRun'] is None and after['runs'] == before['runs'] + [report_path]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

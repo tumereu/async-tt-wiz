@@ -1,0 +1,230 @@
+[
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-d7297b2a6925d055/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-d7297b2a6925d055.apk",
+    "sha256": "6869b4d9b8d28751e93ec48aae95ce00bed5fb5e6319dcbf66bf907c6637bac5",
+    "bytes": 27533312
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-ac0b4ce335acdc73/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-ac0b4ce335acdc73.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-786ab38638a5f274/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-786ab38638a5f274.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-2fd6c59e383ce701/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-2fd6c59e383ce701.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-46d14c27528da8f7/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-46d14c27528da8f7.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-def40749a778472a/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-def40749a778472a.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-b972bda9fc722982/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-b972bda9fc722982.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-f1014939f4a4092d/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-f1014939f4a4092d.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-be58bd4a5240aa7b/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-be58bd4a5240aa7b.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-bd4703e053492b38/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-bd4703e053492b38.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-9fa39d67364f38fd/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-9fa39d67364f38fd.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-19e5c40b35cca4ff/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-19e5c40b35cca4ff.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-5fccad3d136b1445/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-5fccad3d136b1445.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-c7f3bdb1b52ae706/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-c7f3bdb1b52ae706.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-d55a14c383fd03b0/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-d55a14c383fd03b0.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-5ec285a10bcca0ce/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-5ec285a10bcca0ce.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-4f4fc656eefbb07e/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-4f4fc656eefbb07e.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-920a5d08365d4a4c/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-920a5d08365d4a4c.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-6d38aeb1506d530c/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-6d38aeb1506d530c.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-61967e0d27b1b431/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-61967e0d27b1b431.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-d808a06455739841/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-d808a06455739841.apk",
+    "sha256": "0c133b56cea312cf5dd741f869189f15f378a999949e17274aba4913d231fea3",
+    "bytes": 36466947
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-f2c6131788e11815/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-f2c6131788e11815.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-fc198e5686e2442c/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-fc198e5686e2442c.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-fb2af668a36c50b7/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-fb2af668a36c50b7.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-86654f37777a1fc2/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-86654f37777a1fc2.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-3b2ab95abe60e35f/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-3b2ab95abe60e35f.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-4eed711892b53a27/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-4eed711892b53a27.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-d7ebb8569f88c5ef/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-d7ebb8569f88c5ef.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-0f937ff3a0bf2f6e/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-0f937ff3a0bf2f6e.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-9ce007f2108e44c3/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-9ce007f2108e44c3.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-c0579d1efb6196bd/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-c0579d1efb6196bd.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-609c9b7a5b835cdc/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-609c9b7a5b835cdc.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-1937bf368eda5c7f/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-1937bf368eda5c7f.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-5f1f51566d6958de/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-5f1f51566d6958de.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-1ab5896e0b298abf/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-1ab5896e0b298abf.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000002/app-83ca37f566dfbe61/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/2-app-83ca37f566dfbe61.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-cf99e74052a1ad2e/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-cf99e74052a1ad2e.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  },
+  {
+    "original": "/tmp/opencode/atw-device-19a34527000000000000000000000001/app-7c3c216de6af4c5c/installed.apk",
+    "archive": "e2e/build/19a34527-apk-readbacks/1-app-7c3c216de6af4c5c.apk",
+    "sha256": "601f3929a404add421dec39352192012426000e6c32e7a243024a36bb5da43ca",
+    "bytes": 37471205
+  }
+]

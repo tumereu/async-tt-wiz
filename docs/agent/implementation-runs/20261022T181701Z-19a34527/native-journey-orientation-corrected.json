@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py"
+  ],
+  "exitCode": 1,
+  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py\", line 27, in <module>\n    with e.locked(Path(environment['directory'])): e.reset(environment, 120)\n                                                   ~~~~~~~^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/environment.py\", line 498, in reset\n    baseline = deadline(lambda: empty_baseline(value), timeout)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/environment.py\", line 291, in deadline\n    raise Refusal(\"Readiness deadline; no ready handoff issued\") from None\ne2e.environment.Refusal: Readiness deadline; no ready handoff issued\n"
+}

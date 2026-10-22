@@ -91,7 +91,8 @@
                                             "docs/agent/implementation-runs/20261022T162626Z-8245eff1.json",
                                              "docs/agent/implementation-runs/20261022T163108Z-f7fc716d.json",
                                               "docs/agent/implementation-runs/20261022T174723Z-4ae020e2.json",
-                                              "docs/agent/implementation-runs/20261022T175129Z-7080c0f4.json"
+                                               "docs/agent/implementation-runs/20261022T175129Z-7080c0f4.json",
+                                               "docs/agent/implementation-runs/20261022T181701Z-19a34527.json"
    ],
   "findings": [
     {
@@ -910,7 +911,9 @@
     {
       "id": "I09b2",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T181701Z-19a34527.json",
+      "qualification": "Delivered normal-APK recipient Accept/Decline and in-slot exact-lobby Reinvite over I09b1's existing real ordered socket. Main-thread volatile queue negotiates/fresh-opens/subscribes, preserves captured UUID scope/original request through fenced same-process reconnect/reauthentication, separates pending receipt/final outcome from monotonic accepted revisions and never reconstructs outgoing work after process death. Logout/different-account login clears queues and fences callbacks. Twenty-three affected host cases pass, including production auth/lobby wiring, multiple in-flight requests and stale-result/HTTP protection; incremental APK/instrumentation/lint/boundaries and strict release compile locks pass. One complete two-normal-APK/API29 non-GMS UI-created invite/decline/reinvite/interrupted-accept/reconnect/both-orientation/not-ready-lobby/Back/reopen/process-restart journey passes with read-only stable game/date/preparation/attempt observations and exactly three accepted original inbox requests. Native-discovered fresh-stream/resume mismatch is repaired and covered; V7 reset-store oracle, setup/IME/scroll/observer/tmpfs/changed-APK diagnostics and affected passing corrections are retained. Exact inputs/captures/JUnit and owned cleanup saved. Noncritical retained HTTP error after automatic recovery has concrete captures/source and an explicit I34 correction/recheck obligation in the run README; not claimed cleared. I09b/I09 parent audits, I10-I14 preparation/start/cancel/gameplay extensions, B3 independent review and I34-I36 full-suite/compatibility/UI/external gates remain open.",
       "dependsOn": ["I09b1"],
       "planningRecord": "docs/agent/implementation-runs/20261022T174723Z-4ae020e2.json",
       "outcome": "Deliver normal-APK P01 recipient Accept/Decline and inviter Reinvite within the exact retained lobby's opponent slot, connected to I09b1's real shared socket/processor. Extend the existing LobbyController/auth/navigation boundaries with an ordered volatile same-process request queue, negotiated/fenced reconnect and authorized original-status recovery, accepted-state revision convergence and readable connection/error states. Capture game/preparation/invitation/request IDs rather than rows; acceptance opens the same named/date-stamped lobby without Ready/start. Same-account reconnect/reauthentication retains original intent; Logout/different-account login clears private queues and fences callbacks, while process restart reads the server without an outgoing journal. Complete the two-normal-APK invite/decline/reinvite/accept journey and affected client-server integration; extend rather than replace this path in I10-I14.",

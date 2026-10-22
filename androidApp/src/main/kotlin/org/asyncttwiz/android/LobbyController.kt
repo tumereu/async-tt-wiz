@@ -12,12 +12,15 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val searchError: String? = null, val games: List<GameSummary> = emptyList(), val invitations: List<GameSummary> = emptyList(),
     val selected: String? = null, val detail: GameSummary? = null, val draft: GameNameDraft? = null,
     val busy: Boolean = false, val mutating: Boolean = false, val uncertain: Boolean = false,
-    val error: String? = null, val loaded: Boolean = false)
+    val error: String? = null, val loaded: Boolean = false, val connectionMessage: String? = null,
+    val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet())
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
-    private val openGame: () -> Unit = {}, private val suggest: () -> String = ::gameNameSuggestion) : AutoCloseable {
+    private val openGame: () -> Unit = {}, private val suggest: () -> String = ::gameNameSuggestion,
+    gameConnection: GameConnection? = null, private val accountId: () -> String? = { null },
+    authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString()) : AutoCloseable {
     var state by mutableStateOf(LobbyState())
         private set
     @Volatile private var epoch = 0L
@@ -26,7 +29,35 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var pendingCreate: CreateInvitation? = null
     private var pendingRecipient: AccountIdentity? = null
     private val pendingAdds = mutableMapOf<String, AddContact>()
-    fun clear() { epoch++; searchVersion++; pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); state = LobbyState() }
+    private val session: GameSession? = gameConnection?.let { GameSession(it, credential, post, authenticationRequired,
+        changed = ::accepted, settled = { command, result ->
+            if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted") open(command.scope.gameId)
+            refresh(background = true)
+        }, statusChanged = ::connectionState, installationId = installationId) }
+    fun clear() { epoch++; searchVersion++; pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); session?.clear(); state = LobbyState() }
+    private fun connectionState() {
+        val wire = session ?: return
+        val ids = (state.games + state.invitations + listOfNotNull(state.detail)).map { it.id }.toSet()
+        state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet())
+    }
+    private fun accepted(game: GameSummary) {
+        val mine = accountId()
+        val listed = game.lifecycle == GameLifecycle.LOBBY || game.lifecycle == GameLifecycle.ACTIVE
+        val inGames = listed && (game.inviter.accountId == mine || game.invitationState == InvitationState.ACCEPTED)
+        val inInvites = listed && game.recipient.accountId == mine && game.invitationState == InvitationState.PENDING
+        state = state.copy(games = state.games.filterNot { it.id == game.id } + if (inGames) listOf(game) else emptyList(),
+            invitations = state.invitations.filterNot { it.id == game.id } + if (inInvites) listOf(game) else emptyList(),
+            detail = if (state.selected == game.id) game else state.detail)
+    }
+    fun respond(game: GameSummary, accept: Boolean) {
+        if (game.recipient.accountId != accountId() || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) return
+        session?.submit(game, if (accept) GameAction.AcceptInvitation else GameAction.DeclineInvitation)
+    }
+    fun reinvite(game: GameSummary) {
+        if (game.inviter.accountId != accountId() || game.invitationState != InvitationState.DECLINED || game.lifecycle != GameLifecycle.LOBBY) return
+        session?.submit(game, GameAction.Reinvite)
+    }
+    fun reconnect() { session?.tick(); refresh() }
     fun query(value: String) { searchVersion++; state = state.copy(query = value, results = emptyList(), searching = false, searched = false, searchError = null) }
     fun search() {
         if (closed) return
@@ -97,7 +128,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun open(id: String) { if (!state.mutating) { state = state.copy(selected = id, detail = null, error = null); openGame(); refresh() } }
     fun back() { if (state.draft != null) dismiss() else { state = state.copy(selected = null, detail = null, error = null); refresh() } }
-    fun sync() { if (!state.busy && !state.mutating) refresh(background = true) }
+    fun sync() { session?.tick(); if (!state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) {
         if (closed || state.busy || state.mutating) return
         val token = credential() ?: return
@@ -119,17 +150,25 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
             post { if (!closed && generation == epoch) {
                 val data = result.getOrNull()
-                state = if (data != null) state.copy(contacts = data.contacts, games = data.games, invitations = data.invitations,
-                    detail = if (state.selected == selected) data.detail else state.detail, busy = false, loaded = true)
+                val priorGames = state.games + state.invitations
+                state = if (data != null) state.copy(contacts = data.contacts, games = data.games.map { session?.summary(it) ?: it },
+                    invitations = data.invitations.map { session?.summary(it) ?: it },
+                    detail = if (state.selected == selected) data.detail?.let { session?.summary(it) ?: it } else state.detail, busy = false, loaded = true)
                 else if ((result.exceptionOrNull() as? LobbyFailure)?.code == "not_found" && state.selected == selected)
                     state.copy(selected = null, detail = null, busy = false, error = "This game is no longer available.")
                 else state.copy(busy = false, error = if (background && state.draft != null) state.error else lobbyError(result.exceptionOrNull()!!))
+                if (data != null && session != null) {
+                    val games = (data.games + data.invitations + priorGames + listOfNotNull(state.detail))
+                        .groupBy { it.id }.values.map { versions -> versions.maxBy { GameWire.ordinal(it.revision) } }.map(session::summary)
+                    for (game in games) accepted(game)
+                    session.watch(games); connectionState()
+                }
                 // A user may choose another row while a list refresh is in flight.
                 if (state.selected != selected) refresh()
             } }
         }
     }
-    override fun close() { closed = true; clear(); worker.execute { api.close() }; worker.shutdown() }
+    override fun close() { closed = true; clear(); session?.close(); worker.execute { api.close() }; worker.shutdown() }
 }
 
 internal fun gameNameSuggestion(): String = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering").random() +

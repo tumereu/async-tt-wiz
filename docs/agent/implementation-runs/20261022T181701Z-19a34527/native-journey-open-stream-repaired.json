@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py"
+  ],
+  "exitCode": 1,
+  "output": "Preserved exact owned APK readbacks off tmpfs: 4\nPreserved exact owned APK readbacks off tmpfs: 0\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py\", line 35, in <module>\n    a.operation(value, 'launch-app', 180)\n    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 247, in operation\n    return d.wait(value, timeout)['app']\n           ~~~~~~^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/devices.py\", line 372, in wait\n    result = device_handoff.validate(value, result, timeout)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_handoff.py\", line 77, in validate\n    d.require(installed['serial'] == serial and installed['apk'] == record['apk'], 'Changed combined normal APK installation')\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/environment.py\", line 39, in require\n    raise Refusal(message)\ne2e.environment.Refusal: Changed combined normal APK installation\n"
+}

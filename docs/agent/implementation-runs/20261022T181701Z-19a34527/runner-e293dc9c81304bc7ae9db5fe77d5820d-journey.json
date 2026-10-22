@@ -1,0 +1,14 @@
+{
+  "devices": 2,
+  "normalApk": true,
+  "journeys": [
+    "UI create and pending invitation",
+    "landscape recipient Decline",
+    "retained inviter lobby and in-slot Reinvite",
+    "portrait recipient Accept interrupted after send",
+    "same-process fenced reconnect with original request",
+    "both orientations same accepted not-ready lobby",
+    "native Back and process restart convergence"
+  ],
+  "remaining": "I10-I12 deck/preparation/Ready/start/cancel; I34-I36 qualification and complete UI gate"
+}

@@ -95,6 +95,11 @@ internal fun ContactsContent(controller: LobbyController) {
 private fun LobbyFeedback(controller: LobbyController) {
     val state = controller.state
     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+    state.connectionMessage?.let { message ->
+        Text(message, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = controller::reconnect) { Text("Reconnect") }
+    }
+    if (state.pendingGames.isNotEmpty()) Text("Checking invitation outcome…", style = MaterialTheme.typography.bodySmall)
     if (state.draft == null) state.error?.let {
         Text(it, color = MaterialTheme.colorScheme.error)
         TextButton(onClick = { controller.refresh() }) { Text("Retry") }
@@ -125,7 +130,12 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(game.gameName, fontWeight = FontWeight.SemiBold)
                     Text("${game.inviter.username} · ${gameStatus(game)} · ${gameDate(game)}")
-                    Text("Invitation responses are not available in this build yet.", style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { controller.respond(game, false) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames,
+                            modifier = Modifier.weight(1f)) { Text("Decline") }
+                        Button(onClick = { controller.respond(game, true) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames,
+                            modifier = Modifier.weight(1f)) { Text("Accept") }
+                    }
                 }
             }
         }
@@ -154,7 +164,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
                     Text(game.opponent(accountId).username, fontWeight = FontWeight.SemiBold)
                     Text(gameStatus(game))
-                    if (game.invitationState == InvitationState.PENDING) Text("Waiting for ${game.recipient.username} to accept.")
+                     if (game.invitationState == InvitationState.PENDING) Text("Waiting for ${game.recipient.username} to accept.")
+                     if (game.inviter.accountId == accountId && game.invitationState == InvitationState.DECLINED)
+                         TextButton(onClick = { controller.reinvite(game) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames) { Text("Reinvite") }
                 } }
             }
         }

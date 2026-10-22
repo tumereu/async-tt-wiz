@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.ktor.client.android)
+    implementation(libs.okhttp)
     implementation(libs.serialization.json)
     implementation(libs.coil.compose)
     testImplementation(libs.kotlin.test)

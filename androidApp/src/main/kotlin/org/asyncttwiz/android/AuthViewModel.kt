@@ -33,7 +33,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired)
     val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },
-        { action -> main.post { action() } }, openGame = { controller.navigate(ShellDestination.GAMES) })
+        { action -> main.post { action() } }, openGame = { controller.navigate(ShellDestination.GAMES) },
+        gameConnection = SocketGameConnection(BuildConfig.ACCOUNT_ORIGIN), accountId = { controller.state.account?.accountId },
+        authenticationRequired = controller::authenticationRequired,
+        installationId = application.getSharedPreferences("installation", 0).let { preferences ->
+            preferences.getString("id", null) ?: java.util.UUID.randomUUID().toString().also {
+                preferences.edit().putString("id", it).apply()
+            }
+        })
     init {
         deckImport.connectSave(saveApi, controller::sessionToken, saved = { decks.open(it.deck.id) })
     }

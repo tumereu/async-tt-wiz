@@ -1,0 +1,133 @@
+{
+  "outcomes": [
+    {
+      "requestId": "a84c3977-a164-4281-905f-6b56310ce3c5",
+      "ordinal": 1,
+      "command": {
+        "type": "command",
+        "requestId": "a84c3977-a164-4281-905f-6b56310ce3c5",
+        "scope": {
+          "gameId": "edfdec17-0aa1-4b45-b094-d40eaa4aec99",
+          "preparationId": "1fd83b67-ae56-4897-b6e9-87d51123a5ee",
+          "invitationId": "951e6661-b786-4dc7-85c0-e7ea759e3e79",
+          "playId": null
+        },
+        "action": {
+          "type": "declineInvitation"
+        },
+        "streamId": "f66c7e9f-6a95-4ae9-8ccc-73f0f86b805a",
+        "generation": "1",
+        "commandVersion": 1,
+        "invocationId": null,
+        "continuation": null,
+        "inlineDefinitions": []
+      },
+      "result": {
+        "requestId": "a84c3977-a164-4281-905f-6b56310ce3c5",
+        "scope": {
+          "gameId": "edfdec17-0aa1-4b45-b094-d40eaa4aec99",
+          "preparationId": "1fd83b67-ae56-4897-b6e9-87d51123a5ee",
+          "invitationId": "951e6661-b786-4dc7-85c0-e7ea759e3e79",
+          "playId": null
+        },
+        "outcome": "accepted",
+        "reason": null,
+        "ingressOrdinal": "1",
+        "commitRevision": "1",
+        "createdIds": []
+      }
+    },
+    {
+      "requestId": "dd092609-28ee-4654-8784-4581c2807cc4",
+      "ordinal": 2,
+      "command": {
+        "type": "command",
+        "requestId": "dd092609-28ee-4654-8784-4581c2807cc4",
+        "scope": {
+          "gameId": "edfdec17-0aa1-4b45-b094-d40eaa4aec99",
+          "preparationId": "1fd83b67-ae56-4897-b6e9-87d51123a5ee",
+          "invitationId": "951e6661-b786-4dc7-85c0-e7ea759e3e79",
+          "playId": null
+        },
+        "action": {
+          "type": "reinvite"
+        },
+        "streamId": "ba38b5a5-b86a-4ace-ab0a-0be8298f0121",
+        "generation": "1",
+        "commandVersion": 1,
+        "invocationId": null,
+        "continuation": null,
+        "inlineDefinitions": []
+      },
+      "result": {
+        "requestId": "dd092609-28ee-4654-8784-4581c2807cc4",
+        "scope": {
+          "gameId": "edfdec17-0aa1-4b45-b094-d40eaa4aec99",
+          "preparationId": "1fd83b67-ae56-4897-b6e9-87d51123a5ee",
+          "invitationId": "951e6661-b786-4dc7-85c0-e7ea759e3e79",
+          "playId": null
+        },
+        "outcome": "accepted",
+        "reason": null,
+        "ingressOrdinal": "2",
+        "commitRevision": "2",
+        "createdIds": [
+          "1e6892aa-d258-4bde-905b-03132f464c8c"
+        ]
+      }
+    },
+    {
+      "requestId": "79451bf6-7596-4655-9742-4dbc3878e851",
+      "ordinal": 3,
+      "command": {
+        "type": "command",
+        "requestId": "79451bf6-7596-4655-9742-4dbc3878e851",
+        "scope": {
+          "gameId": "edfdec17-0aa1-4b45-b094-d40eaa4aec99",
+          "preparationId": "1fd83b67-ae56-4897-b6e9-87d51123a5ee",
+          "invitationId": "1e6892aa-d258-4bde-905b-03132f464c8c",
+          "playId": null
+        },
+        "action": {
+          "type": "acceptInvitation"
+        },
+        "streamId": "f66c7e9f-6a95-4ae9-8ccc-73f0f86b805a",
+        "generation": "1",
+        "commandVersion": 1,
+        "invocationId": null,
+        "continuation": null,
+        "inlineDefinitions": []
+      },
+      "result": {
+        "requestId": "79451bf6-7596-4655-9742-4dbc3878e851",
+        "scope": {
+          "gameId": "edfdec17-0aa1-4b45-b094-d40eaa4aec99",
+          "preparationId": "1fd83b67-ae56-4897-b6e9-87d51123a5ee",
+          "invitationId": "1e6892aa-d258-4bde-905b-03132f464c8c",
+          "playId": null
+        },
+        "outcome": "accepted",
+        "reason": null,
+        "ingressOrdinal": "3",
+        "commitRevision": "3",
+        "createdIds": []
+      }
+    }
+  ],
+  "streams": [
+    {
+      "accountId": "d472e287-9a8e-4359-bf47-4aaea7eea088",
+      "installationId": "f78e5952-9b3b-4ad1-b9b1-a1843451567a",
+      "processId": "e65f2e3e-f606-499c-8fcd-3d0d29ff3bfa",
+      "streamId": "ba38b5a5-b86a-4ace-ab0a-0be8298f0121",
+      "generation": 2
+    },
+    {
+      "accountId": "f156e00f-e309-4a26-a9b9-c6327bfb0fbb",
+      "installationId": "1390270b-ba63-4731-b4c4-1ed2698cd38a",
+      "processId": "5e8731ea-ee5a-4b98-a165-91ac106e0876",
+      "streamId": "15b231e0-a532-44e3-b9aa-e21ab9d6f8a6",
+      "generation": 3
+    }
+  ]
+}

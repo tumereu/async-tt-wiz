@@ -1,0 +1,7 @@
+PASS exact authorization/model/baseline/priority and current driver state/transition/path guards; only I09b2 completes, next I09b
+PASS all other tasks/batches/reviews/findings/authorization/permissions/external release gates unchanged
+Traceback (most recent call last):
+  File "/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py", line 82, in <module>
+    assert cleaned['cleaned']
+           ~~~~~~~^^^^^^^^^^^
+KeyError: 'cleaned'

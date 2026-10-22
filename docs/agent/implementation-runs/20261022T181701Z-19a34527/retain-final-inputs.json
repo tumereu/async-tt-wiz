@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/retain.py"
+  ],
+  "exitCode": 0,
+  "output": "PASS retained current affected host cases: 23\nPASS exactly three original accepted native requests, stable scopes/attempts, current stream fences and real V7 fresh reset\nPASS final normal-APK/shared/server/client/test/lock/source identities retained; no re-executed server/full-suite qualification\n"
+}

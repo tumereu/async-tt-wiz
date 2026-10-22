@@ -1,0 +1,587 @@
+{
+  "runId": "20261022T181701Z-19a34527",
+  "sessionID": "ses_e9b2b5588ffeftG6SLCH8kbOty",
+  "startCommit": "8158e42e98404eda9357389129c210d5f12102c7",
+  "mode": "implement",
+  "target": "I09b2",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Delivered native recipient Accept/Decline and exact retained-lobby in-slot Reinvite over the existing server socket/processor, with negotiated fresh open and fenced same-process resume, volatile ordered original requests, monotonic accepted-summary convergence and production auth/navigation/account cleanup. Twenty-three affected host cases, incremental normal APK/instrumentation/lint/boundaries and strict release compile locks pass. One complete two-normal-APK API29 non-GMS UI-created decline/reinvite/interrupted-Accept/reconnect/both-orientation/not-ready-lobby/Back/reopen/process-restart journey passes; stable game/name/date/preparation and changed attempt IDs plus exactly three accepted original inbox requests are retained. Native-exposed fresh-stream handshake defect and V7 reset oracle repaired with targeted evidence; failed setup/lock/observer/IME/scroll/tmpfs/changed-APK commands remain diagnostic. Exact tested inputs/captures/JUnit and owned cleanup retained. Only I09b2 closes; I09b/I09 audits, preparation/start/cancel, B3 review and final qualification remain. Noncritical persistent recovered HTTP error has concrete source/captures and an explicit I34 correction/recheck obligation, not a false pass.",
+  "selectionReason": "Clean supplied master/startCommit, active D-304 authorization, reviewed B1/B2, no actionable findings and delivered I09b1 agree with I09b2 as earliest ready child. Complete the normal two-user invitation capability and its directly affected transport/controller/auth/navigation/UI/reset-store integration, reusing I09b1 server durability and existing environment qualification. Only affected incremental builds/checks ran; no full suite, clean build, repeated green fault matrix or new scaffold/review layer. Parent closure and subsequent B3 preparation/start remain separately selected.",
+  "sourceIds": [
+    "P-043",
+    "P-045",
+    "P-062",
+    "T-398",
+    "T-414",
+    "T-415",
+    "T-416",
+    "T-417",
+    "T-418",
+    "T-484",
+    "T-636",
+    "T-637",
+    "T-638",
+    "T-639",
+    "T-667",
+    "T-677",
+    "T-681",
+    "T-690",
+    "T-696",
+    "F13",
+    "F14",
+    "F16",
+    "F23",
+    "F24",
+    "F37",
+    "F48",
+    "F59"
+  ],
+  "sourceDisposition": "Partial I09.invitations assertions under accounts-decks-and-lobby D-195/D-208/D-209/D-259/D-287/D-294 and protocol/request recovery D-275/D-285/D-289. Actual native decision/reinvite/reconnect and affected host assertions executed; existing complete P/T/F cross-task ledger assignments are not promoted to whole-scenario passes.",
+  "remainingObligations": [
+    "I09b/I09 separately selected small child-evidence audits; B3 first independent full-capability review after I09-I12. No ancestor or review advances here.",
+    "I10-I12 prepared copies/Ready/start/cancel, P-072/T-669 cancellation/reinvite both orders, T-457/T-458/T-460 prepared-state preservation and two-Android prepared start; I13/I14/I26 extend this same queue/model for gameplay/rebase/full-tree, I28/I31 T-681 rematch/combined recovery.",
+    "I34 required recovered-error correction/recheck: successful inviter same-game-landscape/accepted-inviter-portrait captures show an old HTTP reachability error retained after accepted socket/HTTP state recovered. LobbyController.refresh success copy retains state.error; Retry clears it. Accepted state/actions are usable and do not rewind. Explicit deferred obligation under D-308, not optional behavior, a claimed cleared-error pass, or another early detail loop.",
+    "I34 full suite/deferred uncommon assertions and older migration-count fixtures, I33 measurements, I35 compatibility/signing/image architecture, I36/B8 all-interface/both-orientation mock comparison and all external gates remain unverified/unchanged."
+  ],
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-19a34527000000000000000000000001 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/cleanup-environment.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000001 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/cleanup-first.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000002 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/cleanup-second.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :androidApp:testDebugUnitTest --tests '*GameSessionTest' --tests '*LobbyControllerTest' --tests '*AuthControllerTest' :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest verifyModuleBoundaries",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/client-tests.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000001 provision --config /tmp/opencode/i04b-first-config.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/device-first.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000002 wait",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/device-second-ready.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000002 provision --config /tmp/opencode/i04b-second-config.json",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/device-second.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-19a34527000000000000000000000001 provision",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/environment-provision.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:35899 :androidApp:assembleDebug :e2e:compileTestKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/hosted-build.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/build-server-image.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/image-build.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000001 install-app --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/install-open-fix-first.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000002 install-app --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/install-open-fix-second.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-current-apk.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-observer-corrected.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-open-stream-repaired.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-orientation-corrected.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-owned-readbacks-offloaded.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-reset-repaired.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-storage-repaired.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-visible-status-corrected.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/run-reset-devices.py pair --directory /tmp/opencode/atw-device-19a34527000000000000000000000001 --peer /tmp/opencode/atw-device-19a34527000000000000000000000002",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/pair-devices.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000001 prepare-app --environment /tmp/opencode/atw-e2e-19a34527000000000000000000000001 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/prepare-first.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000002 prepare-app --environment /tmp/opencode/atw-e2e-19a34527000000000000000000000001 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/prepare-second.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain --write-locks :androidApp:testDebugUnitTest --tests '*GameSessionTest' --tests '*LobbyControllerTest' --tests '*AuthControllerTest' :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lint verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/qualify-socket-dependency.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/reattach.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/reattach-current-apk.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/reattach.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-19a34527000000000000000000000001 prepare-app --environment /tmp/opencode/atw-e2e-19a34527000000000000000000000001 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/reattach-open-fix-first.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :androidApp:compileReleaseKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/release-compile-lock-check.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p test_environment_game_reset.py -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/reset-oracle-regression.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/retain.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/retain-final-inputs.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/retain.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:35899 :androidApp:testDebugUnitTest --tests '*GameSessionTest' --tests '*GameLobbyIntegrationTest' --tests '*LobbyControllerTest' --tests '*AuthControllerTest' :androidApp:assembleDebug :androidApp:lint",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/socket-open-and-integration-tests.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py > docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff-path-diagnostic.txt",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py > docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff.txt 2>&1",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff-cleanup-diagnostic.txt",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py > docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff.txt",
+      "supportPaths": [
+        "docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py"
+      ]
+    }
+  ],
+  "changedPaths": [
+    "androidApp/build.gradle.kts",
+    "androidApp/gradle.lockfile",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameConnection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameSessionTest.kt",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/README.md",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/actual-reset.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/adapters-image.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/application-build-image.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/cleanup-environment.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/cleanup-first.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/cleanup-second.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/client-tests.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/control.py",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/device-first.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/device-second-ready.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/device-second.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/environment-provision.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/finish.py",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff-cleanup-diagnostic.txt",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff-path-diagnostic.txt",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/handoff.txt",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/host-junit.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/hosted-build.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/image-build.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/input-identities.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/install-open-fix-first.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/install-open-fix-second.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-attempted.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-current-apk.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-final.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-observer-corrected.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-open-stream-repaired.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-orientation-corrected.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-owned-readbacks-offloaded.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-reset-repaired.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-storage-repaired.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey-visible-status-corrected.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-journey.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/observe-accepted.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/observe-declined.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/observe-pending.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/observe-reinvited.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/observe-restarted.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/offload.py",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/offloaded-apks.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/ordered-native-outcomes.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/pair-devices.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/pause.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/prepare-first.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/prepare-second.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/qualify-socket-dependency.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/reattach-current-apk.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/reattach-open-fix-first.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/reattach.py",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/release-compile-lock-check.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/reset-oracle-regression.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/resume.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/retain-final-inputs.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/retain.py",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/run.py",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-declined-lobby-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-declined-lobby-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-pending-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-pending-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-result-0.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-0e0ded512fa44e70ac53fbe87166cffd-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-246f167989d74627878cda8f997988d1-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-246f167989d74627878cda8f997988d1-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-246f167989d74627878cda8f997988d1-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-246f167989d74627878cda8f997988d1-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-456cfb658ccd468ab2572d9332129f9d-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-456cfb658ccd468ab2572d9332129f9d-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-456cfb658ccd468ab2572d9332129f9d-pending-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-456cfb658ccd468ab2572d9332129f9d-pending-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-456cfb658ccd468ab2572d9332129f9d-result-0.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-456cfb658ccd468ab2572d9332129f9d-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-456cfb658ccd468ab2572d9332129f9d-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-464d0745eb0644d99d988bd5c2a15e74-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-464d0745eb0644d99d988bd5c2a15e74-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-464d0745eb0644d99d988bd5c2a15e74-invitation-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-464d0745eb0644d99d988bd5c2a15e74-invitation-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-464d0745eb0644d99d988bd5c2a15e74-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-464d0745eb0644d99d988bd5c2a15e74-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-accepted-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-accepted-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-accepted-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-accepted-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-declined-recipient-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-declined-recipient-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-invitation-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-invitation-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-invitation-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-invitation-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-uncertain-accept-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-4cd38218c951417ebcab59825c01bc48-uncertain-accept-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-accepted-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-accepted-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-accepted-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-accepted-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-declined-recipient-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-declined-recipient-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-invitation-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-invitation-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-invitation-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-invitation-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-uncertain-accept-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5589c1d9a06943bd8b4fc27abaf96bf4-uncertain-accept-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-accepted-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-accepted-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-accepted-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-accepted-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-declined-recipient-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-declined-recipient-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-invitation-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-invitation-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-invitation-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-invitation-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-uncertain-accept-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-5b9284f3d19548bc96477115bd7de63e-uncertain-accept-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-6a2918312b534507a46c1bcf4fd58afa-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-6a2918312b534507a46c1bcf4fd58afa-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-6a2918312b534507a46c1bcf4fd58afa-result-0.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-6a2918312b534507a46c1bcf4fd58afa-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-6a2918312b534507a46c1bcf4fd58afa-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-8e0d642ef87f4885b336812e34acb60b-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-8e0d642ef87f4885b336812e34acb60b-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-8e0d642ef87f4885b336812e34acb60b-pending-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-8e0d642ef87f4885b336812e34acb60b-pending-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-8e0d642ef87f4885b336812e34acb60b-result-0.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-8e0d642ef87f4885b336812e34acb60b-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-8e0d642ef87f4885b336812e34acb60b-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-a0da7161dc4d4204931657ffe6443fe8-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-a0da7161dc4d4204931657ffe6443fe8-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-a0da7161dc4d4204931657ffe6443fe8-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-a0da7161dc4d4204931657ffe6443fe8-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-declined-lobby-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-declined-lobby-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-pending-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-pending-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-result-0.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-c30aee0184944c7790bcce6190da017b-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-accepted-inviter-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-accepted-inviter-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-declined-lobby-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-declined-lobby-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-final.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-final.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-journey.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-pending-portrait.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-pending-portrait.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-result-0.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-same-game-landscape.png",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-same-game-landscape.xml",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-session-closed.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/runner-e293dc9c81304bc7ae9db5fe77d5820d-session.json",
+    "docs/agent/implementation-runs/20261022T181701Z-19a34527/socket-open-and-integration-tests.json",
+    "docs/agent/implementation-state.json",
+    "e2e/environment.py",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeInvitationTest.kt",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeLobbyCreationTest.kt",
+    "tests/test_environment_game_reset.py"
+  ]
+}

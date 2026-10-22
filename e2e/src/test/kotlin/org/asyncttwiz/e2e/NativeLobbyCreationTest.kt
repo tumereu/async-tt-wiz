@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 /** All business state comes from two ordinary installed UIs, not helper account/invitation APIs. */
 @Tag("device")
 class NativeLobbyCreationTest {
-    private class Device(val directory: Path, properties: Path) : AutoCloseable {
+    internal class Device(val directory: Path, properties: Path) : AutoCloseable {
         private val input = Properties().apply { Files.newBufferedReader(properties).use(::load) }
         private fun property(name: String) = requireNotNull(input.getProperty(name))
         fun record(name: String, value: Any) = Files.writeString(directory.resolve(name), GsonBuilder().setPrettyPrinting().create().toJson(value) + "\n")
@@ -127,7 +127,7 @@ class NativeLobbyCreationTest {
                 first.driver.navigate().back(); first.text("Invitations"); first.button("Native Azure Spark"); first.text("Waiting for Lobby Recipient to accept.")
                 first.destination("Menu"); first.text("Games").click(); first.text("Invitations"); first.capture("games-landscape")
                 first.restart(); first.text("Native Azure Spark"); first.button("Native Azure Spark"); first.text("Waiting for Lobby Recipient to accept.")
-                second.destination("Games"); second.text("Native Azure Spark"); second.text("Invitation responses are not available in this build yet.")
+                second.destination("Games"); second.text("Native Azure Spark"); second.text("Accept"); second.text("Decline")
                 second.capture("recipient-invitation-portrait"); assertFalse(second.driver.pageSource.contains("lobby-inviter@example.test"))
                 second.driver.rotate(ScreenOrientation.LANDSCAPE); second.text("Native Azure Spark"); second.capture("recipient-invitation-landscape")
                 second.destination("Contacts"); second.text("No saved contacts.") // no reciprocal relationship

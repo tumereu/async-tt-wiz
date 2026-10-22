@@ -84,14 +84,32 @@
                                      "docs/agent/implementation-runs/20261022T134014Z-ca978b34.json",
                                       "docs/agent/implementation-runs/20261022T151433Z-3ad15f39.json",
                                        "docs/agent/implementation-runs/20261022T154455Z-39d908f9.json",
-                                       "docs/agent/implementation-runs/20261022T154754Z-ad37196f.json"
+                                        "docs/agent/implementation-runs/20261022T154754Z-ad37196f.json",
+                                        "docs/agent/implementation-runs/20261022T161016Z-466155fc.json"
    ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "B2-R01",
+      "batch": "B2",
+      "status": "open",
+      "disposition": "actionable",
+      "severity": "medium",
+      "title": "Deck HTTP 401 leaves the user stranded in the authenticated shell",
+      "reviewedCommit": "3ba4099a9d19c169ba59e275cee117be453d16d3",
+      "record": "docs/agent/implementation-runs/20261022T161016Z-466155fc.json",
+      "source": "D-217/D-241 in docs/design/03-contracts/accounts-decks-and-lobby.md: explicit server invalidation must ask for login; session invalidation is not Logout and surviving same-process requests retain their identity.",
+      "evidence": "docs/agent/implementation-runs/20261022T161016Z-466155fc-reauth-diagnostic.json",
+      "reproduction": "A signed-in user keeps Manage decks open while another device successfully resets the password. The next list/read/save receives authentication_required. DeckApi maps HTTP 401 to DeckFailure, but DeckLibraryController and DeckImportController only put deckError text on screen; AuthViewModel has no invalidation connection to AuthController. The retained production-controller/real-DeckApi-MockEngine test reproduces the 401 with account and old request token still present, then fails the expected sign-in transition. This is a host reproduction, not a newly executed native reset journey.",
+      "consequence": "Retry continues with the revoked token and there is no sign-in control in the authenticated shell. Explicit Logout or process restart is the workaround; Logout clears an unfinished import and its same-process retry identity instead of offering ordinary reauthentication.",
+      "expectedCorrection": "Provide the normal reauthentication route on an explicit deck-request authentication failure, without requiring explicit Logout or process restart. Preserve appropriate same-account personal context and surviving uncertain request identities; account switching/explicit Logout must still clear private work and fence stale callbacks. Apply the boundary to deck reads and mutations, not only list errors, without stronger D-289 in-flight/reset ordering.",
+      "regression": "Make B2DeckIntegrationTest.revokedDeckSessionMustExposeSignInWithoutExplicitLogout pass using the actual repaired production wiring; add affected save/read, same-account retry/context and different-account cleanup checks. Independently verify in a fresh unit; do not certify a repair in this review."
+    }
+  ],
   "batches": [
     { "id": "B1", "status": "reviewed", "reviewedCommit": "5283daee31ac94d53c2c9c92e2b9c6a0abc1f92a",
       "review": { "units": [{ "id": "capability", "scope": "Full B1 entry/navigation/reset/resume journey, privacy, failures and integration against the plan/contracts" }], "completed": { "capability": "5283daee31ac94d53c2c9c92e2b9c6a0abc1f92a" }, "blocked": {} } },
-    { "id": "B2", "status": "ready-for-review", "reviewedCommit": null,
-      "review": { "units": [{ "id": "capability", "scope": "Full B2 catalog/import/deck-management journey, failures, retained definitions and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
+    { "id": "B2", "status": "changes-requested", "reviewedCommit": null,
+      "review": { "units": [{ "id": "capability", "scope": "Full B2 catalog/import/deck-management journey, failures, retained definitions and integration against the plan/contracts" }], "completed": { "capability": "3ba4099a9d19c169ba59e275cee117be453d16d3" }, "blocked": {} } },
     { "id": "B3", "status": "pending", "reviewedCommit": null,
       "review": { "units": [{ "id": "capability", "scope": "Full B3 two-player invitation/preparation/start journey, lifecycle overlaps and integration against the plan/contracts" }], "completed": {}, "blocked": {} } },
     { "id": "B4", "status": "pending", "reviewedCommit": null,

@@ -21,7 +21,37 @@
     "runnerReport": "docs/agent/implementation-runner.md"
   },
   "activeRun": null,
-   "runs": ["docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json", "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json", "docs/agent/implementation-runs/20261021T181243Z-6b896081.json", "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json", "docs/agent/implementation-runs/20261021T185205Z-6533f389.json", "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json", "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json", "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json", "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json", "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json", "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json", "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json", "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json", "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json", "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json", "docs/agent/implementation-runs/20261021T210831Z-b3901e8c.json", "docs/agent/implementation-runs/20261021T211210Z-833b516d.json", "docs/agent/implementation-runs/20261021T212906Z-37001bdf.json", "docs/agent/implementation-runs/20261021T213239Z-2c5339a5.json", "docs/agent/implementation-runs/20261021T220006Z-199d4d9d.json", "docs/agent/implementation-runs/20261021T223211Z-d5a50a9e.json", "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6.json", "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json", "docs/agent/implementation-runs/20261022T000023Z-9ea51e7b.json", "docs/agent/implementation-runs/20261022T000413Z-fd60bcea.json", "docs/agent/implementation-runs/20261022T003723Z-932550a0.json", "docs/agent/implementation-runs/20261022T010018Z-6fa0ca94.json", "docs/agent/implementation-runs/20261022T010348Z-d9861514.json"],
+   "runs": [
+     "docs/agent/implementation-runs/20261021T165756Z-9e3e7e80.json",
+     "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd.json",
+     "docs/agent/implementation-runs/20261021T181243Z-6b896081.json",
+     "docs/agent/implementation-runs/20261021T182623Z-26bd32d9.json",
+     "docs/agent/implementation-runs/20261021T185205Z-6533f389.json",
+     "docs/agent/implementation-runs/20261021T191059Z-a9372bb4.json",
+     "docs/agent/implementation-runs/20261021T191440Z-b4076baa.json",
+     "docs/agent/implementation-runs/20261021T192847Z-0d517a87.json",
+     "docs/agent/implementation-runs/20261021T195803Z-2deb1ecd.json",
+     "docs/agent/implementation-runs/20261021T200623Z-d58cf56d.json",
+     "docs/agent/implementation-runs/20261021T202050Z-3bc861e9.json",
+     "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6.json",
+     "docs/agent/implementation-runs/20261021T203155Z-d29b6dd6.json",
+     "docs/agent/implementation-runs/20261021T204702Z-a524f8a6.json",
+     "docs/agent/implementation-runs/20261021T210246Z-d1993a37.json",
+     "docs/agent/implementation-runs/20261021T210831Z-b3901e8c.json",
+     "docs/agent/implementation-runs/20261021T211210Z-833b516d.json",
+     "docs/agent/implementation-runs/20261021T212906Z-37001bdf.json",
+     "docs/agent/implementation-runs/20261021T213239Z-2c5339a5.json",
+     "docs/agent/implementation-runs/20261021T220006Z-199d4d9d.json",
+     "docs/agent/implementation-runs/20261021T223211Z-d5a50a9e.json",
+     "docs/agent/implementation-runs/20261021T233041Z-1b76a4c6.json",
+     "docs/agent/implementation-runs/20261021T235653Z-f324bb89.json",
+     "docs/agent/implementation-runs/20261022T000023Z-9ea51e7b.json",
+     "docs/agent/implementation-runs/20261022T000413Z-fd60bcea.json",
+     "docs/agent/implementation-runs/20261022T003723Z-932550a0.json",
+     "docs/agent/implementation-runs/20261022T010018Z-6fa0ca94.json",
+     "docs/agent/implementation-runs/20261022T010348Z-d9861514.json",
+     "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json"
+   ],
   "findings": [],
   "batches": [
     { "id": "B1", "status": "pending", "reviewedCommit": null,
@@ -387,13 +417,39 @@
     {
       "id": "I01f1b2",
       "batch": "B1",
-      "status": "pending",
+      "status": "in-progress",
+      "children": ["I01f1b2a", "I01f1b2b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T012813Z-0d6b599b.json",
       "dependsOn": ["I01f1b1", "I01e"],
       "outcome": "Extend the same owned device controller with explicit per-device public-only routing to a real isolated I01e Compose environment and a fail-closed combined normal-APK/environment handoff. Measure the Windows/WSL boundary instead of assuming Windows ADB reverse reaches Linux loopback; preserve the source's configured loopback art origins. Record exact mapping and any required loopback relay identities before mutation, refuse foreign/busy resources and clean up only owned routes/services. Actually qualify normal-APK startup together with device-originated backend/source diagnostics, failed routing and recovery; document endpoints/evidence/cleanup for I01f2. No private administration exposure, wildcard listener, production trust relaxation, Kotlin UI/instrumentation or absent downloader/account/gameplay acceptance.",
       "checks": [
         "Provision/wait one real I01e environment and one owned API29 non-GMS device, then install/launch/capture the ordinary normal APK using I01f1b1. Establish only the exact backend/source public loopback routes, preserving port numbers/art origins; prove actual device-originated HTTP gets the currently expected real-backend public response and synthetic metadata/catalog/art bytes and hashes. Retain measured Windows/WSL topology and exact ADB/relay/process/serial/port/environment identities. Shell HTTP is infrastructure evidence, not a normal downloader/auth UI pass.",
         "Add/run focused ownership/collision/foreign-mapping/unavailable-endpoint/failed-handoff regressions and actual controlled broken-route checks followed by successful recovery. Failed route setup or endpoint revalidation must invalidate combined ready evidence, return nonzero and never silently replace a foreign mapping/listener. Repeated wait must validate the attached environment and routes rather than revert to services-only success; explicit route removal must preserve the standalone service lifecycle. Keep all existing forward/reverse refusal safeguards outside the recorded owned set, with no remove-all or default ADB adoption.",
         "Verify only the two public endpoints are reachable through the new route and private health/admin/reset/mailbox/DB/SMTP remain unexposed; preserve internal Compose egress isolation and loopback bindings. Capture redacted failures/startup/route evidence before removing exact owned mappings/relays and native guest/ADB/Appium/Compose resources; prove owned ports/processes stop and unrelated inventory is unchanged. Document combined setup/wait/capture/unroute/cleanup and environment-reset revalidation for I01f2, preserving fresh independent-scenario data versus retained in-scenario restart, with no silent reset or source-origin rewrite."
+      ]
+    },
+    {
+      "id": "I01f1b2a",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01f1b1", "I01e"],
+      "outcome": "Implement and actually qualify the public-route lifecycle in the existing owned device controller: attach only the two public loopback endpoints of one explicitly owned real I01e Compose environment, measure the Windows/WSL transport, and use exact same-port device routes so configured synthetic art origins remain unchanged. Record environment/serial/port/mapping identities and any required loopback-only relay process/start identity before mutation; refuse foreign/busy resources without adoption or rebind. Extend existing mapping checks and cleanup to recognize only this recorded owned set, retaining strict refusal of all other forward/reverse mappings. Supply explicit route validation/removal and safe failed/partial-setup recovery; attaching routes must invalidate services-only readiness and subsequent wait must validate the attachment, not silently downgrade. This child supplies transport infrastructure, not the final normal-APK/environment handoff or product networking acceptance.",
+      "checks": [
+        "Run focused routing/ownership regressions for wrong or cleaned Compose target, changed environment identity/ports, non-loopback/private endpoints, occupied ports, foreign mappings on either direction/serial, no-rebind creation, partial route or relay launch failure, reused relay PID and exact cleanup. Retain recoverable intent before route mutation, invalidate stale handoffs on failure and never remove an unrecorded mapping, use remove-all, adopt default ADB or change global networking/TLS/permissions.",
+        "Actually provision/wait the real I01e environment and one owned API29 non-GMS WHPX device. Measure host Windows/WSL and device-originated access to exactly its public backend/source ports. Require expected real-backend public 404 plus synthetic metadata/catalog/art status, bytes/hashes and same configured source origins through the measured working route. Add a relay only if needed and retain its exact loopback binding/target/process/start identity. Probe private health/admin/reset/mailbox separation and verify no new DB/SMTP/private-port publication; shell probes remain infrastructure diagnostics, not downloader/auth/UI acceptance.",
+        "Exercise actual unavailable/broken transport and foreign-mapping refusal followed by explicit successful recovery. Repeated route validation and wait must fail nonzero without stale ready evidence when the environment/route is unavailable; explicit unroute removes only the owned mappings/relay and restores an independently usable services-only lifecycle. Capture redacted diagnostics before exact route/native guest/ADB/Appium/Compose cleanup, prove owned identities/ports disappear and unrelated inventory remains, and document route/validate/unroute/cleanup commands plus unfinished combined-APK obligations for I01f1b2b. Do not install an alternate app, start Kotlin/Appium sessions or run instrumentation."
+      ]
+    },
+    {
+      "id": "I01f1b2b",
+      "batch": "B1",
+      "status": "pending",
+      "dependsOn": ["I01f1b2a"],
+      "outcome": "Integrate the qualified owned route lifecycle with I01f1b1's normal-APK install/production-launch/capture path and publish the fail-closed combined device/environment handoff. Actually qualify the ordinary scaffold on one API29 non-GMS guest with the real isolated Compose instance and public routes ready. Repeated wait must revalidate attached environment identity/readiness, owned routes/device transport and current normal-APK startup before combined success, never reverting to a services-only descriptor. Qualify unavailable-route failure/recovery and environment-reset versus retained in-scenario restart revalidation; remove combined success on failure or explicit unroute. Publish complete reproducible setup/wait/capture/unroute/cleanup and endpoint/evidence commands for I01f2. No product HTTP client, trust relaxation, seeded state, Kotlin scenario, instrumentation, account/downloader/gameplay/Canvas or parent/review completion is claimed.",
+      "checks": [
+        "Build/verify the normal strictly locked API29-compatible debug APK with affected host/storage/module/lint regressions, then install and launch only org.asyncttwiz.android.MainActivity on an actually owned API29 non-GMS device alongside a ready real I01e Compose environment and the qualified public routes. Retain readable actual screenshot/hierarchy, exact APK/package/signer/API/storage-startup and environment/serial/mapping/relay identities, plus device-originated backend/metadata/catalog/art diagnostics with unchanged origins. No alternate launcher, dummy UI, seeded account/game data, failure hook or shell probe claimed as product networking acceptance.",
+        "Add/run combined-handoff regressions for failed/stale startup, changed/unavailable attached environment, lost routes/relay, repeated wait, failed setup and explicit unroute; every failure removes combined ready evidence and returns nonzero without a services-only fallback. Actually break routing, observe failed combined wait, recover explicitly and obtain fresh combined startup/transport evidence. Exercise explicit successful independent-scenario Compose reset and subsequent fresh revalidation without silently resetting device data; fresh Android-data scenarios remain I01f2. Separately force-stop/relaunch the app and restart the same backend within an in-scenario checkpoint without clear/uninstall/reset, retaining normal scaffold storage and host environment state. Preserve the services-only path when explicitly detached.",
+        "Run route/service/app-controller regressions and actual capture-before-cleanup; verify only the two public ports are routed, private health/admin/reset/mailbox/DB/SMTP stay unexposed, internal Compose egress isolation/loopback binding remain and no production security input changes. Remove exact owned routes/relay and native guest/ADB/Appium/Compose resources, prove stopped ports/processes and unchanged unrelated inventory. Retain command outputs/actual startup artifacts and document fresh combined setup/wait/capture/unroute/cleanup, post-reset revalidation, endpoint/signing configuration and scope limits for I01f2. Keep the 14 actual storage instrumentation tests, Kotlin sessions, multi-device repeats, parent qualification, B1 review and all release gates pending."
       ]
     },
     {

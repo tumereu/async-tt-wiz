@@ -22,11 +22,16 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private var retryPlan: DeckSavePlan? = null
     private var saveAction: (() -> ((DeckSavePlan) -> SavedDeck)?)? = null
     private var saved: (SavedDeck) -> Unit = {}
+    val inspection = CardInspectionController()
+    fun inspect(entry: org.asyncttwiz.storage.ResolvedDeckEntry) {
+        val result = state.result ?: return
+        if (!closed && state.preview && entry in result.entries) inspection.open(InspectedCard.preview(entry, result.catalog))
+    }
     fun connectSave(action: () -> ((DeckSavePlan) -> SavedDeck)?, saved: (SavedDeck) -> Unit) {
         saveAction = action; this.saved = saved
     }
-    fun open() { if (!closed) { epoch++; retryPlan = null; state = DeckImportState(active = true) } }
-    fun exit() { epoch++; retryPlan = null; state = DeckImportState() }
+    fun open() { if (!closed) { epoch++; inspection.close(); retryPlan = null; state = DeckImportState(active = true) } }
+    fun exit() { epoch++; inspection.close(); retryPlan = null; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active && !state.saving) { epoch++; retryPlan = null
             state = state.copy(text = text, busy = false, result = null, preview = false, error = null) }
@@ -47,7 +52,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         }
     }
     fun review() { if (state.result?.resolved == true && !state.busy) state = state.copy(preview = true) }
-    fun editList() { if (!state.saving) state = state.copy(preview = false, error = null) }
+    fun editList() { if (!state.saving) { inspection.close(); state = state.copy(preview = false, error = null) } }
     fun name(value: String) { if (!state.saving && value != state.name) {
         retryPlan = null; state = state.copy(name = value, error = null)
     } }
@@ -76,6 +81,6 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             }
         }
     }
-    fun back() { if (state.preview) editList() else exit() }
+    fun back() { if (inspection.state != null) inspection.close() else if (state.preview) editList() else exit() }
     override fun close() { closed = true; exit(); worker.shutdownNow() }
 }

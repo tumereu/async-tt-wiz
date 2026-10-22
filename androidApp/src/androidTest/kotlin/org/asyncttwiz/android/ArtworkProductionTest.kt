@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -154,9 +156,11 @@ class ArtworkProductionTest {
             }
             compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Front face")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithContentDescription("Front face").assertIsDisplayed()
+                .assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(180.dp)
             compose.runOnIdle { reference.value = references[1]; fallback.value = "Back face" }
             compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Back face")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithContentDescription("Back face").assertIsDisplayed()
+                .assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(180.dp)
             compose.onNodeWithContentDescription("Front face").assertDoesNotExist()
             compose.runOnIdle { reference.value = ArtworkReference(null, 0, "missing"); fallback.value = "Missing artwork — plain text" }
             compose.onNodeWithText("Missing artwork — plain text").assertIsDisplayed()

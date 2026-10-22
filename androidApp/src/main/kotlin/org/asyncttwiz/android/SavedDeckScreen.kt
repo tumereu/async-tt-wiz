@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,10 +64,13 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
             LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp)) {
                 items(detail.saved.entries.filter { it.section == state.section }, key = { it.definition }) { entry ->
                     val definition = detail.definitions.getValue(entry.definition)
-                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                    Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Inspect ${definition.name}") { controller.inspect(entry.definition) }
+                        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(entry.quantity.toString(), Modifier.widthIn(min = 24.dp))
-                        DefinitionThumbnail(entry.definition, definition)
+                        Box(Modifier.size(48.dp, 68.dp).clickable(onClickLabel = "Inspect ${definition.name} artwork") {
+                            controller.inspect(entry.definition)
+                        }.semantics { contentDescription = "Inspect artwork for ${definition.name}" }) { DefinitionThumbnail(entry.definition, definition) }
                         Text(definition.name, Modifier.weight(1f))
                     }
                     HorizontalDivider()
@@ -73,6 +78,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
             }
         }
     }
+    CardInspection(controller.inspection)
     if (state.dialog == DeckDialog.RENAME || state.dialog == DeckDialog.DELETE) {
         val deleting = state.dialog == DeckDialog.DELETE
         Dialog(onDismissRequest = controller::dismiss) {

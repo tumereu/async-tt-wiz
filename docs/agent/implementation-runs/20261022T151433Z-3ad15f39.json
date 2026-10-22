@@ -1,0 +1,206 @@
+{
+  "runId": "20261022T151433Z-3ad15f39",
+  "sessionID": "ses_e9bd261a5ffeYtNiAQ9Hsarfzg",
+  "startCommit": "29ac1cea208daaa19d2a512596ec5b65c11972f1",
+  "mode": "implement",
+  "target": "I07b",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Delivered reusable D08 full-card inspection from saved-deck and resolved-import rows/48dp thumbnail targets: captured exact faces/text/defaults, lazy large artwork/enlarge/pan, unavailable-art fallback and personal Close/Back/rotation/cleanup without deck writes or gameplay events. Seventeen focused host checks pass; real API29 preview/save/saved-face assertions ran through large text before a test-only absent-font-scale restoration failure. Repaired cleanup and green retained restart complete the missing assertions. Capture inspection found intrinsic-size art; final fill-scene repair has fresh green native size/both-face/rotation/zoom/large-text and two actual Android production-loader size/lifecycle/delayed-HTTP checks. Original native output stays diagnostic, not a wholly green original journey. Final identities and exact owned cleanup retained. Only I07b closes; I07 parent/I08/B2 review/final/release obligations remain.",
+  "selectionReason": "D-304 authorization, clean master/exact supplied starting commit, reviewed B1, implemented I07a and no findings match the supplied earliest-ready I07b priority. Complete the usable deck/import inspector before I07 parent reconciliation and I08 contextual import. Affected checks cover shared preview/save face mapping, personal controller capture/Back/clear, retained-definition reads, native row/thumbnail/face/text/rotation/restart behavior and the artwork renderer's observed sizing defect. Reuse unchanged backend/provider/download qualification; no full suite, clean build or infrastructure fault matrix is justified. Required initial native segments and fresh affected rechecks are reported separately.",
+  "sourceIds": ["P-044", "P-049", "T-399", "T-680", "F21"],
+  "sourceDisposition": "I07.collection partial assertions under D-293: accounts-decks-and-lobby deck inspection, D08 and retained definition/artwork contracts. Preparation/Ready and gameplay hidden-face/event assertions remain I10/I12/I17/I18; no whole cross-feature acceptance scenario or independent review is claimed.",
+  "remainingObligations": [
+    "I07 parent evidence reconciliation, I08 contextual Overwrite/Merge, then independent B2 capability review; no review after this child.",
+    "I10/I12 preparation-row/Ready and selected-copy assertions; I17/I18 gameplay-specific covered-face disclosure/events. Presentation reuse does not grant hidden information.",
+    "I34 corrected complete native journey/full-suite and broad deferred assertions; current evidence composes initial successful native segments, a green retained restart and final affected artwork rechecks, not a wholly green original command.",
+    "I33-I36 performance, compatibility/upgrade and complete final interface-to-mock comparison plus every external release gate remain unverified. No deployment, paid resource, subagent, new loop or authorization/model/grant change."
+  ],
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain :androidApp:testDebugUnitTest --tests '*CardInspectionTest' --tests '*DeckSaveTest' --tests '*DeckImportControllerTest' --tests '*DeckManagementTest' :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/affected-host.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T151433Z-3ad15f39/capture.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-3ad15f39000000000000000000000001 provision",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/environment-provision.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-3ad15f39000000000000000000000001 provision --config /tmp/opencode/i04b-first-config.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/device-provision.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:39769 -PatwCatalogTestOrigin=http://127.0.0.1:43119 -PatwCatalogPath=/prism/ :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug :e2e:compileTestKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/hosted-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-3ad15f39000000000000000000000001 prepare-app --environment /tmp/opencode/atw-e2e-3ad15f39000000000000000000000001 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/prepare-app.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-check.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-journey.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-check.py --finish",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-restart-recheck.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:39769 -PatwCatalogTestOrigin=http://127.0.0.1:43119 -PatwCatalogPath=/prism/ :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest :androidApp:lintDebug :e2e:compileTestKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/artwork-size-build.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-3ad15f39000000000000000000000001 unroute",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/unroute-update.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-3ad15f39000000000000000000000001 prepare-app --environment /tmp/opencode/atw-e2e-3ad15f39000000000000000000000001 --apk /home/tuomas/projects/async-tt-wiz/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/prepare-artwork-update.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-check.py --art",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-full-art-recheck.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T151433Z-3ad15f39/artwork-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/artwork-instrumentation.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T151433Z-3ad15f39/artwork-check.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T151433Z-3ad15f39/retain.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/retention.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T151433Z-3ad15f39/retain.py"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-devices.py --directory /tmp/opencode/atw-device-3ad15f39000000000000000000000001 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/cleanup-device.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/e2e-environment.py --directory /tmp/opencode/atw-e2e-3ad15f39000000000000000000000001 cleanup",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/cleanup-environment.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T151433Z-3ad15f39/handoff-check.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/handoff-check.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T151433Z-3ad15f39/handoff-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/ArtworkProductionTest.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardArtwork.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspectionController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckImportController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckImportScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckLibraryController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DeckSavePlan.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/SavedDeckScreen.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/CardInspectionTest.kt",
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/README.md",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/affected-host.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/artwork-check.py",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/artwork-instrumentation.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/artwork-size-build.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/capture.py",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/cleanup-device.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/cleanup-environment.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/device-provision.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/environment-inputs.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/environment-provision.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/handoff-check.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/handoff-check.py",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/host-junit.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/hosted-build.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/input-identities.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-check.py",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-full-art-recheck.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-journey.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/native-restart-recheck.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/prepare-app.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/prepare-artwork-update.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/retain.py",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/retention.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-inspection-final.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-inspection-final.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-back-art-portrait.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-back-art-portrait.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-back-text-landscape.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-back-text-landscape.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-broken-art-row-alternative.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-broken-art-row-alternative.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-missing-art.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-missing-art.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-passed.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-single-art-portrait.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-preview-single-art-portrait.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-result-0.xml.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-saved-back-landscape.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-saved-back-landscape.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-saved-large-text-short-viewport.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-saved-large-text-short-viewport.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-session-closed.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-20bbe88c68344ad29ff60a914c8f55dc-session.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-inspection-final.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-inspection-final.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-inspection-passed.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-result-0.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-saved-after-restart.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-saved-after-restart.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-session-closed.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-adf52ab16065449486258bd34dc2052b-session.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-art-size-passed.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-back-landscape.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-back-landscape.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-back-portrait.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-back-portrait.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-front-portrait.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-front-portrait.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-large-text.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-full-art-large-text.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-inspection-final.png",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-inspection-final.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-result-0.xml",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-session-closed.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/runner-cd463eab7d24454c9d5d5a11c248505e-session.json",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/unroute-update.json",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeCardInspectionTest.kt"
+  ]
+}

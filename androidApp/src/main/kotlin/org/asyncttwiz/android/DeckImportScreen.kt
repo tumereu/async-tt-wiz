@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.*
@@ -73,11 +76,16 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                     Text("${section.title} · ${result.count(section)}", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 12.dp))
                     for (entry in result.entries.filter { it.section == section }) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                        Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Inspect ${entry.printing.name}") { controller.inspect(entry) }
+                            .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(entry.quantity.toString(), Modifier.widthIn(min = 24.dp))
-                            CardArtwork(ArtworkReference.from(entry.printing, result.catalog!!.checksum, "small"),
-                                entry.printing.name, 48, 68, Modifier.size(36.dp, 50.dp))
+                            Box(Modifier.size(48.dp, 68.dp).clickable(onClickLabel = "Inspect ${entry.printing.name} artwork") {
+                                controller.inspect(entry)
+                            }.semantics { contentDescription = "Inspect artwork for ${entry.printing.name}" }, contentAlignment = Alignment.Center) {
+                                CardArtwork(ArtworkReference.from(entry.printing, result.catalog!!.checksum, "small"),
+                                    entry.printing.name, 48, 68, Modifier.size(36.dp, 50.dp))
+                            }
                             Column(Modifier.weight(1f)) {
                                 Text(entry.printing.name)
                                 Text("(${entry.printing.set}) ${entry.printing.number}", style = MaterialTheme.typography.bodySmall)
@@ -95,4 +103,5 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
             list(); Spacer(Modifier.height(12.dp)); feedback()
         }
     }
+    CardInspection(controller.inspection)
 }

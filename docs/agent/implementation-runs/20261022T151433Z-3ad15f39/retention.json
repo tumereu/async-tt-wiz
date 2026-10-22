@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/retain.py"
+  ],
+  "exitCode": 0,
+  "output": "PASS retained 17 focused host cases, green retained restart and final full-art native checks, actual two-test Android artwork size/delayed-lifecycle output and exact final inputs/APKs/image identities\nInitial full native command remains diagnostic; its successful preview/saved segments are reused, not relabeled as a green whole journey or as final-renderer evidence\n"
+}

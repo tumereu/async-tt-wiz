@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -123,6 +124,6 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
     Box(modifier) {
         val loaded = result?.takeIf { it.first == request }?.second
         if (loaded == null) Text(fallback)
-        else Image(loaded.asPainter(context), contentDescription = fallback, contentScale = ContentScale.Fit)
+        else Image(loaded.asPainter(context), contentDescription = fallback, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
     }
 }

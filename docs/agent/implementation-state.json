@@ -81,7 +81,8 @@
                                   "docs/agent/implementation-runs/20261022T132840Z-1bd01564.json",
                                    "docs/agent/implementation-runs/20261022T133231Z-4b656bf2.json",
                                     "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
-                                    "docs/agent/implementation-runs/20261022T134014Z-ca978b34.json"
+                                     "docs/agent/implementation-runs/20261022T134014Z-ca978b34.json",
+                                     "docs/agent/implementation-runs/20261022T151433Z-3ad15f39.json"
    ],
   "findings": [],
   "batches": [
@@ -785,7 +786,9 @@
     {
       "id": "I07b",
       "batch": "B2",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261022T151433Z-3ad15f39.json",
+      "qualification": "Delivered reusable D08 inspection from saved-deck and resolved-preview row/independent 48dp thumbnail targets using captured retained definitions and explicit printing faces. Full Unicode text/defaults, face navigation, large lazy art/enlarge/pan, missing/broken-art fallback, Close/native Back, draft/section/quantity preservation, rotation and private cleanup use existing controllers/loader without new writes/catalog lookup/gameplay events. Seventeen affected host checks pass; actual API29 normal-APK preview/save/saved-face assertions completed through large text before a test-only absent-font-scale restoration failure. Repaired cleanup plus green retained restart supplies the missing assertions. Capture inspection exposed intrinsic-size art; final fill-scene correction has fresh green native bounds/both-face/rotation/zoom/large-text evidence and two actual Android production-loader size/cache/rebind/disposal/delayed-HTTP tests. Original native command remains diagnostic and old images are not final full-art evidence. Exact final source/fixture/lock/APK/image identities and owned cleanup retained. Only I07b closes; I07 parent, I08, independent B2 review, preparation/gameplay disclosure, I33-I36 final corrected full journey/full-suite/compatibility/UI comparison and external gates remain open.",
       "dependsOn": ["I07a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T133657Z-5e073769.json",
       "outcome": "Deliver D08 reusable full-card/art inspection from saved-deck and existing resolved-import rows using exact retained definitions/printing faces and I05's production artwork adapter. Quantity-art-name rows expose a full-sized thumbnail target and larger row alternative. Full text, all faces, lazy art/text fallback and close/native Back are usable in both orientations without changing the deck/import draft or sending gameplay inspection events. Prepare presentation reuse, not a second gameplay disclosure policy or a new catalog browser.",

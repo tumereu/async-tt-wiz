@@ -1,0 +1,49 @@
+{
+  "runId": "20261022T162313Z-99383c98",
+  "sessionID": "ses_e9b93863fffeAIVI6LCyzZqOnT",
+  "startCommit": "e419db2fec001ef7a02dc08b454751961160d891",
+  "mode": "verify",
+  "target": "B2",
+  "findingIds": ["B2-R01"],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Independently verified B2-R01 at the supplied fixing commit. All 20 targeted host tests executed and passed without skips, including the original real-DeckApi/controller 401 regression, seven private transport routes, read/definition/rename/delete recovery, same-account create/Merge uncertain-payload retry and destination/back-stack retention, failed login correction, stale-token rejection filtering, different-account callback isolation and explicit Logout cleanup. Inspected the actual production read/save callback wiring and AccountEntry/AuthenticatedShell rendering and retention branches; no product changes were made. B2-R01 is verified and B2 is reviewed using its existing complete independent capability coverage plus this targeted verification. Next eligible work is I09; no new native journey, full-suite, final UI or release pass is claimed.",
+  "selectionReason": "Clean master/index at the exact supplied HEAD and active D-304 authorization agree with the driver's priority verification selection: B2-R01 was fixed-awaiting-check before new B3 work. The bounded affected scope is explicit deck invalidation to ordinary sign-in, preserved same-process deck intent on same-account return and cleanup on different-account login/Logout. D-307 calls for these targeted production-controller/real-DeckApi MockEngine and auth regressions, not another full capability audit, unchanged backend/catalog/storage matrix or APK rebuild. Complete original B2 capability coverage remains anchored to 3ba4099a9d19c169ba59e275cee117be453d16d3; the inspected fix is e419db2fec001ef7a02dc08b454751961160d891.",
+  "sourceIds": ["D-217", "D-241", "D-278", "D-289", "T-542", "T-573", "T-679"],
+  "sourcePaths": ["docs/design/03-contracts/accounts-decks-and-lobby.md"],
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/20261022T162313Z-99383c98-targeted-tests.json -- ./scripts/gradle.sh --no-daemon --console=plain -PatwApiOrigin=http://127.0.0.1:41901 -PatwCatalogTestOrigin=http://127.0.0.1:41565 -PatwCatalogPath=/prism/ :androidApp:testDebugUnitTest --tests '*B2DeckIntegrationTest' --tests '*DeckReauthenticationTest' --tests '*AuthControllerTest'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T162313Z-99383c98-targeted-tests.json",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T162313Z-99383c98-junit.json"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T162313Z-99383c98-check.py > docs/agent/implementation-runs/20261022T162313Z-99383c98-validation.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T162313Z-99383c98-validation.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T162313Z-99383c98-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/20261022T162313Z-99383c98-check.py",
+    "docs/agent/implementation-runs/20261022T162313Z-99383c98-junit.json",
+    "docs/agent/implementation-runs/20261022T162313Z-99383c98-targeted-tests.json",
+    "docs/agent/implementation-runs/20261022T162313Z-99383c98-validation.txt",
+    "docs/agent/implementation-runs/20261022T162313Z-99383c98.json",
+    "docs/agent/implementation-state.json"
+  ],
+  "verificationAssessment": [
+    "The original regression now receives HTTP 401 through DeckApi and transitions AuthController from authenticated account/token to enabled ordinary sign-in with a clear message; invalidation is not explicit Logout. DeckApi handles 401 before JSON parsing on every private route, while a 503 does not force reauthentication.",
+    "AuthViewModel wires both the library/read and import-definition/save transports to AuthController.authenticationRequired. That callback posts to the UI thread and checks the rejected credential is still current. AccountEntry renders the ordinary form when account is null; successful same-account login restores the captured destination/back stack before AuthenticatedShell can exit a retained import. The existing ViewModel controllers preserve draft/preview/target/mode and exact uncertain payloads. Both create and additive Merge tests assert byte-identical retry bodies, replacement credentials and one simulated effect; these are client retry assertions, not a newly executed PostgreSQL dedup test.",
+    "Read/definition failures retain the exact selected deck and allow retry; rename/delete retries keep their original request body and draft. A delayed old-token 401 cannot invalidate the replacement login. Successful different-account login invokes private controller cleanup before exposing that shell, fencing queued old-account callbacks. Explicit Logout still clears private drafts and return context. Existing auth regression tests also pass for reset, credential storage, restore, owner closure and local sign-out failure boundaries.",
+    "No remaining failure of the specified B2-R01 correction was found. Verification does not reopen unaffected B1/B2 coverage, certify native reset/navigation on a device, or introduce stronger D-289 in-flight ordering requirements. Runtime and build inputs are byte-identical to the starting fix commit."
+  ],
+  "remainingObligations": [
+    "I31/I34 retain actual normal-app multi-device reset/relogin with deck workflows, broader recovery/full-suite assertions and all prior deferred qualification. This unit independently verifies the original host transport/controller seam, not a newly run native reset journey.",
+    "Later I09-I36 capabilities, I33 physical performance, I35 compatibility/upgrade and I36/B8 complete D-303 interface-to-mock comparison remain pending with their existing ownership. All external rights/signing/distribution/operator gates remain unchanged and unverified."
+  ]
+}

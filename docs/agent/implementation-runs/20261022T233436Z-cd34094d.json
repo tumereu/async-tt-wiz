@@ -1,0 +1,73 @@
+{
+  "runId": "20261022T233436Z-cd34094d",
+  "sessionID": "ses_e9a0891edffenHpinr2Sm1rO2u",
+  "startCommit": "92786b5fc3bae5ac7097683702e0fc98058f39a7",
+  "mode": "implement",
+  "target": "I11",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split before coding: I11 is in-progress with two pending B3 children. I11a delivers shared initial board/model/canonical random vectors and real durable starter/readiness/once-only initialization; I11b delivers native starter/Ready/Withdraw and the actual initial production table with normal-APK start/recovery in both orientations. Full I11 scope remains: definitions/containers, preparation/incarnation boundaries, independent recorded shuffles, 20 life, turn-1 Untap and no opening draw. No runtime input, UI document, coverage disposition, review or release gate changed. No start behavior is claimed implemented by planning. Next is I11a, then I11b and a small parent evidence audit; I12 and independent B3 review remain pending.",
+  "selectionReason": "Clean master/index and exact supplied baseline agree with D-304 active authorization. B1/B2 are reviewed, B2-R01 verified and I09/I10 implemented; no due finding or completed-group review precedes I11. Inspection confirms PreparedDeck/PreparationRules support concrete selection/transfers and ready flags but no starter/Ready/start operations; GameWire/GameService dispatch only invitations and preparation, and WaitingLobby has preparation/status presentation but no active board surface. I11 needs substantial shared semantic/random initialization plus atomic server lifecycle work and native production table integration. Two bounded implementation scopes preserve the capability without recursive scaffold-certification layers. Affected checks here are planning transition/priority, unchanged source/coverage obligations and owned JSON/evidence/whitespace only; no product build/device/full-suite rerun is justified.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261022T233436Z-cd34094d-planning-check.py > docs/agent/implementation-runs/20261022T233436Z-cd34094d-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261022T233436Z-cd34094d-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261022T233436Z-cd34094d-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
+    "docs/agent/implementation-runs/20261022T233436Z-cd34094d-planning-check.py",
+    "docs/agent/implementation-runs/20261022T233436Z-cd34094d-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I11a", "I11b"],
+    "dependencies": "I11a depends on implemented I10; I11b depends on I11a; both inherit B3. I11 remains open until both complete and exact child evidence is reconciled, checking only missing affected integration. No child reviews; independent B3 review still follows I09-I12 together. No later task advances here.",
+    "sourceIds": ["P-011", "P-045", "P-046", "P-050", "P-051", "P-052", "P-053", "P-054", "P-061", "T-400", "T-401", "T-402", "T-403", "T-404", "T-405", "T-406", "T-433", "T-434", "T-435", "T-436", "T-437", "T-438", "T-439", "T-446", "T-447", "T-634", "T-635", "T-655", "T-696", "F33", "F60"],
+    "sourceDisposition": "All 31 I11.start assignments remain pending/unexecuted in the unchanged source-pinned ledger. I11a owns deterministic model/random/server initial-start assertions; I11b owns native starter/readiness/initial table and affected recovery. Cross-feature assertions remain partial until their owning I12/I13-I16/I18/I22-I26/I28/I31/I34-I36 units. Assigned/historical checks are not newly executed passes.",
+    "contractPaths": [
+      "docs/design/03-contracts/accounts-decks-and-lobby.md",
+      "docs/design/03-contracts/domain-model.md",
+      "docs/design/03-contracts/board-and-controls.md",
+      "docs/design/03-contracts/game-actions.md",
+      "docs/design/04-technical/protocol-v1.md",
+      "docs/design/04-technical/storage-mechanics.md",
+      "docs/design/04-technical/runtime-and-verification-profile.md",
+      "docs/design/04-technical/request-ordering-and-recovery.md",
+      "docs/design/05-verification/random-v1-vectors.md",
+      "docs/design/05-verification/acceptance.md",
+      "docs/design/02-experience/gaps.md",
+      "docs/design/02-experience/ui/review.md",
+      "docs/design/02-experience/ui/feedback.md"
+    ],
+    "retainedObligations": [
+      "D-190/D-191/D-200-D-205/D-274: own selected deck permits Ready without legality/size/opponent-presence prerequisites; first Ready persists, acceptance alone is not readiness/start, and only both accepted Ready initialize. Starter/preparation edits and withdrawal clear only actor Ready. Arrival order determines edit-before-start versus late rejection. Start is a single durable transition, not host Start or UI entry/Untap, with independent Library orders, resolved starter, 20 life, turn-1 Beginning/Untap and no opening draw. Choosing/opening Random is not a roll. Universal starter default/access/retention is not established by an illustrative selected mock; apply current rules without inventing policy.",
+      "D-199/D-202/D-213/D-221/D-259/D-275/D-278/D-289: preserve retained definitions, concrete prepared identity, source edit/delete isolation and persistent game/name/date. Play has no Sideboard access but does not destroy lobby preparation. Preparation-round/play-incarnation/root intent remains exact across retries; initialization/result/revision/outbox commit once on the existing ordered path. Shared semantics stay separate from generated persistence types; accepted replica, volatile originals/prediction and personal UI remain distinct. No second engine/queue/HTTP mutation path, E2E business-state injection, durable client outgoing journal, offline mutation or stronger reset races.",
+      "Runtime random v1/T-634/T-635/T-655: pure SHA-256 counter stream, unsigned words/rejection sampler/UUID canonical order, strict seed and domain-separated starter. Independent platform SecureRandom acquisition only at actual invocation/start. Retain accepted input/algorithm/concrete outcomes and replay them, never resample on retry/review/restart. Literal independently calculated empty/one/2/7/60/257, all-zero/incrementing/all-ff and rejection-edge fixtures are required lower-layer tests; native setup observes actual outcomes, not a chosen-result interface. Later in-game mulligan/replay/upgrade assertions retain their tasks.",
+      "L01/L02/L05/G01/U01/F33/F60/T-696: native truthful readiness, disabled-Ready reason, participant/Random choice, Ready/withdrawal and accepted initial production table in both orientations. Extend the surface in I15/I16, not throwaway G00/test-only screen. Observe actual Libraries/life/turn/empty hands with text/art fallback and no Sideboard/action fiction. Reconnect/restart cannot reopen lobby/reinitialize or treat receipt as accepted board. Full Canvas interactions and complete I12 lifecycle/list/cancellation/two-Android overlaps remain pending, not fake controls or claimed passes.",
+      "D-307/D-308: two substantive children, affected incremental checks then save/exit; parent evidence audit only. No repeated unchanged build/device fault/full-suite matrices, child review or qualification layer. Independent B3 review follows I09-I12. I34 retains full suite/rare assertions and earlier deferred HTTP-error/migration-fixture/reduced-motion checks, I35 compatibility and I36/B8 complete interface comparison/fixes/rechecks. All gates/model/grants/budgets/one-writer/save safeguards stay unchanged. No loop/subagent/deployment/paid resource or UI-document edit/publication here."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "core/src/commonMain/kotlin/org/asyncttwiz/core/EntityId.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Preparation.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt"
+  ]
+}

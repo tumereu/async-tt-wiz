@@ -104,7 +104,8 @@
                                                          "docs/agent/implementation-runs/20261022T212809Z-652a7416.json",
                                                           "docs/agent/implementation-runs/20261022T215026Z-802a24bd.json",
                                                            "docs/agent/implementation-runs/20261022T230001Z-668e6673.json",
-                                                           "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json"
+                                                            "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json",
+                                                            "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json"
    ],
   "findings": [
     {
@@ -1051,7 +1052,47 @@
         "Retain visible/faded feedback and row-transition evidence: slot space stays fixed even when empty/invisible; latest actual displayed move replaces/restarts and fades around 1-2s without shifting headers/lists/controls. A genuinely emptied row quickly fades/slides, quantity-only changes retain it, visual ghosts are neither actionable nor counted, rapid reconciliation retargets current geometry and neither dispatch nor counts wait for animation. Reduced-motion/accessibility preserve clear actual result and identity. Run/fix only affected incremental tests/builds; no new feature/qualification split. Selected I10b/I10 parents later audit exact child evidence and only missing affected seams. I11/I12 retain Ready/start/cancel/play-sideboard exclusion/two-Android overlaps, I14 broader gameplay prediction, I28/I31 rematch and I34-I36/B8 final full-suite/compatibility/interface comparison plus all unchanged release gates."
       ]
     },
-    { "id": "I11", "batch": "B3", "status": "pending" },
+    {
+      "id": "I11",
+      "batch": "B3",
+      "status": "in-progress",
+      "dependsOn": ["I10"],
+      "children": ["I11a", "I11b"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
+      "outcome": "Deliver the full I11 initial shared game: shared model/definitions/containers, starter/readiness/preparation-round and incarnation boundaries; both Ready start once with independent recorded shuffles, 20 life, turn-1 Beginning/Untap and no opening draw. I11a implements shared deterministic model/randomness and actual durable server start on the existing processor. I11b completes native starter/Ready presentation and renders the real accepted initial state on the production table surface, extended by I15/I16, not retired G00 or a test-only screen. Parent closes by exact child-evidence audit and only missing affected integration. B3 independent review still follows I09-I12 together.",
+      "checks": [
+        "Reconcile exact I11a/I11b records, retained shared golden/model, real PostgreSQL/socket and native initial-start evidence with current relevant inputs. Audit once-only initialization, preserved prepared-copy/definition identity, independent recorded random outcomes, coherent initial table and reconnect/restart without resampling. Run only a missing or materially affected integration seam, not unchanged child builds/journeys.",
+        "Preserve all I11.start source assignments and distinguish initial-start assertions from later tasks: complete lobby/list/cancellation and two-Android overlaps I12; gameplay/prediction/Canvas interactions I13-I16; mulligans and replay/Undo/history I18/I22-I26; fresh rematch I28/I31; final cross-target/full-suite/compatibility/UI comparison I34-I36/B8 and external gates. No child review or false full-scenario pass."
+      ]
+    },
+    {
+      "id": "I11a",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I10"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
+      "outcome": "Implement shared versioned initial board/player/card/definition/container and play-root types plus deterministic canonical randomness, and integrate real starter/Ready/withdrawal/once-only start into the existing ordered GameAction/GameService/inbox/outcome/revision/outbox path. Reuse immutable prepared concrete copies and retained definitions; keep lobby-only Sideboard out of playable state while preserving preparation for later return. Bind lobby requests to the originating preparation round, create a distinct play incarnation/root and initialize both Libraries with independent server SecureRandom inputs, retained concrete orders and selected/resolved starter, 20 life, turn 1 Beginning/Untap, empty other areas and no draw. Shared processing never acquires entropy and recovery never reinitializes. This is substantive shared/server start implementation; I11b delivers native controls/table, not a separate engine or queue.",
+      "checks": [
+        "Run affected shared semantic/codec tests and literal independent runtime-v1 golden fixtures: strict canonical 32-byte base64url seeds, domain-separated SHA-256 counter/unsigned words, unbiased boundary rejection, unsigned UUID sorting and Fisher-Yates. Cover all-zero/incrementing/all-ff, empty/one/2/7/60/257 membership and permuted enumeration, starter domain/participant ordering and invalid encoding/version. Expected bytes/words/orders come from independent reference calculation, not the implementation under test. Retain actual target coverage; remaining supported-target/upgrade qualification stays I34/I35.",
+        "Run actual PostgreSQL/authenticated ordered-path start tests with explicit retained-schema migration: own deck required for Ready but no size/legality or opponent-presence prerequisite, inviter may prepare/ready before acceptance, acceptance alone never starts, own-only clearing on deck/transfer/starter edits and withdrawal. Both accepted Ready transition once; change-before-start applies first, late lobby work rejects without reopening. Preserve game/name/date/prepared copies/definitions and record fresh play/root plus both independent shuffle inputs/concrete orders and Random result only at actual start. No automatic opening-draw node or ordinary Untap-triggered reset.",
+        "Exercise same-ID pending/final recovery, changed-intent refusal, stale preparation/play scope, actual transaction rollback and admitted-start worker/service recovery on the existing processor. Initialization, original result, revision and outbox commit atomically; duplicate/reconnect/read/restart return the same play/root/orders/starter without another roll, life reset or creation. Keep account-private reads/outcomes and stream fences. Genuinely distinct starts need independent inputs; full result-return/rematch remains I28/I31. Run only affected migration/preparation/invitation/shared/server checks, not unchanged foundation fault matrices or the full suite.",
+        "Keep native I11b and I12 cancellation/list/full two-Android overlaps pending. Retain normal later-game extension interfaces for I13-I16/I18/history, not a start-only alternate model/test endpoint/temporary service. Do not infer universal Random default/access/retention from illustrative mocks or treat old open labels as theoretical blockers; apply current contracts and record only a demonstrated unresolved choice. No in-game Sideboard path, host Start, pre-start reroll, durable client outgoing journal or offline mutation."
+      ]
+    },
+    {
+      "id": "I11b",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I11a"],
+      "planningRecord": "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
+      "outcome": "Complete native L01/L02/L05 starter/Ready/Withdraw Ready with both players' truthful readiness, and route accepted start to the real production initial table surface using I11a's shared accepted board/definitions/containers. Extend GameSession/LobbyController/navigation and accepted/predicted/UI separation without a new queue or authoritative local initialization. Show actual owner-associated Libraries/counts, life 20, chosen turn player/turn 1 Untap and empty hands/other play areas with retained text/art fallback; no playable Sideboard, retired G00, hard-coded demo state or fake future action. Establish the production rendering/layout foundation extended by I15/I16, while full gestures/basic moves remain those tasks. Exercise usable native preparation-to-initial-table and recovery in both orientations.",
+      "checks": [
+        "Run affected production transport/session/controller/auth/navigation tests for captured preparation-round starter/Ready/withdrawal intents, own-only Ready clearing, both-player statuses, no-deck disabled Ready reason, invitation versus readiness and connected-use gating. Accepted initialization comes only from revisioned server state, not receipt/result-only local reset. Preserve uncertain IDs on same-process reconnect/reauthentication; stale reads/acks cannot rewind play or reopen lobby. Logout/account switch clears/fences; restart reads accepted state without recreating outgoing work.",
+        "Exercise normal installed APKs against the isolated real backend with UI-created synthetic users/decks/game: choose/prepare, select explicit participant and Random options without a pre-start roll, first Ready waits, second starts that exact game, both display the same actual initial play, leave/reopen/rotate/restart and recover an interrupted start acknowledgement without duplicate initialization. Check both orientations, reachable Ready/Withdraw, actual green Ready versus non-ready/invitation status, native Back/fullscreen/navigation, stable title/date and no app Back or host Start. Retain actual outputs/captures and exact play/root/library/order/starter observations; business state comes through normal UIs, not API-controlled opponent or chosen-result injection.",
+        "Render actual initial state on the production table surface with consistent participant/owner association, Libraries containing prepared mainboard only, empty hands/other zones, life 20 and turn-1 Untap. Sideboard has no play browser/move route. Missing art/catalog cannot prevent text-backed initial play; entering/resuming table never shuffles/resets/draws. Use incremental affected APK/component/lint/boundary checks and qualified device adapters; retain exact inputs/evidence/owned cleanup without another device fault matrix/full-suite run.",
+        "Finish this native capability and save/exit without qualification-only children or child reviews. I11 parent later audits exact evidence. I12 owns remaining list/lobby synchronization, Cancel-versus-start/invitation/preparation overlaps and complete two-Android/isolation assertions, reusing initial-start evidence here. I13-I16 own gameplay/prediction/Canvas gestures, I18 mulligans, I28/I31 rematch, I34-I36/B8 full/final qualification and complete interface comparison. No unexecuted cross-task requirement or release gate is claimed passed."
+      ]
+    },
     { "id": "I12", "batch": "B3", "status": "pending" },
     { "id": "I13", "batch": "B4", "status": "pending" },
     { "id": "I14", "batch": "B4", "status": "pending" },

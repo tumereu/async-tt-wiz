@@ -23,4 +23,4 @@ neither unfinished behavior nor implementation.
 The [Tier 2 overview](../02-experience/behavior.md) explains the combined
 experience. [Tier 4](../04-technical/README.md) proposes supporting mechanisms;
 [Tier 5](../05-verification/README.md) contains expected verification outcomes.
-Decision provenance and worklists are separate under [agent records](../../agent/README.md).
+Decision provenance is retained in the [decision log](../../decisions.md).

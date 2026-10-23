@@ -1689,8 +1689,7 @@ at between-card positions inside a slot or appends on unused-space drops, keepin
 other cards' relative order. Mixed-view ordering, other-view applicability,
 mixed/empty-source cases and record mappings remain separate. D-242 settles Stack
 token-disappearance inspection and source-action applicability; exact presentation
-is later UI work. See the [session handoff](../../agent/session-handoff.md)
-for the continuation point.
+is later UI work.
 
 D-144 requires a **Remove from combat** context action for an individual combat
 projection or selected combat projections. This removes occurrences/incident

@@ -7,7 +7,7 @@ structure and versioned payloads on the server; SQLite through SQLDelight on the
 client. Both map to the same Kotlin semantic objects/processor, not shared database
 schemas or generated persistence types. Exact schema, indexes, versions, encryption
 and retention policies remain design work where not completed by later profiles.
-[D-304](../../agent/implementation-authorization.md) now authorizes implementation
+[D-304](../../decisions.md) now authorizes implementation
 against the current contracts; the storage proposal alone did not supply that approval.
 
 ## Server storage responsibilities

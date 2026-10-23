@@ -963,6 +963,3 @@ features.
   owned by the separate operations repository under D-272, against this project's
   persistent-state/migration/recovery contract; they are not implemented here or
   silently assumed unnecessary.
-
-Delivery gates and implementation instructions are kept separately in
-[the agent delivery workflow](../../agent/delivery-workflow.md).

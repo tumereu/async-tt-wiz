@@ -1,5 +1,7 @@
 package org.asyncttwiz.storage
 
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.util.Locale
 
 enum class DeckSection(val title: String) { MAINBOARD("Mainboard"), SIDEBOARD("Sideboard") }
@@ -73,19 +75,31 @@ class DeckImportResolver(private val repository: CatalogRepository) {
             issues += ImportIssue(0, "Card records are not installed. Download card records, then retry lookup.")
         } else for (line in parsed.lines) {
             check(!Thread.currentThread().isInterrupted)
-            val found = catalog.find(line.name, line.set, line.number, 1000)
-            // A full multi-face name produces one candidate per explicit face; those are one printing,
-            // not an ambiguity. Distinct printings are never chosen by name/order/availability.
+            // Page through every matching printing: prolific cards must not become ambiguous just
+            // because they exceed a lookup page, nor may a later, different identity be ignored.
+            val found = buildList {
+                var after: String? = null
+                do {
+                    check(!Thread.currentThread().isInterrupted)
+                    val page = catalog.find(line.name, line.set, line.number, 256, after)
+                    addAll(page)
+                    after = page.lastOrNull()?.id
+                } while (page.size == 256)
+            }
             val groups = found.groupBy { (it.otherFaces + it.id).sorted().joinToString("|") }
-            if (groups.size != 1 || found.size == 1000) {
+            val candidates = groups.values.map { group ->
+                val record = group.first()
+                Candidate((record.otherFaces + record.id).map { id -> checkNotNull(catalog.printing(id)) }
+                    .sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id }))
+            }
+            val ambiguous = if (line.set != null) candidates.size != 1 else !sameCard(candidates)
+            if (ambiguous) {
                 issues += ImportIssue(line.line, if (found.isEmpty())
                     "${line.name}${line.set?.let { " ($it) ${line.number}" }.orEmpty()} could not be resolved. Check the name/printing or update card records."
                     else "${line.name} is ambiguous. Include an exact (SET) collector-number.")
                 continue
             }
-            val candidate = found.first()
-            val faces = (candidate.otherFaces + candidate.id).map { id -> checkNotNull(catalog.printing(id)) }
-                .sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
+            val faces = candidates.minWith(defaultPrinting).faces
             val key = line.section to faces.first().id
             val previous = entries[key]
             val quantity = (previous?.quantity?.toLong() ?: 0) + line.quantity
@@ -96,5 +110,49 @@ class DeckImportResolver(private val repository: CatalogRepository) {
         }
         // A partial resolution is useful only as diagnostics, never as a preview/save payload.
         DeckImportResult(text, if (issues.isEmpty()) entries.values.toList() else emptyList(), issues, metadata)
+    }
+
+    private class Candidate(val faces: List<CatalogPrinting>) {
+        val printing = faces.first()
+        val json: List<JsonObject> = faces.map { JsonParser.parseString(it.json).asJsonObject }
+        val oracleIds = json.mapNotNull { it.getAsJsonObject("identifiers")?.get("scryfallOracleId")?.asString }
+            .distinct().sorted()
+        val shape = faces.zip(json).map { (face, raw) ->
+            listOf(face.name.lowercase(Locale.ROOT), raw.get("faceName")?.asString?.lowercase(Locale.ROOT).orEmpty(),
+                face.side, face.token.toString())
+        }
+        val english = printing.language.equals("English", ignoreCase = true)
+        val promo = json.first().get("isPromo")?.asBoolean == true
+        val paper = json.first().let { raw -> raw.get("isOnlineOnly")?.asBoolean != true &&
+            (raw.getAsJsonArray("availability")?.any { it.asString == "paper" } != false) }
+    }
+
+    private fun sameCard(candidates: List<Candidate>): Boolean {
+        if (candidates.isEmpty()) return false
+        // Known, conflicting oracle identities are never merged by their display name. Missing
+        // oracle metadata can fall back to matching the complete name and all explicit faces.
+        val known = candidates.map { it.oracleIds }.filter { it.isNotEmpty() }.distinct()
+        if (known.size > 1) return false
+        if (known.size == 1 && candidates.all { it.oracleIds.isNotEmpty() }) return true
+        return candidates.map { it.shape }.distinct().size == 1
+    }
+
+    private val defaultPrinting = compareByDescending<Candidate> { it.english }
+        .thenBy { it.promo }.thenByDescending { it.paper }
+        .thenByDescending { it.printing.releaseDate }
+        .thenComparator { a, b -> compareCollectorNumbers(a.printing.number, b.printing.number) }
+        .thenBy { it.printing.number }.thenBy { it.printing.set }.thenBy { it.printing.id }
+
+    /** Numeric ordering (2 before 10), with deterministic handling of provider suffixes like 12a. */
+    private fun compareCollectorNumbers(a: String, b: String): Int {
+        val parts = Regex("[0-9]+|[^0-9]+")
+        val left = parts.findAll(a).map { it.value }.toList()
+        val right = parts.findAll(b).map { it.value }.toList()
+        for ((x, y) in left.zip(right)) {
+            val compared = if (x.first() in '0'..'9' && y.first() in '0'..'9') x.toBigInteger().compareTo(y.toBigInteger())
+                else x.compareTo(y, ignoreCase = true)
+            if (compared != 0) return compared
+        }
+        return left.size.compareTo(right.size)
     }
 }

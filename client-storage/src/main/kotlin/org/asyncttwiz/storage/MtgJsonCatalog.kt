@@ -30,8 +30,10 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                     objectFields(reader) { set ->
                         check(set.length in 1..32)
                         var sawCards = false
+                        var releaseDate = ""
                         objectFields(reader) { field -> when (field) {
                             "code" -> check(reader.nextString() == set)
+                            "releaseDate" -> releaseDate = reader.nextString().also { LocalDate.parse(it) }
                             "cards", "tokens" -> {
                                 if (field == "cards") sawCards = true
                                 reader.beginArray()
@@ -47,6 +49,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                             else -> skip(reader, 3)
                         } }
                         check(sawCards)
+                        index.addSet(set, releaseDate)
                     }
                 }
                 else -> skip(reader, 1)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from datetime import datetime, timezone
 import fcntl
 import fnmatch
@@ -148,6 +149,30 @@ def validate_gates(before, after, choice, report):
                 "Release gate pass needs this owning task's retained passing evidence; no waiver")
 
 
+def validate_task_graph(by_id):
+    """Check every edge once, including shared dependencies; no recursion limit."""
+    done, active = set(), set()
+    for identifier in by_id:
+        if identifier in done:
+            continue
+        active.add(identifier)
+        task = by_id[identifier]
+        stack = [(identifier, iter(task.get("children", []) + task.get("dependsOn", [])))]
+        while stack:
+            current, edges = stack[-1]
+            dependency = next(edges, None)
+            if dependency is None:
+                active.remove(current)
+                done.add(current)
+                stack.pop()
+                continue
+            require(dependency not in active, "Cycle in task dependencies/children")
+            if dependency not in done:
+                active.add(dependency)
+                task = by_id[dependency]
+                stack.append((dependency, iter(task.get("children", []) + task.get("dependsOn", []))))
+
+
 def validate_state(state):
     require(state.get("formatVersion") == 1, "Unsupported state format")
     require(isinstance(state.get("runs"), list) and state.get("activeRun") is None,
@@ -223,13 +248,7 @@ def validate_state(state):
         require(not required_disposition or finding["disposition"] == required_disposition,
                 "Finding status/disposition mismatch")
     # Catch bad child/dependency graphs before launching an agent.
-    def visit(identifier, path):
-        require(identifier not in path, "Cycle in task dependencies/children")
-        task = by_id[identifier]
-        for child in task.get("children", []) + task.get("dependsOn", []):
-            visit(child, path | {identifier})
-    for identifier in by_id:
-        visit(identifier, set())
+    validate_task_graph(by_id)
 
 
 def needs_attention(finding):
@@ -280,22 +299,80 @@ def validate_transition(before, after, choice, report):
 
     new_ids = new_tasks.keys() - old_tasks.keys()
     descendants = set()
-    def collect(identifier):
-        for child in new_tasks[identifier].get("children", []):
-            descendants.add(child)
-            collect(child)
     if mode == "implement":
-        collect(target)
-    require(new_ids <= descendants and all(new_tasks[i]["status"] == "pending" for i in new_ids),
-            "New children must be pending descendants of the selected implementation task")
+        pending = list(new_tasks[target].get("children", []))
+        while pending:
+            identifier = pending.pop()
+            if identifier not in descendants:
+                descendants.add(identifier)
+                pending.extend(new_tasks[identifier].get("children", []))
+    units = report.get("implementationUnits", [])
+    require(isinstance(units, list) and all(isinstance(u, dict) and u.get("id") in new_ids and
+            isinstance(u.get("sourceIds"), list) and u["sourceIds"] and
+            all(isinstance(s, str) and s for s in u["sourceIds"]) and
+            check_reference(report, u.get("evidence"), passing=True) for u in units) and
+            len({u["id"] for u in units}) == len(units),
+            "Implementation units need unique new child IDs, source IDs and passing evidence")
+    completed_children = {u["id"] for u in units}
+    require(new_ids <= descendants and all(new_tasks[i]["status"] ==
+            ("implemented" if i in completed_children else "pending") for i in new_ids),
+            "New children must be pending descendants or explicitly evidenced implementation units")
+    require(not units or mode == "implement" and not checkpoint,
+            "Only implementation can complete new child units")
     if new_ids:
         require(not checkpoint, "Troubleshooting and planning-only splitting are separate units")
-        require(new_tasks[target]["status"] == "in-progress", "Split-only unit must leave parent in progress")
+        require(new_tasks[target]["status"] in ({"in-progress", "implemented"} if units else {"in-progress"}),
+                "Split-only unit must leave parent in progress")
         require(all(isinstance(new_tasks[i].get("outcome"), str) and new_tasks[i]["outcome"].strip() and
                     isinstance(new_tasks[i].get("checks"), list) and new_tasks[i]["checks"] and
                     all(isinstance(c, str) and c.strip() for c in new_tasks[i]["checks"]) and
                     "dependsOn" in new_tasks[i] for i in new_ids),
-                "Planning-only split needs concrete child outcomes, checks and dependencies")
+                 "Planning-only split needs concrete child outcomes, checks and dependencies")
+    if units:
+        # Replay scheduling only, never checks or product work. Each declared child
+        # must have been the next ready selection before it was implemented.
+        staged = copy.deepcopy(before)
+        staged["tasks"] = copy.deepcopy(after["tasks"])
+        for task in staged["tasks"]:
+            if task["id"] in old_tasks:
+                task.update(copy.deepcopy(old_tasks[task["id"]]))
+            else:
+                task["status"] = "pending"
+        selected = next(t for t in staged["tasks"] if t["id"] == target)
+        selected.update(children=new_tasks[target]["children"], status="in-progress")
+        for unit in units:
+            child = next(t for t in staged["tasks"] if t["id"] == unit["id"])
+            require(not child.get("children") and selection(staged) ==
+                    {"mode": "implement", "target": child["id"], "findingIds": []},
+                    "Child implementation bypassed dependency/selection order")
+            require(new_tasks[child["id"]].get("implementationRecord") == after["runs"][-1],
+                    "Completed child needs this run's implementation record")
+            child["status"] = "implemented"
+
+    closures = report.get("ancestorClosures", [])
+    require(isinstance(closures, list) and all(isinstance(c, dict) and c.get("id") in old_tasks and
+            isinstance(c.get("reason"), str) and c["reason"].strip() and
+            check_reference(report, c.get("evidence"), passing=True) for c in closures) and
+            len({c["id"] for c in closures}) == len(closures),
+            "Ancestor closures need unique IDs, a reason and passing evidence")
+    ancestors = set()
+    parents = {child: task["id"] for task in before["tasks"] for child in task.get("children", [])}
+    ancestor = parents.get(target)
+    while ancestor:
+        ancestors.add(ancestor)
+        ancestor = parents.get(ancestor)
+    closed = {c["id"] for c in closures}
+    require(not closed or mode == "implement" and new_tasks[target]["status"] == "implemented" and
+            closed <= ancestors, "Only completed implementation may close its own ancestors")
+    for identifier in closed:
+        old, new = old_tasks[identifier], new_tasks[identifier]
+        require(old["status"] in {"pending", "in-progress"} and new["status"] == "implemented" and
+                old.get("children") and all(new_tasks[c]["status"] == "implemented"
+                    for c in old["children"] + old.get("dependsOn", [])) and
+                new.get("implementationRecord") == after["runs"][-1] and
+                {k: v for k, v in new.items() if k not in {"status", "implementationRecord", "qualification"}} ==
+                {k: v for k, v in old.items() if k not in {"status", "implementationRecord", "qualification"}},
+                "Ancestor closure requires all children/dependencies and preserves its original scope")
     for identifier, old in old_tasks.items():
         new = new_tasks[identifier]
         if mode == "implement" and identifier == target:
@@ -310,6 +387,8 @@ def validate_transition(before, after, choice, report):
             if new["status"] == "blocked":
                 require(new.get("blocker") and check_reference(report, new.get("blockerEvidence")),
                         "Blocked implementation needs retained blocker evidence")
+        elif identifier in closed:
+            continue
         elif new != old:
             require(identifier in adjustments and old.get("children", []) == new.get("children", []) and
                     (new["status"] == old["status"] or old["status"] != "implemented" and
@@ -625,7 +704,7 @@ class Runner:
 
     def role_paths(self, state, choice, report, actual, report_relative):
         """Default-deny runtime/build changes outside implement/fix roles."""
-        planning = choice["mode"] == "blocked" or not troubleshooting(report) and choice["mode"] == "implement" and next(
+        planning = choice["mode"] == "blocked" or not troubleshooting(report) and not report.get("implementationUnits") and choice["mode"] == "implement" and next(
             t for t in load(self.state_path)["tasks"] if t["id"] == choice["target"])["status"] == "in-progress"
         splitting_review = choice["mode"] == "review" and not report.get("reviewedUnitIds") and not report.get("blockedReviewUnitIds")
         if choice["mode"] in {"implement", "fix"} and not planning:
@@ -740,7 +819,9 @@ class Runner:
                 permissions, state, choice, self.state_relative, report_relative, run_id))
             record.update(sessionID=session, status="running")
             atomic_json(active_path, record)
-            context = {**record, "state": self.state_relative, "wallTimeSeconds": seconds}
+            context = {**record, "state": self.state_relative, "wallTimeSeconds": seconds,
+                       "contextPath": str(directory / "context.json")}
+            atomic_json(directory / "context.json", context)
             prompt = repo_path(self.root, PROMPT).read_text() + "\n\nTHIS RUN:\n" + json.dumps(context, indent=2)
             info = self.client.execute(session, prompt, directory / "agent.jsonl", seconds)
             record["cliExitCode"] = info.get("cliExitCode", 0)

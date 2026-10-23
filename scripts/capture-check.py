@@ -26,7 +26,9 @@ def main():
         record["output"] = result.stdout.decode("utf-8")
     except UnicodeDecodeError:
         record["outputBase64"] = base64.b64encode(result.stdout).decode("ascii")
-    Path(output).write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n")
+    destination = Path(output)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n")
     print(f"exitCode={result.returncode}; retained output: {output}")
     raise SystemExit(result.returncode)
 

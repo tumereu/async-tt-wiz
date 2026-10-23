@@ -379,6 +379,108 @@ class SelectionTests(unittest.TestCase):
                     loop.validate_state(state)
 
 
+class EfficiencyTests(unittest.TestCase):
+    def test_shared_dependency_graph_is_visited_once(self):
+        class Counted(dict):
+            accesses = 0
+            def __getitem__(self, key):
+                self.accesses += 1
+                return super().__getitem__(key)
+        graph = Counted({str(i): {"dependsOn": [str(j) for j in (i - 1, i - 2) if j >= 0]}
+                         for i in range(1000)})
+        loop.validate_task_graph(graph)
+        self.assertEqual(graph.accesses, len(graph))
+
+    def test_deep_valid_graph_has_no_python_recursion_limit(self):
+        graph = {str(i): {"children": [str(i + 1)] if i < 4999 else []} for i in range(5000)}
+        loop.validate_task_graph(graph)
+
+    def test_shared_graph_back_edge_and_disconnected_cycles_rejected(self):
+        for graph in ({"a": {"dependsOn": ["a"]}},
+                      {"a": {"children": ["b"]}, "b": {"dependsOn": ["a"]}},
+                      {"ok": {}, "a": {"dependsOn": ["b"]}, "b": {"dependsOn": ["a"]}}):
+            with self.subTest(graph=graph), self.assertRaisesRegex(loop.Halt, "Cycle"):
+                loop.validate_task_graph(graph)
+
+    def split_fixture(self):
+        before = initial_state()
+        after = copy.deepcopy(before)
+        after["runs"] = ["report.json"]
+        after["tasks"][0].update(status="in-progress", children=["F1a", "F1b"])
+        after["tasks"] += [
+            {"id": "F1a", "batch": "B1", "status": "implemented", "dependsOn": [],
+             "outcome": "First useful outcome", "checks": ["affected check"], "implementationRecord": "report.json"},
+            {"id": "F1b", "batch": "B1", "status": "pending", "dependsOn": ["F1a"],
+             "outcome": "Second useful outcome", "checks": ["affected check"]}]
+        report = {"mode": "implement", "outcome": "progress", "startCommit": "start",
+                  "checks": [{"kind": "required", "exitCode": 0, "evidence": "check.json"}],
+                  "implementationUnits": [{"id": "F1a", "sourceIds": ["T-fixture"], "evidence": "check.json"}]}
+        return before, after, loop.selection(before), report
+
+    def test_split_and_first_implementation_share_one_unit(self):
+        before, after, choice, report = self.split_fixture()
+        loop.validate_state(after)
+        loop.validate_transition(before, after, choice, report)
+        self.assertEqual(loop.selection(after)["target"], "F1b")
+
+    def test_multiple_ready_new_children_and_selected_parent_can_complete(self):
+        before, after, choice, report = self.split_fixture()
+        after["tasks"][-1].update(status="implemented", implementationRecord="report.json")
+        after["tasks"][0]["status"] = "implemented"
+        report["implementationUnits"].append({"id": "F1b", "sourceIds": ["T-second"], "evidence": "check.json"})
+        loop.validate_state(after)
+        loop.validate_transition(before, after, choice, report)
+        self.assertEqual(loop.selection(after)["target"], "F2")
+
+    def test_child_completion_requires_explicit_evidence_and_scope(self):
+        for fault in ("undeclared", "red", "no-source", "wrong-record", "duplicate", "unrelated", "not-ready"):
+            before, after, choice, report = self.split_fixture()
+            if fault == "undeclared": report.pop("implementationUnits")
+            elif fault == "red": report["checks"][0]["exitCode"] = 1
+            elif fault == "no-source": report["implementationUnits"][0]["sourceIds"] = []
+            elif fault == "wrong-record": after["tasks"][-2]["implementationRecord"] = "old.json"
+            elif fault == "duplicate": report["implementationUnits"] *= 2
+            elif fault == "unrelated": report["implementationUnits"][0]["id"] = "F2"
+            elif fault == "not-ready": after["tasks"][-2]["dependsOn"] = ["F2"]
+            with self.subTest(fault=fault), self.assertRaises(loop.Halt):
+                loop.validate_transition(before, after, choice, report)
+
+    def closure_fixture(self):
+        before = initial_state()
+        before["tasks"][0].update(status="in-progress", children=["F1a"])
+        before["tasks"].append({"id": "F1a", "batch": "B1", "status": "pending"})
+        after = copy.deepcopy(before)
+        after["runs"] = ["report.json"]
+        after["tasks"][0].update(status="implemented", implementationRecord="report.json")
+        after["tasks"][-1]["status"] = "implemented"
+        report = {"startCommit": "start", "checks": [{"kind": "required", "exitCode": 0, "evidence": "audit.json"}],
+                  "ancestorClosures": [{"id": "F1", "reason": "Child evidence covers integrated parent scope", "evidence": "audit.json"}]}
+        return before, after, loop.selection(before), report
+
+    def test_last_child_can_reconcile_its_parent(self):
+        before, after, choice, report = self.closure_fixture()
+        loop.validate_state(after)
+        loop.validate_transition(before, after, choice, report)
+        self.assertEqual(loop.selection(after)["target"], "F2")
+
+    def test_ancestor_closure_cannot_skip_work_or_erase_scope(self):
+        for fault in ("unrelated", "unfinished", "no-evidence", "unreported", "scope", "wrong-record", "unfinished-target"):
+            before, after, choice, report = self.closure_fixture()
+            if fault == "unrelated": report["ancestorClosures"][0]["id"] = "F2"
+            elif fault == "unfinished":
+                before["tasks"][0]["children"].append("F1b")
+                after["tasks"][0]["children"].append("F1b")
+                child = {"id": "F1b", "batch": "B1", "status": "pending"}
+                before["tasks"].append(child); after["tasks"].append(copy.deepcopy(child))
+            elif fault == "no-evidence": report["checks"] = []
+            elif fault == "unreported": report.pop("ancestorClosures")
+            elif fault == "scope": after["tasks"][0]["outcome"] = "Narrower scope"
+            elif fault == "wrong-record": after["tasks"][0]["implementationRecord"] = "old.json"
+            elif fault == "unfinished-target": after["tasks"][-1]["status"] = "pending"
+            with self.subTest(fault=fault), self.assertRaises(loop.Halt):
+                loop.validate_transition(before, after, choice, report)
+
+
 class TransitionTests(unittest.TestCase):
     def fixture(self):
         before = initial_state()
@@ -617,6 +719,31 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(runner.run(10, 30)["status"], "complete")
         reports = [loop.load(self.fixture.root / path) for path in self.fixture.state()["runs"]]
         self.assertEqual([r["target"] for r in reports], ["F1", "F1a", "F1b", "F1", "F2", "B1", "completion"])
+
+    def test_split_implementation_and_final_child_closure_save_two_sessions(self):
+        runner, client = self.runner(issue=False)
+        def deliver(context, state, report):
+            evidence = report["checks"][0]["evidence"]
+            if context["selection"]["target"] == "F1":
+                state["tasks"][0].update(status="in-progress", children=["F1a", "F1b"])
+                state["tasks"] += [
+                    {"id": "F1a", "batch": "B1", "status": "implemented", "dependsOn": [],
+                     "outcome": "First useful feature", "checks": ["fixture check"], "implementationRecord": context["report"]},
+                    {"id": "F1b", "batch": "B1", "status": "pending", "dependsOn": ["F1a"],
+                     "outcome": "Second useful feature", "checks": ["fixture check"]}]
+                report["implementationUnits"] = [{"id": "F1a", "sourceIds": ["T-fixture"], "evidence": evidence}]
+                self.fixture.write("runtime.py", "print('actual first-child fixture change')\n")
+                report["changedPaths"].append("runtime.py")
+            elif context["selection"]["target"] == "F1b":
+                state["tasks"][0].update(status="implemented", implementationRecord=context["report"])
+                report["ancestorClosures"] = [{"id": "F1", "reason": "Integrated child fixture evidence", "evidence": evidence}]
+        client.transform = deliver
+        self.assertEqual(runner.run(10, 30)["status"], "complete")
+        reports = [loop.load(self.fixture.root / path) for path in self.fixture.state()["runs"]]
+        self.assertEqual([r["target"] for r in reports], ["F1", "F1b", "F2", "B1", "completion"])
+        self.assertEqual(client.calls.count("review"), 1)
+        self.assertEqual(self.fixture.git("ls-remote", "origin", "refs/heads/main").split()[0],
+                         self.fixture.git("rev-parse", "HEAD"))
 
     def test_explicit_independent_lane_around_selected_blocker_is_allowed(self):
         runner, client = self.runner()

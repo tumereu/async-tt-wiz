@@ -28,7 +28,7 @@ class SyntheticMailbox(private val directory: Path) : AutoCloseable {
         Files.createDirectories(directory)
         Files.writeString(directory.resolve("admin-token"), token)
         val root = Path.of(System.getProperty("asyncttwiz.root"))
-        process = ProcessBuilder("python3", root.resolve("e2e/adapters/adapter.py").toString(),
+        process = ProcessBuilder("python3", root.resolve("tests/support/synthetic-adapter.py").toString(),
             "--fixtures", root.resolve("tests/fixtures/catalogs").toString(), "--origin", "http://127.0.0.1:18080",
             "--state-dir", directory.resolve("state").toString(), "--instance", "reset-tests", "--token-file",
             directory.resolve("admin-token").toString(), "--http-port", freePort().toString(),

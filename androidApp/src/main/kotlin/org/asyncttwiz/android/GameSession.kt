@@ -13,6 +13,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val processId = UUID.randomUUID().toString()
     private val streams = linkedMapOf<String, Stream>()
     private val summaries = mutableMapOf<String, GameSummary>()
+    private val unavailableGames = mutableSetOf<String>()
     private val pending = linkedMapOf<String, GameCommand>()
     private data class PreparationReplica(val revision: String, val state: LobbyPreparation)
     private data class Selection(val command: GameCommand, val actor: String, val source: SavedDeck,
@@ -46,7 +47,22 @@ class GameSession(private val connection: GameConnection, private val credential
     var error: String? = null
         private set
     val ready get() = connected && welcome
-    fun ready(gameId: String) = ready && streams[gameId]?.let { it.generation != null && it.head } == true
+    fun available(gameId: String) = gameId !in unavailableGames && summaries[gameId]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)
+    fun ready(gameId: String) = ready && available(gameId) && streams[gameId]?.let { it.generation != null && it.head } == true
+    /** A negative ordinary read fences personal context, not uncertain admitted originals. */
+    fun unavailable(gameId: String) {
+        unavailableGames.add(gameId); clearContext(gameId)
+        streams[gameId]?.let { it.opening = false; it.generation = null }
+        statusChanged()
+    }
+    private fun clearContext(gameId: String) {
+        preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId)
+        selections.entries.removeAll { it.value.command.scope.gameId == gameId }
+        transfers.entries.removeAll { it.value.command.scope.gameId == gameId }
+        readiness.entries.removeAll { it.value.command.scope.gameId == gameId }
+        captured.removeAll { it.intent.gameId == gameId }
+        streams[gameId]?.head = false
+    }
     fun pending(gameId: String) = pending.values.any { it.scope.gameId == gameId } || selections.values.any { it.command.scope.gameId == gameId } ||
         transfers.values.any { it.command.scope.gameId == gameId } || readiness.values.any { it.command.scope.gameId == gameId } || captured.any { it.intent.gameId == gameId }
     fun queuedTransfers(gameId: String) = captured.filter { it.intent.gameId == gameId }.sumOf { it.remaining().count }
@@ -79,8 +95,7 @@ class GameSession(private val connection: GameConnection, private val credential
     fun summary(game: GameSummary): GameSummary = summaries[game.id]?.takeIf { newerOrEqual(it.revision, game.revision) } ?: game
     fun watch(games: List<GameSummary>) {
         for (game in games) {
-            val old = summaries[game.id]
-            if (old == null || newerOrEqual(game.revision, old.revision)) summaries[game.id] = game
+            install(game, game.revision, null, null)
             streams.getOrPut(game.id) { Stream() }
         }
         tick()
@@ -111,6 +126,8 @@ class GameSession(private val connection: GameConnection, private val credential
     fun submit(game: GameSummary, action: GameAction): Boolean {
         if (action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
             action is GameAction.SetStarter || action == GameAction.Ready || action == GameAction.WithdrawReady) return false
+        val current = summary(game)
+        if (current.lifecycle != GameLifecycle.LOBBY || current.preparationRound != game.preparationRound) return false
         return enqueue(game, action) != null
     }
     fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean {
@@ -161,10 +178,10 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun openStreams() {
         for ((id, stream) in streams) if (!stream.opening) {
+            if (!available(id) && pending.values.none { it.scope.gameId == id }) continue
             stream.opening = true
             val ids = pending.values.filter { it.scope.gameId == id }.map { it.requestId }
             if (!send(if (stream.opened) ResumeGameStream(id, stream.id, ids) else OpenGameStream(id, stream.id))) return
-            if (!send(SubscribeGame(id, summaries[id]?.revision ?: "0"))) return
         }
     }
     private fun receive(message: GameServerMessage) {
@@ -177,14 +194,24 @@ class GameSession(private val connection: GameConnection, private val credential
                 val stream = streams[message.gameId] ?: return
                 require(stream.id == message.streamId); GameWire.ordinal(message.generation)
                 stream.generation = message.generation; stream.opened = true
+                message.ended?.let {
+                    require(it.id == message.gameId && it.lifecycle == GameLifecycle.CANCELLED)
+                    install(it, it.revision, null, null)
+                }
+                // Successful ordinary stream authorization is fresh evidence of availability;
+                // a list/head omission alone was never a fabricated cancellation revision.
+                if (message.ended == null) unavailableGames.remove(message.gameId)
                 val originals = pending.values.filter { it.scope.gameId == message.gameId }.toList()
                 require(message.statuses.map { it.requestId }.toSet() == originals.map { it.requestId }.toSet())
                 for (status in message.statuses) when (status.status) {
                     "final" -> result(requireNotNull(status.result))
                     "pending" -> sent.add(status.requestId)
-                    "notAdmitted" -> sent.remove(status.requestId)
+                    "notAdmitted" -> if (available(message.gameId)) sent.remove(status.requestId) else {
+                        pending.remove(status.requestId); sent.remove(status.requestId)
+                    }
                     else -> error("Invalid recovery status")
                 }
+                if (available(message.gameId)) send(SubscribeGame(message.gameId, summaries[message.gameId]?.revision ?: "0"))
                 flush()
             }
             is GameHead -> { install(message.summary, message.revision, message.preparation, message.play); streams[message.gameId]?.head = true; flush() }
@@ -202,6 +229,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (message.code == "unauthorized") { val rejected = token; unavailable(); rejected?.let(authenticationRequired) }
                 else if (message.retryable || message.code == "streamFenced") unavailable()
                 else {
+                    if (message.code == "accessDenied") message.gameId?.let(::unavailable)
                     message.requestId?.let { pending.remove(it); selections.remove(it); transfers.remove(it); readiness.remove(it); sent.remove(it) }
                     error = "This game changed or the request could not be used. Refresh and try again."
                 }
@@ -216,12 +244,19 @@ class GameSession(private val connection: GameConnection, private val credential
         require(game.revision == revision); GameWire.ordinal(revision)
         val old = summaries[game.id]
         if (old != null && !newerOrEqual(revision, old.revision)) return
+        if (game.id in unavailableGames && old != null && revision == old.revision &&
+            game.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) return
+        if (old != null && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) unavailableGames.remove(game.id)
         if (play != null) {
             require(game.lifecycle == GameLifecycle.ACTIVE && play.gameId == game.id && play.id == game.playId &&
                 play.preparationRound == game.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
             plays[game.id] = play
         }
-        if (game.lifecycle != GameLifecycle.LOBBY) preparations.remove(game.id)
+        if (game.lifecycle != GameLifecycle.LOBBY) {
+            preparations.remove(game.id)
+            captured.removeAll { it.intent.gameId == game.id }
+        }
+        if (game.lifecycle == GameLifecycle.CANCELLED || game.lifecycle == GameLifecycle.DELETED) clearContext(game.id)
         if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) {
             require(preparation.gameId == game.id && preparation.roundId == game.preparationRound)
             val old = preparations[game.id]
@@ -290,7 +325,7 @@ class GameSession(private val connection: GameConnection, private val credential
         }
         for ((id, command) in pending) {
             val stream = streams.getValue(command.scope.gameId)
-            if (id !in sent && stream.generation != null && stream.head) {
+            if (id !in sent && available(command.scope.gameId) && stream.generation != null && stream.head) {
                 if (!send(command.copy(generation = stream.generation!!))) return
                 sent.add(id)
             }
@@ -304,7 +339,7 @@ class GameSession(private val connection: GameConnection, private val credential
         epoch++; connected = false; welcome = false; token = null; connection.disconnect(); sent.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false }
     }
-    fun clear() { disconnect(); pending.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear(); acceptedRevisions.clear(); summaries.clear(); streams.clear(); error = null; statusChanged() }
+    fun clear() { disconnect(); pending.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); error = null; statusChanged() }
     override fun close() { closed = true; clear(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

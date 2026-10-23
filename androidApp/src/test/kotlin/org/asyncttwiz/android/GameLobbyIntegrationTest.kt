@@ -30,9 +30,9 @@ class GameLobbyIntegrationTest {
         override fun disconnect() = Unit
         override fun close() = Unit
     }
-    private inner class Fixture {
+    private inner class Fixture(asOwner: Boolean = false) {
         val worker = Worker(); val authWorker = Worker(); val posts = ArrayDeque<() -> Unit>(); val wire = Wire()
-        var identity = recipient; var httpGame = game; var visible = true
+        var identity = if (asOwner) inviter else recipient; var httpGame = game; var visible = true
         lateinit var lobby: LobbyController
         val accounts = object : Accounts {
             override suspend fun identity(token: String) = identity
@@ -118,6 +118,35 @@ class GameLobbyIntegrationTest {
                 }
                 old.message(GameHead(game.id, "99", game.copy(revision = "99"))); f.drain()
                 assertTrue(f.lobby.state.invitations.isEmpty())
+                val late = f.wire.listener; f.auth.logout(); f.drain()
+                late.message(GameHead(game.id, "100", game.copy(revision = "100"))); f.drain()
+                assertTrue(f.lobby.state.games.isEmpty()); assertTrue(f.lobby.state.pendingGames.isEmpty())
+            } finally { f.close() }
+        }
+    }
+    @Test fun uncertainCancellationSurvivesSameAccountReauthButLogoutAndAccountSwitchFenceIt() {
+        for (switch in listOf(false, true)) {
+            val f = Fixture(asOwner = true)
+            try {
+                f.ready(); assertTrue(f.lobby.cancelSetup(game))
+                val original = f.wire.frames.filterIsInstance<GameCommand>().single(); val old = f.wire.listener
+                f.message(GameAdmissionError("unauthorized", false)); assertNull(f.auth.state.account)
+                if (switch) f.identity = recipient
+                f.auth.edit(email = "synthetic@example.test", password = "password"); f.auth.submit(); f.drain()
+                if (switch) assertTrue(f.lobby.state.pendingGames.isEmpty())
+                else {
+                    f.visible = false; f.lobby.sync(); f.drain()
+                    f.wire.listener.opened(); f.drain(); f.message(GameWelcome())
+                    val resume = f.wire.frames.filterIsInstance<ResumeGameStream>().last()
+                    assertEquals(listOf(original.requestId), resume.requestIds)
+                    val result = GameResult(original.requestId, original.scope, "accepted", ingressOrdinal = "1", commitRevision = "1")
+                    val ended = game.copy(lifecycle = GameLifecycle.CANCELLED, revision = "1")
+                    f.message(GameStreamReady(game.id, resume.streamId, "2", listOf(GameRequestStatus(original.requestId, "final", result)), ended))
+                    assertTrue(f.lobby.state.games.isEmpty()); assertNull(f.lobby.state.selected)
+                    assertEquals(listOf(original), f.wire.frames.filterIsInstance<GameCommand>())
+                }
+                old.message(GameHead(game.id, "99", game.copy(revision = "99"))); f.drain()
+                assertTrue(f.lobby.state.games.isEmpty())
                 val late = f.wire.listener; f.auth.logout(); f.drain()
                 late.message(GameHead(game.id, "100", game.copy(revision = "100"))); f.drain()
                 assertTrue(f.lobby.state.games.isEmpty()); assertTrue(f.lobby.state.pendingGames.isEmpty())

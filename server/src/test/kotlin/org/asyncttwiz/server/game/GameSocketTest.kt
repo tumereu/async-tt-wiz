@@ -395,6 +395,57 @@ class GameSocketTest {
         }
     }
 
+    @Test fun `cancelled sockets lose ordinary access but private original recovery and authenticated lifecycle notification survive`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val a = account(settings, "CancelSocketA"); val b = account(settings, "CancelSocketB"); val other = account(settings, "CancelSocketOther")
+                val (create, game) = create(settings, a, b)
+                Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->
+                    owner.negotiate(); recipient.negotiate(); val stream = owner.open(game); recipient.open(game)
+                    owner.subscribe(game); recipient.subscribe(game)
+                    val cancel = GameCommand(id(), GameScope(game.id, game.preparationRound), GameAction.CancelSetup, stream.streamId, stream.generation)
+                    owner.send(cancel); owner.receipt(cancel.requestId)
+                    val result = owner.result(cancel.requestId); assertEquals("accepted", result.outcome)
+                    val terminal = recipient.revision(cancel.requestId)
+                    assertEquals(GameLifecycle.CANCELLED, terminal.summary.lifecycle); assertNull(terminal.preparation); assertNull(terminal.play)
+                    assertEquals(terminal, owner.revision(cancel.requestId))
+                    for (actor in listOf(a, b)) {
+                        assertEquals(404, request(settings, "GET", "/v1/games/${game.id}/head", actor.token).statusCode())
+                        assertEquals(404, request(settings, "GET", "/v1/games/${game.id}/revisions?after=0", actor.token).statusCode())
+                        for (route in listOf("games", "invitations")) assertTrue(json.decodeFromString<GameList>(
+                            request(settings, "GET", "/v1/$route", actor.token).body()).games.none { it.id == game.id })
+                    }
+                    assertEquals(game, json.decodeFromString<GameSummary>(post(settings, "/v1/invitations", create, a.token).body()))
+                    val privateResult = request(settings, "GET", "/v1/games/${game.id}/results/${cancel.requestId}", a.token)
+                    assertEquals(200, privateResult.statusCode()); assertEquals(result, json.decodeFromString<GameRequestStatus>(privateResult.body()).result)
+                    assertFalse(privateResult.body().contains("gameName")); assertFalse(privateResult.body().contains("\"preparation\":"))
+                    assertEquals(401, request(settings, "GET", "/v1/games/${game.id}/results/${cancel.requestId}").statusCode())
+                    assertEquals(409, request(settings, "GET", "/v1/games/${game.id}/results/${cancel.requestId}", b.token).statusCode())
+                    assertEquals(404, request(settings, "GET", "/v1/games/${game.id}/results/${cancel.requestId}", other.token).statusCode())
+                    owner.send(cancel); assertEquals(result, owner.result(cancel.requestId))
+                    owner.send(cancel.copy(action = GameAction.Ready)); assertEquals("requestIdentityMismatch", owner.next<GameAdmissionError>().code)
+                    owner.send(cancel.copy(requestId = id())); assertEquals("accessDenied", owner.next<GameAdmissionError>().code)
+                    owner.send(SubscribeGame(game.id)); assertEquals("accessDenied", owner.next<GameAdmissionError>().code)
+                    Socket(settings, a.token, owner.hello).use { resumed ->
+                        resumed.negotiate(); resumed.send(ResumeGameStream(game.id, stream.streamId, listOf(cancel.requestId)))
+                        val recovery = resumed.next<GameStreamReady>(); assertEquals(terminal.summary, recovery.ended)
+                        assertEquals(result, recovery.statuses.single().result)
+                        resumed.send(cancel.copy(generation = recovery.generation)); assertEquals(result, resumed.result(cancel.requestId))
+                        resumed.send(OpenGameStream(game.id, id())); assertEquals("accessDenied", resumed.next<GameAdmissionError>().code)
+                        request(settings, "DELETE", "/session", a.token)
+                        resumed.send(cancel.copy(generation = recovery.generation)); assertEquals("unauthorized", resumed.next<GameAdmissionError>().code)
+                    }
+                    val login = json.decodeFromString<SessionCreated>(post(settings, "/sessions", CreateSession("CancelSocketA@example.invalid", "password😀")).body())
+                    assertEquals(result, json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/${game.id}/results/${cancel.requestId}", login.token).body()).result)
+                    assertEquals(404, post(settings, "/v1/games/${game.id}/cancelSetup", LookupGameResults(emptyList()), b.token).statusCode())
+                } }
+                println("PASS actual authenticated cancellation publication; ordinary cancelled reads/list/subscription denied, private same-ID HTTP/socket outcome recovery, intent/account isolation and reauthentication")
+            }
+        }
+    }
+
     private fun Socket.resultFromRead(settings: ServiceSettings, token: String, gameId: String, requestId: String) =
         json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/$gameId/results/$requestId", token).body()).result!!
 }

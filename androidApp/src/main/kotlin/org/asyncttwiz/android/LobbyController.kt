@@ -37,13 +37,16 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var pendingRecipient: AccountIdentity? = null
     private val pendingAdds = mutableMapOf<String, AddContact>()
     private var pickerVersion = 0L
+    private val latest = mutableMapOf<String, GameSummary>()
     val inspection = CardInspectionController()
     private val session: GameSession? = gameConnection?.let { GameSession(it, credential, post, authenticationRequired,
         changed = ::accepted, settled = { command, result ->
-            if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted") open(command.scope.gameId)
+            if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted" &&
+                latest[command.scope.gameId]?.lifecycle == GameLifecycle.LOBBY && sessionAvailable(command.scope.gameId)) open(command.scope.gameId)
             refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId) }
-    fun clear() { epoch++; searchVersion++; pickerVersion++; inspection.close(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); session?.clear(); state = LobbyState() }
+    private fun sessionAvailable(id: String) = session?.available(id) != false
+    fun clear() { epoch++; searchVersion++; pickerVersion++; inspection.close(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     private fun connectionState() {
         val wire = session ?: return
         val ids = (state.games + state.invitations + listOfNotNull(state.detail)).map { it.id }.toSet()
@@ -54,8 +57,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play))
     }
     private fun accepted(game: GameSummary) {
+        val old = latest[game.id]
+        if (old != null && !GameSession.newerOrEqual(game.revision, old.revision)) return
+        latest[game.id] = game
         val mine = accountId()
-        val listed = game.lifecycle == GameLifecycle.LOBBY || game.lifecycle == GameLifecycle.ACTIVE
+        val listed = (game.lifecycle == GameLifecycle.LOBBY || game.lifecycle == GameLifecycle.ACTIVE) && sessionAvailable(game.id)
         val inGames = listed && (game.inviter.accountId == mine || game.invitationState == InvitationState.ACCEPTED)
         val inInvites = listed && game.recipient.accountId == mine && game.invitationState == InvitationState.PENDING
         state = state.copy(games = state.games.filterNot { it.id == game.id } + if (inGames) listOf(game) else emptyList(),
@@ -64,6 +70,21 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (state.selected == game.id && game.lifecycle != GameLifecycle.LOBBY) {
             closePicker(); inspection.close(); state = state.copy(preparing = false, transferFeedback = null)
         }
+        if (state.selected == game.id && !listed) leaveUnavailable()
+    }
+    private fun leaveUnavailable() {
+        closePicker(); inspection.close()
+        state = state.copy(selected = null, detail = null, preparing = false, acceptedPreparation = null,
+            preparation = null, play = null, transferFeedback = null, queuedTransferCards = 0,
+            error = "This game is no longer available.")
+    }
+    /** The dialog's captured game/round is intent. Never replace it with today's selected row. */
+    fun cancelSetup(game: GameSummary): Boolean {
+        val actor = accountId() ?: return false
+        val current = latest[game.id] ?: game
+        if (closed || !sessionAvailable(game.id) || current.preparationRound != game.preparationRound ||
+            CancellationRules.rejection(current, actor, GameScope(game.id, game.preparationRound)) != null) return false
+        return session?.submit(game, GameAction.CancelSetup) == true
     }
     fun respond(game: GameSummary, accept: Boolean) {
         if (game.recipient.accountId != accountId() || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) return
@@ -233,9 +254,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                 val game = result.getOrNull()
                 if (game != null) {
                     pendingCreate = null; pendingRecipient = null
-                    state = state.copy(mutating = false, draft = null, uncertain = false, selected = game.id, detail = game,
-                        games = state.games.filterNot { it.id == game.id } + game)
-                    openGame(); refresh()
+                    state = state.copy(mutating = false, draft = null, uncertain = false)
+                    // An idempotent create response is an original outcome, not current lifecycle state.
+                    if (latest[game.id]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED) && sessionAvailable(game.id)) open(game.id)
+                    else refresh()
                 } else {
                     val failure = result.exceptionOrNull()
                     val terminal = (failure as? LobbyFailure)?.code in listOf("invalid_name", "contact_required", "invalid_request", "request_conflict")
@@ -253,6 +275,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (closed || state.busy || state.mutating) return
         val token = credential() ?: return
         val generation = epoch; val selected = state.selected
+        val atStart = latest.toMap()
         state = state.copy(busy = true, error = if (background || state.draft != null) state.error else null)
         worker.execute {
             if (generation != epoch) return@execute
@@ -265,23 +288,35 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                 pages { cursor -> api.contacts(token, cursor).let { contacts.addAll(it.contacts); it.next } }
                 pages { cursor -> api.games(token, false, cursor).let { games.addAll(it.games); it.next } }
                 pages { cursor -> api.games(token, true, cursor).let { invites.addAll(it.games); it.next } }
-                val detail = selected?.let { api.head(token, it) }
+                val detail = selected?.let {
+                    try { api.head(token, it) } catch (failure: LobbyFailure) {
+                        if (failure.code == "not_found") null else throw failure
+                    }
+                }
                 LobbyState(contacts = contacts, games = games, invitations = invites, detail = detail)
             } }
             post { if (!closed && generation == epoch) {
                 val data = result.getOrNull()
-                val priorGames = state.games + state.invitations
-                state = if (data != null) state.copy(contacts = data.contacts, games = data.games.map { session?.summary(it) ?: it },
-                    invitations = data.invitations.map { session?.summary(it) ?: it },
-                    detail = if (state.selected == selected) data.detail?.let { session?.summary(it) ?: it } else state.detail, busy = false, loaded = true)
-                else if ((result.exceptionOrNull() as? LobbyFailure)?.code == "not_found" && state.selected == selected)
-                    state.copy(selected = null, detail = null, busy = false, error = "This game is no longer available.")
-                else state.copy(busy = false, error = if (background && state.draft != null) state.error else lobbyError(result.exceptionOrNull()!!))
-                if (data != null && session != null) {
-                    val games = (data.games + data.invitations + priorGames + listOfNotNull(state.detail))
-                        .groupBy { it.id }.values.map { versions -> versions.maxBy { GameWire.ordinal(it.revision) } }.map(session::summary)
-                    for (game in games) accepted(game)
-                    session.watch(games); connectionState()
+                if (data != null) {
+                    // Omission removes an old row. Only a revision learned since this read began
+                    // can override omission; retained old lists must not resurrect cancelled games.
+                    val newer = latest.values.filter { atStart[it.id] != it }
+                    val games = (data.games + data.invitations + listOfNotNull(data.detail) + newer)
+                        .groupBy { it.id }.values.map { versions -> versions.maxBy { GameWire.ordinal(it.revision) } }
+                        .map { game -> latest[game.id]?.takeIf { GameSession.newerOrEqual(it.revision, game.revision) } ?: game }
+                    val present = games.map { it.id }.toSet()
+                    for (id in atStart.keys - present) session?.unavailable(id)
+                    state = state.copy(contacts = data.contacts, games = emptyList(), invitations = emptyList(), busy = false, loaded = true)
+                    if (selected != null && state.selected == selected && data.detail == null && latest[selected] == atStart[selected]) {
+                        session?.unavailable(selected); leaveUnavailable()
+                    }
+                    if (session == null) state = state.copy(games = data.games, invitations = data.invitations,
+                        detail = if (state.selected == selected) data.detail else state.detail)
+                    else {
+                        session.watch(games); connectionState()
+                    }
+                } else {
+                    state = state.copy(busy = false, error = if (background && state.draft != null) state.error else lobbyError(result.exceptionOrNull()!!))
                 }
                 // A user may choose another row while a list refresh is in flight.
                 if (state.selected != selected) refresh()

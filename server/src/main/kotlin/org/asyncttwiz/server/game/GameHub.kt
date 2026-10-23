@@ -126,7 +126,7 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
                 if (failure != null) {
                     val cause = (failure as? java.util.concurrent.CompletionException)?.cause ?: failure
                     val error = cause as? GameProtocolFailure
-                    send(GameAdmissionError(error?.code ?: "storageUnavailable", error?.retryable ?: true, requestId))
+                    send(GameAdmissionError(error?.code ?: "storageUnavailable", error?.retryable ?: true, requestId, gameId))
                     if (error?.code == "unauthorized") stop()
                 }
             }
@@ -138,6 +138,7 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
                 if (publication.revision != null && publication.gameId in subscriptions) {
                     val revision = GameWire.json.decodeFromString<GameServerMessage>(publication.revision) as GameRevision
                     send(games.visibleRevision(revision, accountId))
+                    if (revision.summary.lifecycle == GameLifecycle.CANCELLED) subscriptions.remove(publication.gameId)
                 }
                 if (publication.accountId == accountId) sendText(publication.result)
             } catch (failure: GameProtocolFailure) { if (failure.code == "unauthorized") stop() }

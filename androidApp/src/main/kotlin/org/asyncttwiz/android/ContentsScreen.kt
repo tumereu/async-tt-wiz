@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
@@ -38,7 +39,8 @@ fun contentsEntries(state: PlayState, display: ContentsDisplay, viewer: String, 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, controller: LibraryController,
-    onInspect: (LibraryInspection) -> Unit, modifier: Modifier = Modifier, onActions: ((String) -> Unit)? = null) {
+    onInspect: (LibraryInspection) -> Unit, modifier: Modifier = Modifier, onActions: ((String) -> Unit)? = null,
+    names: Map<String, String> = emptyMap(), onComplete: () -> Unit = {}) {
     var search by remember(display.id) { mutableStateOf("") }
     var selected by remember(display.id) { mutableStateOf<String?>(null) }
     var destination by remember(display.id) { mutableStateOf<MoveDestination?>(null) }
@@ -46,7 +48,10 @@ fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, c
     Column(modifier) {
         Row {
             Text(if (display.reveal) "Reveal" else "View", Modifier.weight(1f))
-            TextButton(onClick = { controller.dismiss(display.id) }, enabled = controller.available()) { Text("Dismiss") }
+            MenuButton("Dismiss", Modifier.width(128.dp), enabled = controller.available()) {
+                val result = controller.dismiss(display.id)
+                if (result.submitted > 0 && result.refused == 0) onComplete()
+            }
         }
         if (display.selection == ContentsSelection.ALL && display.facesVisibleTo(viewer))
             OutlinedTextField(search, { search = it }, label = { Text("Search by name") }, singleLine = true)
@@ -54,23 +59,43 @@ fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, c
         Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
             groups.forEach { (category, cards) ->
                 Column(Modifier.width(220.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {
-                    if (category.isNotEmpty()) Text(category)
+                    if (category.isNotEmpty()) Text(category, style = MaterialTheme.typography.labelMedium)
                     cards.forEach { entry ->
-                        Text("${entry.name}\n${entry.location}${if (entry.bottommost) " · Bottommost" else ""}",
+                        Row(
                             Modifier.fillMaxWidth().combinedClickable(onClick = { selected = entry.cardId; onActions?.invoke(entry.cardId) },
                                 onLongClick = { controller.inspection(state, entry.cardId, viewer, hold = true,
-                                    displayFaceVisible = display.facesVisibleTo(viewer))?.let(onInspect) }).padding(8.dp))
+                                    displayFaceVisible = display.facesVisibleTo(viewer))?.let(onInspect) }).padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val card = state.board.cards.singleOrNull { it.id == entry.cardId }
+                            val definition = state.definitions.singleOrNull { it.digest == card?.definition }?.definition
+                            val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
+                            val art = if (display.facesVisibleTo(viewer) && definition != null && face >= 0)
+                                InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
+                            Box(Modifier.size(40.dp, 56.dp), contentAlignment = Alignment.Center) {
+                                if (art != null) CardArtwork(art, entry.name, 80, 112, Modifier.fillMaxSize())
+                                else MenuIcon(if (display.facesVisibleTo(viewer)) "Inspect" else "Turn face down")
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(entry.name, style = MaterialTheme.typography.bodyMedium)
+                                Text("${entry.location}${if (entry.bottommost) " · Bottommost" else ""}", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                     }
                 }
             }
         }
         selected?.let { id ->
-            LibraryDestinationPicker(state.board, destination, { destination = it })
+            LibraryDestinationPicker(state.board, destination, { destination = it }, names)
             Row {
-                TextButton(onClick = { destination?.let { controller.moveCards(listOf(id), it) } },
-                    enabled = controller.available() && destination != null) { Text("Move") }
-                TextButton(onClick = { controller.inspection(state, id, viewer, hold = false)?.let(onInspect) },
-                    enabled = controller.available()) { Text("Inspect other side") }
+                MenuButton("Move", Modifier.weight(1f), enabled = controller.available() && destination != null) {
+                    destination?.let {
+                        val result = controller.moveCards(listOf(id), it)
+                        if (result.submitted > 0 && result.refused == 0) onComplete()
+                    }
+                }
+                MenuButton("Inspect other side", Modifier.weight(1f), enabled = controller.available()) {
+                    controller.inspection(state, id, viewer, hold = false)?.let(onInspect)
+                }
             }
         }
     }

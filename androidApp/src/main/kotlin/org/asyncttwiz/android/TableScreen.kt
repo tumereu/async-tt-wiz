@@ -155,6 +155,19 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             }
         } else {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val menuAnnotations = TableMenuAnnotations(EventReference(play.id, play.currentNodeId,
+                    history.view?.takeIf { it.cursor == play.currentNodeId }?.contextVersion)) { intent ->
+                    if (!history.foreground || controller.state.detail?.id != game.id ||
+                        controller.state.detail?.playId != play.id || intent.reference.playId != play.id ||
+                        game.id !in controller.state.connectedGames) false else {
+                        var sent = false
+                        intent.actions().forEach { action ->
+                            sent = (if (history.armed != null) controller.gameplay(action) else controller.annotate(action)) || sent
+                        }
+                        sent
+                    }
+                }
+                CompositionLocalProvider(LocalTableMenuAnnotations provides menuAnnotations) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(),
                     connected = game.id in state.connectedGames && editable, onIntent = onIntent ?: toolkit::handle, placements = placements,
                     toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
@@ -182,22 +195,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         controlsConnected = game.id in state.connectedGames && history.foreground,
-                        pingReference = EventReference(play.id, play.currentNodeId,
-                            history.view?.takeIf { it.cursor == play.currentNodeId }?.contextVersion),
-                        ping = { intent ->
-                            if (!history.foreground || controller.state.detail?.id != game.id ||
-                                controller.state.detail?.playId != play.id || intent.reference.playId != play.id ||
-                                game.id !in controller.state.connectedGames) false else {
-                                var sent = false
-                                intent.actions().forEach { action ->
-                                    // Ordinary history annotations append at live head; deliberate continuation
-                                    // uses the same lowering as every other toolkit request, never a second engine.
-                                    sent = (if (history.armed != null) controller.gameplay(action)
-                                        else controller.annotate(action)) || sent
-                                }
-                                sent
-                            }
-                        }, tokenCatalog = catalogMount))
+                        pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))
+                }
             }
             if (game.id !in state.connectedGames) Text("Disconnected · read-only", Modifier.padding(horizontal = 12.dp),
                 style = MaterialTheme.typography.bodySmall)

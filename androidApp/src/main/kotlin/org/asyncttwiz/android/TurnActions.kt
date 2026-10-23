@@ -14,11 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import org.asyncttwiz.protocol.*
 import kotlin.math.roundToLong
 
@@ -37,7 +37,8 @@ fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Colo
     val position = TurnPosition.of(turn) ?: return
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         ActionSquare("$turnPlayerName, ${position.label}. Choose phase/step", position.glyph, true,
-            Modifier.border(2.dp, turnPlayerColor), fill = phaseColor(turn.phase), ink = Color(0xff25333b), onClick = onOpenPicker)
+            Modifier.border(2.dp, turnPlayerColor), fill = phaseColor(turn.phase), ink = Color(0xff25333b),
+            icon = { MenuIcon(position.label) }, onClick = onOpenPicker)
         Text(turn.number, Modifier.padding(4.dp).semantics { contentDescription = "Turn ${turn.number}" },
             style = MaterialTheme.typography.labelSmall)
     }
@@ -45,28 +46,30 @@ fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Colo
 
 @Composable
 fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
-    controller: TableActionController, onDismiss: () -> Unit) {
+    controller: TableActionController, onDismiss: () -> Unit, onComplete: () -> Unit = onDismiss) {
     val scope = TableActionScope(play.gameId, play.id)
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(Modifier.border(2.dp, endingPlayerColor)) {
-            Column(Modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
+    val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+    TableMenuPanel(onDismiss, width = if (landscape) 484.dp else 400.dp, title = "Turn ${play.board.turn.number}",
+        border = endingPlayerColor, gap = if (landscape) 4.dp else 8.dp, contentPadding = if (landscape) 8.dp else 12.dp) {
                 for ((phase, steps) in TurnPosition.entries.groupBy { it.phase }) {
-                    Row(Modifier.fillMaxWidth().background(phaseColor(phase)).horizontalScroll(rememberScrollState())) {
-                        for (step in steps) ActionSquare(step.label, step.glyph, controller.enabled(scope),
-                            modifier = if (TurnPosition.of(play.board.turn) == step) Modifier.border(2.dp, endingPlayerColor) else Modifier,
+                    Row(Modifier.fillMaxWidth().background(phaseColor(phase), MaterialTheme.shapes.extraSmall)
+                        .horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = if (landscape) 0.dp else 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (step in steps) ManualActionSquare(step.label, "", controller.enabled(scope),
+                            iconTint = if (TurnPosition.of(play.board.turn) == step) endingPlayerColor else MenuInk,
                             selected = TurnPosition.of(play.board.turn) == step,
-                            onClick = { controller.perform(TableActionIntent.Choose(scope, step)) })
+                            onClick = { if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete() })
                     }
                 }
-                TextButton(enabled = controller.enabled(scope), onClick = { controller.perform(TableActionIntent.Next(scope)) }) {
-                    Text("Next step")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MenuButton("Next step", Modifier.weight(1f), controller.enabled(scope)) {
+                        if (controller.perform(TableActionIntent.Next(scope))) onComplete()
+                    }
+                    MenuButton(if (play.board.turn.accountId == viewerId) "End turn" else "End opponent's turn",
+                        Modifier.weight(1f), controller.enabled(scope), endingPlayerColor) {
+                        if (controller.perform(TableActionIntent.End(scope))) onComplete()
+                    }
                 }
-                Button(enabled = controller.enabled(scope), colors = ButtonDefaults.buttonColors(containerColor = endingPlayerColor),
-                    onClick = { controller.perform(TableActionIntent.End(scope)) }) {
-                    Text(if (play.board.turn.accountId == viewerId) "End turn" else "End opponent's turn")
-                }
-            }
-        }
     }
 }
 

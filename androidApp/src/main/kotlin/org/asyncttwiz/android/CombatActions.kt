@@ -1,8 +1,6 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import org.asyncttwiz.protocol.*
@@ -24,28 +22,28 @@ fun CombatActions(state: PlayState, actor: String, targets: List<CombatStackTarg
         state.board.containers.find { it.id == card.containerId }?.zone == PlayZone.BATTLEFIELD
     } == true }
     Column {
-        TextButton(enabled = connected, onClick = {
+        MenuButton("Create combat area", enabled = connected, onClick = {
             onPlan(CombatStackController.single(state, actor, PlayAction.Combat(CombatAction.Open), command))
-        }) { Text("Create combat area") }
-        TextButton(enabled = connected && capturedAreaId != null && state.board.combat?.id == capturedAreaId, onClick = {
+        })
+        MenuButton("Close combat area", enabled = connected && capturedAreaId != null && state.board.combat?.id == capturedAreaId, onClick = {
             onPlan(CombatStackController.single(state, actor,
                 PlayAction.Combat(CombatAction.Close(capturedAreaId)), command))
-        }) { Text("Close combat area") }
-        TextButton(enabled = connected && battlefield, onClick = {
+        })
+        MenuButton("Declare without tapping", enabled = connected && battlefield, onClick = {
             onPlan(CombatStackController.declare(state, actor, targets, false, command))
-        }) { Text("Declare without tapping") }
-        TextButton(enabled = connected && battlefield, onClick = {
+        })
+        MenuButton("Declare + tap", enabled = connected && battlefield, onClick = {
             onPlan(CombatStackController.declare(state, actor, targets, true, command))
-        }) { Text("Declare + tap") }
-        for (tapped in listOf(true, false)) TextButton(enabled = connected && sources.any { source ->
+        })
+        for (tapped in listOf(true, false)) MenuButton(if (tapped) "Tap" else "Untap", enabled = connected && sources.any { source ->
             state.board.cards.any { it.id == source }
         }, onClick = {
             onPlan(CombatStackController.sourceActions(state, actor, targets, command) { PlayAction.SetTapped(it, tapped) })
-        }) { Text(if (tapped) "Tap" else "Untap") }
+        })
         val occurrences = targets.filter { target -> CombatStackRules.occurrences(state.board.combat).any { it.id == target.viewId } }
-        TextButton(enabled = connected && occurrences.isNotEmpty(), onClick = {
+        MenuButton("Remove from combat", enabled = connected && occurrences.isNotEmpty(), onClick = {
             onPlan(CombatStackController.remove(state, actor, occurrences, command))
-        }) { Text("Remove from combat") }
+        })
     }
 }
 
@@ -53,8 +51,8 @@ fun CombatActions(state: PlayState, actor: String, targets: List<CombatStackTarg
 @Composable
 fun CombatDestinationActions(destinations: List<Pair<String, CombatDestination>>, enabled: Boolean,
     onDestination: (CombatDestination) -> Unit) {
-    Column { for ((name, destination) in destinations) TextButton(enabled = enabled,
-        onClick = { onDestination(destination) }) { Text(name) } }
+    Column { for ((name, destination) in destinations) MenuButton(name, enabled = enabled,
+        onClick = { onDestination(destination) }) }
 }
 
 /** Shared I20 tracking integration supplies the real relative advancement composition, not a local step write. */
@@ -63,12 +61,12 @@ fun CombatQuickActions(state: PlayState, multiselection: Boolean, enabled: Boole
     onDeclare: (tap: Boolean) -> Unit, onAdvanceAndClose: (capturedAreaId: String?) -> Unit) {
     Column {
         if (CombatOfferings.declare(state.board.turn, multiselection)) {
-            TextButton(enabled = enabled, onClick = { onDeclare(true) }) { Text("Declare + tap") }
-            TextButton(enabled = enabled, onClick = { onDeclare(false) }) { Text("Declare without tapping") }
+            MenuButton("Declare + tap", enabled = enabled, onClick = { onDeclare(true) })
+            MenuButton("Declare without tapping", enabled = enabled, onClick = { onDeclare(false) })
         }
         if (CombatOfferings.advanceAndClose(state.board.turn)) {
             val areaId = state.board.combat?.id
-            TextButton(enabled = enabled, onClick = { onAdvanceAndClose(areaId) }) { Text("Advance + close combat") }
+            MenuButton("Advance + close combat", enabled = enabled, onClick = { onAdvanceAndClose(areaId) })
         }
     }
 }

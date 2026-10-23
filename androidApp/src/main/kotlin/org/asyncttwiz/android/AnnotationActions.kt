@@ -3,6 +3,11 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 import kotlin.math.floor
 import kotlin.math.hypot
+import androidx.compose.runtime.staticCompositionLocalOf
+
+/** Menus use the table's existing annotation route, including its captured history context. */
+internal data class TableMenuAnnotations(val reference: EventReference, val ping: (EventPingIntent) -> Boolean)
+internal val LocalTableMenuAnnotations = staticCompositionLocalOf<TableMenuAnnotations?> { null }
 
 /** The LOCATION domain is a logical point, not a container/card endpoint or a screen pixel.
  * Use the same footprint/camera/own-side inversion as table grid destinations. Interleave logical

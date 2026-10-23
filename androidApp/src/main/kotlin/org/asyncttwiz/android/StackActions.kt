@@ -1,8 +1,6 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import org.asyncttwiz.protocol.*
 
@@ -50,12 +48,12 @@ fun StackActions(state: PlayState, actor: String, targets: List<CombatStackTarge
         } == true
     }
     Column {
-        TextButton(enabled = connected && canAdd, onClick = {
+        MenuButton("Add Stack effect", enabled = connected && canAdd, onClick = {
             onPlan(CombatStackController.addEffects(state, actor, targets, command))
-        }) { Text("Add Stack effect") }
-        TextButton(enabled = connected && effects.isNotEmpty(), onClick = {
+        })
+        MenuButton("Remove Stack effect", enabled = connected && effects.isNotEmpty(), onClick = {
             onPlan(CombatStackController.remove(state, actor, effects, command))
-        }) { Text("Remove Stack effect") }
+        })
     }
 }
 
@@ -66,6 +64,6 @@ fun StackActions(state: PlayState, actor: String, targets: List<CombatStackTarge
 fun StackDestinationActions(context: StackContext, destinations: List<StackMoveChoice>,
     enabled: Boolean, quick: Boolean = false, onMove: (boundSourceId: String, MoveDestination) -> Unit) {
     val source = context.target.sourceId ?: return
-    Column { for (choice in StackContexts.destinations(context, destinations, quick)) TextButton(enabled = enabled,
-        onClick = { onMove(source, choice.destination) }) { Text(choice.label) } }
+    Column { for (choice in StackContexts.destinations(context, destinations, quick)) MenuButton(choice.label, enabled = enabled,
+        onClick = { onMove(source, choice.destination) }) }
 }

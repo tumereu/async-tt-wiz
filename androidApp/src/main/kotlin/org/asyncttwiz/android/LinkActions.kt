@@ -16,7 +16,7 @@ object LinkActions {
     /** Covered cards do not leak names via the accessible alternative to table endpoint picking. */
     fun endpoints(play: PlayState, playerNames: Map<String, String>): List<LinkEndpointItem> =
         play.board.players.map { LinkEndpointItem(LinkEndpoint(LinkEndpointKind.PLAYER, it.accountId),
-            playerNames[it.accountId] ?: "Player ${it.accountId.takeLast(6)}") } +
+            playerNames[it.accountId] ?: "Player") } +
             play.board.cards.map { card ->
                 val face = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces?.singleOrNull { it.faceId == card.faceId }
                 LinkEndpointItem(LinkEndpoint(LinkEndpointKind.CARD, card.id),
@@ -51,24 +51,20 @@ fun LinkEndpointPicker(controller: TokenLinkController, play: PlayState, playerN
     val projections = controller.projectionScope != null
     val endpoints = if (projections) emptyList() else LinkActions.endpoints(play, playerNames)
     val occurrences = if (projections) LinkActions.projectionEndpoints(play) else emptyList()
-    AlertDialog(onDismissRequest = controller::cancelLink,
-        title = { Text("Link · ${controller.projectionScope?.endpoints?.size ?: controller.scope?.cardIds?.size ?: 0} captured") }, text = {
+    TableMenuPanel(controller::cancelLink,
+        title = "Link · ${controller.projectionScope?.endpoints?.size ?: controller.scope?.cardIds?.size ?: 0} captured") {
             Column {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(endpoints, key = { "${it.endpoint.kind}/${it.endpoint.id}" }) { item ->
-                        TextButton(onClick = { onPick(item.endpoint) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = enabled) {
-                            Text(item.label)
-                        }
+                        MenuButton(item.label, Modifier.fillMaxWidth(), enabled = enabled) { onPick(item.endpoint) }
                     }
                     items(occurrences, key = { it.endpoint.occurrenceId }) { item ->
-                        TextButton(onClick = { controller.pick(item.endpoint) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = enabled) {
-                            Text(item.label)
-                        }
+                        MenuButton(item.label, Modifier.fillMaxWidth(), enabled = enabled) { controller.pick(item.endpoint) }
                     }
                 }
                 controller.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
-        }, confirmButton = { TextButton(onClick = controller::cancelLink) { Text("Cancel") } })
+        }
 }
 
 /** Removing a connection is explicit; it never removes either card. */
@@ -82,38 +78,42 @@ fun LinksListDialog(controller: TokenLinkController, play: PlayState, playerName
     if (!controller.showingLinks) return
     val labels = LinkActions.endpoints(play, playerNames).associate { it.endpoint to it.label }
     val links = LinkActions.connections(play, scope)
-    AlertDialog(onDismissRequest = controller::close, title = { Text("Links · ${scope.cardIds.size} captured") }, text = {
+    TableMenuPanel(controller::close, title = "Links · ${scope.cardIds.size} captured") {
         Column {
             if (links.isEmpty()) Text("No links")
             LazyColumn(Modifier.heightIn(max = 360.dp)) {
                 items(links, key = { it.id }) { link ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("${labels[link.first] ?: "Unavailable"} — ${labels[link.second] ?: "Unavailable"}", Modifier.weight(1f))
-                        TextButton(onClick = { controller.removeLink(link.id) }, enabled = enabled) { Text("Remove link") }
+                        ManualActionSquare("Remove link", "", enabled, onClick = {
+                            controller.removeLink(link.id); if (controller.error == null) controller.close()
+                        })
                     }
                 }
             }
             controller.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-    }, confirmButton = { TextButton(onClick = controller::close) { Text("Close") } })
+    }
 }
 
 @Composable
 private fun ProjectionLinksListDialog(controller: TokenLinkController, play: PlayState, scope: ProjectionLinkScope, enabled: Boolean) {
     val labels = LinkActions.projectionEndpoints(play).associate { it.endpoint.occurrenceId to it.label }
     val links = LinkActions.connections(play, scope)
-    AlertDialog(onDismissRequest = controller::close, title = { Text("Links · ${scope.endpoints.size} captured") }, text = {
+    TableMenuPanel(controller::close, title = "Links · ${scope.endpoints.size} captured") {
         Column {
             if (links.isEmpty()) Text("No links")
             LazyColumn(Modifier.heightIn(max = 360.dp)) {
                 items(links, key = { it.id }) { link ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("${labels[link.first] ?: "Unavailable"} — ${labels[link.second] ?: "Unavailable"}", Modifier.weight(1f))
-                        TextButton(onClick = { controller.removeProjectionLink(link.id) }, enabled = enabled) { Text("Remove link") }
+                        ManualActionSquare("Remove link", "", enabled, onClick = {
+                            controller.removeProjectionLink(link.id); if (controller.error == null) controller.close()
+                        })
                     }
                 }
             }
             controller.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-    }, confirmButton = { TextButton(onClick = controller::close) { Text("Close") } })
+    }
 }

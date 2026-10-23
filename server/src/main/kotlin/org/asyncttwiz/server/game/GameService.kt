@@ -37,13 +37,14 @@ class GameService(private val runtime: ServiceRuntime) {
         try { Result.success(work(DSL.using(connection, SQLDialect.POSTGRES))) }
         catch (failure: GameProtocolFailure) { connection.rollback(savepoint); Result.failure<T>(failure) }
     }.getOrThrow()
-    private fun authorize(game: GameRecord?, actor: UUID): GameRecord {
-        if (game == null || actor !in listOf(game.inviterId, game.recipientId) || game.lifecycle !in listOf("LOBBY", "ACTIVE"))
+    private fun authorize(game: GameRecord?, actor: UUID, originalOnly: Boolean = false): GameRecord {
+        if (game == null || actor !in listOf(game.inviterId, game.recipientId) ||
+            (game.lifecycle !in listOf("LOBBY", "ACTIVE") && !(originalOnly && game.lifecycle == "CANCELLED")))
             throw GameProtocolFailure("accessDenied")
         return game
     }
-    private fun locked(sql: DSLContext, game: UUID, actor: UUID): GameRecord = authorize(
-        sql.selectFrom(GAME).where(GAME.ID.eq(game)).forUpdate().fetchOne(), actor)
+    private fun locked(sql: DSLContext, game: UUID, actor: UUID, originalOnly: Boolean = false): GameRecord = authorize(
+        sql.selectFrom(GAME).where(GAME.ID.eq(game)).forUpdate().fetchOne(), actor, originalOnly)
 
     fun open(principal: AccountService.Principal, hello: GameHello, connectionId: UUID, gameId: String,
         streamId: String, resume: List<String>? = null): GameStreamReady {
@@ -51,7 +52,7 @@ class GameService(private val runtime: ServiceRuntime) {
         val installation = uuid(hello.installationId); val process = uuid(hello.processId)
         if (resume != null) validateIds(resume)
         return transaction { sql ->
-            locked(sql, game, account)
+            val current = locked(sql, game, account, originalOnly = resume != null)
             val row = sql.selectFrom(GAME_STREAM).where(GAME_STREAM.GAME_ID.eq(game))
                 .and(GAME_STREAM.ACCOUNT_ID.eq(account)).and(GAME_STREAM.INSTALLATION_ID.eq(installation)).forUpdate().fetchOne()
             if (resume != null && (row == null || row.processId != process || row.streamId != stream))
@@ -65,7 +66,8 @@ class GameService(private val runtime: ServiceRuntime) {
                 .set(GAME_STREAM.CONNECTION_ID, connectionId).set(GAME_STREAM.GENERATION, generation).execute()
             // The game lock and dispatcher cutover fence the old connection before any negative status.
             GameStreamReady(gameId, streamId, generation.toString(), (resume ?: emptyList()).map {
-                status(sql, game, account, it, "notAdmitted") })
+                status(sql, game, account, it, "notAdmitted") },
+                ended = if (current.lifecycle == "CANCELLED") lobby.summary(sql, game) else null)
         }
     }
 
@@ -73,7 +75,7 @@ class GameService(private val runtime: ServiceRuntime) {
         if (!GameWire.valid(input)) throw GameProtocolFailure("invalidInput")
         val game = uuid(input.scope.gameId); val account = actor(principal); val request = uuid(input.requestId)
         return transaction { sql ->
-            val row = locked(sql, game, account)
+            val row = locked(sql, game, account, originalOnly = true)
             val stream = sql.selectFrom(GAME_STREAM).where(GAME_STREAM.GAME_ID.eq(game))
                 .and(GAME_STREAM.ACCOUNT_ID.eq(account)).and(GAME_STREAM.INSTALLATION_ID.eq(uuid(hello.installationId)))
                 .forUpdate().fetchOne()
@@ -81,6 +83,10 @@ class GameService(private val runtime: ServiceRuntime) {
                 stream.streamId.toString() != input.streamId || stream.generation != GameWire.ordinal(input.generation))
                 throw GameProtocolFailure("streamFenced")
             val digest = GameWire.digest(input)
+            // Only an already owned original may be replayed against a tombstone. Never insert
+            // a new identity or disclose ordinary preparation/history after cancellation.
+            if (row.lifecycle == "CANCELLED" && !sql.fetchExists(sql.selectOne().from(REQUEST_IDENTITY)
+                    .where(REQUEST_IDENTITY.ID.eq(request)))) throw GameProtocolFailure("accessDenied")
             val inserted = sql.insertInto(REQUEST_IDENTITY).set(REQUEST_IDENTITY.ID, request)
                 .set(REQUEST_IDENTITY.ACCOUNT_ID, account).set(REQUEST_IDENTITY.KIND, "gameCommand")
                 .set(REQUEST_IDENTITY.SCOPE, game.toString()).set(REQUEST_IDENTITY.INTENT_DIGEST, digest)
@@ -119,7 +125,7 @@ class GameService(private val runtime: ServiceRuntime) {
     fun results(principal: AccountService.Principal, gameId: String, ids: List<String>): GameResults {
         validateIds(ids)
         return transaction { sql ->
-            locked(sql, uuid(gameId), actor(principal))
+            locked(sql, uuid(gameId), actor(principal), originalOnly = true)
             // HTTP is not a stream cutover: absence here cannot prove non-admission by a live socket.
             GameResults(ids.map { status(sql, uuid(gameId), actor(principal), it, "unknown") })
         }
@@ -161,6 +167,7 @@ class GameService(private val runtime: ServiceRuntime) {
         val command = GameWire.decodeClient(inbox.command!!) as GameCommand
         val before = game.revision!!
         val rejection = when (command.action) {
+            GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
             is GameAction.SetStarter, GameAction.Ready, GameAction.WithdrawReady -> applyReadiness(sql, game, inbox.accountId!!, command)
@@ -174,7 +181,7 @@ class GameService(private val runtime: ServiceRuntime) {
             val play = PlayStore.read(sql, game.id!!)
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
                 inbox.accountId.toString(), command.scope, summary,
-                if (play == null) PreparationStore.read(sql, summary) else null, play)
+                if (play == null && summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null, play)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, GameWire.encode(update)).execute()
         }
@@ -194,6 +201,14 @@ class GameService(private val runtime: ServiceRuntime) {
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result))
             .set(GAME_OUTBOX.REVISION, update?.let(GameWire::encode)).execute()
         true
+    }
+
+    private fun applyCancellation(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
+        val rejection = CancellationRules.rejection(lobby.summary(sql, game.id!!), account.toString(), command.scope)
+        if (rejection != null) return rejection
+        // Retain identity, attempts and original outcomes; lifecycle excludes every current listing/read.
+        sql.update(GAME).set(GAME.LIFECYCLE, "CANCELLED").where(GAME.ID.eq(game.id)).execute()
+        return null
     }
 
     private fun applySelection(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {

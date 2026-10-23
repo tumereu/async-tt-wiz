@@ -12,6 +12,7 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
+    @Serializable @SerialName("cancelSetup") data object CancelSetup : GameAction
     @Serializable @SerialName("setStarter") data class SetStarter(val choice: StarterChoice) : GameAction
     @Serializable @SerialName("ready") data object Ready : GameAction
     @Serializable @SerialName("withdrawReady") data object WithdrawReady : GameAction
@@ -41,14 +42,15 @@ import kotlinx.serialization.json.*
 @Serializable @SerialName("upgradeRequired") data class GameUpgradeRequired(val protocolMajor: Int = 1) : GameServerMessage
 @Serializable data class GameRequestStatus(val requestId: String, val status: String, val result: GameResult? = null)
 @Serializable @SerialName("streamReady") data class GameStreamReady(val gameId: String, val streamId: String,
-    val generation: String, val statuses: List<GameRequestStatus> = emptyList()) : GameServerMessage
+    val generation: String, val statuses: List<GameRequestStatus> = emptyList(),
+    val ended: GameSummary? = null) : GameServerMessage
 @Serializable @SerialName("receipt") data class GameReceipt(val requestId: String, val scope: GameScope,
     val ingressOrdinal: String) : GameServerMessage
 @Serializable @SerialName("result") data class GameResult(val requestId: String, val scope: GameScope,
     val outcome: String, val reason: String? = null, val ingressOrdinal: String,
     val commitRevision: String? = null, val createdIds: List<String> = emptyList()) : GameServerMessage
 @Serializable @SerialName("admissionError") data class GameAdmissionError(val code: String,
-    val retryable: Boolean, val requestId: String? = null) : GameServerMessage
+    val retryable: Boolean, val requestId: String? = null, val gameId: String? = null) : GameServerMessage
 @Serializable @SerialName("head") data class GameHead(val gameId: String, val revision: String,
     val summary: GameSummary, val minimumResumableRevision: String = "0", val engineVersion: Int = 1,
     val readFormat: Int = 1, val preparation: LobbyPreparation? = null, val play: PlayState? = null) : GameServerMessage
@@ -88,7 +90,7 @@ object GameWire {
                 require(command.scope.invitationId == null)
                 require(action.choice.accountId == null || DeckValidation.uuid(action.choice.accountId))
             }
-            GameAction.Ready, GameAction.WithdrawReady -> require(command.scope.invitationId == null)
+            GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> require(command.scope.invitationId == null)
             else -> require(command.scope.invitationId != null)
         }
         ordinal(command.generation)

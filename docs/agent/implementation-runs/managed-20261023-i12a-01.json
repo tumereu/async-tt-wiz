@@ -1,0 +1,219 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented I12a captured-round setup cancellation and monotonic server/session/list recovery with private original outcomes after cancellation. Affected shared, PostgreSQL, authenticated socket/HTTP and production controller/auth checks pass; native I12b, returned rounds, independent review and final qualification remain pending.",
+  "selectionReason": "Assigned managed I12a is the ready bounded B3 lifecycle unit after accepted I11 at the pinned dependency commit; it unblocks concurrent I12b without touching UI, gameplay or authoritative state.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :protocol:jvmTest :server:test --tests org.asyncttwiz.server.game.GameCancellationTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyControllerTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i12a-01/host-initial.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest :server:test --tests org.asyncttwiz.server.game.GameCancellationTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyControllerTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i12a-01/host-wrapper.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i12a-01/server-initial-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-i12a-01/protocol-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.GameCancellationTest --tests org.asyncttwiz.android.LobbyCancellationTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyControllerTest --tests org.asyncttwiz.android.LobbyStartTest :server:test --tests 'org.asyncttwiz.server.game.GameCancellationTest.SQL rollback*' --tests 'org.asyncttwiz.server.game.GameSocketTest.cancelled sockets*' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-controllers-sockets.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.GameWireTest --tests org.asyncttwiz.protocol.CancellationTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.GameCancellationTest --tests org.asyncttwiz.android.LobbyCancellationTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyControllerTest --tests org.asyncttwiz.android.LobbyStartTest :server:test --tests 'org.asyncttwiz.server.game.GameCancellationTest.both orders*' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import hashlib,json,pathlib,subprocess; root=pathlib.Path(\".\"); paths=subprocess.check_output([\"git\",\"diff\",\"--name-only\",\"HEAD\"],text=True).splitlines()+subprocess.check_output([\"git\",\"ls-files\",\"--others\",\"--exclude-standard\"],text=True).splitlines(); paths=sorted(p for p in paths if p.endswith(\".kt\")); state=\"docs/agent/implementation-state.json\"; original=subprocess.check_output([\"git\",\"show\",\"a4b444e192776f5d165fb9188fc6e526f697620e:\"+state]); assert root.joinpath(state).read_bytes()==original; subprocess.run([\"git\",\"diff\",\"--check\"],check=True); print(json.dumps({\"startCommit\":\"a4b444e192776f5d165fb9188fc6e526f697620e\",\"stateByteIdentical\":True,\"stateSha256\":hashlib.sha256(original).hexdigest(),\"inputs\":{p:hashlib.sha256(root.joinpath(p).read_bytes()).hexdigest() for p in paths}},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i12a-01/inputs-and-boundary.json"
+    }
+  ],
+  "proposal": {
+    "sourceIds": [
+      "P-062",
+      "P-065",
+      "P-070",
+      "P-072",
+      "T-455",
+      "T-456",
+      "T-458",
+      "T-459",
+      "T-460",
+      "T-462",
+      "T-669"
+    ],
+    "sourcePaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Cancellation.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Lobby.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Preparation.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyApi.kt"
+    ],
+    "testPaths": [
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameCancellationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyCancellationTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CancellationTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameCancellationTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameWireTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameSessionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyControllerTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyStartTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameCancellationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyCancellationTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-controllers-sockets.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/host-initial.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/host-wrapper.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/inputs-and-boundary.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/protocol-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i12a-01/server-initial-junit.json",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Cancellation.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CancellationTest.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameCancellationTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I12a",
+        "before": {
+          "id": "I12a",
+          "batch": "B3",
+          "status": "pending",
+          "dependsOn": [
+            "I11"
+          ],
+          "planningRecord": "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+          "outcome": "Implement real unstarted-game cancellation and coherent lobby/list lifecycle recovery on the existing GameAction/GameService/inbox/revision/outbox and GameSession/LobbyController path. Bind cancellation to the captured persistent game/preparation round, serialize it with invitation/preparation/readiness/start, allow either admitted lobby participant without opponent consent and let inviter cancel a pending invitation with the same action. Cancel-first removes current game/invitation and prevents revival; start-first rejects late cancellation without resetting play. Preserve private original outcomes after cancellation without restoring ordinary cancelled-game access. Reconcile accepted lifecycle/list state, pending originals and personal UI separately; leaving alone preserves preparation/Ready. Native entry points/dialog and full two-Android journey are I12b, not fake controls here.",
+          "checks": [
+            "Run affected shared codec/semantic and real PostgreSQL/authenticated socket/HTTP checks for exact game/round cancellation, inviter pending-invitation cancellation and either accepted participant cancellation; no vote, presence gate or active-game deletion. Exercise cancellation versus second Ready/start, Accept, preparation and Reinvite in relevant server orders: no started-board reset, stale-round retargeting, replacement/revival, current cancelled row or pending invite. Use existing ordered processor, not a new HTTP mutation/queue or broad head-revision lock.",
+            "Prove atomic cancellation/original result/revision/outbox, same-ID pending/final recovery, changed-intent/account isolation and original create/reinvite outcomes after cancellation. Retain required tombstone/identity/outcome data while denying ordinary cancelled-lobby/preparation access. Inject one affected actual SQL rollback and recover admitted work/restart without duplicate effects; adjust schema only if needed and qualify its retained forward migration, not unchanged foundation fault matrices.",
+            "Run affected production session/controller/auth/navigation tests for monotonic Games/Invitations/lobby convergence and remote cancellation, stale HTTP/result protection, uncertain cancellation recovery with original IDs through same-process reconnect/reauthentication, and no result-as-state rewind or cancelled-context resurrection. Clear/fence appropriate local context on learned cancellation; Logout/account switch remains isolated and process restart syncs server state without an outgoing journal. Leaving/native navigation is not cancellation or Ready withdrawal. Cover own-only edit/withdrawal clearing and acceptance/Decline/Reinvite preserving inviter copies/Ready by reusing valid I10/I11 evidence and adding only missing assertions.",
+            "Retain actual affected incremental check output and current inputs; do not run a full suite or new device-certification layer. I12b completes native Cancel controls/L06 and the real two-Android combined journey. Keep full returned-round T-581/T-582 with I28/I31 and final combined/deferred assertions with I34; no independent B3 review, UI-comparison or external-gate pass."
+          ]
+        },
+        "after": {
+          "id": "I12a",
+          "batch": "B3",
+          "status": "implemented",
+          "dependsOn": [
+            "I11"
+          ],
+          "planningRecord": "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+          "outcome": "Implement real unstarted-game cancellation and coherent lobby/list lifecycle recovery on the existing GameAction/GameService/inbox/revision/outbox and GameSession/LobbyController path. Bind cancellation to the captured persistent game/preparation round, serialize it with invitation/preparation/readiness/start, allow either admitted lobby participant without opponent consent and let inviter cancel a pending invitation with the same action. Cancel-first removes current game/invitation and prevents revival; start-first rejects late cancellation without resetting play. Preserve private original outcomes after cancellation without restoring ordinary cancelled-game access. Reconcile accepted lifecycle/list state, pending originals and personal UI separately; leaving alone preserves preparation/Ready. Native entry points/dialog and full two-Android journey are I12b, not fake controls here.",
+          "checks": [
+            "Run affected shared codec/semantic and real PostgreSQL/authenticated socket/HTTP checks for exact game/round cancellation, inviter pending-invitation cancellation and either accepted participant cancellation; no vote, presence gate or active-game deletion. Exercise cancellation versus second Ready/start, Accept, preparation and Reinvite in relevant server orders: no started-board reset, stale-round retargeting, replacement/revival, current cancelled row or pending invite. Use existing ordered processor, not a new HTTP mutation/queue or broad head-revision lock.",
+            "Prove atomic cancellation/original result/revision/outbox, same-ID pending/final recovery, changed-intent/account isolation and original create/reinvite outcomes after cancellation. Retain required tombstone/identity/outcome data while denying ordinary cancelled-lobby/preparation access. Inject one affected actual SQL rollback and recover admitted work/restart without duplicate effects; adjust schema only if needed and qualify its retained forward migration, not unchanged foundation fault matrices.",
+            "Run affected production session/controller/auth/navigation tests for monotonic Games/Invitations/lobby convergence and remote cancellation, stale HTTP/result protection, uncertain cancellation recovery with original IDs through same-process reconnect/reauthentication, and no result-as-state rewind or cancelled-context resurrection. Clear/fence appropriate local context on learned cancellation; Logout/account switch remains isolated and process restart syncs server state without an outgoing journal. Leaving/native navigation is not cancellation or Ready withdrawal. Cover own-only edit/withdrawal clearing and acceptance/Decline/Reinvite preserving inviter copies/Ready by reusing valid I10/I11 evidence and adding only missing assertions.",
+            "Retain actual affected incremental check output and current inputs; do not run a full suite or new device-certification layer. I12b completes native Cancel controls/L06 and the real two-Android combined journey. Keep full returned-round T-581/T-582 with I28/I31 and final combined/deferred assertions with I34; no independent B3 review, UI-comparison or external-gate pass."
+          ],
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i12a-01.json",
+          "qualification": "Round-bound CancelSetup uses the existing durable ordered processor. Either accepted participant and the inviter before acceptance can cancel without presence/consent. Fresh PostgreSQL tests cover both orders against Accept, Reinvite, selection, transfer and second Ready/start, stale-round and pending-recipient refusal, preserved inviter copies/Ready through Decline/Reinvite/Accept, no revival/replacement or active-board reset. Cancellation lifecycle, revision, original result and outbox commit atomically; the injected actual SQL failure is retained, rollback is inspected with an independent SQL connection because the runtime correctly fences on failure, and the production worker resumes admitted originals after restart exactly once. Tombstones retain private identities/outcomes and prior create/reinvite results, while current Games/Invitations, ordinary head/history/subscription and fresh opens deny cancelled context. Resume returns optional GameStreamReady.ended lifecycle metadata and private original statuses only; GameAdmissionError.gameId correlates negative ordinary reads. No schema migration or released migration edit was needed. Fresh production session/controller tests cover monotonic HTTP/socket/list convergence, late original results not becoming state or navigation, remote picker/preparation/inspection cleanup, unsent transfer-tail clearing with admitted-original retention, uncertain cancellation across reconnect/reauthentication, Logout/account callback fencing, leaving/reopening Ready persistence and start-first preservation. Successful fresh stream authorization may clear an availability fence; stale same-revision reads cannot. The direct Gradle WSL networking failure and first rollback-test failure remain diagnostics; scripts/gradle.sh with one worker and 1280 MiB succeeds. Final affected checks reuse green earlier SQL/socket assertions rather than repeat unchanged suites. Unchanged I10/I11 selected-copy/source-isolation and own-only clearing/start foundations are reused from their accepted records and current tests, not claimed newly native-certified here. I12b owns L06/native entry points, both-orientation two-Android combined/UI cancellation journeys and normal UI source-edit/delete isolation. I28/I31 own full returned-round T-581/T-582/rematch assertions. I34 owns final combined/deferred/full-suite checks; B3 independent review and I35/I36/B8 compatibility/interface gates and every external release gate remain pending. I12 parent and B3 do not close."
+        }
+      },
+      {
+        "collection": "batches",
+        "id": "B3",
+        "before": {
+          "id": "B3",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B3 two-player invitation/preparation/start journey, lifecycle overlaps and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        },
+        "after": {
+          "id": "B3",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B3 two-player invitation/preparation/start journey, lifecycle overlaps and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        }
+      }
+    ]
+  },
+  "runId": "managed-20261023-i12a-01",
+  "sessionID": "ses_e98df5b2effeRmCRrtpRXPCdWl",
+  "startCommit": "a4b444e192776f5d165fb9188fc6e526f697620e",
+  "mode": "implement",
+  "target": "I12a",
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameCancellationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyCancellationTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-controllers-sockets.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/host-initial.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/host-wrapper.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/inputs-and-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/server-initial-junit.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Cancellation.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CancellationTest.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameCancellationTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt"
+  ]
+}

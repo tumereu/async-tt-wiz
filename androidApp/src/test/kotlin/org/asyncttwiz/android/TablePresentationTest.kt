@@ -51,13 +51,14 @@ class TablePresentationTest {
         }
     }
 
-    @Test fun hidingCounterRailDuringAnimationDropsObsoleteSemanticFragments() {
+    @Test fun absentCountersKeepTheirRailAndBlankAccessibleControls() {
         val play = TableFixture.play().let { it.copy(board = it.board.copy(players = listOf(
             PlayPlayer("a", counters = mapOf(CounterColor.BLUE to "1")), PlayPlayer("b")))) }
         val before = TableFixture.scene(play)
         val after = TableFixture.scene(TableFixture.play())
-        val frame = after.copy(items = after.items + before.items.filter { it.kind == TableItemKind.COUNTER })
-        assertTrue(TablePresentation.clip(frame, 412f, 820f).items.filter { it.kind == TableItemKind.COUNTER }.all { it.visible.isEmpty() })
+        assertEquals(12, after.items.count { it.kind == TableItemKind.COUNTER })
+        assertTrue(after.items.filter { it.kind == TableItemKind.COUNTER }.all { it.value.isEmpty() && it.visible.isNotEmpty() })
+        assertEquals(before.fields.map { it.bounds }, after.fields.map { it.bounds })
     }
 
     @Test fun commonScaleAndEqualFootprintsAcrossOrientationOwnerRotationAndPiles() {
@@ -173,12 +174,20 @@ class TablePresentationTest {
         val p = TableFixture.play().let { it.copy(board = it.board.copy(players = listOf(
             PlayPlayer("a", counters = mapOf(CounterColor.RED to "0")), PlayPlayer("b", counters = mapOf(CounterColor.BLUE to "-1"))))) }
         val portrait = TableFixture.scene(p)
-        assertTrue(portrait.items.none { it.kind == TableItemKind.COUNTER && it.owner == "a" })
-        val shown = portrait.items.filter { it.kind == TableItemKind.COUNTER }
+        assertEquals("0", portrait.items.single { it.kind == TableItemKind.COUNTER && it.owner == "a" && it.counter == CounterColor.RED }.value)
+        val shown = portrait.items.filter { it.kind == TableItemKind.COUNTER && it.owner == "b" }
         assertEquals(6, shown.size); assertEquals("", shown.first { it.counter == CounterColor.RED }.value)
         assertTrue(shown.first { it.counter == CounterColor.RED }.label.contains("no value"))
         assertEquals(12, TableFixture.scene(p, true).items.count { it.kind == TableItemKind.COUNTER })
         assertEquals("0", p.board.players.first().counters[CounterColor.RED])
+    }
+
+    @Test fun portraitBattlefieldsGrowToTheHandWithoutAnUnusedHeightCap() {
+        for (review in listOf(false, true)) {
+            val scene = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 412f, 892f, false, reviewing = review)
+            assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.y, scene.fields.last().bounds.bottom, .01f)
+            assertTrue(scene.fields.first().bounds.height > 168f)
+        }
     }
 
     @Test fun automaticInspectionUsesCurrentRegionNotOwnerAndNeverGrantsOpponentHiddenSide() {

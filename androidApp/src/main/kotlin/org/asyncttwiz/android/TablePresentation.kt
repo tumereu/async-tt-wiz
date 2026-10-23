@@ -107,9 +107,10 @@ object TablePresentation {
         val railHeight = if (landscape) max(48f, ch + 8f) else max(52f, ch + 12f)
         val controlsHeight = if (landscape) 0f else if (reviewing) 116f else 56f
         val dockRow = max(68f, ch + 16f)
-        val counterHeight = 52f
-        val dockHeight = 2 * dockRow + combat.height + players.count { it.counters.values.any(::nonzero) } * counterHeight
-        val fieldHeight = minOf(168f, ((height - HEADER - 2 * railHeight - controlsHeight - dockHeight - 6f) / 2).coerceAtLeast(32f))
+        val counterHeight = 48f
+        // Absent values still have six accessible blank controls, in both orientations.
+        val dockHeight = 2 * (dockRow + counterHeight) + combat.height
+        val fieldHeight = ((height - HEADER - 2 * railHeight - controlsHeight - dockHeight - 6f) / 2).coerceAtLeast(32f)
         val boardTop = HEADER + 4f
         val boardBottom = height - railHeight - if (landscape) 8f else 4f
         val fieldBottom = boardBottom - if (landscape && reviewing) 54f else 0f
@@ -181,7 +182,7 @@ object TablePresentation {
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * GRID
             port(battlefield.id, field.bounds, logicalWidth * zoom)
             val rowY = if (landscape) boardTop + (if (index == 0) 0f else sidebarContent - sidebarRow) - sidebarScroll
-                else dockTop + index * (dockRow + combat.height) + if (index == 1 && opponent.counters.values.any(::nonzero)) counterHeight else 0f
+                else dockTop + index * (dockRow + counterHeight + combat.height)
             val dock = TableBounds(0f, rowY, if (landscape) sidebar else width * .8f, dockRow)
             val spacing = max(envelope, (dock.width - 64f) / 3)
             val dp = port("dock/${player.accountId}", dock, 76f + 2 * spacing + envelope)
@@ -198,7 +199,7 @@ object TablePresentation {
                     note = if (hidden) "" else face(top)?.name.orEmpty(), corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
             }
-            if (landscape || player.counters.values.any(::nonzero)) {
+            run {
                 val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, if (landscape) sidebar else width, counterHeight),
                     max(if (landscape) sidebar else width, 288f))
                 for ((n, color) in CounterColor.entries.withIndex()) {
@@ -218,12 +219,11 @@ object TablePresentation {
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.map { it.card.owner })
         for (drawing in stackGeometry.visible.asReversed()) {
-            val b = drawing.bounds.copy(x = sb.x + 8f * zoom + drawing.bounds.x, y = sb.y + 8f * zoom + drawing.bounds.y)
+            val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
             items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards)
         }
-        val combatY = if (landscape) middle - combat.height / 2 else dockTop + dockRow +
-            if (opponent.counters.values.any(::nonzero)) counterHeight else 0f
+        val combatY = if (landscape) middle - combat.height / 2 else dockTop + dockRow + counterHeight
         val combatBounds = TableBounds(sidebar, combatY, width - sidebar, combat.height)
         val cp = port("combat", combatBounds, combat.width)
         fun translated(b: TableBounds) = b.copy(x = b.x + sidebar - cp.scroll, y = b.y + combatY)

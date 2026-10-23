@@ -44,7 +44,7 @@ class TableGestureCoordinator(
         if (capture != null) cancel()
         tick(time)
         val item = scene.hit(point)
-        val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE) {
+        val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE && item.zone != PlayZone.STACK) {
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
         } else null
         val scope = id?.let { selection.scope(it, order()) }

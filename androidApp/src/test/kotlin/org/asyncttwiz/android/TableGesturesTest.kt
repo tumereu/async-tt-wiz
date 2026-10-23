@@ -5,6 +5,48 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun combatInsertionDragBindsOnlyTheRequestedOccurrenceAndCancellingDoesNotCreatePairs() {
+        val f = TableStatesFixture
+        val play = f.combat()
+        for (landscape in listOf(false, true)) {
+            val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
+                if (landscape) 412f else 892f, landscape)
+            val events = mutableListOf<TableIntent>()
+            val gesture = TableGestureCoordinator(events::add)
+            gesture.update(scene, TableSelection(), true)
+            val occurrence = scene.items.single { it.cardId == f.id("attacker2") }
+            val gap = scene.combatDrops.first { it.destination.pairId == null && it.destination.role == org.asyncttwiz.protocol.CombatRole.ATTACKER }
+            gesture.down(occurrence.visible.first().center, 0)
+            gesture.move(gap.bounds.center, 80); gesture.up(gap.bounds.center, 100)
+            val move = events.filterIsInstance<TableIntent.Move>().single()
+            assertEquals(listOf(occurrence.cardId), move.scope.cardIds)
+            assertEquals(TableDestination.Combat(gap.destination), move.destination)
+            assertEquals(f.source(f.a, "1/2").id, move.sources.getValue(occurrence.cardId!!).sourceId)
+            assertEquals(2, play.board.combat!!.pairs.size)
+            assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
+            events.clear()
+            gesture.down(occurrence.visible.first().center, 200); gesture.move(gap.bounds.center, 280); gesture.cancel()
+            assertTrue(events.isEmpty())
+        }
+    }
+
+    @Test fun stackTopAndBadgeOpenContentsWhileDraggingPileNeverMovesItsSource() {
+        val f = TableStatesFixture
+        val play = f.combat()
+        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val events = mutableListOf<TableIntent>()
+        val gesture = TableGestureCoordinator(events::add)
+        gesture.update(scene, TableSelection(), true)
+        val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+        val top = scene.items.first { it.id.startsWith("stackDrawing/") && it.visible.isNotEmpty() }
+        for (point in listOf(TablePoint(stack.bounds.x + 10, stack.bounds.y + 10), top.visible.first().center)) {
+            events.clear(); gesture.down(point, 0); gesture.up(point, 20)
+            assertEquals(listOf<TableIntent>(TableIntent.Actions(stack.id, null)), events)
+        }
+        events.clear(); val point = stack.bounds.center
+        gesture.down(point, 100); gesture.move(scene.fields.last().bounds.center, 180); gesture.up(scene.fields.last().bounds.center, 200)
+        assertTrue(events.isEmpty())
+    }
     @Test fun handDragTargetsViewerBattlefieldAtRealDeviceViewportsAndDoubleTapRotates() {
         for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(360f, 640f, false), Triple(640f, 360f, true))) {
@@ -150,7 +192,8 @@ class TableGesturesTest {
         f.gestures.down(p, 0); f.gestures.move(TablePoint(p.x - 60, p.y), 80); f.gestures.up(TablePoint(p.x - 60, p.y), 100)
         assertTrue(f.events.any { it is TableIntent.Scroll }); assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Actions })
         f.events.clear(); f.gestures.down(p, 200)
-        val dest = f.scene.fields.last().bounds.center
+        // Keep this a vertical gesture as battlefield height changes with the viewport.
+        val dest = TablePoint(p.x, f.scene.fields.last().bounds.center.y)
         f.gestures.move(dest, 250); f.gestures.up(dest, 300)
         assertEquals("a/HAND/2", f.events.filterIsInstance<TableIntent.Move>().single().scope.contextId)
     }

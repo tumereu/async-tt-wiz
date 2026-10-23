@@ -5,11 +5,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -88,7 +89,8 @@ object CombatStackPresentation {
         val visible = ids.take(3).mapIndexed { index, id ->
             val card = requireNotNull(CombatStackRules.inspection(board, id))
             val effect = board.stackEffects.find { it.id == id }
-            OccurrenceDrawing(id, card, TableBounds(index * peek, index * peek,
+            // Same top-at-bottom-right corner peeks as Library/Graveyard, not a fan.
+            OccurrenceDrawing(id, card, TableBounds((2 - index) * peek, (2 - index) * peek,
                 if (card.tapped) cardHeight else cardWidth, if (card.tapped) cardWidth else cardHeight), effect != null, effect?.frozen != null)
         }
         return StackGeometry(maxOf(cardWidth, visible.maxOfOrNull { it.bounds.x + it.bounds.width } ?: 0f),
@@ -97,7 +99,8 @@ object CombatStackPresentation {
 
     fun label(state: PlayState, drawing: OccurrenceDrawing): String {
         val card = drawing.card
-        val name = if (card.covered) "Covered card" else state.definitions.find { it.digest == card.definition }?.definition
+        val hidden = if (drawing.frozen) card.covered else !CardVisibility.isVisibleFaceUp(card, PlayZone.STACK, null, "")
+        val name = if (hidden) "Covered card" else state.definitions.find { it.digest == card.definition }?.definition
             ?.faces?.find { it.faceId == card.faceId }?.name ?: "Card"
         return when {
             drawing.frozen -> "Effect, $name, retained source, read-only"
@@ -181,13 +184,25 @@ fun StackPile(state: PlayState, viewer: String, cardWidth: Float, cardHeight: Fl
 fun StackContents(state: PlayState, onEntry: (CombatStackTarget) -> Unit, modifier: Modifier = Modifier) {
     val ids = CombatStackRules.stack(state.board).cards
     LazyColumn(modifier) {
-        items(ids, key = { it }) { id ->
+        itemsIndexed(ids, key = { _, id -> id }) { index, id ->
             val card = requireNotNull(CombatStackRules.inspection(state.board, id))
             val effect = state.board.stackEffects.find { it.id == id }
             val drawing = OccurrenceDrawing(id, card, TableBounds(0f, 0f, 0f, 0f), effect != null, effect?.frozen != null)
-            TextButton(onClick = { onEntry(CombatStackController.bind(state.board, id)) }) {
-                Text("${ids.indexOf(id) + 1}. ${CombatStackPresentation.label(state, drawing)}")
+            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { onEntry(CombatStackController.bind(state.board, id)) }
+                .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text((index + 1).toString(), color = MenuInk)
+                CompositionLocalProvider(LocalContentColor provides MenuInk) {
+                    TableChromeIcon(if (effect != null) "stack" else "card")
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(CombatStackPresentation.label(state, drawing), color = MenuInk)
+                    Text(if (drawing.frozen) "Remove this effect only" else if (drawing.projection) "Source actions / remove effect" else "Card actions",
+                        style = MaterialTheme.typography.labelSmall, color = MenuInk.copy(alpha = .7f))
+                }
+                Text("›", color = MenuInk)
             }
+            if (index != ids.lastIndex) HorizontalDivider(color = MenuBorder.copy(alpha = .5f))
         }
     }
 }

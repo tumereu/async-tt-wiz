@@ -37,6 +37,44 @@ import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.isActive
 import org.asyncttwiz.protocol.*
 
+/** No fabricated cards, values or actionable board while the accepted boundary is unavailable. */
+@Composable
+internal fun TableUnavailable(title: String, landscape: Boolean, modifier: Modifier = Modifier,
+    navigation: (() -> Unit)? = null, message: String? = null, loading: Boolean = true,
+    retry: () -> Unit, returnCurrent: (() -> Unit)? = null) {
+    BoxWithConstraints(modifier.fillMaxSize().background(Color(0xfff5f8f7))) {
+        val side = if (landscape) TablePresentation.sidebarWidth(maxWidth.value) else 0f
+        Canvas(Modifier.fillMaxSize().clearAndSetSemantics {}) {
+            val d = density
+            val left = (side + 6f) * d
+            val top = (if (landscape) 52f else 106f) * d
+            val bottom = size.height - (if (landscape) 56f else 108f) * d
+            val middle = (top + bottom) / 2
+            val gap = (if (landscape) 0f else 116f) * d
+            drawRect(Color(0xfff4e8ea), Offset(left, top), Size(size.width - left - 6 * d, middle - gap - top))
+            drawRect(Color(0xffe2efe6), Offset(left, middle + gap), Size(size.width - left - 6 * d, bottom - middle - gap))
+        }
+        Row(Modifier.height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+            ActionSquare("Open navigation", "", navigation != null, Modifier.width(48.dp),
+                icon = { TableChromeIcon("menu") }, onClick = { navigation?.invoke() })
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+        Surface(Modifier.align(Alignment.Center).padding(16.dp).widthIn(max = 368.dp),
+            shape = MaterialTheme.shapes.medium, color = Color.White, shadowElevation = 4.dp) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (loading) "Loading table…" else "Table unavailable", fontWeight = FontWeight.Bold)
+                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                if (loading) CircularProgressIndicator(Modifier.size(24.dp), color = OwnTableColor)
+                else Button(retry, Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraSmall,
+                    colors = ButtonDefaults.buttonColors(containerColor = OwnTableColor)) {
+                    TableChromeIcon("current"); Spacer(Modifier.width(8.dp)); Text("Reconnect")
+                }
+                returnCurrent?.let { TextButton(it, Modifier.fillMaxWidth()) { Text("Return to current") } }
+            }
+        }
+    }
+}
+
 /** Normal production surface. One pointer arbiter, one Actions host, and no authoritative local board. */
 @Composable
 internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String, landscape: Boolean,
@@ -354,7 +392,8 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
             } },
             onClick = { toolkit?.phasePicker() })
         if (runtime.reviewing) {
-            ActionSquare("Continue playing from here", "↗", runtime.continueHere != null, Modifier.width(buttonWidth.dp).background(Color.White), onClick = { runtime.continueHere?.invoke() })
+            ActionSquare("Continue playing from here", "", runtime.continueHere != null, Modifier.width(buttonWidth.dp).background(Color.White),
+                icon = { TableChromeIcon("fork") }, onClick = { runtime.continueHere?.invoke() })
             ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
         } else {
             ActionSquare("History", "", runtime.history != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("history") }, onClick = { runtime.history?.invoke() })
@@ -397,12 +436,15 @@ internal fun TableChromeIcon(kind: String) {
             "menu" -> for (y in listOf(5f, 12f, 19f)) line(4f, y, 20f, y)
             "chat" -> { box(3f, 3f, 17f, 14f); line(3f, 17f, 3f, 22f); line(3f, 22f, 8f, 17f) }
             "tree" -> { box(2f, 2f, 5f, 5f); box(17f, 3f, 5f, 5f); box(17f, 17f, 5f, 5f); line(7f, 5f, 12f, 5f); line(12f, 5f, 12f, 20f); line(12f, 20f, 17f, 20f); line(12f, 6f, 17f, 6f) }
+            "fork" -> { line(6f, 21f, 6f, 4f); line(6f, 11f, 18f, 4f); line(12f, 4f, 18f, 4f); line(18f, 4f, 18f, 10f) }
             "history" -> { drawArc(color, -150f, 305f, false, Offset(4f * u, 4f * u), Size(16f * u, 16f * u), style = Stroke(1.7f * u)); line(3f, 3f, 3f, 9f); line(3f, 9f, 9f, 9f); line(12f, 7f, 12f, 12f); line(12f, 12f, 16f, 15f) }
             "overflow" -> for (y in listOf(5f, 12f, 19f)) drawCircle(color, 1.6f * u, Offset(12f * u, y * u))
             "undo" -> { line(10f, 4f, 4f, 9f); line(4f, 9f, 10f, 13f); line(4f, 9f, 15f, 9f); drawArc(color, -90f, 240f, false, Offset(10f * u, 9f * u), Size(10f * u, 10f * u), style = Stroke(1.7f * u)) }
             "redo" -> { line(14f, 4f, 20f, 9f); line(20f, 9f, 14f, 13f); line(20f, 9f, 9f, 9f); drawArc(color, -90f, -240f, false, Offset(4f * u, 9f * u), Size(10f * u, 10f * u), style = Stroke(1.7f * u)) }
             "close" -> { line(5f, 5f, 19f, 19f); line(5f, 19f, 19f, 5f) }
             "grid" -> for (x in listOf(5f, 12f, 19f)) for (y in listOf(5f, 12f, 19f)) drawCircle(color, 1.6f * u, Offset(x * u, y * u))
+            "card" -> box(5f, 2f, 14f, 20f)
+            "stack" -> { box(3f, 2f, 13f, 17f); line(7f, 21f, 20f, 21f); line(20f, 21f, 20f, 6f) }
             "previous" -> { line(18f, 5f, 18f, 19f); line(18f, 5f, 7f, 12f); line(18f, 19f, 7f, 12f); line(5f, 5f, 5f, 19f) }
             "next" -> { line(6f, 5f, 6f, 19f); line(6f, 5f, 17f, 12f); line(6f, 19f, 17f, 12f); line(19f, 5f, 19f, 19f) }
             "current" -> { box(2f, 3f, 20f, 15f); line(8f, 21f, 16f, 21f); line(10f, 7f, 16f, 11f); line(16f, 11f, 10f, 15f); line(10f, 15f, 10f, 7f) }
@@ -493,7 +535,12 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
         text(hand.value, b.right - 18f, b.center.y + 4f, 4)
     }
-    for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)
+    scene.viewports.firstOrNull { it.id == "combat" }?.bounds?.let { b ->
+        clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
+            drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
+            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)
+        }
+    }
     fun endpoint(endpoint: LinkEndpoint): TablePoint? = scene.items.firstOrNull { item ->
         if (endpoint.kind == LinkEndpointKind.CARD) item.cardId == endpoint.id else item.id == "life/${endpoint.id}"
     }?.takeIf { it.visible.isNotEmpty() }?.bounds?.center

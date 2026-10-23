@@ -15,6 +15,7 @@ public final class WriterOwnership implements AutoCloseable {
     private static final int LOCK_ID = 1;
     private static final String EPOCH = "SELECT epoch FROM public.service_writer WHERE singleton = true";
     private final OwnershipDatabase database;
+    private final String diagnosticId = java.util.UUID.randomUUID().toString();
     private Connection lockConnection;
     private Token current;
     private boolean closed;
@@ -66,15 +67,19 @@ public final class WriterOwnership implements AutoCloseable {
             // Reload after commit; future inbox/outbox workers must join recovery before readiness.
             current = new Token(next);
             if (!probe()) throw new OwnershipFailure(OwnershipFailure.Reason.DATABASE_UNAVAILABLE);
+            diagnostic("acquired", null, next);
             return Optional.of(current);
         } catch (OwnershipFailure failure) {
             release();
+            diagnostic("refresh", failure, -1);
             throw failure;
         } catch (SQLException failure) {
             release();
+            diagnostic("refresh", failure, -1);
             throw new OwnershipFailure(OwnershipFailure.Reason.DATABASE_UNAVAILABLE);
         } catch (RuntimeException failure) {
             release();
+            diagnostic("refresh", failure, -1);
             throw new OwnershipFailure(OwnershipFailure.Reason.UNSUPPORTED_SCHEMA);
         }
     }
@@ -91,10 +96,16 @@ public final class WriterOwnership implements AutoCloseable {
                      + "AND pid = pg_backend_pid() AND classid = " + LOCK_NAMESPACE + "::oid AND objid = " + LOCK_ID
                      + "::oid AND objsubid = 2 AND granted) FROM public.service_writer WHERE singleton = true")) {
             if (rows.next() && rows.getLong(1) == current.epoch && rows.getBoolean(2)) return true;
-        } catch (SQLException ignored) {
+        } catch (SQLException failure) {
             // Invalidates before any recovery attempt; raw exceptions never cross this boundary.
+            long epoch = current.epoch;
+            release();
+            diagnostic("probe", failure, epoch);
+            return false;
         }
+        long epoch = current.epoch;
         release();
+        diagnostic("probe-fence-mismatch", null, epoch);
         return false;
     }
 
@@ -107,15 +118,21 @@ public final class WriterOwnership implements AutoCloseable {
                 throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
             }
         }
+        String phase = "open";
         try (var connection = database.open()) {
+            phase = "begin";
             connection.setAutoCommit(false);
             try {
+                phase = "fence";
                 lockEpoch(connection, token.epoch);
                 synchronized (this) {
                     if (closed || current != token) throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
                 }
+                phase = "callback";
                 T result = work.execute(connection);
+                phase = "commit";
                 connection.commit();
+                phase = "close";
                 return result;
             } catch (Exception failure) {
                 try { connection.rollback(); } catch (SQLException ignored) { }
@@ -123,6 +140,7 @@ public final class WriterOwnership implements AutoCloseable {
             }
         } catch (Exception failure) {
             invalidate(token);
+            diagnostic(phase, failure, token.epoch);
             // Even a driver/callback/close error's suppressed exceptions must not leak inputs.
             if (failure instanceof OwnershipFailure safe) throw new OwnershipFailure(safe.reason());
             throw new OwnershipFailure(OwnershipFailure.Reason.TRANSACTION_FAILED);
@@ -140,6 +158,41 @@ public final class WriterOwnership implements AutoCloseable {
 
     private synchronized void invalidate(Token token) {
         if (current == token) release();
+    }
+
+    /** Internal correlation only: unrelated to any account, request, token or database input. */
+    public String diagnosticId() { return diagnosticId; }
+
+    /** Fixed categories only, including wrapped JDBC/codec failures; never render a Throwable. */
+    public static String failureCategory(Throwable failure) {
+        if (failure == null) return "NONE";
+        Throwable cause = failure;
+        for (int depth = 0; cause != null && depth < 8; depth++, cause = cause.getCause()) {
+            if (cause instanceof OwnershipFailure safe) return "OWNERSHIP_" + safe.reason().name();
+            if (cause instanceof java.sql.SQLTimeoutException) return "SQL_TIMEOUT";
+            if (cause instanceof SQLException sql) {
+                String state = sql.getSQLState();
+                if (state == null) return "SQL_OTHER";
+                return switch (state) {
+                    case "40P01" -> "SQL_DEADLOCK";
+                    case "55P03" -> "SQL_LOCK_UNAVAILABLE";
+                    case "57014" -> "SQL_CANCELLED";
+                    default -> state.startsWith("08") ? "SQL_CONNECTION" : "SQL_OTHER";
+                };
+            }
+            if (cause instanceof kotlinx.serialization.SerializationException) return "CODEC";
+        }
+        if (failure instanceof ClassCastException) return "TYPE_MISMATCH";
+        if (failure instanceof IllegalArgumentException) return "INVALID_ARGUMENT";
+        if (failure instanceof IllegalStateException) return "INVALID_STATE";
+        if (failure instanceof java.io.IOException) return "IO";
+        return "OTHER";
+    }
+
+    private void diagnostic(String phase, Throwable failure, long epoch) {
+        // Dedicated secret-free stderr event: service root/library logging deliberately stays off.
+        System.err.println("Writer availability: owner=" + diagnosticId + " thread=" + Thread.currentThread().threadId()
+                + " epoch=" + epoch + " phase=" + phase + " category=" + failureCategory(failure));
     }
 
     private void release() {

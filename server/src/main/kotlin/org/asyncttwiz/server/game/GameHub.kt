@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.ServiceRuntime.UnavailabilityBoundary
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.OwnershipFailure
 
@@ -20,9 +21,9 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
     private val workers = Executors.newScheduledThreadPool(5) { Thread(it, "game-worker").apply { isDaemon = true } }
     fun start() {
         repeat(4) {
-            workers.scheduleWithFixedDelay({ guarded { repeat(32) { if (!games.executeOne()) return@guarded } } }, 0, 100, TimeUnit.MILLISECONDS)
+            workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_EXECUTION) { repeat(32) { if (!games.executeOne()) return@guarded } } }, 0, 100, TimeUnit.MILLISECONDS)
         }
-        workers.scheduleWithFixedDelay({ guarded {
+        workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_PUBLICATION) {
             for (publication in games.publications()) {
                 // Only committed rows are visible; delivery is retryable/duplicate-safe and outside SQL.
                 for (socket in sockets) socket.publish(publication)
@@ -33,10 +34,16 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
             sockets.forEach { it.heartbeat() }
         }, 30, 30, TimeUnit.SECONDS)
     }
-    private fun guarded(action: () -> Unit) {
+    private fun guarded(boundary: UnavailabilityBoundary, action: () -> Unit) {
         try { if (runtime.ready()) action() }
-        catch (_: OwnershipFailure) { /* Ownership recovery stops all workers until validation succeeds. */ }
-        catch (_: Exception) { runtime.invalidateWorkerRecovery() }
+        catch (failure: OwnershipFailure) {
+            // Ownership recovery still stops all workers until validation succeeds.
+            runtime.recordUnavailability(boundary, failure)
+        }
+        catch (failure: Exception) {
+            runtime.invalidateWorkerRecovery()
+            runtime.recordUnavailability(boundary, failure)
+        }
     }
     fun available() = !workers.isShutdown && dispatcher.available()
     fun validatePending() = games.validatePending()

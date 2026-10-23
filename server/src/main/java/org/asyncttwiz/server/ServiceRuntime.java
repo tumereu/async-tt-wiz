@@ -23,6 +23,12 @@ public final class ServiceRuntime implements AutoCloseable {
     private final java.util.List<java.util.function.BooleanSupplier> workerAvailability = new java.util.concurrent.CopyOnWriteArrayList<>();
     private volatile long recoveredEpoch = -1;
 
+    public enum UnavailabilityBoundary {
+        RECOVERY_REFRESH, RECOVERY_WORKERS, GAME_EXECUTION, GAME_PUBLICATION,
+        GAME_HTTP_READY, GAME_HTTP_AUTHENTICATION, GAME_HTTP_SOCKET, GAME_HTTP_BASELINE,
+        GAME_HTTP_HISTORY, GAME_HTTP_REVISIONS, GAME_HTTP_RESULTS, GAME_HTTP_WRITE
+    }
+
     public ServiceRuntime(DatabaseSettings settings) { ownership = new WriterOwnership(settings); }
 
     public void attachWorker(Runnable check, java.util.function.BooleanSupplier available) {
@@ -31,16 +37,29 @@ public final class ServiceRuntime implements AutoCloseable {
     }
     public void invalidateWorkerRecovery() { recoveredEpoch = -1; }
 
+    /** Private operational evidence only; no request inputs or raw/suppressed exceptions. */
+    public void recordUnavailability(UnavailabilityBoundary boundary, Throwable failure) {
+        System.err.println("Runtime availability: owner=" + ownership.diagnosticId()
+                + " thread=" + Thread.currentThread().threadId() + " recoveredEpoch=" + recoveredEpoch
+                + " stopping=" + stopping.get() + " boundary=" + boundary.name()
+                + " category=" + WriterOwnership.failureCategory(failure));
+    }
+
     public void start() {
         recovery.scheduleWithFixedDelay(() -> {
             if (stopping.get()) return;
+            var boundary = UnavailabilityBoundary.RECOVERY_REFRESH;
             try {
                 var token = ownership.refresh();
                 if (token.isPresent() && token.get().epoch() != recoveredEpoch) {
+                    boundary = UnavailabilityBoundary.RECOVERY_WORKERS;
                     recoveryChecks.forEach(Runnable::run);
                     recoveredEpoch = token.get().epoch();
                 }
-            } catch (RuntimeException ignored) { recoveredEpoch = -1; /* Safe retry, no secret-bearing errors. */ }
+            } catch (RuntimeException failure) {
+                recoveredEpoch = -1;
+                recordUnavailability(boundary, failure);
+            }
         }, 0, 500, TimeUnit.MILLISECONDS);
     }
 

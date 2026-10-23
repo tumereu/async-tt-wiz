@@ -1,5 +1,6 @@
 package org.asyncttwiz.protocol
 
+import kotlinx.serialization.builtins.ListSerializer
 import kotlin.test.*
 
 class SelectiveUndoTest {
@@ -190,6 +191,45 @@ class SelectiveUndoTest {
         })
         assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
             work.value(GameplayFieldChange.serializer(), GameplayFieldChange(f.a, GameplayField.NOTE, "", "x".repeat(1000)))
+            true
+        })
+    }
+
+    @Test fun sharedImmutablePayloadMeasurementsSaveVisitsButNeverDiscountSnapshotBytesOrChangedValues() {
+        val card = f.root().board.cards.first()
+        val definition = TokenCatalog.blank
+        val limits = SelectiveUndoLimits(workUnits = 500)
+        assertNotNull(boundedHistory(limits) { work ->
+            repeat(100) {
+                work.value(PlayCard.serializer(), card)
+                work.value(SubmittedDefinition.serializer(), definition)
+            }
+            true
+        })
+        // Equal identities/values are not authority to reuse a previous object's measurement.
+        assertNull(boundedHistory(limits) { work ->
+            repeat(100) { work.value(PlayCard.serializer(), card.copy()) }
+            true
+        })
+        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
+            work.value(PlayCard.serializer(), card)
+            work.value(ListSerializer(PlayCard.serializer()), List(20) { card })
+            true
+        })
+        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
+            work.value(PlayCard.serializer(), card)
+            work.value(PlayCard.serializer(), card.copy(note = "x".repeat(1000)))
+            true
+        })
+        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
+            work.value(SubmittedDefinition.serializer(), definition)
+            work.value(SubmittedDefinition.serializer(), definition.copy(definition = definition.definition.copy(
+                faces = definition.definition.faces.map { it.copy(rulesText = "x".repeat(1000)) })))
+            true
+        })
+        // Measurements are check-local, not a warm-tree bypass of lowered limits.
+        assertNull(boundedHistory(SelectiveUndoLimits(workUnits = 1)) { work ->
+            work.value(PlayCard.serializer(), card)
             true
         })
     }

@@ -281,6 +281,10 @@ internal fun <T> boundedHistory(limits: SelectiveUndoLimits, block: (HistoryWork
  * its bytes made even a latest-head tap exceed 2 MiB after drawing seven from ordinary 60-card decks.
  * String UTF-8 cost is conservatively <= three bytes per UTF-16 unit plus quoting/escaping allowance.
  * Element visits bound nested collections/mandatory payloads even with empty strings/zero suffix.
+ * Replay structurally shares unchanged immutable cards/definitions. Memoize their measured size
+ * within this ONE check, so measuring an ordinary deck at every ancestor does not itself exhaust
+ * the CPU budget. Hits still charge a visit and their FULL bytes in the enclosing snapshot. Replaced
+ * objects (even with the same ID/digest) are measured again. No replay or tuple check is cached.
  */
 @OptIn(ExperimentalSerializationApi::class)
 internal class HistoryWork(private val limits: SelectiveUndoLimits) : AbstractEncoder() {
@@ -290,12 +294,31 @@ internal class HistoryWork(private val limits: SelectiveUndoLimits) : AbstractEn
     private var effects = 0L
     private var metadata = 0L
     private var loads = 0
+    private class Measured(val value: Any, val bytes: Long)
+    private val cards = mutableMapOf<String, Measured>()
+    private val definitions = mutableMapOf<String, Measured>()
     fun loadNode() { if (++loads > limits.loadNodes) throw HistoryLimit() }
     fun metadata(count: Long) { metadata += count; if (metadata > limits.metadataEntries) throw HistoryLimit() }
     fun effects(count: Long) { effects += count; if (effects > limits.effectUnits) throw HistoryLimit() }
     fun <T> value(serializer: SerializationStrategy<T>, value: T) {
         bytes = 0
         encodeSerializableValue(serializer, value)
+    }
+    override fun <T> encodeSerializableValue(serializer: SerializationStrategy<T>, value: T) {
+        val (cache, key) = when {
+            value is PlayCard && serializer === PlayCard.serializer() -> cards to value.id
+            value is SubmittedDefinition && serializer === SubmittedDefinition.serializer() -> definitions to value.digest
+            else -> { super.encodeSerializableValue(serializer, value); return }
+        }
+        val measured = cache[key]
+        if (measured != null && measured.value === value) {
+            charge(measured.bytes)
+            return
+        }
+        if (measured == null) metadata(1) // Bound disposable meter storage as well as its traversal.
+        val start = bytes
+        super.encodeSerializableValue(serializer, value)
+        cache[key] = Measured(value as Any, bytes - start)
     }
     private fun charge(count: Long = 16) {
         bytes += count; units++

@@ -18,6 +18,10 @@ class GameSession(private val connection: GameConnection, private val credential
     private data class Selection(val command: GameCommand, val actor: String, val source: SavedDeck,
         val definitions: List<SubmittedDefinition>, var commitRevision: String? = null)
     private val preparations = mutableMapOf<String, PreparationReplica>()
+    private val plays = mutableMapOf<String, PlayState>()
+    private val acceptedRevisions = mutableMapOf<String, String>()
+    private data class Readiness(val command: GameCommand, val actor: String, var commitRevision: String? = null)
+    private val readiness = linkedMapOf<String, Readiness>()
     private val selections = linkedMapOf<String, Selection>()
     private data class Transfer(val command: GameCommand, val actor: String,
         var commitRevision: String? = null, var withdrawn: Boolean = false)
@@ -44,16 +48,23 @@ class GameSession(private val connection: GameConnection, private val credential
     val ready get() = connected && welcome
     fun ready(gameId: String) = ready && streams[gameId]?.let { it.generation != null && it.head } == true
     fun pending(gameId: String) = pending.values.any { it.scope.gameId == gameId } || selections.values.any { it.command.scope.gameId == gameId } ||
-        transfers.values.any { it.command.scope.gameId == gameId } || captured.any { it.intent.gameId == gameId }
+        transfers.values.any { it.command.scope.gameId == gameId } || readiness.values.any { it.command.scope.gameId == gameId } || captured.any { it.intent.gameId == gameId }
     fun queuedTransfers(gameId: String) = captured.filter { it.intent.gameId == gameId }.sumOf { it.remaining().count }
     fun acceptedPreparation(gameId: String) = preparations[gameId]?.state
+    fun play(game: GameSummary) = plays[game.id]?.takeIf { summary(game).let { current ->
+        current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
     fun preparation(game: GameSummary): LobbyPreparation? {
         val current = summary(game)
+        if (current.lifecycle != GameLifecycle.LOBBY) return null
         var display = preparations[game.id]?.state?.takeIf { it.roundId == current.preparationRound } ?: return null
         for (selection in selections.values.filter { it.command.scope.gameId == game.id }) {
             display = PreparationRules.select(current, display, selection.actor, selection.command.requestId,
                 selection.command.scope, selection.command.action as GameAction.SelectDeck, selection.source,
                 selection.definitions).state ?: display
+        }
+        // Ready is submitted only after earlier predictions settle. Later per-card edits follow it.
+        for (intent in readiness.values.filter { it.command.scope.gameId == game.id }) {
+            display = StartRules.change(current, display, intent.actor, intent.command.scope, intent.command.action).state ?: display
         }
         for (transfer in transfers.values.filter { it.command.scope.gameId == game.id && !it.withdrawn }) {
             val next = PreparationRules.transfer(current, display, transfer.actor, transfer.command.scope,
@@ -98,8 +109,19 @@ class GameSession(private val connection: GameConnection, private val credential
         } else if (welcome) openStreams()
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
-        if (action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard) return false // Preparation needs captured data for prediction.
+        if (action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
+            action is GameAction.SetStarter || action == GameAction.Ready || action == GameAction.WithdrawReady) return false
         return enqueue(game, action) != null
+    }
+    fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean {
+        if (action !is GameAction.SetStarter && action != GameAction.Ready && action != GameAction.WithdrawReady) return false
+        val current = summary(game)
+        val base = preparation(current) ?: return false
+        val command = command(current, action) ?: return false
+        if (StartRules.change(current, base, actor, command.scope, action).state == null) return false
+        readiness[command.requestId] = Readiness(command, actor)
+        pending[command.requestId] = command
+        error = null; flush(); statusChanged(); return true
     }
     fun selectDeck(game: GameSummary, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>): Boolean {
         val current = summary(game)
@@ -129,7 +151,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (!ready(game.id) || pending(game.id) || credential() != token || pending.size >= 256) return null
         val stream = streams.getValue(game.id)
         return GameCommand(UUID.randomUUID().toString(), GameScope(game.id, game.preparationRound,
-            if (action is GameAction.SelectDeck) null else game.invitationId),
+            if (action == GameAction.AcceptInvitation || action == GameAction.DeclineInvitation || action == GameAction.Reinvite) game.invitationId else null),
             action, stream.id, stream.generation!!)
     }
     private fun enqueue(game: GameSummary, action: GameAction): GameCommand? {
@@ -165,11 +187,14 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 flush()
             }
-            is GameHead -> { install(message.summary, message.revision, message.preparation); streams[message.gameId]?.head = true; flush() }
+            is GameHead -> { install(message.summary, message.revision, message.preparation, message.play); streams[message.gameId]?.head = true; flush() }
             is GameRevision -> {
-                install(message.summary, message.resultRevision, message.preparation)
+                install(message.summary, message.resultRevision, message.preparation, message.play)
                 // A correlated accepted revision is enough even when its result has not arrived yet.
-                transfers.remove(message.requestId)
+                selections[message.requestId]?.commitRevision = message.resultRevision
+                transfers[message.requestId]?.commitRevision = message.resultRevision
+                readiness[message.requestId]?.commitRevision = message.resultRevision
+                retireSelections(message.gameId)
             }
             is GameResult -> result(message)
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
@@ -177,7 +202,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (message.code == "unauthorized") { val rejected = token; unavailable(); rejected?.let(authenticationRequired) }
                 else if (message.retryable || message.code == "streamFenced") unavailable()
                 else {
-                    message.requestId?.let { pending.remove(it); selections.remove(it); transfers.remove(it); sent.remove(it) }
+                    message.requestId?.let { pending.remove(it); selections.remove(it); transfers.remove(it); readiness.remove(it); sent.remove(it) }
                     error = "This game changed or the request could not be used. Refresh and try again."
                 }
             }
@@ -187,9 +212,17 @@ class GameSession(private val connection: GameConnection, private val credential
         flush()
         statusChanged()
     }
-    private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?) {
+    private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?, play: PlayState?) {
         require(game.revision == revision); GameWire.ordinal(revision)
-        if (preparation != null) {
+        val old = summaries[game.id]
+        if (old != null && !newerOrEqual(revision, old.revision)) return
+        if (play != null) {
+            require(game.lifecycle == GameLifecycle.ACTIVE && play.gameId == game.id && play.id == game.playId &&
+                play.preparationRound == game.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
+            plays[game.id] = play
+        }
+        if (game.lifecycle != GameLifecycle.LOBBY) preparations.remove(game.id)
+        if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) {
             require(preparation.gameId == game.id && preparation.roundId == game.preparationRound)
             val old = preparations[game.id]
             if (old == null || newerOrEqual(revision, old.revision)) {
@@ -198,9 +231,10 @@ class GameSession(private val connection: GameConnection, private val credential
                 selections.entries.removeAll { it.key in applied }
             }
         }
+        if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || play != null) acceptedRevisions[game.id] = revision
+        summaries[game.id] = game
         retireSelections(game.id)
-        val old = summaries[game.id]
-        if (old == null || newerOrEqual(revision, old.revision)) { summaries[game.id] = game; changed(game) }
+        changed(game)
     }
     private fun result(result: GameResult) {
         val original = pending[result.requestId] ?: return
@@ -216,15 +250,25 @@ class GameSession(private val connection: GameConnection, private val credential
             else transfers.remove(result.requestId)
             retireSelections(original.scope.gameId)
         }
+        readiness[result.requestId]?.let { intent ->
+            if (result.outcome == "accepted") intent.commitRevision = requireNotNull(result.commitRevision)
+            else readiness.remove(result.requestId)
+            retireSelections(original.scope.gameId)
+        }
         error = if (result.outcome == "accepted") null else when (result.reason) {
             "sourceChanged" -> "This saved deck changed. Choose it again to use the current version."
             "sourceUnavailable" -> "This saved deck is no longer available. Choose another deck."
+            "deckRequired" -> "Select your deck to get ready."
+            "starterRequired" -> "Choose the starting player to get ready."
             else -> "This game has changed. Refresh and try again."
         }
         settled(original, result)
     }
     private fun retireSelections(gameId: String) {
-        val revision = preparations[gameId]?.revision ?: return
+        // A newer HTTP summary is not a board/preparation replica and cannot settle its overlay.
+        val revision = acceptedRevisions[gameId] ?: return
+        readiness.entries.removeAll { (_, intent) -> intent.command.scope.gameId == gameId &&
+            intent.commitRevision?.let { newerOrEqual(revision, it) } == true }
         selections.entries.removeAll { (_, selection) -> selection.command.scope.gameId == gameId &&
             selection.commitRevision?.let { newerOrEqual(revision, it) } == true }
         transfers.entries.removeAll { (_, transfer) -> transfer.command.scope.gameId == gameId &&
@@ -260,7 +304,7 @@ class GameSession(private val connection: GameConnection, private val credential
         epoch++; connected = false; welcome = false; token = null; connection.disconnect(); sent.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false }
     }
-    fun clear() { disconnect(); pending.clear(); selections.clear(); transfers.clear(); captured.clear(); preparations.clear(); summaries.clear(); streams.clear(); error = null; statusChanged() }
+    fun clear() { disconnect(); pending.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear(); acceptedRevisions.clear(); summaries.clear(); streams.clear(); error = null; statusChanged() }
     override fun close() { closed = true; clear(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

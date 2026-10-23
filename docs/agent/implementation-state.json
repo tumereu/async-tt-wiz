@@ -106,7 +106,8 @@
                                                            "docs/agent/implementation-runs/20261022T230001Z-668e6673.json",
                                                             "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json",
                                                              "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
-                                                             "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json"
+                                                              "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json",
+                                                              "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3.json"
    ],
   "findings": [
     {
@@ -1085,7 +1086,9 @@
     {
       "id": "I11b",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3.json",
+      "qualification": "Delivered native explicit either-player/Random starter, Ready/withdrawal and both-player readiness/no-deck/unset-choice/connection presentation on the existing ordered session. Shared pure prediction never initializes locally; accepted server play alone routes to the production Canvas/scene-backed table, showing actual owner Libraries/counts, 20 life, empty Hand/Battlefield/Graveyard/Exile/Stack and turn-1 Untap in both orientations, without playable Sideboard/demo state/future fake controls. Thirty final affected host cases pass, normal APK/lint/boundaries and focused V9 reset-oracle regression pass. Composite two-normal-APK UI-created account/catalog/deck/invite/start evidence covers first Ready before acceptance, withdrawal/re-Ready/leave, recipient no-deck guard/preparation, both truthful statuses, backend restart before resuming the second app's start acknowledgement, both-orientation table/drawer/reopen and server-first restart/native Back. Read-only retained snapshots prove eleven original accepted requests and one exact play/root, independent concrete Library orders and Random result unchanged across recovery, stable game/name/date and no opening draw. Native scroll/restart-oracle and partial tmpfs APK-readback diagnostics remain retained; passing tails do not newly repeat setup or all earlier assertions. Only the later accepted-replica-versus-HTTP-high-water retirement/correlation correction supersedes native GameSession inputs; all 30 final affected host cases and final APK compilation cover it, while unchanged native rendering/start evidence is explicitly reused. Actual populated V9 reset includes empty game_play/all stores, and exact two-device/environment cleanup passes. Only I11b closes; I11 parent audit/I12 full list/cancel/start/preparation/isolation overlaps/first B3 review, I13-I26 gameplay/history, I28/I31 rematch and I33-I36 final qualification/UI/compatibility/measurements plus every external gate remain required/unverified.",
       "dependsOn": ["I11a"],
       "planningRecord": "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
       "outcome": "Complete native L01/L02/L05 starter/Ready/Withdraw Ready with both players' truthful readiness, and route accepted start to the real production initial table surface using I11a's shared accepted board/definitions/containers. Extend GameSession/LobbyController/navigation and accepted/predicted/UI separation without a new queue or authoritative local initialization. Show actual owner-associated Libraries/counts, life 20, chosen turn player/turn 1 Untap and empty hands/other play areas with retained text/art fallback; no playable Sideboard, retired G00, hard-coded demo state or fake future action. Establish the production rendering/layout foundation extended by I15/I16, while full gestures/basic moves remain those tasks. Exercise usable native preparation-to-initial-table and recovery in both orientations.",

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.asyncttwiz.e2e.NativeGameStartTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-23T01:46:04.225Z" hostname="DESKTOP-B2KALVM" time="17.708">
+  <properties/>
+  <testcase name="twoPlayersReadyToActualInitialTableAndRecoverOriginalStart()" classname="org.asyncttwiz.e2e.NativeGameStartTest" time="17.701"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

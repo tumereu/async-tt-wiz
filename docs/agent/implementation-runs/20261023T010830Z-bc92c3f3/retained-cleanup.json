@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3/retain-cleanup.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "b2d4ac2e30e8fe7607184c213b231a5062c670d240b21b1567d39cdab8c41cb1",
+  "output": "PASS retained exact reset/cleanup records and first handoff diagnostic; reset CLI stdout is readiness, while reset-completed.json owns the checked store inventory\n"
+}

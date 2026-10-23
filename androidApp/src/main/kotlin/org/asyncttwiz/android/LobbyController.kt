@@ -19,7 +19,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet(),
     val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
     val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0,
-    val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null)
+    val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null, val play: PlayState? = null)
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
@@ -51,7 +51,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val feedback = preparationFeedback(state.preparation, next, accountId(), state.transferFeedback)
         state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
-            queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0)
+            queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play))
     }
     private fun accepted(game: GameSummary) {
         val mine = accountId()
@@ -61,6 +61,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         state = state.copy(games = state.games.filterNot { it.id == game.id } + if (inGames) listOf(game) else emptyList(),
             invitations = state.invitations.filterNot { it.id == game.id } + if (inInvites) listOf(game) else emptyList(),
             detail = if (state.selected == game.id) game else state.detail)
+        if (state.selected == game.id && game.lifecycle != GameLifecycle.LOBBY) {
+            closePicker(); inspection.close(); state = state.copy(preparing = false, transferFeedback = null)
+        }
     }
     fun respond(game: GameSummary, accept: Boolean) {
         if (game.recipient.accountId != accountId() || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) return
@@ -69,6 +72,14 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun reinvite(game: GameSummary) {
         if (game.inviter.accountId != accountId() || game.invitationState != InvitationState.DECLINED || game.lifecycle != GameLifecycle.LOBBY) return
         session?.submit(game, GameAction.Reinvite)
+    }
+    fun starter(choice: StarterChoice) = readiness(GameAction.SetStarter(choice))
+    fun ready() = readiness(GameAction.Ready)
+    fun withdrawReady() = readiness(GameAction.WithdrawReady)
+    private fun readiness(action: GameAction) {
+        val game = state.detail ?: return
+        val actor = accountId() ?: return
+        if (!closed) session?.readiness(game, actor, action)
     }
     fun chooseDeck() {
         val game = state.detail ?: return
@@ -234,9 +245,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
         }
     }
-    fun open(id: String) { if (!state.mutating) { closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, acceptedPreparation = null, preparation = null, preparing = false, transferFeedback = null, error = null); openGame(); refresh() } }
+    fun open(id: String) { if (!state.mutating) { closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, acceptedPreparation = null, preparation = null, play = null, preparing = false, transferFeedback = null, error = null); openGame(); refresh() } }
     fun back() { if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
-        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { state = state.copy(selected = null, detail = null, acceptedPreparation = null, preparation = null, transferFeedback = null, error = null); refresh() } }
+        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { state = state.copy(selected = null, detail = null, acceptedPreparation = null, preparation = null, play = null, transferFeedback = null, error = null); refresh() } }
     fun sync() { session?.tick(); if (!state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) {
         if (closed || state.busy || state.mutating) return

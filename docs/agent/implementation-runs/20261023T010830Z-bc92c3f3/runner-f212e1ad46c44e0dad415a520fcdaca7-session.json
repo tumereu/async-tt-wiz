@@ -1,0 +1,11 @@
+{
+  "owner": "2248fcc02c7d26752f5f74312ec898771f93663d82ffb2a5cf25dc511bb286cf",
+  "serial": "emulator-5564",
+  "sessionId": "d8dcf973-5db2-4b34-96b4-cf87ecaaf92f",
+  "systemPort": 18210,
+  "forward": [
+    "emulator-5564",
+    "tcp:18210",
+    "tcp:6790"
+  ]
+}

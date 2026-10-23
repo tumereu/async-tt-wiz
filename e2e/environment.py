@@ -444,11 +444,11 @@ def empty_baseline(value):
     # Deliberately explicit implemented-store inventory. New migrations/workers
     # must extend this qualification, never silently escape the reset contract.
     require(database(value, "SELECT string_agg(tablename,',' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'")
-            == "account,account_definition,account_request,account_session,contact,deck_entry,definition,flyway_schema_history,game,game_definition,game_inbox,game_outbox,game_revision,game_stream,invitation,password_reset_token,player_preparation,request_identity,reset_mail,saved_deck,service_writer", "Unexpected baseline tables")
-    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3\n4\n5\n6\n7\n8", "Unexpected migration baseline")
+            == "account,account_definition,account_request,account_session,contact,deck_entry,definition,flyway_schema_history,game,game_definition,game_inbox,game_outbox,game_play,game_revision,game_stream,invitation,password_reset_token,player_preparation,request_identity,reset_mail,saved_deck,service_writer", "Unexpected baseline tables")
+    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3\n4\n5\n6\n7\n8\n9", "Unexpected migration baseline")
     mutable = ("account", "account_session", "password_reset_token", "reset_mail", "definition",
                "account_definition", "saved_deck", "deck_entry", "request_identity", "account_request", "contact", "game", "invitation",
-               "game_inbox", "game_outbox", "game_revision", "game_stream", "player_preparation", "game_definition")
+               "game_inbox", "game_outbox", "game_revision", "game_stream", "player_preparation", "game_definition", "game_play")
     for table in mutable:
         require(database(value, "SELECT count(*) FROM " + table) == "0", "Retained private baseline")
     require(database(value, "SELECT count(*) FROM service_writer WHERE singleton AND epoch > 0") == "1", "Missing baseline writer")
@@ -457,7 +457,7 @@ def empty_baseline(value):
             state["generation"] == 0 and state["messageCount"] == 0 and
             state["sourceFault"] == state["mailFault"] == "ok", "Nonempty adapter baseline")
     require(admin(value, "/admin/messages") == [], "Retained baseline deliveries")
-    return {"tables": list(mutable) + ["flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3", "4", "5", "6", "7", "8"],
+    return {"tables": list(mutable) + ["flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
             "accountCount": 0, "sessionCount": 0, "resetTokenCount": 0, "resetMailCount": 0,
             "versions": state["versions"], "messageCount": 0, "faults": "ok"}
 

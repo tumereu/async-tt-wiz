@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
     val state = controller.state
+    val tabletop = state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
+        lobby.state.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
     BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
     LaunchedEffect(state.destination) {
         if (state.destination != ShellDestination.DECKS && !(state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true)) deckImport?.exit()
@@ -47,7 +49,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             LaunchedEffect(lobby.state.picker?.importing, deckImport?.state?.active) {
                 if (lobby.state.picker?.importing == true && deckImport?.state?.active != true) lobby.importedForPicker()
             }
-            WaitingLobby(lobby, state.account!!.accountId, if (!landscape) ({ controller.drawer(true) }) else null, landscape,
+            WaitingLobby(lobby, state.account!!.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
                 importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
         } else if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
             DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
@@ -61,8 +63,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     }
     Box(Modifier.fillMaxSize().testTag("authenticated-identity")
         .semantics { contentDescription = "Signed in as ${state.account!!.username}" }) {
-        if (landscape) {
-            // This is the non-gameplay shell. Future tabletop routes use the drawer in both orientations.
+        if (landscape && !tabletop) {
             Row(Modifier.fillMaxSize()) {
                 Surface(Modifier.width(200.dp).fillMaxHeight(), color = Color.White,
                     border = BorderStroke(1.dp, Color(0xffd0d6dd))) {

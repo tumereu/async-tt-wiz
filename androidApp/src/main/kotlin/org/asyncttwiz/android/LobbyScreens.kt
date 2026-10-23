@@ -40,6 +40,11 @@ internal fun gameStatus(game: GameSummary): String = if (game.lifecycle == GameL
     InvitationState.ACCEPTED -> "Preparing"
 }
 internal fun GameSummary.opponent(accountId: String) = if (inviter.accountId == accountId) recipient else inviter
+internal fun readyReason(preparation: LobbyPreparation?, accountId: String): String? = when {
+    preparation?.players?.find { it.accountId == accountId }?.deck == null -> "Select your deck to get ready."
+    preparation.starter == null -> "Choose the starting player to get ready."
+    else -> null
+}
 
 @Composable
 internal fun ContactsContent(controller: LobbyController) {
@@ -148,6 +153,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
+    if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
+        TableScreen(controller, accountId, hamburger, landscape); return
+    }
     if (state.picker != null) { LobbyDeckPicker(controller, importDeck); return }
     if (state.preparing && state.detail?.lifecycle == GameLifecycle.LOBBY) {
         PreparationScreen(controller, accountId, landscape); return
@@ -187,6 +195,26 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { own(Modifier.weight(1f)); opponent(Modifier.weight(1f)) }
                 else { own(Modifier.fillMaxWidth()); opponent(Modifier.fillMaxWidth()) }
+                Text("Starting player", style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for ((label, choice) in listOf(game.inviter.username to StarterChoice(game.inviter.accountId),
+                        game.recipient.username to StarterChoice(game.recipient.accountId), "Random" to StarterChoice())) {
+                        FilterChip(selected = state.preparation?.starter == choice,
+                            onClick = { controller.starter(choice) }, label = { Text(label) },
+                            enabled = game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics { contentDescription = "Starting player: $label" })
+                    }
+                }
+            }
+        }
+        val own = state.preparation?.players?.find { it.accountId == accountId }
+        val reason = readyReason(state.preparation, accountId)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
+            Button(onClick = { if (own?.ready == true) controller.withdrawReady() else controller.ready() },
+                enabled = state.detail?.id in state.connectedGames && state.detail?.id !in state.pendingGames &&
+                    own != null && (own.ready || reason == null), modifier = Modifier.fillMaxWidth()) {
+                Text(if (own?.ready == true) "Withdraw Ready" else "Ready")
             }
         }
     }

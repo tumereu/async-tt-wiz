@@ -110,7 +110,9 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         return true
     }
     fun cancel() { armed = null; continuationTarget = null; provisional = false; firstRequest = null; gate = null }
-    fun current() { cancel(); playback?.play() }
+    /** Abandon only local intent and show the live head; no gameplay or control request. */
+    fun cancelContinuation() { cancel(); playback?.continuationApplied() }
+    fun current() { if (armed != null) cancelContinuation() else { cancel(); playback?.play() } }
     fun updateForeground(value: Boolean) {
         foreground = value
         if (value) playback?.foreground() else playback?.background()

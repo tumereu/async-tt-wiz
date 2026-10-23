@@ -33,7 +33,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
     val tree: (() -> Unit)? = null, val continueHere: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
-    val menuContent: (@Composable () -> Unit)? = null, val reviewPanel: (@Composable () -> Unit)? = null)
+    val menuContent: (@Composable () -> Unit)? = null, val reviewPanel: (@Composable () -> Unit)? = null,
+    val continuationArmed: Boolean = false)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -171,7 +172,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                         returnCurrent = if (reviewing || history.armed != null) history::current else null,
                         menuContent = {
-                            if (history.armed != null) DropdownMenuItem(text = { Text("Cancel continuation") }, onClick = history::cancel)
+                            if (history.armed != null) DropdownMenuItem(text = { Text("Cancel continuation") }, onClick = history::cancelContinuation)
                             DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
                                 enabled = game.id in state.connectedGames)
                             if (reviewing) HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
@@ -186,8 +187,13 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                 })
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
+                        continuationArmed = history.armed != null,
                         controlsConnected = game.id in state.connectedGames && history.foreground,
                         pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))
+                if (!history.provisional) history.armed?.let { boundary ->
+                    HistoryArmedIndicator(playback?.tree?.texts?.get(boundary)?.label ?: "selected event",
+                        landscape, history::cancelContinuation)
+                }
                 }
             }
             if (game.id !in state.connectedGames) Text("Disconnected · read-only", Modifier.padding(horizontal = 12.dp),

@@ -24,18 +24,17 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
     fun zone(id: String) = container(id)?.zone?.name?.lowercase() ?: "another zone"
     fun visible(card: PlayCard): Boolean {
         val area = container(card.containerId) ?: return false
-        if (area.zone == PlayZone.LIBRARY) return false
-        if (area.zone == PlayZone.HAND && area.accountId != viewer) return false
-        return !card.covered
+        return CardVisibility.isVisibleFaceUp(card, area.zone, area.accountId, viewer.orEmpty())
     }
     fun card(id: String): String {
         val old = before?.let { CombatStackRules.inspection(it.board, id) }
             ?: transition.tokens.firstNotNullOfOrNull { it.from?.card?.takeIf { c -> c.id == id } ?: it.to?.card?.takeIf { c -> c.id == id } }
             ?: return "a card"
-        val fields = transition.fields.filter { it.targetId == id }
-        val next = old.copy(containerId = transition.movement?.takeIf { it.cardId == id }?.to?.containerId ?: old.containerId,
+        val fields = transition.fields.filter { it.targetId == old.id }
+        val next = old.copy(containerId = transition.movement?.takeIf { it.cardId == old.id }?.to?.containerId ?: old.containerId,
             faceId = fields.find { it.field == GameplayField.FACE }?.to ?: old.faceId,
-            covered = fields.find { it.field == GameplayField.COVERED }?.to?.toBooleanStrictOrNull() ?: old.covered)
+            covered = fields.find { it.field == GameplayField.COVERED }?.to?.toBooleanStrictOrNull() ?: old.covered,
+            explicitlyCovered = fields.find { it.field == GameplayField.EXPLICITLY_COVERED }?.to?.toBooleanStrictOrNull() ?: old.explicitlyCovered)
         val shown = if (visible(next)) next else old.takeIf(::visible) ?: return "a card"
         val definition = before?.definitions?.find { it.digest == shown.definition }
             ?: (event.action as? PlayAction.CreateToken)?.definition?.takeIf { it.digest == shown.definition }

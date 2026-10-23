@@ -1,0 +1,73 @@
+{
+  "runId": "managed-20261023-write-fhost-feature-migrations-01",
+  "sessionID": "ses_e979095c2ffeSiyMcKilxLqZOX",
+  "startCommit": "f0df419b6fbb4a5c25d7099c0dec897181aadef9",
+  "mode": "integration",
+  "target": "FHOST-G02",
+  "workKind": "writer",
+  "model": "openai/gpt-6.1-sol#high",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "verificationStatus": "UNVERIFIED: source-writing-only; no build, test, application validation, review or self-verification performed.",
+  "summary": "Corrected five obsolete forward-migration count fixtures in four leased test files. Preserved historical seeds, every retention/idempotence assertion and all HTTP expectations. Updated stale migration PASS labels only; separate executor must reach all assertions after the original failures.",
+  "selectionReason": "Explicit known-red FHOST-G02 writer assignment, pinned to the supplied dependency; no speculative scope or next unit selected.",
+  "mergeRepairDetails": "No merges or production repairs. Clean initial HEAD/index matched base/start/dependency f0df419b6fbb4a5c25d7099c0dec897181aadef9 and the supplied managed branch. Context lease and server-created model/session/location metadata matched. Assigned test sources and migration inputs match tested 0caedcbea775d9dca5128ddac1e677d9f4de6fd4 before edits. Authoritative state, controls, migration SQL/checksums and readiness code remain unchanged. No application proposal or state transition.",
+  "checks": [
+    {
+      "kind": "required",
+      "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01/static.json#command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01/static.json",
+      "scope": "Static ownership, pinned input/state identity, registry inventory and supplied XML retention only; not functional verification."
+    },
+    {
+      "kind": "required",
+      "command": "git diff --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01/whitespace.json",
+      "scope": "Whitespace only."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "FHOST-G02-feature-migration-fixtures",
+      "failures": ["FHOST-JVM-016", "FHOST-JVM-018", "FHOST-JVM-019", "FHOST-JVM-023", "FHOST-JVM-024"],
+      "likelyOwningTasks": ["I05", "I09", "I10", "I34"],
+      "classification": "Local stale forward-migration fixtures, not a production migration/readiness seam.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01/original-failures.json",
+      "diagnosis": "Classpath discovery contains 14 immutable migrations: V1..V9, V11, V13..V16. Intentional gaps mean latest version minus seed is not the count. Fixtures still expected earlier integration totals and aborted before retention assertions. Supplied XML records actual 10/8/7/9 deltas; V3 command expects the obsolete applied=3 substring.",
+      "patch": "Kept exact numeric checks: V3 applied=3 -> applied=11; V4 2 -> 10; V5 2 -> 9; V6 3 -> 8; V7 2 -> 7. No seed/target changes, new cases, refactors, retries, exception swallowing or assertion removals. Three obsolete destination labels and one installed-runner label now say to-current.",
+      "sourcePaths": ["server/src/main/java/org/asyncttwiz/server/database/FoundationMigrations.java", "server/src/main/resources/db/migration"],
+      "testPaths": [
+        "server/src/test/kotlin/org/asyncttwiz/server/decks/DeckHttpTest.kt",
+        "server/src/test/kotlin/org/asyncttwiz/server/game/GameDurabilityTest.kt",
+        "server/src/test/kotlin/org/asyncttwiz/server/game/PreparedDeckTest.kt",
+        "server/src/test/kotlin/org/asyncttwiz/server/lobby/LobbyHttpTest.kt"
+      ],
+      "constraints": "DeckHttpTest G03 201/409/503 methods, shared helpers and readiness behavior untouched. Full supplied DeckHttpTest XML retained verbatim, including its unassigned G03 failures; these are not claimed fixed. No production/SQL/checksum changes or overlap with G01 test paths.",
+      "remainingOwner": "Supervisor queues a separate fresh affected-test executor at the saved candidate; independent verification and final I34 remain required. Any newly reached failure returns to a fresh, explicitly leased writer.",
+      "narrowRerunCommand": [
+        "./scripts/gradle.sh", "--no-daemon", "--max-workers=2", ":server:test",
+        "--tests", "org.asyncttwiz.server.decks.DeckHttpTest.explicit V3 to current upgrade preserves account data and routes never self migrate",
+        "--tests", "org.asyncttwiz.server.decks.DeckHttpTest.explicit V4 cover upgrade retains existing named deck entries definitions and original outcomes",
+        "--tests", "org.asyncttwiz.server.game.GameDurabilityTest.explicit V6 forward migration retains games attempts account deck and original creation",
+        "--tests", "org.asyncttwiz.server.game.PreparedDeckTest.explicit V7 forward migration retains source definitions game streams and pending original outcomes",
+        "--tests", "org.asyncttwiz.server.lobby.LobbyHttpTest.explicit V5 forward migration retains account deck definition and original outcome"
+      ],
+      "narrowRerunStatus": "NOT EXECUTED. One combined affected pass by the executor, with its assigned host resources; no whole server rerun requested."
+    }
+  ],
+  "deferredAssertions": "All five methods, especially assertions beyond their original early failure: account credentials, exact deck/entry/definition/revision/original response retention; game/current invitation/preparation round/next ingress retention; zero new preparation queues/copies; pending command resumption exactly once. None certified here. Native/integration prerequisites and canonical task/finding closure remain with their existing owners.",
+  "changedPaths": [
+    "server/src/test/kotlin/org/asyncttwiz/server/decks/DeckHttpTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameDurabilityTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/PreparedDeckTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/lobby/LobbyHttpTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01/original-failures.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01/static.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-feature-migrations-01/whitespace.json"
+  ]
+}

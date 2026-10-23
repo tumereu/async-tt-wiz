@@ -1,0 +1,69 @@
+{
+  "runId": "managed-20261023-write-fhost-coverage-01",
+  "sessionID": "ses_e97903511ffeensmRUvLZUziNQ",
+  "startCommit": "f0df419b6fbb4a5c25d7099c0dec897181aadef9",
+  "mode": "integration",
+  "target": "FHOST-G10",
+  "model": "openai/gpt-6.1-sol#high",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "verificationStatus": "UNVERIFIED",
+  "summary": "Data-only repair of 36 stale checkPlans source line numbers (I01-I36). All 875 P/T/F items, ownership/assertions, row hashes/text, policies, superseded/conditional dispositions, provenance, sourceBaseline and pending/unexecuted accounting are unchanged. No generator/test/plan/state changes or execution/closure claims.",
+  "selectionReason": "Explicit writer lease for the existing FHOST-G10 functional failure; exact source-derived drift is repairable without weakening validation or expanding scope.",
+  "causeAndCorrection": "Plan rows moved 45 lines earlier for I01-I04 and 47 for I05-I36. Strict object comparison correctly rejected stale locations. Refresh only checkPlans[].source.line; existing build() authoring found no other drift. Generator/tests remain intact.",
+  "authoringEvidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01/authoring.json",
+  "mergeDetails": "No merge/repair needed; clean branch started at the pinned dependency. Authoritative state, including accepted I12a, untouched; no proposal/loop validation.",
+  "evidenceProvenance": {
+    "reportCommit": "b11fe5777d8e35ddb56fea53bef4e2a246952aff",
+    "reportPath": "docs/agent/implementation-runs/managed-20261023-exec-functional-host-01.json",
+    "sourceCommit": "0caedcbea775d9dca5128ddac1e677d9f4de6fd4",
+    "retainedExactBytes": "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01/original-python.json",
+    "retainedFileSha256": "aa3e70b8129e5d23815f3fb7e54b62e7da10232bc71ff43c0867789180de8bbc",
+    "originalExitCode": 1,
+    "note": "Exact immutable run's python.json (original command/output/hash retained), not rerun. Supplied XML snapshot contains no coverage-ledger XML."
+  },
+  "checks": [
+    {
+      "kind": "required",
+      "command": "git diff --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01/static-whitespace.json",
+      "scope": "Static whitespace only; not functional verification."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "FHOST-G10-coverage-ledger-drift",
+      "failures": ["FHOST-PY-002"],
+      "test": "test_foundation_data.CoverageLedgerTest.test_actual_sources_and_all_875_ids",
+      "command": "python3 -m unittest discover -s tests -p test_*.py -v",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01/original-python.json",
+      "diagnostic": "ValueError at coverage-ledger.py:199: Ledger differs from source-pinned ownership/disposition/assertion inventory.",
+      "likelyOwningTasks": ["I01b", "I34"],
+      "sourcePaths": ["docs/agent/coverage/ledger.json", "scripts/coverage-ledger.py", "docs/agent/implementation-plan.md"],
+      "testPaths": ["tests/test_foundation_data.py"],
+      "classification": "Local generated-document drift against shared read-only plan; no application/runtime seam changed.",
+      "status": "Patch authored, UNVERIFIED",
+      "constraints": "Use the saved candidate with its pinned plan/generator/tests; concurrent plan edits would require a fresh line-number reconciliation. No other failure group attempted.",
+      "freshAssignment": "Separate executor runs the existing CoverageLedgerTest and ledger validation once on the integrated candidate, retaining actual output; fresh writer handles any remaining failure.",
+      "narrowRerun": [
+        "python3 -m unittest discover -s tests -p test_foundation_data.py -k CoverageLedgerTest -v",
+        "python3 scripts/coverage-ledger.py"
+      ]
+    }
+  ],
+  "remainingOwners": [
+    "Execution queue: affected CoverageLedgerTest and ledger validation; neither executed in this writer session.",
+    "Supervisor: actual session/upstream/latest-state acceptance and any canonical finding/task transitions.",
+    "I34/I36 and independent reviewers: all original final qualification, product coverage and release obligations; requirement mapping is not executed coverage."
+  ],
+  "changedPaths": [
+    "docs/agent/coverage/ledger.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01/authoring.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01/original-python.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-coverage-01/static-whitespace.json"
+  ]
+}

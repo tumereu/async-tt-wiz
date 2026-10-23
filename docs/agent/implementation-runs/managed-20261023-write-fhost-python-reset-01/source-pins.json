@@ -1,0 +1,17 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--exit-code",
+    "0caedcbea775d9dca5128ddac1e677d9f4de6fd4",
+    "f0df419b6fbb4a5c25d7099c0dec897181aadef9",
+    "--",
+    "tests/test_account_environment.py",
+    "tests/test_environment_game_reset.py",
+    "e2e/environment.py",
+    "server/src/main/resources/db/migration"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "output": ""
+}

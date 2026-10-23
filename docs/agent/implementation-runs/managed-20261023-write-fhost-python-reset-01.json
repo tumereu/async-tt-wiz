@@ -1,0 +1,69 @@
+{
+  "runId": "managed-20261023-write-fhost-python-reset-01",
+  "sessionID": "ses_e979044e7ffeuL7SZ8JveGn5aA",
+  "startCommit": "f0df419b6fbb4a5c25d7099c0dec897181aadef9",
+  "mode": "integration",
+  "target": "FHOST-G09",
+  "workKind": "writer",
+  "model": "openai/gpt-6.1-sol#high",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "verificationStatus": "UNVERIFIED",
+  "summary": "Updated the existing isolated account baseline case to reuse ResetFixture with current consolidated SQL, synthetic pinned manifest/JAR/image metadata and complete empty-store inventory. All original negative account/session/reset/deck-store and exact schema/version assertions remain. Production reset_inventory/empty_baseline run unchanged; no real image prerequisite, new cases or test execution.",
+  "selectionReason": "Explicit FHOST-G09 writer lease for an actual completed Python discovery failure; independent test-only repair without production or shared-fixture edits.",
+  "mergeRepairDetails": {
+    "dependencyCommits": ["f0df419b6fbb4a5c25d7099c0dec897181aadef9"],
+    "merge": "None: clean lane HEAD already equals the sole pinned dependency.",
+    "cause": "The obsolete V1..V5 SQL-only fixture calls empty_baseline with project alone. Current reset_inventory first requires pinned source/image identity; the original run raises FileNotFoundError for server/build/application-image.json before reaching any emptiness assertions. Its old table/version responses would also fail current schema checks.",
+    "patch": "Instantiate existing ResetFixture(chat=True, consolidated=True) in an isolated temporary directory. Reuse its independent inventory, manifest/JAR generation and ROOT/owned/docker/admin mocking pattern; provide exact SQL responses for all current stores. Do not mock reset_inventory, sha or schema validation. Preserve every original dirty-store and invalid-schema/version refusal assertion.",
+    "sourcePins": "Assigned test, shared fixture, environment adapter and SQL bytes match tested 0caedcbea775d9dca5128ddac1e677d9f4de6fd4 at base f0df419b6fbb4a5c25d7099c0dec897181aadef9; retained static diff evidence.",
+    "state": "No authoritative state, controls, task/finding closures or application proposal changes."
+  },
+  "checks": [
+    {
+      "kind": "required",
+      "command": "git diff --check -- tests/test_account_environment.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-python-reset-01/whitespace.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code 0caedcbea775d9dca5128ddac1e677d9f4de6fd4 f0df419b6fbb4a5c25d7099c0dec897181aadef9 -- tests/test_account_environment.py tests/test_environment_game_reset.py e2e/environment.py server/src/main/resources/db/migration",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-python-reset-01/source-pins.json"
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "FHOST-G09-python-account-baseline-fixture",
+      "failureId": "FHOST-PY-001",
+      "test": "test_account_environment.AccountBaselineTest.test_current_migrations_and_empty_accounts_sessions_are_required",
+      "originalCommand": "python3 -m unittest discover -s tests -p 'test_*.py' -v",
+      "originalExitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-python-reset-01/original-failure.json",
+      "evidenceProvenance": "Selected exact Python diagnostic bytes/base64 and SHA256 from b11fe5777d8e35ddb56fea53bef4e2a246952aff's immutable executor python.json; not an XML suite or a fresh reproduction.",
+      "likelyOwningTasks": ["I01", "I02", "I31", "I34"],
+      "classification": "Local obsolete test fixture; no shared production integration seam changed.",
+      "sourcePaths": ["tests/test_account_environment.py"],
+      "readOnlyDependencies": ["tests/test_environment_game_reset.py", "e2e/environment.py", "server/src/main/resources/db/migration"],
+      "dependencyOverlapConstraints": "Only the leased test file changed. Existing shared fixture and production inputs remain at the verified static source pins. No build/image/device resources required for this unit fixture.",
+      "status": "Patch authored; UNVERIFIED pending separate execution.",
+      "freshAssignment": "Executor reruns the existing account module on the integrated candidate, retaining all original assertions/output. If still red, supervisor assigns a fresh writer the exact failure; this writer does not self-verify.",
+      "narrowRerun": "python3 -m unittest discover -s tests -p test_account_environment.py -v",
+      "additionalScope": "No test_environment_game_reset rerun requested: its fixture and production adapter were not changed."
+    }
+  ],
+  "remainingOwners": [
+    {"owner": "execution queue", "scope": "Run the narrow account-module regression; no tests/builds/APK/image/device journeys or review ran in this writer session."},
+    {"owner": "supervisor", "scope": "Integrate saved source, verify actual upstream/session/latest-state acceptance and assign any fresh repair; all native/integration prerequisites and final gates remain outside this unit."}
+  ],
+  "changedPaths": [
+    "tests/test_account_environment.py",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-python-reset-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-python-reset-01/original-failure.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-python-reset-01/source-pins.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-python-reset-01/whitespace.json"
+  ]
+}

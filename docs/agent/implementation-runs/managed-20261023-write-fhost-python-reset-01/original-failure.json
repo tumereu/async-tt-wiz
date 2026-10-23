@@ -1,0 +1,56 @@
+{
+  "sourceRun": "managed-20261023-exec-functional-host-01",
+  "sourceCommit": "0caedcbea775d9dca5128ddac1e677d9f4de6fd4",
+  "archiveCommit": "b11fe5777d8e35ddb56fea53bef4e2a246952aff",
+  "sourceReport": "docs/agent/implementation-runs/managed-20261023-exec-functional-host-01.json",
+  "sourceReportSha256": "3d068b70e913cd3610f429532f7bd645126125ca3c2adec693524892322e9b84",
+  "failureGroup": {
+    "id": "FHOST-G09-python-account-baseline-fixture",
+    "failures": [
+      "FHOST-PY-001"
+    ],
+    "test": "test_account_environment.AccountBaselineTest.test_current_migrations_and_empty_accounts_sessions_are_required",
+    "evidence": "docs/agent/implementation-runs/managed-20261023-exec-functional-host-01/python.json",
+    "likelyOwningTasks": [
+      "I01",
+      "I02",
+      "I31",
+      "I34"
+    ],
+    "classification": "Local obsolete reset fixture, not permission to package an image here.",
+    "testPaths": [
+      "tests/test_account_environment.py"
+    ],
+    "sourcePaths": [
+      "e2e/environment.py",
+      "tests/test_environment_game_reset.py"
+    ],
+    "diagnosis": "Line 31 calls current empty_baseline with only project and old V1..5 SQL mocks. reset_inventory now requires image/source identity; first error is absent server/build/application-image.json. Current qualified consolidated-reset fixtures exist separately and passed in this discovery.",
+    "freshAssignment": "Fresh Python reset-fixture writer supplies isolated current inventory fixtures while retaining account/session/store emptiness and source identity assertions. Do not add a real image prerequisite to pure unit discovery.",
+    "constraints": "Independent test-only path; coordinate any environment.py edits with packaging/native owners, never weaken reset authority.",
+    "narrowRerun": "test_account_environment, plus test_environment_game_reset only if its shared fixture/production adapter changes."
+  },
+  "sourceEvidence": "docs/agent/implementation-runs/managed-20261023-exec-functional-host-01/python.json",
+  "sourceEvidenceSha256": "aa3e70b8129e5d23815f3fb7e54b62e7da10232bc71ff43c0867789180de8bbc",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_*.py",
+    "-v"
+  ],
+  "exitCode": 1,
+  "fullOutputSha256": "83be0b9b89c662c8a5bed46e9d92bde906219cf6a64b4e1811856994c0cfbcfc",
+  "selectedOutputByteRange": [
+    37950,
+    40281
+  ],
+  "selectedOutputSha256": "c811534dfb17ed2a0f12a0c0608881b11297c902642fd5f0fe2d5a263f014871",
+  "selectedOutputBase64": "RVJST1I6IHRlc3RfY3VycmVudF9taWdyYXRpb25zX2FuZF9lbXB0eV9hY2NvdW50c19zZXNzaW9uc19hcmVfcmVxdWlyZWQgKHRlc3RfYWNjb3VudF9lbnZpcm9ubWVudC5BY2NvdW50QmFzZWxpbmVUZXN0LnRlc3RfY3VycmVudF9taWdyYXRpb25zX2FuZF9lbXB0eV9hY2NvdW50c19zZXNzaW9uc19hcmVfcmVxdWlyZWQpCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KVHJhY2ViYWNrIChtb3N0IHJlY2VudCBjYWxsIGxhc3QpOgogIEZpbGUgIi9ob21lL3R1b21hcy9wcm9qZWN0cy9hc3luYy10dC13aXotbWFuYWdlZC0yMDI2MTAyM1QwNDUxMjFaLTk1NWYyMmYxL21hbmFnZWQtMjAyNjEwMjMtZXhlYy1mdW5jdGlvbmFsLWhvc3QtMDEvdGVzdHMvdGVzdF9hY2NvdW50X2Vudmlyb25tZW50LnB5IiwgbGluZSAzMSwgaW4gdGVzdF9jdXJyZW50X21pZ3JhdGlvbnNfYW5kX2VtcHR5X2FjY291bnRzX3Nlc3Npb25zX2FyZV9yZXF1aXJlZAogICAgc2VsZi5hc3NlcnRFcXVhbChjaGVjayhxdWVyaWVzKVsnbWlncmF0aW9ucyddLCBbJzEnLCAnMicsICczJywgJzQnLCAnNSddKQogICAgICAgICAgICAgICAgICAgICB+fn5+fl5eXl5eXl5eXgogIEZpbGUgIi9ob21lL3R1b21hcy9wcm9qZWN0cy9hc3luYy10dC13aXotbWFuYWdlZC0yMDI2MTAyM1QwNDUxMjFaLTk1NWYyMmYxL21hbmFnZWQtMjAyNjEwMjMtZXhlYy1mdW5jdGlvbmFsLWhvc3QtMDEvdGVzdHMvdGVzdF9hY2NvdW50X2Vudmlyb25tZW50LnB5IiwgbGluZSAzMCwgaW4gY2hlY2sKICAgIHJldHVybiBlLmVtcHR5X2Jhc2VsaW5lKHsncHJvamVjdCc6ICdvd25lZCd9KQogICAgICAgICAgIH5+fn5+fn5+fn5+fn5+fn5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eCiAgRmlsZSAiL2hvbWUvdHVvbWFzL3Byb2plY3RzL2FzeW5jLXR0LXdpei1tYW5hZ2VkLTIwMjYxMDIzVDA0NTEyMVotOTU1ZjIyZjEvbWFuYWdlZC0yMDI2MTAyMy1leGVjLWZ1bmN0aW9uYWwtaG9zdC0wMS9lMmUvZW52aXJvbm1lbnQucHkiLCBsaW5lIDUxOCwgaW4gZW1wdHlfYmFzZWxpbmUKICAgIG11dGFibGUsIHZlcnNpb25zLCBpZGVudGl0eSA9IHJlc2V0X2ludmVudG9yeSh2YWx1ZSkKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIH5+fn5+fn5+fn5+fn5+fl5eXl5eXl4KICBGaWxlICIvaG9tZS90dW9tYXMvcHJvamVjdHMvYXN5bmMtdHQtd2l6LW1hbmFnZWQtMjAyNjEwMjNUMDQ1MTIxWi05NTVmMjJmMS9tYW5hZ2VkLTIwMjYxMDIzLWV4ZWMtZnVuY3Rpb25hbC1ob3N0LTAxL2UyZS9lbnZpcm9ubWVudC5weSIsIGxpbmUgNDc2LCBpbiByZXNldF9pbnZlbnRvcnkKICAgIHJlcXVpcmUoc2hhKFJPT1QgLyBtYW5pZmVzdF9wYXRoKSA9PSB2YWx1ZVsiaW5wdXRzIl1bbWFuaWZlc3RfcGF0aF0sICJDaGFuZ2VkIHJlc2V0IGltYWdlIG1hbmlmZXN0IikKICAgICAgICAgICAgfn5+Xl5eXl5eXl5eXl5eXl5eXl5eXl5eXgogIEZpbGUgIi9ob21lL3R1b21hcy9wcm9qZWN0cy9hc3luYy10dC13aXotbWFuYWdlZC0yMDI2MTAyM1QwNDUxMjFaLTk1NWYyMmYxL21hbmFnZWQtMjAyNjEwMjMtZXhlYy1mdW5jdGlvbmFsLWhvc3QtMDEvZTJlL2Vudmlyb25tZW50LnB5IiwgbGluZSA0NCwgaW4gc2hhCiAgICByZXR1cm4gaGFzaGxpYi5zaGEyNTYocGF0aC5yZWFkX2J5dGVzKCkpLmhleGRpZ2VzdCgpCiAgICAgICAgICAgICAgICAgICAgICAgICAgfn5+fn5+fn5+fn5+fn5+Xl4KICBGaWxlICIvdXNyL2xpYi9weXRob24zLjE0L3BhdGhsaWIvX19pbml0X18ucHkiLCBsaW5lIDc3OCwgaW4gcmVhZF9ieXRlcwogICAgd2l0aCBzZWxmLm9wZW4obW9kZT0ncmInLCBidWZmZXJpbmc9MCkgYXMgZjoKICAgICAgICAgfn5+fn5+fn5+Xl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eCiAgRmlsZSAiL3Vzci9saWIvcHl0aG9uMy4xNC9wYXRobGliL19faW5pdF9fLnB5IiwgbGluZSA3NzIsIGluIG9wZW4KICAgIHJldHVybiBpby5vcGVuKHNlbGYsIG1vZGUsIGJ1ZmZlcmluZywgZW5jb2RpbmcsIGVycm9ycywgbmV3bGluZSkKICAgICAgICAgICB+fn5+fn5+Xl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl4KRmlsZU5vdEZvdW5kRXJyb3I6IFtFcnJubyAyXSBObyBzdWNoIGZpbGUgb3IgZGlyZWN0b3J5OiAnL2hvbWUvdHVvbWFzL3Byb2plY3RzL2FzeW5jLXR0LXdpei1tYW5hZ2VkLTIwMjYxMDIzVDA0NTEyMVotOTU1ZjIyZjEvbWFuYWdlZC0yMDI2MTAyMy1leGVjLWZ1bmN0aW9uYWwtaG9zdC0wMS9zZXJ2ZXIvYnVpbGQvYXBwbGljYXRpb24taW1hZ2UuanNvbicK",
+  "selectedOutput": "ERROR: test_current_migrations_and_empty_accounts_sessions_are_required (test_account_environment.AccountBaselineTest.test_current_migrations_and_empty_accounts_sessions_are_required)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-functional-host-01/tests/test_account_environment.py\", line 31, in test_current_migrations_and_empty_accounts_sessions_are_required\n    self.assertEqual(check(queries)['migrations'], ['1', '2', '3', '4', '5'])\n                     ~~~~~^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-functional-host-01/tests/test_account_environment.py\", line 30, in check\n    return e.empty_baseline({'project': 'owned'})\n           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-functional-host-01/e2e/environment.py\", line 518, in empty_baseline\n    mutable, versions, identity = reset_inventory(value)\n                                  ~~~~~~~~~~~~~~~^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-functional-host-01/e2e/environment.py\", line 476, in reset_inventory\n    require(sha(ROOT / manifest_path) == value[\"inputs\"][manifest_path], \"Changed reset image manifest\")\n            ~~~^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-functional-host-01/e2e/environment.py\", line 44, in sha\n    return hashlib.sha256(path.read_bytes()).hexdigest()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/usr/lib/python3.14/pathlib/__init__.py\", line 778, in read_bytes\n    with self.open(mode='rb', buffering=0) as f:\n         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.14/pathlib/__init__.py\", line 772, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: '/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-functional-host-01/server/build/application-image.json'\n",
+  "provenanceNote": "Exact selected Python failure bytes from immutable python.json; FHOST-G09 is not an XML suite. No test was executed by this writer."
+}

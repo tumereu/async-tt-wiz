@@ -20,6 +20,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     var confirmation by mutableStateOf<BranchArchiveConfirmation?>(null); private set
     var choices by mutableStateOf<List<BranchReturnChoice>>(emptyList()); private set
     var branch by mutableStateOf<String?>(null); private set
+    var usernames by mutableStateOf<Map<String, String>>(emptyMap()); private set
     private var tree: GameplayTree? = null
     private var firstRequest: String? = null
     private var precedingPresented: String? = null
@@ -28,13 +29,16 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var displayEpoch = 0L
     private var viewVersion: String? = null
     private var closed = false
+    private var textViewer: String? = null
 
-    fun update(value: GameplayTree, version: String) {
-        if (closed || (tree === value && playback?.tree?.liveVersion == version)) return
-        tree = value
+    fun update(value: GameplayTree, version: String, game: GameSummary? = null, viewer: String? = null) {
+        val names = game?.let { listOf(it.inviter, it.recipient).associate { user -> user.accountId to user.username } }.orEmpty()
+        if (closed || (tree === value && playback?.tree?.liveVersion == version && usernames == names && textViewer == viewer)) return
+        tree = value; usernames = names; textViewer = viewer
         val generation = ++epoch
         worker.execute {
-            val index = HistoryTree(value.initial.root.id, value.nodes.values.toList(), value.currentNodeId, version)
+            val index = HistoryTree(value.initial.root.id, value.nodes.values.toList(), value.currentNodeId, version,
+                texts = historyTexts(value, viewer, names))
             post {
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation
@@ -162,8 +166,8 @@ class TableHistoryController(private val worker: Executor, private val post: (()
             val preview = BranchArchives.previewReturn(value, catalog, branchId, chosen, restore)
             val action = preview.target?.let { CapturedBranchArchiveAction(GameScope(value.initial.gameId, playId = value.initial.id),
                 BranchArchiveIntent.ArchiveAndReturn(branchId, it, restore, preview.returnHead)) }
-            val options = value.branchHeads.keys.filter { it != branchId }.mapNotNull { id -> catalog.head(id)?.let {
-                BranchReturnChoice(it, "Continuation ${id.take(8)} · ${it.nodeId.take(8)}", id in value.branchArchives.archivedBranchIds)
+            val options = value.branchHeads.keys.filter { it != branchId }.mapIndexedNotNull { index, id -> catalog.head(id)?.let {
+                BranchReturnChoice(it, "Continuation ${index + 1}", id in value.branchArchives.archivedBranchIds)
             } }
             post { if (!closed && generation == epoch && branch == branchId) {
                 confirmation = BranchArchiveConfirmation(action, preview); choices = options

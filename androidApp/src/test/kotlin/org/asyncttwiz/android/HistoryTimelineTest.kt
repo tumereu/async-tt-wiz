@@ -37,7 +37,8 @@ class HistoryTimelineTest {
         assertEquals(listOf(null,id(70),id(70),id(71)), events.map { it.author })
         assertEquals("flag", events.first().icon)
         assertEquals(listOf("rotate_90_degrees_cw"), events.drop(1).map { it.icon }.distinct())
-        assertTrue(events[2].description.contains(id(2)))
+        assertEquals("A player untapped a card", events[2].description)
+        assertTrue(events.none { it.description.contains("00000000-") })
         assertNotEquals(historyIconGlyph("favorite"), historyIconGlyph("ads_click"))
         assertFails { historyIconGlyph("invented-cast") }
     }

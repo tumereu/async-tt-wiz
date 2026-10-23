@@ -26,7 +26,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 data class HistoryTimelineEvent(val id: String, val icon: String, val description: String,
-    val author: String?, val groupId: String?, val alternatives: Int = 0)
+    val author: String?, val groupId: String?, val alternatives: Int = 0, val label: String = "Change")
 
 object HistoryTimelineLayout {
     fun events(tree: HistoryTree, endpoint: String): List<HistoryTimelineEvent> {
@@ -34,11 +34,11 @@ object HistoryTimelineLayout {
         val children = tree.nodes.values.groupingBy { it.parentId }.eachCount()
         return path.map { id ->
             val mutation = tree.nodes[id]
+            val text = tree.texts[id] ?: historyText(mutation)
             HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) "flag" else
                 org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action).icon,
-                if (mutation == null) "Initial state, boundary $id" else
-                    "${mutation.grouping?.icon ?: mutation.action::class.simpleName}, author ${mutation.author}, boundary $id, ${mutation.transition}",
-                mutation?.author, groups[id]?.id, ((children[id] ?: 0) - 1).coerceAtLeast(0))
+                text.description,
+                mutation?.author, groups[id]?.id, ((children[id] ?: 0) - 1).coerceAtLeast(0), text.label)
         }
     }
     fun x(index: Int, selected: Int, width: Float, pitch: Float) = width / 2f + (index - selected) * pitch

@@ -96,6 +96,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true; buildConfig = true }
+    testOptions.unitTests.isIncludeAndroidResources = true
     // No guessed production host. Release endpoints must use normal platform TLS.
     val origin = providers.gradleProperty("atwApiOrigin").orElse("").get()
     require(origin.isEmpty() || runCatching {
@@ -193,6 +194,10 @@ dependencies {
     implementation(libs.serialization.json)
     implementation(libs.coil.compose)
     testImplementation(libs.kotlin.test)
+    testImplementation(libs.compose.ui.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    debugImplementation(libs.compose.ui.test.manifest)
     testImplementation("junit:junit:4.13.2")
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.sqldelight.sqlite.driver)
@@ -201,4 +206,9 @@ dependencies {
     androidTestImplementation(libs.compose.ui.test)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
+}
+
+tasks.withType<Test>().configureEach {
+    systemProperty("roborazzi.test.record", "true")
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
 }

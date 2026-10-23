@@ -38,7 +38,8 @@ object SelectiveUndo {
     private fun undo(tree: GameplayTree, actor: String, limits: SelectiveUndoLimits, work: HistoryWork): GameplayTreeChange {
         val path = tree.path(tree.currentNodeId, work) ?: return GameplayTreeChange(reason = "missingReference")
         val target = path.lastOrNull { it.author == actor } ?: return GameplayTreeChange(reason = "noCandidate")
-        if (target.revealsInformation) return GameplayTreeChange(reason = "revealingTarget", targetId = target.id)
+        if (target.revealsInformation && !ownHandToBattlefield(tree, target, actor))
+            return GameplayTreeChange(reason = "revealingTarget", targetId = target.id)
         val children = children(tree)
         if (children[target.id].orEmpty().size > 1) return GameplayTreeChange(reason = "forkBoundary", targetId = target.id)
         val later = suffix(children[target.id]?.singleOrNull(), children, limits.suffixNodes)
@@ -62,6 +63,17 @@ object SelectiveUndo {
                 ?: return GameplayTreeChange(reason = "replayBlocked", targetId = target.id)
         }
         return GameplayTreeChange(candidate, targetId = target.id)
+    }
+
+    /** Playing an already-known own Hand card must be reversible. Keep its disclosure on the
+     * recorded mutation (including in Redo); this exception does not make draws, inspections,
+     * flips or moves that reveal an opponent's Hand to the actor removable. */
+    private fun ownHandToBattlefield(tree: GameplayTree, target: GameplayMutation, actor: String): Boolean {
+        if (target.action !is PlayAction.MoveCard || target.transition.disclosures.any { actor in it.viewers }) return false
+        val move = target.transition.movement ?: return false
+        val containers = tree.initial.board.containers
+        return containers.any { it.id == move.from.containerId && it.zone == PlayZone.HAND && it.accountId == actor } &&
+            containers.any { it.id == move.to.containerId && it.zone == PlayZone.BATTLEFIELD }
     }
 
     private fun redo(tree: GameplayTree, actor: String, limits: SelectiveUndoLimits, work: HistoryWork): GameplayTreeChange {

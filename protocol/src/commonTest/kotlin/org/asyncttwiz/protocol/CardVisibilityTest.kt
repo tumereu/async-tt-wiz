@@ -44,9 +44,13 @@ class CardVisibilityTest {
         val tree = GameplayTree(root, listOf(hand.mutation, played.mutation).associateBy { it.id }, played.mutation.id)
         val undo = SelectiveUndo.change(tree, gameplayId(7), GameCommand(gameplayId(199),
             GameScope(root.gameId, playId = root.id), GameAction.Undo, gameplayId(80), "1"))
-        assertEquals("revealingTarget", undo.reason)
+        // Playing your already-known Hand card is reversible even though the opponent saw it.
+        // Retain the disclosure on its recorded Redo entry, rather than losing the accepted context.
+        assertEquals("accepted", undo.outcome)
         assertEquals(played.mutation.id, undo.targetId)
-        assertNull(undo.tree)
+        val undone = assertNotNull(undo.tree)
+        assertEquals(hand.state, undone.stateAt(undone.currentNodeId))
+        assertEquals(played.mutation, undone.redoByAccount[gameplayId(7)]!!.single().mutation)
     }
 
     @Test fun hiddenZoneEntryResetsExplicitFaceDownBeforePlayingAgain() {

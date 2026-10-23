@@ -60,6 +60,33 @@ class GameplaySessionTest {
         f.message(d.result(commands[2], outcome = "noOp")); assertFalse(f.session.pending(d.game.id))
         assertEquals("22", d.life(f.session.play(d.game)))
     }
+    @Test fun rejectedUndoAndRedoExplainTheBlockWithoutRefreshAndDoNotBlockNewPlay() {
+        val f = Fixture(); val d = f.data; f.connect()
+        for ((action, reason, explanation) in listOf(
+            Triple(GameAction.Undo, "revealingTarget", "revealed hidden information"),
+            Triple(GameAction.Undo, "replayBlocked", "another recorded transition"),
+            Triple(GameAction.Undo, "workLimit", "check safely"),
+            Triple(GameAction.Redo, "missingAnchor", "original place"))) {
+            assertTrue(f.session.historyControl(d.game, d.actor, action))
+            val command = f.commands().last()
+            assertNull(command.continuation)
+            assertEquals(GameScope(d.game.id, playId = d.initial.id), command.scope)
+            f.message(GameResult(command.requestId, command.scope, "rejected", reason, "1"))
+            val message = assertNotNull(f.session.error)
+            assertTrue(message.startsWith(if (action == GameAction.Undo) "Can't undo:" else "Can't redo:"))
+            assertTrue(explanation in message)
+            assertFalse("Refresh" in message)
+            assertFalse(f.session.pending(d.game.id))
+            assertTrue(f.session.ready(d.game.id))
+        }
+        assertTrue(f.session.historyControl(d.game, d.actor, GameAction.Undo))
+        val refused = f.commands().last()
+        f.message(GameAdmissionError("invalidInput", false, refused.requestId, d.game.id))
+        assertTrue(assertNotNull(f.session.error).startsWith("Can't undo:"))
+        assertTrue(f.gameplay(PlayAction.AdjustLife(d.actor, "1")))
+        assertNull(f.session.error)
+        f.session.close()
+    }
     @Test fun httpSummaryCannotBlockActualReplicaAndGapBaselineSerializesInterleavedDeltas() {
         val f = Fixture(); val d = f.data; f.connect()
         val a = d.command(PlayAction.AdjustLife(d.actor, "1")); val first = d.update(d.initial, a, "1", "2")

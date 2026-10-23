@@ -1,0 +1,53 @@
+{
+  "runId": "managed-20261023-write-fhost-foundation-01",
+  "sessionID": "ses_e9790a546ffeORVlzVf55UJtgj",
+  "startCommit": "f0df419b6fbb4a5c25d7099c0dec897181aadef9",
+  "mode": "integration", "target": "FHOST-G01", "workKind": "writer",
+  "findingIds": [], "newFindingIds": [], "reviewedUnitIds": [],
+  "outcome": "progress", "verificationStatus": "UNVERIFIED",
+  "summary": "Reconciled five leased historical fixtures with 14 immutable migrations through V16 (gaps V10/V12). No production/state edits, builds, tests, new scenarios or self-verification.",
+  "selectionReason": "Explicit known-red FHOST-G01 fixture assignment.",
+  "mergeRepairDetails": [
+    "Clean start at the pinned dependency; no merge needed. V1/V2 upgrades now expect 13/12 additional migrations; clean migration output expects 14; explicit rollback/future histories include every real version through V16.",
+    "Forged future rows now use free installed_rank=15, not occupied rank=3; supported/future counts are 14/15. Updated the existing exact table inventory from 12 to 32 tables, retaining every earlier entry and all subsequent assertions.",
+    "All old-data/checksum/future/unversioned/rollback/writer-refusal and later security/mail/reset assertions remain. Expected values are explicit, not derived from actual results.",
+    "Evidence retention initially failed on a missing destination directory; capture-check created it, then the identical command succeeded. Both diagnostics retained. No implementation retry or test execution."
+  ],
+  "inputEvidence": {
+    "immutableReport": "b11fe5777d8e35ddb56fea53bef4e2a246952aff:docs/agent/implementation-runs/managed-20261023-exec-functional-host-01.json",
+    "selectedSnapshot": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/selected-failures.json",
+    "scope": "Five exact supplied base64 XML payloads with verified SHA256 and eight original failures at source 0caedcbea775d9dca5128ddac1e677d9f4de6fd4; assigned inputs match startCommit. Prior failures, not fresh execution."
+  },
+  "checks": [
+    {"kind": "diagnostic", "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/retain-input.json#command", "exitCode": 1, "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/retain-input.json"},
+    {"kind": "required", "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/retain-input-retry.json#command", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/retain-input-retry.json", "scope": "Input retention/hash integrity only."},
+    {"kind": "required", "command": "git diff --check", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/whitespace.json"},
+    {"kind": "required", "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/unchanged-inputs.json#command", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/unchanged-inputs.json", "scope": "Git confirms state, permissions, FoundationMigrations and applied SQL unchanged."}
+  ],
+  "failureGroups": [{
+    "id": "FHOST-G01-foundation-migration-fixtures",
+    "failureIds": ["FHOST-JVM-007", "FHOST-JVM-008", "FHOST-JVM-009", "FHOST-JVM-010", "FHOST-JVM-011", "FHOST-JVM-012", "FHOST-JVM-013", "FHOST-JVM-014"],
+    "exactFailingTestsRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/selected-failures.json#failures",
+    "originalCommandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/selected-failures.json#originalCommand",
+    "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/selected-failures.json#suites",
+    "likelyOwningTasks": ["I01", "I02", "I03", "I34"],
+    "diagnosis": "Local stale migration/count/history/table fixtures and colliding future rank, not a production registry defect. Corrected only the five source paths in changedPaths; disjoint from G02/G03 writers. No prerequisites or canonical tasks closed.",
+    "status": "patched-awaiting-execution",
+    "freshAssignment": "Supervisor execution queue: fresh executor checks all five classes together once at saved candidate, including every assertion after former early failures. Any shared production/runtime failure needs fresh supervisor assignment.",
+    "narrowRerun": "./scripts/gradle.sh --no-daemon --max-workers=2 :server:test --tests org.asyncttwiz.server.ServiceProcessTest --tests org.asyncttwiz.server.accounts.AccountRepositoryTest --tests org.asyncttwiz.server.accounts.PasswordResetTest --tests org.asyncttwiz.server.database.FoundationDatabaseTest --tests org.asyncttwiz.server.database.WriterOwnershipTest"
+  }],
+  "remainingOwners": "Fresh executor owns compilation/all affected assertions, especially previously unreachable retention/security/mail/reset/idempotency/table/rollback/future-refusal checks. Sole supervisor owns saved-session/upstream/latest-state acceptance; independent verification and final release obligations remain. UNVERIFIED.",
+  "changedPaths": [
+    "server/src/test/kotlin/org/asyncttwiz/server/ServiceProcessTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/accounts/AccountRepositoryTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/accounts/PasswordResetTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/database/FoundationDatabaseTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/database/WriterOwnershipTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/retain-input.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/retain-input-retry.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/selected-failures.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-foundation-01/unchanged-inputs.json"
+  ]
+}

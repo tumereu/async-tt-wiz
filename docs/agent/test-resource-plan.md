@@ -7,7 +7,7 @@ Keep real devices/services idle until their owning journey needs them.
 | Work | Isolation / exclusive lease |
 | --- | --- |
 | Source inspection, pure/unit host tests | Parallel in separate worktrees/build outputs. Same-worktree builds never overlap. |
-| Gradle/Testcontainers/codegen | Separate worktree outputs and run-owned DB/container/network/ports. Shared dependency caches may use supported tool locking; serialize unqualified shared mutable fixtures. Limit concurrent heavy builds to host memory capacity. |
+| Gradle/Testcontainers/codegen/images | Separate worktree outputs and run-owned DB/container/network/ports. Existing image builders/provisioning use immutable image IDs, not shared mutable tags. Shared dependency caches may use supported tool locking; serialize only genuinely shared mutable fixtures. Limit concurrent heavy builds to actual host capacity, not a fixed lane count. |
 | Normal APK/Appium/instrumentation | Current host's whole device set uses `windows-devices` plus `windows-routing` for the complete provision → install → journey → cleanup lifecycle. A single global ADB/Appium/launcher or reverse-route operation can affect peers, so no per-device concurrency is claimed yet. |
 | Reused Compose/backend/catalog/mailbox | `shared-e2e-backend` if reused. Otherwise unique run-owned project, names, volumes, ports and control configuration; still take Windows routing/device leases when used. Never share a resettable DB across concurrent tests. |
 | Candidate integration/state acceptance | Sole orchestrator holds `integration-writer`, which also takes the legacy controller's writer lock. |

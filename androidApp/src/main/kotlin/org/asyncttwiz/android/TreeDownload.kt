@@ -51,41 +51,59 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
             TreeSync.decode(snapshot.records.asSequence().map(::decode), cache.gameId, cache.playId)) }
     }
 
-    fun stage(plan: TreeDownloadPlan, openChunk: (Int) -> InputStream): StagedDownloadedTree {
+    fun stage(plan: TreeDownloadPlan, openChunk: (Int) -> InputStream?): StagedDownloadedTree? {
         worker(); validate(plan)
-        cache.begin(TreeCacheTransfer(plan.id, plan.revision, plan.chunks.size, plan.identity()))
+        val identity = plan.identity()
+        cache.begin(TreeCacheTransfer(plan.id, plan.revision, plan.chunks.size, identity))
+        fun current() = cache.transfer()?.manifest == identity
         for (chunk in plan.chunks) {
+            if (!current()) return null
             val saved = cache.chunk(plan.id, chunk.index)
             if (saved == null) {
                 // Bound compressed bytes independently; never allocate from untrusted declared lengths.
-                val compressed = openChunk(chunk.index).use { it.bounded(MAX_CHUNK_BYTES) }
+                val compressed = (openChunk(chunk.index) ?: return null).use { it.bounded(MAX_CHUNK_BYTES) }
+                if (!current()) return null
                 val bytes = GZIPInputStream(compressed.inputStream()).use { it.bounded(chunk.bytes) }
                 verify(chunk, bytes)
                 cache.putChunk(plan.id, chunk.index, StoredPayload(1, Base64.getEncoder().encodeToString(bytes)))
             } else verify(chunk, bytes(saved))
         }
         // Lazy enumeration keeps only one decoded disk chunk, not the complete transfer byte blob.
+        var missingChunk = false
         val streams = plan.chunks.asSequence().map { chunk ->
-            val bytes = bytes(checkNotNull(cache.chunk(plan.id, chunk.index)))
+            val payload = cache.chunk(plan.id, chunk.index)
+            if (payload == null) {
+                missingChunk = true
+                return@map byteArrayOf().inputStream() as InputStream
+            }
+            val bytes = bytes(payload)
             verify(chunk, bytes); bytes.inputStream() as InputStream
         }.iterator()
         val enumeration = object : java.util.Enumeration<InputStream> {
             override fun hasMoreElements() = streams.hasNext()
             override fun nextElement() = streams.next()
         }
-        val generation = SequenceInputStream(enumeration).use { stream ->
-            val decoder = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
-            InputStreamReader(stream, decoder).buffered().use { reader ->
-                var count = 0
-                val records = reader.lineSequence().map { line ->
-                    require(line.isNotEmpty()); count++
-                    GameWire.json.decodeFromString(TreeSyncRecord.serializer(), line)
+        val generation = try {
+            SequenceInputStream(enumeration).use { stream ->
+                val decoder = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
+                InputStreamReader(stream, decoder).buffered().use { reader ->
+                    var count = 0
+                    val records = reader.lineSequence().map { line ->
+                        require(line.isNotEmpty()); count++
+                        GameWire.json.decodeFromString(TreeSyncRecord.serializer(), line)
+                    }
+                    val tree = TreeSync.decode(records, cache.gameId, cache.playId)
+                    require(count == plan.recordCount) { "Incomplete tree record coverage" }
+                    tree
                 }
-                val tree = TreeSync.decode(records, cache.gameId, cache.playId)
-                require(count == plan.recordCount) { "Incomplete tree record coverage" }
-                tree
             }
+        } catch (failure: Exception) {
+            // Replacement may remove a chunk during lazy decoding. Discard that partial decode,
+            // but keep actual corruption/format failures visible to the caller's recovery path.
+            if (missingChunk || !current()) return null
+            throw failure
         }
+        if (missingChunk || !current()) return null
         return StagedDownloadedTree(plan, generation)
     }
 
@@ -93,9 +111,11 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
      * A missing/pruned suffix restarts instead of mixing pages or rolling back a newer publication.
      * The final storage CAS also serializes publication against a different live writer.
      */
-    fun publish(staged: StagedDownloadedTree, tail: List<TreeRecordDelta>, verifiedHead: Long): TreePublication {
-        worker(); validate(staged.plan)
-        check(cache.transfer()?.manifest == staged.plan.identity()) { "Obsolete staged generation" }
+    fun publish(staged: StagedDownloadedTree?, tail: List<TreeRecordDelta>, verifiedHead: Long): TreePublication {
+        worker()
+        if (staged == null) return TreePublication.RestartRequired
+        validate(staged.plan)
+        if (cache.transfer()?.manifest != staged.plan.identity()) return TreePublication.RestartRequired
         val expected = cache.version()
         var generation = staged.generation
         var revision = staged.plan.revision
@@ -110,7 +130,7 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         // Recheck mutable adapter input before crossing the accepted boundary.
         TreeSync.validate(generation)
         val records = TreeSync.records(generation).map(::encode).toList()
-        val next = cache.publish(staged.plan.id, expected, revision, records)
+        val next = cache.publish(staged.plan.id, expected, revision, records) ?: return TreePublication.RestartRequired
         return TreePublication.Published(PublishedDownloadedTree(next, generation))
     }
 
@@ -123,6 +143,7 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         if (delta.baseRevision != current.version.revision) return TreePublication.RestartRequired
         val generation = merge(current.generation, delta)
         val next = cache.apply(current.version, delta.revision, delta.upserts.map(::encode), delta.removals.map { RecordKey(it.first, it.second) })
+            ?: return TreePublication.RestartRequired
         return TreePublication.Published(PublishedDownloadedTree(next, generation))
     }
 

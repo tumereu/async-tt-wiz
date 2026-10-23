@@ -40,7 +40,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val changed: (GameSummary) -> Unit, private val settled: (GameCommand, GameResult) -> Unit,
     private val statusChanged: () -> Unit, private val installationId: String = UUID.randomUUID().toString(),
     private val accountId: () -> String? = { null },
-    private val treeCache: ((String, String, String) -> GameplayTreeStore)? = null,
+    private val treeCache: ((String, String, String) -> GameplayTreeStore?)? = null,
     private val treeWorker: ExecutorService = Executors.newSingleThreadExecutor()) : AutoCloseable {
     private val uiThread = Thread.currentThread()
     private val caches = ConcurrentHashMap<String, GameplayTreeStore>()
@@ -149,6 +149,7 @@ class GameSession(private val connection: GameConnection, private val credential
         checkAccount()
         val retained = plays[gameId]?.tree?.tree ?: return false
         val revision = plays[gameId]?.revision?.let(GameWire::ordinal) ?: return false
+        val cache = caches[gameId]
         val generation = epoch; val owner = account
         fun valid() = !closed && generation == epoch && owner == account && sameAccount() &&
             observedPlays[gameId] == retained.initial.id
@@ -157,7 +158,7 @@ class GameSession(private val connection: GameConnection, private val credential
             val cursor = if (nodeId == null) retained.currentNodeId else retained.resolveCursor(nodeId)
             val state = cursor?.let(retained::prepareReview)
             if (!valid()) return@execute
-            caches[gameId]?.reviewCursor(if (nodeId == null) null else cursor)
+            cache?.reviewCursor(if (nodeId == null) null else cursor)
             val view = DownloadedHistoryState(revision, cursor, nodeId != null, state,
                 error = if (state == null) "Downloaded history is unavailable." else null,
                 contextVersion = cursor?.let(retained::contextVersion))
@@ -174,6 +175,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val summary = summaries[target.gameId] ?: return false
         val retained = plays[target.gameId]?.tree?.tree ?: return false
         val revision = plays[target.gameId]?.revision?.let(GameWire::ordinal) ?: return false
+        val cache = caches[target.gameId]
         if (!listOfNotNull(target.accountId, target.gameId, target.playId, target.groupId, target.boundaryNodeId).all(DeckValidation::uuid) ||
             account != target.accountId || summary.lifecycle != GameLifecycle.ACTIVE || summary.playId != target.playId ||
             retained.initial.id != target.playId || retained.initial.gameId != target.gameId ||
@@ -187,7 +189,7 @@ class GameSession(private val connection: GameConnection, private val credential
             val resolved = retained.resolveCursor(target.boundaryNodeId)
             val state = resolved?.let(retained::prepareReview)
             if (!valid()) return@execute
-            if (state != null) caches[target.gameId]?.reviewCursor(resolved)
+            if (state != null) cache?.reviewCursor(resolved)
             val review = CapturedHistoryReview(target, DownloadedHistoryState(revision, resolved, reviewing = true,
                 state = state, error = if (state == null) "This retained history boundary is unavailable." else null,
                 contextVersion = resolved?.let(retained::contextVersion)))
@@ -753,19 +755,20 @@ class GameSession(private val connection: GameConnection, private val credential
     }
 
     private fun loadCached(game: GameSummary) {
-        val playId = requireNotNull(game.playId); val owner = account ?: return
+        val playId = game.playId ?: return; val owner = account ?: return
+        val createCache = treeCache ?: return
         val generation = epoch
         fun valid() = !closed && generation == epoch && account == owner && sameAccount() && observedPlays[game.id] == playId
         treeWorker.execute {
             val published = runCatching {
-                check(valid())
-                val cache = caches[game.id] ?: requireNotNull(treeCache)(owner, game.id, playId).also {
+                if (!valid()) return@runCatching null
+                val cache = caches[game.id]?.takeIf { it.isCurrent() } ?: (createCache(owner, game.id, playId) ?: return@runCatching null).also {
                     if (!valid()) it.invalidate()
                     caches[game.id] = it
                 }
                 cache.guard(::valid)
-                TreeDownload(cache, uiThread).accepted()?.also {
-                    requireNotNull(it.generation.tree.stateAt(it.generation.tree.currentNodeId)) }
+                TreeDownload(cache, uiThread).accepted()?.takeIf {
+                    it.generation.tree.stateAt(it.generation.tree.currentNodeId) != null }
             }.getOrNull()
             post {
                 restoring.remove(game.id)
@@ -795,6 +798,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun stageTree(gameId: String, recovery: Recovery, transfer: GameplayTreeTransfer, generation: Long, current: String?) {
         val playId = transfer.manifest.playId
         val owner = account ?: return unavailable()
+        val createCache = treeCache ?: return
         val tail = recovery.tail.toList().sortedBy { GameWire.ordinal(it.resultRevision) }
         val through = recovery.through
         fun valid() = !closed && generation == epoch && current == credential() && sameAccount() && observedPlays[gameId] == playId
@@ -807,19 +811,21 @@ class GameSession(private val connection: GameConnection, private val credential
                     if (status.status == "final") require(status.result?.requestId == status.requestId &&
                         status.result?.scope == GameScope(gameId, playId = playId))
                 }
-                val cache = caches[gameId]?.takeIf { it.playId == playId } ?: requireNotNull(treeCache)(owner, gameId, playId).also {
+                val cache = caches[gameId]?.takeIf { it.playId == playId && it.isCurrent() }
+                    ?: (createCache(owner, gameId, playId) ?: return@runCatching null).also {
                     if (!valid()) it.invalidate()
                     caches[gameId] = it
                 }
                 cache.guard(::valid)
-                check(valid())
+                if (!valid()) return@runCatching null
                 val download = TreeDownload(cache, uiThread)
-                val staged = download.stage(transfer.plan) { index -> check(valid()); transfer.openChunk(index) }
-                check(valid())
+                val staged = download.stage(transfer.plan) { index -> if (valid()) transfer.openChunk(index) else null }
+                    ?: return@runCatching null
+                if (!valid()) return@runCatching null
                 val result = download.publish(staged, tail.filter { GameWire.ordinal(it.resultRevision) > transfer.plan.revision }
                     .map(::delta), GameWire.ordinal(through))
-                (result as? TreePublication.Published)?.value?.also { value ->
-                    requireNotNull(value.generation.tree.stateAt(value.generation.tree.currentNodeId)) }
+                (result as? TreePublication.Published)?.value?.takeIf { value ->
+                    value.generation.tree.stateAt(value.generation.tree.currentNodeId) != null }
             }.getOrNull()
             post {
                 if (!valid() || recoveries[gameId] !== recovery) return@post
@@ -847,8 +853,8 @@ class GameSession(private val connection: GameConnection, private val credential
         treeWorker.execute {
             if (!valid()) return@execute
             val published = runCatching { caches[update.gameId]?.let { TreeDownload(it, uiThread).apply(delta(update)) }
-                as? TreePublication.Published }.getOrNull()?.value?.also {
-                    requireNotNull(it.generation.tree.stateAt(it.generation.tree.currentNodeId)) }
+                as? TreePublication.Published }.getOrNull()?.value?.takeIf {
+                    it.generation.tree.stateAt(it.generation.tree.currentNodeId) != null }
             post {
                 if (!valid()) return@post
                 if (published == null) { recover(update.gameId, update.resultRevision); return@post }

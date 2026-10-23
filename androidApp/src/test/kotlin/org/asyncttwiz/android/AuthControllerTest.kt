@@ -8,6 +8,27 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class AuthControllerTest {
+    @Test fun ownerChangeDuringLoginOrIdentityReadDropsResultBeforePrivateStorageOrActivation() {
+        for (restoring in listOf(false, true)) {
+            val worker = Worker(); val api = Api(); val store = Store(); val local = Local()
+            if (restoring) store.value = StoredSession.Present("A".repeat(43))
+            val controller = AuthController(api, store, worker, local) { it() }
+            if (restoring) api.afterIdentity = controller::logout else {
+                worker.drain()
+                api.afterLogin = controller::logout
+                controller.edit(email = "a@example.test", password = "password")
+                controller.submit()
+            }
+            worker.drain()
+            assertNull(local.owner)
+            assertIs<StoredSession.Empty>(store.value)
+            assertNull(controller.state.account)
+            assertFalse(controller.state.restoreFailed)
+            assertNull(controller.state.message)
+            if (!restoring) assertTrue(api.revoked)
+            controller.close(); worker.drain()
+        }
+    }
     @Test fun logoutClearsImportBeforeAnyOldAccountLookupCanPublish() {
         val worker = Worker(); val lookups = Worker(); val posts = mutableListOf<() -> Unit>()
         val importer = DeckImportController({ text -> org.asyncttwiz.storage.DeckImportResult(text,
@@ -69,6 +90,8 @@ class AuthControllerTest {
         override fun clear() { value = StoredSession.Empty }
     }
     private class Api : Accounts {
+        var afterLogin: () -> Unit = {}
+        var afterIdentity: () -> Unit = {}
         var identity = AccountIdentity("id", "Wizard")
         var calls = 0
         var failure: AccountFailure? = null
@@ -78,9 +101,9 @@ class AuthControllerTest {
             calls++; exact = password; failure?.let { throw it }; return identity
         }
         override suspend fun login(email: String, password: String): SessionCreated {
-            calls++; exact = password; failure?.let { throw it }; return SessionCreated("A".repeat(43), identity)
+            calls++; exact = password; failure?.let { throw it }; afterLogin(); return SessionCreated("A".repeat(43), identity)
         }
-        override suspend fun identity(token: String): AccountIdentity { failure?.let { throw it }; return identity }
+        override suspend fun identity(token: String): AccountIdentity { failure?.let { throw it }; afterIdentity(); return identity }
         override suspend fun revoke(token: String) { revoked = true }
         override fun close() = Unit
     }

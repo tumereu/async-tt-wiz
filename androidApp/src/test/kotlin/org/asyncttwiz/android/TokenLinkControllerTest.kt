@@ -5,6 +5,22 @@ import org.junit.Test
 import kotlin.test.*
 
 class TokenLinkControllerTest {
+    @Test fun staleCardAndOccurrenceOpenCallbacksDoNotReplacePersonalScopeOrSubmit() {
+        val current = state()
+        val controller = TokenLinkController({ current }) { error("No implicit submission") }
+        controller.open(id(9), emptyList())
+        val scope = controller.scope
+        controller.open(id(10), listOf(id(10), id(99)))
+        assertEquals(scope, controller.scope)
+        controller.open(id(99), emptyList())
+        assertEquals(scope, controller.scope)
+        controller.openOccurrences(ProjectionEndpoint(id(99)), emptyList())
+        assertNull(controller.projectionScope)
+        assertEquals(scope, controller.scope)
+        controller.openOccurrences(ProjectionEndpoint(id(9)), listOf(ProjectionEndpoint(id(9)), ProjectionEndpoint(id(99))))
+        assertNull(controller.projectionScope)
+        assertEquals(scope, controller.scope)
+    }
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun state() = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
         BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
@@ -93,10 +109,12 @@ class TokenLinkControllerTest {
         assertEquals(listOf(relevant, other), current.board.links)
     }
 
-    @Test fun malformedOrUnknownCapturedIdsAreNotSilentlyDropped() {
+    @Test fun malformedCapturedIdsAreRejectedAndUnknownSelectionIsRefusedWithoutTrimming() {
         val current = state()
         val controller = TokenLinkController({ current }) { error("must not send") }
         assertFailsWith<IllegalArgumentException> { controller.open("bad", emptyList()) }
-        assertFailsWith<IllegalArgumentException> { controller.open(id(9), listOf(id(9), id(99))) }
+        assertFailsWith<IllegalArgumentException> { controller.open(id(9), listOf("bad")) }
+        controller.open(id(9), listOf(id(9), id(99)))
+        assertNull(controller.scope, "An unknown member refuses the entire selection, not just that member")
     }
 }

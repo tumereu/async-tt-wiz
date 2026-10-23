@@ -13,17 +13,40 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class DeckManagementTest {
+    @Test fun ownerChangeMidPaginationOrDetailReadStopsFurtherPrivateCallsAndDropsResults() {
+        for (detail in listOf(false, true)) {
+            val worker = Worker(); val api = Api(); val posts = mutableListOf<() -> Unit>()
+            val controller = DeckLibraryController(api, { "token" }, worker) { posts += it }
+            if (detail) api.afterRead = controller::clear else api.afterList = controller::clear
+            if (detail) controller.open(summary.id) else controller.refresh()
+            worker.drain()
+            assertEquals(0, api.definitionReads)
+            assertEquals(if (detail) 0 else 1, api.listReads)
+            assertTrue(posts.isEmpty())
+            assertNull(controller.state.detail)
+            assertFalse(controller.state.busy)
+            controller.close(); worker.drain()
+        }
+    }
     private val card = CardDefinition("Text without art", listOf(DefinitionFace(UUID.randomUUID().toString(), "Text without art")))
     private val digest = DeckJson.digest(card)
     private val summary = DeckSummary(UUID.randomUUID().toString(), "Accepted", "1", "2026-10-22T00:00:00Z", 4, 2, DeckCover(digest, card.name))
     private val entries = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, digest, 4), SavedDeckEntry(SavedDeckSection.SIDEBOARD, digest, 2))
     private inner class Api : Decks {
+        var afterRead: () -> Unit = {}
+        var afterList: (() -> Unit)? = null
+        var definitionReads = 0; var listReads = 0
         var saved = SavedDeck(summary, entries)
         val updates = mutableListOf<UpdateDeck>(); val deletes = mutableListOf<DeleteDeck>()
         var fail = false; var missing = false; var reads = 0
-        override suspend fun list(token: String, after: String?) = DeckList(if (missing) emptyList() else listOf(saved.deck))
-        override suspend fun read(token: String, id: String): SavedDeck { reads++; if (missing) throw DeckFailure("not_found"); return saved }
-        override suspend fun definition(token: String, id: String, digest: String) = SubmittedDefinition(digest, card)
+        override suspend fun list(token: String, after: String?): DeckList {
+            listReads++; afterList?.invoke()
+            return DeckList(if (missing) emptyList() else listOf(saved.deck), next = if (afterList != null) "next" else null)
+        }
+        override suspend fun read(token: String, id: String): SavedDeck { reads++; if (missing) throw DeckFailure("not_found"); afterRead(); return saved }
+        override suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition {
+            definitionReads++; return SubmittedDefinition(digest, card)
+        }
         override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
             updates += value
             if (fail) throw DeckFailure("network")

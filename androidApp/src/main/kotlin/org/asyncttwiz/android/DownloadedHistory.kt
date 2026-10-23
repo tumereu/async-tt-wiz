@@ -60,7 +60,9 @@ class DownloadedHistory(private val cache: GameplayTreeStore, private val post: 
      * A gap/pruned suffix requests a newer full generation; old accepted review remains usable.
      */
     fun publish(tail: List<TreeRecordDelta>, verifiedHead: Long) = enqueue {
-        when (val result = download.publish(checkNotNull(staged), tail, verifiedHead)) {
+        val pending = staged
+        if (pending == null) { incomplete = true; display(); return@enqueue }
+        when (val result = download.publish(pending, tail, verifiedHead)) {
             is TreePublication.Published -> { accepted = result.value; incomplete = false }
             TreePublication.RestartRequired -> { incomplete = true }
         }
@@ -78,10 +80,10 @@ class DownloadedHistory(private val cache: GameplayTreeStore, private val post: 
 
     /** Local selection does not activate a branch, change Redo, submit or log any inspection. */
     fun select(nodeId: String) = enqueue {
-        val tree = checkNotNull(accepted).generation.tree
-        check(tree.resolveCursor(nodeId) != null) { "History unavailable" }
-        cursor = nodeId
-        cache.reviewCursor(nodeId)
+        val tree = accepted?.generation?.tree ?: return@enqueue
+        val resolved = tree.resolveCursor(nodeId) ?: return@enqueue
+        cursor = resolved
+        cache.reviewCursor(resolved)
         restored = true
         display()
     }
@@ -91,8 +93,9 @@ class DownloadedHistory(private val cache: GameplayTreeStore, private val post: 
     private fun display(error: String? = null) {
         val published = accepted
         val tree = published?.generation?.tree
-        val reviewing = cursor != null
-        val node = if (reviewing) tree?.resolveCursor(cursor!!) else tree?.currentNodeId
+        val selected = cursor
+        val reviewing = selected != null
+        val node = if (selected != null) tree?.resolveCursor(selected) else tree?.currentNodeId
         if (reviewing && node != null && cursor != node) {
             cursor = node
             cache.reviewCursor(node)

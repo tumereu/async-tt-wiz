@@ -14,6 +14,27 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class LobbyControllerTest {
+    @Test fun ownerChangeMidPaginationDropsResultAndStopsRemainingPrivateReads() {
+        val worker = Worker(); val posts = mutableListOf<() -> Unit>()
+        lateinit var controller: LobbyController
+        var calls = 0
+        val api = object : Api() {
+            override suspend fun contacts(token: String, after: String?): ContactList {
+                calls++; controller.clear()
+                return ContactList(listOf(recipient), "next")
+            }
+            override suspend fun games(token: String, invitations: Boolean, after: String?): GameList = error("Obsolete game read")
+        }
+        controller = LobbyController(api, { "token" }, worker, { posts += it })
+        try {
+            controller.refresh(); worker.drain()
+            posts.forEach { it() }
+            assertEquals(1, calls)
+            assertTrue(controller.state.contacts.isEmpty())
+            assertFalse(controller.state.busy)
+            assertNull(controller.state.error)
+        } finally { controller.close(); worker.drain() }
+    }
     private class Worker : AbstractExecutorService() {
         val queue = ArrayDeque<Runnable>()
         override fun execute(command: Runnable) { queue.add(command) }

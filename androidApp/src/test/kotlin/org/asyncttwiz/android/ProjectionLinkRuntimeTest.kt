@@ -116,7 +116,10 @@ class ProjectionLinkRuntimeTest {
         current = current.copy(id = id(999))
         controller.beginLink(); controller.pick(c); controller.removeProjectionLink(link.id)
         assertEquals(count, batches.size)
-        assertFailsWith<IllegalArgumentException> { controller.openOccurrences(ProjectionEndpoint(id(20)), emptyList()) }
+        val captured = controller.projectionScope
+        controller.openOccurrences(ProjectionEndpoint(id(20)), emptyList())
+        assertEquals(captured, controller.projectionScope)
+        assertEquals(count, batches.size)
     }
 
     @Test fun failedInvocationRetainsCaptureAndLegacySingleCallbackCannotSilentlyLoseInvocationIdentity() {

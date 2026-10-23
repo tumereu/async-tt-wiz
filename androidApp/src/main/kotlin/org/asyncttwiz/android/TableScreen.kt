@@ -34,7 +34,10 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val undo: (() -> Boolean)? = null, val redo: (() -> Boolean)? = null, val reviewing: Boolean = false,
     val controlsConnected: Boolean? = null,
     val ping: ((EventPingIntent) -> Boolean)? = null, val tokenCatalog: TableTokenCatalog? = null,
-    val pingReference: EventReference? = null)
+    val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
+    val tree: (() -> Unit)? = null, val continueHere: (() -> Unit)? = null,
+    val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
+    val menuContent: (@Composable () -> Unit)? = null, val reviewPanel: (@Composable () -> Unit)? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -140,7 +143,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
     SideEffect { toolkit.reviewContext("${target?.boundaryNodeId}/${if (reviewing) position?.cursorId else "live"}") }
     Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
-        if (!landscape || play == null) TableHeader(game, play, accountId, hamburger,
+        if (play == null) TableHeader(game, play, accountId, hamburger,
             chatUnread = state.chat.unread, openChat = controller::openChat)
         if (play == null) {
             Column(Modifier.weight(1f).padding(16.dp)) {
@@ -156,7 +159,27 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     connected = game.id in state.connectedGames && editable, onIntent = onIntent ?: toolkit::handle, placements = placements,
                     toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
                     runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
-                        history = { explorerOpen = true }, undo = { controller.historyControl(GameAction.Undo) },
+                        navigation = hamburger, chatUnread = state.chat.unread,
+                        history = playback?.let { player -> { history.select(player.position.cursorId) } },
+                        tree = { explorerOpen = true },
+                        continueHere = if (reviewing && history.armed == null && game.id in state.connectedGames &&
+                            history.foreground && history.canArm(position.cursorId)) ({ history.arm(position.cursorId) }) else null,
+                        returnCurrent = if (reviewing || history.armed != null) history::current else null,
+                        menuContent = {
+                            if (history.armed != null) DropdownMenuItem(text = { Text("Cancel continuation") }, onClick = history::cancel)
+                            DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
+                                enabled = game.id in state.connectedGames)
+                            if (reviewing) HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
+                        }, reviewPanel = if (playback != null && reviewing && history.armed == null) ({
+                            HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
+                                game.id in state.connectedGames, 240L, { history.arm(it) },
+                                continuationReady = position?.cursorId?.let(history::canArm) == true,
+                                overlay = true, landscape = landscape, menuContent = {
+                                    HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
+                                    DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
+                                        enabled = game.id in state.connectedGames)
+                                })
+                        }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         controlsConnected = game.id in state.connectedGames && history.foreground,
                         pingReference = EventReference(play.id, play.currentNodeId,
@@ -175,20 +198,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                 sent
                             }
                         }, tokenCatalog = catalogMount))
-                if (landscape) TableHeader(game, play, accountId, hamburger,
-                    Modifier.width(minOf(300.dp, maxWidth * .46f)).align(Alignment.TopStart),
-                    chatUnread = state.chat.unread, openChat = controller::openChat)
-            }
-            if (playback != null) {
-                if (history.armed == null) HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
-                    game.id in state.connectedGames, 240L, { history.arm(it) },
-                    continuationReady = position?.cursorId?.let(history::canArm) == true)
-                Row {
-                    TextButton(onClick = history::current) { Text("Return to current") }
-                    if (history.armed != null) TextButton(onClick = history::cancel) { Text("Cancel continuation") }
-                    TextButton(onClick = controller::downloadHistory, enabled = game.id in state.connectedGames) { Text("Download history") }
-                }
-                HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
             }
             if (game.id !in state.connectedGames) Text("Disconnected · read-only", Modifier.padding(horizontal = 12.dp),
                 style = MaterialTheme.typography.bodySmall)
@@ -245,8 +254,8 @@ private fun TableHeader(game: GameSummary, play: PlayState?, accountId: String, 
     }
 }
 
-internal val OwnTableColor = Color(0xff287f55)
-internal val OpponentTableColor = Color(0xffa84f58)
+internal val OwnTableColor = Color(0xff237d68)
+internal val OpponentTableColor = Color(0xffb44853)
 
 private tailrec fun tableActivity(context: Context): ComponentActivity? = when (context) {
     is ComponentActivity -> context

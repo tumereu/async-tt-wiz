@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -94,7 +95,7 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
             val event = events[i]; val x = HistoryTimelineLayout.x(i, selected, width, pitch)
             if (abs(x - width / 2f) > width / 2f + 12f) continue
             val authorColor = when (event.author) { null -> Color(0xff59656a); viewer -> Color(0xff287f85); else -> Color(0xffa84f58) }
-            Box(Modifier.offset((x - 10f).dp, 14.dp).size(20.dp).clickable { pause(); select(event.id) }
+            Box(Modifier.align(Alignment.CenterStart).offset((x - 10f).dp).size(20.dp).clickable { pause(); select(event.id) }
                 .semantics { contentDescription = event.description; this.selected = i == selected }, contentAlignment = Alignment.Center) {
                 CompositionLocalProvider(LocalContentColor provides authorColor) { eventIcon(event.icon) }
             }
@@ -114,7 +115,8 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
 @Composable
 fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, viewer: String, connected: Boolean,
     groupDurationMillis: Long, onContinue: (String) -> Unit, modifier: Modifier = Modifier,
-    continuationReady: Boolean = true) {
+    continuationReady: Boolean = true, overlay: Boolean = false, landscape: Boolean = false,
+    menuContent: (@Composable () -> Unit)? = null) {
     require(groupDurationMillis > 0)
     val position = playback.position
     val endpoint = when {
@@ -130,16 +132,32 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             playback.next(automatic = true)
         }
     }
-    Column(modifier) {
-        Text(if (position.playing) "Playing" else if (position.mode == HistoryMode.LIVE) "Live" else "Paused",
-            style = MaterialTheme.typography.labelSmall)
-        HistoryTimeline(events, position.cursorId, viewer, playback::pause, playback::scrub)
+    val timeline: @Composable () -> Unit = {
+        var options by remember { mutableStateOf(false) }
+        Box(Modifier.fillMaxWidth().height(12.dp)) {
+            Text(if (position.playing) "Playing" else if (position.mode == HistoryMode.LIVE) "Live" else "Paused",
+                Modifier.clickable { options = true }.semantics { contentDescription = "History options" },
+                style = MaterialTheme.typography.labelSmall)
+            if (menuContent != null) DropdownMenu(options, { options = false }) { menuContent() }
+        }
+        HistoryTimeline(events, position.cursorId, viewer, playback::pause, playback::scrub,
+            Modifier.height(if (landscape) 40.dp else 48.dp))
+    }
+    val transport: @Composable () -> Unit = {
         HistoryTransport(position, position.cursorId != playback.tree.rootId,
             position.cursorId != playback.tree.sharedHeadId || position.mode != HistoryMode.LIVE, connected && continuationReady,
             playback::previous, { playback.next() }, playback::play, playback::pause, { captured ->
                 if (connected && playback.canContinue(captured)) continuation(captured)
-            })
+             })
     }
+    if (overlay) BoxWithConstraints(modifier.fillMaxSize()) {
+        Column(Modifier.align(Alignment.BottomEnd).padding(bottom = if (landscape) 52.dp else 56.dp)
+            .width(if (landscape) maxWidth - TablePresentation.sidebarWidth(maxWidth.value).dp else maxWidth)
+            .height(if (landscape) 52.dp else 60.dp).background(Color(0xffedf3ef))) { timeline() }
+        Box(Modifier.align(Alignment.BottomEnd).padding(end = if (landscape) 12.dp else 10.dp, bottom = if (landscape) 2.dp else 4.dp)
+            .width(if (landscape) maxWidth / 2 - 24.dp else maxWidth - 20.dp).height(48.dp)
+            .background(Color.White)) { transport() }
+    } else Column(modifier) { timeline(); transport() }
 }
 
 /** Literal glyph vocabulary, also replaceable with the host's existing event icon renderer. Unknown
@@ -169,8 +187,10 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
     val continueAction by rememberUpdatedState(onContinue)
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onPrevious, enabled = previousEnabled) { Text("‹ Previous") }
-            if (position.playing) Button(onPause, Modifier.weight(1f)) { Text("Ⅱ Pause") }
+            TextButton(onPrevious, modifier = Modifier.width(48.dp).semantics { contentDescription = "Previous" }, enabled = previousEnabled,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xff253d44))) { TableChromeIcon("previous") }
+            if (position.playing) Button(onPause, Modifier.weight(1f).height(48.dp), shape = androidx.compose.ui.graphics.RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xff08716b))) { Text("Ⅱ Pause") }
             else {
                 var captured by remember { mutableStateOf<String?>(null) }
                 Surface(Modifier.weight(1f).heightIn(min = 48.dp).semantics {
@@ -184,12 +204,12 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                         onTap = { onPlay() }, onLongPress = if (!connected) null else ({
                             captured?.let { continueAction(it) } // Host validates this original boundary; no fallback substitution.
                         }))
-                }, color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
+                }, color = Color(0xff08716b), contentColor = Color.White) {
                     Box(contentAlignment = Alignment.Center) { Text("▶ Play") }
                 }
             }
-            TextButton(onNext, enabled = nextEnabled) { Text("Next ›") }
+            TextButton(onNext, modifier = Modifier.width(48.dp).semantics { contentDescription = "Next" }, enabled = nextEnabled,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xff253d44))) { TableChromeIcon("next") }
         }
-        TextButton({ onContinue(position.cursorId) }, enabled = connected && !position.playing) { Text("Continue playing from here") }
     }
 }

@@ -106,6 +106,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
         ActionSquare("Next step", "↦", controller.enabled(scope), fill = endingPlayerColor, badge = "⇥",
             holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
             gestureKey = scope,
+            icon = { TableChromeIcon("next") },
             onClick = { perform(TableActionIntent.Next(scope)) })
     }
 }
@@ -115,7 +116,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
 internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifier = Modifier,
     fill: Color = Color.Transparent, badge: String? = null, selected: Boolean = false,
     holdName: String? = null, onHold: (() -> Unit)? = null, ink: Color? = null,
-    gestureKey: Any? = null, onClick: () -> Unit) {
+    gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val click by rememberUpdatedState(onClick)
     val hold by rememberUpdatedState(onHold)
     var tooltip by remember(name) { mutableStateOf(false) }
@@ -161,7 +162,8 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
                 }
             })
     }, contentAlignment = Alignment.Center) {
-        Text(glyph, color = foreground,
+        if (icon != null) CompositionLocalProvider(LocalContentColor provides foreground) { icon() }
+        else Text(glyph, color = foreground,
             style = MaterialTheme.typography.titleLarge, modifier = Modifier.clearAndSetSemantics {})
         if (badge != null) Text(badge, Modifier.align(Alignment.BottomEnd).padding(2.dp).clearAndSetSemantics {},
             color = foreground,

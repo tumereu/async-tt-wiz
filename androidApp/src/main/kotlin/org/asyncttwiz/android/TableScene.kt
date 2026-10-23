@@ -1,15 +1,11 @@
 package org.asyncttwiz.android
 
 import android.graphics.Paint
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material3.*
@@ -20,6 +16,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
@@ -28,9 +26,14 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.isActive
 import org.asyncttwiz.protocol.*
 
@@ -108,11 +111,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }
     }
-    BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xfff3f5f5))) {
-        val toolbarWidth = 144f + listOfNotNull(runtime.chat, runtime.history).size * 48f
-        val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth) {
+    BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xfff5f8f7))) {
+        val compactHeader = maxWidth < 400.dp
+        val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
+        val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth)
+                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
@@ -129,6 +133,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val animatedItems = frame.filter { it.alpha > 0f }.map { it.item.copy(bounds = it.bounds) }
         val scene = TablePresentation.clip(targetScene.copy(items = animatedItems), maxWidth.value, maxHeight.value)
         val annotations = TableAnnotationGeometry(scene, game.inviter.accountId)
+        val artwork = tableArtwork(scene)
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
         val activePings = play.currentGroup?.id?.let { EventAnnotations.activePings(play.annotations, it) }.orEmpty()
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
@@ -204,7 +209,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }) {
             Canvas(Modifier.fillMaxSize()) { drawTable(scene, accountId, selection, preview, play.board.links,
                 frame.associate { it.item.id to it.alpha }, activePings,
-                play.board.projectionLinks, annotations) }
+                play.board.projectionLinks, annotations, artwork) }
             for (field in scene.fields) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
                 .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
                     val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
@@ -273,36 +278,26 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             }
         }
+        TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
+        if (runtime.reviewing) runtime.reviewPanel?.invoke()
         if (toolkit != null) {
             val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
-            Row(Modifier.align(Alignment.TopEnd)) {
-                runtime.chat?.let { ActionSquare("Chat", "□", true, onClick = it) }
-                runtime.history?.let { ActionSquare("History", "⑂", true, onClick = it) }
-                if (!runtime.reviewing) TurnIndicator(play.board.turn, if (play.board.turn.accountId == game.inviter.accountId) game.inviter.username else game.recipient.username,
-                    endingColor, toolkit::phasePicker)
-                if (!runtime.reviewing) ActionSquare("Table actions", "⋮", true, onClick = toolkit::tableMenu)
-            }
             if (!runtime.reviewing) QuickActionStrip(play, toolkitQuickContext(play, selection, toolkit.explicitStack), toolkit.table, endingColor,
-                Modifier.align(Alignment.BottomEnd).padding(end = 48.dp), perform = toolkit::perform)
-            runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
-                Modifier.align(Alignment.BottomStart), holdName = if (runtime.redo != null) "Redo" else null,
-                onHold = runtime.redo?.let { redo -> { redo(); Unit } }, onClick = { undo() }) }
-            // These are existing fixed references, never a fresh View request or a refill on rendering.
-            Row(Modifier.align(Alignment.CenterStart).widthIn(max = 220.dp).horizontalScroll(rememberScrollState())) {
-                for (display in play.board.contentsDisplays) TextButton(onClick = { toolkit.contents(display) }) {
-                    Text("${if (display.reveal) "Reveal" else "View"} · ${display.cardIds.size}")
-                }
-            }
+                Modifier.align(Alignment.BottomEnd).padding(end = if (landscape) 82.dp else 112.dp, bottom = 4.dp), perform = toolkit::perform)
+            if (!runtime.reviewing) runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
+                Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = 4.dp), holdName = if (runtime.redo != null) "Redo" else null,
+                onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
             TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
                 tokenCatalog = runtime.tokenCatalog)
             toolkit.error?.let { Text(it, Modifier.align(Alignment.BottomCenter).background(Color.White), color = MaterialTheme.colorScheme.error) }
         }
         // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
-        Box(Modifier.align(Alignment.BottomEnd)) {
-            TextButton(onClick = { coordinator.cancel(); modeMenu = true }, contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(48.dp).background(Color.White).semantics {
+        if (!runtime.reviewing) Box(Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 4.dp)) {
+            ActionSquare("Interaction mode", "", true,
+                modifier = Modifier.width(66.dp).height(48.dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
                     contentDescription = "Interaction mode"; stateDescription = "${selection.mode.name.lowercase()}, ${selection.ids.size} selected"
-                }) { Text("Mode") }
+                }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
+                onClick = { coordinator.cancel(); modeMenu = true })
             DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) {
                 for (mode in listOf(TableMode.NORMAL, TableMode.SELECT) + if (runtime.ping != null) listOf(TableMode.PING) else emptyList()) DropdownMenuItem(text = { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) },
                     onClick = { coordinator.cancel(); selection = selection.copy(mode = mode); modeMenu = false },
@@ -335,9 +330,110 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     CardInspection(inspector)
 }
 
+/** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
+@Composable
+private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
+    runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean) {
+    var overflow by remember { mutableStateOf(false) }
+    val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
+    Row(Modifier.align(Alignment.TopStart).height(48.dp)
+        .fillMaxWidth(if (landscape) .366f else 1f), verticalAlignment = Alignment.CenterVertically) {
+        ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
+        Text(game.gameName, Modifier.weight(1f).padding(horizontal = if (compact) 6.dp else 8.dp), fontSize = if (compact) 12.sp else 13.sp,
+            lineHeight = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (!landscape) Spacer(Modifier.width(if (compact) 240.dp else TablePresentation.TOOLBAR.dp))
+    }
+    val buttonWidth = 48f
+    Row(Modifier.align(Alignment.TopEnd).height(48.dp).padding(end = if (compact) 0.dp else 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        ActionSquare("Turn ${play.board.turn.number}, ${play.board.turn.phase}, ${play.board.turn.step}. Choose phase/step",
+            "", toolkit != null && !runtime.reviewing,
+            Modifier.width(buttonWidth.dp).border(2.dp, turnColor), fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
+            icon = { Box(Modifier.size(22.dp).border(1.dp, turnColor), contentAlignment = Alignment.Center) {
+                Text(play.board.turn.number, fontSize = 15.sp, lineHeight = 16.sp, modifier = Modifier.clearAndSetSemantics {})
+            } },
+            onClick = { toolkit?.phasePicker() })
+        if (runtime.reviewing) {
+            ActionSquare("Continue playing from here", "↗", runtime.continueHere != null, Modifier.width(buttonWidth.dp).background(Color.White), onClick = { runtime.continueHere?.invoke() })
+            ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
+        } else {
+            ActionSquare("History", "", runtime.history != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("history") }, onClick = { runtime.history?.invoke() })
+            ActionSquare("History tree", "", runtime.tree != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("tree") }, onClick = { runtime.tree?.invoke() })
+        }
+        if (runtime.reviewing) ActionSquare("History tree", "", runtime.tree != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("tree") }, onClick = { runtime.tree?.invoke() })
+        Box {
+            ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
+            if (runtime.chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp).background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))
+        }
+        if (!runtime.reviewing) Box {
+            ActionSquare("Game controls", "", true, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("overflow") }, onClick = { overflow = true })
+            DropdownMenu(overflow, { overflow = false }, modifier = Modifier.width(248.dp), containerColor = Color.White) {
+                Text("Game controls", Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium, color = Color(0xff597478))
+                runtime.redo?.let { redo -> DropdownMenuItem(text = { Text("Redo") }, leadingIcon = { TableChromeIcon("redo") }, enabled = runtime.controlsConnected == true,
+                    onClick = { overflow = false; redo() }) }
+                toolkit?.let { DropdownMenuItem(text = { Text("Table actions") }, leadingIcon = { TableChromeIcon("grid") }, onClick = { overflow = false; it.tableMenu() }) }
+                runtime.returnCurrent?.let { DropdownMenuItem(text = { Text("Return to current") }, onClick = { overflow = false; it() }) }
+                runtime.menuContent?.invoke()
+                // Retained displays stay reachable without labels floating over the board.
+                if (toolkit != null) for (display in play.board.contentsDisplays) DropdownMenuItem(
+                    text = { Text("${if (display.reveal) "Reveal" else "View"} · ${display.cardIds.size}") },
+                    onClick = { overflow = false; toolkit.contents(display) })
+                DropdownMenuItem(text = { Text("Close menu") }, leadingIcon = { TableChromeIcon("close") }, onClick = { overflow = false })
+            }
+        }
+    }
+}
+
+/** Small native vectors, not font-dependent ligatures or emoji. */
+@Composable
+internal fun TableChromeIcon(kind: String) {
+    val color = LocalContentColor.current
+    Canvas(Modifier.size(24.dp).clearAndSetSemantics {}) {
+        val u = size.width / 24f
+        fun line(x: Float, y: Float, a: Float, b: Float) = drawLine(color, Offset(x * u, y * u), Offset(a * u, b * u), 1.7f * u)
+        fun box(x: Float, y: Float, w: Float, h: Float) = drawRect(color, Offset(x * u, y * u), Size(w * u, h * u), style = Stroke(1.6f * u))
+        when (kind) {
+            "menu" -> for (y in listOf(5f, 12f, 19f)) line(4f, y, 20f, y)
+            "chat" -> { box(3f, 3f, 17f, 14f); line(3f, 17f, 3f, 22f); line(3f, 22f, 8f, 17f) }
+            "tree" -> { box(2f, 2f, 5f, 5f); box(17f, 3f, 5f, 5f); box(17f, 17f, 5f, 5f); line(7f, 5f, 12f, 5f); line(12f, 5f, 12f, 20f); line(12f, 20f, 17f, 20f); line(12f, 6f, 17f, 6f) }
+            "history" -> { drawArc(color, -150f, 305f, false, Offset(4f * u, 4f * u), Size(16f * u, 16f * u), style = Stroke(1.7f * u)); line(3f, 3f, 3f, 9f); line(3f, 9f, 9f, 9f); line(12f, 7f, 12f, 12f); line(12f, 12f, 16f, 15f) }
+            "overflow" -> for (y in listOf(5f, 12f, 19f)) drawCircle(color, 1.6f * u, Offset(12f * u, y * u))
+            "undo" -> { line(10f, 4f, 4f, 9f); line(4f, 9f, 10f, 13f); line(4f, 9f, 15f, 9f); drawArc(color, -90f, 240f, false, Offset(10f * u, 9f * u), Size(10f * u, 10f * u), style = Stroke(1.7f * u)) }
+            "redo" -> { line(14f, 4f, 20f, 9f); line(20f, 9f, 14f, 13f); line(20f, 9f, 9f, 9f); drawArc(color, -90f, -240f, false, Offset(4f * u, 9f * u), Size(10f * u, 10f * u), style = Stroke(1.7f * u)) }
+            "close" -> { line(5f, 5f, 19f, 19f); line(5f, 19f, 19f, 5f) }
+            "grid" -> for (x in listOf(5f, 12f, 19f)) for (y in listOf(5f, 12f, 19f)) drawCircle(color, 1.6f * u, Offset(x * u, y * u))
+            "previous" -> { line(18f, 5f, 18f, 19f); line(18f, 5f, 7f, 12f); line(18f, 19f, 7f, 12f); line(5f, 5f, 5f, 19f) }
+            "next" -> { line(6f, 5f, 6f, 19f); line(6f, 5f, 17f, 12f); line(6f, 19f, 17f, 12f); line(19f, 5f, 19f, 19f) }
+            "current" -> { box(2f, 3f, 20f, 15f); line(8f, 21f, 16f, 21f); line(10f, 7f, 16f, 11f); line(16f, 11f, 10f, 15f); line(10f, 15f, 10f, 7f) }
+            "ping" -> { drawCircle(color, 7f * u, center, style = Stroke(1.7f * u)); drawCircle(color, 2f * u, center) }
+            "select" -> box(4f, 4f, 16f, 16f)
+            else -> { drawArc(color, 180f, 180f, false, Offset(4f * u, 2f * u), Size(9f * u, 10f * u), style = Stroke(1.7f * u)); line(8f, 7f, 8f, 17f); line(8f, 17f, 14f, 22f); line(14f, 22f, 19f, 18f); line(19f, 18f, 19f, 13f); line(19f, 13f, 12f, 12f); line(12f, 12f, 12f, 6f); line(20f, 22f, 22f, 24f); line(22f, 24f, 24f, 22f) }
+        }
+    }
+}
+
+@Composable
+private fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
+    val images = mutableMapOf<String, ImageBitmap>()
+    val context = LocalContext.current
+    for (reference in scene.items.filter { it.visible.isNotEmpty() && !it.covered }.mapNotNull { it.artwork }.distinct()) key(reference) {
+        val width = with(LocalDensity.current) { scene.cardWidth.dp.roundToPx() }.coerceIn(1, 4096)
+        val height = with(LocalDensity.current) { scene.cardHeight.dp.roundToPx() }.coerceIn(1, 4096)
+        val image by produceState<ImageBitmap?>(null, reference, width, height) {
+            val request = CardArtworkRequest(reference, width, height)
+            val result = PublicArtwork.get(context).loader.execute(coil3.request.ImageRequest.Builder(context)
+                .data(request).size(width, height).build()) as? coil3.request.SuccessResult
+            value = (result?.image as? coil3.BitmapImage)?.bitmap?.asImageBitmap()
+        }
+        image?.let { images[reference.key] = it }
+    }
+    return images
+}
+
 private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
-    projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry) {
+    projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap()) {
     val density = density
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
@@ -345,12 +441,57 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     fun text(value: String, x: Float, y: Float, max: Int = 16) {
         drawContext.canvas.nativeCanvas.drawText(value.take(max), x * density, y * density, paint)
     }
+    fun fittedText(value: String, x: Float, y: Float, width: Float, right: Boolean = false) {
+        var label = value
+        if (paint.measureText(label) > width * density) {
+            while (label.isNotEmpty() && paint.measureText("$label…") > width * density) label = label.dropLast(1)
+            label += "…"
+        }
+        text(label, if (right) x - paint.measureText(label) / density else x, y, label.length)
+    }
+    fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
+        val z = scene.camera.zoom
+        drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density))
+        drawRoundRect(color, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density),
+            style = Stroke(1.5f * density, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density, 3 * density)) else null))
+        if (i.covered) return
+        paint.textSize = 7 * z * density; paint.isFakeBoldText = true
+        fittedText(title, x + 2 * z, y + 8 * z, scene.cardWidth - 4 * z)
+        paint.isFakeBoldText = false
+        val art = i.artwork?.key?.let(artwork::get)
+        if (art != null) drawImage(art, dstOffset = IntOffset(((x + 2 * z) * density).toInt(), ((y + 11 * z) * density).toInt()),
+            dstSize = IntSize(((scene.cardWidth - 4 * z) * density).toInt().coerceAtLeast(1), ((scene.cardHeight - 21 * z) * density).toInt().coerceAtLeast(1)))
+        else {
+            paint.textSize = 17 * z * density
+            text(i.typeIcon, x + (scene.cardWidth - paint.measureText(i.typeIcon) / density) / 2, y + scene.cardHeight * .7f, i.typeIcon.length)
+        }
+        paint.textSize = 7 * z * density
+        fittedText(i.corner, x + scene.cardWidth - 2 * z, y + scene.cardHeight - 3 * z, scene.cardWidth - 4 * z, right = true)
+        if (i.token) text("T", x + 2 * z, y + scene.cardHeight - 3 * z, 1)
+        paint.textSize = 11 * density
+    }
+    scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
+        drawRect(Color.White, xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height))
+        drawRect(Color(0xffb9cbc5), xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height), style = Stroke(density * .7f))
+    }
     for (f in scene.fields) {
-        val b = f.bounds
-        val color = if (f.owner == viewer) OwnTableColor else OpponentTableColor
-        drawRect(color.copy(alpha = .10f), xy(b.x, b.y), size(b.width, b.height))
+        val b = f.gridBounds
+        val viewport = f.bounds
+        clipRect(viewport.x * density, viewport.y * density, viewport.right * density, viewport.bottom * density) {
+        val color = if (f.owner == viewer) Color(0xffe2efe6) else Color(0xfff4e8ea)
+        drawRect(color, xy(b.x, b.y), size(b.width, b.height))
         val outerY = if (f.owner == viewer) b.bottom - b.height / 3 else b.y
-        drawRect(color.copy(alpha = .10f), xy(b.x, outerY), size(b.width, b.height / 3))
+        drawRect(if (f.owner == viewer) Color(0xffc4dcd0) else Color(0xffe9d1d3), xy(b.x, outerY), size(b.width, b.height / 3))
+        }
+    }
+    for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {
+        val b = hand.bounds
+        if (hand.owner != viewer) drawRect(OpponentTableColor.copy(alpha = .16f), xy(b.x, b.y), size(b.width, b.height))
+        else {
+            drawRoundRect(Color.White, xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density))
+            drawRoundRect(OwnTableColor.copy(alpha = .6f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density), style = Stroke(density / 2))
+        }
+        text(hand.value, b.right - 18f, b.center.y + 4f, 4)
     }
     for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)
     fun endpoint(endpoint: LinkEndpoint): TablePoint? = scene.items.firstOrNull { item ->
@@ -374,10 +515,12 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         val b = i.bounds
         val color = if (i.owner == null) Color(0xff59656a) else if (i.owner == viewer) OwnTableColor else OpponentTableColor
         when (i.kind) {
-            TableItemKind.HAND -> if (i.cards.isEmpty()) text(i.value, b.x + 8, b.y + 18)
+             TableItemKind.HAND -> Unit
             TableItemKind.LIFE -> {
-                drawRect(color.copy(alpha = .2f), xy(b.x, b.y), size(b.width, b.height))
-                text(i.value, b.x + 8, b.y + 25)
+                drawRect(color, xy(b.x, b.y), size(b.width, b.height))
+                paint.color = android.graphics.Color.WHITE; paint.textSize = 24 * density; paint.isFakeBoldText = true
+                fittedText(i.value, b.right - 5, b.y + 32, b.width - 10, right = true)
+                paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
             TableItemKind.COUNTER -> {
                 val marker = when (i.counter) {
@@ -385,36 +528,45 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                     CounterColor.GREEN -> Color(0xff46845d); CounterColor.YELLOW -> Color(0xffc7ab3d)
                     CounterColor.PURPLE -> Color(0xff8c639d); else -> Color.Gray
                 }
-                drawCircle(marker.copy(alpha = .3f), 14 * density, xy(b.center.x, b.center.y))
-                text(i.value, b.center.x - 7, b.center.y + 4)
+                drawCircle(marker, 13 * density, xy(b.center.x, b.center.y), style = Stroke(density * .7f))
+                paint.isFakeBoldText = true
+                text(i.value, b.center.x - paint.measureText(i.value) / density / 2, b.center.y + 4)
+                paint.isFakeBoldText = false
             }
             TableItemKind.PILE -> {
-                for (peek in minOf(2, (i.cards.size - 1).coerceAtLeast(0)) downTo 0) {
-                    val d = peek * 4 * scene.camera.zoom
-                    val peekColor = i.peekOwners.getOrNull(peek)?.let { if (it == viewer) OwnTableColor else OpponentTableColor } ?: color
-                    drawRoundRect(Color.White, xy(b.x + d, b.y + d), size(scene.cardWidth, scene.cardHeight), CornerRadius(3 * density))
-                    drawRoundRect(peekColor, xy(b.x + d, b.y + d), size(scene.cardWidth, scene.cardHeight), CornerRadius(3 * density), style = Stroke(density))
+                if (i.cards.isEmpty()) {
+                    paint.textSize = 24 * density; paint.color = android.graphics.Color.rgb(126, 148, 149)
+                    text(if (i.zone == PlayZone.STACK) "▱" else "⊘", b.x + 10, b.y + 36, 1)
+                    paint.textSize = 11 * density; paint.color = android.graphics.Color.DKGRAY
+                } else if (i.zone != PlayZone.STACK) {
+                    for (peek in minOf(2, i.cards.size - 1) downTo 0) {
+                        val d = peek * 4 * scene.camera.zoom
+                        val peekColor = i.peekOwners.getOrNull(peek)?.let { if (it == viewer) OwnTableColor else OpponentTableColor } ?: color
+                        val x = b.x + 8 * scene.camera.zoom - d; val y = b.y + 8 * scene.camera.zoom - d
+                        if (peek == 0) cardFace(i, x, y, peekColor, i.note) else {
+                            drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density))
+                            drawRoundRect(peekColor, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density), style = Stroke(density))
+                        }
+                    }
+                    if (i.covered) {
+                        paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * scene.camera.zoom * density
+                        text("✧", b.x + 16 * scene.camera.zoom, b.y + 34 * scene.camera.zoom, 1)
+                        paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density
+                    }
                 }
-                text(i.zone?.name?.lowercase().orEmpty(), b.x + 3, b.y + scene.cardHeight / 2, 9)
-                drawCircle(color, 9 * density, xy(b.x + 9, b.y + 9))
-                paint.color = android.graphics.Color.WHITE; text(i.value, b.x + 3, b.y + 13, 5); paint.color = android.graphics.Color.DKGRAY
             }
             TableItemKind.CARD -> {
                 // Rotate the whole face, not just its outline. Actual dimensions remain common across zones.
                 rotate(if (i.tapped) 90f else 0f, xy(b.center.x, b.center.y)) {
                     val x = b.center.x - scene.cardWidth / 2; val y = b.center.y - scene.cardHeight / 2
-                    drawRoundRect(if (i.covered) Color(0xffe0e6e7) else Color.White, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(3 * density))
-                    drawRoundRect(color, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(3 * density),
-                        style = Stroke(2 * density, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density, 3 * density)) else null))
-                    if (i.value.isNotEmpty()) text(i.value, x + 3, y + 15, 9)
-                    else drawLine(color.copy(alpha = .4f), xy(x + 6, y + 8), xy(x + scene.cardWidth - 6, y + scene.cardHeight - 8), density)
-                     text(i.corner, x + scene.cardWidth - 22, y + scene.cardHeight - 5, 8)
-                     if (i.token) text("T", x + 3, y + scene.cardHeight - 5, 1)
-                     if (i.note.isNotEmpty()) text(i.note, x + 3, y + 30, 8)
+                    cardFace(i, x, y, color, i.value)
+                    paint.textSize = 7 * scene.camera.zoom * density
+                    if (i.note.isNotEmpty()) fittedText(i.note, x + 3, y + 20, scene.cardWidth - 6)
                      i.counters.entries.take(6).forEachIndexed { n, entry ->
                          drawCircle(counterColor(entry.key), 5 * density, xy(x + 6 + n * 7, y + scene.cardHeight - 18))
                          text(entry.value, x + 3 + n * 7, y + scene.cardHeight - 16, 3)
-                     }
+                      }
+                     paint.textSize = 11 * density
                  }
             }
         }
@@ -424,11 +576,16 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x, b.y), size(b.width, b.height), style = Stroke(2 * density))
         } finally { drawContext.canvas.restore() }
     }
-    scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.let { i ->
+    // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
+    for (i in scene.items.filter { it.kind == TableItemKind.PILE }) {
         val b = i.bounds
-        if (i.visible.isNotEmpty()) {
-            drawCircle(Color(0xff59656a), 9 * density, xy(b.x + 9, b.y + 9))
-            paint.color = android.graphics.Color.WHITE; text(i.value, b.x + 3, b.y + 13, 5); paint.color = android.graphics.Color.DKGRAY
+        val port = scene.viewports.single { it.id == i.viewport }.bounds
+        if (i.visible.isNotEmpty()) clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
+            drawCircle(Color(0xff345451), 10 * density, xy(b.x + 10, b.y + 10))
+            drawCircle(Color.White, 10 * density, xy(b.x + 10, b.y + 10), style = Stroke(density))
+            paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
+            text(i.value, b.x + 10 - paint.measureText(i.value) / density / 2, b.y + 14, 5)
+            paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
         }
     }
     for (ping in pings) {

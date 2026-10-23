@@ -22,8 +22,8 @@ contradictions require the owner, technical/layout completion does not.
 Each implement/review/fix/verify unit uses a fresh session, exact
 **`openai/gpt-6.1-sol#high`** verified in actual metadata, and saves/exits before its
 successor. No fallback or unit-spawned agents. The existing CLI is serial;
-[D-309 managed lanes](implementation-orchestrator.md) permit two isolated implement
-workers plus an independent review lane, with one integration/state writer. Do not
+[D-309 managed lanes](implementation-orchestrator.md) use as many useful, isolated
+workers/reviewers as actual capacity allows, with one integration/state writer. Do not
 run the old loop alongside them. No tool/grant/model changes are implied.
 
 Selection: safe ownership/authorization/stop preflight → due verification/actionable
@@ -151,9 +151,10 @@ check/release gate satisfied. Budget exhaustion or a successful CLI exit is not 
 ## Runner lifecycle and stop rules
 
 The supervisor retains the original **3,000-session total remaining budget across
-all roles**, no reset on restart/worktree/context loss. At most **five fresh launches
-before an idle supervision assessment**, each at most **86,400 seconds**; drain active
-lanes before that assessment. Use blocking dependent shell calls without tool timeout.
+all roles**, no reset on restart/worktree/context loss. Each session is at most
+**86,400 seconds**. Supervise continuously; **no fixed lane, launch or five-unit
+checkpoint cap**. Refill useful work without draining unaffected lanes. Use blocking
+dependent shell calls without tool timeout.
 Inspect actual delivered journeys/diffs/checks for drift and refocus before continuing
 through overnight/context compaction; no routine owner checkpoint. Stop only on actual
 completion, explicit pause, exhausted budget/quota or a genuinely unavoidable boundary.

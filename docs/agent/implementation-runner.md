@@ -18,8 +18,8 @@ python3 scripts/implementation-loop.py run --max-runs 5 --timeout-seconds 86400
 
 `status` launches no agent. `run` requires clean/pushed state, authorization, exact
 model and explicit positive budgets. Use a blocking shell call with no tool timeout.
-The five-launch maximum does not grant another five after budget exhaustion: count
-all roles against the original remaining total and assess drift before continuing.
+The legacy five-run invocation is not the managed concurrency policy: count all roles
+against the original remaining total and supervise continuously, without batch checkpoints.
 `--repo PATH`/`--state PATH` select context, not bypasses. `next` is only a guarded hint.
 
 ```sh

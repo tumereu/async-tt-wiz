@@ -23,7 +23,7 @@
   Preserve security/privacy, accepted-state integrity, scoped grants and truthful
   evidence. No paid/production/public deployment, secret acquisition or unrelated work.
   Exact model **`openai/gpt-6.1-sol#high`**, no fallback; original remaining budget,
-  at most five launches before supervision assessment, 86,400 seconds per session.
+  continuous supervision without fixed batch checkpoints, 86,400 seconds per session.
 - **Preserve work.** Inspect Git status/index before editing; own only assigned paths.
   Never discard unrelated changes, force push, bypass hooks or weaken failed checks.
   Diagnose recoverable tool/build/save failures and continue within authorization;

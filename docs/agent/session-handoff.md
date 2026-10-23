@@ -20,14 +20,16 @@ Further explicit owner pause still overrides continuation; no routine approval s
 - All discussed flow improvements are approved, with **net shorter instructions**:
   short root guide, compact unit prompt, canonical [loop contract](implementation-loop.md).
   Read history only when a concrete provenance question needs it.
-- [Managed orchestration](implementation-orchestrator.md): at most two isolated
-  implement workers plus an independent review lane, one integration/state writer,
+- [Managed orchestration](implementation-orchestrator.md): **no fixed lane cap**;
+  maximize useful isolated work/review including modest overlapping branches, one integration/state writer,
   explicit path/contract/resource leases and dependency readiness. The existing
   serial CLI is **not** a parallel runner; no competing old loop or automatic daemon
    is authorized by these documentation edits. Enforce dispatch/handoff gates; hold
-   and repair an unsafe lane, never silently fall back to the retired serial workflow.
+  and repair an unsafe lane, never silently fall back to the retired serial workflow.
+- Delegate merges/conflict repairs/affected checks to exact-high integration subagents
+  in candidate worktrees; retain one supervisor acceptance/authoritative-state writer.
 - Preserve exact `openai/gpt-6.1-sol#high`, no fallback, original remaining total across
-  all roles, at most five fresh launches before an idle supervision assessment,
+  all roles, continuous supervision with **no five-unit checkpoint rule** or artificial drain,
   86,400 seconds maximum per session. Check actual delivered journeys/diffs/checks
   for drift, refocus and continue. Drain on stop; retain work and explicit blockers.
 - Qualified improvements: iterative O(V+E) graph checks, split-plus-first-child
@@ -47,18 +49,18 @@ Preserve that record and recover only in `/home/tuomas/projects/async-tt-wiz`.
 I01f3 remains final B8 qualification before I34, not an account-entry prerequisite.
 
 Original D-306 budget started after the first four reports: 84 charged serial units
-leave 2,916. Conservatively reserve five more for this repair's current supervisor,
-two preparation workers, independent review and the requested fresh supervisor:
-**at most 2,911 further launches**, shared by all roles/retries/replacements. Record
+leave 2,916. Conservatively reserve seven more for this repair's current supervisor,
+two preparation workers, independent review, fresh fix/verification and the requested
+fresh supervisor: **at most 2,909 further launches**, shared by all roles/retries/replacements. Record
 actual IDs/debits in the private orchestrator journal; do not restore historical budgets.
-Assess at the idle migration boundary before the first five managed worker launches.
+Assess at the idle migration boundary, then refill ready capacity after each completion.
 
-First dispatch must derive a real readiness/path plan from current sources. I12b
-depends on I12a; do not pretend both are independent. A second lane may take a
-documented genuinely independent later child (for example pure tabletop semantics
-against unchanged accepted play types), with explicit prerequisites/contract owner;
-preserve all original outcomes and due group review. No new planning-only agent is
-needed just to choose the lanes. Wait/serialize when isolation cannot be demonstrated.
+First dispatch derives useful branch scopes from current sources, not another
+planning-only agent. I12b depends on I12a at acceptance but can develop against a
+pinned interface while I12a proceeds; merge and test before claiming completion.
+Fan out further useful tabletop/UI/tool/history work as contracts allow. Record
+assumptions and merge ownership; modest overlap is preferable to idle serialization.
+Preserve original outcomes, prerequisites, reviews and true exclusive resource locks.
 
 ## Preserved obligations and pointers
 

@@ -19,11 +19,15 @@ copies or alter its shared lock/state to simulate parallelism. The
 
 ## Dispatch leases and readiness
 
-Allow at most **two isolated implement/fix workers plus one independent review/verify
-lane**. Every bounded role is a fresh session, exact `openai/gpt-6.1-sol#high`, no
-fallback. Count all roles/retries/troubleshooting against the original remaining
-3,000-session ceiling. Reserve budget before launch; at most five fresh launches
-before an idle assessment, each capped at 86,400 seconds. Never replenish on restart.
+**No fixed lane cap or five-unit checkpoint rule.** Keep as many useful implement/fix/
+review/verify units running as model quota, memory/CPU and truly exclusive resources
+permit. Prefer parallel development plus merge repair even for modest file/task
+overlap. Do not manufacture completed dependencies or launch workers that only wait
+on one locked device. Split useful outcomes, not qualification bureaucracy.
+Each bounded role is fresh, exact `openai/gpt-6.1-sol#high`, no fallback, at most
+86,400 seconds. Debit every role/retry from the original remaining 3,000-session
+ceiling before launch; never replenish on restart. Orchestrator-only delegation and
+assigned-worktree access are per-session; worker/global grants stay scoped.
 
 For each unit retain a lease in the orchestrator's durable dispatch record:
 
@@ -34,13 +38,14 @@ For each unit retain a lease in the orchestrator's durable dispatch record:
 - lifecycle (reserved/running/saved/accepted or rejected/blocked), stop/recovery owner.
 
 Workers use separate branches/worktrees/upstreams and must not edit authoritative
-state, each other's paths or shared contract/build files without an exclusive lease.
+state or another checkout. Path ownership is **per branch**, not a global file mutex;
+overlapping files are allowed with explicit overlap/merge responsibility in the leases.
 Reports propose transitions; no worker-state file is copied into integration.
-Shared DTOs/protocol/schema/build catalog changes have **one** owner. Dependent workers
-wait for accepted contracts or consume a pinned committed version explicitly;
-uncommitted promises and status labels are not readiness. If useful work cannot be
-isolated, serialize it. A readiness graph must include inherited prerequisites and
-due fix/review obligations, not just the next numerically convenient task.
+Shared DTO/protocol/schema decisions have one integration owner. Dependent branches
+may develop against a pinned existing/proposed interface with assumptions recorded;
+merge/reconcile and test the actual accepted interface before completion. Do not wait
+merely to avoid a modest merge conflict. Acceptance still honors inherited prerequisites
+and due fix/review obligations, not just a numerically convenient task.
 
 ## Start and supervise sessions
 
@@ -68,6 +73,15 @@ serial controller. Reserve bundles before commands, retain failed-owner fences a
 recover only with exact cleanup evidence. Keep other ready host/source work moving.
 
 ## Accept and integrate (one writer)
+
+Delegate merge mechanics, conflict repair and affected integration tests to fresh
+exact-high **integration subagents**, rather than consuming supervisor context.
+They use separate candidate worktrees/branches, a pinned accepted base and listed
+worker commits. Several candidates may be prepared concurrently; none edits live
+state. Only the supervisor accepts/promotes one candidate at a time, rechecking its
+base against latest HEAD. Stale candidates get rebased/reconciled and affected seam
+checks before promotion. Integration subagents cannot independently certify their
+own runtime repairs or waive review; charge their sessions to the same total budget.
 
 1. Confirm actual exact-high succeeded/idle session and budget/lease identity; inspect
    every diff, path ownership, source/test traceability, diagnostics and actual check
@@ -102,9 +116,9 @@ boundaries, not discarded branches. If interrupted/timeout, retain lease/session
 worktree provenance, partial work and diagnostics; reconcile in the owning checkout.
 Never remove the old serial fence from a sibling or start a second controller.
 
-After at most five launches, drain and assess actual delivered journeys, diffs/checks,
-integration drift, resource conflicts and budget—not report counts. Refocus before
-the next group; continue through overnight/context loss under the existing assignment.
+After each completion refill useful capacity. Continuously inspect delivered journeys,
+diffs/checks, integration drift, conflicts and budget—**no fixed-count checkpoints**.
+Refocus affected work while unrelated lanes continue through overnight/context loss.
 Persist leases, remaining budget and next readiness decisions in the handoff/dispatch
 record. Explicit owner pause, exhausted budget/quota, real completion or unavoidable
 boundary stops execution; recoverable failures trigger scoped repair and continuation.

@@ -121,25 +121,35 @@ affected harness oracles are corrected and the stop flag remains set for owner r
 
 ## Managed flow improvements and shorter instructions — D-309
 
-Recorded 2026-10-23 from the owner's requests in the current conversation, relayed
-in this documentation subagent's task: all discussed implementation-flow improvements,
+Recorded 2026-10-23 from the owner's requests in the current conversation:
+all discussed implementation-flow improvements,
 including parallelization instructions, are authorized; active agent instructions
 must be **net shorter**, removing redundancy. This is process authority, not new
 product behavior or a claim of implemented/active parallel tooling.
 
-The owner permits orchestrator-managed two isolated implement workers plus an
-independent review lane, separate branches/worktrees, explicit file/contract/resource
+The owner's latest clarification explicitly supersedes the initial two-lane proposal:
+"dont limit to two lsnes. use as many as possible at ant given time". Use dynamic
+useful-work concurrency, separate branches/worktrees, explicit file/contract/resource
 leases and dependency-aware readiness, with one integration/authoritative-state
 writer. The [orchestrator guide](implementation-orchestrator.md) and canonical
 [loop contract](implementation-loop.md) replace duplicated execution prose. D-309
 also permits qualified same-session decomposition/first-child completion and explicit
 evidenced ancestor closure; no unrelated advancement, role/gate bypass or archived
-report rewrite. Shared evidence tooling is planned, not supplied by these docs.
+report rewrite. Shared evidence/resource tooling must retain its actual qualification.
 
 Preserve exact high model/no fallback, original remaining 3,000-session budget across
-all roles, at most five launches before idle supervision assessment, 86,400 seconds
+all roles, continuous supervision, 86,400 seconds
 maximum per session, stop drain/preserved work, scoped grants, safe saves, independent
 reviews/fresh fix verification, integrated seam tests and final acceptance/release
-gates. No old parallel loop, autonomous parallel daemon or live-state migration from
-preparation is authorized. Adopt only after owning controllers/workers pause and
-dispatch/validator changes qualify; otherwise use the existing serial CLI.
+gates. No competing old loop or preparation live-state migration. The owner stopped
+the old worker/supervisor, then requested a **fresh-context supervisor after these
+changes**, parallelizing efficiently and continuing until all feasible work is done.
+This authorizes its per-session delegation/assigned-worktree access, not global or
+worker grant widening. Adopt at the safe saved boundary with qualified resource,
+role/state/report gates; hold/repair unsafe lanes instead of restarting serial batching.
+The latest follow-up prefers parallel development and merge repair even for modest
+task/file conflicts and explicitly removes five-unit checkpoints. Branch development
+may overlap; accepted dependency outcomes, review independence, one state writer and
+genuinely exclusive test-resource locks still apply. No fixed concurrency cap.
+The owner additionally requests integration through subagents: delegate candidate
+merges/repair/checks, while the supervisor alone accepts candidates and writes live state.

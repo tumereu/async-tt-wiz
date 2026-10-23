@@ -132,7 +132,7 @@ class AuthController(
         }
     }
 
-    private suspend fun restoreSaved(epoch: Long): AuthState =
+    private suspend fun restoreSaved(epoch: Long): AuthState? =
             when (val saved = store.load()) {
                 StoredSession.Empty -> AuthState(restoring = false)
                 StoredSession.Unavailable -> {
@@ -141,7 +141,7 @@ class AuthController(
                 }
                 is StoredSession.Present -> try {
                     val identity = accounts.identity(saved.token)
-                    if (generation.get() != epoch) return@work null
+                    if (generation.get() != epoch) return null
                     if (accountSwitcher) {
                         val email = store.remembered().firstOrNull { it.token == saved.token }?.account?.email.orEmpty()
                         remember(RememberedSession(saved.token, RememberedAccount(identity, email)))
@@ -292,7 +292,7 @@ class AuthController(
                 } else null
                 if (saved != null) {
                     store.save(saved.token)
-                    withRemembered(runBlocking { restoreSaved(epoch) })
+                    runBlocking { restoreSaved(epoch) }?.let(::withRemembered) ?: AuthState(restoring = false)
                 } else withRemembered(AuthState(restoring = false))
             } catch (_: Exception) {
                 AuthState(restoring = false, logoutFailed = true, error = true,

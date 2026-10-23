@@ -3,12 +3,10 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import org.asyncttwiz.protocol.*
 import java.util.UUID
 
@@ -30,9 +28,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
     val container = play.board.containers.singleOrNull { it.id == item.id }
     // Browser card entries are real IDs, even when not independently drawn on the Canvas.
     if (context != null && card == null) { SideEffect(dismiss); return }
-    Dialog(onDismissRequest = dismiss) {
-        Surface(shape = MaterialTheme.shapes.large) {
-            Column(Modifier.padding(12.dp).heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+    TableMenuPanel(dismiss, title = if (card == null) "Contents" else null) {
                 if (card != null) {
                     val scope = requireNotNull(captured.scope)
                     // Do not use own-area hold permission to expose a covered face in Actions.
@@ -40,11 +36,11 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
                         ?.definition?.faces?.singleOrNull { it.faceId == card.faceId }?.name ?: "Card unavailable")
                     Text("${scope.cardIds.size} captured targets · ${if (card.tapped) "tapped" else "untapped"}")
                     Row {
-                        ActionSquare("Inspect", "⌕", enabled = true, onClick = { inspect(card.id) })
-                        ActionSquare("Select / deselect", "☑", enabled = true, selected = card.id in selection.ids, onClick = { select(card.id) })
+                        ManualActionSquare("Inspect", "", enabled = true, onClick = { inspect(card.id) })
+                        ManualActionSquare("Select / deselect", "", enabled = true, selected = card.id in selection.ids, onClick = { select(card.id) })
                         if (selection.mode == TableMode.SELECT) {
-                            ActionSquare("Tap selected scope", "↷", enabled, onClick = { request(TableIntent.Rotate(scope, true)) })
-                            ActionSquare("Untap selected scope", "↑", enabled, onClick = { request(TableIntent.Rotate(scope, false)) })
+                            ManualActionSquare("Tap selected scope", "", enabled, onClick = { if (request(TableIntent.Rotate(scope, true))) dismiss() })
+                            ManualActionSquare("Untap selected scope", "", enabled, onClick = { if (request(TableIntent.Rotate(scope, false))) dismiss() })
                         }
                     }
                     BasicMoveControls(play, names, enabled, scope, captured.sources, request, dismiss)
@@ -58,7 +54,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
                             val scope = remember(captured) { TableScope(top, listOf(top)) }
                             val sources = captured.sources.filterKeys { it == top }
                             val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == container.accountId }
-                            ActionSquare("Draw one", "↓", enabled, onClick = {
+                            ManualActionSquare("Draw one", "", enabled, onClick = {
                                 if (request(TableIntent.Move(scope, TableDestination.Container(hand.id, hand.zone), sources))) dismiss()
                             })
                             BasicMoveControls(play, names, enabled, scope, sources, request, dismiss, topCard = true)
@@ -75,8 +71,6 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
                     }
                 }
                 if (!enabled) Text("Read-only")
-            }
-        }
     }
 }
 
@@ -85,7 +79,7 @@ internal fun BasicMoveControls(play: PlayState, names: Map<String, String>, enab
     sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false) {
     for (player in play.board.players) {
         Text(names[player.accountId].orEmpty(), style = MaterialTheme.typography.labelSmall)
-        Row(Modifier.horizontalScroll(rememberScrollState())) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
                 val target = play.board.containers.single { it.accountId == player.accountId && it.zone == zone }
                 val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
@@ -100,16 +94,13 @@ internal fun BasicMoveControls(play: PlayState, names: Map<String, String>, enab
                             TableDestination.Grid(target.id, column, 0)
                         } else TableDestination.Container(target.id, zone, bottom)
                     }
-                    ActionSquare(label, when (zone) {
-                        PlayZone.HAND -> "↓"; PlayZone.BATTLEFIELD -> "▦"; PlayZone.LIBRARY -> if (bottom) "⇓" else "⇑"
-                        PlayZone.GRAVEYARD -> "†"; else -> "◇"
-                    }, enabled, onClick = { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
+                    ManualActionSquare(label, "", enabled, onClick = { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
                 }
             }
         }
     }
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }
-    ActionSquare("Move to Stack", "▱", enabled, onClick = {
+    ManualActionSquare("Move to Stack", "", enabled, onClick = {
         if (request(TableIntent.Move(scope, TableDestination.Container(stack.id, stack.zone), sources))) dismiss()
     })
     // Snapshot the same real-card destination used by dragging; sync must not replace an open choice.
@@ -118,7 +109,7 @@ internal fun BasicMoveControls(play: PlayState, names: Map<String, String>, enab
         val source = requireNotNull(destination.source)
         val position = requireNotNull(source.placement)
         val owner = play.board.containers.singleOrNull { it.id == source.containerId }?.accountId
-        ActionSquare("Move to ${names[owner]} pile (${position.column.toInt()}, ${position.row.toInt()})", "▤", enabled,
+        ManualActionSquare("Move to ${names[owner] ?: "Player"} pile (${position.column.toInt()}, ${position.row.toInt()})", "", enabled,
             onClick = { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
     }
 }

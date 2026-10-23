@@ -141,17 +141,22 @@ fun TokenActionMenu(controller: TokenLinkController, play: PlayState) {
     val scope = controller.scope ?: return
     if (controller.pickingLink || controller.showingLinks) return
     val live = scope.cardIds.count { id -> play.board.cards.any { it.id == id } }
-    AlertDialog(onDismissRequest = controller::close, title = { Text("Actions · ${scope.cardIds.size} captured") },
-        text = { Column {
-            TextButton(onClick = controller::clone, enabled = live > 0) { Text("Clone") }
-            TextButton(onClick = controller::beginLink, enabled = live > 0) { Text("Link") }
-            TextButton(onClick = controller::links, enabled = live > 0) { Text("Links") }
+    TableMenuPanel(controller::close, title = "Actions · ${scope.cardIds.size} captured") {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            ManualActionSquare("Clone", "", live > 0, onClick = {
+                controller.clone(); if (controller.error == null) controller.close()
+            })
+            ManualActionSquare("Link", "", live > 0, onClick = controller::beginLink)
+            ManualActionSquare("Unlink", "", live > 0, onClick = controller::links)
             if (TokenActions.removable(play, scope).isNotEmpty()) {
-                TextButton(onClick = controller::removeTokens) { Text("Remove token") }
+                ManualActionSquare("Remove token", "", onClick = {
+                    controller.removeTokens(); if (controller.error == null) controller.close()
+                })
             }
+        }
             if (live == 0) Text("Captured cards are no longer available.")
             controller.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        } }, confirmButton = { TextButton(onClick = controller::close) { Text("Close") } })
+    }
 }
 
 /** Search input and one-tap creation. No quantity, custom-token form, placement step or extra Send. */
@@ -173,9 +178,9 @@ fun TokenCatalogDialog(controller: TokenLinkController, definitions: List<Submit
     DisposableEffect(search) { onDispose { search.close() } }
     LaunchedEffect(search, enabled) { if (enabled) search.search() }
     val matches = search.choices
-    AlertDialog(onDismissRequest = controller::close, title = { Text("Token") }, text = {
+    TableMenuPanel(controller::close, title = "Create token") {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(search.query, { search.search(it) }, label = { Text("Search tokens") }, singleLine = true)
+            OutlinedTextField(search.query, { search.search(it) }, Modifier.fillMaxWidth(), label = { Text("Search tokens") }, singleLine = true)
             if (loading || search.loading || search.selecting) LinearProgressIndicator(Modifier.fillMaxWidth())
             catalogError?.let { Text(it) }
             search.error?.let { Text(it, color = MaterialTheme.colorScheme.error)
@@ -183,23 +188,17 @@ fun TokenCatalogDialog(controller: TokenLinkController, definitions: List<Submit
             if (matches.isEmpty() && !search.loading && search.error == null) Text("No matching token definitions.")
             LazyColumn(Modifier.heightIn(max = 320.dp)) {
                 items(matches, key = { it.digest }) { definition ->
-                    TextButton(onClick = { search.select(definition) }, Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        enabled = enabled && !search.selecting) {
-                        Column {
-                            Text(definition.definition.name)
-                            definition.definition.printingId?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        }
-                    }
+                    MenuButton(definition.definition.name, Modifier.fillMaxWidth(), enabled = enabled && !search.selecting) { search.select(definition) }
                 }
             }
             if (search.next != null) TextButton(onClick = search::more,
                 enabled = enabled && !search.loading && !search.selecting) { Text("Load more") }
             controller.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-    }, confirmButton = { TextButton(onClick = controller::close) { Text("Cancel") } })
+    }
 }
 
 @Composable
 fun CreateTokenButton(controller: TokenLinkController) {
-    TextButton(onClick = controller::catalog) { Text("Token") }
+    MenuButton("Create token", onClick = controller::catalog)
 }

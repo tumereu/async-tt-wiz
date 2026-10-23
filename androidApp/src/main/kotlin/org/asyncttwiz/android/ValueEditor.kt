@@ -33,7 +33,7 @@ internal fun ValueEditor(draft: ValueDraft, current: String?, enabled: Boolean, 
     fun cancel() { keyboard?.hide(); onCancel() }
     fun complete() { if (enabled && draft.valid && onSubmit()) keyboard?.hide() }
     LaunchedEffect(draft) { focus.requestFocus() }
-    AlertDialog(onDismissRequest = ::cancel, title = { Text("Set ${draft.field.label}") }, text = {
+    TableMenuPanel(::cancel, title = "Set ${draft.field.label}") {
         Column(Modifier.imePadding()) {
             preview()
             Text("Current: ${current ?: "no value"}", style = MaterialTheme.typography.labelSmall)
@@ -45,6 +45,9 @@ internal fun ValueEditor(draft: ValueDraft, current: String?, enabled: Boolean, 
                 keyboardActions = KeyboardActions(onDone = { complete() }))
             if (!draft.valid) Text("Text is invalid or too long", color = MaterialTheme.colorScheme.error)
         }
-    }, confirmButton = { TextButton(onClick = ::complete, enabled = enabled && draft.valid) { Text("Set") } },
-        dismissButton = { TextButton(onClick = ::cancel) { Text("Cancel") } })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MenuButton("Cancel", Modifier.weight(1f), onClick = ::cancel)
+            MenuButton("Set", Modifier.weight(1f), enabled = enabled && draft.valid, onClick = ::complete)
+        }
+    }
 }

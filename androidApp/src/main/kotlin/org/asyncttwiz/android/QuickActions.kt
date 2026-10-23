@@ -163,11 +163,9 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
             })
     }, contentAlignment = Alignment.Center) {
         if (icon != null) CompositionLocalProvider(LocalContentColor provides foreground) { icon() }
-        else Text(glyph, color = foreground,
-            style = MaterialTheme.typography.titleLarge, modifier = Modifier.clearAndSetSemantics {})
-        if (badge != null) Text(badge, Modifier.align(Alignment.BottomEnd).padding(2.dp).clearAndSetSemantics {},
-            color = foreground,
-            style = MaterialTheme.typography.labelSmall)
+        else MenuIcon(name, tint = foreground)
+        if (badge != null) Icon(menuIcon(if (badge == "↷") "Tap" else if (badge == "↓") "Draw one" else "Next step"),
+            null, Modifier.align(Alignment.BottomEnd).padding(2.dp).size(12.dp), tint = foreground)
         if (tooltip) androidx.compose.ui.window.Popup(alignment = Alignment.TopCenter) {
             Surface(shadowElevation = 4.dp) { Text(name, Modifier.padding(6.dp)) }
         }

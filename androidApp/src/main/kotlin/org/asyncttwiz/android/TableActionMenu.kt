@@ -1,14 +1,12 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import org.asyncttwiz.protocol.*
 
 data class TableMenuAction(val name: String, val intent: TableActionIntent)
@@ -66,45 +64,56 @@ object TableActionMenus {
 @Composable
 fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, onDismiss: () -> Unit, pendingSuggestionId: String? = null, mayAccept: Boolean = false,
-    perform: (TableActionIntent) -> Boolean = controller::perform) {
+    perform: (TableActionIntent) -> Boolean = controller::perform, blankToken: (() -> Boolean)? = null) {
     val scope = TableActionScope(play.gameId, play.id)
     var sides by remember(scope) { mutableStateOf("6") }
     var picker by remember(scope) { mutableStateOf(false) }
-    Dialog(onDismissRequest = onDismiss) {
-        Surface {
-            Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState())) {
-                Text("Table actions", style = MaterialTheme.typography.titleMedium)
-                TextButton(enabled = context.playable && controller.enabled(scope), onClick = { picker = true }) { Text("Choose phase/step") }
-                for (entry in TableActionMenus.table(play, context, controller, pendingSuggestionId, mayAccept)) {
-                    val end = entry.intent is TableActionIntent.End
-                    Button(enabled = context.playable && controller.enabled(scope),
-                        colors = ButtonDefaults.buttonColors(containerColor = if (end) endingPlayerColor else MaterialTheme.colorScheme.primary),
-                         onClick = { perform(entry.intent) }) {
-                        Text(if (end && play.board.turn.accountId != viewerId) "End opponent's turn" else entry.name)
-                    }
-                }
-                OutlinedTextField(sides, { sides = it }, label = { Text("Die sides") }, singleLine = true,
-                    isError = sides.toIntOrNull()?.let { it <= 0 } != false)
-                TextButton(enabled = context.playable && controller.enabled(scope) && (sides.toIntOrNull() ?: 0) > 0,
-                    onClick = { sides.toIntOrNull()?.let { controller.rollDie(scope, it) } }) { Text("Roll die") }
-                TextButton(enabled = context.playable && controller.enabled(scope),
-                    onClick = { controller.flipCoin(scope) }) { Text("Flip coin") }
+    var die by remember(scope) { mutableStateOf(false) }
+    val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+    val enabled = context.playable && controller.enabled(scope)
+    val table = TableActionMenus.table(play, context, controller, pendingSuggestionId, mayAccept)
+    fun control(entry: TableMenuAction): MenuControl {
+            val end = entry.intent is TableActionIntent.End
+            val label = when (entry.intent) {
+                is TableActionIntent.Token -> "Create catalog token"
+                is TableActionIntent.Untap -> "Untap all · turn player"
+                is TableActionIntent.Draw -> "Draw one · turn player"
+                else -> if (end && play.board.turn.accountId != viewerId) "End opponent's turn" else entry.name
             }
+            return MenuControl(label,
+                enabled, color = if (end) endingPlayerColor else null) {
+                if (perform(entry.intent)) onDismiss()
+            }
+    }
+    val entries = listOf(MenuControl("Choose phase / step", enabled) { picker = true }) +
+        table.filterNot { it.intent is TableActionIntent.Ending }.map(::control) +
+        listOfNotNull(blankToken?.let { create -> MenuControl("Create Blank token", enabled) { if (create()) onDismiss() } }) +
+        listOf(MenuControl("Roll die…", enabled) { die = true }, MenuControl("Flip coin", enabled) {
+            if (controller.flipCoin(scope)) onDismiss()
+        }) + table.filter { it.intent is TableActionIntent.Ending }.map(::control)
+    if (!picker && !die) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
+        for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, entry.click)
+            repeat((if (landscape) 3 else 2) - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
-    if (picker) PhaseStepPicker(play, viewerId, endingPlayerColor, controller, onDismiss = { picker = false })
+    if (picker) PhaseStepPicker(play, viewerId, endingPlayerColor, controller, onDismiss = { picker = false }, onComplete = onDismiss)
+    if (die) TableMenuPanel({ die = false }, title = "Roll die") {
+        OutlinedTextField(sides, { sides = it }, label = { Text("Die sides") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth(), isError = sides.toIntOrNull()?.let { it <= 0 } != false)
+        MenuButton("Roll die", Modifier.fillMaxWidth(), enabled && (sides.toIntOrNull() ?: 0) > 0) {
+            sides.toIntOrNull()?.let { if (controller.rollDie(scope, it)) onDismiss() }
+        }
+    }
 }
 
 /** Reusable full Library/card/occurrence menu, usable at every phase. All callbacks are typed. */
 @Composable
 fun ConstituentActionMenu(entries: List<TableMenuAction>, controller: TableActionController,
     onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface {
-            Column(Modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
-                for (entry in entries) TextButton(enabled = controller.enabled(entry.intent.scope),
-                    onClick = { controller.perform(entry.intent) }) { Text(entry.name) }
-            }
+    TableMenuPanel(onDismiss) {
+        for (entry in entries) MenuButton(entry.name, Modifier.fillMaxWidth(), controller.enabled(entry.intent.scope)) {
+            if (controller.perform(entry.intent)) onDismiss()
         }
     }
 }

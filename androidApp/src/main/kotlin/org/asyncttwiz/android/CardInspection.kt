@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.contentDescription
@@ -25,18 +26,20 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
     val card = state.card
     val face = card.definition.faces[state.face]
     Dialog(onDismissRequest = controller::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        MenuWindowDimming()
         Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.94f)
-            .semantics { paneTitle = "Card inspection" }, shape = MaterialTheme.shapes.large) {
+            .semantics { paneTitle = "Card inspection" }, shape = MaterialTheme.shapes.large,
+            color = Color.White, contentColor = MenuInk) {
             Column(Modifier.padding(12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(card.definition.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    IconButton(onClick = controller::close) { EntryIcon("Close card inspection", "close") }
+                    ManualActionSquare("Close card inspection", "", bordered = false, onClick = controller::close)
                 }
                 if (card.definition.faces.size > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { controller.face(state.face - 1) }, Modifier.weight(1f), enabled = state.face > 0) { Text("Previous face") }
+                    MenuButton("Previous face", Modifier.weight(1f), enabled = state.face > 0) { controller.face(state.face - 1) }
                     Text("${state.face + 1} / ${card.definition.faces.size}", Modifier.padding(horizontal = 8.dp))
-                    TextButton(onClick = { controller.face(state.face + 1) }, Modifier.weight(1f), enabled = state.face < card.definition.faces.lastIndex) { Text("Next face") }
+                    MenuButton("Next face", Modifier.weight(1f), enabled = state.face < card.definition.faces.lastIndex) { controller.face(state.face + 1) }
                 }
                 key(card, state.face) {
                     val artwork: @Composable () -> Unit = {
@@ -56,7 +59,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                         Modifier.requiredSize(width * scale, height * scale))
                                 }
                             }
-                            TextButton(onClick = controller::zoom) { Text(if (state.enlarged) "Fit artwork" else "Enlarge artwork") }
+                            MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", onClick = controller::zoom)
                         }
                     }
                     val text: @Composable () -> Unit = {
@@ -93,7 +96,8 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
 
 /** Game inspection filters playable faces BEFORE entering the general deck/art inspector. */
 @Composable
-internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit) {
+internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit,
+    names: Map<String, String> = emptyMap()) {
     if (inspection.gameId != state.gameId || inspection.playId != state.id) return
     val card = inspection.snapshot ?: state.board.cards.singleOrNull { it.id == inspection.cardId } ?: return
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
@@ -102,7 +106,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
     val faces = definition?.faces.orEmpty().filter { it.faceId in allowed }
     if (faces.isEmpty()) {
         AlertDialog(onDismissRequest = close, title = { Text(if (definition == null) "Card data unavailable" else "Covered card") },
-            text = { Text("Owner ${card.owner}") },
+            text = { Text("Owner ${names[card.owner] ?: "Player"}") },
             confirmButton = { TextButton(onClick = close) { Text("Close") } })
     } else {
         val filtered = definition!!.copy(name = faces.first().name, faces = faces)
@@ -113,7 +117,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted) }
         if (controller.state != null) CardInspection(controller,
             (if (inspection.provisional) "Provisional inspection · awaiting shared result\n" else "") +
-                "Owner ${card.owner} · ${if (card.tapped) "tapped" else "untapped"}\n${card.corner}\n" +
+                "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}\n${card.corner}\n" +
                 card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}")
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }

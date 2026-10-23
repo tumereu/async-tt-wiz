@@ -95,6 +95,28 @@ class ResourceTests(unittest.TestCase):
         for resource in ("devices", "routes"):
             self.assertEqual(json.loads((self.directory / (resource + ".json")).read_text())["owner"], "first")
 
+    def test_failed_managed_writer_fences_legacy_run_and_recover_until_owned_cleanup(self):
+        self.assertEqual(self.run_command(resources=("integration-writer",), owner="first", code=3).returncode, 3)
+        runner = fixtures.loop.Runner(self.root, client=fixtures.FakeOpenCode(self.fixture))
+        record = {"runId": "legacy", "worktree": str(self.root), "branch": "main", "state": fixtures.loop.STATE,
+                  "report": fixtures.loop.REPORTS + "/legacy.json", "selection": {"mode": "implement", "target": "F1"}}
+        fixtures.loop.atomic_json(runner.journal / "active.json", record)
+        for operation in (lambda: runner.run(1, 60), runner.recover):
+            with self.assertRaisesRegex(fixtures.loop.Halt, "Retained managed integration-writer"):
+                operation()
+        self.assertTrue((runner.journal / "active.json").exists())
+        for owner, code in (("wrong", 0), ("first", 1), ("first", 0)):
+            result = subprocess.run(self.args(owner, ("integration-writer",), "recover") +
+                                    ["--cleanup-evidence", self.proof(owner, code)], cwd=self.root,
+                                    text=True, capture_output=True, timeout=15)
+            self.assertEqual(result.returncode, 0 if owner == "first" and code == 0 else 75)
+        self.assertTrue((self.directory / "integration-writer.recovered.json").exists())
+        self.fixture.commit()  # Legacy recovery still requires cleanup evidence saved/pushed.
+        self.assertEqual(runner.recover()["status"], "recovered")
+        (runner.journal / "STOP").touch()
+        self.assertEqual(runner.run(1, 60)["status"], "paused")
+        self.assertEqual(runner.client.calls, [])
+
     def test_failed_command_retains_fence_until_its_owner_proves_cleanup(self):
         self.assertEqual(self.run_command(owner="first", code=3).returncode, 3)
         self.assertEqual(self.run_command().returncode, 75)

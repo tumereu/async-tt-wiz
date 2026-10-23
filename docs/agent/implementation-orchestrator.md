@@ -41,6 +41,10 @@ Workers use separate branches/worktrees/upstreams and must not edit authoritativ
 state or another checkout. Path ownership is **per branch**, not a global file mutex;
 overlapping files are allowed with explicit overlap/merge responsibility in the leases.
 Reports propose transitions; no worker-state file is copied into integration.
+Use the [bounded proposal schema](implementation-agent.md#managed-proposal-additional-report-field)
+and `validate-proposal` in each worker checkout. The helper permits useful speculative
+development without asserting serial readiness; only latest-state acceptance may
+advance accepted dependencies. A worker never edits state to appease serial `validate`.
 Shared DTO/protocol/schema decisions have one integration owner. Dependent branches
 may develop against a pinned existing/proposed interface with assumptions recorded;
 merge/reconcile and test the actual accepted interface before completion. Do not wait
@@ -97,8 +101,14 @@ own runtime repairs or waive review; charge their sessions to the same total bud
    needing affected checks, not mere bookkeeping. Preserve worker evidence as worker
    evidence, not a fabricated run on the integration commit.
 4. The sole writer applies proposed task/finding/review/coverage transitions to latest
-   state, validates selection/role/dependency/gate/report/changed-path guards, retains
-   integration evidence and saves/pushes owned paths. Journal worker/base/resulting
+   state, using a **new acceptance report**, latest-HEAD before/current-after snapshots
+   and `validate-acceptance` as shown in the [usable command sequence](implementation-runner.md#managed-handoff-example).
+   The worker start commit remains its immutable source anchor, not latest state HEAD;
+   independent review coverage retains the actual inspected commit. Validate
+   selection/role/original inherited prerequisites/gates/proposed scope/changed paths,
+   retain fresh integration reconciliation evidence and save/push owned paths.
+   Changed selected task contracts require fresh reconciliation/proposal, not stale
+   state replacement. Journal worker/base/resulting
    commits and actual upstream confirmation. Do not claim accepted progress before
    this boundary or mutate archived reports to conceal reconciliation.
 5. Schedule independent coherent capability review on the accepted candidate. Fixes

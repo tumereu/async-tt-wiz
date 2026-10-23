@@ -8,8 +8,10 @@ No subagents, new loop, deployment or paid resources from a unit.
 
 1. Confirm Git/start commit, authorization, role/selection and owned paths. In a
    managed lane also confirm its lease and pinned dependencies; do not edit the
-   integration checkout or authoritative state. Resolve discrepancies, do not skip
-   priority/role guards. The [orchestrator](implementation-orchestrator.md) owns dispatch.
+   integration checkout or authoritative state. Managed dispatch may lease useful
+   speculative development before prerequisites are accepted; this is not permission
+   to claim them complete. Latest-state priority/prerequisites guard acceptance.
+   The [orchestrator](implementation-orchestrator.md) owns dispatch and discrepancies.
 2. Deliver one bounded usable outcome. Implement affected tests alongside code;
    split only when useful. Qualified D-309 `implementationUnits` allows decomposition
    plus a ready first child in this session; explicit `ancestorClosures` can reconcile
@@ -24,10 +26,12 @@ No subagents, new loop, deployment or paid resources from a unit.
    Prefer `python3 scripts/capture-check.py <run-directory>/check.json -- <command> ...`;
     small truthful summaries suffice. Assigned requirement
    IDs are not executed coverage. Record deferred assertions and their final owner.
-5. Write the report, apply only permitted state transitions (serial unit), validate,
-   save/push owned paths and exit. A managed worker instead proposes transitions in
-   its report; only the integrator applies them after acceptance. Report/state/check
-   bytes and actual remote confirmation—not final prose—are the handoff.
+5. Serial unit: write report, apply permitted state transitions and use `validate`.
+   Managed worker: leave state byte-identical; include the bounded `proposal` schema
+   below and use `validate-proposal`, **not** serial `validate`. Save/push owned paths,
+   then run `validate-proposal REPORT --saved` and exit. Only the supervisor applies
+   latest-state transitions with separate `validate-acceptance`. Actual saved bytes,
+   upstream and session metadata—not final prose—are the handoff.
 
 ## Report
 
@@ -56,6 +60,33 @@ Optional report/state fields and role transitions live in the contract, not hist
 Use the [shared report/validation/JUnit/reuse commands](implementation-runner.md#shared-evidence-commands).
 For native work reserve the [complete resource bundle](test-resource-plan.md) first;
 a green phase continuation is not a full journey. Do not invent a new audit framework.
+
+### Managed proposal (additional report field)
+
+```json
+{"proposal": {
+  "sourceIds": ["assigned requirement ID"],
+  "sourcePaths": ["src/affected-file"], "testPaths": ["tests/affected-test"],
+  "allowedPaths": ["src/affected-file", "tests/affected-test",
+    "docs/agent/implementation-runs/run-id.json",
+    "docs/agent/implementation-runs/run-id/check.json"],
+  "changes": [{"collection": "tasks", "id": "task-id",
+    "before": {"id": "task-id", "batch": "batch-id", "status": "pending"},
+    "after": {"id": "task-id", "batch": "batch-id", "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/run-id.json"}}]
+}}
+```
+
+Use exact writable lease-owned `allowedPaths` (no globs), real source/test inputs
+(which may be read-only, outside `allowedPaths`) and **complete original
+objects** in `before`, bounded replacements in `after`; the example's task is simplified.
+Collections: `tasks`, `batches`, `findings`, `externalReleaseGates`. New child/finding
+objects use `before: null`; no deletions or whole-state copy. Include affected batch
+changes and normal role/report fields. All checks/support are fresh run-owned output.
+`sourceIds` are traceability, not a test pass. Managed units propose `progress` only;
+global blocked/completion decisions remain with the sole supervisor and final gates.
+The validator applies this proposal in memory for role checks, never writes state,
+and does not certify dispatch readiness, lease ownership or actual model metadata.
 
 ### Autonomous troubleshooting and orchestration repairs — D-305
 

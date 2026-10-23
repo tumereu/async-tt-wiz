@@ -219,7 +219,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val live = CombatStackRules.liveSource(play.board, viewId)
         val faces = ManualDisclosure.permittedFaces(play, card, viewer, inspecting = true)
         closeInspection()
-        inspection = ManualInspection(play.gameId, play.id, card.id, faces.map { it.faceId }, snapshot = if (live == null) card else null)
+        inspection = ManualInspection(play.gameId, play.id, viewId, faces.map { it.faceId }, snapshot = if (live == null) card else null)
     }
     fun inspect(context: LibraryInspection) {
         val play = current()?.takeIf { it.id == context.playId } ?: return
@@ -241,7 +241,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                     scope = TableScope(bound.sourceIds.first(), bound.sourceIds), sources = bound.sources))
             }
             is TableIntent.Rotate -> {
-                val bound = bind(intent.scope, intent.sources) ?: return@batch false
+                val stackIds = current()?.board?.let { CombatStackRules.stack(it).cards }.orEmpty()
+                if (intent.scope.contextId in stackIds) return@batch false
+                val scope = intent.scope.copy(cardIds = intent.scope.cardIds.filterNot { it in stackIds })
+                val bound = bind(scope, intent.sources) ?: return@batch false
                 basic.handle(intent.copy(scope = TableScope(bound.sourceIds.firstOrNull() ?: return@batch false, bound.sourceIds)))
             }
             is TableIntent.Submit -> submit(intent.action, intent.invocationId ?: invocation)

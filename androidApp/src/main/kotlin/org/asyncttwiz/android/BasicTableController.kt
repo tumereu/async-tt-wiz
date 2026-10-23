@@ -11,9 +11,16 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         val state = play() ?: return false
         val invocation = (intent as? TableIntent.Move)?.invocationId ?: UUID.randomUUID().toString()
         return when (intent) {
+            is TableIntent.Draw -> {
+                val library = state.board.containers.singleOrNull { it.id == intent.libraryId && it.zone == PlayZone.LIBRARY }
+                val hand = state.board.containers.singleOrNull { it.id == intent.handId && it.zone == PlayZone.HAND }
+                if (library == null || hand == null || library.accountId != hand.accountId || library.cards.firstOrNull() != intent.topId) false
+                else LibraryActions.draw(state.board, library.id, hand.id, 1).any { submit(it, invocation) }
+            }
             is TableIntent.Rotate -> {
                 var sent = false
-                for (id in intent.scope.cardIds.distinct()) if (state.board.cards.any { it.id == id })
+                for (id in intent.scope.cardIds.distinct()) if (state.board.cards.any { card -> card.id == id &&
+                    state.board.containers.none { it.id == card.containerId && it.zone == PlayZone.STACK } })
                     sent = submit(PlayAction.SetTapped(id, intent.tapped), invocation) || sent
                 sent
             }

@@ -65,7 +65,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
     var search by remember(pile.containerId) { mutableStateOf("") }
     Column(modifier) {
         OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), label = { Text("Search by name") }, singleLine = true)
-        ContentsRows(state, contentsEntries(state, pile, viewer, search), !pile.ordered, onActions, onInspect,
+        ContentsRows(state, viewer, contentsEntries(state, pile, viewer, search), !pile.ordered, onActions, onInspect,
             Modifier.weight(1f), onRotate)
     }
 }
@@ -90,7 +90,7 @@ fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, c
         }
         if (display.selection == ContentsSelection.ALL && display.facesVisibleTo(viewer))
             OutlinedTextField(search, { search = it }, label = { Text("Search by name") }, singleLine = true)
-        ContentsRows(state, entries, display.selection == ContentsSelection.ALL,
+        ContentsRows(state, viewer, entries, display.selection == ContentsSelection.ALL,
             onActions = { selected = it; onActions?.invoke(it) },
             onInspect = { controller.inspection(state, it, viewer, hold = true,
                 displayFaceVisible = display.facesVisibleTo(viewer))?.let(onInspect) }, modifier = Modifier.weight(1f))
@@ -114,7 +114,7 @@ fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, c
 /** Both public piles and logged Library displays share search results, columns and hold targets. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ContentsRows(state: PlayState, entries: List<ContentsEntry>, grouped: Boolean, onActions: (String) -> Unit,
+private fun ContentsRows(state: PlayState, viewer: String, entries: List<ContentsEntry>, grouped: Boolean, onActions: (String) -> Unit,
     onInspect: (String) -> Unit, modifier: Modifier = Modifier, onRotate: ((String) -> Unit)? = null) {
     if (entries.isEmpty()) { Box(modifier.padding(8.dp)) { Text("No cards") }; return }
     val groups = if (grouped) entries.groupBy { it.category } else mapOf("" to entries)
@@ -132,7 +132,9 @@ private fun ContentsRows(state: PlayState, entries: List<ContentsEntry>, grouped
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
-                        Box(Modifier.size(40.dp, 56.dp), contentAlignment = Alignment.Center) {
+                        val owner = if (card?.owner == viewer) OwnTableColor else OpponentTableColor
+                        Box(Modifier.size(40.dp, 56.dp).cardFrame(card?.token == true, owner,
+                            entry.cardId in CombatStackRules.projectionIds(state.board)), contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 80, 112, Modifier.fillMaxSize())
                             else MenuIcon(if (entry.faceVisible) "Inspect" else "Turn face down")
                         }

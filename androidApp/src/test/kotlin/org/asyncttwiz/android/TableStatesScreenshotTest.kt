@@ -43,10 +43,22 @@ class TableStatesScreenshotTest {
         if (review) history.select(when (kind) { "history-start" -> path.first(); "history-end" -> path.last(); else -> path[3] })
         history.displayPosition()
         if (kind == "history-playing") playback.play()
-        val current = { if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
+        val tokenState = f.combat().let { state ->
+            val actual = state.board.containers.single { it.zone == PlayZone.STACK }.cards.first { id -> state.board.cards.any { it.id == id } }
+            val tokenIds = listOf(f.source(f.a, "1/3").id, f.source(f.b, "2/3").id,
+                state.board.containers.single { it.accountId == f.a && it.zone == PlayZone.HAND }.cards.first()) +
+                if (kind == "tokens-stack-card") listOf(actual) else emptyList()
+            state.copy(board = state.board.copy(cards = state.board.cards.map { it.copy(token = it.id in tokenIds) },
+                containers = state.board.containers.map { if (kind == "tokens-stack-card" && it.zone == PlayZone.STACK)
+                    it.copy(cards = it.cards.reversed()) else it },
+                stackEffects = state.board.stackEffects.map { it.copy(sourceId = f.source(f.a, "1/3").id) }))
+        }
+        val current = { if (kind.startsWith("tokens")) tokenState else if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
             else if (kind == "graveyard-contents") f.initial else f.combat() }
         val toolkit = TableToolkitController(f.a, current, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
             { action, _ -> sent += action; true })
+        if (kind == "tokens-small") toolkit.layoutState.value = TableLayoutState(TableCamera(zoom = TablePresentation.MIN_ZOOM))
+        if (kind.startsWith("stack-menu")) toolkit.selectionState.value = TableSelection(mode = TableMode.SELECT)
         if (kind == "combat") toolkit.selectionState.value = TableSelection(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), mode = TableMode.SELECT)
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, action -> activations += action; true })
         explorer.update(tree, openingNodeId = tree.nodes.values.first { it.requestId == f.id("request5") }.id)
@@ -79,6 +91,13 @@ class TableStatesScreenshotTest {
         }
         compose.waitForIdle()
         when (kind) {
+            "tokens-contents" -> compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
+            "tokens-menu" -> compose.runOnIdle { toolkit.openCard(TableScope(f.source(f.a, "1/3").id, listOf(f.source(f.a, "1/3").id))) }
+            "tokens-inspector" -> compose.runOnIdle { toolkit.inspect(f.source(f.a, "1/3").id) }
+            "stack-menu-card", "stack-menu-effect" -> compose.runOnIdle {
+                val id = CombatStackRules.stack(current().board).cards[if (kind == "stack-menu-card") 1 else 0]
+                toolkit.openCard(TableScope(id, listOf(id)))
+            }
             "continue", "continue-confirmation" -> {
                 compose.onNodeWithContentDescription("Continue playing from here").performClick()
                 if (kind == "continue") {
@@ -117,6 +136,37 @@ class TableStatesScreenshotTest {
     }
 
     @Test fun combatPortrait() { render("combat", false) }
+    @Test fun tokensOnBattlefieldHandStackAndCombatPortrait() { render("tokens", false) }
+    @Test fun tokensAtSmallestCardSizePortrait() { render("tokens-small", false) }
+    @Test fun tokenContentsPreviewPortrait() { render("tokens-contents", false) }
+    @Test fun tokenMenuPreviewPortrait() { render("tokens-menu", false) }
+    @Test fun tokenInspectorPreviewPortrait() { render("tokens-inspector", false) }
+    @Test fun realTokenOnStackPortrait() { render("tokens-stack-card", false) }
+    @Test fun ownLibraryDoubleTapSubmitsOnlyOneDrawNotView() {
+        val sent = render("combat", false)
+        compose.onNodeWithContentDescription("Alice library, 50 cards").performTouchInput { doubleClick() }
+        compose.mainClock.advanceTimeBy(400)
+        val library = f.combat().board.containers.single { it.id == f.id("a/LIBRARY") }
+        assertEquals(listOf(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP),
+            MoveDestination(f.id("a/HAND"), MoveInsertion.UNORDERED))), sent)
+        compose.onNodeWithText("Library contents").assertDoesNotExist()
+    }
+    @Test fun opponentLibraryDoubleTapDoesNothing() {
+        val sent = render("combat", false)
+        compose.onNodeWithContentDescription("Bob library, 50 cards").performTouchInput { doubleClick() }
+        compose.mainClock.advanceTimeBy(400)
+        assertTrue(sent.isEmpty())
+        compose.onNodeWithText("Library contents").assertDoesNotExist()
+    }
+    @Test fun stackCardOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-card") }
+    @Test fun stackEffectOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-effect") }
+    private fun assertNoStackTapControls(kind: String) {
+        val sent = render(kind, false)
+        compose.onNodeWithContentDescription("More actions").performClick()
+        compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
+        assertTrue(sent.isEmpty())
+    }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }

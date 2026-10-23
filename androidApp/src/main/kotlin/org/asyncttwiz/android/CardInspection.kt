@@ -21,7 +21,8 @@ import org.asyncttwiz.protocol.*
 
 /** Text remains available regardless of artwork/network state. No gameplay permission policy here. */
 @Composable
-internal fun CardInspection(controller: CardInspectionController, annotation: String? = null) {
+internal fun CardInspection(controller: CardInspectionController, annotation: String? = null,
+    token: Boolean = false, owner: Color? = null, projection: Boolean = false) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
@@ -56,7 +57,8 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                     CardArtwork(card.artwork[state.face], "Artwork for ${face.name}",
                                         with(density) { (width * scale).roundToPx() }.coerceIn(1, 4096),
                                         with(density) { (height * scale).roundToPx() }.coerceIn(1, 4096),
-                                        Modifier.requiredSize(width * scale, height * scale))
+                                        Modifier.requiredSize(width * scale, height * scale)
+                                            .then(if (owner != null) Modifier.cardFrame(token, owner, projection) else Modifier))
                                 }
                             }
                             MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", onClick = controller::zoom)
@@ -99,7 +101,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
 internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit,
     names: Map<String, String> = emptyMap()) {
     if (inspection.gameId != state.gameId || inspection.playId != state.id) return
-    val card = inspection.snapshot ?: state.board.cards.singleOrNull { it.id == inspection.cardId } ?: return
+    val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
     val allowed = if (inspection.explicit) inspection.faceIds else
         ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }.filter { it in inspection.faceIds }
@@ -118,7 +120,9 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         if (controller.state != null) CardInspection(controller,
             (if (inspection.provisional) "Provisional inspection · awaiting shared result\n" else "") +
                 "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}\n${card.corner}\n" +
-                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}")
+                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}",
+            token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
+            projection = inspection.cardId in CombatStackRules.projectionIds(state.board))
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
     }

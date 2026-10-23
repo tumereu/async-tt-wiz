@@ -127,6 +127,35 @@ class GameplayTest {
         assertEquals(GameplayRules.stackDigest(first.state), GameplayRules.stackDigest(alteredStackCard))
     }
 
+    @Test fun stackCardsRejectOrientationAndEnterAndLeaveUprightWithReplay() {
+        val original = gameplayFixture()
+        val card = original.board.cards.first()
+        val stack = original.board.containers.single { it.zone == PlayZone.STACK }
+        val tapped = gameplayChange(original, PlayAction.SetTapped(card.id, true)).state!!
+        val enter = PlayAction.MoveCard(card.id, MoveSource(card.containerId), MoveDestination(stack.id, MoveInsertion.TOP),
+            GameplayRules.stackDigest(tapped))
+        val entered = gameplayChange(tapped, enter, 91)
+        val onStack = entered.state!!
+        assertFalse(onStack.board.cards.first { it.id == card.id }.tapped)
+        assertTrue(entered.mutation!!.transition.fields.contains(GameplayFieldChange(card.id, GameplayField.TAPPED, "true", "false")))
+        assertEquals(entered, GameplayHistory.replay(tapped, entered.mutation))
+        for (orientation in listOf(true, false)) {
+            val rejected = gameplayChange(onStack, PlayAction.SetTapped(card.id, orientation), 92)
+            assertEquals("inapplicable", rejected.reason)
+            assertNull(rejected.mutation)
+        }
+        // Also normalize a retained/legacy tapped Stack card on exit, without touching other cards.
+        val legacy = onStack.copy(board = onStack.board.copy(cards = onStack.board.cards.map {
+            if (it.id == card.id) it.copy(tapped = true) else it
+        }))
+        val field = legacy.board.containers.single { it.zone == PlayZone.BATTLEFIELD }
+        val leave = gameplayChange(legacy, PlayAction.MoveCard(card.id, MoveSource(stack.id),
+            MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))), 93)
+        assertFalse(leave.state!!.board.cards.first { it.id == card.id }.tapped)
+        assertEquals(leave, GameplayHistory.replay(legacy, leave.mutation!!))
+        assertEquals(legacy.board.cards.filterNot { it.id == card.id }, leave.state.board.cards.filterNot { it.id == card.id })
+    }
+
     @Test fun destinationCleanupIsOrderedIndividualRequestsAndReadsLiveFace() {
         val state = gameplayFixture(); val card = state.board.cards.first(); val bin = state.board.containers[3]
         val action = PlayAction.MoveCard(card.id, MoveSource(card.containerId), MoveDestination(bin.id, MoveInsertion.UNORDERED))

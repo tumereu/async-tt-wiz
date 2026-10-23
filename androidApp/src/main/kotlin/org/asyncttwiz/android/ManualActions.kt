@@ -146,15 +146,15 @@ internal fun ActionPress(): ManualActionPress = ManualActionPress()
 internal fun ManualActionsHost(state: PlayState, viewer: String, actions: ManualActions, canEdit: Boolean,
     landscape: Boolean, names: Map<String, String>, extras: @Composable () -> Unit = {},
     submitAll: ((List<PlayAction>) -> Unit)? = null, completeValue: (() -> Boolean)? = null,
-    tools: List<MenuControl> = emptyList(), submit: (PlayAction) -> Boolean) {
+    tools: List<MenuControl> = emptyList(), previewViewId: String? = null, submit: (PlayAction) -> Boolean) {
     val scope = actions.scope
     if (scope != null && scope.usable(state)) {
         if (scope.player) PlayerActions(state, scope, actions, canEdit, names, viewer, submit)
-        else CardActions(state, viewer, scope, actions, canEdit, landscape, names, extras, submitAll, tools, submit)
+        else CardActions(state, viewer, scope, actions, canEdit, landscape, names, extras, submitAll, tools, previewViewId, submit)
         actions.editor?.let { draft ->
             ValueEditor(draft, scope.value(state, draft.field, viewer), canEdit && draft.scope.usable(state),
                 onCancel = actions::cancelEditor, onSubmit = completeValue ?: { actions.submitValue(state, viewer, submit) },
-                preview = { if (!scope.player) ManualCardPreview(state, viewer, scope.contextId, scope.targetIds.size, names) })
+                preview = { if (!scope.player) ManualCardPreview(state, viewer, scope.contextId, scope.targetIds.size, names, previewViewId) })
         }
     }
     actions.inspection?.let { inspection -> GameplayCardInspection(state, viewer, inspection, actions::closeInspection, names) }

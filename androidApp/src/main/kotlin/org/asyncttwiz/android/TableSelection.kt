@@ -28,6 +28,7 @@ sealed interface TableIntent {
     data class Actions(val itemId: String, val scope: TableScope?,
         val sources: Map<String, TableMoveSource> = emptyMap(), val topId: String? = null) : TableIntent
     data class Inspect(val cardId: String) : TableIntent
+    data class Draw(val libraryId: String, val handId: String, val topId: String) : TableIntent
     data class Rotate(val scope: TableScope, val tapped: Boolean, val sources: Map<String, TableMoveSource> = emptyMap()) : TableIntent
     data class Move(val scope: TableScope, val destination: TableDestination,
         val sources: Map<String, TableMoveSource> = emptyMap(), val invocationId: String? = null) : TableIntent

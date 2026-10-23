@@ -88,6 +88,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var actions by remember(play.id, accountId) { mutableStateOf<TableIntent.Actions?>(null) }
     var modeMenu by remember(play.id, accountId) { mutableStateOf(false) }
     val inspector = remember(play.id, accountId) { CardInspectionController() }
+    var inspectedCard by remember(play.id, accountId) { mutableStateOf<PlayCard?>(null) }
     val currentPlay by rememberUpdatedState(play)
     val callback by rememberUpdatedState(onIntent)
     val writable = connected && onIntent != null
@@ -118,7 +119,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     val state = currentPlay
                     val card = state.board.cards.firstOrNull { it.id == intent.cardId }
                     val permitted = TablePresentation.inspection(state, accountId, intent.cardId)
-                    if (card != null && permitted != null) inspector.open(InspectedCard.retained(card.definition, permitted))
+                    if (card != null && permitted != null) {
+                        inspectedCard = card
+                        inspector.open(InspectedCard.retained(card.definition, permitted))
+                    }
                 }
                 is TableIntent.Ping -> {
                     val captured = pressedPing
@@ -290,8 +294,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                             commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
                             commands += CustomAccessibilityAction("Select or deselect") { coordinator.select(item); true }
                             if (writable && !item.frozen) {
-                                commands += CustomAccessibilityAction("Tap selected scope") { coordinator.rotate(item, true); true }
-                                commands += CustomAccessibilityAction("Untap selected scope") { coordinator.rotate(item, false); true }
+                                if (item.zone != PlayZone.STACK) {
+                                    commands += CustomAccessibilityAction("Tap selected scope") { coordinator.rotate(item, true); true }
+                                    commands += CustomAccessibilityAction("Untap selected scope") { coordinator.rotate(item, false); true }
+                                }
                                 for (f in scene.fields) commands += CustomAccessibilityAction("Move to ${if (f.owner == accountId) "your" else "opponent"} battlefield") {
                                     coordinator.accessibleMove(item, TableDestination.Grid(f.containerId, 0, 0)); true
                                 }
@@ -365,7 +371,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 })
         }
     }
-    CardInspection(inspector)
+    CardInspection(inspector, token = inspectedCard?.token == true,
+        owner = inspectedCard?.let { if (it.owner == accountId) OwnTableColor else OpponentTableColor })
 }
 
 /** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
@@ -497,12 +504,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
         val z = scene.camera.zoom
-        drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density))
-        drawRoundRect(color, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density),
+        val outline = cardSilhouette(scene.cardWidth * density, scene.cardHeight * density, i.token, x * density, y * density, 2 * density)
+        drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
+        drawPath(outline, color,
             style = Stroke(1.5f * density, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density, 3 * density)) else null))
         if (i.covered) return
         paint.textSize = 7 * z * density; paint.isFakeBoldText = true
-        fittedText(title, x + 2 * z, y + 8 * z, scene.cardWidth - 4 * z)
+        val titleInset = if (i.token) scene.cardWidth * .22f else 2 * z
+        fittedText(title, x + titleInset, y + 8 * z, scene.cardWidth - 2 * titleInset)
         paint.isFakeBoldText = false
         val art = i.artwork?.key?.let(artwork::get)
         if (art != null) drawImage(art, dstOffset = IntOffset(((x + 2 * z) * density).toInt(), ((y + 11 * z) * density).toInt()),
@@ -512,8 +521,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
             text(i.typeIcon, x + (scene.cardWidth - paint.measureText(i.typeIcon) / density) / 2, y + scene.cardHeight * .7f, i.typeIcon.length)
         }
         paint.textSize = 7 * z * density
-        fittedText(i.corner, x + scene.cardWidth - 2 * z, y + scene.cardHeight - 3 * z, scene.cardWidth - 4 * z, right = true)
-        if (i.token) text("T", x + 2 * z, y + scene.cardHeight - 3 * z, 1)
+        fittedText(i.corner, x + scene.cardWidth - titleInset, y + scene.cardHeight - 3 * z, scene.cardWidth - 2 * titleInset, right = true)
         paint.textSize = 11 * density
     }
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->

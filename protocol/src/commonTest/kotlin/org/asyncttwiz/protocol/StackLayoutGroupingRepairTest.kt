@@ -105,16 +105,17 @@ class StackLayoutGroupingRepairTest {
             order = listOf(gameplayId(10)))
         journey.move(11, PlayZone.STACK, MoveInsertion.TOP, 301, HistorySignificance.STACK_ENTRY,
             order = listOf(gameplayId(11), gameplayId(10)))
-        journey.step(PlayAction.SetTapped(gameplayId(10), true), 302, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
+        // Orientation prefixes still group with Stack actions, but must address an off-Stack card.
+        journey.step(PlayAction.SetTapped(gameplayId(14), true), 302, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         journey.move(10, PlayZone.STACK, MoveInsertion.TOP, 303, HistorySignificance.STACK_LAYOUT,
             start = 302, representative = 303, count = 2, order = listOf(gameplayId(10), gameplayId(11)))
-        journey.step(PlayAction.SetTapped(gameplayId(10), false), 304, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
+        journey.step(PlayAction.SetTapped(gameplayId(14), false), 304, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         journey.move(10, PlayZone.HAND, MoveInsertion.UNORDERED, 305, HistorySignificance.STACK_REMOVAL,
             start = 304, representative = 305, count = 2, order = listOf(gameplayId(11)))
-        journey.step(PlayAction.SetTapped(gameplayId(11), true), 306, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
+        journey.step(PlayAction.SetTapped(gameplayId(14), true), 306, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         journey.move(12, PlayZone.STACK, MoveInsertion.TOP, 307, HistorySignificance.STACK_ENTRY,
             start = 306, representative = 307, count = 2, order = listOf(gameplayId(12), gameplayId(11)))
-        journey.step(PlayAction.SetTapped(gameplayId(11), false), 308, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
+        journey.step(PlayAction.SetTapped(gameplayId(14), false), 308, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         val card = journey.state.board.cards.single { it.id == gameplayId(11) }
         journey.step(PlayAction.InspectFace(card.id, card.faceId, card.containerId), 309,
             HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", start = 308, representative = 309, count = 2)

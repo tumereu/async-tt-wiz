@@ -52,7 +52,7 @@ class TableGestureCoordinator(
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() })
         val old = pending
         if (old != null) {
-            if (item?.kind == TableItemKind.CARD && item.id == old.capture.item?.id &&
+            if (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id &&
                 distance(point, old.capture.start) <= slop * 2 && time <= old.deadline) {
                 next.double = true
                 // The first press's stable scope wins even if sync/selection changed between taps.
@@ -107,12 +107,17 @@ class TableGestureCoordinator(
         move(point, time)
         capture = null
         when (c.phase) {
-            Phase.PRESS -> if (c.double && c.item?.kind == TableItemKind.CARD) {
-                if (writable && c.scope != null && targetsExist(c.scope)) {
+            Phase.PRESS -> if (c.double && c.item?.zone == PlayZone.LIBRARY) {
+                val hand = c.item.drawHandId
+                val top = c.scope?.contextId
+                if (writable && hand != null && top != null) emit(TableIntent.Draw(c.item.id, hand, top))
+            } else if (c.double && c.item?.kind == TableItemKind.CARD) {
+                if (writable && c.item.zone != PlayZone.STACK && c.scope != null && targetsExist(c.scope)) {
                     emit(TableIntent.Selection(c.selection.orientation(c.scope.contextId)))
-                    emit(TableIntent.Rotate(c.scope, !c.item.tapped, c.sources))
+                    emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources))
                 }
-            } else if (c.selection.mode == TableMode.NORMAL && c.item?.kind == TableItemKind.CARD) {
+            } else if ((c.selection.mode == TableMode.NORMAL && c.item?.kind == TableItemKind.CARD) ||
+                (c.selection.mode != TableMode.PING && c.item?.zone == PlayZone.LIBRARY)) {
                 pending = Tap(c, time + doubleMillis)
             } else single(c)
             Phase.DRAG -> {
@@ -167,8 +172,9 @@ class TableGestureCoordinator(
     }
     fun inspect(item: TableItem) { item.cardId?.let { emit(TableIntent.Inspect(it)) } }
     fun rotate(item: TableItem, tapped: Boolean) {
+        if (item.zone == PlayZone.STACK) return
         val id = item.cardId ?: return
-        val scope = selection.scope(id, order())
+        val scope = rotatable(selection.scope(id, order()))
         if (writable) emit(TableIntent.Rotate(scope, tapped, scene.sources.filterKeys { it in scope.cardIds }))
     }
     fun accessibleMove(item: TableItem, destination: TableDestination) {
@@ -177,6 +183,9 @@ class TableGestureCoordinator(
         if (writable && targetsExist(scope)) emit(TableIntent.Move(scope, destination, scene.sources.filterKeys { it in scope.cardIds }))
     }
     fun select(item: TableItem) { item.cardId?.let { emit(TableIntent.Selection(selection.toggle(it))) } }
+    private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->
+        scene.items.none { it.cardId == id && it.zone == PlayZone.STACK }
+    })
     private fun targetsExist(scope: TableScope) = scope.cardIds.all { id -> scene.items.any { it.cardId == id || id in it.cards } }
     private fun single(c: Capture, explicit: Boolean = false) {
         val item = c.item

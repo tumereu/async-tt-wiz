@@ -16,10 +16,10 @@ class GameplayMergeVerificationTest {
     }
     private class Fixture {
         val f = GameplayFixture()
-        val stack = f.id(25); val hand = f.id(26)
+        val library = f.id(24); val stack = f.id(25); val hand = f.id(26)
         val root = f.initial.copy(board = f.initial.board.copy(
-            cards = (9..11).map { f.initial.board.cards.single().copy(id = f.id(it)) },
-            containers = listOf(PlayContainer(f.id(10), PlayZone.LIBRARY, f.actor, (9..11).map(f::id)),
+            cards = (9..11).map { f.initial.board.cards.single().copy(id = f.id(it), containerId = library) },
+            containers = listOf(PlayContainer(library, PlayZone.LIBRARY, f.actor, (9..11).map(f::id)),
                 PlayContainer(stack, PlayZone.STACK), PlayContainer(hand, PlayZone.HAND, f.actor))))
         val wire = Wire()
         val endpoints = mutableListOf<BoardState?>()
@@ -50,7 +50,7 @@ class GameplayMergeVerificationTest {
         val t = Fixture(); t.connect()
         fun add(card: Int) {
             val display = t.session.play(t.f.game)!!
-            t.submit(PlayAction.MoveCard(t.f.id(card), MoveSource(t.f.id(10)),
+            t.submit(PlayAction.MoveCard(t.f.id(card), MoveSource(t.library),
                 MoveDestination(t.stack, MoveInsertion.TOP), GameplayRules.stackDigest(display)))
         }
         add(9); add(10); t.submit(PlayAction.SetNote(t.f.id(9), " preserved "))
@@ -76,12 +76,12 @@ class GameplayMergeVerificationTest {
 
     @Test fun failedTopDoesNotCancelLaterGuardedOriginalAndLateResultDoesNotRewindAcceptedManualState() {
         val t = Fixture(); t.connect()
-        fun draw(card: Int) = PlayAction.MoveCard(t.f.id(card), MoveSource(t.f.id(10), edge = MoveSourceEdge.TOP),
+        fun draw(card: Int) = PlayAction.MoveCard(t.f.id(card), MoveSource(t.library, edge = MoveSourceEdge.TOP),
             MoveDestination(t.hand, MoveInsertion.UNORDERED))
         t.submit(draw(9)); t.submit(draw(10)); t.submit(PlayAction.AdjustCounter(CounterTarget.PLAYER, t.f.actor, CounterColor.RED, "1"))
         val originals = t.commands
-        val remote = t.update(t.root, t.f.command(PlayAction.MoveCard(t.f.id(9), MoveSource(t.f.id(10)),
-            MoveDestination(t.f.id(10), MoveInsertion.BOTTOM))), 2)
+        val remote = t.update(t.root, t.f.command(PlayAction.MoveCard(t.f.id(9), MoveSource(t.library),
+            MoveDestination(t.library, MoveInsertion.BOTTOM))), 2)
         t.receive(GameResult(originals[0].requestId, originals[0].scope, "rejected", "movementConflict", "1"))
         // The second TOP is inapplicable on the still-old accepted board; its original remains queued.
         t.receive(remote)
@@ -89,7 +89,7 @@ class GameplayMergeVerificationTest {
         val manual = t.update(later.play!!, originals[2], 4)
         t.receive(t.result(later))
         assertEquals(remote.play, t.session.acceptedPlay(t.f.game))
-        assertEquals(t.f.id(10), t.session.play(t.f.game)!!.board.cards.single { it.id == t.f.id(10) }.containerId)
+        assertEquals(t.library, t.session.play(t.f.game)!!.board.cards.single { it.id == t.f.id(10) }.containerId)
         t.receive(later); t.receive(manual); t.receive(t.result(manual)); t.receive(remote)
         assertEquals(manual.play, t.session.acceptedPlay(t.f.game))
         assertEquals("1", t.session.play(t.f.game)!!.board.players.first().counters[CounterColor.RED])

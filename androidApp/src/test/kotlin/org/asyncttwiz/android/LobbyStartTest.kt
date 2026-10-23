@@ -141,12 +141,17 @@ class LobbyStartTest {
         f.lobby.ready(); val command = f.commands().single()
         val accepted = StartRules.change(game, f.base, owner.accountId, command.scope, command.action).state!!
         f.httpGame = game.copy(revision = "2"); f.lobby.sync()
-        f.message(GameRevision(game.id, "0", "1", command.requestId, owner.accountId, command.scope,
-            game.copy(revision = "1"), preparation = accepted))
         f.result(command)
+        // Neither the leading summary nor the final result supplies the accepted preparation.
         assertEquals(f.base, f.lobby.state.acceptedPreparation)
         assertTrue(f.lobby.state.preparation!!.players[0].ready)
         assertTrue(game.id in f.lobby.state.pendingGames)
+        f.message(GameRevision(game.id, "0", "1", command.requestId, owner.accountId, command.scope,
+            game.copy(revision = "1"), preparation = accepted))
+        // Revision 1 advances the replica from 0 without rewinding the summary at 2.
+        assertEquals(accepted, f.lobby.state.acceptedPreparation)
+        assertEquals(accepted, f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
+        assertEquals(f.httpGame, f.lobby.state.detail)
         f.head(f.httpGame, accepted)
         assertEquals(accepted, f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
     }

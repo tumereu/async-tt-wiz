@@ -100,6 +100,8 @@ class LibraryTurnHistoryIntegrationTest {
         }
         val unsupported = PlayAction.MoveCard(id(20), MoveSource(id(10)),
             MoveDestination(id(11), MoveInsertion.EMPTY, position = BoardPosition(1, 2)))
-        assertEquals("inapplicable", GameplayRules.change(initial, id(7), command(unsupported, 3)).reason)
+        val rejected = GameplayRules.change(initial, id(7), command(unsupported, 3))
+        assertEquals("invalidInput", rejected.reason) // EMPTY/position are Battlefield operands, not a Hand destination.
+        assertNull(rejected.state); assertNull(rejected.mutation)
     }
 }

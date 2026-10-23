@@ -32,7 +32,10 @@ class GameplayMergeVerificationTest {
             val decoded = GZIPInputStream(chunk(it.index).inputStream()).use { input -> input.readAllBytes() }
             assertEquals(it.bytes, decoded.size); assertEquals(it.digest, GameplaySync.digest(decoded)); bytes.write(decoded)
         }
-        return json.decodeFromString<GameplaySnapshot>(bytes.toString(Charsets.UTF_8)).also(GameplaySync::validate)
+        val records = bytes.toString(Charsets.UTF_8).lineSequence().filter { it.isNotEmpty() }
+            .map { json.decodeFromString<TreeSyncRecord>(it) }.toList()
+        assertEquals(manifest.recordCount, records.size)
+        return GameplaySnapshot(manifest.head!!, emptyList(), records).also(GameplaySync::validate)
     }
 
     @Test fun `pending export stays immutable while FIFO rejects earlier draw and commits later original with relational HTTP coherence`() {
@@ -83,19 +86,22 @@ class GameplayMergeVerificationTest {
                 assertEquals(head, retained.head)
                 val mutations = results.mapNotNull { it.mutation }
                 assertEquals(mutations, f.games.history(f.b, f.game.id, f.root.id, "0").mutations)
-                assertEquals(mutations, retained.records.mapNotNull { it.mutation })
+                val retainedTree = TreeSync.decode(retained.treeRecords.asSequence(), head.gameId, f.root.id).tree
+                assertEquals(mutations.associateBy { it.id }, retainedTree.nodes)
                 var replay = f.root
                 mutations.forEach { replay = GameplayHistory.replay(replay, it).state!! }
                 assertEquals(head.play, replay)
+                var publishedTree = TreeSync.generation(GameplayTree(f.root))
                 results.forEachIndexed { index, result ->
                     assertEquals(result, f.owner.admit(commands[index])) // Original IDs deduplicate, including rejection.
                     result.mutation?.let { assertEquals(CommandIds.uuidV5(result.requestId, "board-node"), it.id) }
                     db.connection().use { connection ->
-                        connection.prepareStatement("""SELECT i.result, o.result, o.revision, m.payload
+                        connection.prepareStatement("""SELECT i.result, o.result, o.revision, m.payload, r.payload
                             FROM game_inbox i JOIN game_outbox o ON o.request_id = i.request_id
                             LEFT JOIN gameplay_mutation m ON m.request_id = i.request_id
+                            LEFT JOIN game_revision r ON r.game_id = i.game_id AND r.revision = ?::bigint
                             WHERE i.request_id = ?::uuid""").use { statement ->
-                            statement.setString(1, result.requestId)
+                            statement.setString(1, result.commitRevision); statement.setString(2, result.requestId)
                             statement.executeQuery().use { rows ->
                                 assertTrue(rows.next())
                                 assertEquals(result, json.decodeFromString<GameResult>(rows.getString(1)))
@@ -104,12 +110,17 @@ class GameplayMergeVerificationTest {
                                 assertEquals(result.commitRevision, revision?.resultRevision)
                                 assertEquals(result.mutation, rows.getString(4)?.let { json.decodeFromString<GameplayMutation>(it) })
                                 assertEquals(result.mutation, revision?.mutation)
-                                if (revision != null) assertEquals(retained.records.single { it.requestId == result.requestId }, revision)
+                                assertEquals(revision, rows.getString(5)?.let { json.decodeFromString<GameServerMessage>(it) as GameRevision })
+                                if (revision != null) {
+                                    assertEquals(retainedTree.nodes.values.single { it.requestId == result.requestId }, revision.mutation)
+                                    publishedTree = TreeSync.apply(publishedTree, revision.treeDelta!!)
+                                }
                                 assertFalse(rows.next())
                             }
                         }
                     }
                 }
+                assertEquals(retainedTree, publishedTree.tree)
                 assertEquals(head, f.games.head(f.a, f.game.id)); assertFalse(f.games.executeOne())
                 token = AccountService(runtime).login("PlayA@example.invalid", "synthetic password")!!.token
             }

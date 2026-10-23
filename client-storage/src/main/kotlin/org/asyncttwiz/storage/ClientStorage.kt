@@ -98,6 +98,11 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
     /** Adapter operations (owner/fence checks, records, cursor and staging cleanup) share one commit. */
     internal fun <T> atomic(block: () -> T): T = access { database.transactionWithResult { block() } }
 
+    /** Late owner callbacks must not enter a driver that has already been closed. */
+    internal fun <T> atomicIfOpen(block: () -> T): T? = synchronized(lock) {
+        if (closed) null else database.transactionWithResult { block() }
+    }
+
     fun personal(scope: String, key: String): StoredPayload? = access {
         database.personalQueries.selectState(scope, key, ::StoredPayload).executeAsOneOrNull()
     }

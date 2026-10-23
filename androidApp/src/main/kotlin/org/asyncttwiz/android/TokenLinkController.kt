@@ -36,7 +36,7 @@ class TokenLinkController(private val current: () -> PlayState?, private val sub
         val play = current() ?: return
         require(DeckValidation.uuid(contextCardId) && selectedCardIds.all(DeckValidation::uuid))
         val ids = if (contextCardId in selectedCardIds) selectedCardIds.distinct() else listOf(contextCardId)
-        require(ids.all { id -> play.board.cards.any { it.id == id } })
+        if (ids.any { id -> play.board.cards.none { it.id == id } }) return
         close()
         playId = play.id
         scope = TokenLinkScope(contextCardId, ids.toList())
@@ -50,7 +50,7 @@ class TokenLinkController(private val current: () -> PlayState?, private val sub
         val play = current() ?: return
         require(DeckValidation.uuid(context.occurrenceId) && selected.all { DeckValidation.uuid(it.occurrenceId) })
         val endpoints = if (context in selected) selected.distinct() else listOf(context)
-        require(endpoints.all { CombatStackRules.exists(play.board, it) })
+        if (endpoints.any { !CombatStackRules.exists(play.board, it) }) return
         close(); playId = play.id
         projectionScope = ProjectionLinkScope(context, endpoints.toList())
     }

@@ -36,8 +36,15 @@ class AccountStorageHandle(private val open: () -> StorageOpenResult) : AutoClos
 
     /** Called by GameSession's serial tree worker. Activation/Logout and the cache share this
      * existing database/driver and its transaction lock; binding never activates an account. */
-    fun treeCache(accountId: String, gameId: String, playId: String): GameplayTreeStore = storage {
-        GameplayTreeCache.bind(it, accountId, gameId, playId)
+    @Synchronized fun treeCache(accountId: String, gameId: String, playId: String): GameplayTreeStore? =
+        if (closed) null else storage { GameplayTreeCache.bind(it, accountId, gameId, playId) }
+
+    @Synchronized fun destination(accountId: String, destination: ShellDestination) {
+        if (closed) return
+        storage {
+            if (it.personal("installation", "account-owner") == StoredPayload(1, accountId))
+                it.savePersonal("account:$accountId", "shell-destination", StoredPayload(1, "\"${destination.name}\""))
+        }
     }
 
     @Synchronized override fun close() { closed = true; handle?.close(); handle = null }
@@ -58,10 +65,7 @@ class AndroidAccountLocalData(context: Context) : AccountLocalData, AutoCloseabl
             ?: ShellDestination.MENU
     }
 
-    override fun destination(accountId: String, destination: ShellDestination) = storage {
-        check(it.personal("installation", "account-owner") == StoredPayload(1, accountId))
-        it.savePersonal("account:$accountId", "shell-destination", StoredPayload(1, "\"${destination.name}\""))
-    }
+    override fun destination(accountId: String, destination: ShellDestination) = handle.destination(accountId, destination)
 
     override fun resumeLogout(store: SessionStore) {
         // A crash during local cleanup cannot turn a deliberate Logout into reauthentication.

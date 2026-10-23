@@ -78,30 +78,31 @@ internal class TreeStoreFixture : GameplayTreeStore {
     var failPublication = false
     var appliedUpserts = emptyList<AcceptedRecord>()
     val threads = mutableListOf<Thread>()
-    private fun checkCurrent() { threads.add(Thread.currentThread()); check(current) }
+    private fun checkCurrent(): Boolean { threads.add(Thread.currentThread()); return current }
     fun seed(generation: DownloadedTree, revision: Long = 10) {
         saved = CachedGameplayTree(TreeCacheVersion(revision, "fixture-${sequence++}"), TreeSync.records(generation).map(TreeDownload::encode).toList())
     }
     override fun invalidate() { current = false }
     override fun isCurrent() = current
-    override fun accepted(): CachedGameplayTree? { checkCurrent(); return saved }
-    override fun version(): TreeCacheVersion? { checkCurrent(); return saved?.version }
-    override fun transfer(): TreeCacheTransfer? { checkCurrent(); return transfer }
-    override fun begin(transfer: TreeCacheTransfer) { checkCurrent(); if (this.transfer != transfer) chunks.clear(); this.transfer = transfer }
-    override fun putChunk(id: String, index: Int, payload: StoredPayload) { checkCurrent(); check(transfer?.id == id); chunks[index] = payload }
-    override fun chunk(id: String, index: Int): StoredPayload? { checkCurrent(); check(transfer?.id == id); return chunks[index] }
-    override fun restart(id: String) { checkCurrent(); check(transfer?.id == id); transfer = null; chunks.clear() }
-    override fun reviewCursor(): String? { checkCurrent(); return cursor }
-    override fun reviewCursor(nodeId: String?) { checkCurrent(); cursor = nodeId }
-    override fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion {
-        checkCurrent(); check(transfer?.id == id && chunks.size == transfer!!.chunkCount && saved?.version == expected)
+    override fun accepted(): CachedGameplayTree? = if (checkCurrent()) saved else null
+    override fun version(): TreeCacheVersion? = if (checkCurrent()) saved?.version else null
+    override fun transfer(): TreeCacheTransfer? = if (checkCurrent()) transfer else null
+    override fun begin(transfer: TreeCacheTransfer) { if (!checkCurrent()) return; if (this.transfer != transfer) chunks.clear(); this.transfer = transfer }
+    override fun putChunk(id: String, index: Int, payload: StoredPayload) { if (!checkCurrent() || transfer?.id != id) return; chunks[index] = payload }
+    override fun chunk(id: String, index: Int): StoredPayload? = if (checkCurrent() && transfer?.id == id) chunks[index] else null
+    override fun restart(id: String) { if (!checkCurrent() || transfer?.id != id) return; transfer = null; chunks.clear() }
+    override fun reviewCursor(): String? = if (checkCurrent()) cursor else null
+    override fun reviewCursor(nodeId: String?) { if (checkCurrent()) cursor = nodeId }
+    override fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion? {
+        if (!checkCurrent() || transfer?.id != id || chunks.size != transfer?.chunkCount || saved?.version != expected) return null
         if (failPublication) throw IOException("fixture publication interruption")
         check(expected == null || revision >= expected.revision)
         val next = TreeCacheVersion(revision, "fixture-${sequence++}")
         saved = CachedGameplayTree(next, records); restart(id); return next
     }
-    override fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion {
-        checkCurrent(); check(saved?.version == expected && revision > expected.revision)
+    override fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion? {
+        if (!checkCurrent() || saved?.version != expected) return null
+        check(revision > expected.revision)
         val records = saved!!.records.associateByTo(linkedMapOf()) { it.key }
         removals.forEach { records.remove(it) }; upserts.forEach { records[it.key] = it }; appliedUpserts = upserts
         val next = TreeCacheVersion(revision, "fixture-${sequence++}")
@@ -123,7 +124,7 @@ class TreeDownloadTest {
         val staged = download.stage(transfer.plan) { index -> reads += index; transfer.compressed[index].inputStream() }
         assertEquals(transfer.compressed.indices.toList(), reads)
         assertNull(store.accepted())
-        assertEquals(input, staged.generation)
+        assertEquals(input, assertNotNull(staged).generation)
         val result = download.publish(staged, emptyList(), 10) as TreePublication.Published
         assertEquals(input, result.value.generation)
         assertEquals(input, download.accepted()!!.generation)
@@ -145,7 +146,7 @@ class TreeDownloadTest {
             resumedReads += index; transfer.compressed[index].inputStream()
         }
         assertEquals((2 until transfer.compressed.size).toList(), resumedReads)
-        assertEquals(input, resumed.generation)
+        assertEquals(input, assertNotNull(resumed).generation)
         assertEquals(old, store.saved)
     }
 
@@ -230,10 +231,60 @@ class TreeDownloadTest {
         store.failPublication = false
         val next = transfer.plan.copy(id = f.id(201), revision = 11)
         download.stage(next) { transfer.compressed[it].inputStream() }
-        assertFails { download.publish(staged, emptyList(), 10) }
+        assertEquals(TreePublication.RestartRequired, download.publish(staged, emptyList(), 10))
         assertEquals(old, store.saved)
         store.invalidate()
-        assertFails { download.publish(staged, emptyList(), 10) }
+        assertEquals(TreePublication.RestartRequired, download.publish(staged, emptyList(), 10))
+        assertEquals(old, store.saved)
+    }
+
+    @Test fun transferReplacementDuringNetworkReadDiscardsStagingWithoutOverwritingNewTransfer() {
+        val store = TreeStoreFixture().apply { seed(f.generation(f.root()), 9) }
+        val old = store.saved
+        val transfer = f.transfer(f.branched())
+        val replacement = TreeCacheTransfer(f.id(999), 12, 1, StoredPayload(1, "new manifest"))
+        val download = TreeDownload(store, nonWorkerThread)
+        val staged = download.stage(transfer.plan) { index ->
+            store.begin(replacement)
+            transfer.compressed[index].inputStream()
+        }
+        assertNull(staged)
+        assertEquals(replacement, store.transfer())
+        assertTrue(store.chunks.isEmpty())
+        assertEquals(old, store.saved)
+        assertEquals(TreePublication.RestartRequired, download.publish(staged, emptyList(), 10))
+    }
+
+    @Test fun publicationCasRacesRequestRecoveryInsteadOfReportingAnUncommittedTree() {
+        val store = TreeStoreFixture().apply { seed(f.generation(f.root())) }
+        val racing = object : GameplayTreeStore by store {
+            override fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion? = null
+            override fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion? = null
+        }
+        val download = TreeDownload(racing, nonWorkerThread)
+        val transfer = f.transfer(f.branched())
+        val staged = assertNotNull(download.stage(transfer.plan) { transfer.compressed[it].inputStream() })
+        val old = store.saved
+        assertEquals(TreePublication.RestartRequired, download.publish(staged, emptyList(), 10))
+        assertEquals(TreePublication.RestartRequired, download.apply(f.delta(f.generation(f.root()), f.generation(f.tap(f.root())))))
+        assertEquals(old, store.saved)
+    }
+
+    @Test fun replacementRemovingChunksDuringLazyDecodeDiscardsPartialTreeWithoutThrowing() {
+        val store = TreeStoreFixture().apply { seed(f.generation(f.root()), 9) }
+        val old = store.saved
+        val transfer = f.transfer(f.branched())
+        val replacement = TreeCacheTransfer(f.id(999), 12, 1, StoredPayload(1, "new manifest"))
+        var reads = 0
+        val racing = object : GameplayTreeStore by store {
+            override fun chunk(id: String, index: Int): StoredPayload? {
+                if (++reads == transfer.plan.chunks.size + 2) store.begin(replacement)
+                return store.chunk(id, index)
+            }
+        }
+        val download = TreeDownload(racing, nonWorkerThread)
+        assertNull(download.stage(transfer.plan) { transfer.compressed[it].inputStream() })
+        assertEquals(replacement, store.transfer())
         assertEquals(old, store.saved)
     }
 

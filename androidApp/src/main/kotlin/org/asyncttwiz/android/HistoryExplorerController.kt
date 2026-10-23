@@ -162,8 +162,8 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
         worker.execute {
             if (generation != epoch) return@execute
             val result = runCatching {
-                val selected = value.resolveCursor(nodeId) ?: error("This event is unavailable")
-                val reviewed = value.stateAt(selected) ?: error("This event is unavailable")
+                val selected = value.resolveCursor(nodeId) ?: return@runCatching null
+                val reviewed = value.stateAt(selected) ?: return@runCatching null
                 val hidden = if (includeHidden) emptySet() else {
                     val comments = value.nodes.values.filter { it.action is PlayAction.EventComment }.map { it.id }.toSet()
                     value.branches.values.filter { branch ->
@@ -174,7 +174,12 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
                 Triple(HistoryGraphLayout.build(value, groups, (filter.filter { value.nodes[it]?.branchId !in hidden }.toSet() + selected)), selected, reviewed)
             }
             post {
-                if (!closed && generation == epoch) result.fold({ (graph, selected, reviewed) ->
+                if (!closed && generation == epoch) result.fold({ resolved ->
+                    if (resolved == null) {
+                        state = state.copy(busy = false, error = "History unavailable")
+                        return@fold
+                    }
+                    val (graph, selected, reviewed) = resolved
                     state = HistoryExplorerState(graph, selected, reviewed, archivedSelection =
                         (value.nodes[selected]?.branchId ?: value.initial.root.branchId) in value.branchArchives.archivedBranchIds)
                 }, { state = state.copy(busy = false, error = "History unavailable") })

@@ -182,7 +182,7 @@ class HistoryUiSpineTest {
             override fun disconnect() = Unit
             override fun close() = Unit
         }
-        val root = f.root()
+        val root = f.tap(f.root()).let { assertNotNull(it.activate(it.initial.root.id).tree) }
         val game = GameSummary(root.initial.gameId, "Cached", "2026-10-23T00:00:00Z", AccountIdentity(f.a, "A"),
             AccountIdentity(f.b, "B"), root.initial.preparationRound, f.id(80), InvitationState.ACCEPTED,
             lifecycle = GameLifecycle.ACTIVE, revision = "1", playId = root.initial.id)
@@ -193,7 +193,9 @@ class HistoryUiSpineTest {
         try {
             worker.submit {
                 handle.storage { it.activateAccount(f.a) }
-                old = handle.treeCache(f.a, game.id, root.initial.id)
+                handle.destination(f.b, ShellDestination.DECKS)
+                handle.storage { assertNull(it.personal("account:${f.b}", "shell-destination")) }
+                old = assertNotNull(handle.treeCache(f.a, game.id, root.initial.id))
                 val transfer = f.transfer(TreeSync.generation(root))
                 val download = TreeDownload(old, uiThread)
                 val staged = download.stage(transfer.plan) { transfer.compressed[it].inputStream() }
@@ -201,6 +203,7 @@ class HistoryUiSpineTest {
             }.get(10, TimeUnit.SECONDS)
             session.watch(listOf(game)); drain()
             assertEquals(root.initial.board, session.acceptedPlay(game)!!.board)
+            assertEquals(root, session.retainedTree(game.id), "Reopened current-at-root table must retain its displaced history")
             var view: DownloadedHistoryState? = null
             assertTrue(session.review(game.id, root.initial.root.id) { view = it }); drain()
             assertEquals(root.initial.root.id, view!!.cursor)
@@ -209,12 +212,15 @@ class HistoryUiSpineTest {
             session.clear() // immediate UI/process fence precedes disk cleanup.
             assertNull(session.acceptedPlay(game))
             worker.submit { handle.storage { it.clearPrivateData(); it.activateAccount(f.b) } }.get(5, TimeUnit.SECONDS)
-            assertFailsWith<IllegalStateException> { old.accepted() }
+            assertNull(old.accepted())
             actor = f.b
-            worker.submit { assertNull(handle.treeCache(f.b, game.id, root.initial.id).accepted()) }.get(5, TimeUnit.SECONDS)
+            worker.submit { assertNull(assertNotNull(handle.treeCache(f.b, game.id, root.initial.id)).accepted()) }.get(5, TimeUnit.SECONDS)
             assertEquals(1, opens)
         } finally {
             session.close(); assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS)); handle.close()
+            assertNull(handle.treeCache(f.a, game.id, root.initial.id))
+            handle.destination(f.a, ShellDestination.GAMES)
+            assertEquals(1, opens, "Late callbacks must not reopen a closed storage owner")
             java.nio.file.Files.deleteIfExists(file)
         }
     }

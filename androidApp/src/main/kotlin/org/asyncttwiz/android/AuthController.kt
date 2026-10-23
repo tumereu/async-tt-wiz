@@ -141,7 +141,7 @@ class AuthController(
                 }
                 is StoredSession.Present -> try {
                     val identity = accounts.identity(saved.token)
-                    check(generation.get() == epoch)
+                    if (generation.get() != epoch) return@work null
                     if (accountSwitcher) {
                         val email = store.remembered().firstOrNull { it.token == saved.token }?.account?.email.orEmpty()
                         remember(RememberedSession(saved.token, RememberedAccount(identity, email)))
@@ -174,7 +174,7 @@ class AuthController(
                     val session = accounts.login(input.email, input.password)
                     if (generation.get() != epoch) {
                         bestEffortRevoke(session.token)
-                        error("Account owner changed")
+                        return@work null
                     }
                     try {
                         remember(RememberedSession(session.token, RememberedAccount(session.account, input.email)))
@@ -197,14 +197,14 @@ class AuthController(
         }
     }
 
-    private fun work(action: suspend () -> AuthState) {
+    private fun work(action: suspend () -> AuthState?) {
         val epoch = generation.get()
         worker.execute {
             if (generation.get() != epoch) return@execute
-            val next = try { runBlocking { withRemembered(action()) } } catch (_: Exception) {
+            val next = try { runBlocking { action()?.let(::withRemembered) } } catch (_: Exception) {
                 AuthState(restoring = true, restoreFailed = true,
                     message = "Protected login storage could not be opened. Retry without uninstalling.", error = true)
-            }
+            } ?: return@execute
             post { if (!closed && generation.get() == epoch) {
                 val context = reauthenticationContext
                 if (next.account != null && context != null) {

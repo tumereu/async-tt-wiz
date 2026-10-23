@@ -12,7 +12,59 @@ import java.util.Properties
  * replay/gzip adapter fixtures execute in protocol/Android tests, not server/native acceptance.
  */
 class GameplayTreeCacheTest {
-    @Test fun sessionFenceRejectsStaleCallbackInsideStorageTransactionBeforeDiskPublication() {
+    @Test fun queuedReviewAfterRebindIsIgnoredAndReopenedTableReadsCurrentTree() {
+        initialize()
+        val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            open().use { storage ->
+                val old = bind(storage)
+                val entered = java.util.concurrent.CountDownLatch(1)
+                val resume = java.util.concurrent.CountDownLatch(1)
+                val pending = worker.submit {
+                    entered.countDown()
+                    check(resume.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                    old.reviewCursor("obsolete-review")
+                }
+                assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                try {
+                    val reopened = bind(storage)
+                    val version = reopened.version()!!
+                    val currentRoot = root.copy(payload = StoredPayload(1, "current-tree"))
+                    assertNotNull(reopened.apply(version, 11, listOf(currentRoot), emptyList()))
+                    reopened.reviewCursor("current")
+                } finally { resume.countDown() }
+                pending.get(5, java.util.concurrent.TimeUnit.SECONDS) // formerly the fatal executor exception
+                val reopened = bind(storage)
+                assertEquals(11, reopened.accepted()!!.version.revision)
+                assertEquals("current-tree", reopened.accepted()!!.records.single { it.key == root.key }.payload.json)
+                assertEquals("current", reopened.reviewCursor())
+            }
+        } finally {
+            worker.shutdown()
+            assertTrue(worker.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun closedStorageAndInactiveAccountBindingIgnoreLateCallbacksWithoutReactivatingOwner() {
+        initialize()
+        val storage = open()
+        val cache = bind(storage)
+        val version = cache.version()!!
+        storage.activateAccount("b")
+        val obsolete = bind(storage)
+        assertFalse(obsolete.isCurrent())
+        assertEquals(StoredPayload(1, "b"), storage.personal("installation", "account-owner"))
+        storage.close()
+        assertFalse(cache.isCurrent())
+        assertNull(cache.accepted()); assertNull(cache.version()); assertNull(cache.transfer()); assertNull(cache.reviewCursor())
+        cache.begin(transfer()); cache.putChunk("transfer", 0, StoredPayload(1, "late"))
+        assertNull(cache.chunk("transfer", 0)); cache.restart("transfer"); cache.reviewCursor("late")
+        assertNull(cache.publish("transfer", version, 11, listOf(root)))
+        assertNull(cache.apply(version, 11, listOf(root), emptyList()))
+        assertFalse(bind(storage).isCurrent())
+    }
+
+    @Test fun sessionFenceIgnoresStaleCallbackInsideStorageTransactionBeforeDiskPublication() {
         initialize()
         open().use { storage ->
             val cache = bind(storage)
@@ -22,10 +74,11 @@ class GameplayTreeCacheTest {
             var current = true
             cache.guard { current }
             current = false // account/play callback fence flips before account activation/cleanup.
-            assertThrows(IllegalStateException::class.java) { cache.putChunk("callback", 0, StoredPayload(1, "late")) }
-            assertThrows(IllegalStateException::class.java) { cache.publish("callback", before.version, 11, listOf(offshoot)) }
-            assertThrows(IllegalStateException::class.java) { cache.apply(before.version, 11, listOf(offshoot), emptyList()) }
-            assertThrows(IllegalStateException::class.java) { cache.reviewCursor("late") }
+            cache.putChunk("callback", 0, StoredPayload(1, "late"))
+            assertNull(cache.publish("callback", before.version, 11, listOf(offshoot)))
+            assertNull(cache.apply(before.version, 11, listOf(offshoot), emptyList()))
+            cache.reviewCursor("late")
+            assertNull(cache.accepted()); assertNull(cache.version()); assertNull(cache.transfer()); assertNull(cache.reviewCursor())
             assertFalse(cache.isCurrent())
         }
         open().use { storage ->
@@ -63,7 +116,7 @@ class GameplayTreeCacheTest {
         storage.activateAccount("a")
         val cache = bind(storage)
         stage(cache)
-        cache.publish("transfer", null, 10, listOf(root, offshoot, removed))
+        requireNotNull(cache.publish("transfer", null, 10, listOf(root, offshoot, removed)))
     }
 
     @Test fun completeReplacementIsDurableAndDoesNotLeaveAbsentBaselineRecords() {
@@ -101,7 +154,7 @@ class GameplayTreeCacheTest {
             val cache = bind(storage)
             cache.begin(transfer())
             cache.putChunk("transfer", 0, StoredPayload(1, "chunk-zero"))
-            assertThrows(IllegalStateException::class.java) { cache.publish("transfer", null, 10, listOf(root)) }
+            assertNull(cache.publish("transfer", null, 10, listOf(root)))
             assertNull(cache.accepted())
         }
         assertEquals("0", scalar("SELECT count(*) FROM accepted_cursor"))
@@ -165,13 +218,14 @@ class GameplayTreeCacheTest {
             val cache = bind(storage)
             val old = cache.version()!!
             stage(cache, "late", 10)
-            val current = cache.apply(old, 11, listOf(record("node", "new", "new")), emptyList())
-            assertThrows(IllegalStateException::class.java) { cache.publish("late", old, 11, listOf(root)) }
-            assertThrows(IllegalArgumentException::class.java) { cache.publish("late", current, 10, listOf(root)) }
-            val repaired = cache.publish("late", current, 11, cache.accepted()!!.records)
+            val current = cache.apply(old, 11, listOf(record("node", "new", "new")), emptyList())!!
+            assertNull(cache.publish("late", old, 11, listOf(root)))
+            assertNull(cache.apply(old, 12, listOf(root), emptyList()))
+            assertNull(cache.publish("late", current, 10, listOf(root)))
+            val repaired = cache.publish("late", current, 11, cache.accepted()!!.records)!!
             assertNotEquals(current.publicationId, repaired.publicationId)
             stage(cache, "same-revision", 11)
-            assertThrows(IllegalStateException::class.java) { cache.publish("same-revision", current, 11, listOf(root)) }
+            assertNull(cache.publish("same-revision", current, 11, listOf(root)))
             assertEquals(repaired, cache.version())
         }
     }
@@ -197,8 +251,8 @@ class GameplayTreeCacheTest {
             stage(old, "old", 11)
             val replacement = bind(second)
             assertFalse(old.isCurrent())
-            assertThrows(IllegalStateException::class.java) { old.putChunk("old", 0, StoredPayload(1, "late")) }
-            assertThrows(IllegalStateException::class.java) { old.publish("old", old.version(), 11, listOf(root)) }
+            old.putChunk("old", 0, StoredPayload(1, "late"))
+            assertNull(old.publish("old", old.version(), 11, listOf(root)))
             assertNotNull(replacement.accepted())
             val freshPlay = bind(first, "fresh-play")
             assertFalse(replacement.isCurrent())
@@ -220,16 +274,17 @@ class GameplayTreeCacheTest {
             storage.cachePublic("art", StoredPayload(1, "public"))
             storage.activateAccount("b")
             assertFalse(old.isCurrent())
-            assertThrows(IllegalStateException::class.java) { old.accepted() }
+            assertNull(old.accepted())
             storage.activateAccount("a")
             assertFalse(old.isCurrent(), "same account after switch must not resurrect an old callback")
             val cache = bind(storage)
             assertNull(cache.accepted()); assertNull(cache.transfer()); assertNull(cache.reviewCursor())
             stage(cache)
             cache.publish("transfer", null, 10, listOf(root))
+            val version = cache.version()!!
             storage.clearPrivateData()
             assertFalse(cache.isCurrent())
-            assertThrows(IllegalStateException::class.java) { cache.apply(cache.version()!!, 11, listOf(offshoot), emptyList()) }
+            assertNull(cache.apply(version, 11, listOf(offshoot), emptyList()))
             assertEquals(StoredPayload(1, "public"), storage.publicCache("art"))
         }
         assertEquals("0", scalar("SELECT count(*) FROM accepted_record"))
@@ -243,7 +298,10 @@ class GameplayTreeCacheTest {
             stage(cache, "one", 11)
             cache.begin(transfer("two", 12))
             assertNull(cache.chunk("two", 0))
-            assertThrows(IllegalStateException::class.java) { cache.putChunk("one", 0, StoredPayload(1, "stale")) }
+            cache.putChunk("one", 0, StoredPayload(1, "stale"))
+            cache.restart("one")
+            assertNull(cache.chunk("one", 0))
+            assertEquals("two", cache.transfer()!!.id)
             cache.putChunk("two", 0, StoredPayload(1, "correct"))
             cache.putChunk("two", 0, StoredPayload(1, "correct"))
             assertThrows(IllegalStateException::class.java) { cache.putChunk("two", 0, StoredPayload(1, "conflict")) }
@@ -252,7 +310,7 @@ class GameplayTreeCacheTest {
             assertEquals(10, cache.accepted()!!.version.revision)
             cache.invalidate()
             assertFalse(cache.isCurrent())
-            assertThrows(IllegalStateException::class.java) { cache.reviewCursor("late") }
+            cache.reviewCursor("late")
         }
     }
 }

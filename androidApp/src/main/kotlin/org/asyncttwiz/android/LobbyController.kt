@@ -32,7 +32,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString(),
     private val deckApi: Decks? = null,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
-    treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore)? = null) : AutoCloseable {
+    treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null) : AutoCloseable {
     var state by mutableStateOf(LobbyState())
         private set
     @Volatile private var epoch = 0L
@@ -287,7 +287,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             val result = runCatching { runBlocking {
                 val decks = linkedMapOf<String, DeckSummary>(); val seen = mutableSetOf<String>(); var next: String? = null
                 do {
-                    check(generation == epoch)
+                    if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
                     val page = api.list(token, next); page.decks.forEach { decks[it.id] = it }; next = page.next
                     check(next == null || seen.add(next!!))
                 } while (next != null)
@@ -311,11 +311,12 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         state = state.copy(picker = picker.copy(confirming = true, error = null))
         worker.execute {
             val result = runCatching { runBlocking {
-                check(generation == epoch)
+                if (generation != epoch || version != pickerVersion) return@runBlocking null
                 val saved = api.read(token, source.id)
                 if (saved.deck.revision != source.revision) throw DeckFailure("source_changed")
                 val definitions = saved.entries.map { it.definition }.distinct().map { digest ->
-                    check(generation == epoch); api.definition(token, source.id, digest)
+                    if (generation != epoch || version != pickerVersion) return@runBlocking null
+                    api.definition(token, source.id, digest)
                 }
                 saved to definitions
             } }
@@ -491,13 +492,17 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             if (generation != epoch) return@execute
             val result = runCatching { runBlocking {
                 val contacts = mutableListOf<AccountIdentity>(); val games = mutableListOf<GameSummary>(); val invites = mutableListOf<GameSummary>()
-                suspend fun pages(read: suspend (String?) -> String?) {
+                suspend fun pages(read: suspend (String?) -> String?): Boolean {
                     var after: String? = null; val seen = mutableSetOf<String>()
-                    do { check(generation == epoch); after = read(after); check(after == null || seen.add(after!!)) } while (after != null)
+                    do {
+                        if (generation != epoch) return false
+                        after = read(after); check(after == null || seen.add(after!!))
+                    } while (after != null)
+                    return generation == epoch
                 }
-                pages { cursor -> api.contacts(token, cursor).let { contacts.addAll(it.contacts); it.next } }
-                pages { cursor -> api.games(token, false, cursor).let { games.addAll(it.games); it.next } }
-                pages { cursor -> api.games(token, true, cursor).let { invites.addAll(it.games); it.next } }
+                if (!pages { cursor -> api.contacts(token, cursor).let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                if (!pages { cursor -> api.games(token, false, cursor).let { games.addAll(it.games); it.next } }) return@runBlocking null
+                if (!pages { cursor -> api.games(token, true, cursor).let { invites.addAll(it.games); it.next } }) return@runBlocking null
                 val detail = selected?.let {
                     try { api.head(token, it) } catch (failure: LobbyFailure) {
                         if (failure.code == "not_found") null else throw failure

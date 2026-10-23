@@ -11,7 +11,8 @@ data class CachedGameplayTree(val version: TreeCacheVersion, val records: List<A
  */
 data class TreeCacheTransfer(val id: String, val revision: Long, val chunkCount: Int, val manifest: StoredPayload)
 
-/** The read/stage/accepted boundary used by native coordinators. Production uses SQLDelight below. */
+/** The read/stage/accepted boundary used by native coordinators. Production uses SQLDelight below.
+ * Obsolete/closed owners read null and ignore writes; publication conflicts return null for recovery. */
 interface GameplayTreeStore {
     val accountId: String
     val gameId: String
@@ -29,8 +30,9 @@ interface GameplayTreeStore {
     fun restart(id: String)
     fun reviewCursor(): String?
     fun reviewCursor(nodeId: String?)
-    fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion
-    fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion
+    /** Null means ownership, staging or the expected publication moved on; nothing was written. */
+    fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion?
+    fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion?
 }
 
 /** One accepted game scope in the existing SQLDelight replica. No boards, outgoing requests or
@@ -50,14 +52,13 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
     override fun invalidate() { active = false }
     override fun guard(current: () -> Boolean) { sessionCurrent = current }
 
-    override fun isCurrent(): Boolean = storage.atomic { current() }
+    override fun isCurrent(): Boolean = storage.atomicIfOpen { current() } == true
 
     private fun current() = active && sessionCurrent() && storage.personal("installation", "account-owner") == StoredPayload(1, accountId) &&
         storage.personal("installation", fenceKey) == fence
 
-    private fun <T> fenced(block: () -> T): T = storage.atomic {
-        check(current()) { "Obsolete tree callback" }
-        block()
+    private fun <T> fenced(block: () -> T): T? = storage.atomicIfOpen {
+        if (current()) block() else null
     }
 
     private data class Publication(val playId: String, val id: String)
@@ -83,30 +84,29 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
 
     override fun transfer(): TreeCacheTransfer? = fenced { stage()?.takeIf { it.playId == playId }?.transfer }
 
-    override fun begin(transfer: TreeCacheTransfer) = fenced {
+    override fun begin(transfer: TreeCacheTransfer) { fenced {
         require(transfer.id.isNotEmpty() && transfer.revision >= 0 && transfer.chunkCount > 0)
         val previous = stage()
         if (previous == Stage(playId, transfer)) return@fenced
         clearStage(previous)
         storage.savePersonal(staging, "transfer", StoredPayload(1, gson.toJson(Stage(playId, transfer))))
-    }
+    } }
 
-    private fun requireStage(id: String): TreeCacheTransfer {
-        val stage = checkNotNull(stage()) { "No tree transfer" }
-        check(stage.playId == playId && stage.transfer.id == id) { "Obsolete tree transfer" }
-        return stage.transfer
-    }
+    private fun matchingStage(id: String): TreeCacheTransfer? = stage()
+        ?.takeIf { it.playId == playId && it.transfer.id == id }?.transfer
 
     /** Payload is one verified decoded chunk (base64); interpretation/validation is the codec's job. */
-    override fun putChunk(id: String, index: Int, payload: StoredPayload) = fenced {
-        require(index in 0 until requireStage(id).chunkCount)
+    override fun putChunk(id: String, index: Int, payload: StoredPayload) { fenced {
+        val transfer = matchingStage(id) ?: return@fenced
+        require(index in 0 until transfer.chunkCount)
         val previous = storage.personal(staging, "chunk:$index")
         check(previous == null || previous == payload) { "Conflicting tree chunk" }
         storage.savePersonal(staging, "chunk:$index", payload)
-    }
+    } }
 
     override fun chunk(id: String, index: Int): StoredPayload? = fenced {
-        require(index in 0 until requireStage(id).chunkCount)
+        val transfer = matchingStage(id) ?: return@fenced null
+        require(index in 0 until transfer.chunkCount)
         storage.personal(staging, "chunk:$index")
     }
 
@@ -116,36 +116,34 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
             ?.json?.substringAfter('/')
     }
 
-    override fun reviewCursor(nodeId: String?) = fenced {
+    override fun reviewCursor(nodeId: String?) { fenced {
         if (nodeId == null) storage.removePersonal("game-tree-review:$gameId", "cursor")
         else {
             require(nodeId.isNotEmpty() && '/' !in nodeId)
             storage.savePersonal("game-tree-review:$gameId", "cursor", StoredPayload(1, "$playId/$nodeId"))
         }
-    }
+    } }
 
-    override fun restart(id: String) = fenced { requireStage(id); clearStage(stage()) }
+    override fun restart(id: String) { fenced {
+        if (matchingStage(id) != null) clearStage(stage())
+    } }
 
     private fun clearStage(stage: Stage?) {
         stage?.let { repeat(it.transfer.chunkCount) { index -> storage.removePersonal(staging, "chunk:$index") } }
         storage.removePersonal(staging, "transfer")
     }
 
-    private fun checkBase(expected: TreeCacheVersion?): AcceptedSnapshot? {
-        val actual = storage.accepted(scope)
-        val version = actual?.let { TreeCacheVersion(it.revision, publication(it).id) }
-        check(version == expected) { "Accepted tree publication changed" }
-        return actual
-    }
+    private fun AcceptedSnapshot.cacheVersion() = TreeCacheVersion(revision, publication(this).id)
 
     /** Caller has decoded/replayed the whole coherent generation, including a contiguous delta tail.
      * Failures (also during stage cleanup) roll back records, header, cursor and staging together.
      */
-    override fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion = fenced {
-        val transfer = requireStage(id)
+    override fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion? = fenced {
+        val transfer = matchingStage(id) ?: return@fenced null
         require(revision >= transfer.revision)
-        repeat(transfer.chunkCount) { checkNotNull(storage.personal(staging, "chunk:$it")) { "Incomplete tree transfer" } }
-        val actual = checkBase(expected)
+        if ((0 until transfer.chunkCount).any { storage.personal(staging, "chunk:$it") == null }) return@fenced null
+        val actual = storage.accepted(scope)
+        if (actual?.cacheVersion() != expected || (actual != null && revision < actual.revision)) return@fenced null
         require(records.none { it.key == HEADER })
         val next = TreeCacheVersion(revision, UUID.randomUUID().toString())
         storage.replaceAccepted(scope, actual?.revision, revision, records + header(next))
@@ -154,9 +152,9 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
     }
 
     /** Genuine changed-record persistence, not a full generation rewrite for an ordinary delta. */
-    override fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion = fenced {
-        val actual = checkNotNull(checkBase(expected))
-        check(publication(actual).playId == playId)
+    override fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion? = fenced {
+        val actual = storage.accepted(scope) ?: return@fenced null
+        if (actual.cacheVersion() != expected || publication(actual).playId != playId) return@fenced null
         require(upserts.none { it.key == HEADER } && HEADER !in removals)
         val next = TreeCacheVersion(revision, UUID.randomUUID().toString())
         storage.commitAccepted(scope, expected.revision, revision, upserts + header(next), removals)
@@ -175,11 +173,13 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
         fun bind(storage: ClientStorage, accountId: String, gameId: String, playId: String): GameplayTreeCache {
             require(listOf(accountId, gameId, playId).all { it.isNotEmpty() && '/' !in it && ':' !in it })
             val cache = GameplayTreeCache(storage, accountId, gameId, playId, UUID.randomUUID().toString())
-            storage.atomic {
-                check(storage.personal("installation", "account-owner") == StoredPayload(1, accountId)) { "Inactive account" }
+            val bound = storage.atomicIfOpen {
+                if (storage.personal("installation", "account-owner") != StoredPayload(1, accountId)) return@atomicIfOpen false
                 storage.savePersonal("installation", cache.fenceKey, cache.fence)
                 cache.stage()?.takeIf { it.playId != playId }?.let { cache.clearStage(it) }
+                true
             }
+            if (bound != true) cache.invalidate()
             return cache
         }
     }

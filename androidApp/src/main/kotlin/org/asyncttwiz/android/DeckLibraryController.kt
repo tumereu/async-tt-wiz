@@ -67,7 +67,8 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
             if (generation != epoch) return@execute
             try {
                 val result = runBlocking { if (id == null) null else detail(token, id, known, generation) }
-                val decks = if (id == null) runBlocking { collection(token, generation) } else null
+                if (id != null && result == null) return@execute
+                val decks = if (id == null) runBlocking { collection(token, generation) } ?: return@execute else null
                 post { if (!closed && generation == epoch) state = state.copy(detail = result,
                     decks = decks ?: state.decks.map { if (it.id == id) result!!.saved.deck else it }, busy = false, loaded = true) }
             } catch (failure: Exception) {
@@ -120,19 +121,19 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         }
     }
 
-    private suspend fun collection(token: String, generation: Long): List<DeckSummary> {
+    private suspend fun collection(token: String, generation: Long): List<DeckSummary>? {
         val decks = linkedMapOf<String, DeckSummary>(); val cursors = mutableSetOf<String>(); var after: String? = null
         do {
-            check(generation == epoch)
+            if (generation != epoch) return null
             val page = api.list(token, after); page.decks.forEach { decks[it.id] = it }; after = page.next
             if (after != null && !cursors.add(after)) throw DeckFailure("invalid_response")
         } while (after != null)
         return decks.values.toList()
     }
-    private suspend fun detail(token: String, id: String, known: Map<String, CardDefinition>, generation: Long): DeckDetail {
+    private suspend fun detail(token: String, id: String, known: Map<String, CardDefinition>, generation: Long): DeckDetail? {
         val saved = api.read(token, id)
         val definitions = saved.entries.map { it.definition }.distinct().associateWith {
-            check(generation == epoch)
+            if (generation != epoch) return null
             known[it] ?: api.definition(token, id, it).definition
         }
         return DeckDetail(saved, definitions)

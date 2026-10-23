@@ -8,6 +8,23 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class DownloadedHistoryTest {
+    @Test fun lateSelectionWithoutAcceptedHistoryOrMissingBoundaryIsIgnoredAndPublishWithoutStageRequestsRetry() {
+        Harness(TreeStoreFixture()).use { h ->
+            h.history.load(); h.settle()
+            val previous = h.view
+            h.history.select(f.id(999)); h.settle()
+            assertEquals(previous, h.view)
+            h.history.publish(emptyList(), 10); h.settle()
+            assertTrue(h.view.downloadIncomplete)
+            assertNull(h.view.error)
+            h.store.seed(f.generation(f.root()))
+            h.history.load(); h.settle()
+            val loaded = h.view
+            h.history.select(f.id(999)); h.settle()
+            assertEquals(loaded, h.view)
+            assertNull(h.store.reviewCursor())
+        }
+    }
     private val f = DownloadedTreeFixture
     private class Harness(val store: TreeStoreFixture) : AutoCloseable {
         val uiThread: Thread = Thread.currentThread()

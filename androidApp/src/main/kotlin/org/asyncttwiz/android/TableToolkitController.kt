@@ -176,16 +176,18 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val source = play.board.containers.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY } ?: return
         val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == source.accountId }
         dismiss()
-        library = ToolkitLibrary(libraryController(source.id, hand.id), handIds?.toList() ?: hand.cards.toList(), tool)
+        val controller = libraryController(source.id, hand.id) ?: return
+        library = ToolkitLibrary(controller, handIds?.toList() ?: hand.cards.toList(), tool)
         panel = "library"
         if (tool == LibraryTool.CONTENTS && enabled()) {
             val previous = play.board.contentsDisplays.map { it.id }.toSet()
-            library!!.controller.show()
+            controller.show()
             libraryDisplayId = current()?.board?.contentsDisplays?.lastOrNull { it.id !in previous }?.id
         }
     }
-    fun libraryController(source: String, hand: String): LibraryController = LibraryController(
-        requireNotNull(current()).id, source, hand, ::current, ::enabled, { submit(it) },
+    fun libraryController(source: String, hand: String): LibraryController? {
+        val playId = current()?.id ?: return null
+        return LibraryController(playId, source, hand, ::current, ::enabled, { submit(it) },
         request = { action, group -> submit(action, group) }, moveRequest = { intent ->
             var submitted = 0
             val adapter = BasicTableController(::current, ::enabled) { action, group ->
@@ -194,6 +196,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             adapter.handle(intent)
             LibrarySubmission(submitted, intent.scope.cardIds.size - submitted)
         })
+    }
 
     fun inspect(viewId: String) {
         val play = current() ?: return
@@ -234,7 +237,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     override fun library(intent: TableActionIntent.Library) {
         if (intent.tool == LibraryTool.MULLIGAN_MINUS_ONE) {
-            val controller = libraryController(intent.targets.libraryId, intent.targets.handId)
+            val controller = libraryController(intent.targets.libraryId, intent.targets.handId) ?: return
             controller.mulligan(intent.handIds, minusOne = true)
         } else openLibrary(intent.targets.libraryId, intent.tool, intent.handIds)
     }

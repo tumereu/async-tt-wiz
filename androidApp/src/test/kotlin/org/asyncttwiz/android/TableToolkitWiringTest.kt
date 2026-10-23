@@ -6,6 +6,20 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    @Test fun staleLibraryCallbackAfterTableDisappearsDoesNotConstructOrSubmit() {
+        val f = BasicTableFixture(); f.connect()
+        var current: PlayState? = f.play
+        val ui = TableToolkitController(f.actor, { current }, { true }, { _, _ -> error("No stale submission") })
+        try {
+            val intent = assertNotNull(ui.table.library(f.play, LibraryTool.MULLIGAN_MINUS_ONE))
+            val library = assertNotNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
+            current = null
+            assertNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
+            ui.library(intent)
+            assertEquals(LibrarySubmission(0, 1), library.draw())
+            assertTrue(f.commands().isEmpty())
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
     @Test fun productionInspectorUsesAcceptedTreeProofNotReceiptOrResultAndClosedLifetimeCannotReopen() {
         val f = BasicTableFixture(); f.connect()
         val ui = TableToolkitController(f.actor, { f.lobby.state.play }, { true }, f.lobby::gameplay,
@@ -57,7 +71,7 @@ class TableToolkitWiringTest {
             val ui = TableToolkitController(f.actor, {
                 if (personal.provisional) f.lobby.state.play else personal.view?.state
             }, { true }, f.lobby::gameplay)
-            val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+            val library = assertNotNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
             assertEquals(LibrarySubmission(2, 0), library.move(ContentsSelection.TOP, 2,
                 MoveDestination(f.container(PlayZone.GRAVEYARD), MoveInsertion.UNORDERED)))
             val originals = f.commands()
@@ -102,7 +116,7 @@ class TableToolkitWiringTest {
 
     @Test fun everyLibraryMoveUsesExplicitDefaultsAndOneInvocationWithoutWaitingForResults() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
-        val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+        val library = assertNotNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
         assertEquals(LibrarySubmission(2, 0), library.move(ContentsSelection.TOP, 2,
             MoveDestination(f.container(PlayZone.GRAVEYARD), MoveInsertion.UNORDERED)))
         val actions = f.actions()
@@ -117,7 +131,7 @@ class TableToolkitWiringTest {
     @Test fun bottomSliceSubsetAndBothMulligansKeepCapturedOrderAndInvocation() {
         for (minusOne in listOf(false, true)) {
             val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
-            val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+            val library = assertNotNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
             library.draw(3)
             val start = f.commands().size
             val displayed = listOf(42, 40, 41).map(f::id)
@@ -143,7 +157,7 @@ class TableToolkitWiringTest {
             attempted += action to invocation
             if (action is PlayAction.MoveCard && action.cardId == f.id(40)) false else f.lobby.gameplay(action, invocation)
         })
-        val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+        val library = assertNotNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
         val destination = MoveDestination(f.container(PlayZone.EXILE), MoveInsertion.UNORDERED)
         val result = if (top) library.move(ContentsSelection.TOP, 2, destination)
             else library.moveCards(listOf(f.id(40), f.id(41)), destination)

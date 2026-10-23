@@ -126,7 +126,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 val container = play.board.containers.single { it.id == display.containerId }
                 val hand = play.board.containers.first { it.zone == PlayZone.HAND && it.accountId == (container.accountId ?: toolkit.viewer) }
                 val controller = remember(toolkit, display.id) { toolkit.libraryController(container.id, hand.id) }
-                TableMenuPanel(toolkit::dismiss, title = if (display.reveal) "Reveal" else "View") {
+                if (controller == null) LaunchedEffect(display.id) { toolkit.dismiss() }
+                else TableMenuPanel(toolkit::dismiss, title = if (display.reveal) "Reveal" else "View") {
                     ContentsScreen(play, display, toolkit.viewer, controller, toolkit::inspect,
                         Modifier.height(480.dp), onActions = { toolkit.openCard(selection.scope(it, display.cardIds)) }, names = names,
                         onComplete = toolkit::dismiss)

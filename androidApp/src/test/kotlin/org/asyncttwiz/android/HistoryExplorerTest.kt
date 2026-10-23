@@ -8,6 +8,20 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class HistoryExplorerTest {
+    @Test fun missingBoundaryInNewTreeShowsUnavailableWithoutThrowingOrActivating() {
+        val queue = Queue()
+        val controller = HistoryExplorerController(queue, { it() }, { true }, { _, _ -> error("unexpected activation") })
+        try {
+            controller.update(GameplayTree(root())); queue.drain()
+            controller.select(id(999)); queue.drain()
+            assertFalse(controller.state.busy)
+            assertEquals("History unavailable", controller.state.error)
+            assertNull(controller.captureMakeCurrent())
+            controller.select(root().root.id); queue.drain()
+            assertNull(controller.state.error)
+            assertNotNull(controller.state.reviewed)
+        } finally { controller.close() }
+    }
     @Test fun archivedSelectedBoundaryRemainsExactlyReviewableAndRequiresExplicitRestoreBeforeActivation() {
         val original = play(GameplayTree(root()), 100)
         val alternative = assertNotNull(original.play(b, command(101).copy(continuation = Continuation(root().root.id, true))).tree)

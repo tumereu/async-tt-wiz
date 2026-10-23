@@ -98,6 +98,24 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             val source = sources.getValue(id)
             val action = PlayAction.MoveCard(id, source, destination,
                 if (target.zone == PlayZone.STACK && source.containerId != target.id) GameplayRules.stackDigest(predecessor) else null)
+            if (target.zone in setOf(PlayZone.LIBRARY, PlayZone.STACK) && source.containerId == target.id) {
+                val card = predecessor.board.cards.singleOrNull { it.id == id }
+                val members = currentTarget.cards
+                val sourceValid = card != null && card.containerId == source.containerId && card.placement == source.placement &&
+                    (source.edge == MoveSourceEdge.MEMBER || target.zone == PlayZone.LIBRARY &&
+                        if (source.edge == MoveSourceEdge.TOP) members.firstOrNull() == id else members.lastOrNull() == id) &&
+                    (source.bottomSlice.isEmpty() || target.zone == PlayZone.LIBRARY &&
+                        source.bottomSlice.first() == id && members.takeLast(source.bottomSlice.size) == source.bottomSlice)
+                val index = when (destination.insertion) {
+                    MoveInsertion.TOP -> 0
+                    MoveInsertion.BOTTOM -> members.lastIndex
+                    else -> members.filter { it != id }.indexOf(destination.afterId) + 1
+                }
+                if (sourceValid && !(card?.token == true && target.zone == PlayZone.LIBRARY) && members.indexOf(id) == index) {
+                    prefix = id // An already-placed ordered member is still the next member's anchor.
+                    continue
+                }
+            }
             if (pileTarget != null && source.containerId == target.id && source.placement == pileTarget) {
                 val members = currentTarget.cards.filter { member -> predecessor.board.cards.single { it.id == member }.placement == pileTarget }
                 val reduced = members.filter { it != id && it !in destination.pendingIds }

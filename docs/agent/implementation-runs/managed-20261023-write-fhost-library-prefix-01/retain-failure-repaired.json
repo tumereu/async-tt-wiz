@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import base64, hashlib, json, pathlib, subprocess; pin=\"b11fe5777d8e35ddb56fea53bef4e2a246952aff\"; parent=\"docs/agent/implementation-runs/managed-20261023-exec-functional-host-01\"; load=lambda suffix: json.loads(subprocess.check_output([\"git\",\"show\",pin+\":\"+parent+suffix])); report=load(\".json\"); snapshot=json.loads(pathlib.Path(\"/tmp/opencode/connected-functional-failures.json\").read_text()); suites=[s for s in snapshot[\"suites\"] if s[\"path\"].endswith(\"TEST-org.asyncttwiz.android.BasicTableControllerTest.xml\")]; assert len(suites)==1; suite=suites[0]; raw=base64.b64decode(suite[\"base64\"], validate=True); assert hashlib.sha256(raw).hexdigest()==suite[\"sha256\"]; gradle=load(\"/gradle.json\"); results=load(\"/results.json\"); root=pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-write-fhost-library-prefix-01\"); retained={k:v for k,v in snapshot.items() if k!=\"suites\"}; retained.update({\"immutableReportCommit\":pin,\"immutableReportPath\":parent+\".json\",\"failureGroup\":next(g for g in report[\"failureGroups\"] if g[\"id\"]==\"FHOST-G08-library-prefix\"),\"originalCommand\":gradle[\"command\"],\"originalExitCode\":gradle[\"exitCode\"],\"suites\":suites}); (root/\"original-failure.json\").write_text(json.dumps(retained,indent=2)+\"\\n\"); print(\"Retained selected original completed XML losslessly as supplied base64, sha256=\"+suite[\"sha256\"]+\"; sourceCommit=\"+snapshot[\"sourceCommit\"]+\"; original command exit=\"+str(gradle[\"exitCode\"])+\" (DIAGNOSTIC, not rerun).\"); print(\"No tests/builds/devices executed.\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "7d722c6f781a6e560b845d0bd4a38b9392e9d7f57a87dcdfa0fbe1382aabf695",
+  "output": "Retained selected original completed XML losslessly as supplied base64, sha256=cdfbdb4d4409d198da2c6da54c0490f086dd87efb5abcf9ecfa4554a33122d75; sourceCommit=0caedcbea775d9dca5128ddac1e677d9f4de6fd4; original command exit=1 (DIAGNOSTIC, not rerun).\nNo tests/builds/devices executed.\n"
+}

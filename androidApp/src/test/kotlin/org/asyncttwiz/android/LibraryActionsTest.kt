@@ -58,4 +58,15 @@ class LibraryActionsTest {
         assertEquals(setOf(id(10), id(11), id(12), id(13), id(14), id(15)), choices.map { it.containerId }.toSet())
         assertEquals(BoardPosition(0, 0), choices.single { it.containerId == id(14) }.position)
     }
+
+    @Test fun destinationsUseUsernamesAndNeverAccountIdentifiers() {
+        val names = mapOf(id(7) to "alex", id(8) to "riley")
+        val labels = libraryDestinations(state().board, names).map { it.first }
+        assertTrue(labels.any { it == "alex library top" })
+        assertTrue(labels.any { it == "riley graveyard" })
+        for (label in labels + libraryDestinations(state().board).map { it.first }) {
+            assertFalse(label.contains(id(7)))
+            assertFalse(label.contains(id(8)))
+        }
+    }
 }

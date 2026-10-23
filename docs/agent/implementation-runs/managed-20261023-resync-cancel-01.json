@@ -1,0 +1,116 @@
+{
+  "runId": "managed-20261023-resync-cancel-01",
+  "sessionID": "ses_e98ac8806ffecCsIjtz4dUWojq",
+  "startCommit": "7f55d801f19cd86bf8814b28cc8a4a2258e1dfbd",
+  "mode": "integration",
+  "target": "resync-ready-i12a",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Normally merged the exact ready I12a candidate into the latest pinned base without conflicts. Both external helper updates and all original I12a/integration source, tests, reports and evidence are preserved. Runtime inputs and authoritative state are unchanged; no application transitions or repeated product checks.",
+  "selectionReason": "Explicit integration-only dispatch reconciles the ready minimal I12a candidate with the unrelated pushed helper update so the supervisor can promote a descendant of the current base.",
+  "baseCommit": "7f55d801f19cd86bf8814b28cc8a4a2258e1dfbd",
+  "workerCommit": "92d4d50795641279c5ab124a8296871a8d53bc1c",
+  "originalWorkerCommit": "fc746ec58593d14b1630c74c638eae00c112ce0f",
+  "candidateCommit": "dc970a69931f1180ce8f05f4793db856d7b21844",
+  "candidateCommitMeaning": "Two-parent reconciliation merge before this report/evidence save; final saved HEAD is checked separately, not self-referenced.",
+  "branch": "managed/managed-20261023-resync-cancel-01",
+  "lease": {
+    "contextPath": "/tmp/opencode/managed-20261023-resync-cancel-01/context.json",
+    "reservedAt": "2026-10-23T05:54:43.393536+00:00",
+    "model": "openai/gpt-6.1-sol#high",
+    "basis": "Supplied server-created metadata and matching local dispatch context, branch, worktree and pinned dependencies. Supervisor confirms actual final session status and lease independently.",
+    "scope": "Only assigned integration checkout, exact previous candidate merge and this run's report/evidence. No live state, journal, controls, master, delegation or devices."
+  },
+  "conflicts": [],
+  "repairs": [],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "git show 92d4d50795641279c5ab124a8296871a8d53bc1c:docs/agent/implementation-runs/managed-20261023-ready-cancel-01.json",
+      "exitCode": 128,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/inspection-diagnostic.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-edit 92d4d50795641279c5ab124a8296871a8d53bc1c",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/merge.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -",
+      "purpose": "Fresh exact source/test/report/evidence bytes, archived command/output hashes, merge ancestry, helper preservation, lease-context pins, unchanged state and whitespace reconciliation.",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/reconciliation.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -",
+      "purpose": "Pre-save exact changed-path/report/evidence/state/whitespace boundary; final clean/upstream identity checked after save.",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/boundary.json"
+    }
+  ],
+  "inspection": {
+    "actualDiff": "git diff 92d4d50795641279c5ab124a8296871a8d53bc1c HEAD",
+    "result": "Only scripts/implementation-progress.py and scripts/test-implementation-progress.py differ from the previous candidate: compact awaiting-integration rendering and its regression. Both match the new base exactly. No runtime/source seam changed and no speculative lifecycle/table branch was merged.",
+    "diagnostic": "An incorrect historical report filename failed read-only inspection; the correct integrate-cancel-01 report was then read. Optional external Git-directory glob was denied. Neither required a repository repair."
+  },
+  "reusedEvidence": [
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-i12a-01.json",
+      "commit": "fc746ec58593d14b1630c74c638eae00c112ce0f",
+      "basis": "All original changed paths and declared source/test inputs match byte-for-byte. Declared check commands, exit codes and output hashes reconciled; original diagnostics remain failures."
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-integrate-cancel-01.json",
+      "commit": "92d4d50795641279c5ab124a8296871a8d53bc1c",
+      "basis": "All 26 prior candidate paths preserved byte-for-byte, including its archived exact-input/check/JUnit provenance. Required integration output hashes and exits reconciled; product runtime trees differ only by non-runtime helper updates."
+    }
+  ],
+  "stateIdentity": {
+    "path": "docs/agent/implementation-state.json",
+    "sha256": "1df696aa47ee59e0ce6edc6a3908f01f416d680ed4012d5b8897dfea7d9eb45f",
+    "compared": "Pinned base, previous candidate, original worker, merged candidate and working bytes all identical."
+  },
+  "limits": [
+    "Integration-only progress, not an application proposal, task acceptance, review, verification or tooling certification. No application validators or product suite/build reruns.",
+    "Supervisor alone promotes and applies latest-state I12a acceptance, checks prerequisites and actual session metadata, and records final saved commit/upstream.",
+    "Native controls/L06/two-Android journeys remain I12b; returned-round assertions remain I28/I31; final combined/full checks remain I34. Independent reviews and all release gates remain required."
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameCancellationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyCancellationTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-controllers-sockets.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/host-initial.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/host-wrapper.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/inputs-and-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/server-initial-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-cancel-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-cancel-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-cancel-01/merge.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-cancel-01/provenance.json",
+    "docs/agent/implementation-runs/managed-20261023-resync-cancel-01.json",
+    "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/inspection-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/merge.json",
+    "docs/agent/implementation-runs/managed-20261023-resync-cancel-01/reconciliation.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Cancellation.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CancellationTest.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameCancellationTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt"
+  ]
+}

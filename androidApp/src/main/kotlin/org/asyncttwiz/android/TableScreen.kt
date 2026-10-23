@@ -51,7 +51,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     }
     val playback = history.playback
     val position = playback?.position
-    LaunchedEffect(position, tree) { history.displayPosition() }
+    LaunchedEffect(position, tree, playback?.tree) { history.displayPosition() }
     val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }

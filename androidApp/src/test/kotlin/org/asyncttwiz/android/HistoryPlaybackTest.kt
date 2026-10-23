@@ -92,6 +92,25 @@ class HistoryPlaybackTest {
         assertFails { playback.receive(HistoryTree(id(99), emptyList(), id(99), "new-play")) }
     }
 
+    @Test fun staleScrubResolvesRemovedAncestorsAndUnknownCursorToLiveHead() {
+        val a = node(1,0); val b = node(2,1); val c = node(3,2)
+        val playback = HistoryPlayback(tree(listOf(a,b,c)))
+        playback.receive(tree(listOf(a,b)))
+        playback.receive(tree(listOf(a)))
+        playback.scrub(id(3))
+        assertEquals(id(1), playback.position.cursorId)
+        assertEquals("v1", playback.position.displayVersion)
+        assertFalse(playback.canContinue(id(3)))
+
+        playback.scrub(id(99)) // Unknown/provisional cursor has no accepted ancestry.
+        assertEquals(id(1), playback.position.cursorId)
+        playback.previous()
+        assertEquals(id(0), playback.position.cursorId)
+        playback.next()
+        assertEquals(id(1), playback.position.cursorId)
+        assertEquals(HistoryMode.LIVE, playback.position.mode)
+    }
+
     @Test fun gm25EndingSingletonEndpointIsAfterFinalBoardNotNetworkBatch() {
         // Category/transport fixture only: no actual result-suggestion action exists at this pin.
         val board = node(1,0); val ending = node(2,1, HistorySignificance.ENDING_SUGGESTION)

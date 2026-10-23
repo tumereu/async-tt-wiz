@@ -51,8 +51,7 @@ class HistoryPlayback(initial: HistoryTree) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }
         for ((id, node) in tree.nodes) if (id !in next.nodes) removedParents[id] = node.parentId
         tree = next
-        var cursor = position.cursorId
-        while (!tree.contains(cursor)) cursor = requireNotNull(removedParents[cursor])
+        val cursor = resolveCursor(position.cursorId)
         position = when {
             foreground && position.mode == HistoryMode.LIVE -> HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
             !foreground && position.mode == HistoryMode.LIVE && position.displayVersion == tree.liveVersion ->
@@ -70,9 +69,19 @@ class HistoryPlayback(initial: HistoryTree) {
         if (position.mode == HistoryMode.LIVE && (position.cursorId != tree.sharedHeadId || position.displayVersion != tree.liveVersion))
             position = position.copy(mode = HistoryMode.PLAYBACK, playing = false)
     }
+    private fun resolveCursor(id: String): String {
+        var cursor = id
+        val seen = mutableSetOf<String>()
+        while (!tree.contains(cursor)) {
+            if (!seen.add(cursor)) return tree.sharedHeadId
+            cursor = removedParents[cursor] ?: return tree.sharedHeadId
+        }
+        return cursor
+    }
     fun scrub(id: String) {
-        require(tree.contains(id))
-        position = HistoryPosition(id, HistoryMode.PLAYBACK, false, tree.version(id))
+        // A queued UI/review callback can refer to a deleted or not-yet-indexed boundary.
+        val cursor = resolveCursor(id)
+        position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
     }
     fun pause() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = false) }
     fun play() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = true) }

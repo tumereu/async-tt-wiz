@@ -24,6 +24,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var firstRequest: String? = null
     private var precedingPresented: String? = null
     @Volatile private var epoch = 0L
+    private var indexedEpoch = 0L
     private var displayEpoch = 0L
     private var viewVersion: String? = null
     private var closed = false
@@ -36,6 +37,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
             val index = HistoryTree(value.initial.root.id, value.nodes.values.toList(), value.currentNodeId, version)
             post {
                 if (!closed && generation == epoch) {
+                    indexedEpoch = generation
                     val old = playback
                     if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index)
                     else old.receive(index)
@@ -55,12 +57,19 @@ class TableHistoryController(private val worker: Executor, private val post: (()
 
     fun displayPosition() {
         val playback = playback ?: return
+        if (closed || indexedEpoch != epoch) return
         val position = playback.position
         val index = playback.tree
+        val treeGeneration = epoch
         val generation = ++displayEpoch
         val node = if (position.mode == HistoryMode.LIVE) null else position.cursorId
         if (!review(node) { next ->
-            if (!closed && generation == displayEpoch && playback.position == position && playback.tree === index) {
+            if (!closed && generation == displayEpoch && treeGeneration == epoch && this.playback === playback &&
+                playback.position == position && playback.tree === index) {
+                // Session review captures independently of this asynchronously built index. It may
+                // already be ahead even before update() is called; wait for the matching index.
+                if (next.cursor != null && (!index.contains(next.cursor) ||
+                        (position.mode == HistoryMode.LIVE && next.cursor != index.sharedHeadId))) return@review
                 view = next; viewVersion = index.liveVersion; error = next.error
                 if (next.cursor != null && next.cursor != position.cursorId) playback.scrub(next.cursor)
             }

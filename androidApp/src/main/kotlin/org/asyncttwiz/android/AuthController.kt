@@ -27,6 +27,7 @@ data class AuthState(
     val backStack: List<ShellDestination> = emptyList(),
     val drawerOpen: Boolean = false,
     val logoutFailed: Boolean = false,
+    val rememberedAccounts: List<RememberedAccount> = emptyList(),
 ) { override fun toString() = "AuthState[redacted]" }
 
 /** Main-thread state, one bounded background worker, callbacks fenced when the owner finishes. */
@@ -37,6 +38,7 @@ class AuthController(
     private val local: AccountLocalData = object : AccountLocalData {},
     private val revoke: (String) -> Unit = { token -> worker.execute { runCatching { runBlocking { accounts.revoke(token) } } } },
     private val clearPrivateWork: () -> Unit = {},
+    val accountSwitcher: Boolean = false,
     private val post: (() -> Unit) -> Unit,
 ) {
     var state by mutableStateOf(AuthState())
@@ -46,6 +48,7 @@ class AuthController(
     private val token = AtomicReference<String?>()
     private val ownerLock = Any()
     private var reauthenticationContext: AuthState? = null
+    private var logoutRevokeAttempted = false // Auth worker only; cleanup retries must still forget the token.
 
     private fun bestEffortRevoke(value: String) { runCatching { revoke(value) } }
 
@@ -55,24 +58,42 @@ class AuthController(
     /** Transport callback: only an explicit rejection of the current credential asks for login.
      * Invalidation is not Logout: same-process drafts and uncertain request identities survive. */
     fun authenticationRequired(rejectedToken: String) {
+        val epoch = generation.get()
         post {
-            if (!closed && state.account != null && token.get() == rejectedToken) {
+            if (!closed && generation.get() == epoch && state.account != null && token.get() == rejectedToken) {
                 reauthenticationContext = state.copy(password = "", drawerOpen = false)
                 synchronized(ownerLock) { generation.incrementAndGet(); token.set(null) }
                 state = AuthState(restoring = false, busy = true)
                 work {
+                    val email = forget(rejectedToken)
                     store.clear()
-                    AuthState(restoring = false,
+                    AuthState(restoring = false, email = email,
                         message = "Your session is no longer valid. Please sign in again.", error = true)
                 }
             }
         }
     }
 
-    private fun rememberToken(value: String, epoch: Long) {
+    private fun rememberToken(value: String, epoch: Long, revokeIfStale: Boolean = false) {
         synchronized(ownerLock) {
-            if (generation.get() == epoch) token.set(value) else bestEffortRevoke(value)
+            if (generation.get() == epoch) token.set(value)
+            else if (revokeIfStale) bestEffortRevoke(value)
         }
+    }
+
+    /** Worker-only; flag-off never touches the remembered-account store. */
+    private fun forget(value: String): String {
+        if (!accountSwitcher) return ""
+        val saved = store.remembered()
+        val email = saved.firstOrNull { it.token == value }?.account?.email.orEmpty()
+        store.remember(saved.filterNot { it.token == value })
+        return email
+    }
+
+    private fun remember(session: RememberedSession) {
+        if (accountSwitcher) store.remember(store.remembered().filterNot {
+            it.account.identity.accountId == session.account.identity.accountId
+        } + session)
     }
 
     init { restore() }
@@ -95,6 +116,7 @@ class AuthController(
         state = AuthState(restoring = false, busy = true)
         work {
             local.resumeLogout(store) // A link cannot bypass an earlier interrupted/failed local sign-out.
+            (store.load() as? StoredSession.Present)?.let { forget(it.token) }
             store.clear()
             AuthState(restoring = false, message = "Password changed. Sign in with your new password.")
         }
@@ -106,6 +128,11 @@ class AuthController(
         state = AuthState(busy = true, restoring = true)
         work {
             local.resumeLogout(store)
+            restoreSaved(epoch)
+        }
+    }
+
+    private suspend fun restoreSaved(epoch: Long): AuthState =
             when (val saved = store.load()) {
                 StoredSession.Empty -> AuthState(restoring = false)
                 StoredSession.Unavailable -> {
@@ -115,19 +142,23 @@ class AuthController(
                 is StoredSession.Present -> try {
                     val identity = accounts.identity(saved.token)
                     check(generation.get() == epoch)
+                    if (accountSwitcher) {
+                        val email = store.remembered().firstOrNull { it.token == saved.token }?.account?.email.orEmpty()
+                        remember(RememberedSession(saved.token, RememberedAccount(identity, email)))
+                    }
                     val destination = local.activate(identity.accountId)
                     rememberToken(saved.token, epoch)
                     AuthState(restoring = false, account = identity, destination = destination)
                 } catch (failure: AccountFailure) {
                     if (failure.code == "authentication_required") {
+                        val email = forget(saved.token)
                         store.clear()
-                        AuthState(restoring = false, message = "Your session is no longer valid. Please sign in again.", error = true)
+                        AuthState(restoring = false, email = email,
+                            message = "Your session is no longer valid. Please sign in again.", error = true)
                     } else AuthState(restoring = true, restoreFailed = true,
                         message = "Could not check your saved login. Check your connection and retry.", error = true)
                 }
             }
-        }
-    }
 
     fun submit() {
         if (closed || state.busy || state.restoring || state.logoutFailed || state.account != null) return
@@ -145,14 +176,18 @@ class AuthController(
                         bestEffortRevoke(session.token)
                         error("Account owner changed")
                     }
-                    try { store.save(session.token) }
+                    try {
+                        remember(RememberedSession(session.token, RememberedAccount(session.account, input.email)))
+                        store.save(session.token)
+                    }
                     catch (_: Exception) {
                         // Do not enter with an unsaved credential or retain the reusable password.
                         runCatching { accounts.revoke(session.token) }
+                        runCatching { forget(session.token) }
                         throw AccountFailure("credential_storage")
                     }
                     val destination = local.activate(session.account.accountId)
-                    rememberToken(session.token, epoch)
+                    rememberToken(session.token, epoch, revokeIfStale = true)
                     AuthState(restoring = false, account = session.account, destination = destination)
                 }
             } catch (failure: AccountFailure) {
@@ -166,7 +201,7 @@ class AuthController(
         val epoch = generation.get()
         worker.execute {
             if (generation.get() != epoch) return@execute
-            val next = try { runBlocking { action() } } catch (_: Exception) {
+            val next = try { runBlocking { withRemembered(action()) } } catch (_: Exception) {
                 AuthState(restoring = true, restoreFailed = true,
                     message = "Protected login storage could not be opened. Retry without uninstalling.", error = true)
             }
@@ -181,6 +216,9 @@ class AuthController(
             } }
         }
     }
+
+    private fun withRemembered(next: AuthState): AuthState = if (accountSwitcher)
+        next.copy(rememberedAccounts = store.remembered().map { it.account }) else next
 
     fun drawer(open: Boolean) {
         if (!closed && state.account != null) state = state.copy(drawerOpen = open)
@@ -214,8 +252,24 @@ class AuthController(
         }
     }
 
-    fun logout() {
+    fun switchAccount(accountId: String) {
+        if (!accountSwitcher || closed || state.busy || state.account == null ||
+            state.account?.accountId == accountId || state.rememberedAccounts.none { it.identity.accountId == accountId }) return
+        leaveAccount(revokeOutgoing = false, nextAccountId = accountId)
+    }
+
+    fun addAccount() {
+        if (!accountSwitcher || closed || state.busy || state.account == null) return
+        leaveAccount(revokeOutgoing = false)
+    }
+
+    fun logout() = leaveAccount(revokeOutgoing = true)
+
+    /** One teardown for Logout, Switch and Add: fence callbacks, close private work and erase
+     * private storage/downloads. Only explicit Logout revokes or forgets the outgoing credential. */
+    private fun leaveAccount(revokeOutgoing: Boolean, nextAccountId: String? = null) {
         if (closed) return
+        val retryingCleanup = state.logoutFailed
         reauthenticationContext = null
         clearPrivateWork()
         val oldToken = synchronized(ownerLock) {
@@ -225,14 +279,29 @@ class AuthController(
         state = AuthState(restoring = false, busy = true, message = "Signing out on this device…")
         val epoch = generation.get()
         worker.execute {
+            if (!retryingCleanup) logoutRevokeAttempted = false
+            var outgoing = oldToken
             val next = try {
+                if (revokeOutgoing) {
+                    outgoing = outgoing ?: (store.load() as? StoredSession.Present)?.token
+                    outgoing?.let { forget(it) }
+                }
                 local.logout(store)
-                AuthState(restoring = false)
+                val saved = if (nextAccountId != null) store.remembered().firstOrNull {
+                    it.account.identity.accountId == nextAccountId
+                } else null
+                if (saved != null) {
+                    store.save(saved.token)
+                    withRemembered(runBlocking { restoreSaved(epoch) })
+                } else withRemembered(AuthState(restoring = false))
             } catch (_: Exception) {
                 AuthState(restoring = false, logoutFailed = true, error = true,
                     message = "Local sign-out could not finish. Retry before signing in.")
             }
-            if (oldToken != null) bestEffortRevoke(oldToken) // Never a local sign-out prerequisite.
+            if (revokeOutgoing && !logoutRevokeAttempted) outgoing?.let {
+                logoutRevokeAttempted = true
+                bestEffortRevoke(it) // Never a local sign-out prerequisite.
+            }
             post { if (!closed && generation.get() == epoch) state = next }
         }
     }

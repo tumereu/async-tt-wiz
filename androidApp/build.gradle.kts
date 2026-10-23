@@ -134,6 +134,8 @@ android {
         buildConfigField("String", "ART_CONTACT", "\"$contact\"")
     }
     buildTypes.getByName("debug") {
+        buildConfigField("boolean", "ACCOUNT_SWITCHER",
+            providers.gradleProperty("atwAccountSwitcher").orElse("true").get().toBooleanStrict().toString())
         // Without an override, preserve AGP's existing persistent local debug signer.
         if (externalTestSigning != null) signingConfig = externalTestSigning
         buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"$catalogOrigin\"")
@@ -151,6 +153,7 @@ android {
         manifestPlaceholders["resetHost"] = resetUri?.host ?: "unconfigured.invalid"
     }
     buildTypes.getByName("release") {
+        buildConfigField("boolean", "ACCOUNT_SWITCHER", "false")
         // Missing external inputs deliberately produces an unsigned APK, never a debug-signed release.
         signingConfig = externalReleaseSigning
         // The release manifest also forbids cleartext, even if misconfigured.

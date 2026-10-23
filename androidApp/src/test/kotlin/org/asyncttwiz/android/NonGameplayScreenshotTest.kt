@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasClickAction
@@ -45,7 +46,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
 
     companion object {
         @JvmStatic @Parameters(name = "{0}") fun screens() = listOf(
-            "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open",
+            "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
             "play", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting",
             "decks", "deck-detail", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
@@ -57,7 +58,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
 
     @OptIn(ExperimentalRoborazziApi::class)
     private fun capture(landscape: Boolean) {
-        val fixtures = ScreenFixtures()
+        val fixtures = ScreenFixtures(accountSwitcher = screen == "navigation-accounts")
         fixtures.auth.seed(AuthState(restoring = false, page = if (screen.startsWith("register")) AuthPage.REGISTER else AuthPage.LOGIN,
             username = "player2_tactics", email = "player1@tabletop.local", password = "password123",
             message = if (screen == "sign-in") "Email or password not recognised." else null, error = screen == "sign-in"))
@@ -66,7 +67,10 @@ class NonGameplayScreenshotTest(private val screen: String) {
         if (screen == "new-password") fixtures.reset.seed(ResetState(ResetPage.PASSWORD, password = "password123"))
         fixtures.configure(screen)
         val accountScreen = screen in listOf("sign-in", "register", "register-scrolled", "reset-email", "new-password")
-        if (!accountScreen) fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
+        if (!accountScreen) fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex,
+            rememberedAccounts = if (screen == "navigation-accounts") listOf(
+                RememberedAccount(ScreenFixtures.alex, "alex@example.test"),
+                RememberedAccount(ScreenFixtures.riley, "riley@example.test")) else emptyList()))
         if (screen == "prepare-deck") compose.mainClock.autoAdvance = false
         compose.setContent {
             ScreenTheme {
@@ -81,7 +85,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                 ChatPanel(fixtures.lobby, "a", Modifier.fillMaxWidth(if (landscape) .5f else 1f))
                             }
                         }
-                    } else if (screen == "navigation-open" && !landscape) {
+                    } else if (screen in listOf("navigation-open", "navigation-accounts") && !landscape) {
                         Box(Modifier.fillMaxSize()) {
                             ShellContent(ShellDestination.GAMES, true, {}, {}, null, null, null, fixtures.lobby, "a")
                             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .2f)))
@@ -126,6 +130,13 @@ class NonGameplayScreenshotTest(private val screen: String) {
             assertEquals(a.top, b.top, .5f, "Paired actions must not stack")
         }
         when (screen) {
+            "navigation-accounts" -> {
+                compose.onNodeWithText("Add account").performScrollTo().assertIsDisplayed()
+                compose.onNodeWithText("Switch account").assertIsDisplayed()
+                compose.onNodeWithText("alex").assertIsDisplayed()
+                compose.onNodeWithTag("switch-account-b").assertIsDisplayed()
+                compose.onNodeWithContentDescription("Current account").assertIsDisplayed()
+            }
             "waiting-invite", "ready-waiting" -> {
                 paired("Change deck", "Prepare deck")
                 compose.onNodeWithContentDescription("Cancel game").assertIsDisplayed()
@@ -164,7 +175,7 @@ internal fun Any.seed(state: Any) {
     (field.get(this) as MutableState<Any?>).value = state
 }
 
-internal class ScreenFixtures {
+internal class ScreenFixtures(accountSwitcher: Boolean = false) {
     companion object {
         val alex = AccountIdentity("a", "alex")
         val riley = AccountIdentity("b", "riley")
@@ -180,7 +191,7 @@ internal class ScreenFixtures {
     private inline fun <reified T> unused(): T = Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { _, method, _ ->
         error("Screenshot attempted ${method.name}")
     } as T
-    val auth = AuthController(unused<Accounts>(), unused<SessionStore>(), worker, post = { it() })
+    val auth = AuthController(unused<Accounts>(), unused<SessionStore>(), worker, accountSwitcher = accountSwitcher, post = { it() })
     val reset = ResetController(unused<PasswordResets>(), "https://example.test", worker, {}, { it() })
     val lobby = LobbyController(unused<Lobbies>(), { "fixture" }, worker, { it() }, accountId = { "a" })
     val library = DeckLibraryController(unused<Decks>(), { "fixture" }, worker, { it() })

@@ -34,6 +34,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         ProtectedSessionStore(application, BuildConfig.ACCOUNT_ORIGIN),
         Executors.newSingleThreadExecutor { Thread(it, "account-entry") },
         local = local,
+        accountSwitcher = BuildConfig.ACCOUNT_SWITCHER,
         revoke = { token -> revocations.execute {
             runCatching { kotlinx.coroutines.runBlocking {
                 AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { it.revoke(token) }

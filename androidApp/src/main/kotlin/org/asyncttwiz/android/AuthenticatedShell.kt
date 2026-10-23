@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -134,6 +136,31 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                         EntryIcon(null, "chevron")
                     }
                 }
+            }
+            if (controller.accountSwitcher) {
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Text("Switch account", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.labelLarge)
+                val current = controller.state.account
+                // An existing single-session install may not yet have remembered display metadata.
+                val accounts = controller.state.rememberedAccounts.let { saved ->
+                    if (current != null && saved.none { it.identity.accountId == current.accountId })
+                        listOf(RememberedAccount(current, "")) + saved else saved
+                }
+                for (account in accounts) {
+                    val selected = account.identity.accountId == current?.accountId
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("switch-account-${account.identity.accountId}")
+                        .clickable { controller.switchAccount(account.identity.accountId) }
+                        .semantics { this.selected = selected }.padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.AccountCircle, null, Modifier.size(22.dp))
+                        Text(account.identity.username, Modifier.weight(1f), maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        if (selected) EntryIcon("Current account", "ready")
+                    }
+                }
+                NavigationItem("Add account", "person", false, action = controller::addAccount)
             }
         }
         HorizontalDivider()

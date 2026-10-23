@@ -139,7 +139,7 @@ public final class WriterOwnership implements AutoCloseable {
                 throw failure;
             }
         } catch (Exception failure) {
-            invalidate(token);
+            recheckOwnership(token);
             diagnostic(phase, failure, token.epoch);
             // Even a driver/callback/close error's suppressed exceptions must not leak inputs.
             if (failure instanceof OwnershipFailure safe) throw new OwnershipFailure(safe.reason());
@@ -156,8 +156,13 @@ public final class WriterOwnership implements AutoCloseable {
         }
     }
 
-    private synchronized void invalidate(Token token) {
-        if (current == token) release();
+    private synchronized void recheckOwnership(Token token) {
+        // Work connections do not hold the advisory lock. An open/SQL/callback/commit failure
+        // says nothing about the dedicated lock session: releasing it here would let one
+        // transient work-connection failure fence every other worker and force a new epoch.
+        // Probe the actual ownership boundary instead; real session/epoch loss still releases.
+        // A delayed failure from an old transaction must not disturb a recovered owner.
+        if (current == token) probe();
     }
 
     /** Internal correlation only: unrelated to any account, request, token or database input. */

@@ -215,6 +215,43 @@ class WriterOwnershipTest {
         }
     }
 
+    @Test fun `delayed old transaction failure cannot invalidate reacquired ownership`() {
+        migrated().use { db ->
+            WriterOwnership(db.settings).use { owner ->
+                Executors.newSingleThreadExecutor().use { pool ->
+                    val stale = acquired(owner)
+                    val entered = CountDownLatch(1)
+                    val finish = CountDownLatch(1)
+                    val backend = java.util.concurrent.atomic.AtomicLong()
+                    val delayed = pool.submit(Callable {
+                        assertThrows(OwnershipFailure::class.java) {
+                            owner.transaction(stale) { connection ->
+                                backend.set(connection.number("SELECT pg_backend_pid()"))
+                                entered.countDown(); await(finish)
+                                throw SQLException("delayed old work failure")
+                            }
+                        }
+                    })
+                    try {
+                        await(entered)
+                        terminateLock(db)
+                        // Drop the old transaction's shared row lock so this same manager can
+                        // recover before the failed callback unwinds on the other thread.
+                        db.connection().use { it.execute("SELECT pg_terminate_backend(${backend.get()})") }
+                        val next = acquired(owner)
+                        assertEquals(stale.epoch() + 1, next.epoch())
+                        finish.countDown()
+                        delayed.get(8, TimeUnit.SECONDS)
+                        assertSame(next, owner.token().orElseThrow())
+                        assertThrows(OwnershipFailure::class.java) { owner.transaction(stale) { fail<Unit>("Old epoch admitted") } }
+                        assertEquals(1, owner.transaction(next) { it.number("SELECT 1") })
+                        assertSame(next, acquired(owner))
+                    } finally { finish.countDown() }
+                }
+            }
+        }
+    }
+
     @Test fun `acquisition wait is bounded and failed acquisition releases advisory connection`() {
         migrated().use { db ->
             db.connection().use { blocker ->
@@ -329,15 +366,15 @@ class WriterOwnershipTest {
                 assertEquals("OwnershipDatabase[redacted]", OwnershipDatabase(db.settings).toString())
             }
             assertEquals(0, db.connection().use { it.number("SELECT value FROM mutation_probe") })
-            assertTrue(owner.token().isEmpty)
+            assertSame(token, owner.token().orElseThrow(), "Rolled-back work must not release the healthy lock session")
             val recovered = acquired(owner)
-            assertEquals(token.epoch() + 1, recovered.epoch())
+            assertSame(token, recovered)
             assertTimeoutPreemptively(Duration.ofSeconds(8)) { owner.close(); owner.close() }
             assertTrue(owner.token().isEmpty)
             assertEquals(OwnershipFailure.Reason.CLOSED, assertThrows(OwnershipFailure::class.java) { owner.refresh() }.reason())
             WriterOwnership(db.settings).use { restarted -> assertEquals(recovered.epoch() + 1, acquired(restarted).epoch()) }
             assertEquals(0, db.connection().use { it.number("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory'") })
-            println("PASS rollback, safe cause/suppression-free errors, failed credentials, recovery, idempotent close/restart and release")
+            println("PASS rollback without self-fencing, safe cause/suppression-free errors, failed credentials, idempotent close/restart and release")
         }
     }
 }

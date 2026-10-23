@@ -1,0 +1,30 @@
+{
+  "client-storage/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.storage.TokenSearchTest.xml": {
+    "sha256": "7c731b0e939dfa9a408bdc96367e8b8dc1a12996b47651c44e6c529e899ec784",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5zdG9yYWdlLlRva2VuU2VhcmNoVGVzdCIgdGVzdHM9IjEiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwODoyMzowNC41OTZaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjI0MSI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJnZW5lcmF0aW9uU3dhcEZlbmNlc0N1cnNvcnNFdmVuV2hlbk1ldGFkYXRhUmVwZWF0c0FuZFNuYXBzaG90c0tlZXBBbGxFeGFjdEZhY2VzKCkiIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouc3RvcmFnZS5Ub2tlblNlYXJjaFRlc3QiIHRpbWU9IjAuMjMiLz4KICA8c3lzdGVtLW91dD48IVtDREFUQVtQQVNTIGZhaWxlZCBpbnN0YWxsIHJldGFpbnMgcXVlcnlhYmxlIGdlbmVyYXRpb24sIHN3YXAgcmVqZWN0cyBvbGQga2V5c2V0IGFuZCByZXRhaW5zIGV4YWN0IG11bHRpLWZhY2Ugc25hcHNob3RzCl1dPjwvc3lzdGVtLW91dD4KICA8c3lzdGVtLWVycj48IVtDREFUQVtdXT48L3N5c3RlbS1lcnI+CjwvdGVzdHN1aXRlPgo=",
+    "tests": {
+      "name": "org.asyncttwiz.storage.TokenSearchTest",
+      "tests": "1",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T08:23:04.596Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.241"
+    }
+  },
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.TokenSearchTest.xml": {
+    "sha256": "6c1bdb24460e034c5ba8c73cae1429208330ce2a09c1ccb3b2c366e8baa180c7",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLlRva2VuU2VhcmNoVGVzdCIgdGVzdHM9IjIiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwODoyMzoxMy4wMzRaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjE1NiI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJhc3luY0xvYWRpbmdQYWdpbmdFbXB0eUFuZEltbWVkaWF0ZUV4YWN0T25jZVNlbGVjdGlvblVzZU9uZVBhbmVsU3RhdGUiIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5Ub2tlblNlYXJjaFRlc3QiIHRpbWU9IjAuMTI1Ii8+CiAgPHRlc3RjYXNlIG5hbWU9ImV4YWN0TXVsdGlGYWNlU25hcHNob3RzVXNlRXhpc3RpbmdFbmNvZGluZ0FuZE5ldmVyQ2hvb3NlQW5PcmRpbmFyeUNhcmQiIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5Ub2tlblNlYXJjaFRlc3QiIHRpbWU9IjAuMDI1Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "org.asyncttwiz.android.TokenSearchTest",
+      "tests": "2",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T08:23:13.034Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.156"
+    }
+  }
+}

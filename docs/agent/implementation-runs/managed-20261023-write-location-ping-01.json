@@ -1,0 +1,57 @@
+{
+  "runId": "managed-20261023-write-location-ping-01",
+  "sessionID": "ses_e97ea41b4ffeJY2mEAkCuorDqd",
+  "startCommit": "0436d6ec399ad821c19e24170f2e6ef01d637015",
+  "mode": "integration",
+  "target": "complete-missing-normal-location-ping-route",
+  "model": "openai/gpt-6.1-sol#high",
+  "outcome": "progress",
+  "verificationStatus": "UNVERIFIED",
+  "summary": "Wired normal-table empty-space Ping/Unping through captured logical destinations and original event references, shared scene input/marker geometry, ordered event-scoped markers and accessible location/removal actions. Added one host regression, NOT executed. No I22 acceptance or R1 completion claim.",
+  "selectionReason": "Explicit writer lease assigns the missing normal location-ping route on pinned connected0436; no other unit selected.",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "checks": [
+    {
+      "kind": "static",
+      "command": "git diff --cached --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-location-ping-01/whitespace.json"
+    },
+    {
+      "kind": "static",
+      "command": "git diff --exit-code HEAD -- docs/agent/implementation-state.json docs/agent/implementation-permissions.json scripts/implementation-loop.py scripts/implementation-evidence.py scripts/implementation-resources.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-location-ping-01/protected-inputs.json"
+    }
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AnnotationActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/HistoryUiSpineTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-location-ping-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-location-ping-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-location-ping-01/protected-inputs.json"
+  ],
+  "mergeRepairDetails": "Clean leased branch started at exact pinned dependency 0436d6ec399ad821c19e24170f2e6ef01d637015. No merge, repair, other checkout, state/control edit or archived-report rewrite.",
+  "sourceNotes": [
+    "LOCATION remains id=null plus BoardPosition. Input uses the existing 84-unit grid footprint, camera and own-side inversion; marker is at the addressed cell center. Because this domain has no container ID, rows interleave by stable inviter/recipient side (2*logicalRow + side), including signed camera margins. Both viewers decode the same side; no screen pixels or card/container identity are stored as a location.",
+    "TableRuntimeHooks.ping now takes EventPingIntent; pingReference carries the displayed boundary/version. Only owned TableScreen/TableScene callers used the old signature. Press captures explicit operation/reference before later scene updates; marker removal keeps the original recorded reference. Shared reducer still derives recording group and ordinal. No TableGestureCoordinator or link engine change.",
+    "Production callback fences foreground, connected game and original play; normal annotations use LobbyController.annotate/GameSession, deliberate armed continuation uses LobbyController.gameplay/TableHistoryController lowering. The existing coordinator retains immediate mode taps and pan/pinch/rectangle/hold arbitration. Mode resets on a derived group change; drawing/removal uses only current-group active records and visible scene endpoints. Accessible field actions choose visible empty cells; marker semantics expose ordinal and Unping."
+  ],
+  "failureGroups": [],
+  "currentBlocker": "Compilation, tests and native execution intentionally prohibited by source-writing-only lease; no execution failure diagnosed. Changed Kotlin and behavior are UNVERIFIED.",
+  "remainingOwners": [
+    {
+      "owner": "supervisor host executor",
+      "scope": "Compile changed production/test inputs and run the one new regression plus existing immediate-mode arbitration selector together, after integrating this commit; retain actual output. No claim from immutable0436 covers these edits.",
+      "command": "./gradlew :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.HistoryUiSpineTest.locationPingCapturesLogicalTransformAndOriginalReferenceForOneExplicitUnping --tests org.asyncttwiz.android.TableGesturesTest.selectAndPingHaveIndependentImmediateTapsWithoutDoubleRecognizer --no-daemon --max-workers=2"
+    },
+    {
+      "owner": "supervisor native executor / independent capability reviewer",
+      "scope": "Reserve complete native resource bundle separately. Source-authored route: connected Shared table -> Mode -> Ping -> empty visible battlefield cell; verify one request/ordered marker, tap that marker -> explicit Unping with original reference and removal. Confirm camera/rotation/opposite participant endpoint, accessible battlefield location actions and marker Unping, no incidental selection/move/tap, and offline/background/read-only fences. This is queued, not executed coverage; final native/capability review and I22/R1 gates remain separate."
+    }
+  ]
+}

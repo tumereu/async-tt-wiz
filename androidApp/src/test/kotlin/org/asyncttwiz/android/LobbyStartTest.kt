@@ -167,17 +167,36 @@ class LobbyStartTest {
         for ((width, height, landscape) in listOf(Triple(360f, 730f, false), Triple(780f, 310f, true))) {
             for (viewer in listOf(owner, other)) {
                 val scene = TablePresentation.scene(active, play, viewer.accountId, width, height, landscape)
-                assertEquals(2, scene.fields.size); assertEquals(11, scene.items.size)
+                assertEquals(2, scene.fields.size)
+                assertEquals(11, scene.items.count { it.kind != TableItemKind.COUNTER })
+                val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
+                assertEquals(if (landscape) 12 else 0, counters.size)
+                if (landscape) for (player in listOf(owner, other)) {
+                    assertEquals(CounterColor.entries.toSet(), counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
+                }
                 for (item in scene.items) {
-                    assertTrue(item.bounds.x >= 0 && item.bounds.y >= 0)
-                    assertTrue(item.bounds.x + item.bounds.width <= width && item.bounds.y + item.bounds.height <= height)
+                    // Scrollable docks may extend offscreen; only clipped drawings are exposed.
+                    for (visible in item.visible) {
+                        assertTrue(visible.x >= 0 && visible.y >= 0)
+                        assertTrue(visible.right <= width && visible.bottom <= height)
+                        assertEquals(visible, visible.intersection(item.bounds))
+                    }
                     if (item.zone == PlayZone.LIBRARY) {
                         assertEquals(4, item.cards.size); assertEquals(item.owner, play.board.cards.single { it.id == item.cards[0] }.owner)
                         assertFalse(item.label.contains(definition.name)) // Covered library never exposes its top face/name.
                     }
                 }
                 val piles = scene.items.filter { it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) }
-                assertEquals(1, piles.map { it.bounds.width to it.bounds.height }.distinct().size)
+                // Filled piles draw diagonal peeks; allocation, not the ink bounds, stays equal.
+                assertEquals(1, piles.map { it.footprint.width to it.footprint.height }.distinct().size)
+                for (pile in piles) {
+                    assertEquals(scene.footprint, pile.footprint.width)
+                    assertEquals(scene.footprint, pile.footprint.height)
+                    assertEquals(pile.bounds, pile.bounds.intersection(pile.footprint))
+                    val peek = if (pile.zone == PlayZone.LIBRARY) 8f else 0f
+                    assertEquals(scene.cardWidth + peek, pile.bounds.width)
+                    assertEquals(scene.cardHeight + peek, pile.bounds.height)
+                }
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),
                     scene.items.filter { it.zone != null }.map { it.id }.toSet())

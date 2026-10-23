@@ -1,0 +1,92 @@
+{
+  "runId": "managed-20261023-verify-i23-budget-01",
+  "sessionID": "ses_e98980423ffesl5tQYc3clPS3K",
+  "startCommit": "ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a",
+  "inspectedCommit": "ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a",
+  "mode": "integration-verification",
+  "target": "verify-IG-I23-01",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Independently verified IG-I23-01 at the exact pushed anchor: seven focused JVM tests pass for long/large ordinary play/read, full cold replay and disposable-cache invalidation, while selective Undo/Redo retain exact target/suffix checks and atomic hard budgets. No credible repair regression found. Runtime/build/resources and authoritative state remain unchanged; no application transitions, complete B6 review, SQL/native journey or async scheduling claim.",
+  "selectionReason": "The supplied independent verification lease prioritizes the concrete IG-I23-01 repair before supervisor acceptance. Exact HEAD/upstream, clean index/tree, supplied session/model metadata, owned paths and pinned dependency match; only the supervisor decides latest-state acceptance.",
+  "dependencyCommits": ["ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a"],
+  "resourceBundle": ["isolated-host-tests"],
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.HistoryLargePlayVerificationTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/focused-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a -- docs/agent/implementation-state.json docs/agent/implementation-permissions.json protocol/src/commonMain androidApp scripts build.gradle.kts settings.gradle.kts gradle.properties protocol/build.gradle.kts core/build.gradle.kts",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/immutable-inputs.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code 654f4cf6e8b39c574ff7bcef4d039190c90a7c25 ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a -- protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/SelectiveUndo.kt protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/SelectiveUndoTest.kt protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTreeTest.kt protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTest.kt",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/unchanged-selective-inputs.json"
+    }
+  ],
+  "dispositions": [
+    {
+      "id": "IG-I23-01",
+      "disposition": "verified",
+      "scope": "Only the actual shared-engine budget-separation repair at inspectedCommit; not application finding closure or I23/B6 completion.",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/inspection.md",
+        "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/focused-tests.json",
+        "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/focused-junit.json"
+      ]
+    }
+  ],
+  "executedAssertions": [
+    "Seven fresh independent tests passed with zero failures/errors/skips; only the leased test class ran, not a broad green suite or native/APK rebuild.",
+    "2113 accepted ancestors combined with 16391 accepted offshoots remain readable and appendable cold/warm, retain all records and match the sole reducer; codec recovery retains one root board and no checkpoint field.",
+    "Complete cold ancestry rejects corrupt first/middle/tail schema, IDs, author access, missing parents, exact transitions, multi-node cycles and missing/changed off-path recorded references.",
+    "Same-ID valid topology rewiring, root identity/data and game/play scope changes, activation and Undo/Redo cannot inherit stale materialization; ordinary access/scope rejection remains enforced.",
+    "Warm internal-current reads cannot hide retained futures: N=128 passes and 129 rejects atomically for Undo and Redo. Exact original Redo target, dependent suffix, recorded reference and fork checks remain enforced with a warm current cache.",
+    "Warm Undo and Redo cannot bypass lowered ancestor/payload/effect/serializer-work/metadata limits; all six above-hard constructor inputs reject. Default long-ancestor, large-metadata and large-board payload overflows remain selective-only atomic rejections, with ordinary play available. Original unchanged oversized-effect regression evidence was reused, not reexecuted.",
+    "Authoritative state, permissions, runtime source, scripts and listed build inputs remain byte-identical to inspectedCommit. No application validator or state transition was used for this custom integration-verification unit."
+  ],
+  "reusedEvidence": {
+    "inspection": "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/reused-evidence-inspection.json",
+    "inputs": [
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/interfaces.md",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/large-play-red.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/large-play-red-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-tests.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-junit.json"
+    ],
+    "result": "Inspected actual red/fix output and hash-checked retained output plus exact XML: four historical failures, then 28 passing affected tests with zero errors/skips. These are immutable reused inputs at inspectedCommit, not new test executions. The inspection capture contains its exact Python command and output."
+  },
+  "deferredAssertions": [
+    {
+      "owner": "I23b",
+      "scope": "Actual PostgreSQL FIFO/atomic outcomes, same-account devices, complete accepted action/exposure/reference mappings, connected native controls/prediction/rebase/lifecycle and off-UI cold reconstruction with accepted revision/incarnation fencing. The synchronous API documents this requirement but does not implement async integration."
+    },
+    {
+      "owner": "I26",
+      "scope": "Retained-tree and full recovery transfer, revision-fenced durable checkpoint integration and actual offline retained-review journeys."
+    },
+    {
+      "owner": "Supervisor; complete B6 review and I34/B8 final qualification",
+      "scope": "Latest-state acceptance, independent complete capability review, integrated final suites, native/resource measurements and release gates. No task/review/finding transitions or full native claim here."
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/focused-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/focused-tests.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/immutable-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/inspection.md",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/reused-evidence-inspection.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/unchanged-selective-inputs.json",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryLargePlayVerificationTest.kt"
+  ]
+}

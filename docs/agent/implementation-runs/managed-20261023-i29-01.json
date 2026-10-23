@@ -1,0 +1,201 @@
+{
+  "runId": "managed-20261023-i29-01",
+  "sessionID": "ses_e98dd1ef4ffeCKm8qzSPCO3bnS",
+  "startCommit": "a4b444e192776f5d165fb9188fc6e526f697620e",
+  "mode": "implement",
+  "target": "I29",
+  "statePath": "docs/agent/implementation-state.json",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented unilateral active shared-game Delete on the existing I11 play model: actor-only captured confirmation from Games/navigation rows, same FIFO/identity/revision/outbox path, removal for both, private original-outcome recovery and content-free terminal synchronization. PostgreSQL, protocol and native host checks pass; actual combined native I31, I28 lifecycle integration, independent review and final gates remain pending.",
+  "selectionReason": "Explicit managed I29 development dispatch leases this useful bounded outcome speculatively on pinned I11 commit a4b444e192776f5d165fb9188fc6e526f697620e. It does not claim that earlier acceptance, I12 or I28 prerequisites are complete or override supervisor latest-state selection.",
+  "sourceIds": ["I29", "P-043", "P-062", "P-069", "T-677", "T-678"],
+  "preflight": {
+    "branch": "managed/managed-20261023-i29-01",
+    "cleanStartTreeAndIndex": true,
+    "authorization": "D-304 entire R1; managed implement I29 only, no state writer, devices, deployment or subagents",
+    "lease": "THIS RUN/contextPath ownedPaths, including the explicit AuthenticatedShell.kt amendment, inspected before editing that added path",
+    "dependencyCommits": ["a4b444e192776f5d165fb9188fc6e526f697620e"],
+    "modelMetadata": "Supplied serverCreatedMetadata identifies openai/gpt-6.1-sol variant high; supervisor must independently confirm actual succeeded/idle session metadata",
+    "resourceBundle": ["isolated-host-tests", "owned-testcontainers"],
+    "resourceIsolation": "Separate worktree outputs; sequential foreground Gradle --no-daemon --max-workers=1 with 1280m heap; existing immutable-image codegen/OwnedPostgres fixtures own disposable DB/container/loopback ports and exact cleanup. No shared backend or device lifecycle.",
+    "stateSha256": "1df696aa47ee59e0ce6edc6a3908f01f416d680ed4012d5b8897dfea7d9eb45f"
+  },
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :protocol:jvmTest :server:test --tests org.asyncttwiz.server.game.GameDeletionTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameDeletionTest --tests org.asyncttwiz.android.LobbyDeletionTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/affected-01.json",
+      "assertions": ["No product tests ran: direct wrapper could not connect to daemon on this WSL host; subsequent checks use the existing scripts/gradle.sh IPv4 wrapper."]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest :server:test --tests org.asyncttwiz.server.game.GameDeletionTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameDeletionTest --tests org.asyncttwiz.android.LobbyDeletionTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/affected-02.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-i29-01/server-red-junit.json"],
+      "sourceIds": ["P-062", "T-678"],
+      "assertions": ["Protocol JVM suite passed, including typed deleteGame roundtrip, exact game/play-only scope and transport-independent digest. Server fixture incorrectly selected recipient deck before invitation acceptance; corrected fixture ordering. Android task not reached."]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.game.GameDeletionTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameDeletionTest --tests org.asyncttwiz.android.LobbyDeletionTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/affected-03.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-i29-01/server-red-02-junit.json"],
+      "assertions": ["Stale-play/setup guard passed. Fixed test decoding of sealed revision envelopes and waited for normal writer-epoch recovery after deliberate SQL fault. Android task not reached."]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameDeletionTest --tests org.asyncttwiz.android.LobbyDeletionTest :server:test --tests org.asyncttwiz.server.game.GameDeletionTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/affected-04.json",
+      "sourceIds": ["P-043", "P-062", "P-069", "T-677", "T-678"],
+      "assertions": [
+        "Seven Android host tests: context and extra warning do not dispatch, names opponent/both/no restore, dismiss is inert, either actor confirms exact scope, stale play/lobby/account/disconnected confirmation sends nothing, no global revision guard, result is not state, replica/list/selection purge, stale HTTP cannot resurrect, pending/notAdmitted/final recovery and callback fencing.",
+        "Three PostgreSQL tests: either participant deletes without presence/vote, ordered stale/delete/late requests, duplicate identity and one revision/outbox, stale play/setup refusal, both lists/head/history inaccessible, terminal synchronization contains no play/preparation, old publication suppression, original-result privacy/resume/fence and no identity leak, actual SQL rollback plus runtime-restart original execution once. Return-to-lobby boundary is simulated, not an I28 journey."
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :server:test --tests 'org.asyncttwiz.server.game.GameDeletionTest.production socket*' --tests org.asyncttwiz.server.game.GameSocketTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyStartTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/transport-regressions.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-i29-01/transport-01-junit.json"],
+      "assertions": ["All four existing production GameSocketTest cases passed (live invitation/revision/preparation/start and private recovery regressions). New deletion transport test timed out awaiting fresh opponent terminal head; no detailed frame diagnostics in that first helper. Added observed-frame diagnostics, not a retry or source workaround. Fresh focused execution below passed. Android task not reached."]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyStartTest :server:test --tests 'org.asyncttwiz.server.game.GameDeletionTest.production socket*' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/transport-02.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-i29-01/final-junit.json"],
+      "sourceIds": ["P-062", "P-069", "T-678"],
+      "assertions": ["Existing native session/lobby/start host regressions passed. Real production socket deletes with absent peer, same-process resume and duplicate recover private original after tombstone, HTTP lists/head/revisions deny access for both, peer/stranger cannot read actor outcome, fresh opponent socket receives lifecycle-only head. Retained JUnit also preserves earlier green protocol cases, not a new execution."]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:compileDebugKotlin --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/ui-compile.json",
+      "sourceIds": ["P-043", "T-677"],
+      "assertions": ["Final Games/navigation shared gesture, accessibility selected state and both confirmation close controls compile. Compilation is not device gesture or visual qualification."]
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code a4b444e192776f5d165fb9188fc6e526f697620e -- docs/agent/implementation-state.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i29-01/state-integrity.json"
+    }
+  ],
+  "integrationNotes": [
+    "No V12 migration: existing lifecycle constraint already permits DELETED; existing retained game/play/identity/inbox/revision/outbox records suffice. No new mutation HTTP endpoint or second queue. LobbyService/GameHttp already exclude removed ordinary access and are unchanged.",
+    "Exact interface pins: GameAction.DeleteGame serial name deleteGame; only GameScope(gameId, playId); LobbyController.deleteGame(game: GameSummary): Boolean dispatches captured incarnation, never a current replacement. GameDeletion additionally captures actor for the extra dialog.",
+    "I12a overlap: this branch uses locked/authorize recovery=true for participant-only open/admit/results; duplicate-original lookup precedes terminal refusal, with new identity rolled back. subscriptionHead supplies content-free CANCELLED/DELETED lifecycle heads, while ordinary head/revisions remain denied. publicationState replaces queued old content with current terminal head. GameSession treats both terminal lifecycle values as non-resurrectable and clears replicas but retains original pending requests. I12a implementation is not in the pinned base and was not copied; reconcile its actual API names/result semantics against these exact edits, do not add another queue.",
+    "I12b overlap: pinned base has no setup context implementation. Shared Modifier.gameRowActions and GameDeletionDialogs are wired from Games and the amended actual AuthenticatedShell navigation rows for ACTIVE only; setup retains ordinary opening on this branch. Integrator must merge I12b CancelSetup context/dialog alongside active Delete with mutually exclusive lifecycle actions, preserving captured identities and accessibility. No parallel AuthScreens file was created.",
+    "The first production transport attempt timed out on the final fresh-opponent head; preserved red output/JUnit does not establish a product diagnosis. Added observed-frame diagnostics and the fresh focused check passed without product retry logic. Carry this observation into the actual I31 combined journey rather than claiming device or reliability qualification."
+  ],
+  "deferredAssertions": [
+    {"owner": "I31", "sourceIds": ["T-677", "T-678"], "scope": "Actual normal APK gestures/native Back/outside/accessibility in Games and navigation, portrait/landscape warning/layout, two-device deletion/list/replica invalidation and absent-peer return; integrate I12 Cancel and I28 result/return/fresh-start races. No devices were used here."},
+    {"owner": "B7 independent capability review", "sourceIds": ["I29", "T-678"], "scope": "Independent review of integrated lifecycle/recovery/privacy and the retained first transport timeout; this implementation session performs no self-review or self-verification."},
+    {"owner": "I34/I35/I36 and B8", "sourceIds": ["T-677", "T-678"], "scope": "Final full suite, supported compatibility, complete interface-to-mock review and release gates remain mandatory and unchanged."}
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameDeletion.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameDeletionTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyDeletionTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i29-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-03.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-04.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/final-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/server-red-02-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/server-red-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/state-integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/transport-01-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/transport-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/transport-regressions.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/ui-compile.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameDeletionTest.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameDeletionTest.kt"
+  ],
+  "proposal": {
+    "sourceIds": ["I29", "P-043", "P-062", "P-069", "T-677", "T-678"],
+    "sourcePaths": [
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameDeletion.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt"
+    ],
+    "testPaths": [
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameDeletionTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameWireTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameDeletionTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameDeletionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyDeletionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameSessionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyStartTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameDeletion.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameDeletionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyDeletionTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i29-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/affected-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/affected-02.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/affected-03.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/affected-04.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/final-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/server-red-02-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/server-red-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/state-integrity.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/transport-01-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/transport-02.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/transport-regressions.json",
+      "docs/agent/implementation-runs/managed-20261023-i29-01/ui-compile.json",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameDeletionTest.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameDeletionTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I29",
+        "before": {"id": "I29", "batch": "B7", "status": "pending"},
+        "after": {"id": "I29", "batch": "B7", "status": "implemented", "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i29-01.json"}
+      },
+      {
+        "collection": "batches",
+        "id": "B7",
+        "before": {"id": "B7", "status": "pending", "reviewedCommit": null, "review": {"units": [{"id": "capability", "scope": "Full B7 chat/result/rematch/deletion/notifications/background journey and integration against the plan/contracts"}], "completed": {}, "blocked": {}}},
+        "after": {"id": "B7", "status": "pending", "reviewedCommit": null, "review": {"units": [{"id": "capability", "scope": "Full B7 chat/result/rematch/deletion/notifications/background journey and integration against the plan/contracts"}], "completed": {}, "blocked": {}}}
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.GameplayMergeVerificationTest.xml": {
+    "sha256": "0ff52da87a5e7dc1254aaa799a22926257f5ef9fa7cd9e913655c99837996dc0",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJHYW1lcGxheU1lcmdlVmVyaWZpY2F0aW9uVGVzdFtqdm1dIiB0ZXN0cz0iMiIgc2tpcHBlZD0iMCIgZmFpbHVyZXM9IjAiIGVycm9ycz0iMCIgdGltZXN0YW1wPSIyMDI2LTEwLTIzVDA2OjMzOjQ3Ljk2OFoiIGhvc3RuYW1lPSJERVNLVE9QLUIyS0FMVk0iIHRpbWU9IjAuMTk5Ij4KICA8cHJvcGVydGllcy8+CiAgPHRlc3RjYXNlIG5hbWU9ImxpdmVNYW51YWxVc2VzQ3VycmVudFZhbHVlV2hpbGVSZXBsYXlBbmRTdGFja0FkZGl0aW9uS2VlcFRoZWlyRGlmZmVyZW50R3VhcmRzKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5HYW1lcGxheU1lcmdlVmVyaWZpY2F0aW9uVGVzdCIgdGltZT0iMC4xNyIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJlbnRyeUNvbnN0aXR1ZW50c1JlYWRJbnRlcmxlYXZlZEZhY2VBbmRSZXRhaW5Db25jcmV0ZVJlc2V0T3V0cHV0QW5kSW52ZXJzZSgpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuR2FtZXBsYXlNZXJnZVZlcmlmaWNhdGlvblRlc3QiIHRpbWU9IjAuMDE1Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "GameplayMergeVerificationTest[jvm]",
+      "tests": "2",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T06:33:47.968Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.199"
+    }
+  },
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.GameplayMergeVerificationTest.xml": {
+    "sha256": "75b35fb1881a3a194b622eb42f86106b78ada445f15994f15e7d0077e79856e9",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkdhbWVwbGF5TWVyZ2VWZXJpZmljYXRpb25UZXN0IiB0ZXN0cz0iMiIgc2tpcHBlZD0iMCIgZmFpbHVyZXM9IjAiIGVycm9ycz0iMCIgdGltZXN0YW1wPSIyMDI2LTEwLTIzVDA2OjM0OjE2LjQ4NVoiIGhvc3RuYW1lPSJERVNLVE9QLUIyS0FMVk0iIHRpbWU9IjAuMTgxIj4KICA8cHJvcGVydGllcy8+CiAgPHRlc3RjYXNlIG5hbWU9ImRlcGVuZGVudFN0YWNrT3JpZ2luYWxzQW5kTWFudWFsRWRpdFN1cnZpdmVMYXN0UmVzdWx0Rmlyc3RXaXRob3V0UmV3aW5kT3JEb3VibGVBcHBsaWNhdGlvbiIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkdhbWVwbGF5TWVyZ2VWZXJpZmljYXRpb25UZXN0IiB0aW1lPSIwLjE2NyIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJmYWlsZWRUb3BEb2VzTm90Q2FuY2VsTGF0ZXJHdWFyZGVkT3JpZ2luYWxBbmRMYXRlUmVzdWx0RG9lc05vdFJld2luZEFjY2VwdGVkTWFudWFsU3RhdGUiIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5HYW1lcGxheU1lcmdlVmVyaWZpY2F0aW9uVGVzdCIgdGltZT0iMC4wMDgiLz4KICA8c3lzdGVtLW91dD48IVtDREFUQVtdXT48L3N5c3RlbS1vdXQ+CiAgPHN5c3RlbS1lcnI+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tZXJyPgo8L3Rlc3RzdWl0ZT4K",
+    "tests": {
+      "name": "org.asyncttwiz.android.GameplayMergeVerificationTest",
+      "tests": "2",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T06:34:16.485Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.181"
+    }
+  }
+}

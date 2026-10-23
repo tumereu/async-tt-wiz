@@ -1,0 +1,13 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--exit-code",
+    "a4b444e192776f5d165fb9188fc6e526f697620e",
+    "--",
+    "docs/agent/implementation-state.json"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "output": ""
+}

@@ -1,0 +1,16 @@
+{
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.HistoryUiSpineTest.xml": {
+    "sha256": "7f2d16c9e655f401a8d724c3dfd52c7ff25c4e95611c0f822e982683e977f2fe",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkhpc3RvcnlVaVNwaW5lVGVzdCIgdGVzdHM9IjEiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwODo1OTozMC43OTVaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjExOSI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJleHBsaWNpdEFybUNhbmNlbEZhaWx1cmVBbmROb29wRG9Ob3RGb3JrRmlyc3RFZmZlY3RpdmVPcmRpbmFyeVRvb2xraXRQYXRoQ2Fycmllc0V4YWN0Qm91bmRhcnkiIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5IaXN0b3J5VWlTcGluZVRlc3QiIHRpbWU9IjAuMTE2Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "org.asyncttwiz.android.HistoryUiSpineTest",
+      "tests": "1",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T08:59:30.795Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.119"
+    }
+  }
+}

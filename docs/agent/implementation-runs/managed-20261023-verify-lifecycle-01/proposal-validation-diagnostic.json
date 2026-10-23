@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "scripts/implementation-evidence.py",
+    "validate-proposal",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01.json"
+  ],
+  "exitCode": 1,
+  "outputSha256": "29b4380fb566ec35f09937084253d19ad49bfdb5d9c6ca52313a2b7d5a481572",
+  "output": "Evidence check failed: Proposal needs unique nonempty sourceIds\n"
+}

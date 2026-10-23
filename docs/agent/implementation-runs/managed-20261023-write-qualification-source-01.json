@@ -1,0 +1,111 @@
+{
+  "runId": "managed-20261023-write-qualification-source-01",
+  "sessionID": "ses_e97c7cfe5ffeA8H49Je4H8PiWZ",
+  "startCommit": "b28423396f458d6fb65970812d50c32c4b184b99",
+  "mode": "integration",
+  "target": "connect-required-runtime-and-final-journey-source",
+  "workKind": "writer",
+  "model": "openai/gpt-6.1-sol#high",
+  "artifactKind": "custom-source-integration-handoff-not-application-proposal",
+  "outcome": "progress",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "executionStatus": "UNCOMPILED / UNEXECUTED / UNVERIFIED",
+  "summary": "Normally merged exact I33 workload pin into version-2 connected runtime. Three mandatory workload sources and four original archive files enter unchanged. Static API reconciliation found no obvious mechanical mismatch; no production rewrite, new tests, builds, measurements, devices, packaging or application acceptance.",
+  "selectionReason": "Explicit source-only integration lease connects the ready mandatory workloads without delaying independent native cancellation, version-1 baseline or I31 work.",
+  "identity": {
+    "branch": "managed/managed-20261023-write-qualification-source-01",
+    "leaseContext": "/tmp/opencode/managed-20261023-write-qualification-source-01/context.json",
+    "authorization": "D-304 and supplied managed lease; clean tree/index and exact start/branch confirmed before merge. Context matches session, high model metadata, pinned dependency, inherited namespaces and source-writing-only bundle. Only incoming explicitly inherited files and this run namespace changed; no other checkout accessed.",
+    "acceptanceOwner": "Supervisor owns actual saved upstream/session/latest-state acceptance. No proposal, validators, state/journal/control edits or self-review/self-verification. Exact final saved commit is resolved from Git/upstream, not invented in this self-containing report."
+  },
+  "mergeAndRepairDetails": {
+    "dependencyCommit": "293e723e8d2197f74976aea96ec316d953f70ab1",
+    "command": "git merge --no-ff --no-commit 293e723e8d2197f74976aea96ec316d953f70ab1",
+    "result": "Automatic normal merge, no conflicts, no repairs/manual source changes. All seven incoming paths equal dependency bytes. Initial mandatory Android/protocol/server workload sources are present, not duplicated or reimplemented.",
+    "staticApiScope": "Read actual declarations used by workloads: TreeSync/GameplayTree/GameplayBranch/SelectiveUndo and common gameplay fixtures; GameplayFixture.Stream/OwnedPostgres and server test build inputs; TableSurface/TablePresentation/BasicTableController/GameplayReplica/TreeDownload/AndroidClientStorage/GameplayTreeCache and Android test dependencies. Source inspection is not a compiler pass or capability review.",
+    "preserved": "Every pre-existing tracked input/archive/control is unchanged from base. Normal runtime, foreground rename, Ping routing, single cancellation host, SQLite host dependencies and non-GMS selection remain intact. Existing I35 versionCode 2 / 0.1.1 allocation is unchanged; no version 3 allocation. Version-1 baseline 17a606 artifacts and independent execution remain untouched, not relabelled as current qualification.",
+    "i31": "No explicit immutable I31 amendment pin supplied during this unit. Did not inspect or wait for evolving source; I31 integration and normal-UI journey source-check remain with supervisor/later pinned integration owner."
+  },
+  "checks": [
+    {"kind": "static", "command": "git merge --no-ff --no-commit 293e723e8d2197f74976aea96ec316d953f70ab1", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/merge.json"},
+    {"kind": "static", "commandRecord": "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/integrity.json#command", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/integrity.json", "scope": "Exact merge/source/archive/control/lease/version identities only."},
+    {"kind": "static", "commandRecord": "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/ownership.json#command", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/ownership.json", "scope": "Exact staged/report/inherited-lease path set; no application validation."},
+    {"kind": "static", "command": "git diff --cached --check", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/whitespace.json"}
+  ],
+  "executionQueue": [
+    {
+      "owner": "Supervisor-assigned fresh combined compile/affected-host executor",
+      "status": "UNCOMPILED / UNEXECUTED",
+      "sourcePin": "Use final saved merge commit containing both startCommit and dependencyCommit, or explicit integrated descendant; record actual tested 40-hex commit and unchanged input identities. Executor makes no code/test/build-source edits.",
+      "combinedCommand": "./scripts/gradle.sh --no-daemon --max-workers=2 :protocol:compileTestKotlinJvm :server:compileTestKotlin :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ProjectionLinkRuntimeTest --tests org.asyncttwiz.android.TokenSearchTest.asyncLoadingPagingEmptyAndImmediateExactOnceSelectionUseOnePanelState --tests org.asyncttwiz.android.TableToolkitWiringTest.actualNormalHistoryArmFlowsThroughLibraryMoveDefaultsAndEverySubsequentOriginalWithoutAckBarrier --tests org.asyncttwiz.android.HistoryUiSpineTest --tests org.asyncttwiz.android.HistoryRuntimeIntegrationTest.stalePreviousPlayRevisionCannotInvalidateNewerAcceptedCacheOrStartObsoleteRecovery --tests org.asyncttwiz.android.ActivityRuntimeIntegrationTest.normalLobbyColdWarmRouteUsesExactAuthorizedBoundaryAndNoReplacementCommands --tests org.asyncttwiz.android.TableGesturesTest.selectAndPingHaveIndependentImmediateTapsWithoutDoubleRecognizer :androidApp:compileDebugAndroidTestKotlin",
+      "helperCommand": "python3 -m unittest discover -s tests -p test_package_release.py -v",
+      "resourcesAndEvidence": "Isolated worktree/build outputs, assigned host capacity, owned Testcontainers/codegen DB/container/network/ports and pinned image IDs. Use existing capture-check/JUnit helpers, retain actual compiler/host/helper output and exact source pin. Combine pending scopes once; reuse any supervisor-supplied input-valid green output instead of rerunning it per task. No clean build/full suite. Compile failure must be reported first with every downstream unexecuted scope; fresh source fixer owns repairs, not executor."
+    },
+    {
+      "owner": "Supervisor-assigned fresh I33 host performance executor",
+      "status": "UNEXECUTED; no performance pass",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=2 :protocol:jvmTest --tests org.asyncttwiz.protocol.RuntimeWorkloadTest :server:test --tests org.asyncttwiz.server.game.RuntimeWorkloadTest",
+      "configuration": "ATW_RUNTIME_SOURCE_COMMIT=ACTUAL_TESTED_40_HEX_COMMIT; ATW_RUNTIME_PROFILE=2cpu-2g-app-2g-pg-ssd; ATW_RUNTIME_SAMPLES=100; ATW_RUNTIME_WARMUP=20. Actually enforce/retain 2-CPU/2-GiB app limits, separate 2-GiB PostgreSQL/SSD allocation, exact OS/arch/JVM/image/source identity and RSS/cgroup peak observations; env attestation alone does not enforce limits. Protocol stdout basePin is authoring provenance, not current tested identity; capture current source externally. Retain original JUnit/system-out/raw timing output. Four required protocol size/shape selectors and actual server ingress-through-commit scope, not socket/remote RTT."
+    },
+    {
+      "owner": "Existing complete native lifecycle executor, not this writer",
+      "status": "UNCOMPILED / UNEXECUTED; synthesized LOWER-LAYER components, not UI-created E2E",
+      "selectorCommand": "./scripts/gradle.sh --no-daemon --max-workers=2 :androidApp:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=org.asyncttwiz.android.RuntimeWorkloadTest -Pandroid.testInstrumentationRunnerArguments.runtimeSourceCommit=ACTUAL_TESTED_40_HEX_COMMIT",
+      "configuration": "Portrait, enabled real system animations, normal non-GMS APK; runtimeSamples=20, runtimeWarmup=3, runtimeHistoryNodes=10000,100000. Retain target app no_backup/managed-20261023-write-i33-01-observations/observations.jsonl byte-for-byte, instrumentation/JUnit/logs, actual APK/test hashes/source/device identity and resource measurements. No invented 100k deadline or recognition/write-start/remote-visible timing claim.",
+      "resources": "Insert exact selector into existing complete foreground provision/install/run/output-collection/finally-cleanup driver. Wrap WHOLE driver: python3 scripts/implementation-resources.py run --owner EXECUTION_RUN_ID --resource windows-devices --resource windows-routing --resource shared-e2e-backend -- python3 EXISTING_OWNED_LIFECYCLE_DRIVER.py (omit backend lease only for demonstrated isolation). No phase-only device acquisition. Build matching APKs/configuration under separate assigned build resources first. Physical API29 arm64/4GiB/60Hz/1080-class, current API, tablet/non-GMS and arm64 qualification gates remain owned externally."
+    }
+  ],
+  "unverifiedRequirements": [
+    {"owner": "I33 production timing-seam owner and I31 whole-journey source owner", "sourcePaths": ["androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/GameConnection.kt"], "gap": "Current recognizer/callback exposes no recognition-complete timestamp; GameConnection.send returns Boolean with no transport-write-start callback. Workload labels pointer release/callback/provisional upper bounds honestly. Exact recognition-to-provisional, enqueue/write-start p95 and 50ms-RTT remote committed-visible p95 remain UNVERIFIED, not measured actionable defects."},
+    {"owner": "I33 production export/staging qualification owner", "sourcePaths": ["server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TreeDownload.kt", "client-storage/src/main/kotlin/org/asyncttwiz/storage/GameplayTreeCache.kt"], "gap": "GameplayStore.create:29-43 materializes all records/joined bytes/decoded and compressed chunks; read:68-78 reads retained records. TreeDownload.publish:112 materializes publication records. Shared codec disk fixture exercises actual SQLite staging/publication/open but NOT production server export. Complete 100k exporter and retained-state memory/OOM qualification remains UNVERIFIED; no observed performance failure or speculative exporter rewrite."},
+    {"owner": "I31 normal-UI journey/artwork owner and final capability/release reviewers", "sourcePaths": ["androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt"], "gap": "Scene currently draws text/geometry; authored workloads do not qualify artwork loading/cache, real UI-created setup, both orientations/retarget, complete app trajectories or GameSession/network backpressure. No I31 source pin integrated. Source-check actual current labels/routes/readiness when explicit authored journey pin is supplied, before device lifecycle."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "ESP-ANDROID-FOREGROUND-JVM-CLASH-001",
+      "status": "INHERITED SOURCE REPAIR; fresh compile UNVERIFIED",
+      "failingTestOrTask": ":androidApp:compileDebugKotlin; generated setter and explicit setForeground(Boolean) clash",
+      "originalCommandAndEvidence": "Exact original affected command/output: aa89cf09:docs/agent/implementation-runs/managed-20261023-exec-spine-01/affected-pass.json",
+      "likelyOwningTask": "History/token foreground runtime integration",
+      "sourcePaths": ["androidApp/src/main/kotlin/org/asyncttwiz/android/TableHistoryController.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt"],
+      "classification": "Shared Android integration seam; existing updateForeground rename preserved unchanged",
+      "dependenciesAndOverlap": "TableScreen also owns Ping/lifecycle consumers. Prior blocked Android scopes remain unclaimed. Keep independent version-1/native prerequisite execution running.",
+      "freshAssignmentAndNarrowRerun": "Fresh combined compile/host executor uses executionQueue[0] once, or reuses supervisor-confirmed input-valid result. A real retained failure gets a fresh source fixer with exact failing selector/path/output; independent verifier owns disposition."
+    },
+    {
+      "id": "I12B-EXEC-001-DUPLICATE-CANCELLATION-DIALOG-HOST",
+      "status": "INHERITED SINGLE-HOST SOURCE; native verification UNVERIFIED",
+      "failingTestOrTask": "org.asyncttwiz.android.SetupCancellationTest.productionTitleRowHoldAccessibilityAndLocalDismissalBeforeRealCancellation:46; two Close game actions nodes",
+      "originalCommand": "python3 docs/agent/implementation-runs/managed-20261023-exec-native-01/instrumentation.py",
+      "evidence": "ec0a57f2948be4ded7b0ca2e18f4b1572398cfa2:docs/agent/implementation-runs/managed-20261023-exec-native-01/native-accessibility.json",
+      "likelyOwningTask": "I12b cancellation dialog host",
+      "sourcePaths": ["androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt"],
+      "classification": "Local activity/shell integration seam, independent of I33 workload source",
+      "dependenciesAndOverlap": "Single shell-owned host unchanged. Existing native executor retains matching source/APK ownership; no waiting on I31 or I33 measurement.",
+      "freshAssignmentAndNarrowRerun": "Existing native executor runs full unchanged SetupCancellationTest under complete resource-wrapped lifecycle with UI-created state: both orientations, row hold/accessibility/dismissal/captured round/real cancellation. Fresh source fixer only for retained red; independent I12/B3 verifier owns disposition."
+    }
+  ],
+  "failureGroupsNote": "No new compiler/test/runtime failure observed: none executed here. Inherited groups remain separate, not self-certified. I33 source gaps above are UNVERIFIED requirements, not new test failures. Executor must preserve first actual diagnostic and group fresh failures by selector/command/output/owner/path/local-vs-shared seam and narrow fresh-fixer scope.",
+  "remainingOwners": [
+    {"owner": "Integration supervisor", "scope": "Actual upstream/session/latest-state acceptance, dispatch combined execution, consume later explicit immutable I31 source without editing evolving writer checkout; no application/state transitions proposed."},
+    {"owner": "I35 build/signing/package/upgrade qualification executor", "scope": "Version-2 affected build/sign/package commands and external signing prerequisites remain exactly in managed-20261023-write-next-integration-01.json executionQueue[1..2] and docs/agent/release-interfaces.md; combine missing builds, never repeat input-valid green scopes. Preserve version-1 retained-data baseline. Stable signer/login/download/accepted-state upgrade, compatibility/API/tablet/non-GMS/arm64 remain UNVERIFIED. No packaging performed here."},
+    {"owner": "Fresh independent verifiers/reviewers and final release owner", "scope": "Actual fix/capability review, I34 final suites, I36 handoff, B8 full mock/interface gate and external resource/hardware/signing gates remain mandatory. No I31/I33/I35 completion or release acceptance claimed."}
+  ],
+  "changedPaths": [
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/RuntimeWorkloadTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-final.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-source.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/merge.json",
+    "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/ownership.json",
+    "docs/agent/implementation-runs/managed-20261023-write-qualification-source-01/whitespace.json",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/RuntimeWorkloadTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/RuntimeWorkloadTest.kt"
+  ]
+}

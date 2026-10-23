@@ -1,0 +1,236 @@
+{
+  "runId": "managed-20261023-fix-manual-history-01",
+  "sessionID": "ses_e989d3735ffetPU6si061FRlwP",
+  "startCommit": "6f1331833f61dcc1b7c373eecea6ec75342309b2",
+  "mode": "integration",
+  "target": "fix-complete-manual-history-candidate",
+  "findingIds": [],
+  "candidateIssueIds": ["IG-MANUAL-01"],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "disposition": "fixed-awaiting-independent-check",
+  "summary": "Merged the exact manual/token/failing-verifier and combat/Stack candidates into the tools/turn/Library/full-I22 base. One shared action/state/transition/replay engine retains all families; actual InspectFace now fills pending T as V while completed C/E/V and following edits separate. Retained the original red regression unchanged; 72 affected protocol tests and 56 focused native host tests pass, with native Kotlin compilation. Fixed the actual native control-symbol collision and cross-family replay/inverse guards. Code-only candidate awaiting a fresh verifier, not application acceptance, B5/B6 review, full I13 or release qualification.",
+  "selectionReason": "Explicit fresh fixing/integration lease for the reproduced required IG-MANUAL-01 discrepancy and the pinned manual-toolkit candidates; repairing this known shared-engine seam takes priority over unrelated implementation. No next unit selected.",
+  "preflight": {
+    "cleanStart": true,
+    "indexInitiallyEmpty": true,
+    "branch": "managed/managed-20261023-fix-manual-history-01",
+    "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-fix-manual-history-01",
+    "leaseContext": "/tmp/opencode/managed-20261023-fix-manual-history-01/context.json",
+    "model": "openai/gpt-6.1-sol#high",
+    "resourceBundle": ["isolated-host-tests"],
+    "authorization": "D-304/D-309 and supplied fresh FIX/integration-only dispatch; exact owned source/test paths plus inherited candidate paths and current report/evidence namespace. Supplied session/model metadata and pinned commits match context. Live lease/session-idle and latest-state acceptance remain supervisor-owned.",
+    "boundary": "Only this managed checkout. Authoritative state, journals, controls, scripts and all original reports/checks remain unchanged. No application proposal, transitions or validators, self-verification, capability-review closure, delegation, device/backend lifecycle, deployment or paid resources. Gradle uses foreground wrapper, --no-daemon --max-workers=1 and the supplied 1280m JVM limit."
+  },
+  "dependencyCommits": [
+    "6f1331833f61dcc1b7c373eecea6ec75342309b2",
+    "2a15b278afd4decd3018b4f75688078af3578d4d",
+    "4b6309cfbf96990c2fd287e71f04f240a40dbcfd"
+  ],
+  "integration": {
+    "method": "Normal non-fast-forward Git merges, not copied patches or rewritten candidate ancestry. First manual merge committed as a4da17f; second combat merge and final repairs are saved together through save.sh. The final saved commit cannot be embedded in its own report; supervisor records actual ancestry/upstream.",
+    "conflicts": ["protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt", "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt", "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt"],
+    "resolution": "Union of exact action catalog, wire validation, dispatch, board state and individual transition fields. Keep I22 HistoryGrouping rather than either older partial append. Manual accepted-tuple replay (including Reset without current defaults) retains outer exact transition/grouping checks and trusted annotation resolver. Shared record runs I21 invariant cleanup before publication and includes all cleanup effects in the same transition. Token disappearance precedes the retained Library move seam; full ordinary board/Stack moves remain I13-owned.",
+    "preservation": "Fresh provenance check compares 34 incoming original report/check files byte-for-byte with pinned commits, all unmodified incoming source/test identities, the entire retained failing verifier test, and state/control/script bytes. Existing I22 tests and native timeline tests have additions only, no removed assertions. Base reports are unchanged. Original failed diagnostics, including the red verifier XML/output, remain committed and are not relabeled green."
+  },
+  "repairs": [
+    {
+      "id": "IG-MANUAL-01",
+      "status": "fixed-awaiting-independent-check",
+      "diagnosis": "Old partial GameplayHistory.append unconditionally excluded view from joining. Retain the base full prefix fold, map actual InspectFace to EXPLICIT_DISCLOSURE/V, and add exact mappings for every merged manual/token/combat/Stack action. No card-text/name/time/rules inference or invented ending action.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-protocol-1.json",
+      "assertions": "Unchanged explicitInspectionAnchorsPendingTapRunUnderCurrentGroupingContract is green. Actual merged command prefixes prove T -> V keeps ID/start/count and selects inspection representative; E/C/V -> V separate; following edit separates; random/closure/turn -> actual combat/Stack anchors, isolated Stack entry/removal, matching layout, Library display/dismiss/shuffle fold identically. Original 182-cell matrix, every-prefix/category and D-299 representative fixtures pass; only S remains strict singleton in the abstract engine."
+    },
+    {
+      "id": "merged-transition-family-guards",
+      "status": "fixed-awaiting-independent-check",
+      "diagnosis": "After unioning transition fields, tuple-based manual replay and the lifecycle/link-only inverse must explicitly reject Library, contents, random, annotation and combat/Stack foreign effects, not silently retain/ignore them. Legitimate CloneRead and TokenMoveRead remain supported. The lifecycle-only helper fails closed for compound combat/Stack cleanup rather than returning a partial inverse; integrated selective traversal remains I23-owned.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-protocol-1.json",
+      "assertions": "New foreign-effect checks reject every new family without partial work. Actual Clone -> combat declaration -> two Stack effects -> note/corner/counter/cover/owner -> links -> RemoveToken or token MoveCard to Exile cleans incident persistent/projection links, retains unrelated links and effect IDs/order, removes empty pair, freezes exact last-live source, replays exact transition and blocks a changed snapshot. No stubbed ordinary move is treated as integration evidence."
+    },
+    {
+      "id": "native-control-symbol-collision",
+      "status": "fixed-awaiting-independent-check",
+      "diagnosis": "First native compile reproduced two same-package ActionPress classes with incompatible Boolean versus terminal-enum release APIs. Manual control now has an explicit ManualActionPress/ManualActionSquare identity; the no-argument ActionPress factory preserves original manual source/test calls, while quick/turn ActionPress(Boolean) remains unchanged. This also avoids accidental overload selection between the two square composables. No original gesture test or expectation was changed.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-native-2.json",
+      "assertions": "Native compile succeeds; unchanged manual and quick gesture arbitration tests pass, along with affected controller/presentation/playback tests. New actual history icons have explicit native glyph mappings and a focused rendering regression; unknown types still fail rather than use a generic fallback. No device interaction claim."
+    }
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/initial-merge-diagnostic.json#/command",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/initial-merge-diagnostic.json",
+      "summary": "Exact first merge tool-result retained explicitly as a transcript, not a rerun/capture envelope. Three shared-file conflicts resolved coherently."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/merge-manual.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/merge-manual.json",
+      "summary": "Stage inspected manual shared-file resolutions, validate staged whitespace and commit the normal merge ancestry. Product checks follow on the complete merged code."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git merge --no-ff --no-commit 4b6309cfbf96990c2fd287e71f04f240a40dbcfd",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/merge-combat-diagnostic.json",
+      "summary": "Retained actual combat merge conflicts, then resolved all shared engine/state/transition families."
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :protocol:jvmTest --tests org.asyncttwiz.protocol.ManualTokenLinkVerificationTest --tests org.asyncttwiz.protocol.CompleteManualHistoryIntegrationTest --tests org.asyncttwiz.protocol.HistoryGroupingTest --tests org.asyncttwiz.protocol.ManualTokenLinkIntegrationTest --tests org.asyncttwiz.protocol.ManualEditsTest --tests org.asyncttwiz.protocol.TokensAndLinksTest --tests org.asyncttwiz.protocol.CombatAndStackTest --tests org.asyncttwiz.protocol.LibraryTurnHistoryIntegrationTest --tests org.asyncttwiz.protocol.LibraryActionsTest --tests org.asyncttwiz.protocol.TableActionsTest --tests org.asyncttwiz.protocol.EventAnnotationsTest --tests org.asyncttwiz.protocol.GameplayTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-protocol-1.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/junit.json"],
+      "summary": "72 affected tests across 12 protocol classes pass, no skips/errors/failures. No full suite, clean build or repeated green run."
+    },
+    {
+      "kind": "diagnostic",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-native-1.json#/command",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-native-1.json",
+      "summary": "Actual native compilation failure: ActionPress redeclaration and dependent mismatched calls. This failed before native test execution; no failed JUnit output existed. Source repaired, not a test weakening or resource workaround."
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :androidApp:compileDebugKotlin :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.HistoryTimelineTest --tests org.asyncttwiz.android.HistoryPlaybackTest --tests org.asyncttwiz.android.CombatStackControllerTest --tests org.asyncttwiz.android.CombatStackPresentationTest --tests org.asyncttwiz.android.ManualActionsTest --tests org.asyncttwiz.android.TokenActionsTest --tests org.asyncttwiz.android.TokenLinkControllerTest --tests org.asyncttwiz.android.LibraryControllerTest --tests org.asyncttwiz.android.TableActionControllerTest --tests org.asyncttwiz.android.QuickActionsTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-native-2.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/junit.json"],
+      "summary": "Focused incremental native compilation and 56 affected host tests across 10 classes pass, no skips/errors/failures. No APK/device work or broad rerun. Protocol tests were not rerun after the Android-only source repair."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/retain-junit.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/retain-junit.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/junit.json"],
+      "summary": "Shared retain-junit preserves all 22 fresh XML files losslessly, hashes, names/counts and bytes."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/provenance.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/provenance.json",
+      "summary": "Pinned original evidence/test/source identities, unchanged state/controls/scripts, leased changed-path boundary, no unresolved index conflicts, whitespace and fresh retained JUnit integrity/counts. Artifact check, not self-verification of product behavior."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/source-identity.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/source-identity.json",
+      "summary": "Exact SHA-256 identities of current leased source/test inputs plus inherited manual integration fixture."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/stage-resolutions.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/stage-resolutions.json",
+      "summary": "Resolved all three combat-merge index entries through ordinary git add."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/handoff.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/handoff.json",
+      "summary": "Exact final report changedPaths against start, retained check-output hashes and checked source identities, no state drift and staged/working whitespace. No application validator or transition."
+    }
+  ],
+  "traceability": {
+    "sources": ["I17", "I18", "I19", "I20", "I21", "I22", "IG-MANUAL-01"],
+    "contracts": ["docs/design/03-contracts/history-grouping.md:40-105,143-219", "docs/design/05-verification/grouping-matrix.md", "docs/design/03-contracts/history-and-undo.md", "docs/design/03-contracts/operation-composition.md"],
+    "limit": "IDs identify assigned/inherited scope, not whole executed requirement coverage. Source/provenance preservation plus the explicitly listed assertions are this run's evidence. Older APK/full-native evidence remains at its original inputs, never a new merged runtime pass."
+  },
+  "deferredAssertions": [
+    {"owner": "Supervisor and a separate fresh verifier", "scope": "Independently check IG-MANUAL-01, merged exact action classification, source/transition/replay guards, token/combat/Stack cleanup, native symbol repair and glyphs at the final saved code. No fix here is self-verified. Supervisor alone accepts code and reconciles application proposals against latest state/leases."},
+    {"owner": "I13 and server integration owners", "scope": "Full ordinary board/Stack movement, guards/reset routes and backend admission/persistence/dedup/recovery remain separate; the retained Library/Hand move seam and explicit I21 hook fixtures do not complete them."},
+    {"owner": "I17b/I19b/I21b and I23", "scope": "Complete native route wiring, projection/source normalization, accepted two-client journeys and integrated selective Undo/Redo/traversal, including compound combat/Stack inverse. The existing lifecycle/link-only inverse explicitly refuses a compound transition rather than pretending to undo it."},
+    {"owner": "B5/B6 independent capability reviewers and I34/I36/B8 final qualification", "scope": "First complete group reviews, final full-suite/fault/recovery/release gates, device interactions/orientations/IME/accessibility and complete mock/unpictured-interface review remain mandatory. No B5/B6 reviewed status, prerequisite completion or full R1 acceptance is claimed."}
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CombatActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CombatStackController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CombatStackPresentation.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/HistoryTimeline.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LinkActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/PlayerActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/StackActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenLinkController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ValueEditor.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/CombatStackControllerTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/CombatStackPresentationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/HistoryTimelineTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ManualActionsTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TokenActionsTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TokenLinkControllerTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ValueEditorTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-native-1.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-native-2.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/affected-protocol-1.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/handoff.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/initial-merge-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/merge-combat-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/merge-manual.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/provenance.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/retain-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/source-identity.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-manual-history-01/stage-resolutions.json",
+    "docs/agent/implementation-runs/managed-20261023-i17-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i17-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i19-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i19-01/affected-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i19-01/affected-pass.json",
+    "docs/agent/implementation-runs/managed-20261023-i19-01/apk-identity.json",
+    "docs/agent/implementation-runs/managed-20261023-i19-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/apk-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/host-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/host-02-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/host-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/host-03-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/host-03.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/host-04-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/host-04.json",
+    "docs/agent/implementation-runs/managed-20261023-i21-01/native-final.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-manual-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-manual-01/affected-check-1.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-manual-01/candidate-identity.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-manual-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-manual-01/merge.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-manual-01/provenance-pass.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-manual-01/provenance.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/focused-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/inspection.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/retain-junit.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CombatAndStack.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ManualEdits.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TokensAndLinks.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CombatAndStackTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CompleteManualHistoryIntegrationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryGroupingTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualEditsTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualTokenLinkIntegrationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualTokenLinkVerificationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TokensAndLinksTest.kt"
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "runId": "managed-20261023-fix-stack-grouping-01",
+  "sessionID": "ses_e9873fc6bffe1mnxETNGIjc0rT",
+  "startCommit": "42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad",
+  "mode": "integration",
+  "target": "repair-IC-STACK-LAYOUT-GROUP",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "repairIds": ["IC-STACK-LAYOUT-GROUP"],
+  "repairStatus": "fixed-awaiting-independent-check",
+  "acceptanceReady": false,
+  "summary": "Test-only repair of the older all-Stack-pairs oracle: all 36 zone pairs remain asserted, now with exact significance/icon/key expectations. Added three full-engine Stack grouping regressions. One affected pass executes the originally failing mapping method and all three new tests: 4 pass, no failures/skips. No runtime/build/state changes, canonical transitions, independent verification or B6 review.",
+  "selectionReason": "Supervisor-assigned fresh bounded fixer for the retained IC-STACK-LAYOUT-GROUP failure at the exact combined-core candidate. This test-only seam is independent of the runtime movement/life and native session-fixture fix lanes; no other task is advanced.",
+  "lease": {
+    "contextPath": "/tmp/opencode/managed-20261023-fix-stack-grouping-01/context.json",
+    "branch": "managed/managed-20261023-fix-stack-grouping-01",
+    "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-fix-stack-grouping-01",
+    "model": "openai/gpt-6.1-sol#high",
+    "modelEvidence": "Supplied server-created metadata identifies this session, provider/model/high variant and owning worktree; local supplied context matches. No fallback or subagents.",
+    "preflight": "HEAD exactly matched the sole dependency/start commit; initial worktree/index were empty and branch matched. State is active/authorized with the exact model. Supplied lease reserves only the two test paths plus this run's report/evidence. Git-common-directory external read was denied, so no private journal inspection or modification was attempted beyond that denied read; lease confirmation relies on supplied dispatch/context, not a claimed independent journal check.",
+    "dependencyCommits": ["42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad"],
+    "ownedPaths": [
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryGroupingTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/StackLayoutGroupingRepairTest.kt"
+    ],
+    "resourceBundle": ["isolated-host-tests"],
+    "resourcesActuallyUsed": ["isolated-host-tests"],
+    "execution": "One foreground Gradle invocation in this worktree via the existing IPv4 tooling wrapper, --no-daemon --max-workers=1 and -Xmx1280m. No shared mutable fixtures, device lifecycle, deployment, paid resources or integration checkout edits. No background check owns the handoff."
+  },
+  "diagnosis": {
+    "originalReport": "docs/agent/implementation-runs/managed-20261023-integrate-core-01.json",
+    "originalEvidence": "docs/agent/implementation-runs/managed-20261023-integrate-core-01/protocol-junit.json",
+    "originalFailure": "HistoryGroupingTest.actualCatalogMappingAndServerDerivedAppend()[jvm], HistoryGroupingTest.kt:158: expected I but was L. Decoded and inspected the retained exact XML rather than rerunning the unchanged red candidate.",
+    "contractSources": [
+      "docs/design/05-verification/grouping-matrix.md:18-24,63-67,101-104",
+      "docs/design/03-contracts/history-grouping.md:48-84,271",
+      "docs/design/03-contracts/combat-stack-and-projections.md:16-25",
+      "docs/design/05-verification/acceptance.md:T-333"
+    ],
+    "actualEngineSources": [
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt:203-221,251-296",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt:84-99,104-142",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt:40-60"
+    ],
+    "conclusion": "D-175/GM-11 separates repeated Stack layout L from isolated true entry/removal I. The full reducer supports same-container TOP/BOTTOM/GAP and records actual guarded movement; it adds an entry digest only for true entry, not layout/removal. Existing exhaustive classifier already distinguishes these cases. The old synthetic classifier-only pair loop used UNORDERED even for ordered containers and was not an accepted movement journey. Retain that catalog mapping coverage, distinguish the precise L/I boundary, and supplement it with real accepted full-engine requests. No source defect or source-scope amendment was required."
+  },
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :protocol:jvmTest --tests '*HistoryGroupingTest.actualCatalogMappingAndServerDerivedAppend*' --tests '*StackLayoutGroupingRepairTest*'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/affected-tests.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/junit.json"],
+      "result": "Exactly 4 tests execute: the failed mapping method and 3 new actual-action cases; all pass, zero errors/skips. Exact XML bytes/hash/attributes retained with the shared retain-junit command. Compiler/configuration warnings remain in actual output, not suppressed by build changes."
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code 42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad -- . ':(exclude)protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryGroupingTest.kt' ':(exclude)protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/StackLayoutGroupingRepairTest.kt' ':(exclude)docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01.json' ':(exclude)docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/*'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/immutable-inputs.json",
+      "result": "All other tracked inputs, including authoritative state, controls, original reports/diagnostics and every runtime/build source, remain byte-identical to the pinned candidate. Untracked/staged path boundaries are inspected separately before save."
+    }
+  ],
+  "executedCoverage": [
+    "All 36 classifier zone pairs, exact L/I/M significance, literal icons and movement keys; all originally later mapping/scalar/tool/append/missing-container assertions in the failed method now execute.",
+    "Actual consecutive real-card entries stay isolated; real-card same-Stack TOP/BOTTOM layout joins L with first-event representative; consecutive real-card exits stay isolated I. Every prefix checks exact start/last node, group ID, category/count, representative node, authoritative append fold and exact recorded replay.",
+    "Mixed real-card/effect layout shares one L group with first representative; explicit effect removal retains layers_clear while actual-card removal retains layers, each isolated. Exact entry identities/order, permitted real effect source and untouched card fields are asserted.",
+    "Actual tap prefixes fill with layout, true removal, true entry and explicit inspection anchors; group starts remain at their taps while representatives change to the literal anchor. T-to-V remains intact. Accepted movement transitions retain exact source/destination, Stack before/after digests and original unrelated card fields."
+  ],
+  "sourceIds": ["IC-STACK-LAYOUT-GROUP", "I13", "I21", "I22", "D-175", "D-299", "GM-11", "T-333"],
+  "failureGroups": [],
+  "unexecutedScope": [
+    "The four unchanged HistoryGroupingTest methods were not rerun: complete182CellMatrixWithBothKeyAndTapPurityVariantsAndAuthorOverride; gm01Through19And23And24EveryPrefixWithoutRetroactiveMarkerChanges; literalD299RanksAndPrefixTieFixtures; mergedManualTokenCombatAndStackCatalogMapping. Their assertions remain unchanged; previous execution is retained input evidence, not a fresh pass.",
+    "Every other protocol method/class and all native/server/device/E2E suites are unexecuted in this unit. In particular, this does not fix or rerun IC-MOVEMENT-EXPECTATIONS, IC-LIFE-TEXT or IC-SESSION-FIXTURE, nor complete missing archive/reference production mappings from the original integration report.",
+    "Supervisor owns fresh independent checking of this attempted repair at its saved commit and integration with other fix lanes. No B6 first review, final I34/I36 full qualification, B8 mock/orientation/unpictured-interface review or release gate is supplied by these four tests."
+  ],
+  "handoffBoundary": "Custom integration fixing artifact as explicitly dispatched, not a canonical implement/fix/review/verify proposal. The shared validate-proposal helper explicitly rejects mode integration (scripts/implementation-evidence.py:226) and requires canonical state object changes. No invented finding/task/batch objects, identity rewrite or canonical transitions were introduced to force it through. Canonical state remains byte-identical; supervisor alone accepts the saved custom artifact and dispatches independent checking.",
+  "changedPaths": [
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/affected-tests.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/immutable-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/junit.json",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryGroupingTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/StackLayoutGroupingRepairTest.kt"
+  ]
+}

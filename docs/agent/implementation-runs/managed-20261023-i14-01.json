@@ -1,0 +1,313 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Delivered I14a: production multiple-inflight scalar gameplay prediction/rebase, original-outcome recovery, account/stream fences, monotonic actual replicas and staged current-record baselines with gzip/hash verification and interleaved deltas. I14 remains in progress: I14b explicitly owns full I13 movement/relational-record integration, durable accepted-cache publication and large-update delivery. No I13 completion or complete future branch-tree claim.",
+  "selectionReason": "Supervisor-leased speculative I14 work against exact proposed early I13 commit 7641ac350cbadd277652be668680ba3049817393; session/shared-reducer seam is useful now without duplicating the concurrent I13 move/server implementation. Only I14 descendants are proposed; acceptance still depends on latest supervisor prerequisites.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.GameplaySessionTest --tests org.asyncttwiz.android.GameSessionTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/client-check.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.GameplaySessionTest --tests org.asyncttwiz.android.GameSessionTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/client-recheck.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.GameplaySessionTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.PreparationTransferSessionTest :server:test --tests org.asyncttwiz.server.game.GameplaySyncTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/affected-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.GameplaySyncTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.GameplaySessionTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.PreparationTransferSessionTest :server:test --tests org.asyncttwiz.server.game.GameplaySyncTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/final-affected-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.GameplaySyncTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.GameplaySessionTest :server:test --tests org.asyncttwiz.server.game.GameplaySyncTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/record-seam-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import hashlib,json,pathlib,subprocess; base=\"7641ac350cbadd277652be668680ba3049817393\"; state=\"docs/agent/implementation-state.json\"; original=subprocess.check_output([\"git\",\"show\",base+\":\"+state]); assert pathlib.Path(state).read_bytes()==original; assert subprocess.check_output([\"git\",\"rev-parse\",\"HEAD\"]).decode().strip()==base; assert subprocess.check_output([\"git\",\"branch\",\"--show-current\"]).decode().strip()==\"managed/managed-20261023-i14-01\"; pins={p:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in [\"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\",\"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\",\"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt\",\"server/src/main/kotlin/org/asyncttwiz/server/game/PlayStore.kt\"]}; print(json.dumps({\"baseCommit\":base,\"stateByteIdentical\":True,\"stateSha256\":hashlib.sha256(original).hexdigest(),\"sourcePins\":pins,\"unmetInput\":\"Pinned I13 GameplayRules.move is still inapplicable; pinned GameService has no GameAction.Play execution branch. Route tests use an explicit shared-reducer accepted-record fixture, not server gameplay execution.\"},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/input-boundary.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/implementation-evidence.py retain-junit docs/agent/implementation-runs/managed-20261023-i14-01/junit.json protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.GameplaySyncTest.xml androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.GameplayReplicaTest.xml androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.GameplaySessionTest.xml server/build/test-results/test/TEST-org.asyncttwiz.server.game.GameplaySyncTest.xml",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/junit.json"
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "I14a",
+      "sourceIds": [
+        "I14",
+        "P-009",
+        "P-012",
+        "T-361",
+        "T-380",
+        "T-381",
+        "T-611",
+        "T-614",
+        "T-617",
+        "T-639",
+        "T-642",
+        "T-643",
+        "T-649"
+      ],
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i14-01/record-seam-check.json"
+    }
+  ],
+  "executedAssertions": [
+    "Actual GameSession sends three original scalar commands without prior-result waits; offline creation is refused; receipt, result-first, delta-first and duplicate delivery preserve final displayed board endpoints without double application.",
+    "Shared GameplayRules scalar arithmetic/tap rebase withdraws genuinely inapplicable predictions permanently, preserves independent predictions and applies late accepted withdrawn originals normally.",
+    "Same-process not-admitted resume preserves original request IDs/intent/FIFO while updating only generation; old socket/read callbacks and account switches cannot repopulate a cleared account. Fresh sessions reconstruct no outgoing queue.",
+    "HTTP summaries do not block advancing older actual replicas. Gaps trigger staged recovery; interleaved and duplicate revisions catch the staged generation up before publication. A stale download cannot mark the advertised newer head ready.",
+    "Production HTTP baseline reader stages accepted-only bytes to a temporary file, validates per-chunk hashes/decoded bounds, reconstructs the matching manifest scope and rejects a corrupt second chunk without publishing partial data.",
+    "PostgreSQL/HTTP baseline export covers current retained root and controlled shared-reducer scalar revision records plus definitions; immutable multi-chunk R remains readable while the incremental suffix advances. Outcomes are account scoped, HTTP absence remains unknown, manifests/chunks are private, and expired exports fail.",
+    "Nullable non-board revision envelopes advance accepted revision at the same gameplay node while preserving valid predictions in incremental and baseline paths; this is extension infrastructure, not implementation of future chat/history controls.",
+    "Final record seam selection: 14 tests across four retained JUnit suites, no failures/skips. Earlier affected selection separately passed 4 existing GameSession and 8 preparation-transfer regressions. Initial two Kotlin compile failures are retained as diagnostics."
+  ],
+  "deferredAssertions": [
+    {
+      "sourceIds": [
+        "T-611",
+        "T-642",
+        "T-643",
+        "T-649",
+        "T-639"
+      ],
+      "owner": "I14b after accepted full I13 integration",
+      "assertion": "Real guarded M1/M2/M3 moves (including later guard supplied despite an earlier failure), actual server FIFO gameplay execution/relational mutation records and original result/mutation correlation. Early immutable reducer still rejects moves and server has no gameplay executor; scalar tests are not these move assertions."
+    },
+    {
+      "sourceIds": [
+        "T-015",
+        "T-614",
+        "T-617"
+      ],
+      "owner": "I14b, then I34 final recovery qualification",
+      "assertion": "Connect the accepted generation/staging handoff to the durable accepted-cache transaction; qualify restart during publication, retained/pruned relational page/suffix pins, export failure and large revision/result notification-to-HTTP recovery. Existing GameHub/cache paths require a fresh integration lease; current export snapshots materialize existing retained revisions in memory, keep immutable compressed chunks for a bounded lease and do not implement relational pruning."
+    },
+    {
+      "sourceIds": [
+        "T-617",
+        "T-609",
+        "T-672"
+      ],
+      "owner": "I24/I26 capability integrations, I34 final qualification",
+      "assertion": "Extend the same snapshot record adapter/staging coordinator to actual retained offshoots/removals/control/communication records introduced by later history/communication tasks. Current root/linear/full-envelope record coverage is not a claim that those unimplemented features already exist."
+    },
+    {
+      "sourceIds": [
+        "T-642",
+        "T-643",
+        "T-649"
+      ],
+      "owner": "I16 normal-app integration and I34/I36 final qualification",
+      "assertion": "Both normal UIs, actual animation/gestures, process death/reauth across devices, complete conflict/fault matrix and independent B4 capability review. This unit uses no devices and does not self-review or self-verify."
+    }
+  ],
+  "inputPins": {
+    "commit": "7641ac350cbadd277652be668680ba3049817393",
+    "context": "/tmp/opencode/managed-20261023-i14-01/context.json",
+    "boundaryEvidence": "docs/agent/implementation-runs/managed-20261023-i14-01/input-boundary.json",
+    "sharedCore": "GameplayRules.change/GameplayHistory unchanged; no second reducer or schema allocation",
+    "overlapOwner": "Supervisor fresh integration agents reconcile concurrent I13 and lifecycle/chat branches; early input is proposed, not accepted dependency completion"
+  },
+  "proposal": {
+    "sourceIds": [
+      "I14",
+      "P-009",
+      "P-012",
+      "T-361",
+      "T-380",
+      "T-381",
+      "T-611",
+      "T-614",
+      "T-617",
+      "T-639",
+      "T-642",
+      "T-643",
+      "T-649"
+    ],
+    "sourcePaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameConnection.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/PlayStore.kt"
+    ],
+    "testPaths": [
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameSessionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayReplicaTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplaySessionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/PreparationTransferSessionTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplaySyncTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameplaySyncTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameConnection.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayReplicaTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplaySessionTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i14-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i14-01/affected-check.json",
+      "docs/agent/implementation-runs/managed-20261023-i14-01/client-check.json",
+      "docs/agent/implementation-runs/managed-20261023-i14-01/client-recheck.json",
+      "docs/agent/implementation-runs/managed-20261023-i14-01/final-affected-check.json",
+      "docs/agent/implementation-runs/managed-20261023-i14-01/input-boundary.json",
+      "docs/agent/implementation-runs/managed-20261023-i14-01/junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i14-01/record-seam-check.json",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplaySyncTest.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameplaySyncTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I14",
+        "before": {
+          "id": "I14",
+          "batch": "B4",
+          "status": "pending"
+        },
+        "after": {
+          "id": "I14",
+          "batch": "B4",
+          "status": "in-progress",
+          "children": [
+            "I14a",
+            "I14b"
+          ]
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I14a",
+        "before": null,
+        "after": {
+          "id": "I14a",
+          "batch": "B4",
+          "status": "implemented",
+          "dependsOn": [
+            "I13"
+          ],
+          "outcome": "Production same-process multi-inflight accepted/predicted gameplay coordinator over the pinned shared scalar reducer, plus coherent current-record baseline export/verified staging/delta infrastructure; no duplicated move/server core.",
+          "checks": [
+            "Actual GameSession and GameplayReplica deterministic scalar multi-inflight/result/revision/rebase/recovery/account tests",
+            "Production HTTP accepted staging/corruption test and PostgreSQL baseline/current-record/suffix/access/expiry routes"
+          ],
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i14-01.json"
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I14b",
+        "before": null,
+        "after": {
+          "id": "I14b",
+          "batch": "B4",
+          "status": "pending",
+          "dependsOn": [
+            "I13",
+            "I14a"
+          ],
+          "outcome": "Finish I14 against the accepted full I13 move/relational records: integrate original guarded move chains and recovery with the production executor, normalized current-tree baseline records and durable accepted-generation publication; add large-update HTTP/hint and retained-page/suffix recovery seams without duplicating the shared reducer. Preserve later I24/I26 record-extension obligations.",
+          "checks": [
+            "Actual production GameSession plus I13 server FIFO PostgreSQL guarded M1/M2/M3 conflicts, independent later originals, out-of-order result/mutation revisions and old-incarnation recovery",
+            "Full current I13 retained-record baseline and interleaved deltas atomically publish into accepted cache; restart/publication fault and expired/pruned transfer retain previous generation and original identities",
+            "Oversized revision/result delivery hints fetch ordinary authorized HTTP records and converge without socket reconnect loops; future I24/I26 records extend the same adapter in their owning tasks"
+          ]
+        }
+      },
+      {
+        "collection": "batches",
+        "id": "B4",
+        "before": {
+          "id": "B4",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B4 responsive shared tabletop/Canvas journey, concurrency/recovery and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        },
+        "after": {
+          "id": "B4",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B4 responsive shared tabletop/Canvas journey, concurrency/recovery and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        }
+      }
+    ]
+  },
+  "runId": "managed-20261023-i14-01",
+  "sessionID": "ses_e98d926b7ffeuHDpO5aN3JiNfB",
+  "startCommit": "7641ac350cbadd277652be668680ba3049817393",
+  "mode": "implement",
+  "target": "I14",
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameConnection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayReplicaTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplaySessionTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i14-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i14-01/affected-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i14-01/client-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i14-01/client-recheck.json",
+    "docs/agent/implementation-runs/managed-20261023-i14-01/final-affected-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i14-01/input-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-i14-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i14-01/record-seam-check.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplaySyncTest.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameplaySyncTest.kt"
+  ]
+}

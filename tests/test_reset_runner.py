@@ -1,5 +1,6 @@
-"""Affected two-device safety/mail checks; actual native journey is separately opt-in."""
+"""Affected owned-peer safety/mail checks; actual native journey is separately opt-in."""
 import base64
+import json
 from pathlib import Path
 import subprocess
 import unittest
@@ -43,6 +44,49 @@ class ResetRunnerTest(unittest.TestCase):
 class OwnedPeerTest(unittest.TestCase):
     def setUp(self):
         controller_tests.DeviceControllerTest.setUp(self)
+
+    def test_complete_three_peer_set_preflights_before_publication_and_refuses_foreign_discovery(self):
+        values = [self.value]
+        for index, owner in enumerate(('b' * 64, 'c' * 64), 1):
+            directory = self.root / ('peer-' + str(index))
+            directory.mkdir(mode=0o700)
+            values.append(dict(self.value, directory=str(directory), owner=owner,
+                               config=dict(self.config, consolePort=5564 + index * 2, adbPort=15038 + index,
+                                           appiumPort=14733 + index, systemPort=18210 + index)))
+        for value in values:
+            d.write_json(Path(value['directory']) / 'instance.json', value)
+
+        def snapshot(value, operation):
+            self.assertEqual(operation, 'snapshot')
+            result = controller_tests.DeviceControllerTest.snapshot(self)
+            result['state'].update(name=Path(value['directory']).name, avd=Path(value['directory']).name,
+                                   owner=value['owner'])
+            result['listeners'][0]['port'] = value['config']['adbPort']
+            return result
+
+        with patch.object(d, 'directory_path', side_effect=Path), patch.object(d, 'windows', side_effect=snapshot):
+            runner.pair(*values[:2])  # Existing two-peer API still publishes exactly one peer each.
+            files = [Path(value['directory']) / 'observed-peers.json' for value in values]
+            original = [file.read_bytes() for file in files[:2]]
+            with patch.object(d, 'check_windows', side_effect=[None, None, d.Refusal('foreign third snapshot')]):
+                with self.assertRaises(d.Refusal):
+                    runner.pair_owned(*values)
+            self.assertEqual([file.read_bytes() for file in files[:2]], original)
+            self.assertFalse(files[2].exists())
+
+            runner.pair_owned(*values)
+            members = {'emulator-' + str(value['config']['consolePort']): value for value in values}
+            fields = [[serial, 'device'] for serial in members]
+            with patch.object(d, 'adb', side_effect=lambda value, *args: subprocess.CompletedProcess(
+                    [], 0, Path(members[args[1]]['directory']).name + '\n')):
+                for value, file in zip(values, files):
+                    self.assertEqual(json.loads(file.read_text()), {'owner': value['owner'], 'peers': {
+                        serial: {'owner': peer['owner'], 'directory': peer['directory']}
+                        for serial, peer in members.items() if peer['owner'] != value['owner']}})
+                    self.assertEqual(d.selected_devices(value, fields), [
+                        ['emulator-' + str(value['config']['consolePort']), 'device']])
+                    with self.assertRaises(d.Refusal):
+                        d.selected_devices(value, fields + [['emulator-5570', 'device']])
 
     def test_unpaired_unknown_and_changed_peer_are_refused_without_adoption(self):
         fields = [['emulator-5564', 'device'], ['emulator-5566', 'device']]

@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -87,6 +88,12 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             }
         }
     }
+    // Own the single dialog host here, outside route/orientation branches, not in MainActivity.
+    // This also keeps dialogs available when the authenticated shell is composed on its own.
+    if (lobby != null) {
+        SetupCancellationDialogs(lobby)
+        GameDeletionDialogs(lobby)
+    }
 }
 
 @Composable
@@ -110,12 +117,19 @@ private fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyC
                 controller.navigate(ShellDestination.GAMES)
             }
             for (game in lobby?.state?.games.orEmpty()) {
-                NavigationDrawerItem(label = { Column {
-                    Text(game.gameName)
-                    Text("${game.opponent(controller.state.account!!.accountId).username} · ${gameStatus(game)} · ${gameDate(game)}",
-                        style = MaterialTheme.typography.bodySmall)
-                } }, selected = controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id,
-                    onClick = { lobby?.open(game.id); controller.drawer(false) }, modifier = Modifier.padding(start = 12.dp))
+                val selectedGame = controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id
+                // One combined handler owns tap/hold; nesting another clickable drawer item would
+                // allow a recognized context hold to also open the game on release.
+                Surface(Modifier.padding(start = 12.dp).fillMaxWidth().heightIn(min = 56.dp)
+                    .gameRowActions(lobby!!, game) { lobby.open(game.id); controller.drawer(false) }
+                    .semantics { selected = selectedGame }, shape = MaterialTheme.shapes.extraLarge,
+                    color = if (selectedGame) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(game.gameName)
+                        Text("${game.opponent(controller.state.account!!.accountId).username} · ${gameStatus(game)} · ${gameDate(game)}",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
         }
         HorizontalDivider()

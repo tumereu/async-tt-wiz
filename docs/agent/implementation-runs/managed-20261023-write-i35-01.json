@@ -1,0 +1,81 @@
+{
+  "runId": "managed-20261023-write-i35-01",
+  "sessionID": "ses_e97d9ae61ffetSzta7Vc2hewQA",
+  "startCommit": "0436d6ec399ad821c19e24170f2e6ef01d637015",
+  "mode": "integration",
+  "workKind": "writer",
+  "target": "I35-versioned-distribution-and-signing-interfaces",
+  "outcome": "progress",
+  "summary": "Implemented Git version allocation consumed by Gradle, external release/test signing references, and an already-built APK packaging helper with version/SDK/signature/checksum verification, declared protocol/schema support and source pins. Added one focused regression file and executor/retained-data-upgrade instructions. Execution, integration acceptance and release readiness remain UNVERIFIED.",
+  "selectionReason": "Explicit independent I35 writer lease for missing distribution interfaces while other fixes and native execution proceed; no canonical task advancement.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "git diff --cached --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-i35-01/whitespace.json",
+      "scope": "Static staged whitespace only; not syntax, build, test or packaging qualification"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code 0436d6ec399ad821c19e24170f2e6ef01d637015 -- docs/agent/implementation-state.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-i35-01/state-unchanged.json",
+      "scope": "Authoritative state byte-identical to start"
+    }
+  ],
+  "changedPaths": [
+    "androidApp/build.gradle.kts",
+    "docs/agent/release-interfaces.md",
+    "release/version.json",
+    "scripts/package-release.py",
+    "tests/test_package_release.py",
+    "docs/agent/implementation-runs/managed-20261023-write-i35-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i35-01/state-unchanged.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i35-01/whitespace.json"
+  ],
+  "integrationDetails": {
+    "dependencyCommit": "0436d6ec399ad821c19e24170f2e6ef01d637015",
+    "merge": "None needed: dependency equals clean starting HEAD on the assigned managed branch.",
+    "repair": "No build/tool/test repair attempted or diagnosed; execution prohibited by writer division.",
+    "overlap": "Supervisor integrates only the version/signing hunks in androidApp/build.gradle.kts alongside other branch edits, retaining existing dependencies, locks, SDKs, non-GMS source selection, provider URLs and release cleartext restrictions.",
+    "allocation": "Recorded existing code 1 / 0.1.0 and allocated code 2 / 0.1.1; append-only integration ownership prevents allocation collisions.",
+    "declarations": "Protocol 1.0, engine/command/read format 1; source-declared definition/board/mutation/tree schemas 1, local SQLDelight 2 with migration from 1, Flyway head 16 with strict validation/no-pending policy. These are not mixed-version or migration acceptance evidence."
+  },
+  "executionQueue": [
+    {
+      "owner": "Supervisor-assigned host executor",
+      "sourcePin": "Use the saved writer commit or its explicitly integrated descendant; retain actual selected source and artifact hashes.",
+      "command": "python3 -m unittest discover -s tests -p test_package_release.py -v",
+      "scope": "Only four focused helper regressions: manifest/checksum/unsigned/no-overwrite, missing APK/checksum/version errors, expected certificate identity and monotone allocation. APK inspection and Git inputs are mocked, not real artifact/device evidence.",
+      "status": "UNVERIFIED"
+    },
+    {
+      "owner": "Supervisor-assigned Gradle/signing executor",
+      "command": "./gradlew --no-daemon --max-workers=2 :androidApp:assembleRelease :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest",
+      "scope": "Combine with the connected candidate's affected build queue once. With no signing inputs verify unsigned release and retained local debug behavior; later authorized configured signing uses existing distinct external keys and the same affected selectors. No clean build or repeated unchanged green suite.",
+      "status": "UNVERIFIED"
+    },
+    {
+      "owner": "Supervisor-assigned packaging executor, authorized key custodian for public certificate input",
+      "command": "python3 scripts/package-release.py --apk \"$APK\" --output \"$OUT\" --source-commit \"$SOURCE_COMMIT\" --kind release --aapt \"$ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/aapt\" --apksigner \"$ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/apksigner\" --expected-sha256 \"$BUILT_APK_SHA256\" --expected-certificate-sha256 \"$RELEASE_CERTIFICATE_SHA256\"",
+      "scope": "Already-built artifacts only, clean saved source pin, output outside checkout; verify SHA256SUMS from the output directory. Actual invocation and unsigned/test alternatives are in docs/agent/release-interfaces.md. No package/build/platform inspection executed by writer.",
+      "status": "UNVERIFIED"
+    }
+  ],
+  "failureGroups": [],
+  "remainingOwners": [
+    {
+      "owner": "Integration supervisor",
+      "scope": "Actual merge/save/upstream/session acceptance and dispatch of execution/fresh repair/independent verification; no serial validator, managed application proposal, state transition or task completion applied by this custom writer."
+    },
+    {
+      "owner": "I35 qualification executor under whole-lifecycle resource wrapper",
+      "scope": "Unperformed API29/current/tablet/non-GMS, stable-lineage signed retained-data upgrades, real mixed-version/incompatible refusal, service lifecycle/migration and amd64/arm64 exercises remain UNVERIFIED. No native lifecycle started."
+    },
+    {
+      "owner": "Operator/key custodian and release owner",
+      "scope": "External distinct stable test/release identity, real authorized signing/continuity, artifact host and external rights/hardware gates. No secrets/keys acquired, generated, searched for or read. Packaging never sets overall releaseReady true; external gates unchanged. I34/I36 and independent B8 reviews remain mandatory."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "addc748f34e8f4d0df797066e24ddbc6493af9aa"
+  ],
+  "exitCode": 1,
+  "outputSha256": "ffbfa2d03bbf39942e636f3e3a95ebee9de98e8caa06bd1c98f0acc86538ec54",
+  "output": "Auto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt\nCONFLICT (content): Merge conflict in protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\nAuto-merging server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt\nCONFLICT (content): Merge conflict in server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt\nAuto-merging server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt\nCONFLICT (content): Merge conflict in server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt\nAuto-merging server/src/main/kotlin/org/asyncttwiz/server/game/PlayStore.kt\nAuto-merging server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java\nCONFLICT (content): Merge conflict in server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

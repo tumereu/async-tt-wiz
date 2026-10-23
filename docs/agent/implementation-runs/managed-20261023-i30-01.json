@@ -1,0 +1,290 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Saved unfinished I30 checkpoint: real PostgreSQL account activity cursors, truthful 30-day retention floor/current-summary reset and 100-entry paging, atomic invitation/reinvitation hint creation, session+installation generations, every-live-installation routing, reset/logout registration cleanup, durable 2s-quiet/max10s push coalescing, bounded retries/TTL, optional real data-only FCM HTTP-v1 adapter and independently exercised authorized HTTP route. Six affected server tests pass; two protocol tests passed in the earlier mixed build. Android source now includes two OS channels, persisted-before-post delivery bookkeeping, account-generation fencing, non-GMS network-required 15-minute WorkManager polling, bounded Retry-After retries, optional no-startup-Firebase adapter/configuration, foreground refresh/suppression and normal authorized navigation source, plus affected host tests. Android build is NOT qualified: strict dependency locks reject new WorkManager artifacts and androidApp/gradle.lockfile is outside this exact lease. No lock bypass or unowned edits. Public SpringService route/worker startup, real final gameplay groups, manual-action/notification boundary navigation and native OS journeys remain unfinished. I30 is proposed in-progress, not implemented; no split/completion claim is combined with this troubleshooting checkpoint.",
+  "selectionReason": "Supervisor explicitly leased speculative I30 independent server/background/account development at dd37718d30440e93d32e554a410ba171a923d436 with a4b444e192776f5d165fb9188fc6e526f697620e pinned as an ancestor. These isolated notification capabilities advance useful current R1 work without claiming I13/I22/native prerequisites accepted or editing integration state.",
+  "sourceIds": [
+    "P-055",
+    "P-068",
+    "T-486",
+    "T-487",
+    "T-488",
+    "T-489",
+    "T-490",
+    "T-656",
+    "T-658",
+    "T-660"
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :server:compileKotlin --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-1.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :server:compileKotlin --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-2.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:assembleDebug --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-1.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:assembleDebug --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-2.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.ActivityTest :server:test --tests org.asyncttwiz.server.activity.* --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-1.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.ActivityTest :server:test --tests org.asyncttwiz.server.activity.* --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-2.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:assembleDebug --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-3.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.activity.ActivityHttpTest --tests org.asyncttwiz.server.activity.ActivityServiceTest.bounded* --tests org.asyncttwiz.server.activity.ActivityServiceTest.opponent* --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-3.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.activity.* --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\"",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-4.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import hashlib,json,pathlib,subprocess; c=json.load(open('\"'\"'/tmp/opencode/managed-20261023-i30-01/context.json'\"'\"')); head=subprocess.check_output(['\"'\"'git'\"'\"','\"'\"'rev-parse'\"'\"','\"'\"'HEAD'\"'\"'],text=True).strip(); assert head==c['\"'\"'startCommit'\"'\"']; subprocess.run(['\"'\"'git'\"'\"','\"'\"'merge-base'\"'\"','\"'\"'--is-ancestor'\"'\"',c['\"'\"'dependencyCommits'\"'\"'][0],'\"'\"'HEAD'\"'\"'],check=True); path=c['\"'\"'state'\"'\"']; original=subprocess.check_output(['\"'\"'git'\"'\"','\"'\"'show'\"'\"',head+'\"'\"':'\"'\"'+path]); current=pathlib.Path(path).read_bytes(); assert original==current; s=json.loads(current); assert s['\"'\"'authorization'\"'\"']=='\"'\"'authorized'\"'\"'; assert s['\"'\"'runner'\"'\"']['\"'\"'model'\"'\"']==c['\"'\"'model'\"'\"']; assert subprocess.check_output(['\"'\"'git'\"'\"','\"'\"'diff'\"'\"','\"'\"'--cached'\"'\"','\"'\"'--name-only'\"'\"'])==b'\"'\"''\"'\"'; subprocess.run(['\"'\"'git'\"'\"','\"'\"'diff'\"'\"','\"'\"'--check'\"'\"'],check=True); print(json.dumps({'\"'\"'head'\"'\"':head,'\"'\"'branch'\"'\"':subprocess.check_output(['\"'\"'git'\"'\"','\"'\"'branch'\"'\"','\"'\"'--show-current'\"'\"'],text=True).strip(),'\"'\"'dependencyAncestor'\"'\"':True,'\"'\"'stateByteIdentical'\"'\"':True,'\"'\"'stateSha256'\"'\"':hashlib.sha256(current).hexdigest(),'\"'\"'role'\"'\"':c['\"'\"'role'\"'\"'],'\"'\"'target'\"'\"':c['\"'\"'target'\"'\"'],'\"'\"'sessionID'\"'\"':c['\"'\"'sessionID'\"'\"'],'\"'\"'modelFromSuppliedServerMetadata'\"'\"':c['\"'\"'serverCreatedMetadata'\"'\"']['\"'\"'model'\"'\"'],'\"'\"'leaseContext'\"'\"':c['\"'\"'contextPath'\"'\"'],'\"'\"'writableSourcePaths'\"'\"':len(c['\"'\"'ownedPaths'\"'\"']),'\"'\"'stagedPaths'\"'\"':[]}))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/handoff-preflight.json"
+    }
+  ],
+  "junitEvidence": [
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-second-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-junit.json"
+  ],
+  "executedAssertions": [
+    "Six current PostgreSQL/HTTP tests: atomic invitation hint rollback/idempotency, authorized account cursor and installation binding, routing every live push installation and independent polling, registration generation switch/revocation/password-reset cleanup, 100/3 delta and summary-reset pages, actual contiguous retention floor even with empty expired log, non-FCM dormant-account pruning, current outstanding/access filtering, real 2-second quiet/10-second maximum durable queue, own-author exclusion, Retry-After/TTL/invalid-registration fallback, data-only content-free FCM payload, real isolated HTTP auth/media/body/cursor limits.",
+    "Two protocol ActivityTest cases executed successfully in affected-server-2 despite later server failures; retained exact green XML in affected-junit.json. No repeated green protocol suite.",
+    "The direct Gradle daemon connection failure was repaired by using the existing invocation-scoped scripts/gradle.sh IPv4 wrapper. AGP source filtering configuration errors and expected-domain-exception handling were fixed; actual failed output and XML are retained."
+  ],
+  "deferredAssertions": [
+    {
+      "owner": "I30 continuation / supervisor lease reconciliation",
+      "assertions": [
+        "Grant exact androidApp/gradle.lockfile ownership and, if necessary, a separate optional-FCM dependency lock path; resolve and commit exact default/optional dependency graphs without weakening STRICT locks or the normal no-GMS/Firebase boundary. No verification metadata file exists at this base; add verified checksum metadata only as required by the existing dependency policy.",
+        "Compile/build normal APK and run ActivityDeliveryTest/ActivityNotificationsTest; compile the optional configured FCM adapter using public synthetic identifiers without real registration, credentials or paid resources. Current Android source/tests are unexecuted and must not be accepted as implemented.",
+        "Wire ActivityHttp and the provider-independent ActivityDelivery maintenance scheduler into public SpringService lifecycle under supervisor-owned router/startup paths; configure optional FcmActivityAdapter through an explicit injected token supplier, not credential discovery."
+      ]
+    },
+    {
+      "owner": "I30b after a qualified split / actual I13 and I22 integration",
+      "assertions": [
+        "Feed real committed opponent-author/group identities and group extensions into ActivityService.record atomically without delaying game publication; do not fabricate acceptance from synthetic hint adapter tests.",
+        "Exercise actual manual gameplay, extension/next-group behavior, push/poll overlap, active-game live/review suppression versus background, every registered installation, stale branch/access and invitation/notification-boundary navigation. Invitation opening must use current outstanding-attempt/list semantics; current generic open source is not final invitation/boundary qualification.",
+        "Ensure poll-originated alerts also obey the exact quiet/max10s coalescing policy when current real grouping is integrated; current durable server push coalescing is tested, while final polling/group seam is not."
+      ]
+    },
+    {
+      "owner": "I31 / I35 / I34 and independent B7/B8 reviews",
+      "assertions": [
+        "Real Android OS permission/channel denial, cancellation, scheduler/network/Doze behavior, non-GMS device, foreground/background/review, Logout/account-switch/revocation late callbacks, cold/warm notification navigation, two-player/three-instance journeys and normal sync when no delivery ran. No devices or deployment used in this unit.",
+        "Retained/full migration qualification and final affected-suite reconciliation, including older tests with fixed migration-count expectations outside this lease; complete native/interface/mock review and fresh independent checks remain mandatory."
+      ]
+    }
+  ],
+  "troubleshooting": {
+    "issue": "Normal Android notification build cannot resolve new WorkManager dependencies under the existing STRICT lock; the required androidApp/gradle.lockfile is not among this managed unit's exact writable leased paths.",
+    "diagnosis": "android-build-3.json reaches debugRuntimeClasspath resolution and lists eight new unlocked WorkManager/Room/lifecycle/tracing/concurrency artifacts. This is not a product permission failure or missing Google/Firebase setup. Bypassing lock validation, editing the integration checkout or silently writing an unleased lockfile is unauthorized. Public server router/startup is independently outside the source lease, and final gameplay groups are a developing integration seam.",
+    "progress": "Implemented and passed six current isolated real-PostgreSQL/HTTP notification tests plus the protocol assertions, preserved reset/logout/account authority, repaired ordinary Gradle-wrapper/AGP/domain-error issues, supplied Android worker/channel/delivery/native-route and optional FCM source/tests without a mandatory Firebase startup. Kept authoritative state byte-identical and I30 unfinished; stopped at the concrete lease boundary rather than inventing APK/host/native acceptance.",
+    "nextSteps": [
+      "Supervisor reconciles/expands exact ownership for androidApp/gradle.lockfile and optional-FCM lock metadata, and public SpringService route/worker lifecycle integration; preserve this checkpoint and current implementation bytes.",
+      "A continuation resolves exact dependencies normally, fixes and runs affected Android host tests and normal/optional APK compilation, then performs owned public-route integration checks. Do not repeat already-green broad server/protocol checks unless a changed input/assertion requires it.",
+      "Once the independent capability is genuinely qualified, split I30 into completed I30a and concrete pending I30b for actual gameplay-group/poll coalescing/manual-action/notification-boundary seams. Preserve every original parent obligation plus real native checks with I31/I35/I34 and independent capability review. No checkpoint-plus-split/completion proposal in this run."
+    ],
+    "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-3.json"
+  },
+  "proposal": {
+    "sourceIds": [
+      "I30",
+      "P-055",
+      "P-068",
+      "T-486",
+      "T-487",
+      "T-488",
+      "T-489",
+      "T-490",
+      "T-656",
+      "T-658",
+      "T-660"
+    ],
+    "sourcePaths": [
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Activity.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityHttp.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityDelivery.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/accounts/PasswordResetService.kt",
+      "server/src/main/resources/db/migration/V15__activity_notifications.sql",
+      "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityApi.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityNotifications.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityWorker.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityDelivery.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityPushService.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+      "androidApp/src/main/AndroidManifest.xml",
+      "androidApp/build.gradle.kts",
+      "gradle/libs.versions.toml",
+      "androidApp/gradle.lockfile",
+      "server/src/main/java/org/asyncttwiz/server/SpringService.java"
+    ],
+    "testPaths": [
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ActivityTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityServiceTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityHttpTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityDeliveryTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityNotificationsTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/build.gradle.kts",
+      "androidApp/src/main/AndroidManifest.xml",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityApi.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityDelivery.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityNotifications.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityPushService.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityWorker.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityDeliveryTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityNotificationsTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i30-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/affected-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-1.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-2.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-3.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-4.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-1.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-2.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-3.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/handoff-preflight.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-1.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-2.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/server-failed-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i30-01/server-second-junit.json",
+      "gradle/libs.versions.toml",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Activity.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ActivityTest.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/accounts/PasswordResetService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityDelivery.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityHttp.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+      "server/src/main/resources/db/migration/V15__activity_notifications.sql",
+      "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+      "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityHttpTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityServiceTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I30",
+        "before": {
+          "id": "I30",
+          "batch": "B7",
+          "status": "pending"
+        },
+        "after": {
+          "id": "I30",
+          "batch": "B7",
+          "status": "in-progress",
+          "troubleshooting": {
+            "issue": "Normal Android notification build cannot resolve new WorkManager dependencies under the existing STRICT lock; the required androidApp/gradle.lockfile is not among this managed unit's exact writable leased paths.",
+            "diagnosis": "android-build-3.json reaches debugRuntimeClasspath resolution and lists eight new unlocked WorkManager/Room/lifecycle/tracing/concurrency artifacts. This is not a product permission failure or missing Google/Firebase setup. Bypassing lock validation, editing the integration checkout or silently writing an unleased lockfile is unauthorized. Public server router/startup is independently outside the source lease, and final gameplay groups are a developing integration seam.",
+            "progress": "Implemented and passed six current isolated real-PostgreSQL/HTTP notification tests plus the protocol assertions, preserved reset/logout/account authority, repaired ordinary Gradle-wrapper/AGP/domain-error issues, supplied Android worker/channel/delivery/native-route and optional FCM source/tests without a mandatory Firebase startup. Kept authoritative state byte-identical and I30 unfinished; stopped at the concrete lease boundary rather than inventing APK/host/native acceptance.",
+            "nextSteps": [
+              "Supervisor reconciles/expands exact ownership for androidApp/gradle.lockfile and optional-FCM lock metadata, and public SpringService route/worker lifecycle integration; preserve this checkpoint and current implementation bytes.",
+              "A continuation resolves exact dependencies normally, fixes and runs affected Android host tests and normal/optional APK compilation, then performs owned public-route integration checks. Do not repeat already-green broad server/protocol checks unless a changed input/assertion requires it.",
+              "Once the independent capability is genuinely qualified, split I30 into completed I30a and concrete pending I30b for actual gameplay-group/poll coalescing/manual-action/notification-boundary seams. Preserve every original parent obligation plus real native checks with I31/I35/I34 and independent capability review. No checkpoint-plus-split/completion proposal in this run."
+            ],
+            "evidence": "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-3.json",
+            "record": "docs/agent/implementation-runs/managed-20261023-i30-01.json"
+          }
+        }
+      }
+    ]
+  },
+  "runId": "managed-20261023-i30-01",
+  "sessionID": "ses_e98c539d0ffeAVuKwo8mtbpppK",
+  "startCommit": "dd37718d30440e93d32e554a410ba171a923d436",
+  "mode": "implement",
+  "target": "I30",
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "androidApp/build.gradle.kts",
+    "androidApp/src/main/AndroidManifest.xml",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityApi.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityDelivery.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityNotifications.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityPushService.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityWorker.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityDeliveryTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityNotificationsTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i30-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-3.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-4.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-3.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/handoff-preflight.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-second-junit.json",
+    "gradle/libs.versions.toml",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Activity.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ActivityTest.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/PasswordResetService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityDelivery.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+    "server/src/main/resources/db/migration/V15__activity_notifications.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityHttpTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityServiceTest.kt"
+  ]
+}

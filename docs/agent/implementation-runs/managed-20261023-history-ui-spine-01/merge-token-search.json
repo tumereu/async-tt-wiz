@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "659ce5524b4c455b793b03d6726fa963c134c520"
+  ],
+  "exitCode": 1,
+  "outputSha256": "c6d98e4b5abf413fc1d7babb187c7df34da7323ef24a27c37a4a213e67468cf3",
+  "output": "Auto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/TokenActions.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/TokenActions.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

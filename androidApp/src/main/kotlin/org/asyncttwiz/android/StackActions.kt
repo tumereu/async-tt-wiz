@@ -1,0 +1,71 @@
+package org.asyncttwiz.android
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import org.asyncttwiz.protocol.*
+
+enum class StackContextKind { EFFECT, SPELL, PERMANENT, UNCLASSIFIED }
+data class StackContext(val target: CombatStackTarget, val kind: StackContextKind,
+    val destination: PlayZone? = null)
+data class StackMoveChoice(val label: String, val zone: PlayZone, val destination: MoveDestination)
+
+object StackContexts {
+    fun destinations(context: StackContext, configured: List<StackMoveChoice>, quick: Boolean): List<StackMoveChoice> =
+        if (context.target.sourceId == null) emptyList() else configured.filter {
+            !quick || (context.kind != StackContextKind.EFFECT && it.zone == context.destination)
+        }
+    /** Explicit selected-face metadata only. No rules-text parsing, owner routing guesses or implicit top target. */
+    fun context(state: PlayState, viewId: String): StackContext {
+        val board = state.board
+        require(viewId in CombatStackRules.stack(board).cards)
+        val target = CombatStackController.bind(board, viewId)
+        if (board.stackEffects.any { it.id == viewId }) return StackContext(target, StackContextKind.EFFECT)
+        val card = board.cards.single { it.id == viewId }
+        val typeLine = state.definitions.find { it.digest == card.definition }?.definition?.faces
+            ?.find { it.faceId == card.faceId }?.typeLine.orEmpty().substringBefore('—')
+        val types = typeLine.split(Regex("\\s+")).filter(String::isNotEmpty).toSet()
+        val spell = types.any { it in setOf("Instant", "Sorcery") }
+        val permanent = types.any { it in setOf("Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker") }
+        return when {
+            spell && !permanent -> StackContext(target, StackContextKind.SPELL, PlayZone.GRAVEYARD)
+            permanent && !spell -> StackContext(target, StackContextKind.PERMANENT, PlayZone.BATTLEFIELD)
+            else -> StackContext(target, StackContextKind.UNCLASSIFIED)
+        }
+    }
+}
+
+/** Actual occurrence controls use shared commands. Real destinations are fully chosen/bound by the
+ * normal move adapter (I13/I16), not inferred from ownership or implemented as a local board edit.
+ */
+@Composable
+fun StackActions(state: PlayState, actor: String, targets: List<CombatStackTarget>, connected: Boolean,
+    command: (PlayAction) -> GameCommand, onPlan: (CombatStackPlan) -> Unit) {
+    val effects = targets.filter { target -> state.board.stackEffects.any { it.id == target.viewId } }
+    val canAdd = CombatStackController.sources(targets).any { source ->
+        state.board.cards.find { it.id == source }?.let { card ->
+            state.board.containers.find { it.id == card.containerId }?.zone in
+                setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE)
+        } == true
+    }
+    Column {
+        TextButton(enabled = connected && canAdd, onClick = {
+            onPlan(CombatStackController.addEffects(state, actor, targets, command))
+        }) { Text("Add Stack effect") }
+        TextButton(enabled = connected && effects.isNotEmpty(), onClick = {
+            onPlan(CombatStackController.remove(state, actor, effects, command))
+        }) { Text("Remove Stack effect") }
+    }
+}
+
+/** Reusable quick/full contextual destination component; callback is the real shared-move boundary.
+ * An unclassified actual card gets explicit manual destinations, never a guessed resolver.
+ */
+@Composable
+fun StackDestinationActions(context: StackContext, destinations: List<StackMoveChoice>,
+    enabled: Boolean, quick: Boolean = false, onMove: (boundSourceId: String, MoveDestination) -> Unit) {
+    val source = context.target.sourceId ?: return
+    Column { for (choice in StackContexts.destinations(context, destinations, quick)) TextButton(enabled = enabled,
+        onClick = { onMove(source, choice.destination) }) { Text(choice.label) } }
+}

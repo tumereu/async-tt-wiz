@@ -1,0 +1,143 @@
+{
+  "runId": "managed-20261023-verify-gameplay-01",
+  "sessionID": "ses_e988b2608ffeZq3pjwq1hjhnSc",
+  "startCommit": "7b6f7a873d934c709c2f69ae3b23e66ec6e3d3ac",
+  "inspectedCommit": "7b6f7a873d934c709c2f69ae3b23e66ec6e3d3ac",
+  "mode": "integration-verification",
+  "target": "verify-real-gameplay-candidate",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "disposition": "verified",
+  "summary": "Independent targeted verification found no concrete defect in the pinned movement/Manual/session/store merge repairs. Five new targeted tests pass, including real PostgreSQL and restarted HTTP; 56 unaffected recorded executions are reused, not rerun. No runtime/build edits, application transitions or capability/release completion claims.",
+  "selectionReason": "Explicit fresh independent verification of the saved integration author's runtime/conflict repairs takes priority over new feature work; exact 7b6f7a8 is the input, not evolving I16 or absent I23.",
+  "lease": {
+    "context": "/tmp/opencode/managed-20261023-verify-gameplay-01/context.json",
+    "branch": "managed/managed-20261023-verify-gameplay-01",
+    "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-verify-gameplay-01",
+    "model": "openai/gpt-6.1-sol#high",
+    "modelEvidence": "Supplied serverCreatedMetadata and run context identify this session with provider openai, model gpt-6.1-sol, variant high. Integrity capture checks these supplied bytes; supervisor independently checks actual server metadata.",
+    "dependencyCommits": ["7b6f7a873d934c709c2f69ae3b23e66ec6e3d3ac"],
+    "resources": ["isolated-host-tests", "owned-testcontainers"],
+    "authorization": "Initial HEAD exactly matched start/dependency, worktree/index were clean and branch tracked the matching origin branch. Only the three leased test paths and this report/evidence namespace are written. No integration checkout, authoritative state, journal or controls are edited. No subagents or application validators.",
+    "ownedTestPaths": [
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMergeVerificationTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayMergeVerificationTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameplayMergeVerificationTest.kt"
+    ]
+  },
+  "sourcePaths": [
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ManualEdits.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+    "server/src/main/resources/db/migration/V11__gameplay_mutations.sql",
+    "server/src/main/java/org/asyncttwiz/server/database/FoundationMigrations.java",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java"
+  ],
+  "inspection": [
+    {
+      "anchor": "Gameplay.kt:50-126,141-228; ManualEdits.kt:63-153; GameplayHistory.kt:48-139",
+      "result": "Old MoveCard inapplicable stub is gone. The sole GameplayRules processor dispatches Manual after normal wire/scope/access checks, retaining typed from/to fields, reads and disclosures. moveActions emits ordered separate move/clear-counter/Reset actions, with no hidden move field reset. Current-face Reset records concrete output, blank fallback is retained, and replay applies accepted tuples rather than recalculating defaults. Inverse handles every supported Manual field plus reads and guarded movement; it is not selective Undo. Current-state ordinary edits and exact move/Stack guards remain different. New mixed movement/face/Reset/disclosure inverse tests complement unchanged recorded Manual/guard coverage. ManualEdits.kt is byte-identical to the pinned pre-merge base."
+    },
+    {
+      "anchor": "GameSession.kt:18-24,127-141,241-264,303-330,342-364; GameplayReplica.kt:20-37,50-62,103-114",
+      "result": "One process-memory pending/sent queue and one GameplayReplica per game; production submission sends multiple originals without a previous-result barrier and uses the shared processor. Results correlate original scopes/IDs but do not install accepted state. Revision rebase publishes endpoint state, withdraws inapplicable predictions without cancelling originals, and ignores older state for materialization. New tests exercise dependent Stack additions with reverse-order results before state and later exact TOP acceptance after earlier rejection. Session/replica sources are unchanged from pre-merge input; existing baseline correlation evidence is reused."
+    },
+    {
+      "anchor": "GameService.kt:73-105,137-177,187-239; GameplayStore.kt:19-57,62-93; GameHttp.kt:48-84",
+      "result": "One GameplayStore instance serves both relational history and account-scoped immutable exports. Admission and execution share the game lock; lowest pending ingress executes inside one transaction. Gameplay save precedes game revision, revision payload, original result and outbox in that transaction. No duplicate processor or HTTP mutation ingress was introduced. New real database test crosses an export boundary with final and pending originals, rejects an earlier captured TOP, commits the later TOP and Manual actions, compares exact relational/result/outbox/revision tuples, deduplicates accepted/rejected originals, and verifies old export bytes remain unchanged. Fresh runtime HTTP baseline/history/result reads agree with the same committed records. Existing late-rollback evidence remains reused input, not a freshly executed fault matrix."
+    },
+    {
+      "anchor": "GenerateJooq.java:50-69; FoundationMigrations.java:9-27; V11__gameplay_mutations.sql",
+      "result": "Actual resolved version/checksum map is gathered on the clean codegen database, migrate runs, strict validate runs, applied metadata must exactly equal resolved metadata and pending must be empty. No hard-coded migration count, pending-only approximation, repair or ignored mismatch. Forward SQL is byte-identical to exact I13 worker. This run's incremental server dependency actually executed successful disposable PostgreSQL codegen with resolved versions 1-9 and 11; the independent server test also confirms the real strict profile refuses a changed V11 applied checksum. Only the owned disposable test database is altered, not repository SQL."
+    }
+  ],
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.GameplayMergeVerificationTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayMergeVerificationTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/host-check.json",
+      "result": "Two shared and two production-session host tests pass in one combined affected invocation; exact XML in host-junit.json. No native/APK/full-suite execution."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.game.GameplayMergeVerificationTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-check.json",
+      "result": "Actual codegen and production/test compilation passed. New verifier test failed decoding the polymorphic outbox envelope as concrete GameResult (unknown type key), after immutable export/FIFO/replay assertions. Failed XML retained in server-diagnostic-junit.json; not a product pass or finding."
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.game.GameplayMergeVerificationTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-recheck.json",
+      "result": "Only the new verifier test's two outbox decoders were corrected to GameServerMessage, matching production GameWire.encode; strict JSON and all assertions remain. One targeted PostgreSQL/HTTP/checksum test passes. Exact XML in server-junit.json. Already-green host/shared selections and codegen were not rerun."
+    }
+  ],
+  "integrityEvidence": {
+    "path": "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/integrity-check.json",
+    "exitCode": 0,
+    "commandLocation": "Exact executed Python argv is retained in the capture's command field.",
+    "scope": "Exact pinned source/forward SQL identities, byte-identical authoritative state/permissions, empty pre-save index, supplied lease/model/dependency data and hash-correct retained XML/output. Five fresh passing tests and 56 reused executions distinguished explicitly. Evidence inspection only, not an application validator or new product execution."
+  },
+  "executedCoverage": {
+    "freshPassingTests": 5,
+    "retainedFailedDiagnosticExecutions": 1,
+    "protocol": "Interleaved face change between entry constituents; literal movement field preservation; current-face Reset/read/concrete-output replay with missing defaults and refusal on changed face; clear-counter, face, uncover and explicit inspection replay/inverse; exposure viewers and separate view group; live Manual actual counter tuple versus recorded replay and semantic Stack guard.",
+    "host": "Three inflight originals through actual GameSession: two dependent Stack guards and a Manual edit, last-result-first before revisions, no accepted/result rewind or double application, exact settlement IDs and no resend. Earlier rejected TOP withdraws dependent display prediction, but later guarded original remains and is accepted at the new server head; Manual state and current original IDs survive old frames/results.",
+    "server": "Real isolated PostgreSQL FIFO boundary export with final/pending statuses; earlier failure does not stop later exact TOP; old manifest/chunks immutable after later commits; current relational mutations/history/replay/state/result/revision/outbox equality; accepted/rejected original retries do not duplicate; restarted authenticated HTTP originals/history/baseline match retained records; strict changed-checksum rejection. Testcontainers assertions confirm both test containers and codegen container/volumes were removed, including failed attempt."
+  },
+  "reusedEvidence": {
+    "record": "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01.json",
+    "atCommit": "7b6f7a873d934c709c2f69ae3b23e66ec6e3d3ac",
+    "executions": 56,
+    "junitRecords": [
+      "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/protocol-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/host-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/server-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/manual-inverse-junit.json"
+    ],
+    "rationale": "No runtime/build inputs changed from the inspected candidate. Inspected exact integration conflict repairs and checked missing seams independently, rather than rerunning green 27 shared + 18 host + 3 server + 8 Manual inverse executions. Earlier diagnostic invocations remain diagnostic even though their completed shared/host phases passed. Unchanged worker rollback/restart/migration evidence remains referenced through the integration report; no fresh fault/release claim."
+  },
+  "failureGroups": [],
+  "resolvedDiagnostics": [
+    {
+      "test": "org.asyncttwiz.server.game.GameplayMergeVerificationTest.pending export stays immutable while FIFO rejects earlier draw and commits later original with relational HTTP coherence",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-check.json",
+      "cause": "New verifier test decoded GameWire.encode outbox envelopes as concrete serializers rather than GameServerMessage. Unknown type key was a strict-codec test mistake, not a runtime defect.",
+      "resolution": "Corrected only the two leased test decoder types; retained original output/XML and all assertions. Narrow server recheck passes; no remaining product failure, external blocker or fresh fixing assignment."
+    }
+  ],
+  "pendingObligations": [
+    {"owner": "Supervisor / I16", "scope": "Actual table UI wiring and native gameplay journey, complete device/resource lifecycle and affected Canvas/native checks; not executed or accepted here."},
+    {"owner": "Fresh B4/B5 capability reviewers", "scope": "First full independent capability reviews and all current assigned leaf/journey coverage remain mandatory. This targeted integration disposition supplies no reviewedUnitIds or batch/task completion."},
+    {"owner": "Supervisor / future I23 implementer and reviewer", "scope": "Tree/control/Undo selection, topology and successor validation are absent from this pinned input. Tested inverse is only the existing recorded-board helper, not a claim of future history behavior."},
+    {"owner": "Supervisor / I34 / I36 and B8 final reviewers", "scope": "Final affected qualification/full-suite fixes, fresh fix verification, native/compatibility obligations, all current mock/state/orientation and unpictured-interface review, discrepancy fixes/rechecks and external release gates remain required."}
+  ],
+  "limits": [
+    "Verified means only the enumerated merge repairs at exact inspectedCommit; no global completion, release approval, deployment or product-policy expansion.",
+    "Custom integration-verification dispatch intentionally has no application proposal/transitions and invokes neither serial validate nor validate-proposal. Supervisor owns latest-state acceptance and actual saved/upstream/session checks.",
+    "No source/build/resource/SQL file changes, clean build, broad green rerun, APK build, device operation, subagent, paid resource or unrelated checkout access. Only leased tests and run-owned report/evidence are saved."
+  ],
+  "changedPaths": [
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMergeVerificationTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/host-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/host-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/integrity-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-diagnostic-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-recheck.json",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayMergeVerificationTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameplayMergeVerificationTest.kt"
+  ]
+}

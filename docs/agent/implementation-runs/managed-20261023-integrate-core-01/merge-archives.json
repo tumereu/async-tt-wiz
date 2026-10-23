@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "394049d5936a81b68f27fcab87590db7ad616cf5"
+  ],
+  "exitCode": 1,
+  "outputSha256": "b716085c33bf5c4df48a9d9e68eac10c52ddf10c0c88d9faf0a7e8b41f714640",
+  "output": "Auto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt\nCONFLICT (content): Merge conflict in protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

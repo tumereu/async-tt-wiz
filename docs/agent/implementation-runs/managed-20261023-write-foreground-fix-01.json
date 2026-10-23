@@ -1,0 +1,80 @@
+{
+  "runId": "managed-20261023-write-foreground-fix-01",
+  "sessionID": "ses_e97e2cdeaffeJ6cMJLONXkXtus",
+  "startCommit": "0436d6ec399ad821c19e24170f2e6ef01d637015",
+  "mode": "integration",
+  "target": "fix-ESP-ANDROID-FOREGROUND-JVM-CLASH-001",
+  "workKind": "writer",
+  "findingIds": ["ESP-ANDROID-FOREGROUND-JVM-CLASH-001"],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Renamed the explicit history lifecycle API to updateForeground and updated its three actual callers. The externally read-only Compose foreground property, playback transitions, lifecycle/catalog lifetime handling and captured token identity logic are unchanged. Source repair remains UNVERIFIED; no compilation, tests, packaging, app execution or review performed.",
+  "selectionReason": "Explicit known-red source-writing lease for the deterministic Android compiler blocker; smallest prerequisite repair for the blocked Android execution queue.",
+  "identity": {
+    "branch": "managed/managed-20261023-write-foreground-fix-01",
+    "dependencyCommits": ["0436d6ec399ad821c19e24170f2e6ef01d637015"],
+    "leaseContext": "/tmp/opencode/managed-20261023-write-foreground-fix-01/context.json",
+    "model": "openai/gpt-6.1-sol#high",
+    "authorization": "D-304 and supplied writer-only lease. Context metadata matches session/model/branch/worktree and pinned HEAD; initial tree/index clean. Only the two leased source paths and this report namespace are writable. Actual final session/upstream/latest-state acceptance remains supervisor-owned."
+  },
+  "mergeAndRepairDetails": "No merge needed: checkout began at the exact dependency. Only four identifier replacements: one method declaration and its three lifecycle call sites. No method body, property, tests, generated nonFcm outputs, other checkout, archived evidence, state or controls changed. Supervisor must integrate this small patch with the concurrent ping writer before pinning the fresh execution candidate.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "git diff -- androidApp/src/main/kotlin/org/asyncttwiz/android/TableHistoryController.kt androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/source-diff.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/whitespace.json"
+    },
+    {
+      "kind": "required",
+      "command": "Static changed-path ownership comparison against report.changedPaths; exact python argv retained in evidence",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/ownership.json"
+    }
+  ],
+  "toolDiagnostics": [
+    {
+      "command": "git status --short && git rev-parse HEAD && git branch --show-current && git diff --cached --name-only",
+      "output": "Permission denied: shell",
+      "resolution": "Combined preflight rejected before execution; individual allowed read-only Git commands succeeded. No permission changes or bypass."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "ESP-ANDROID-FOREGROUND-JVM-CLASH-001",
+      "status": "SOURCE-REPAIRED-UNVERIFIED",
+      "failingTask": ":androidApp:compileDebugKotlin",
+      "originalExecutorReport": "aa89cf09:docs/agent/implementation-runs/managed-20261023-exec-spine-01.json",
+      "commandEvidence": "aa89cf09:docs/agent/implementation-runs/managed-20261023-exec-spine-01/affected-pass.json",
+      "diagnostic": "CONFLICTING_JVM_DECLARATIONS: foreground's generated property setter and explicit setForeground(Boolean) have identical JVM signature setForeground(Z)V.",
+      "likelyOwningTask": "Final history-ui-spine indexed-token normal-host/rotation-retained foreground integration amendment",
+      "sourcePaths": ["androidApp/src/main/kotlin/org/asyncttwiz/android/TableHistoryController.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt"],
+      "classification": "Shared Android normal-UI integration seam; mechanically local API rename.",
+      "dependenciesAndOverlap": "TableScreen overlaps the concurrent ping writer on the same pinned base. Supervisor merges this bounded rename, then dispatches a fresh executor on the saved connected candidate. Do not edit generated nonFcm outputs or repeat unchanged green protocol/server/storage/reset/E2E scopes.",
+      "freshAssignment": "Fresh executor must first compile the repaired Android production source through the blocked tasks below, execute the identical six Android selector entries, and compile instrumentation Kotlin. This writer does not certify the fix.",
+      "narrowRerunCommand": "./scripts/gradle.sh --no-daemon --max-workers=2 :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ProjectionLinkRuntimeTest --tests org.asyncttwiz.android.TokenSearchTest.asyncLoadingPagingEmptyAndImmediateExactOnceSelectionUseOnePanelState --tests org.asyncttwiz.android.TableToolkitWiringTest.actualNormalHistoryArmFlowsThroughLibraryMoveDefaultsAndEverySubsequentOriginalWithoutAckBarrier --tests org.asyncttwiz.android.HistoryUiSpineTest --tests org.asyncttwiz.android.HistoryRuntimeIntegrationTest.stalePreviousPlayRevisionCannotInvalidateNewerAcceptedCacheOrStartObsoleteRecovery --tests org.asyncttwiz.android.ActivityRuntimeIntegrationTest.normalLobbyColdWarmRouteUsesExactAuthorizedBoundaryAndNoReplacementCommands :androidApp:compileDebugAndroidTestKotlin",
+      "deferredStatus": "All six Android selectors and instrumentation Kotlin compilation remain UNEXECUTED here; previous compilation blocker is not certified resolved. No independent second product failure inferred."
+    }
+  ],
+  "remainingOwners": [
+    {"owner": "Supervisor", "scope": "Merge with connected ping writer, pin saved candidate and enqueue the exact blocked Android scopes; own actual session/upstream/latest-state acceptance."},
+    {"owner": "Fresh Android executor/independent verifier", "scope": "Run the narrow rerun command and independently verify ESP-ANDROID-FOREGROUND-JVM-CLASH-001; prior activity, stale-revision, SQLite-factory and token/history assertions remain UNVERIFIED."},
+    {"owner": "Existing native/privacy/capability/release owners", "scope": "Native lifecycle/resource-wrapped journeys, privacy risk investigation, final suites, independent capability reviews and release gates remain outside this source-only unit."}
+  ],
+  "statePolicy": "Custom code artifact only. State/controls/archived evidence remain byte-identical; no application validators, transitions, self-review or self-verification.",
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableHistoryController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/source-diff.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/ownership.json"
+  ]
+}

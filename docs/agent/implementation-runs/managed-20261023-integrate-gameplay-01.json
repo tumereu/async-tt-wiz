@@ -1,0 +1,182 @@
+{
+  "runId": "managed-20261023-integrate-gameplay-01",
+  "sessionID": "ses_e98a4b240ffeqny9X3VZ3Xj6Rx",
+  "startCommit": "f17dbc8e2df3d24b42577b1f028b807844b7fe31",
+  "baseCommit": "f17dbc8e2df3d24b42577b1f028b807844b7fe31",
+  "workerCommits": ["dc0eee9b13fcb07310cf26e14dd9e5d1b787a936"],
+  "candidateCommit": "1eada1ba684246ec30df63e81adb2b169ceb3cb6",
+  "candidateTree": "e06a382396dbaec7a97f98caa66ada2bf242504b",
+  "candidateParents": [
+    "f17dbc8e2df3d24b42577b1f028b807844b7fe31",
+    "dc0eee9b13fcb07310cf26e14dd9e5d1b787a936"
+  ],
+  "mode": "integration",
+  "target": "candidate-real-gameplay",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Saved normal two-parent merge of exact full I13 into the Canvas/session/manual base. Real guarded movement and manual actions execute through one shared processor, one durable FIFO and one relational/export store; production GameSession uses its existing accepted-replica path. New controlled-delivery session and real PostgreSQL/HTTP seams pass. Candidate enables I16 wiring, not task acceptance, independent verification or release completion.",
+  "selectionReason": "Explicit integration-only dispatch to remove the intermediate MoveCard stub and reconcile I13 with pinned I14/I15/I17 inputs, without waiting for unrelated lanes or importing the unready I23 tree candidate.",
+  "lease": {
+    "context": "/tmp/opencode/managed-20261023-integrate-gameplay-01/context.json",
+    "branch": "managed/managed-20261023-integrate-gameplay-01",
+    "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-integrate-gameplay-01",
+    "model": "openai/gpt-6.1-sol#high",
+    "modelEvidence": "Supplied serverCreatedMetadata identifies this session, provider openai, model gpt-6.1-sol and variant high; supplied context pins the exact owned paths and dependencies. Initial HEAD and empty index/worktree matched the base.",
+    "resources": ["isolated-host-tests", "owned-testcontainers"],
+    "scope": "Only leased code/tests, immutable worker-merge inputs and this run's report/output. No other checkout, live journal, controls, task/finding/review/proposal/state changes or application validators."
+  },
+  "conflictRepairs": [
+    {
+      "paths": ["protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt"],
+      "result": "Replaced MoveCard stub with full worker engine: source placement/edge, empty position, pile identity/capacity, ordered gap and semantic Stack digest guards; preserved logical grid indexes. Retained every I17 Manual action and route, and I13 arbitrary signed integer life arithmetic and explicit ClearCardCounter constituent. Removed duplicate ResetCorner declaration/implementation: the single existing Manual Reset reads current face, uses blank fallback and records concrete output. Movement cleanup remains separate ordinary requests, not hidden field effects."
+    },
+    {
+      "paths": ["protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt"],
+      "result": "Combined movement destination-size/Stack transition fields with I17 typed GameplayRead, all manual fields and disclosures. Preserved Manual accepted-tuple replay, isolated viewing groups and I13 Stack grouping. Extended the imported inverse helper to retain every supported manual field/read; no tree/control/Undo selection implementation. Updated the conflicting I13 Reset assertion explicitly to the pinned I17 concrete-output semantics, including changed-default replay and changed-face refusal; successful live Reset, movement replay and inverse assertions remain."
+    },
+    {
+      "paths": [
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt"
+      ],
+      "result": "Unified add/add GameplayStore as one class for relational save/history and existing account-scoped immutable baseline exports. GameService uses that same instance for both, with mutations committed inside the existing game-locked FIFO transaction before revision/result/outbox. HTTP retains baseline, manifest/chunk, result and revision routes plus relational history. No duplicate processor or alternate write ingress."
+    },
+    {
+      "paths": ["server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java"],
+      "result": "Codegen compares actual resolved version/checksum metadata against applied migrations after migrate and strict validate, rather than hard-coding a migration count or treating pending-count alone as resolution. Executed real disposable PostgreSQL generation successfully. Existing forward SQL is untouched and V11 is byte-identical to exact worker input."
+    }
+  ],
+  "sourcePaths": [
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ManualEdits.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+    "server/src/main/resources/db/migration/V11__gameplay_mutations.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "docs/design/03-contracts/game-actions.md"
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.GameplayTest --tests org.asyncttwiz.protocol.GameplayHistoryTest --tests org.asyncttwiz.protocol.GameWireTest --tests org.asyncttwiz.protocol.ManualEditsTest --tests org.asyncttwiz.protocol.GameplaySyncTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest --tests org.asyncttwiz.android.GameplaySessionTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.ManualActionsTest :server:test --tests org.asyncttwiz.server.game.GameplayReplicaIntegrationTest --tests org.asyncttwiz.server.game.GameplayTest --tests 'org.asyncttwiz.server.game.GameplayDurabilityTest.ordered*' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/combined-check.json",
+      "outputSha256": "6aae6d15f8b8dacb8234f6616e492e7720903ed7ecddb9ef759289f9611b5a14",
+      "result": "Shared task passed 27 tests; subsequent new Android test compilation failed on inferred recursive property type and cross-module nullable smart cast. Fixed by explicit GameSession type and non-null assertion. Server task had not run."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest --tests org.asyncttwiz.android.GameplaySessionTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.ManualActionsTest :server:test --tests org.asyncttwiz.server.game.GameplayReplicaIntegrationTest --tests org.asyncttwiz.server.game.GameplayTest --tests 'org.asyncttwiz.server.game.GameplayDurabilityTest.ordered*' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/host-server-check.json",
+      "outputSha256": "c381b63b912c5ef2c003dd77ec84ec2b164d24107749934239a19973599cc67f",
+      "result": "All 18 selected host tests passed. Real schema generation and production server compilation passed. New server seam test compilation failed on an extra parenthesis in HTTP manifest decode; corrected only that expression. No host rerun was needed."
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.game.GameplayReplicaIntegrationTest --tests org.asyncttwiz.server.game.GameplayTest --tests 'org.asyncttwiz.server.game.GameplayDurabilityTest.ordered*' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/server-check.json",
+      "outputSha256": "bdfe0cfb007bc74ad46a663ed3a55856f36ecf12a3d36b2170ab11f37eda42b8",
+      "result": "Three real PostgreSQL checks pass: combined FIFO/manual/relational/baseline seam after runtime restart, existing ordered durable mutation seam, and two authenticated socket + HTTP gameplay/Stack seam. All three owned containers and volumes cleaned."
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.ManualEditsTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/manual-inverse-check.json",
+      "outputSha256": "7615872d89d37c2a6f9e7e8354e65e7309fb034328726729fe89540864c8fbaf",
+      "result": "Eight focused manual tests pass after adding inverse assertions alongside existing replay checks for every successful supported manual field/read/disclosure operation. Test-only addition does not invalidate preceding host/server or other shared evidence."
+    }
+  ],
+  "executedCoverage": {
+    "protocol": "27 tests in five selected suites, plus eight focused manual inverse recheck executions. Exact XML retained in protocol-junit.json and manual-inverse-junit.json. Shared phase succeeded inside a diagnostic whole invocation; its later compile failure is not reported as a pass.",
+    "host": "18 tests in GameplayMoveIntegrationTest, GameplaySessionTest, GameplayReplicaTest and ManualActionsTest. New seams use actual GameSession/GameplayReplica/GameplayRules with controlled wire delivery: multiple inflight movement/manual requests, result-before-state, no endpoint rewind, baseline original correlation, rejected earlier captured move, withdrawn later prediction and subsequent authoritative success without dropping its original. Exact XML in host-junit.json; the later server test compile failure remains diagnostic.",
+    "server": "Three tests use real PostgreSQL and actual GameService FIFO. New seam exercises guarded later TOP after failed earlier TOP, shared prediction equality, note/player counter/cover/inspection/Reset read/disclosure tuples, actual relational mutation count/history/replay, original retry, and restarted HTTP manifest/chunk/results/revisions consistency. Existing socket test also checks semantic Stack rejection and real authenticated delivery. Exact XML in server-junit.json.",
+    "schema": "Actual generateJooq succeeded against resolved/checksummed versions 1 through 9 and 11 with strict migration validation; no nonexistent V10/count assumption. Pinned image postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27; owned codegen container and volume removed."
+  },
+  "integrityEvidence": [
+    {
+      "path": "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/evidence-check.json",
+      "exitCode": 0,
+      "outputSha256": "3a36510bf1856c79d832ef838b18cda7d61dc0e17e910c51e085364a7e3d357b",
+      "scope": "Exact retained XML/base64 hashes and captured output hashes; all 56 test executions across the four JUnit records have zero failures/errors/skips. This is retained-evidence inspection, not a new product execution or replacement framework. Exact command argv is in this capture."
+    },
+    {
+      "path": "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/integrity-check.json",
+      "exitCode": 0,
+      "outputSha256": "30094dc06d7056e57b8842f07a94995eaf2f6c7d374121662186398a7f4fd19e",
+      "scope": "Pre-save exact base/MERGE_HEAD, owned changed paths, unchanged authoritative state, immutable I13 report/check bytes and original forward migrations including exact worker V11. Exact command argv is in this capture."
+    }
+  ],
+  "reusedInputs": [
+    {"commit": "dc0eee9b13fcb07310cf26e14dd9e5d1b787a936", "record": "docs/agent/implementation-runs/managed-20261023-i13-01.json", "scope": "Full worker code and original evidence retained byte-for-byte; unchanged late transaction rollback/restart and V9-forward migration evidence reused, not freshly rerun. Affected shared, FIFO/socket and combined baseline seams executed here."},
+    {"commit": "f17dbc8e2df3d24b42577b1f028b807844b7fe31", "scope": "Saved I14 actual session/baseline, I15 Canvas and I17 manual candidate. Unchanged native/Canvas and baseline chunk/lifecycle evidence not rerun or promoted. Existing host session/replica/manual assertions were affected by the processor merge and ran here."}
+  ],
+  "limits": [
+    "Integration code candidate only. No proposal, task/finding/review/state transitions or application validators. Supervisor owns latest-state acceptance and metadata/upstream reconciliation.",
+    "Runtime merge repairs require a later fresh independent verification session; this run neither self-reviews nor self-verifies.",
+    "I16 owns actual table UI wiring and native table journey; existing GameSession and accepted-replica production sources were not modified. No devices, deployment, paid resources, broad suites, clean builds, new framework, future tree or Undo implementation.",
+    "Final affected qualification, independent capability reviews and release gates remain with supervisor/I34/I36. Existing manual arithmetic limits remain unchanged; this integration preserves I13 life arithmetic and I17 manual field semantics rather than expanding unrelated numeric policy.",
+    "candidateCommit is the already saved/pushed two-parent code/evidence merge. This report is a subsequent report-only commit; its own final HEAD is returned externally rather than claiming a self-referential hash."
+  ],
+  "changedPaths": [
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMoveIntegrationTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i13-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/gameplay-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/interfaces.md",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/placement-replay-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/placement-replay-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/reducer-failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/reducer-failed-recheck-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/reducer-server-compile.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/reducer-server-fixed.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/reducer-server-recheck.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/scope.md",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/server-affected-recheck.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/server-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/server-failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/server-recheck-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i13-01/state-unchanged.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/combined-check.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/evidence-check.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/host-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/host-server-check.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/integrity-check.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/manual-inverse-check.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/manual-inverse-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/merge-diagnostic.txt",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/report-check.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/server-check.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-gameplay-01/server-junit.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameWireTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayHistoryTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualEditsTest.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+    "server/src/main/resources/db/migration/V11__gameplay_mutations.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameStartTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameplayDurabilityTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameplayReplicaIntegrationTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameplayTest.kt"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.LibraryActionsTest.xml": {
+    "sha256": "4784451849e80542860135c503886417b1f09d17e75de3615bb454fd3f9eaf3f",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkxpYnJhcnlBY3Rpb25zVGVzdCIgdGVzdHM9IjEiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwODowOTo1Ni4xMjVaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjA0OCI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJkZXN0aW5hdGlvbkludmVudG9yeUhhc0xpYnJhcnlPcmRlckFuZEV4cGxpY2l0QmF0dGxlZmllbGRTdGFja1dpdGhvdXRTaWRlYm9hcmQiIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5MaWJyYXJ5QWN0aW9uc1Rlc3QiIHRpbWU9IjAuMDQ0Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "org.asyncttwiz.android.LibraryActionsTest",
+      "tests": "1",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T08:09:56.125Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.048"
+    }
+  },
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.TableToolkitWiringTest.xml": {
+    "sha256": "50d00a0a580b9d0bbd3ae19da8a0c148643a58db1a80552cffee46f25d0c098e",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLlRhYmxlVG9vbGtpdFdpcmluZ1Rlc3QiIHRlc3RzPSIyIiBza2lwcGVkPSIwIiBmYWlsdXJlcz0iMCIgZXJyb3JzPSIwIiB0aW1lc3RhbXA9IjIwMjYtMTAtMjNUMDg6MDk6NTYuMTgwWiIgaG9zdG5hbWU9IkRFU0tUT1AtQjJLQUxWTSIgdGltZT0iMC4xNDUiPgogIDxwcm9wZXJ0aWVzLz4KICA8dGVzdGNhc2UgbmFtZT0icXVpY2tEcmF3Q2FwdHVyZURvZXNOb3RSZXBsYWNlVG9wQWZ0ZXJPcHBvbmVudE1vdmVBbmRTdGlsbEFkdmFuY2VzUmVsYXRpdmVseSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLlRhYmxlVG9vbGtpdFdpcmluZ1Rlc3QiIHRpbWU9IjAuMTIiLz4KICA8dGVzdGNhc2UgbmFtZT0ibG9jYWxSZWZ1c2FsUmV0YWluc0xhdGVyT3JpZ2luYWxDb25zdGl0dWVudHNBbmROZXZlclJlZmlsbHNPclJlc2V0c1VubW92ZWRDYXJkIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LmFuZHJvaWQuVGFibGVUb29sa2l0V2lyaW5nVGVzdCIgdGltZT0iMC4wMjUiLz4KICA8c3lzdGVtLW91dD48IVtDREFUQVtdXT48L3N5c3RlbS1vdXQ+CiAgPHN5c3RlbS1lcnI+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tZXJyPgo8L3Rlc3RzdWl0ZT4K",
+    "tests": {
+      "name": "org.asyncttwiz.android.TableToolkitWiringTest",
+      "tests": "2",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T08:09:56.180Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.145"
+    }
+  }
+}

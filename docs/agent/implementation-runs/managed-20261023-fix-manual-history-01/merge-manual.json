@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import subprocess; subprocess.run([\"git\", \"add\", \"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\", \"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\", \"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt\"], check=True); subprocess.run([\"git\", \"diff\", \"--cached\", \"--check\"], check=True); subprocess.run([\"git\", \"commit\", \"-m\", \"Update project\"], check=True)"
+  ],
+  "exitCode": 0,
+  "outputSha256": "6bdc7735fde8b921ead19c902b9b27ae9a93cf4958850c1eac4435164f786844",
+  "output": "[managed/managed-20261023-fix-manual-history-01 a4da17f] Update project\n"
+}

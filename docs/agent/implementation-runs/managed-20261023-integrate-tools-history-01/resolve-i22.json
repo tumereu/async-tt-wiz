@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import subprocess; paths=[\"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\",\"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\",\"protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt\",\"androidApp/src/main/kotlin/org/asyncttwiz/android/HistoryTimeline.kt\",\"protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryGroupingTest.kt\",\"protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TableActionsTest.kt\",\"protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/LibraryTurnHistoryIntegrationTest.kt\"]; subprocess.run([\"git\",\"add\",*paths],check=True); subprocess.run([\"git\",\"diff\",\"--cached\",\"--check\"],check=True); subprocess.run([\"git\",\"commit\",\"-m\",\"Update project\"],check=True)"
+  ],
+  "exitCode": 0,
+  "outputSha256": "ba3a04cf961f6fb4813b85a6a1ea1ec5da17b33dcfae268e71a1541738387b64",
+  "output": "[managed/managed-20261023-integrate-tools-history-01 62a5064] Update project\n"
+}

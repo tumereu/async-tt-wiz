@@ -18,13 +18,36 @@ import xml.etree.ElementTree as ET
 from e2e import devices as d, device_app as a, device_routes as r, device_session as s, environment as e
 
 
-def pair(first, second):
-    d.require(first['owner'] != second['owner'], 'Distinct peer owners required')
-    for value, peer in ((first, second), (second, first)):
-        d.require(not (Path(peer['directory']) / 'cleaned.json').exists(), 'Cleaned peer refused')
-        d.check_windows(peer, d.windows(peer, 'snapshot'))
+def pair_owned(*values):
+    """Replace discovery inventories with exactly the other members of this owned set.
+
+    The same lifecycle caller must hold d.lock(), supply all loaded instances and
+    retain responsibility for their provision/wait/use/cleanup. This grants only
+    read-only peer discovery, never peer actions, routes or session ownership.
+    """
+    d.require(len(values) >= 2, 'At least two owned peers required')
+    d.require(len({value['owner'] for value in values}) == len(values), 'Distinct peer owners required')
+    d.require(len({value['directory'] for value in values}) == len(values), 'Distinct peer directories required')
+    ports = set()
+    for value in values:
+        d.require(d.load(d.directory_path(value['directory'])) == value, 'Changed owned device identity/configuration')
+        d.require(not (Path(value['directory']) / 'cleaned.json').exists(), 'Cleaned peer refused')
+        member_ports = {value['config'][key] for key in ('adbPort', 'consolePort', 'appiumPort', 'systemPort')}
+        member_ports.add(value['config']['consolePort'] + 1)
+        d.require(not ports & member_ports, 'Overlapping owned device ports refused')
+        ports.update(member_ports)
+    # No inventory is published until every exact identity/config and live Windows
+    # snapshot passes, including the last member. Never build a set by repeated pairs.
+    for value in values:
+        d.check_windows(value, d.windows(value, 'snapshot'))
+    for value in values:
         d.write_json(Path(value['directory']) / 'observed-peers.json', {'owner': value['owner'], 'peers': {
-            'emulator-' + str(peer['config']['consolePort']): {'owner': peer['owner'], 'directory': peer['directory']}}})
+            'emulator-' + str(peer['config']['consolePort']): {'owner': peer['owner'], 'directory': peer['directory']}
+            for peer in values if peer['owner'] != value['owner']}})
+
+
+def pair(first, second):
+    pair_owned(first, second)
 
 
 def observe(value):

@@ -1,0 +1,117 @@
+{
+  "runId": "managed-20261023-verify-manual-01",
+  "sessionID": "ses_e98aeba7affe2gGBly6sFzUq2y",
+  "startCommit": "30fb1a84918d8597815af89679717be0d08e3737",
+  "inspectedCommit": "30fb1a84918d8597815af89679717be0d08e3737",
+  "dependencyCommits": ["30fb1a84918d8597815af89679717be0d08e3737"],
+  "mode": "integration-verification",
+  "target": "verify-manual-candidate",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "disposition": "changes-requested",
+  "summary": "Independent targeted verification of the exact saved manual/token/link candidate: five new seam tests pass, one current-contract grouping regression fails. Dispatch, nullable tuples, current-source Clone, disclosure context, cleanup/link inverse and cross-family guards pass the bounded checks. Explicit inspection incorrectly splits a pending tap-only group. Retained the failing regression and exact diagnostics; no runtime repair or application transition. Not full B5 review or release qualification.",
+  "selectionReason": "Explicit fresh independent verifier lease for the saved integration repairs. Inspect existing 37-test/APK evidence and test missing combined seams instead of repeating broad green suites or rebuilding an unchanged APK.",
+  "preflight": {
+    "cleanStart": true,
+    "branch": "managed/managed-20261023-verify-manual-01",
+    "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-verify-manual-01",
+    "authorization": "D-304/D-309 and supplied integration-only independent verification dispatch; no implementation, merge or application-state authority.",
+    "leaseContext": "/tmp/opencode/managed-20261023-verify-manual-01/context.json",
+    "resourceBundle": ["isolated-host-tests"],
+    "model": "openai/gpt-6.1-sol#high",
+    "metadataLimit": "Supplied server-created metadata/context matches this session, model, branch, source anchor and writable test/report namespace. Live lease, session-idle/model and latest-state acceptance remain supervisor-owned; no common journal/control changes or independent claim of live server metadata lookup.",
+    "ownership": "Only ManualTokenLinkVerificationTest.kt plus this report and fresh run-owned evidence. Runtime/build/resource inputs, all historical records and authoritative state/controls remain byte-identical. No devices/services, deployment, subagents, next unit, proposals or application validators."
+  },
+  "scope": [
+    {"path": "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt", "lines": "54-122", "disposition": "bounded-pass", "checked": "Manual and token/link actions share the sole validated processor/record path; stable request-derived node/branch/token/pile identity; token disappearance dispatch preserved. Ordinary I13 movement remains deliberately incomplete, not qualified."},
+    {"path": "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt", "lines": "28-59", "disposition": "changes-requested", "checked": "Creation/customization across Create, note, Clone and counter preserves creation group. Manual versus token/link replay and exact transition comparison pass. Creation/inspection/edit and repeated inspection boundaries pass. Pending tap-to-inspection boundary fails current contract; see issue below."},
+    {"path": "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ManualEdits.kt", "lines": "69-154", "disposition": "bounded-pass", "checked": "Actual nullable card/player counter tuples distinguish absence from zero and remove to null; independent note/life preserved; Reset reads current face and replays accepted output without new defaults; inspection keeps face/recipient/region and blocks changed region; token, link, Clone, token-move and movement cross-effects reject without partial state."},
+    {"path": "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TokensAndLinks.kt", "lines": "38-190", "disposition": "bounded-pass", "checked": "Clone reads current note/defaults; changed relevant source blocks recorded replay while owner-only changes do not. Clone inverse with legitimate CloneRead succeeds. Remove/disappearance atomically clean incident links, retain unrelated links/fields, and invert exact original identity/location/link data; legitimate TokenMoveRead remains supported. Link-only inverse rejects manual reads/disclosures/fields."}
+  ],
+  "checks": [
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/inspection.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/inspection.json",
+      "summary": "Inspected actual original integration outputs, including failed merge/provenance diagnostics and successful affected check. Verified lossless output hashes, exact pinned evidence bytes, source content identity, preserved worker report/check hashes and embedded JUnit bytes/attributes/names (37 tests). No old pass relabeled as fresh execution. Retained original APK assembly/hash evidence inspected; APK absent from this worktree and not rehashed or rebuilt."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :protocol:jvmTest --tests org.asyncttwiz.protocol.ManualTokenLinkVerificationTest",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/focused-check.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json"],
+      "summary": "Six independent tests executed; five pass, one fails with precise pending tap/inspection group-ID mismatch. No compilation/infrastructure error, skipped test or runtime fix. This is a red reproduction, not a passing required product check. No broad suite or APK task was run."
+    },
+    {
+      "kind": "required",
+      "command": "python3 scripts/implementation-evidence.py retain-junit docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.ManualTokenLinkVerificationTest.xml",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/retain-junit.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json"],
+      "summary": "Lossless fresh XML retention including failure message/stack, exact test names, counts, SHA-256 and base64 bytes; not a product test pass."
+    },
+    {
+      "kind": "diagnostic",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary-diagnostic.json#/command",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary-diagnostic.json",
+      "summary": "Initial artifact check incorrectly required git diff --no-index --check to return zero for new files; it returns one for differing files with no whitespace diagnostics. Earlier source/lease/evidence/JUnit assertions passed. Fresh corrected artifact check follows; no test/runtime change or rerun."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary.json",
+      "summary": "Exact changed-path lease boundary, whitespace, pinned source/control/history bytes and fresh evidence/JUnit integrity. No application validation or state transition."
+    }
+  ],
+  "executedAssertions": [
+    {"test": "nullableTuplesAndResetReplayPreserveIndependentCurrentFields", "result": "passed", "scope": "Card/player red counter null-to-1 and 1-to-null, zero mismatch blocks, remote note/life survive; current back-face Reset records 4/5 and face read, original face blocks replay, missing live defaults do not recalculate accepted output."},
+    {"test": "currentSourceCloneAndCreationCustomizationKeepOriginalIdentity", "result": "passed", "scope": "Blank Create -> note -> Clone -> counter remains one four-member creation group; deterministic original node/request/branch/token/pile identities; changed live source note copied by new command, recorded Clone blocks changed note, owner-only change permits replay, CloneRead-compatible inverse and missing source rejection."},
+    {"test": "inspectionRetainsFaceRecipientAndRegionAndSeparatesCreationAndEdits", "result": "passed", "scope": "Explicit back-face inspection on other-owned card in actor region edits no board state; recipient remains actor; creation, repeated view and following edit stay separate; moved-region replay blocks."},
+    {"test": "cleanupAndLinkInversePreserveUnrelatedEditsAndLegitimateMoveRead", "result": "passed", "scope": "Mixed card/player undirected Link no-op, token Remove and Exile disappearance capture exact token and incident links, leave destination/unrelated link intact, inverse restores exact token/link IDs while retaining remote note/life; explicit link removal inverse and legitimate destination read supported."},
+    {"test": "familyGuardsRejectEveryUnsupportedEffectWithoutApplyingPartialWork", "result": "passed", "scope": "Manual replay rejects lifecycle/link/CloneRead/TokenMoveRead/movement effects; link inverse rejects manual reads/disclosures/fields, returning no partial state."},
+    {"test": "explicitInspectionAnchorsPendingTapRunUnderCurrentGroupingContract", "result": "failed", "scope": "Both mutations accept and individually replay, but inspection gets a different group ID. Later count/category/following-edit assertions in this test are not reached; separate passing inspection test covers following-edit separation."}
+  ],
+  "issues": [
+    {
+      "disposition": "actionable-repair-request",
+      "title": "Explicit inspection incorrectly splits a same-author pending tap-only group",
+      "codeAnchor": "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt:38-44",
+      "origin": "The unconditional category != view guard already exists in first-parent I17 at ceb3de09b186b449c2b74217064ee5d3907d60e9. It survives the combined grouping repair; this is not evidence that the merge introduced the bug. The historical integration report's before-and-after singleton wording is overbroad relative to the current grouping contract and is preserved unchanged.",
+      "reproduction": "On one path, same actor: SetTapped(card,true), then InspectFace(card,backFace,sameRegion). Both commands accept. Run the exact retained focused check or filter explicitInspectionAnchorsPendingTapRunUnderCurrentGroupingContract.",
+      "expectedCurrentBehavior": "The tap-only pending segment accepts the V inspection as its substantive anchor: preserve first group's ID/start, category view, count 2. A prior completed creation/edit or prior V still forces a separate inspection anchor; following edit remains separate. V is not the strict singleton S ending-suggestion exception.",
+      "actual": "Expected original tap group ID 2ddf1834-bb84-5a4f-bed4-dce0b30c64d4; got new inspection group ID 5f7434b0-199d-59f1-8379-b6b0c3024407. The unconditional category != view condition prevents the otherwise eligible pending tap join.",
+      "contracts": ["docs/design/03-contracts/history-grouping.md:154-180 (rules 2, 3 and 5)", "docs/design/05-verification/grouping-matrix.md:59-68 (T -> V is +; completed C/E/V -> V is |)"],
+      "credibleTriggerAndPlayerHarm": "Normal same-player tap/untap followed by explicit other-side inspection produces an extra playback/navigation step rather than one anchored group. This is a required grouping discrepancy; no data loss, privacy leak or current ping corruption is claimed.",
+      "checkableRepair": "Fresh fixing session should permit V to fill a same-author pending tap-only segment without absorbing completed anchors or another V. Keep this failing regression and the passing creation/inspection/edit tests, then obtain fresh independent targeted verification. Do not make all V operations join, remove disclosure records or weaken the expected contract.",
+      "evidence": ["docs/agent/implementation-runs/managed-20261023-verify-manual-01/focused-check.json", "docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json"],
+      "owner": "Supervisor dispatches fresh fix and subsequent fresh verifier; no application finding ID or transition invented here."
+    }
+  ],
+  "sourceTraceability": [
+    {"ids": ["I17", "T-111", "T-126", "T-588"], "sources": ["docs/design/03-contracts/history-and-undo.md:118-148", "docs/design/03-contracts/operation-composition.md:34-56", "docs/design/05-verification/acceptance.md:158-173,644"], "limit": "Shared reducer/replay tuple and Reset assertions only; not whole native scenarios."},
+    {"ids": ["I19", "T-158", "T-160", "T-162", "T-165", "T-167", "T-589", "T-594", "T-595"], "sources": ["docs/design/03-contracts/domain-model.md:375-405", "docs/design/03-contracts/history-and-undo.md:537-558", "docs/design/05-verification/acceptance.md:204-214,645,650-651"], "limit": "Current shared source/identity/lifecycle/link assertions only; no projection, server dedup/recovery, UI or eligible Undo/Redo certification."},
+    {"ids": ["D-251", "D-252", "D-254", "GM-09"], "sources": ["docs/design/03-contracts/history-grouping.md:143-219", "docs/design/05-verification/grouping-matrix.md:18-25,59-68,102", "docs/design/03-contracts/domain-model.md:291-297"], "limit": "Creation/customization and explicit inspection boundaries only; one reproduced required T/V boundary defect. IDs are traceability, not full executed requirement coverage."}
+  ],
+  "pendingQualification": [
+    {"owner": "Supervisor and fresh fix/verifier", "scope": "Resolve the reproduced grouping defect independently before an all-pass scoped handoff. Supervisor alone accepts/promotes the candidate/proposals against latest state and leases. This report applies no application transitions or finding/review certification."},
+    {"owner": "B5 independent capability reviewer", "scope": "First complete capability-group review is still pending; this targeted verification is not that review and checked no application review-unit IDs."},
+    {"owner": "I13, I17b, I19b, I21", "scope": "Accepted full movement/reset routes, actual table/controller/server admission/persistence/dedup/recovery/uncertain outcomes, source/projection normalization, combat cleanup and Stack last-live freeze, selection/editor cleanup and native two-client journeys remain incomplete. No prerequisite acceptance or parent closure."},
+    {"owner": "I22/I23, I34 and I36/B8", "scope": "Complete grouping and eligible selective Undo/Redo; final full-suite/fault/recovery qualification; both native orientations, pointer/IME/rotation/accessibility and complete mock/unpictured-interface review with independent discrepancy rechecks remain mandatory. No APK rebuild or device execution was warranted by this test-only verifier change."}
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/focused-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/inspection.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/retain-junit.json",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualTokenLinkVerificationTest.kt"
+  ]
+}

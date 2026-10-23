@@ -1,0 +1,663 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "acceptanceReady": false,
+  "qualification": "Integrated source candidate with corrected affected execution union; fresh independent runtime verification and application acceptance remain outstanding.",
+  "summary": "Imported actual Cancel/Delete/game-wide chat/V13 source and original evidence through an allowlisted immutable diff, preserving canonical state/controls and consolidation repairs. Normally merged the supervisor-added toolkit and committed-group activity pins. Reconciled one gameplay writer/replica, private terminal originals, immutable chat outside tree records, captured dialogs/Back, reachable toolkit/chat/result routes, and typed activity navigation versus removal. New SQL/session/controller seams pass; normal APK and instrumentation Kotlin compile. Retained every observed red invocation and narrow correction. No native, capability-review, policy or release completion is claimed.",
+  "selectionReason": "Explicit fresh integration lease closes CON-LIFECYCLE-IMPORT-AUTHORITY; two same-role supervisor amendments add saved ready source pins. Shared-file composition and missing compiler/runtime seams are checked together, without duplicating parallel history work or unchanged green child suites.",
+  "sourceIds": [
+    "I12",
+    "I12a",
+    "I12b",
+    "I27",
+    "I29",
+    "I17",
+    "I18",
+    "I19",
+    "I20",
+    "I21",
+    "I30"
+  ],
+  "strategy": {
+    "lifecycle": "SOURCE-ONLY, not ancestry merge: binary full-index diff a4b444e192776f5d165fb9188fc6e526f697620e..e84f93557cd5093858e499af5eb747650d70b99f restricted to exact leased product/test paths and I12a/I12b/I27/I29/integrate-lifecycle/verify-lifecycle report namespaces. Validated filenames before the explicitly authorized git apply --3way --index. No state restoration, reset, broad path replacement or old checkpoint application.",
+    "lifecycleInputs": [
+      "a4b444e192776f5d165fb9188fc6e526f697620e",
+      "e84f93557cd5093858e499af5eb747650d70b99f"
+    ],
+    "preservedBase": "58fa38eb8bc6a26e80d7b918931fd5efe80919b6",
+    "sourceCheckpoint": "33934d2",
+    "toolkitMergeCheckpoint": "aeeb7e0",
+    "normalMergePins": [
+      "a6bff156f3c9acb3c9b16e6694121030a197a3ca",
+      "919fd5110fcb849ae9094ea399279f109fe38c6e"
+    ],
+    "patchRetention": "applied-patch-bytes.json losslessly retains the exact patch bytes used by the authorized apply, with their original SHA256. Save rejected unchanged space-only diff context. lifecycle-source.patch is now the exact same allowlisted immutable binary diff generated with --unified=0; it was not applied again. Both hashes/commands are retained in save-patch-retention.json. No whitespace policy was weakened.",
+    "excluded": [
+      "docs/agent/implementation-state.json",
+      "scripts/implementation-progress.py",
+      "scripts/test-implementation-progress.py",
+      "all other canonical controls/helpers",
+      "accept-i12a/integrate-cancel/resync-cancel report namespaces"
+    ],
+    "oldCheckpoint": "58fa's lifecycle-resolution-checkpoint.patch was read only for conflict reasoning, never applied or represented as tested current source.",
+    "schema": "Original V13 source unchanged. Actual migrations are 1..9,11,13,14,15 only. Exact reset registry hashes already matched; retained e2e/environment.py byte-identical and extended consolidated fixtures to include actual chat. Generator retains checksum equality, exact discovered/applied versions, complete table union and LegacyGamePlayMutation matcher. No invented V10/V12 or rewritten SQL."
+  },
+  "preflight": {
+    "cleanStart": true,
+    "branch": "managed/managed-20261023-integrate-lifecycle-source-01",
+    "lease": "/tmp/opencode/managed-20261023-integrate-lifecycle-source-01/context.json",
+    "model": "openai/gpt-6.1-sol#high",
+    "modelEvidence": "Supplied serverCreatedMetadata pins openai/gpt-6.1-sol high; final actual server idle/model metadata remains supervisor-owned.",
+    "authorization": "D-304/D-309, exact source-only lifecycle command and same-role toolkit/activity amendments in supplied lease.",
+    "resources": [
+      "isolated-host-tests",
+      "owned-testcontainers"
+    ],
+    "isolation": "Separate assigned worktree/build outputs; ordinary owned PostgreSQL codegen/test containers record IDs, digest-pinned image and cleanup in retained outputs. No devices, shared backend reset, image build, subagents, deployment or paid resources."
+  },
+  "checks": [
+    {
+      "kind": "required",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/patch-allowlist.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/prepare-patch.py"
+      ],
+      "command": "python3 docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/prepare-patch.py",
+      "exitCode": 0
+    },
+    {
+      "kind": "diagnostic",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/apply-diagnostic.json",
+      "command": "git apply --3way --index docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch",
+      "exitCode": 1
+    },
+    {
+      "kind": "diagnostic",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-affected-01.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-01-junit.json"
+      ],
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.GameWireTest --tests org.asyncttwiz.protocol.CancellationTest --tests org.asyncttwiz.protocol.GameDeletionTest --tests org.asyncttwiz.protocol.ChatTest --tests org.asyncttwiz.protocol.GameResultLifecycleTest --tests org.asyncttwiz.protocol.PilePrefixInsertionTest :server:test --tests org.asyncttwiz.server.game.GameCancellationTest --tests org.asyncttwiz.server.game.GameDeletionTest --tests org.asyncttwiz.server.game.GameChatTest --tests org.asyncttwiz.server.game.GameSocketTest --tests 'org.asyncttwiz.server.game.GameStartTest.explicit V8 migration*' --tests org.asyncttwiz.server.game.GameResultLifecycleTest --tests org.asyncttwiz.server.game.GameplaySyncTest --tests org.asyncttwiz.server.game.GameplayMergeVerificationTest --tests org.asyncttwiz.server.game.PilePrefixInsertionTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.GameplaySessionTest --tests org.asyncttwiz.android.GameplayReplicaTest --tests org.asyncttwiz.android.LobbyControllerTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.GameCancellationTest --tests org.asyncttwiz.android.LobbyCancellationTest --tests org.asyncttwiz.android.SetupCancellationTest --tests org.asyncttwiz.android.LobbyCancellationUiTest --tests org.asyncttwiz.android.GameDeletionTest --tests org.asyncttwiz.android.LobbyDeletionTest --tests org.asyncttwiz.android.GameChatTest --tests org.asyncttwiz.android.ChatPresentationTest --tests org.asyncttwiz.android.LifecycleIntegrationTest --tests org.asyncttwiz.android.LifecycleVerificationTest --tests org.asyncttwiz.android.ResultActionsTest --tests org.asyncttwiz.android.R1ConsolidationTest --tests org.asyncttwiz.android.BasicTableControllerTest --tests org.asyncttwiz.android.TableActionWiringTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest :androidApp:assembleDebug --continue --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1
+    },
+    {
+      "kind": "required",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/reset-full.json",
+      "command": "python3 -m unittest discover -s tests -p test_environment_game_reset.py -v",
+      "exitCode": 0
+    },
+    {
+      "kind": "diagnostic",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/save-whitespace-diagnostic.json",
+      "command": "git diff --cached --check",
+      "exitCode": 2
+    },
+    {
+      "kind": "required",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/save-patch-retention.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/retain-applied-patch.py"
+      ],
+      "command": "python3 docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/retain-applied-patch.py",
+      "exitCode": 0
+    },
+    {
+      "kind": "diagnostic",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/merge-toolkit.json",
+      "command": "git merge --no-ff --no-commit a6bff156f3c9acb3c9b16e6694121030a197a3ca",
+      "exitCode": 1
+    },
+    {
+      "kind": "diagnostic",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-toolkit-02.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-02-protocol-junit.json"
+      ],
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests 'org.asyncttwiz.protocol.GameWireTest.gameplayScopesAndNestedIntentStayDistinctFromLifecycleAndTransport*' :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.TableToolkit*Test' --tests org.asyncttwiz.android.ManualActionsTest --tests org.asyncttwiz.android.ValueEditorTest --tests org.asyncttwiz.android.LibraryControllerTest --tests org.asyncttwiz.android.LibraryActionsTest --tests org.asyncttwiz.android.QuickActionsTest --tests org.asyncttwiz.android.TableActionControllerTest --tests org.asyncttwiz.android.BasicTableControllerTest --tests org.asyncttwiz.android.TableGesturesTest --tests org.asyncttwiz.android.TablePresentationTest --tests org.asyncttwiz.android.TableSelectionTest --tests org.asyncttwiz.android.CombatStackPresentationTest --tests org.asyncttwiz.android.TokenActionsTest --tests org.asyncttwiz.android.TokenLinkControllerTest --tests org.asyncttwiz.android.CardInspectionTest --tests org.asyncttwiz.android.TableActionWiringTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest --tests org.asyncttwiz.android.GameChatTest.headBeforeResultRetiresPendingPresentationAndStaleIncarnationNeverRetargets --tests org.asyncttwiz.android.LifecycleVerificationTest.switchingLifecycleContextsAndBackNeverDispatchesAndConfirmationKeepsCapturedScope :androidApp:compileDebugAndroidTestKotlin :androidApp:assembleDebug --continue --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1
+    },
+    {
+      "kind": "diagnostic",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/merge-activity.json",
+      "command": "git merge --no-ff --no-commit 919fd5110fcb849ae9094ea399279f109fe38c6e",
+      "exitCode": 1
+    },
+    {
+      "kind": "diagnostic",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-toolkit-activity-03.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-03-junit.json"
+      ],
+      "command": "./scripts/gradle.sh :server:test --tests 'org.asyncttwiz.server.game.GameChatTest.real chat board and result*' --tests org.asyncttwiz.server.activity.ActivityRuntimeIntegrationTest --tests 'org.asyncttwiz.server.game.GameDeletionTest.combined cancellation chat deletion*' :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.TableToolkit*Test' --tests org.asyncttwiz.android.ManualActionsTest --tests org.asyncttwiz.android.ValueEditorTest --tests org.asyncttwiz.android.LibraryControllerTest --tests org.asyncttwiz.android.LibraryActionsTest --tests org.asyncttwiz.android.QuickActionsTest --tests org.asyncttwiz.android.TableActionControllerTest --tests org.asyncttwiz.android.BasicTableControllerTest --tests org.asyncttwiz.android.TableGesturesTest --tests org.asyncttwiz.android.TablePresentationTest --tests org.asyncttwiz.android.TableSelectionTest --tests org.asyncttwiz.android.CombatStackPresentationTest --tests org.asyncttwiz.android.TokenActionsTest --tests org.asyncttwiz.android.TokenLinkControllerTest --tests org.asyncttwiz.android.CardInspectionTest --tests org.asyncttwiz.android.TableActionWiringTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest --tests org.asyncttwiz.android.GameChatTest.headBeforeResultRetiresPendingPresentationAndStaleIncarnationNeverRetargets --tests org.asyncttwiz.android.LifecycleVerificationTest.switchingLifecycleContextsAndBackNeverDispatchesAndConfirmationKeepsCapturedScope --tests org.asyncttwiz.android.ActivityRuntimeIntegrationTest.normalLobbyColdWarmRouteUsesExactAuthorizedBoundaryAndNoReplacementCommands --tests org.asyncttwiz.android.ActivityRuntimeIntegrationTest.typedActivityTargetAndDelayedRouteCannotRestoreCancelledOrDeletedChatAndDialogs --tests org.asyncttwiz.android.LobbyCancellationTest.remoteCancellationFencesStaleHttpAndLateAcceptOutcomeCannotNavigateOrResurrect :androidApp:compileDebugAndroidTestKotlin :androidApp:assembleDebug --continue --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1
+    },
+    {
+      "kind": "required",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/narrow-toolkit-04.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/narrow-04-junit.json"
+      ],
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.LibraryActionsTest.destinationInventoryHasLibraryOrderAndExplicitBattlefieldStackWithoutSideboard --tests org.asyncttwiz.android.TableToolkitWiringTest.quickDrawCaptureDoesNotReplaceTopAfterOpponentMoveAndStillAdvancesRelatively --tests org.asyncttwiz.android.TableToolkitWiringTest.localRefusalRetainsLaterOriginalConstituentsAndNeverRefillsOrResetsUnmovedCard --continue --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0
+    },
+    {
+      "kind": "required",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary-handoff.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary.py"
+      ],
+      "command": "python3 docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary.py",
+      "exitCode": 0
+    }
+  ],
+  "executionAccounting": {
+    "phase1": "125 executed: 18 protocol/1 failure, 26 server/0 failures, 81 Android/2 failures. Normal APK compiled. Three stale fixture assertions were retained and corrected narrowly; this invocation remains red.",
+    "phase2": "Corrected continuation assertion passes (1 protocol test). First actual toolkit Android compile fails at TableScene mutable delegate expressions; ALL selected Android host tests, instrumentation Kotlin and current toolkit APK are unexecuted in that invocation, not failed product assertions. Obsolete missing-SuggestResult compile repair was not duplicated.",
+    "phase3": "After Compose repair and activity merge: all 5 selected server assertions pass, including real chat/board/result/activity and private cancellation/deletion SQL/socket/HTTP seams; 110 Android tests execute with 3 stale fixture/inventory failures. Instrumentation Kotlin and normal combined APK compile successfully. Corrected lifecycle fixtures, new typed notification/removal regression and actual toolkit/controller/session tests execute here.",
+    "phase4": "Only three corrected toolkit assertions rerun, all pass. TOP-dependent refusal and independent MEMBER partial success both remain explicit; stale draw attempts preserve captured identity but do not fabricate an enqueued Move or replace the top card. No product source changed after phase3, so no APK or green broad-suite repetition.",
+    "reset": "All 17 focused reset Python tests pass after genuine V13 source import; real migration bytes, exact versions/stores/checksums and every retained dirty-store guard remain. Fixture-level execution, not a real reset/device journey.",
+    "limit": "Corrected affected execution union, NOT one green full-suite invocation, independent verification, requirement-ID coverage or native acceptance. Every red command and original JUnit bytes remain retained."
+  },
+  "integratedAssertions": [
+    "One GameService durable FIFO and GameplayStore writer, no PlayStore alternate apply. Chat and Delete/Cancel share the existing admission/result/outbox transaction. Canonical mutation SQL remains separate from retained legacy table.",
+    "One GameSession/GameplayReplica, accepted-revision old-head fence and baseline recovery. Private terminal final/pending/notAdmitted originals settle without new terminal intent, subscription/resend or board/chat resurrection. Monotonic lists and HTTP omission fences remain.",
+    "Actual multiline game-wide immutable chat is separately persisted/presented and retained on real result return. It advances transport revisions without creating board/tree mutations; baseline head carries chat separately and retained board record payloads strip chat. Interleaved baseline/tail chat and terminal late callback are tested.",
+    "Production setup Cancel and active Delete use exact captured game/round/play/actor and local dismiss/Back. Dialogs mounted once. Actual chat opens from header and mounted toolkit runtime hook; one Canvas coordinator handles basic/manual/Library/token/quick/combat/Stack routes with existing result authority.",
+    "Actual committed group activity creation remains inside the same GameService transaction; chat creates no invented gameplay group. Real group target resolves exact parent boundary, and result return yields truthful current fallback. New delayed typed activity route cannot restore cancelled/deleted game/chat/dialogs.",
+    "Consolidated result singleton/manual/default/PILE_GAP/Unicode semantics and reset adapter source are byte-identical. Exact V13 bytes, generated legacy matcher/table inventory and checksum guard are preserved."
+  ],
+  "reusedEvidence": [
+    {
+      "commit": "e84f93557cd5093858e499af5eb747650d70b99f",
+      "report": "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01.json",
+      "scope": "Original lifecycle child/integrator/verifier reports/checks imported byte-identically. Prior independent 12 targeted tests and original 81-case corrected union remain historical evidence only; current conflicts require a fresh verifier."
+    },
+    {
+      "commit": "a6bff156f3c9acb3c9b16e6694121030a197a3ca",
+      "report": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01.json",
+      "scope": "Original uncompiled Android checkpoint and green E2E source compilation retained. E2E source input unchanged since this pin, so no repeated E2E compilation. Current Android toolkit source/tests/instrumentation/APK are now compiled/executed as detailed above."
+    },
+    {
+      "commit": "919fd5110fcb849ae9094ea399279f109fe38c6e",
+      "report": "docs/agent/implementation-runs/managed-20261023-activity-runtime-01.json",
+      "scope": "32 original green child tests, exact report/check/JUnit bytes reused. Durable quiet2s/max10s client policy/worker/parser sources unchanged from child. Reran only changed GameService/typed Lobby overlap plus new integration assertions, not all 32 tests."
+    },
+    {
+      "commit": "58fa38eb8bc6a26e80d7b918931fd5efe80919b6",
+      "report": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01.json",
+      "scope": "Existing full-core/result/prefix/public-service/basic repairs remain. Reran affected lifecycle/wire/session/result/prefix inputs in phase1; reused other unchanged green child evidence. No clean/full-suite confidence rerun."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "LCS-TOOLKIT-COMPOSE-DELEGATE",
+      "status": "repaired-awaiting-fresh-independent-verifier",
+      "seam": "task-local toolkit compile plus shared Canvas mounting",
+      "failingTestOrCommand": ":androidApp:compileDebugKotlin in combined-toolkit-02.json: TableScene.kt:43-44 DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-toolkit-02.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-toolkit-activity-03.json"
+      ],
+      "likelyOwningTask": "I17-I21 toolkit source integration",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitWiringTest.kt",
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitGeometryTest.kt"
+      ],
+      "diagnosis": "Inline Elvis/remember mutable delegates did not supply a usable setter under Compose. Bind explicit typed MutableState locals, then delegate to those same retained holders; no replacement state/coordinator. Combined compile/host tests/instrumentation/APK subsequently execute.",
+      "dependenciesAndOverlap": "Blocks every Android host/instrumentation/APK task in phase2. Already repaired in phase3; do not spawn another obsolete SuggestResult fixer. TableScene/Screen overlap history mounting, so serialize source writers.",
+      "freshFixAssignment": "Fresh combined verifier inspects state retention, single coordinator and actual mounted callbacks. If incorrect, assign a fresh toolkit-only fixer; no runtime self-certification here.",
+      "narrowRerunScope": "Only changed toolkit geometry/retention/wiring and Android compilation if materially edited; no repeated broad green suite."
+    },
+    {
+      "id": "LCS-WIRE-CONTINUATION-FIXTURE",
+      "status": "corrected-fixture-awaiting-independent-check",
+      "seam": "shared protocol fixture versus existing explicit-continuation contract",
+      "failingTestOrCommand": "GameWireTest.gameplayScopesAndNestedIntentStayDistinctFromLifecycleAndTransport at line50 in combined-affected-01.json",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-01-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-02-protocol-junit.json"
+      ],
+      "likelyOwningTask": "I14/shared wire integration",
+      "sourcePaths": [
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt"
+      ],
+      "testPaths": [
+        "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameWireTest.kt"
+      ],
+      "diagnosis": "Old assertion expected explicit valid Play continuation to be invalid although base codec permits it. Assert valid explicit continuation plus invalid implicit continuation; retain malformed scope/transport and no continuation on lifecycle assertions. Narrow recheck passes.",
+      "dependenciesAndOverlap": "GameWire also carries new chat payload/play scope and Cancel preparation scope; retain every existing gameplay/result/control family.",
+      "freshFixAssignment": "Fresh combined verifier checks the corrected positive/negative wire assertions and union, not an independent new wire implementation.",
+      "narrowRerunScope": "GameWire continuation/scope case only if edited."
+    },
+    {
+      "id": "LCS-LIFECYCLE-REPLICA-FIXTURES",
+      "status": "corrected-fixtures-awaiting-independent-check",
+      "seam": "shared lifecycle/current full-replica integration",
+      "failingTestOrCommand": "GameChatTest.headBeforeResultRetiresPendingPresentationAndStaleIncarnationNeverRetargets; LifecycleVerificationTest.switchingLifecycleContextsAndBackNeverDispatchesAndConfirmationKeepsCapturedScope in combined-affected-01.json",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-01-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-03-junit.json"
+      ],
+      "likelyOwningTask": "I12/I27/I29 with I14 replica",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/GameChatTest.kt",
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/LifecycleVerificationTest.kt"
+      ],
+      "diagnosis": "Original stub fixtures omitted the actual root/record or jumped incarnations with an arbitrary content head. Supply coherent root, explicit return/new-play scope and same-incarnation non-board record before head. No weakened captured-ID/recovery/Delete assertion. Both corrected tests pass in phase3.",
+      "dependenciesAndOverlap": "Do not replace GameplayReplica with old PlayState map or remove accepted-revision head fence. Changes overlap result/head/history integration and must not be parallel-written.",
+      "freshFixAssignment": "Fresh runtime verifier inspects these fixture changes together with one-queue private original and chat/baseline conflict repairs; only reopen a fresh narrow fixer on new evidence.",
+      "narrowRerunScope": "Two named assertions plus materially changed chat/baseline/terminal session seams, not all 81 earlier host cases."
+    },
+    {
+      "id": "LCS-TOOLKIT-STALE-ASSERTIONS",
+      "status": "corrected-expanded-fixtures-awaiting-independent-check",
+      "seam": "task-local new toolkit fixtures versus existing shared prediction/source guards",
+      "failingTestOrCommand": "LibraryActionsTest.destinationInventoryHasOnlyLibraryOrderControlsAndNoSideboard; TableToolkitWiringTest.quickDrawCaptureDoesNotReplaceTopAfterOpponentMoveAndStillAdvancesRelatively; TableToolkitWiringTest.localRefusalRetainsLaterOriginalConstituentsAndNeverRefillsOrResetsUnmovedCard in combined-toolkit-activity-03.json",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-03-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/narrow-04-junit.json"
+      ],
+      "likelyOwningTask": "I18/I20 toolkit fixture composition",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/LibraryActions.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitController.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/LibraryActionsTest.kt",
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitWiringTest.kt"
+      ],
+      "diagnosis": "Extend exact destination inventory for actually implemented Battlefield EMPTY and Stack TOP routes. Distinguish attempted stale captured Move from successfully enqueued commands, with NextStep independent and no refill. Exercise both TOP-dependent refusal and MEMBER-independent partial success, retaining no-reset-on-unmoved-card and invocation assertions. Three narrow tests pass; no runtime behavior was weakened to satisfy them.",
+      "dependenciesAndOverlap": "Core TOP source semantics and normal prediction admission remain unchanged. New Library inventory method supersedes the old named inventory assertion with a strict larger inventory and exact position check.",
+      "freshFixAssignment": "Fresh toolkit/runtime verifier checks fixture intent against actual accepted source and no-fabricated-receipt contracts. Further product changes, if needed, go to a fresh fixer.",
+      "narrowRerunScope": "Only the three corrected assertions in narrow-toolkit-04.json unless their shared inputs materially change."
+    },
+    {
+      "id": "LCS-ACTIVITY-LIFECYCLE-ROUTE",
+      "status": "integration-repair-regression-green-awaiting-independent-verifier",
+      "seam": "shared lifecycle/activity runtime conflict, not an observed red product assertion",
+      "failingTestOrCommand": "Normal merge of 919fd5110fcb849ae9094ea399279f109fe38c6e conflicts in LobbyController.kt; merge-activity.json",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/merge-activity.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-03-junit.json"
+      ],
+      "likelyOwningTask": "I30 typed route with I12/I29 removal and I14 latest state",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityRuntimeIntegrationTest.kt",
+        "server/src/test/kotlin/org/asyncttwiz/server/game/GameChatTest.kt"
+      ],
+      "diagnosis": "Union typed ActivityTarget and monotonic lifecycle state. Removal clears activity/chat/dialog presentation and invalidates delayed route callback. Authorized lookup uses current session summary and cannot restore terminal content. Existing real group recording remains in canonical transaction, with no synthetic chat groups. New combined SQL and delayed callback regressions pass.",
+      "dependenciesAndOverlap": "GameService/LobbyController overlap future real history runtime; preserve exact target boundary without fake historical navigation. Durable activity window/client driver unchanged from the 32-case child.",
+      "freshFixAssignment": "Fresh combined verifier checks saved runtime conflict repairs and exact current/removed/returned activity mappings. History UI mapping remains with the separate history owner.",
+      "narrowRerunScope": "Typed route/lifecycle callback regression and real chat/board/result/activity SQL test; child window policy tests reuse original unchanged green bytes."
+    },
+    {
+      "id": "LCS-LIFECYCLE-SOURCE-IMPORT",
+      "status": "source-authority-blocker-resolved-runtime-reconciliation-awaits-fresh-verifier",
+      "seam": "shared source/SQL/session/controller integration",
+      "failingTestOrCommand": "Authorized lifecycle three-way apply reports seven source conflicts, retained in apply-diagnostic.json. This supersedes missing-source CON-LIFECYCLE-IMPORT-AUTHORITY, not product/native acceptance.",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/apply-diagnostic.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-01-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/reset-full.json"
+      ],
+      "likelyOwningTask": "I12/I27/I29 source-only integration",
+      "sourcePaths": [
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+        "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplaySessionTest.kt",
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayReplicaTest.kt",
+        "server/src/test/kotlin/org/asyncttwiz/server/game/GameChatTest.kt",
+        "tests/test_environment_game_reset.py"
+      ],
+      "diagnosis": "Reconciled with current full gameplay/result head fences rather than applying stale checkpoint or replacing whole paths. Genuine V13/codegen/reset source seam exists; immutable chat stays separate from board/history. Actual combined host/SQL tests and reset fixture pass after narrow stale-fixture correction.",
+      "dependenciesAndOverlap": "Fresh verifier owns verification of runtime conflict repairs; one source writer for shared GameService/session/route files. Canonical state and every script/control remain unchanged.",
+      "freshFixAssignment": "Fresh combined runtime verifier inspects the saved candidate and the original/current evidence; do not mark I12b2/native or capability review complete. No additional implementation fixer is currently evidenced for this group.",
+      "narrowRerunScope": "Only materially changed terminal original/baseline/chat/result/prefix/codegen seams and reset inputs; reuse this run's green individual module/assertion output where unchanged."
+    },
+    {
+      "id": "LCS-SAVE-PATCH-CONTEXT",
+      "status": "operational-save-repaired",
+      "seam": "task-local retained diff representation, not runtime code",
+      "failingTestOrCommand": "./scripts/save.sh owned checkpoint paths: git diff --cached --check rejects unchanged space-only patch context lines",
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/save-whitespace-diagnostic.json",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/save-patch-retention.json"
+      ],
+      "likelyOwningTask": "Current integration evidence/save",
+      "sourcePaths": [
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch",
+        "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/applied-patch-bytes.json"
+      ],
+      "testPaths": [],
+      "diagnosis": "Retained original applied bytes losslessly and regenerated the exact immutable diff with zero context for safe textual storage; retried same normal save successfully. No .gitattributes/grant/check bypass or product implementation retry.",
+      "dependenciesAndOverlap": "No runtime dependency. Original and stored patch hashes intentionally differ only by unified context representation.",
+      "freshFixAssignment": "No fixer needed; supervisor may inspect retained raw decode/hash and saved artifact strategy.",
+      "narrowRerunScope": "Normal whitespace/save only."
+    },
+    {
+      "id": "FG-TK-02-OCCURRENCE-LINK-ENDPOINT",
+      "status": "still-open-inherited-source-limitation",
+      "seam": "shared endpoint model; not an executed failing test",
+      "failingTestOrCommand": null,
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json"
+      ],
+      "likelyOwningTask": "Original I19b/I21b endpoint owner",
+      "sourcePaths": [
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TokensAndLinks.kt",
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CombatAndStack.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenLinkController.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitScreen.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitWiringTest.kt"
+      ],
+      "diagnosis": "Actual common occurrence endpoint registry is still absent. No source alias conversion or pretend link success was introduced.",
+      "dependenciesAndOverlap": "Separate shared endpoint owner first; small toolkit hook overlaps this candidate and must be serialized.",
+      "freshFixAssignment": "Original endpoint fixer supplies shared card/player/occurrence identity and cleanup/replay contract, then fresh UI integration and independent check.",
+      "narrowRerunScope": "Endpoint lifecycle/codec and exact occurrence-versus-source link fanout/removal."
+    },
+    {
+      "id": "FG-TK-03-ACCEPTED-DISCLOSURE-CALLBACK",
+      "status": "still-open-inherited-source-limitation",
+      "seam": "shared session/UI disclosure boundary; not an executed failing test",
+      "failingTestOrCommand": null,
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json"
+      ],
+      "likelyOwningTask": "Original I14/I17b disclosure owner",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitController.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitWiringTest.kt"
+      ],
+      "diagnosis": "InspectFace sends a real request and is labeled provisional. No exact target/request-bound accepted/rejected disclosure callback is exposed to reconcile the UI; Boolean enqueue is not accepted disclosure.",
+      "dependenciesAndOverlap": "Separate runtime owner must publish through existing replica, never another queue. Shared session/route files overlap history integration.",
+      "freshFixAssignment": "Fresh runtime disclosure fixer exposes original acceptance/rejection identity; fresh UI fixer consumes it and independent verifier checks retention/withdrawal.",
+      "narrowRerunScope": "Delayed/result-first/revision-first/duplicate/rejected InspectFace, covered/local holds and source-region changes."
+    },
+    {
+      "id": "FG-TK-04-INDEXED-TOKEN-SEARCH",
+      "status": "still-open-inherited-source-limitation",
+      "seam": "shared storage/catalog UI; not an executed failing test",
+      "failingTestOrCommand": null,
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json"
+      ],
+      "likelyOwningTask": "Original I19b indexed token adapter owner",
+      "sourcePaths": [
+        "client-storage/src/main/kotlin/org/asyncttwiz/storage/CatalogDatabase.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenActions.kt"
+      ],
+      "testPaths": [
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/TokenActionsTest.kt"
+      ],
+      "diagnosis": "Real installed exact-name lookup/retained-definition filter and Blank exist; general indexed token search API remains absent. No whole-catalog loading or invented provider policy.",
+      "dependenciesAndOverlap": "Independent of endpoint/disclosure/history source; isolate TokenActions integration after catalog API pin.",
+      "freshFixAssignment": "Catalog fixer supplies indexed token-only paging/generation/multiface API; fresh UI integration/check consumes it.",
+      "narrowRerunScope": "Token-only search/generation/multiface and UI loading/empty/error/exact-definition paths."
+    }
+  ],
+  "deferredAssertions": [
+    {
+      "owner": "Fresh combined runtime verifier assigned by supervisor",
+      "scope": "Independently inspect source-only lifecycle conflicts, Canvas state-holder repair, captured chat/Delete/Cancel/result routes, baseline/chat separation, typed activity/removal conflict repair and preserved result/prefix/head invariants. This author does not self-verify or fill capability review.completed."
+    },
+    {
+      "owner": "Parallel real history runtime owner and remaining I30b integration",
+      "scope": "Advanced tree/history/continuation/recovery source is not imported by these pins. Preserve exact LobbyState.activityTarget group/play/boundaryNodeId and mount it only through the real accepted history cursor when available. Current live board is explicitly not the historical boundary. Real Undo/Redo/history hooks remain unavailable rather than fake successful controls."
+    },
+    {
+      "owner": "Original I19b/I21b/I17b shared seam owners",
+      "scope": "Occurrence endpoints, accepted disclosure callback and indexed token search remain the three distinct inherited open groups above; toolkit source compiling is not full advanced-tool completion."
+    },
+    {
+      "owner": "Supervisor-managed I12b2/I16/I17-I21/I30/I31 native owners under complete resource bundle",
+      "scope": "No native/device/image/reset/backend lifecycle or full journey executed here. Run actual rendered dialog/pointer/accessibility/Back/IME/orientation, delayed acknowledgement/restart/two-player/rematch, toolkit source-occurrence and OS permission/background/notification delivery/entry journeys with current saved artifacts. Older native image evidence is not acceptance of this candidate."
+    },
+    {
+      "owner": "Product owner/supervisor existing starter policy gate",
+      "scope": "Existing unapproved starting-player policy remains unchanged; this source integration does not decide or waive it."
+    },
+    {
+      "owner": "Independent B3/B5/B7/B8 capability reviewers, I34-I36 and external release gate owners",
+      "scope": "First full capability reviews, fresh fix verification, final complete suites/compatibility/upgrades and every current mock/state/orientation/unpictured interface review remain. Release/policy/operator/signing/rights/performance gates and final application acceptance are untouched."
+    }
+  ],
+  "statePolicy": "Custom source integration report, no application transitions/proposal/serial or application acceptance validators. Canonical state/controls/scripts byte-identical to 58fa. Supervisor alone applies latest-state readiness and acceptance after actual saved/pushed bytes, upstream and idle exact-model session metadata inspection.",
+  "artifact": {
+    "path": "androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+    "sha256": "1f6335f9a31c3058de936108bf16eb995dbf73e768b96079cf11684d14f3c0da",
+    "meaning": "Normal non-FCM APK produced in phase3; no installation/native claim."
+  },
+  "runId": "managed-20261023-integrate-lifecycle-source-01",
+  "sessionID": "ses_e984b5e55ffe0xBM49707rnbPp",
+  "startCommit": "58fa38eb8bc6a26e80d7b918931fd5efe80919b6",
+  "mode": "integration",
+  "target": "source-only-lifecycle-reconciliation",
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/ActivityRuntimeTest.kt",
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/SetupCancellationTest.kt",
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/TableToolkitTest.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityApi.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityDelivery.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityNavigation.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityWorker.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/BasicTableController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ChatScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ContentsScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameChat.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameDeletion.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LibraryActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LibraryController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LinkActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/QuickActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/SetupCancellation.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionMenu.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionsScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TablePresentation.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableSelection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenActions.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityRuntimeIntegrationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ChatPresentationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameCancellationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameChatTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameDeletionTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayReplicaTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplaySessionTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LibraryActionsTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LifecycleIntegrationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LifecycleVerificationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyCancellationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyCancellationUiTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyDeletionTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/SetupCancellationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitGeometryTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitWiringTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-activity-runtime-01.json",
+    "docs/agent/implementation-runs/managed-20261023-activity-runtime-01/affected-1.json",
+    "docs/agent/implementation-runs/managed-20261023-activity-runtime-01/affected-2.json",
+    "docs/agent/implementation-runs/managed-20261023-activity-runtime-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-activity-runtime-01/handoff-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-activity-runtime-01/preflight.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-controllers-sockets.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/host-initial.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/host-wrapper.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/inputs-and-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/lifecycle-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12a-01/server-initial-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/affected-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/apk-feedback-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/apk-lint-boundaries.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/details-complete.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/details.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/host-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/identities.json",
+    "docs/agent/implementation-runs/managed-20261023-i12b-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/affected-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/affected-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/android-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/apk-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/chat-host-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/chat-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/details.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/input-identities.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/retained-migration-06-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/retained-migration-06.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/server-03-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/server-03.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-04-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-04.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-05-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-05.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-03.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/affected-04.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/final-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/server-red-02-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/server-red-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/state-integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/transport-01-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/transport-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/transport-regressions.json",
+    "docs/agent/implementation-runs/managed-20261023-i29-01/ui-compile.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/affected-01-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/affected-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/affected-02-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/affected-02.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/compile-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/compile-02.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/merge-i12a.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/merge-i12b.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/merge-i27.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/merge-i29.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/provenance.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/result-reconciliation.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-01/saved-code.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/applied-patch-bytes.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/apply-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary-checkpoint.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary-final.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary-handoff.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary-toolkit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/boundary.py",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-01-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-02-protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-03-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-affected-01.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-toolkit-02.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/combined-toolkit-activity-03.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/finish-report.py",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/merge-activity.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/merge-toolkit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/narrow-04-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/narrow-toolkit-04.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/patch-allowlist.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/prepare-patch.py",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/report-details.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/reset-full.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/retain-applied-patch.py",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/save-patch-retention.json",
+    "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/save-whitespace-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/combined-01.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/cross-row-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/cross-row.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/merge.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/preservation-final.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/preservation.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/proposal-validation-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/result-audit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/targeted-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-lifecycle-01/targeted.json",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeManualToolkitTest.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Activity.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Cancellation.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Chat.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ActivityRuntimeTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CancellationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ChatTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameDeletionTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameWireTest.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/ChatStore.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+    "server/src/main/resources/db/migration/V13__game_chat.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityRuntimeIntegrationTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameCancellationTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameChatTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameDeletionTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameStartTest.kt",
+    "tests/test_environment_game_reset.py"
+  ]
+}

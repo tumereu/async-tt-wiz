@@ -1,0 +1,99 @@
+package org.asyncttwiz.android
+
+import kotlin.test.*
+import org.junit.Test
+import org.asyncttwiz.protocol.*
+
+class LibraryControllerTest {
+    private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
+    private fun initial(): PlayState = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
+        BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))), (20..25).map { n ->
+            PlayCard(id(n), "definition", id(7), if (n < 23) id(10) else id(11), id(40)) },
+            listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), (20..22).map(::id)),
+                PlayContainer(id(11), PlayZone.HAND, id(7), (23..25).map(::id))), TurnState(id(7))),
+        emptyList(), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
+
+    @Test fun mulliganPipelinesOriginalActionsThroughSharedPredictionWithoutResults() {
+        var predicted = initial()
+        val actions = mutableListOf<PlayAction>()
+        val mutations = mutableListOf<GameplayMutation>()
+        var seedCalls = 0
+        val seed = RandomV1.encodeSeed(ByteArray(32))
+        val controller = LibraryController(id(2), id(10), id(11), { predicted }, { true }, { action ->
+            actions += action
+            val command = GameCommand(id(100 + actions.size), GameScope(id(1), playId = id(2)), GameAction.Play(action), id(9), "1")
+            val change = GameplayRules.change(predicted, id(7), command)
+            assertNull(change.reason)
+            predicted = change.state!!
+            change.mutation?.let(mutations::add)
+            true // Local admission only: no accepted server response has arrived.
+        }, { seedCalls++; seed })
+        val displayed = listOf(25, 23, 24).map(::id)
+        assertEquals(LibrarySubmission(6, 0), controller.mulligan(displayed, minusOne = true))
+        assertEquals(displayed, actions.take(3).map { (it as PlayAction.MoveCard).cardId })
+        assertEquals(PlayAction.ShuffleLibrary(id(10), seed), actions[3])
+        assertEquals(RandomV1.shuffle((20..25).map(::id), seed).take(2), actions.drop(4).map { (it as PlayAction.MoveCard).cardId })
+        assertEquals(1, seedCalls)
+        assertEquals(6, mutations.size)
+        var authoritative = initial()
+        mutations.forEach { mutation ->
+            val replay = GameplayHistory.replay(authoritative, mutation)
+            assertNull(replay.reason)
+            authoritative = replay.state!!
+        }
+        assertEquals(predicted, authoritative)
+    }
+
+    @Test fun freshShuffleSamplesOnceOfflineAndIncarnationFencesDoNotSampleOrSend() {
+        var current = initial()
+        var online = true
+        var samples = 0
+        val sent = mutableListOf<PlayAction>()
+        val controller = LibraryController(id(2), id(10), id(11), { current }, { online }, { sent += it; true },
+            { RandomV1.encodeSeed(ByteArray(32) { samples.toByte() }).also { samples++ } })
+        assertEquals(LibrarySubmission(1, 0), controller.shuffle())
+        val original = sent.single() as PlayAction.ShuffleLibrary
+        // Retry ownership is the existing queue; retaining the action preserves the original seed.
+        assertEquals(original.seed, (sent.single() as PlayAction.ShuffleLibrary).seed)
+        controller.shuffle()
+        assertNotEquals(original.seed, (sent.last() as PlayAction.ShuffleLibrary).seed)
+        online = false
+        controller.shuffle(); controller.show(); controller.draw()
+        assertEquals(2, samples); assertEquals(2, sent.size)
+        current = current.copy(id = id(99)); online = true
+        controller.shuffle(); controller.draw()
+        assertEquals(2, samples); assertEquals(2, sent.size)
+    }
+
+    @Test fun specificInspectionRetainsViewedTargetFaceAndNodeNoOfflineInspectionExceptOwnHold() {
+        val viewed = initial()
+        val current = viewed.copy(currentNodeId = id(90), board = viewed.board.copy(cards = viewed.board.cards.map {
+            it.copy(faceId = id(41), containerId = id(11)) }))
+        var online = false
+        val controller = LibraryController(id(2), id(10), id(11), { current }, { online }, { error("No inspection auto-send") })
+        val own = controller.inspection(viewed, id(20), id(7), hold = true)!!
+        assertTrue(own.localOwnAreaHold); assertEquals(id(40), own.faceId); assertEquals(id(5), own.nodeId)
+        assertFalse(own.logged)
+        assertEquals(id(10), own.source.containerId)
+        assertNull(controller.inspection(viewed, id(20), id(8), hold = true))
+        assertNull(controller.inspection(viewed, id(20), id(7), hold = false))
+        val visible = viewed.copy(board = viewed.board.copy(cards = viewed.board.cards.map { it.copy(covered = false) }))
+        assertFalse(controller.inspection(visible, id(20), id(8), hold = true)!!.logged)
+        online = true
+        val explicit = controller.inspection(viewed, id(20), id(8), hold = false)!!
+        assertFalse(explicit.localOwnAreaHold); assertEquals(id(40), explicit.faceId); assertEquals(id(5), explicit.nodeId)
+        assertTrue(explicit.logged)
+        assertNull(controller.inspection(viewed, id(99), id(8), hold = false))
+    }
+
+    @Test fun bottomMoveAndDrawCaptureIdsAndLocalAdmissionRefusalIsNotAServerAck() {
+        val state = initial()
+        val sent = mutableListOf<PlayAction>()
+        val controller = LibraryController(id(2), id(10), id(11), { state }, { true }, { sent += it; sent.size != 1 })
+        assertEquals(LibrarySubmission(1, 1), controller.draw(2))
+        assertEquals(listOf(id(20), id(21)), sent.map { (it as PlayAction.MoveCard).cardId })
+        sent.clear()
+        controller.move(ContentsSelection.BOTTOM, 2, MoveDestination(id(11), MoveInsertion.UNORDERED))
+        assertEquals(listOf(id(21), id(22)), sent.map { (it as PlayAction.MoveCard).cardId })
+    }
+}

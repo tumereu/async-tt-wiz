@@ -9,6 +9,12 @@ import kotlinx.serialization.json.*
     val invitationId: String? = null, val playId: String? = null)
 @Serializable data class Continuation(val nodeId: String, val explicit: Boolean)
 @Serializable sealed interface GameAction {
+    @Serializable @SerialName("undo") data object Undo : GameAction
+    @Serializable @SerialName("redo") data object Redo : GameAction
+    @Serializable @SerialName("makeCurrent") data class MakeCurrent(val nodeId: String) : GameAction
+    @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
+    @Serializable @SerialName("branchArchive") data class BranchArchive(val intent: BranchArchiveIntent) : GameAction
+    @Serializable @SerialName("play") data class Play(val action: PlayAction) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
@@ -16,9 +22,11 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("setStarter") data class SetStarter(val choice: StarterChoice) : GameAction
     @Serializable @SerialName("ready") data object Ready : GameAction
     @Serializable @SerialName("withdrawReady") data object WithdrawReady : GameAction
+    @Serializable @SerialName("deleteGame") data object DeleteGame : GameAction
     @Serializable @SerialName("selectDeck") data class SelectDeck(val deckId: String, val sourceRevision: String) : GameAction
     @Serializable @SerialName("transferPreparedCard") data class TransferPreparedCard(val deckId: String,
         val cardId: String, val cardIndex: String, val source: SavedDeckSection) : GameAction
+    @Serializable @SerialName("sendChat") data class SendChat(val text: String) : GameAction
 }
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,
@@ -48,15 +56,19 @@ import kotlinx.serialization.json.*
     val ingressOrdinal: String) : GameServerMessage
 @Serializable @SerialName("result") data class GameResult(val requestId: String, val scope: GameScope,
     val outcome: String, val reason: String? = null, val ingressOrdinal: String,
-    val commitRevision: String? = null, val createdIds: List<String> = emptyList()) : GameServerMessage
+    val commitRevision: String? = null, val createdIds: List<String> = emptyList(),
+    val mutation: GameplayMutation? = null, val targetNodeId: String? = null) : GameServerMessage
 @Serializable @SerialName("admissionError") data class GameAdmissionError(val code: String,
     val retryable: Boolean, val requestId: String? = null, val gameId: String? = null) : GameServerMessage
 @Serializable @SerialName("head") data class GameHead(val gameId: String, val revision: String,
     val summary: GameSummary, val minimumResumableRevision: String = "0", val engineVersion: Int = 1,
-    val readFormat: Int = 1, val preparation: LobbyPreparation? = null, val play: PlayState? = null) : GameServerMessage
+    val readFormat: Int = 1, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
+    val chat: List<ChatMessage> = emptyList(), val retainedTreeRequired: Boolean = false) : GameServerMessage
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
-    val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null) : GameServerMessage
+    val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
+    val mutation: GameplayMutation? = null, val group: GameplayGroup? = null,
+    val chatMessage: ChatMessage? = null, val treeDelta: GameplayTreeDelta? = null) : GameServerMessage
 @Serializable @SerialName("pong") data class GamePong(val correlationId: String) : GameServerMessage
 @Serializable data class GameRevisions(val revisions: List<GameRevision>, val next: String? = null)
 @Serializable data class LookupGameResults(val requestIds: List<String>)
@@ -73,25 +85,43 @@ object GameWire {
     fun encode(message: GameServerMessage): String = json.encodeToString(message)
     fun ordinal(value: String): Long = ScalarCodecs.decodeRevision(JsonPrimitive(value).toString())
     fun valid(command: GameCommand): Boolean = runCatching {
-        require(command.commandVersion == 1 && command.continuation == null && command.inlineDefinitions.isEmpty())
+        require(command.commandVersion == 1 && command.inlineDefinitions.isEmpty())
+        command.continuation?.let {
+            require(command.action is GameAction.Play && it.explicit && DeckValidation.uuid(it.nodeId))
+        }
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
-        require(command.scope.preparationId != null && command.scope.playId == null)
-        when (val action = command.action) {
-            is GameAction.SelectDeck -> {
-                require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
-                require(ordinal(action.sourceRevision) > 0)
+        if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {
+            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
+            if (command.action is GameAction.SendChat) require(ChatValidation.text(command.action.text))
+        } else if (command.action is GameAction.AcceptResult) {
+            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
+            require(DeckValidation.uuid(command.action.suggestionId))
+        } else if (command.action is GameAction.Play || command.action is GameAction.MakeCurrent ||
+            command.action == GameAction.Undo || command.action == GameAction.Redo || command.action is GameAction.BranchArchive) {
+            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
+            if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action))
+            if (command.action is GameAction.MakeCurrent) require(DeckValidation.uuid(command.action.nodeId))
+            if (command.action is GameAction.BranchArchive) require(BranchArchives.valid(
+                BranchArchiveRequest(command.requestId, command.scope, command.action.intent)))
+        } else {
+            require(command.scope.preparationId != null && command.scope.playId == null)
+            when (val action = command.action) {
+                is GameAction.SelectDeck -> {
+                    require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
+                    require(ordinal(action.sourceRevision) > 0)
+                }
+                is GameAction.TransferPreparedCard -> {
+                    require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId) && DeckValidation.uuid(action.cardId))
+                    ordinal(action.cardIndex)
+                }
+                is GameAction.SetStarter -> {
+                    require(command.scope.invitationId == null)
+                    require(action.choice.accountId == null || DeckValidation.uuid(action.choice.accountId))
+                }
+                GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> require(command.scope.invitationId == null)
+                else -> require(command.scope.invitationId != null)
             }
-            is GameAction.TransferPreparedCard -> {
-                require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId) && DeckValidation.uuid(action.cardId))
-                ordinal(action.cardIndex)
-            }
-            is GameAction.SetStarter -> {
-                require(command.scope.invitationId == null)
-                require(action.choice.accountId == null || DeckValidation.uuid(action.choice.accountId))
-            }
-            GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> require(command.scope.invitationId == null)
-            else -> require(command.scope.invitationId != null)
         }
         ordinal(command.generation)
     }.isSuccess

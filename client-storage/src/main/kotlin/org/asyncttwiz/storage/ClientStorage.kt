@@ -27,7 +27,7 @@ sealed interface StorageOpenResult {
 /**
  * Owns one driver. Blocking operations must be dispatched off Android's UI thread by the caller.
  * Synchronization serializes reads, atomic accepted writes and close on this repository only.
- * Account/session fences and complete-baseline staging belong to the later sync/auth adapters.
+ * Account/session fences and complete-baseline staging are supplied by GameplayTreeCache.
  */
 class ClientStorage private constructor(private val driver: SqlDriver) : AutoCloseable {
     private val database = ClientDatabase(driver)
@@ -74,6 +74,29 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
             database.replicaQueries.updateCursor(revision, scope)
         }
     }
+
+    /** Replace only this accepted scope, including records absent from a fresh complete baseline.
+     * Equal-revision replacement permits repair of derived/corrupt local data. The tree adapter also
+     * compares its publication identity, so an equal-revision writer cannot evade its local CAS.
+     */
+    fun replaceAccepted(scope: String, expectedRevision: Long?, revision: Long, records: List<AcceptedRecord>) = access {
+        require(scope.isNotEmpty() && revision >= 0 && (expectedRevision == null || revision >= expectedRevision))
+        require(records.map { it.key }.distinct().size == records.size)
+        database.transaction {
+            check(database.replicaQueries.selectCursor(scope).executeAsOneOrNull() == expectedRevision) {
+                "Accepted storage base changed"
+            }
+            database.replicaQueries.insertCursor(scope, revision)
+            database.replicaQueries.removeScopeRecords(scope)
+            records.forEach {
+                database.replicaQueries.putRecord(scope, it.key.kind, it.key.id, it.payload.version, it.payload.json)
+            }
+            database.replicaQueries.updateCursor(revision, scope)
+        }
+    }
+
+    /** Adapter operations (owner/fence checks, records, cursor and staging cleanup) share one commit. */
+    internal fun <T> atomic(block: () -> T): T = access { database.transactionWithResult { block() } }
 
     fun personal(scope: String, key: String): StoredPayload? = access {
         database.personalQueries.selectState(scope, key, ::StoredPayload).executeAsOneOrNull()

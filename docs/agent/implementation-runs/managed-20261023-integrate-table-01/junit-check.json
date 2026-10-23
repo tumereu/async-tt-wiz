@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "scripts/implementation-evidence.py",
+    "retain-junit",
+    "docs/agent/implementation-runs/managed-20261023-integrate-table-01/junit.json",
+    "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.ManualGameplaySessionTest.xml"
+  ],
+  "exitCode": 0,
+  "outputSha256": "9a58c01b004c36030d33bec7ae8b5710a8536c832dfbb8fa331ea32356e2f990",
+  "output": "{\n  \"retainedSuites\": 1,\n  \"output\": \"docs/agent/implementation-runs/managed-20261023-integrate-table-01/junit.json\",\n  \"limit\": \"Retention is not a green-test claim\"\n}\n"
+}

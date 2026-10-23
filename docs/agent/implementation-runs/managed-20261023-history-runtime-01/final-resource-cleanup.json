@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import json,pathlib,re,subprocess; ids=set(); cleaned=set(); volumes=set()\nfor p in pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-history-runtime-01\").glob(\"*.json\"):\n s=json.loads(p.read_text()).get(\"output\",\"\"); ids.update(re.findall(r\"OWNED (?:integration PostgreSQL|codegen PostgreSQL) container=([a-f0-9]{64})\",s)); cleaned.update(re.findall(r\"CLEANUP removed owned (?:integration|codegen) container=([a-f0-9]{64})\",s)); volumes.update(re.findall(r\"volumes=\\[([a-f0-9]{64})\\]\",s))\nassert ids and ids==cleaned; remaining=set(subprocess.check_output([\"docker\",\"ps\",\"-aq\",\"--no-trunc\"],text=True).splitlines()); assert not ids&remaining\nfor v in volumes:\n p=subprocess.run([\"docker\",\"volume\",\"inspect\",v],capture_output=True,text=True); assert p.returncode!=0 and \"no such volume\" in p.stderr.lower()\nprint(json.dumps({\"ownedContainerCount\":len(ids),\"ownedVolumeCount\":len(volumes),\"allExactOwnedResourcesAbsent\":True,\"foregroundChecksReturned\":True,\"nativeDevicesUsed\":False,\"otherLanesUntouched\":True},indent=2))"
+  ],
+  "exitCode": 0,
+  "outputSha256": "6b616bf6bf2089c74818f8d7efc96fc34f33cf2522bb1026b362a42f8ddc0b29",
+  "output": "{\n  \"ownedContainerCount\": 23,\n  \"ownedVolumeCount\": 23,\n  \"allExactOwnedResourcesAbsent\": true,\n  \"foregroundChecksReturned\": true,\n  \"nativeDevicesUsed\": false,\n  \"otherLanesUntouched\": true\n}\n"
+}

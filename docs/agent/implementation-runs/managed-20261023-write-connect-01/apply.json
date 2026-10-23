@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "--3way",
+    "--index",
+    "docs/agent/implementation-runs/managed-20261023-write-connect-01/cancel-host.patch"
+  ],
+  "exitCode": 0,
+  "outputSha256": "9cefa3e5864f154de1ab3d1db0c4a8ca8607079a422e9de5d386a1c39ce0cedc",
+  "output": "Applied patch to 'androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt' cleanly.\nApplied patch to 'androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt' cleanly.\n"
+}

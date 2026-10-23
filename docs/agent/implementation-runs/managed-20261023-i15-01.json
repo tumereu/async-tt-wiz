@@ -1,0 +1,341 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Delivered I15a production Canvas/layout/animated geometry and unified stable-ID gesture coordinator, 28 passing host tests and normal debug/instrumentation APK builds. Personal selection/camera/overflow/Actions/side-safe inspection are wired; gameplay remains typed callbacks for I16, never local shared state. Split I15 preserves I15b actual integrated native targeting, unavailable without device resources at dispatch. State remains byte-identical; B4 remains pending and prerequisite acceptance is supervisor-owned. Interface/coverage limits are in docs/agent/implementation-runs/managed-20261023-i15-01/interfaces.md.",
+  "selectionReason": "Managed dispatch explicitly leases current I15 production scene/coordinator development against the pinned real initial shared state while I13/I14 prerequisites develop independently; this is useful speculative source work, not prerequisite completion. Owned production/test paths are the supplied I15 lease; no integration checkout, state, journals, controls, UI documentation, deployment or device resources were changed.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.Table*Test' :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/affected-build-fixed.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.Table*Test' :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/affected-build.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/apks.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import hashlib,json,pathlib,subprocess; s=pathlib.Path(\"docs/agent/implementation-state.json\").read_bytes(); base=subprocess.check_output([\"git\",\"show\",\"a4b444e192776f5d165fb9188fc6e526f697620e:docs/agent/implementation-state.json\"]); assert s==base; j=json.load(open(\"docs/agent/implementation-runs/managed-20261023-i15-01/passing-junit.json\")); assert sum(int(x[\"tests\"][\"tests\"]) for x in j.values())==28; assert all(all(int(x[\"tests\"][k])==0 for k in (\"failures\",\"errors\",\"skipped\")) for x in j.values()); print(\"State byte-identical:\",hashlib.sha256(s).hexdigest()); print(\"Host JUnit: 28 passed, 0 skipped; NOT native acceptance\"); print(\"Branch:\",subprocess.check_output([\"git\",\"branch\",\"--show-current\"],text=True).strip()); files=[pathlib.Path(\"androidApp/build/outputs/apk/debug/androidApp-debug.apk\"),pathlib.Path(\"androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk\")]; [print(str(p),p.stat().st_size,hashlib.sha256(p.read_bytes()).hexdigest()) for p in files]; print(\"Native device/instrumentation execution: not run, retained for I15b after I16\")'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/artifacts.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :androidApp:compileDebugKotlin --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/compile-first.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :androidApp:compileDebugKotlin --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8 -Djava.net.preferIPv4Stack=true' --stacktrace",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/compile-ipv4.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:compileDebugKotlin --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/compile-wrapper.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.Table*Test' :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/final-affected.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.Table*Test' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/host-first.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.Table*Test' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/host-second.json"
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "I15a",
+      "sourceIds": [
+        "P-009",
+        "P-012",
+        "P-018",
+        "P-019",
+        "P-020",
+        "P-021",
+        "T-058",
+        "T-059",
+        "T-060",
+        "T-061",
+        "T-062",
+        "T-063",
+        "T-064",
+        "T-065",
+        "T-067",
+        "T-068",
+        "T-069",
+        "T-070",
+        "T-071",
+        "T-072",
+        "T-076",
+        "T-077",
+        "T-619",
+        "T-620",
+        "T-686",
+        "T-691",
+        "T-697",
+        "F40",
+        "F41",
+        "F44",
+        "F45",
+        "F49",
+        "F50",
+        "F52",
+        "F61",
+        "F62",
+        "F69"
+      ],
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i15-01/final-affected.json"
+    }
+  ],
+  "taskAdjustments": [
+    {
+      "id": "I16",
+      "reason": "Supervisor-authorized technical scheduling: depend on I14 and delivered I15a source/coordinator, not the I15 parent, because only the actual integrated native qualification remains in I15b. I15b depends on I15a and I16, preserving every original I15 obligation without a parent-child dependency cycle; no I16 status advancement."
+    }
+  ],
+  "proposal": {
+    "sourceIds": [
+      "P-009",
+      "P-012",
+      "P-018",
+      "P-019",
+      "P-020",
+      "P-021",
+      "T-058",
+      "T-059",
+      "T-060",
+      "T-061",
+      "T-062",
+      "T-063",
+      "T-064",
+      "T-065",
+      "T-067",
+      "T-068",
+      "T-069",
+      "T-070",
+      "T-071",
+      "T-072",
+      "T-076",
+      "T-077",
+      "T-619",
+      "T-620",
+      "T-686",
+      "T-691",
+      "T-697",
+      "F40",
+      "F41",
+      "F44",
+      "F45",
+      "F49",
+      "F50",
+      "F52",
+      "F61",
+      "F62",
+      "F69"
+    ],
+    "sourcePaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TablePresentation.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableSelection.kt"
+    ],
+    "testPaths": [
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TablePresentationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TableGesturesTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TableSelectionTest.kt",
+      "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/TableCanvasTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/TableCanvasTest.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TablePresentation.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableSelection.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TableGesturesTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TablePresentationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TableSelectionTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i15-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/affected-build-fixed.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/affected-build.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/apks.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/artifacts.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/compile-first.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/compile-ipv4.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/compile-wrapper.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/failed-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/final-affected.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/host-first.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/host-second.json",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/interfaces.md",
+      "docs/agent/implementation-runs/managed-20261023-i15-01/passing-junit.json"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I15",
+        "before": {
+          "id": "I15",
+          "batch": "B4",
+          "status": "pending"
+        },
+        "after": {
+          "id": "I15",
+          "batch": "B4",
+          "status": "in-progress",
+          "children": [
+            "I15a",
+            "I15b"
+          ]
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I15a",
+        "before": null,
+        "after": {
+          "id": "I15a",
+          "batch": "B4",
+          "status": "implemented",
+          "outcome": "Production Canvas adapter and single root gesture coordinator on the real initial PlayState: shared clipped/animated draw-hit-semantic geometry, common-scale cards and equal pile envelopes, owner borders, both orientation docks/hands with compact overflow, captured semantic intents and personal selection/navigation/inspection. No local authoritative gameplay mutation.",
+          "checks": [
+            "Affected host geometry/selection/coordinator tests in both orientations and multiple zooms, stable capture/reflow/cancel and arbitration, covered inspection/ownership, overflow endpoints and pile capacity.",
+            "Build the normal debug APK and normal-app instrumentation APK; compilation is not native acceptance."
+          ],
+          "dependsOn": [],
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i15-01.json"
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I15b",
+        "before": null,
+        "after": {
+          "id": "I15b",
+          "batch": "B4",
+          "status": "pending",
+          "outcome": "Retain and complete the ENTIRE original I15 normal-app native Canvas targeting obligation after I16 integration: actual populated table, animated/retargeted bounds, owner/zoom/equal footprints, portrait/landscape fixed docks/hands and compact overflow, all gesture and accessible alternatives, captured targets through sync/reflow, repair any integrated discrepancies. Host fixtures and compiled instrumentation never replace this acceptance.",
+          "checks": [
+            "Lease the complete windows-devices/windows-routing and required backend bundle for the whole normal-app journey; create/populate game only through real UI and run/extend TableCanvasTest plus native two-player coverage.",
+            "Exercise actual single/double/hold/drag/select/pan/pinch/cancel and accessible Actions/orientation/move/inspection/navigation in both orientations, common zoom, large text and overflowing hands/docks.",
+            "Target current animated bounds during real accepted/predicted moves and remote reflow; verify captured IDs, invalid/lost/cancelled targets, one release request, no stale final-coordinate hitbox or animation-gated sending.",
+            "Retain real native output/captures and inherited I15 source/test obligations, with later values/reveals/projections integrated by I17/I18/I21 and final I32/I34/B4/B8 accessibility/mock/full qualification unchanged."
+          ],
+          "dependsOn": [
+            "I15a",
+            "I16"
+          ]
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I16",
+        "before": {
+          "id": "I16",
+          "batch": "B4",
+          "status": "pending"
+        },
+        "after": {
+          "id": "I16",
+          "batch": "B4",
+          "status": "pending",
+          "dependsOn": [
+            "I14",
+            "I15a"
+          ]
+        }
+      },
+      {
+        "collection": "batches",
+        "id": "B4",
+        "before": {
+          "id": "B4",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B4 responsive shared tabletop/Canvas journey, concurrency/recovery and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        },
+        "after": {
+          "id": "B4",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B4 responsive shared tabletop/Canvas journey, concurrency/recovery and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        }
+      }
+    ]
+  },
+  "runId": "managed-20261023-i15-01",
+  "sessionID": "ses_e98df3c19ffeRySma7802zuRDE",
+  "startCommit": "a4b444e192776f5d165fb9188fc6e526f697620e",
+  "mode": "implement",
+  "target": "I15",
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/TableCanvasTest.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TablePresentation.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableSelection.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TableGesturesTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TablePresentationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TableSelectionTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i15-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/affected-build-fixed.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/affected-build.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/apks.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/artifacts.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/compile-first.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/compile-ipv4.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/compile-wrapper.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/final-affected.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/host-first.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/host-second.json",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/interfaces.md",
+    "docs/agent/implementation-runs/managed-20261023-i15-01/passing-junit.json"
+  ]
+}

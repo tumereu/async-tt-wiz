@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import pathlib,subprocess; p=pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-write-connect-01/cancel-host.patch\"); expected=subprocess.check_output([\"git\",\"diff\",\"b4c304f7e2e328448ff6646334cf794cc1670d51\",\"ec0a57f2948be4ded7b0ca2e18f4b1572398cfa2\",\"--\",\"androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt\",\"androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt\"]); assert p.read_bytes()==expected; print(\"Exact two-product-path saved delta retained byte-for-byte.\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "4debc19dee2f2eb4995a7e1a753dcdeb61a818481bed6d5c95c027db10190914",
+  "output": "Exact two-product-path saved delta retained byte-for-byte.\n"
+}

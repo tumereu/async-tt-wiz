@@ -1,0 +1,72 @@
+{
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.LibraryActionsTest.xml": {
+    "sha256": "2199d3f524d5c860606076ceaf42005b42934177c8e1b45290fa74171b2eeb46",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJMaWJyYXJ5QWN0aW9uc1Rlc3RbanZtXSIgdGVzdHM9IjkiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwNToyNzowMC41MjZaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjExMSI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJpbnZhbGlkYXRlZFByZWZpeFJlamVjdHNMYXRlck1lbWJlcldpdGhvdXRSb2xsYmFja09yU3Vic3RpdHV0aW9uKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5MaWJyYXJ5QWN0aW9uc1Rlc3QiIHRpbWU9IjAuMDI0Ii8+CiAgPHRlc3RjYXNlIG5hbWU9ImJvdHRvbUZyb250aWVySXNOb3RGYWxzZUJvdHRvbUNhcmRHdWFyZEFuZERvZXNOb3RTdWJzdGl0dXRlKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5MaWJyYXJ5QWN0aW9uc1Rlc3QiIHRpbWU9IjAuMDA2Ii8+CiAgPHRlc3RjYXNlIG5hbWU9InRva2VuTG93ZXJpbmdEb2VzTm90VXNlRGlzYXBwZWFyZWRNZW1iZXJBc0Rlc3RpbmF0aW9uQW5jaG9yKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5MaWJyYXJ5QWN0aW9uc1Rlc3QiIHRpbWU9IjAuMDAxIi8+CiAgPHRlc3RjYXNlIG5hbWU9Im9yZGVyZWRUb3BCb3R0b21BbmRTYW1lQ29udGFpbmVyU3Vic2V0TG93ZXJpbmdSZXRhaW5zTm9PcEFuY2hvcnMoKVtqdm1dIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LnByb3RvY29sLkxpYnJhcnlBY3Rpb25zVGVzdCIgdGltZT0iMC4wMDciLz4KICA8dGVzdGNhc2UgbmFtZT0ic2h1ZmZsZVVzZXNDdXJyZW50TWVtYmVyc2hpcENhbm9uaWNhbFNlZWRBbmRFeGFjdFJlcGxheVR1cGxlKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5MaWJyYXJ5QWN0aW9uc1Rlc3QiIHRpbWU9IjAuMDEzIi8+CiAgPHRlc3RjYXNlIG5hbWU9ImVudHJ5UmVzZXRzVXNlUmV0YWluZWRDdXJyZW50RmFjZUJsYW5rRmFsbGJhY2tBbmRQcmVzZXJ2ZVVucmVsYXRlZEZpZWxkcygpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuTGlicmFyeUFjdGlvbnNUZXN0IiB0aW1lPSIwLjAwNCIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJjYXB0dXJlZE11bGxpZ2Fuc0V4ZWN1dGVFdmVyeUJvdW5kYXJ5V2l0aG91dEFja0FuZENsYW1wWmVyb09uZVNpeCgpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuTGlicmFyeUFjdGlvbnNUZXN0IiB0aW1lPSIwLjAzOSIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJhY2NlcHRlZFZpZXdSZXZlYWxNZW1iZXJzRnJlZXplQW5kRGlzbWlzc2FsTmV2ZXJNb3Zlc0NhcmRzKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5MaWJyYXJ5QWN0aW9uc1Rlc3QiIHRpbWU9IjAuMDEyIi8+CiAgPHRlc3RjYXNlIG5hbWU9InRvcEFuZEJvdHRvbVNsaWNlc0NsYW1wSW5Tb3VyY2VPcmRlckFuZERyYXdJbmRpdmlkdWFsbHkoKVtqdm1dIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LnByb3RvY29sLkxpYnJhcnlBY3Rpb25zVGVzdCIgdGltZT0iMC4wMDMiLz4KICA8c3lzdGVtLW91dD48IVtDREFUQVtdXT48L3N5c3RlbS1vdXQ+CiAgPHN5c3RlbS1lcnI+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tZXJyPgo8L3Rlc3RzdWl0ZT4K",
+    "tests": {
+      "name": "LibraryActionsTest[jvm]",
+      "tests": "9",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T05:27:00.526Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.111"
+    }
+  },
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.GameplayTest.xml": {
+    "sha256": "9543ff9c647e02579e06210c2ab4c53c7d0dbd7bc9498b8fe7132ea28dd5fc74",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJHYW1lcGxheVRlc3RbanZtXSIgdGVzdHM9IjIiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwNToyNzowMC40MTJaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjExMiI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJjb25jdXJyZW50TGlmZUVkaXRzUmVhZEFjdHVhbElucHV0V2l0aG91dFByZXZpb3VzVmFsdWVMb2NrKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5HYW1lcGxheVRlc3QiIHRpbWU9IjAuMDc4Ii8+CiAgPHRlc3RjYXNlIG5hbWU9InNjYWxhclByZWRpY3Rpb25Db2RlY0FuZFJlY29yZGVkUmVwbGF5KClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5HYW1lcGxheVRlc3QiIHRpbWU9IjAuMDI1Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "GameplayTest[jvm]",
+      "tests": "2",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T05:27:00.412Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.112"
+    }
+  },
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.RandomV1Test.xml": {
+    "sha256": "52e7ad05b72d3028c89d998a9cdb97159b67945d444700b60fb7b112a2bbfb77",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJSYW5kb21WMVRlc3RbanZtXSIgdGVzdHM9IjMiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwNToyNzowMC42MzdaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjAzMiI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJpbnZhbGlkTm9uY2Fub25pY2FsU2VlZEFsZ29yaXRobUFuZE1lbWJlcnNoaXBBcmVSZWZ1c2VkKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5SYW5kb21WMVRlc3QiIHRpbWU9IjAuMDAxIi8+CiAgPHRlc3RjYXNlIG5hbWU9InJlamVjdGlvbkJvdW5kYXJpZXNBcmVVbnNpZ25lZEFuZENvbnN1bWVUaGVOZXh0V29yZCgpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuUmFuZG9tVjFUZXN0IiB0aW1lPSIwLjAwMiIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJpbmRlcGVuZGVudExpdGVyYWxCbG9ja3NXb3Jkc09yZGVyc0FuZFN0YXJ0ZXJEb21haW5zKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5SYW5kb21WMVRlc3QiIHRpbWU9IjAuMDI4Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "RandomV1Test[jvm]",
+      "tests": "3",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T05:27:00.637Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.032"
+    }
+  },
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.LibraryActionsTest.xml": {
+    "sha256": "fc32a782206eba228c300919097c3fc7dfe33ccbb04a97174a8d289e1c060e4f",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkxpYnJhcnlBY3Rpb25zVGVzdCIgdGVzdHM9IjQiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwNToyNzo1OC42MDNaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjA2NSI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJmdWxsQ29udGVudHNBcmVDYXRlZ29yeUFscGhhYmV0aWNhbEluZGVwZW5kZW50T2ZMaWJyYXJ5UG9zaXRpb25zQW5kU2VhcmNoSXNQZXJzb25hbCIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkxpYnJhcnlBY3Rpb25zVGVzdCIgdGltZT0iMC4wNDMiLz4KICA8dGVzdGNhc2UgbmFtZT0iY292ZXJlZFZpZXdDYW5ub3RMZWFrTmFtZXNUeXBlc1NlYXJjaE9yUG9zaXRpb25UaHJvdWdoUHJlc2VudGF0aW9uIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LmFuZHJvaWQuTGlicmFyeUFjdGlvbnNUZXN0IiB0aW1lPSIwLjAwMiIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJzbGljZVJldGFpbnNBY2NlcHRlZE9yZGVyQm90dG9tTWFya2VyQW5kVXBkYXRlZExvY2F0aW9uV2l0aG91dFJlZmlsbCIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkxpYnJhcnlBY3Rpb25zVGVzdCIgdGltZT0iMC4wIi8+CiAgPHRlc3RjYXNlIG5hbWU9ImRlc3RpbmF0aW9uSW52ZW50b3J5SGFzT25seUxpYnJhcnlPcmRlckNvbnRyb2xzQW5kTm9TaWRlYm9hcmQiIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5MaWJyYXJ5QWN0aW9uc1Rlc3QiIHRpbWU9IjAuMDE0Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "org.asyncttwiz.android.LibraryActionsTest",
+      "tests": "4",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T05:27:58.603Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.065"
+    }
+  },
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.LibraryControllerTest.xml": {
+    "sha256": "05e0425da3f60062cc7381fa49d14a517c7e198a2549b1452f8813174d34282f",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkxpYnJhcnlDb250cm9sbGVyVGVzdCIgdGVzdHM9IjQiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwNToyNzo1OC42NzJaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjA0OCI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJib3R0b21Nb3ZlQW5kRHJhd0NhcHR1cmVJZHNBbmRMb2NhbEFkbWlzc2lvblJlZnVzYWxJc05vdEFTZXJ2ZXJBY2siIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5MaWJyYXJ5Q29udHJvbGxlclRlc3QiIHRpbWU9IjAuMDA1Ii8+CiAgPHRlc3RjYXNlIG5hbWU9Im11bGxpZ2FuUGlwZWxpbmVzT3JpZ2luYWxBY3Rpb25zVGhyb3VnaFNoYXJlZFByZWRpY3Rpb25XaXRob3V0UmVzdWx0cyIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkxpYnJhcnlDb250cm9sbGVyVGVzdCIgdGltZT0iMC4wNCIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJmcmVzaFNodWZmbGVTYW1wbGVzT25jZU9mZmxpbmVBbmRJbmNhcm5hdGlvbkZlbmNlc0RvTm90U2FtcGxlT3JTZW5kIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LmFuZHJvaWQuTGlicmFyeUNvbnRyb2xsZXJUZXN0IiB0aW1lPSIwLjAwMiIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJzcGVjaWZpY0luc3BlY3Rpb25SZXRhaW5zVmlld2VkVGFyZ2V0RmFjZUFuZE5vZGVOb09mZmxpbmVJbnNwZWN0aW9uRXhjZXB0T3duSG9sZCIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkxpYnJhcnlDb250cm9sbGVyVGVzdCIgdGltZT0iMC4wMDEiLz4KICA8c3lzdGVtLW91dD48IVtDREFUQVtdXT48L3N5c3RlbS1vdXQ+CiAgPHN5c3RlbS1lcnI+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tZXJyPgo8L3Rlc3RzdWl0ZT4K",
+    "tests": {
+      "name": "org.asyncttwiz.android.LibraryControllerTest",
+      "tests": "4",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T05:27:58.672Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.048"
+    }
+  }
+}

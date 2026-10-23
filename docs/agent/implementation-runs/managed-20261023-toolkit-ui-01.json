@@ -1,0 +1,204 @@
+{
+  "runId": "managed-20261023-toolkit-ui-01",
+  "sessionID": "ses_e9861eda9ffeaJ1pulTKycKdv5",
+  "startCommit": "652928e463b8388ac0104efda3b3b14c0028e3e9",
+  "mode": "integration",
+  "target": "normal-table-complete-manual-toolkit-wiring",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "qualification": "unfinished-source-integration-checkpoint; blocked before Android compilation",
+  "summary": "Added actual TableScreen/TableSurface mounting and real LobbyController.gameplay routes for manual fields, Library/reference displays, tokens/real-card links, turn/quick tools, combat and mixed Stack/source tools. Added retained personal UI, shared Canvas geometry and production-session/native test sources. The single combined affected run failed first in unchanged pinned protocol HistoryGrouping.kt:40 (SuggestResult missing from exhaustive when). E2E test-source compilation completed; Android source/host/instrumentation compilation and APK qualification remain unexecuted. Source changes made after that failed dependency build are not compiler-qualified. Shared endpoint, accepted-disclosure callback and indexed token-search limitations remain explicit. No I17-I21/B5/native/review/mock/release closure or application-state transition is proposed.",
+  "selectionReason": "The supervisor explicitly leased production mounting of the pinned I17-I21 helpers as one coherent candidate. This delivers source integration rather than more unmounted components, preserves original owners and requirements, and does not duplicate shared core/PILE_GAP repairs or claim pending prerequisites accepted.",
+  "preflight": {
+    "branch": "managed/managed-20261023-toolkit-ui-01",
+    "cleanStart": true,
+    "authorization": "D-304/D-309 and supplied custom integration dispatch",
+    "lease": "/tmp/opencode/managed-20261023-toolkit-ui-01/context.json",
+    "dependencyCommits": ["652928e463b8388ac0104efda3b3b14c0028e3e9"],
+    "model": "openai/gpt-6.1-sol#high",
+    "modelEvidence": "Supplied serverCreatedMetadata in dispatch context; independent server/session-idle verification belongs to supervisor.",
+    "resourceBundle": ["isolated-host-tests"],
+    "constraints": "No agents, device lifecycle, deployment, protocol/server/storage/session edits, live state/journal/control changes or independent self-review. NativeI12's device bundle was not touched. Exact leased source/test paths and run-owned evidence only."
+  },
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' --continue :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.TableToolkit*Test' --tests org.asyncttwiz.android.ManualActionsTest --tests org.asyncttwiz.android.ValueEditorTest --tests org.asyncttwiz.android.LibraryControllerTest --tests org.asyncttwiz.android.QuickActionsTest --tests org.asyncttwiz.android.TableActionControllerTest --tests org.asyncttwiz.android.BasicTableControllerTest --tests org.asyncttwiz.android.TableGesturesTest --tests org.asyncttwiz.android.TablePresentationTest --tests org.asyncttwiz.android.CombatStackPresentationTest :androidApp:compileDebugAndroidTestKotlin :e2e:compileTestKotlin :androidApp:assembleDebug",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/combined-01.json",
+      "summary": "First failure: :protocol:compileAndroidMain, HistoryGrouping.kt:40 NO_ELSE_IN_WHEN for PlayAction.SuggestResult. --continue completed independent :e2e:compileTestKotlin. No Android tests ran and no normal APK was produced. No green broad suite or clean build was repeated."
+    },
+    {
+      "kind": "required",
+      "command": "git diff --cached --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/whitespace.json",
+      "summary": "Staged whitespace only; not a product or compilation pass."
+    }
+  ],
+  "boundaryEvidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/boundary.json",
+  "sourceIdentityEvidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/inputs.json",
+  "sourceSeamEvidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json",
+  "stateHandling": "Authoritative state and permission bytes unchanged. Custom source integration report, as explicitly supplied: no app transitions, proposal acceptance or application validators. Supervisor retains acceptance and latest-state readiness.",
+  "sourceIds": ["I17", "I18", "I19", "I20", "I21", "D-248", "D-252", "D-253", "D-295", "D-296", "D-297", "D-298", "D-299"],
+  "implementationInputs": [
+    "docs/agent/implementation-runs/managed-20261023-i17-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i18-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i19-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i20-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i20-01/handoff.md",
+    "docs/agent/implementation-runs/managed-20261023-i21-01.json"
+  ],
+  "childEvidenceReuse": "Original reports and their retained diagnostics are implementation/deferred-outcome inputs, not new executions. Existing core/helper semantics were reused instead of rerunning the original child suites. Their historical passes do not qualify this consolidated pin or the new UI. Current mock/contracts and complete quick/icon catalog are in review.md; source/test and contract identities are retained in inputs.json.",
+  "sourceCaptureTestTraceability": [
+    {
+      "capability": "I17 manual fields/player values/inspection and retained lifetimes; G04/G06/G07/G08/G08b/G13",
+      "sources": ["TableScreen.kt", "TableToolkitController.kt", "TableToolkitScreen.kt", "ManualActions.kt", "CardActions.kt", "CardInspection.kt", "QuickActions.kt", "TableGestures.kt"],
+      "capture": "Game/play/view/source IDs and selected scope captured on Actions; source aliases deduplicated without expanding occurrence selection. Draft separate from current preview. ViewModel retains editor/camera/selection across configuration recreation; exit/identity change clears personal holders. Manual bulk Set/direct edits use the actual toolkit batch callback. Life/counter drag sends one relative delta only on release; assigned holds/tooltips consume tap.",
+      "tests": ["TableToolkitWiringTest.mountedManualCaptureReadsCurrentValuesAndQueuesManyRequestsBeforeAnyResult", "TableToolkitWiringTest.capturedFieldReleaseSurvivesReflowButHoldAndCancelNeverAlsoTap", "TableToolkitWiringTest.rotationHolderRetainsEditorSelectionAndCameraButExitOrIdentityChangeClearsPersonalInput", "TableToolkitTest"],
+      "status": "Authored; Android compilation/execution blocked. Accepted disclosure result seam FG-TK-03 remains."
+    },
+    {
+      "capability": "I18 Library top/bottom/N, View/Reveal, shuffle, both captured-hand mulligans and reference actions",
+      "sources": ["LibraryController.kt", "LibraryActions.kt", "ContentsScreen.kt", "BasicTableController.kt", "TableSelection.kt", "TableToolkitController.kt", "TableToolkitScreen.kt"],
+      "capture": "Original per-card source/top/bottom-slice IDs and explicit destinations; ordered shared helpers and ordinary moveActions lowering, same invocation through defaults and mulligan prefix/draw. No reset after a refused move enqueue, no acknowledgement wait/refill/replacement target. Battlefield/Stack routes reuse the actual basic adapter with captured sources and destinations. Existing display IDs/membership are rendered rather than refilled. Explicit Library contents opening requests logged ALL once; rendering itself does not request View.",
+      "tests": ["TableToolkitWiringTest.everyLibraryMoveUsesExplicitDefaultsAndOneInvocationWithoutWaitingForResults", "TableToolkitWiringTest.bottomSliceSubsetAndBothMulligansKeepCapturedOrderAndInvocation", "TableToolkitWiringTest.localRefusalRetainsLaterOriginalConstituentsAndNeverRefillsOrResetsUnmovedCard", "TableToolkitWiringTest.quickDrawCaptureDoesNotReplaceTopAfterOpponentMoveAndStillAdvancesRelatively", "TableToolkitWiringTest.fixedContentsReferencesLocalHoldLoggedInspectionAndDisconnectedGatingAreDifferent"],
+      "status": "Authored, unexecuted. Original core/pile test repairs remain with consolidation; no assertion that they pass."
+    },
+    {
+      "capability": "I19 catalog/Blank/Clone/token-only Remove and real-card/player links",
+      "sources": ["TokenActions.kt", "LinkActions.kt", "TableToolkitController.kt", "TableToolkitScreen.kt", "TableScene.kt"],
+      "capture": "Exact retained/catalog SubmittedDefinition choices flow through CreateToken; public installed exact-name lookup runs off main thread and reports its limitation. Clone/remove resolve captured live source IDs. Real-card selection fans out to an explicit real-card/player endpoint; persistent links are drawn independently of relationship emphasis. Occurrence endpoint actions are disabled with a visible limitation instead of silently converting them to source links. Disconnected shared controls are disabled and controller-gated.",
+      "tests": ["TableToolkitWiringTest.realTokenLinkAndDisappearanceKeepEffectLastLiveReadOnlyStateWithoutReplacement", "NativeManualToolkitTest.twoUiManualToolkitWithDelayedProcessingAndRetainedSourceOccurrences"],
+      "status": "E2E test source compiled, not executed. Android source/tests uncompiled. Shared occurrence-link and indexed token-search limitations remain FG-TK-02/04."
+    },
+    {
+      "capability": "I20 turn picker/random/full quick catalog/three contextual positions plus tap-Next/hold-End; G11/G12/G13",
+      "sources": ["QuickActions.kt", "TableActionMenu.kt", "TableScreen.kt", "TableScene.kt", "TableToolkitController.kt", "TableToolkitScreen.kt"],
+      "capture": "Existing full catalog and TurnIndicator/PhaseStepPicker mounted with real typed routes. Quick composites share an invocation; captured player/Library/Hand/area/explicit Stack target do not follow later selection/turn changes. Next/End are relative, ending-player colored, with no first-strike/automatic untap/draw/rules. Actual result suggestion/acceptance uses existing LobbyController result boundary. Optional real chat/history/Undo/Redo hooks are exposed for other runtime owners; absent history hooks draw no fake controls.",
+      "tests": ["TableToolkitWiringTest.quickDrawCaptureDoesNotReplaceTopAfterOpponentMoveAndStillAdvancesRelatively", "TableToolkitTest.actualProgressionHoldConsumesTapAndPlayerDragCancellationDoesNotSubmit", "NativeManualToolkitTest"],
+      "status": "Authored; only E2E source compilation completed. Runtime history/chat owner still supplies its hooks."
+    },
+    {
+      "capability": "I21 compact common-scale combat/paired insertion and real/effect Stack/source views; G02",
+      "sources": ["TablePresentation.kt", "TableScene.kt", "TableGestures.kt", "TableToolkitController.kt", "TableToolkitScreen.kt"],
+      "capture": "CombatStackPresentation geometry feeds normal Canvas drawing, gesture drop regions and semantics. Ordinary 84dp grid footprint/card scale retained; blocker/attacker groups and identity gaps are not empty shared pairs. Declaration/effect creation/removal/placement feed immediate real session callbacks, not helper command envelopes. Whole-drop preflight reuses existing shared helper; its temporary IDs are never sent. Actual session prediction supplies request-derived occurrence IDs for later constituents. Mixed Stack keeps all ordered IDs/count while drawing top plus two; full contents/source and occurrence routes are separate. Frozen token effects have no editable source; source relationship gold differs from blue actual selection. Shared links and relationship emphasis are distinct.",
+      "tests": ["TableToolkitWiringTest.realDeclarationEffectsAndSourceEditingNormalizeAliasesWithoutMergingOccurrences", "TableToolkitWiringTest.actualCombatPlacementUsesRealSessionDerivedOccurrenceIdsAndBoundSlots", "TableToolkitWiringTest.realTokenLinkAndDisappearanceKeepEffectLastLiveReadOnlyStateWithoutReplacement", "TableToolkitGeometryTest"],
+      "status": "Authored and unexecuted; no current Canvas/native geometry pass. Existing source lifecycle cleanup is reused, not certified by source inspection."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "FG-TK-01-PINNED-PROTOCOL-COMPILE",
+      "type": "observed-build-failure",
+      "failingTestOrTask": ":protocol:compileAndroidMain",
+      "commandReference": "checks[0].command (exact aggregate command and argv retained in combined-01.json)",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/combined-01.json",
+      "diagnostic": "HistoryGrouping.kt:40:68 NO_ELSE_IN_WHEN: add is SuggestResult branch or else. This file is byte-unchanged from the supplied dependency pin.",
+      "likelyOwner": "I27 result/history semantic integration and existing shared consolidation owner",
+      "sourcePaths": ["protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt"],
+      "seam": "shared-integration, outside UI lease",
+      "dependenciesAndOverlap": "Blocks all Android compilation/host/instrumentation/APK scopes. Coordinate with already-assigned shared core/pile/history owners; do not duplicate their repairs or weaken exhaustive classification.",
+      "freshFixAssignment": "Supervisor dispatches shared history/result fixer to classify SuggestResult consistently with the existing result semantics and add its narrow classification regression. Supply a saved/pushed dependency repair to the UI qualification worker.",
+      "narrowRerun": "Affected shared classification regression plus :protocol:compileAndroidMain; then the missing Android aggregate scopes below. No clean build/full suite or unchanged E2E compilation repeat."
+    },
+    {
+      "id": "FG-TK-02-OCCURRENCE-LINK-ENDPOINT",
+      "type": "source-proven-missing-shared-capability; not an executed failing test",
+      "failingTestOrTask": null,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json",
+      "likelyOwner": "Original I19b with I21b common endpoint/lifecycle integration",
+      "sourcePaths": ["protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TokensAndLinks.kt", "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CombatAndStack.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenLinkController.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/LinkActions.kt"],
+      "seam": "shared-integration",
+      "diagnostic": "LinkEndpointKind supports CARD/PLAYER only. ProjectionLink is separate retained data with no supplied Link action endpoint path. Treating an occurrence selection as source endpoints would violate identity-domain semantics. UI explicitly disables that unsupported path; it is not claimed complete.",
+      "dependenciesAndOverlap": "Independent of catalog lookup and HistoryGrouping source repair. UI endpoint integration overlaps TableToolkitScreen/Controller; supervisor serializes those small integration edits.",
+      "freshFixAssignment": "Original shared endpoint owner implements the common actual card/player/occurrence endpoint registry and same-transition cleanup/replay; fresh UI fixer then mounts precise occurrence endpoint picking/removal without source alias conversion.",
+      "narrowRerun": "Endpoint controller/codec/lifecycle tests plus toolkit link fan-out and occurrence-vs-source removal assertions; actual native link journey deferred to bundle owner."
+    },
+    {
+      "id": "FG-TK-03-ACCEPTED-DISCLOSURE-CALLBACK",
+      "type": "source-proven-missing-runtime-seam; not an executed failing test",
+      "failingTestOrTask": null,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json",
+      "likelyOwner": "I14 runtime/session owner with original I17b inspection integration",
+      "sourcePaths": ["androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitController.kt"],
+      "seam": "shared-runtime/UI boundary",
+      "diagnostic": "Public LobbyState supplies predicted/accepted PlayState but no target/request-bound accepted disclosure result callback. InspectFace is a real request; current UI labels its inspector provisional and does not call ManualActions.inspected from a Boolean enqueue receipt. Definitive accepted/rejected inspection reconciliation is not implemented/claimed. Own-area hold remains local.",
+      "dependenciesAndOverlap": "Runtime/session files are outside this lease and overlap the separate runtime/history owner. UI hook edits overlap toolkit source; integrate after that owner publishes the result contract.",
+      "freshFixAssignment": "Runtime owner exposes exact accepted disclosure/rejection identities through its existing replica/session, not another queue. Fresh inspection/UI fixer consumes them, retains accepted permitted faces and withdraws rejected provisional inspection without replacing targets.",
+      "narrowRerun": "Actual session delayed/result-first/revision-first/duplicate/rejected InspectFace tests, source-region changes, covered own/opponent holds and no automatic logged hold. Native disclosure/recovery remains I17b."
+    },
+    {
+      "id": "FG-TK-04-INDEXED-TOKEN-SEARCH",
+      "type": "source-proven-limited-shared-adapter; not an executed failing test",
+      "failingTestOrTask": null,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json",
+      "likelyOwner": "Original I19b indexed token catalog adapter owner",
+      "sourcePaths": ["client-storage/src/main/kotlin/org/asyncttwiz/storage/CatalogDatabase.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenActions.kt"],
+      "seam": "shared-storage/UI boundary",
+      "diagnostic": "Existing public repository exposes exact normalized-name find and printing lookup, not indexed token search. UI now provides real exact-name catalog lookup plus retained-definition substring filtering and Blank, explicitly labels exact catalog names and shows missing/download/change errors. General token-catalog search is not claimed delivered by this narrower adapter.",
+      "dependenciesAndOverlap": "Independent of shared history/result and endpoint code. No storage/schema changes were authorized here. UI TokenActions integration can be isolated from toolkit geometry fixes.",
+      "freshFixAssignment": "Catalog owner adds the required indexed token search/page API on installed generations with retained exact multi-face printing records. Fresh token UI fixer consumes that API rather than loading the whole public database or inventing provider policy.",
+      "narrowRerun": "Catalog token-only search/generation/multi-face tests and UI loading/empty/error/Blank/exact-definition selection; no device acquisition until bundle release."
+    }
+  ],
+  "unexecutedScopesAndFreshAssignments": [
+    {
+      "owner": "Fresh toolkit UI compiler/test fixer after FG-TK-01 saved pin",
+      "scope": "All current Android production changes, 11 TableToolkitWiringTest cases, three TableToolkitGeometryTest cases, affected existing selected component/controller/gesture/presentation tests, instrumentation source compilation and normal APK assembly. They were blocked before compilation, not passed or observed assertion failures. Check current source hashes in inputs.json; final UI changes postdate the blocked dependency run.",
+      "narrowCommand": "Reuse checks[0] Android tasks/test filters with the repaired dependency, omitting unchanged :e2e:compileTestKotlin. Preserve actual failures and split local UI/fixture failures from shared known core/PILE_GAP groups; do not repair the latter in the UI lane. No clean/full-suite rerun."
+    },
+    {
+      "owner": "Original I17b/I18b/I19b/I20b/I21b native owners after nativeI12 releases the complete bundle",
+      "scope": "Execute normal instrumentation and two-UI toolkit journeys through existing whole lifecycle/resource wrapper. Current NativeManualToolkitTest source compiled but ran zero device assertions and intentionally marks its future journey partial. Complete every Library/subset/mulligan/default, field/IME/Back/cancel/hold, link/selection, combat/Stack/freeze, concurrency/partial rejection, disconnect/reconnect/restart and both-orientation source seam. Library/field source authorship is not a native pass."
+    },
+    {
+      "owner": "Runtime/history/chat integration owner",
+      "scope": "Connect real TableRuntimeHooks (chat/history and eligible Undo/Redo) from normal host. Null hooks expose no fake successful controls. Preserve current navigation and result authority. Retained complete history/continuation/recovery integration is not delivered by this source checkpoint."
+    },
+    {
+      "owner": "B5 independent capability review, I34/I36/B8 and final release owners",
+      "scope": "Fresh independent capability review/fix verification, final full-suite qualification and complete current interface/mock/orientation review, including all unpictured editors/contents/frozen/error/read-only states. No requirement IDs or old child passes substitute for these gates."
+    }
+  ],
+  "troubleshooting": {
+    "issue": "Pinned shared protocol compilation prevents current UI qualification.",
+    "diagnosis": "The sole combined affected run fails in unchanged HistoryGrouping.kt for the already-present SuggestResult sealed subtype, before Android UI compilation. Independent E2E source compilation completed under --continue.",
+    "progress": "Implemented actual source mounting and request-backed controller integration with authored tests; preserved the real diagnostic and exact source/boundary traceability. No prohibited shared repair, check bypass, native lifecycle or state transition was attempted.",
+    "nextSteps": "Supervisor integrates the shared owner's narrow compile repair, then dispatches a fresh UI compiler/test fixer and the independent shared seam owners above. Feature remains unfinished until missing scopes pass and original native/review owners qualify them.",
+    "evidence": "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/combined-01.json"
+  },
+  "changedPaths": [
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/TableToolkitTest.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/BasicTableController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ContentsScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LibraryActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LibraryController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LinkActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/QuickActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionMenu.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionsScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TablePresentation.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableSelection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableToolkitScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenActions.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitGeometryTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TableToolkitWiringTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/combined-01.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/source-seams.json",
+    "docs/agent/implementation-runs/managed-20261023-toolkit-ui-01/whitespace.json",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeManualToolkitTest.kt"
+  ]
+}

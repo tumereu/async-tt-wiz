@@ -14,6 +14,14 @@ data class CatalogPrinting(val id: String, val name: String, val set: String, va
     val language: String, val side: String, val scryfallId: String?, val token: Boolean,
     val otherFaces: List<String>, val json: String)
 
+/** A page retains every exact face on one installed generation; no later per-face lookup is needed. */
+data class CatalogToken(val printing: CatalogPrinting, val faces: List<CatalogPrinting>)
+data class CatalogTokenCursor(val generation: String, val query: String, val normalized: String, val id: String)
+data class CatalogTokenPage(val generation: String, val metadata: CatalogMetadata,
+    val tokens: List<CatalogToken>, val next: CatalogTokenCursor?)
+class CatalogNotInstalledException : IllegalStateException("Card records are not installed. Download card records, then retry.")
+class CatalogGenerationChangedException : IllegalStateException("Card records changed. Search again.")
+
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
 class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) {
     init { check(directory.isDirectory || directory.mkdirs()) }
@@ -38,6 +46,38 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         CatalogIndex(openDriver(file)).use { it.printing(id) }
     }
 
+    /** Worker-only, including pointer IO. Identity is the installed file, not its possibly repeated metadata. */
+    @Synchronized fun tokenGeneration(): String? = activeFile()?.name
+
+    /** Literal, case-normalized substring search, bounded keyset pages. Never scans the full catalog per query.
+     * Compatibility indexing of pre-search generations is transactional/non-destructive and worker-only.
+     */
+    @Synchronized fun searchTokens(query: String, cursor: CatalogTokenCursor? = null, limit: Int = 40): CatalogTokenPage {
+        require(limit in 1..100)
+        val normalized = query.trim().lowercase(Locale.ROOT)
+        require(normalized.length <= 512) { "Search is too long." }
+        val file = activeFile() ?: throw CatalogNotInstalledException()
+        if (cursor != null) {
+            if (cursor.generation != file.name) throw CatalogGenerationChangedException()
+            require(cursor.query == normalized) { "Page belongs to a different search." }
+        }
+        return CatalogIndex(openDriver(file)).use { index ->
+            index.prepareTokenSearch()
+            val found = index.searchTokens(normalized, cursor, limit + 1)
+            val visible = found.take(limit)
+            val tokens = visible.map { printing ->
+                val faces = (printing.otherFaces + printing.id).distinct().map { id ->
+                    checkNotNull(index.printing(id)) { "Token face is unavailable." }
+                }.sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
+                CatalogToken(printing, faces)
+            }
+            val last = visible.lastOrNull()
+            CatalogTokenPage(file.name, index.metadata(), tokens,
+                if (found.size > limit && last != null) CatalogTokenCursor(file.name, normalized,
+                    last.name.lowercase(Locale.ROOT), last.id) else null)
+        }
+    }
+
     /** Keep every line/face of an import on one generation while a refresh waits. */
     @Synchronized internal fun <T> snapshot(read: (CatalogIndex?) -> T): T = activeFile()?.let { file ->
         CatalogIndex(openDriver(file)).use { read(it) }
@@ -52,6 +92,7 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
                 index.create()
                 val result = block(index)
                 index.validate()
+                index.prepareTokenSearch()
                 index.finish(result)
                 result.copy(records = index.count())
             }
@@ -117,6 +158,56 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         if (set != null) { where += " AND set_code=?"; args += set }
         if (number != null) { where += " AND number=?"; args += number }
         return rows("SELECT * FROM printing WHERE $where ORDER BY id LIMIT $limit", args)
+    }
+
+    /** Only the separate public generation is extended. A crash rolls back both postings and ready marker.
+     * Backfill reads bounded batches, not an in-memory catalog; old printing/face/metadata rows stay intact.
+     */
+    internal fun prepareTokenSearch() = transaction {
+        sql("CREATE TABLE IF NOT EXISTS token_search_ready (version INTEGER NOT NULL PRIMARY KEY)")
+        if (long("SELECT count(*) FROM token_search_ready WHERE version=1") == 0L) {
+            sql("CREATE INDEX IF NOT EXISTS token_name_lookup ON printing(token, normalized, id)")
+            sql("CREATE TABLE IF NOT EXISTS token_search (gram TEXT NOT NULL, normalized TEXT NOT NULL, printing_id TEXT NOT NULL, PRIMARY KEY(gram, normalized, printing_id))")
+            var afterName = ""
+            var afterId = ""
+            while (true) {
+                check(!Thread.currentThread().isInterrupted)
+                val batch = rows("SELECT * FROM printing WHERE token=1 AND (normalized, id) > (?, ?) ORDER BY normalized, id LIMIT 256",
+                    listOf(afterName, afterId))
+                if (batch.isEmpty()) break
+                batch.forEach { record ->
+                    val name = record.name.lowercase(Locale.ROOT)
+                    val grams = (1..minOf(3, name.length)).flatMap { size -> name.windowed(size) }.toSet()
+                    grams.forEach { gram -> sql("INSERT OR IGNORE INTO token_search VALUES (?, ?, ?)", listOf(gram, name, record.id)) }
+                }
+                val last = batch.last()
+                afterName = last.name.lowercase(Locale.ROOT)
+                afterId = last.id
+            }
+            sql("INSERT INTO token_search_ready VALUES (1)")
+        }
+    }
+
+    internal fun searchTokens(query: String, cursor: CatalogTokenCursor?, limit: Int): List<CatalogPrinting> {
+        val args = mutableListOf<String>()
+        val from: String
+        var where: String
+        if (query.isEmpty()) {
+            from = "printing p INDEXED BY token_name_lookup"
+            where = "p.token=1"
+        } else {
+            // One/two-character searches also use postings. '%'/'_' are literal, never LIKE wildcards.
+            from = "token_search s JOIN printing p ON p.id=s.printing_id"
+            where = "s.gram=? AND instr(p.normalized, ?) > 0"
+            args += query.take(3); args += query
+        }
+        val prefix = if (query.isEmpty()) "p" else "s"
+        val id = if (query.isEmpty()) "id" else "printing_id"
+        if (cursor != null) {
+            where += " AND ($prefix.normalized, $prefix.$id) > (?, ?)"
+            args += cursor.normalized; args += cursor.id
+        }
+        return rows("SELECT p.* FROM $from WHERE $where ORDER BY $prefix.normalized, $prefix.$id LIMIT $limit", args)
     }
 
     private fun rows(query: String, args: List<String>): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->

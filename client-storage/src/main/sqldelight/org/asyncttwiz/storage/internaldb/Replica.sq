@@ -32,6 +32,9 @@ VALUES (?, ?, ?, ?, ?);
 removeRecord:
 DELETE FROM accepted_record WHERE scope_id = ? AND record_kind = ? AND record_id = ?;
 
+removeScopeRecords:
+DELETE FROM accepted_record WHERE scope_id = ?;
+
 clearRecords:
 DELETE FROM accepted_record;
 

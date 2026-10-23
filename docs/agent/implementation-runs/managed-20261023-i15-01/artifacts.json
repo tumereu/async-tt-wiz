@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import hashlib,json,pathlib,subprocess; s=pathlib.Path(\"docs/agent/implementation-state.json\").read_bytes(); base=subprocess.check_output([\"git\",\"show\",\"a4b444e192776f5d165fb9188fc6e526f697620e:docs/agent/implementation-state.json\"]); assert s==base; j=json.load(open(\"docs/agent/implementation-runs/managed-20261023-i15-01/passing-junit.json\")); assert sum(int(x[\"tests\"][\"tests\"]) for x in j.values())==28; assert all(all(int(x[\"tests\"][k])==0 for k in (\"failures\",\"errors\",\"skipped\")) for x in j.values()); print(\"State byte-identical:\",hashlib.sha256(s).hexdigest()); print(\"Host JUnit: 28 passed, 0 skipped; NOT native acceptance\"); print(\"Branch:\",subprocess.check_output([\"git\",\"branch\",\"--show-current\"],text=True).strip()); files=[pathlib.Path(\"androidApp/build/outputs/apk/debug/androidApp-debug.apk\"),pathlib.Path(\"androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk\")]; [print(str(p),p.stat().st_size,hashlib.sha256(p.read_bytes()).hexdigest()) for p in files]; print(\"Native device/instrumentation execution: not run, retained for I15b after I16\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "42f315631795e926bdaaffd65e21c9bb3121958d43489ff2522a390668410ede",
+  "output": "State byte-identical: 1df696aa47ee59e0ce6edc6a3908f01f416d680ed4012d5b8897dfea7d9eb45f\nHost JUnit: 28 passed, 0 skipped; NOT native acceptance\nBranch: managed/managed-20261023-i15-01\nandroidApp/build/outputs/apk/debug/androidApp-debug.apk 38505753 dbd1f0f2c41e972ea0cd360189830537cb8117f10e165329c0e91e01a8157cd2\nandroidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk 2874389 3cc0de81ac1e37ef8505cbcc30f9c6ebb58d2951bb60a546f0e2e27eb8a27a77\nNative device/instrumentation execution: not run, retained for I15b after I16\n"
+}

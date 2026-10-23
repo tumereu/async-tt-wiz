@@ -1,0 +1,42 @@
+{
+  "manifestVersion": 1,
+  "applicationId": "org.asyncttwiz.android",
+  "allocations": [
+    { "versionCode": 1, "versionName": "0.1.0" },
+    { "versionCode": 2, "versionName": "0.1.1" }
+  ],
+  "protocol": {
+    "major": 1,
+    "minMinor": 0,
+    "maxMinor": 0,
+    "engineVersions": [1],
+    "commandVersions": [1],
+    "readFormats": [1]
+  },
+  "schemas": {
+    "definition": [1],
+    "board": [1],
+    "mutation": [1],
+    "treeRecord": [1],
+    "clientDatabase": { "current": 2, "migrateFrom": [1] },
+    "serverDatabase": {
+      "migrationHead": "16",
+      "startupPolicy": "Flyway validation must pass with no pending migrations; explicit migration only"
+    }
+  },
+  "supportStatus": "DECLARED_FROM_SOURCE_NOT_QUALIFIED",
+  "sourcePaths": [
+    "androidApp/build.gradle.kts",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Decks.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TreeSync.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "server/src/main/java/org/asyncttwiz/server/database/OwnershipDatabase.java",
+    "server/src/main/resources/db/migration/V16__retained_gameplay_tree.sql",
+    "client-storage/src/main/kotlin/org/asyncttwiz/storage/ClientStorage.kt",
+    "client-storage/src/main/sqldelight/migrations/1.sqm"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "e1f7ea1389cda5e85c65fb72efc2986cdf1f9c69"
+  ],
+  "exitCode": 0,
+  "outputSha256": "42ba9b76f7ce5e7e00e2b559c4cef8c84ceaf2936aeec9c512d7613ac1c8bc1d",
+  "output": "Auto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\nAutomatic merge went well; stopped before committing as requested\n"
+}

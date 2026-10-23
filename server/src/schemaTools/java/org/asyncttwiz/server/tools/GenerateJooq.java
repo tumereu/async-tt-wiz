@@ -16,6 +16,10 @@ import org.jooq.meta.jaxb.Database;
 import org.jooq.meta.jaxb.Generate;
 import org.jooq.meta.jaxb.Generator;
 import org.jooq.meta.jaxb.Jdbc;
+import org.jooq.meta.jaxb.MatcherRule;
+import org.jooq.meta.jaxb.Matchers;
+import org.jooq.meta.jaxb.MatchersTableType;
+import org.jooq.meta.jaxb.Strategy;
 import org.jooq.meta.jaxb.Target;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -47,19 +51,44 @@ public final class GenerateJooq {
             String id = db.getContainerId();
             System.out.println("OWNED codegen PostgreSQL container=" + id + " image=" + image);
             try {
-                int migrated = FoundationMigrations.migrate(new DatabaseSettings(db.getJdbcUrl(), db.getUsername(), db.getPassword()));
-                if (migrated != 9) throw new IllegalStateException("Expected clean V1-V9 migrations");
+                var migrations = FoundationMigrations.flyway(new DatabaseSettings(db.getJdbcUrl(), db.getUsername(), db.getPassword()));
+                // migrate() validates pending forwards in migration mode; standalone validate()
+                // intentionally refuses pending versions under the application's strict profile.
+                Map<String, Integer> resolved = new TreeMap<>();
+                for (var migration : migrations.info().all()) {
+                    if (migration.getVersion() == null || migration.getChecksum() == null) {
+                        throw new IllegalStateException("Expected resolved versioned SQL migrations");
+                    }
+                    resolved.put(migration.getVersion().toString(), migration.getChecksum());
+                }
+                if (!resolved.keySet().equals(java.util.Set.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16"))) {
+                    throw new IllegalStateException("Unexpected resolved migration inventory");
+                }
+                int migrated = migrations.migrate().migrationsExecuted;
+                migrations.validate();
+                Map<String, Integer> applied = new TreeMap<>();
+                for (var migration : migrations.info().applied()) {
+                    applied.put(migration.getVersion().toString(), migration.getChecksum());
+                }
+                if (migrated != resolved.size() || !applied.equals(resolved) || migrations.info().pending().length != 0) {
+                    throw new IllegalStateException("Clean database did not apply the exact resolved forward migrations");
+                }
                 GenerationTool.generate(new Configuration()
                         .withJdbc(new Jdbc().withDriver("org.postgresql.Driver").withUrl(db.getJdbcUrl())
                                 .withUser(db.getUsername()).withPassword(db.getPassword()))
                         .withGenerator(new Generator()
+                                // V14's retained legacy table must not collide with V11's live writer.
+                                .withStrategy(new Strategy().withMatchers(new Matchers().withTables(
+                                        new MatchersTableType().withExpression("game_play_mutation")
+                                                .withTableClass(new MatcherRule().withExpression("LegacyGamePlayMutation"))
+                                                .withRecordClass(new MatcherRule().withExpression("LegacyGamePlayMutationRecord")))))
                                 .withDatabase(new Database().withName("org.jooq.meta.postgres.PostgresDatabase")
-                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry|contact|game|invitation|game_stream|game_inbox|game_revision|game_outbox|player_preparation|game_definition|game_play"))
+                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry|contact|game|invitation|game_stream|game_inbox|game_revision|game_outbox|player_preparation|game_definition|game_play|gameplay_group|gameplay_mutation|gameplay_tree_control|game_play_mutation|game_chat|activity_cursor|account_activity|activity_summary|activity_installation|activity_push"))
                                 .withGenerate(new Generate().withGeneratedAnnotation(false).withComments(false)
                                         .withJavadoc(false).withPojos(false).withDaos(false))
                                 .withTarget(new Target().withPackageName("org.asyncttwiz.server.generated")
                                         .withDirectory(output.toAbsolutePath().toString()).withClean(true))));
-                System.out.println("PASS generated real PostgreSQL fields from validated Flyway V1-V9");
+                System.out.println("PASS generated real PostgreSQL fields from validated resolved forward migrations " + resolved);
             } finally {
                 var client = db.getDockerClient();
                 var volumes = client.inspectContainerCmd(id).exec().getMounts().stream()

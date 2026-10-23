@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "a6bff156f3c9acb3c9b16e6694121030a197a3ca"
+  ],
+  "exitCode": 1,
+  "outputSha256": "7ea748dbf496cac625fbb6a30d5dd516f0381c6c7733f57c9e9495a5db6e2052",
+  "output": "Auto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/BasicTableController.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionsScreen.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

@@ -1,0 +1,48 @@
+{
+  "runId": "managed-20261023-write-i31-01",
+  "sessionID": "ses_e97d9d39affePi5YyuepyrlQdy",
+  "startCommit": "0436d6ec399ad821c19e24170f2e6ef01d637015",
+  "mode": "integration",
+  "target": "I31-integrated-two-player-three-instance-journeys",
+  "workKind": "writer",
+  "model": "openai/gpt-6.1-sol#high",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "executionStatus": "UNCOMPILED / UNEXECUTED / UNVERIFIED",
+  "summary": "Authored one cohesive three-normal-instance I31 journey plus actual MainActivity/AuthViewModel tree/privacy checkpoints. Reuses UI-only start, NativeUi/NativePhases/Device; covers paused chat, real fork, complete cached small-tree offline review, shared-account Undo/Redo/relogin/restart, background return, ordered result acceptance, prepared Random rematch and active shared Delete. Not an I31 completion or application proposal; no runtime assertions executed.",
+  "selectionReason": "Explicitly leased missing initial I31 journey writing, independent of parallel compiler/cancellation fixes and native resource ownership.",
+  "mergeRepairDetails": "HEAD equals the sole dependency/start pin; no merge required or performed. Only two leased test sources and this run's report/evidence changed. Product/adapters/live state/controls remain unchanged. Supervisor integrates concurrent source fixes; this unit did not wait, compile, run tests/devices, or self-review/verify.",
+  "checks": [
+    {"kind": "required", "command": "git log -1 --format=%H%n%D", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-i31-01/pin.json"},
+    {"kind": "required", "command": "git diff --exit-code HEAD -- docs/agent/implementation-state.json docs/agent/implementation-permissions.json androidApp/src/main e2e/devices.py e2e/reset_runner.py e2e/device_runner.py scripts/implementation-loop.py scripts/implementation-resources.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-i31-01/authority-unchanged.json"},
+    {"kind": "required", "command": "git diff --cached --check", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-i31-01/whitespace.json"},
+    {"kind": "required", "command": "git diff --cached --name-only", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-i31-01/owned-paths.json"}
+  ],
+  "sourceInspection": {"evidence": "docs/agent/implementation-runs/managed-20261023-write-i31-01/source-labels.json", "exactArgvField": "command", "exitCode": 0, "scope": "Production labels/routes, actual AuthViewModel Logout clearing, existing two-peer qualification boundary; static source inspection only."},
+  "assignedVersusAuthored": {
+    "assigned": "I31 integrated chat/result/rematch/history/recovery/three-instance normal UI requirements and relevant e2e-strategy families; traceability is not executed coverage.",
+    "authored": "Seven retained phases and two companion checkpoints; exact UI boundary/game/play/round/request identities, accepted scopes/outcomes, recovered offshoot/current topology, singleton suggestion and recorded fresh-start stability. Actual UI Logout/recreation/close with account-switch draft isolation. Explicitly reselects Random; no starter-retention policy assertion.",
+    "executed": [],
+    "details": "docs/agent/implementation-runs/managed-20261023-write-i31-01/execution.md"
+  },
+  "failureGroups": [],
+  "failureGroupsNote": "No build/test commands were run, so there are no observed compiler or runtime failure groups. The following are source-evidenced qualification/deferred-scope gaps, not fabricated failed tests or product findings.",
+  "remainingOwners": [
+    {"id": "I31-THREE-PROFILE-QUALIFICATION", "owner": "Supervisor's fresh adapter/execution worker", "paths": ["e2e/reset_runner.py", "tests/test_reset_runner.py"], "gap": "pair(first, second) overwrites the peer inventory; selected_devices correctly refuses the missing third peer. Lease these exact additional paths to qualify a complete owned set and reuse the existing whole-lifecycle composition in the executor's namespace. No manual peer-record bypass or cross-owner live handoff. Existing two-device drivers cannot run this three-instance selector unchanged.", "evidence": "docs/agent/implementation-runs/managed-20261023-write-i31-01/source-labels.json"},
+    {"id": "I31-COMBINED-EXECUTION", "owner": "Supervisor's execution queue", "scope": "Compile both authored test source sets against the supervisor's integrated candidate, package origin-configured normal APK/companion, then one native selector invoking two companion checkpoints. Whole windows-devices/windows-routing/backend lifecycle, three qualified profiles, actual artifacts/origins/source pins and retained original outputs required. All selectors remain UNEXECUTED.", "inputsAndSelectors": "docs/agent/implementation-runs/managed-20261023-write-i31-01/execution.md"},
+    {"id": "I31-REMAINING-REQUIRED-SCOPE", "owner": "I31 supervisor; I34-I36 final qualification/review owners", "scope": "Real OS notification polling/tap/boundary route lacks a qualified native adapter at this pin; authored Home/foreground is not notification delivery. Captured lifecycle overlap/old-incarnation variants, distinct concurrent Undo and full pre/post-admission uncertain logout/exposure variants remain unimplemented by this bounded scenario. Other e2e-strategy families, independent reviews, final suite/compatibility/UI/release gates remain required and unpassed."}
+  ],
+  "changedPaths": [
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/IntegratedLifecycleTest.kt",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-i31-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i31-01/execution.md",
+    "docs/agent/implementation-runs/managed-20261023-write-i31-01/pin.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i31-01/authority-unchanged.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i31-01/source-labels.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i31-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i31-01/owned-paths.json"
+  ]
+}

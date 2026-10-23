@@ -1,0 +1,304 @@
+package org.asyncttwiz.android
+
+import org.asyncttwiz.protocol.*
+import org.junit.Test
+import kotlin.test.*
+
+/** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
+class TableToolkitWiringTest {
+    @Test fun productionInspectorUsesAcceptedTreeProofNotReceiptOrResultAndClosedLifetimeCannotReopen() {
+        val f = BasicTableFixture(); f.connect()
+        val ui = TableToolkitController(f.actor, { f.lobby.state.play }, { true }, f.lobby::gameplay,
+            acceptedInspection = f.lobby::inspectFace)
+        ui.reviewContext("live")
+        var tree = GameplayTree(f.root)
+        fun accepted(command: GameCommand, revision: Int) {
+            val next = HistoryContinuation.change(tree, f.actor, command).tree!!
+            f.message(GameRevision(f.game.id, revision.toString(), (revision + 1).toString(), command.requestId,
+                f.actor, command.scope, f.game.copy(revision = (revision + 1).toString()), treeDelta = TreeSync.delta(tree, next)))
+            tree = next
+        }
+        try {
+            val face = f.root.board.cards.first().faceId
+            assertTrue(ui.submit(PlayAction.InspectFace(f.id(40), face, f.container(PlayZone.LIBRARY))))
+            val original = f.commands().last()
+            assertTrue(ui.inspection!!.provisional)
+            f.message(GameReceipt(original.requestId, original.scope, "1"))
+            assertTrue(ui.inspection!!.provisional)
+            f.message(GameResult(original.requestId, original.scope, "accepted", ingressOrdinal = "1", commitRevision = "2"))
+            assertTrue(ui.inspection!!.provisional)
+            accepted(original, 1)
+            assertFalse(ui.inspection!!.provisional)
+            assertTrue(ui.inspection!!.explicit)
+            assertTrue(ui.submit(PlayAction.InspectFace(f.id(41), face, f.container(PlayZone.LIBRARY))))
+            val closed = f.commands().last(); ui.reviewContext("history/root"); accepted(closed, 2)
+            assertNull(ui.inspection)
+            assertTrue(ui.submit(PlayAction.InspectFace(f.id(42), face, f.container(PlayZone.LIBRARY))))
+            val rejected = f.commands().last()
+            f.message(GameResult(rejected.requestId, rejected.scope, "rejected", "inapplicable", "3"))
+            assertNull(ui.inspection); assertNotNull(ui.error)
+        } finally { ui.closeInspection(); f.lobby.close(); f.worker.drain() }
+    }
+
+    @Test fun actualNormalHistoryArmFlowsThroughLibraryMoveDefaultsAndEverySubsequentOriginalWithoutAckBarrier() {
+        val f = BasicTableFixture(); f.connect()
+        try {
+            val prior = f.data.command(PlayAction.AdjustLife(f.other, "1"))
+            val root = GameplayTree(f.root)
+            val accepted = HistoryContinuation.change(root, f.other, prior).tree!!
+            f.message(GameRevision(f.game.id, "1", "2", prior.requestId, f.other, prior.scope,
+                f.game.copy(revision = "2"), treeDelta = TreeSync.delta(root, accepted)))
+            val personal = f.lobby.history
+            personal.update(f.lobby.retainedTree()!!, "2"); f.worker.drain()
+            personal.select(root.initial.root.id); personal.displayPosition()
+            val end = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+            while (personal.view == null) { assertTrue(System.nanoTime() < end); Thread.sleep(5) }
+            assertTrue(personal.arm(root.initial.root.id)); assertTrue(f.commands().isEmpty())
+            val ui = TableToolkitController(f.actor, {
+                if (personal.provisional) f.lobby.state.play else personal.view?.state
+            }, { true }, f.lobby::gameplay)
+            val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+            assertEquals(LibrarySubmission(2, 0), library.move(ContentsSelection.TOP, 2,
+                MoveDestination(f.container(PlayZone.GRAVEYARD), MoveInsertion.UNORDERED)))
+            val originals = f.commands()
+            assertTrue(originals.size >= 4)
+            assertEquals(Continuation(root.initial.root.id, true), originals.first().continuation)
+            originals.zipWithNext().forEach { (a, b) ->
+                assertEquals(Continuation(CommandIds.uuidV5(a.requestId, "board-node"), true), b.continuation)
+            }
+            assertEquals(f.root.board, f.lobby.state.acceptedPlay!!.board.copy(players = f.root.board.players))
+            assertTrue(f.lobby.historyControl(GameAction.Undo))
+            val undo = f.commands().last(); assertEquals(GameAction.Undo, undo.action); assertNull(undo.continuation)
+            assertTrue(f.lobby.historyControl(GameAction.Redo))
+            assertEquals(GameAction.Redo, f.commands().last().action)
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
+    private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.lobby.state.play },
+        { f.game.id in f.lobby.state.connectedGames }, f.lobby::gameplay)
+    private fun BasicTableFixture.actions() = commands().map { (it.action as GameAction.Play).action }
+
+    @Test fun mountedManualCaptureReadsCurrentValuesAndQueuesManyRequestsBeforeAnyResult() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        ui.openCard(TableScope(f.id(40), listOf(f.id(40), f.id(41))))
+        val scope = ui.manual.scope!!
+        ui.manual.edit(ManualValue(ManualValueKind.CORNER), f.play, f.actor)
+        ui.manual.editor!!.text = "9/11"
+        assertTrue(ui.completeValue())
+        assertEquals(listOf<PlayAction>(PlayAction.SetCorner(f.id(40), "9/11"), PlayAction.SetCorner(f.id(41), "9/11")), f.actions())
+        assertEquals(1, f.commands().map { it.invocationId }.distinct().size)
+        assertEquals("9/11", scope.value(f.play, ManualValue(ManualValueKind.CORNER), f.actor))
+        assertEquals(f.root, f.lobby.state.acceptedPlay)
+        assertEquals(scope, ui.manual.scope); assertNull(ui.manual.editor)
+        assertTrue(ui.submit(PlayAction.SetNote(f.id(40), " a\n b ")))
+        assertTrue(ui.submit(PlayAction.SetOwner(f.id(40), f.other)))
+        assertEquals("a\n b", f.card(40).note); assertEquals(f.other, f.card(40).owner)
+        val endpoint = f.play.board
+        var accepted = f.root
+        val revisions = f.commands().mapIndexed { index, command -> f.update(accepted, command, index + 1).also { accepted = it.play!! } }
+        for (revision in revisions) { f.message(f.result(revision)); f.message(revision); assertEquals(endpoint, f.play.board) }
+        f.message(revisions.first()); assertEquals(endpoint, f.play.board)
+    }
+
+    @Test fun everyLibraryMoveUsesExplicitDefaultsAndOneInvocationWithoutWaitingForResults() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+        assertEquals(LibrarySubmission(2, 0), library.move(ContentsSelection.TOP, 2,
+            MoveDestination(f.container(PlayZone.GRAVEYARD), MoveInsertion.UNORDERED)))
+        val actions = f.actions()
+        assertEquals(listOf(PlayAction.MoveCard::class, PlayAction.ClearCardCounter::class, PlayAction.ResetCorner::class,
+            PlayAction.MoveCard::class, PlayAction.ResetCorner::class), actions.map { it::class })
+        assertEquals(listOf(f.id(40), f.id(41)), actions.filterIsInstance<PlayAction.MoveCard>().map { it.cardId })
+        assertEquals(1, f.commands().map { it.invocationId }.distinct().size)
+        assertEquals("2/3", f.card(40).corner); assertTrue(f.card(40).counters.isEmpty())
+        assertEquals("retained", f.card(40).note); assertEquals(f.root, f.lobby.state.acceptedPlay)
+    }
+
+    @Test fun bottomSliceSubsetAndBothMulligansKeepCapturedOrderAndInvocation() {
+        for (minusOne in listOf(false, true)) {
+            val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+            val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+            library.draw(3)
+            val start = f.commands().size
+            val displayed = listOf(42, 40, 41).map(f::id)
+            val result = library.mulligan(displayed, count = 1, minusOne = minusOne)
+            assertEquals(0, result.refused)
+            val commands = f.commands().drop(start)
+            val actions = commands.map { (it.action as GameAction.Play).action }
+            val moves = actions.filterIsInstance<PlayAction.MoveCard>()
+            assertEquals(displayed, moves.take(3).map { it.cardId })
+            assertEquals(if (minusOne) 2 else 1, moves.drop(3).size)
+            assertEquals(1, actions.filterIsInstance<PlayAction.ShuffleLibrary>().size)
+            assertEquals(1, commands.map { it.invocationId }.distinct().size)
+            assertEquals(displayed[0], moves[1].destination.afterId)
+            assertEquals(if (minusOne) 2 else 1, f.play.board.containers.single { it.id == f.container(PlayZone.HAND) }.cards.size)
+        }
+    }
+
+    @Test fun localRefusalRetainsLaterOriginalConstituentsAndNeverRefillsOrResetsUnmovedCard() {
+        for (top in listOf(false, true)) {
+        val f = BasicTableFixture(); f.connect()
+        val attempted = mutableListOf<Pair<PlayAction, String?>>()
+        val ui = TableToolkitController(f.actor, { f.play }, { true }, { action, invocation ->
+            attempted += action to invocation
+            if (action is PlayAction.MoveCard && action.cardId == f.id(40)) false else f.lobby.gameplay(action, invocation)
+        })
+        val library = ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))
+        val destination = MoveDestination(f.container(PlayZone.EXILE), MoveInsertion.UNORDERED)
+        val result = if (top) library.move(ContentsSelection.TOP, 2, destination)
+            else library.moveCards(listOf(f.id(40), f.id(41)), destination)
+        // TOP's second captured card is not top after the first refusal. MEMBER remains independent.
+        assertEquals(if (top) LibrarySubmission(0, 2) else LibrarySubmission(1, 1), result)
+        assertEquals(listOf(f.id(40), f.id(41)), attempted.mapNotNull { (it.first as? PlayAction.MoveCard)?.cardId })
+        assertTrue(attempted.none { it.first == PlayAction.ResetCorner(f.id(40)) })
+        assertEquals(f.container(PlayZone.LIBRARY), f.card(40).containerId)
+        assertEquals(f.container(if (top) PlayZone.LIBRARY else PlayZone.EXILE), f.card(41).containerId)
+        if (top) assertTrue(f.commands().isEmpty())
+        assertEquals(1, attempted.map { it.second }.distinct().size)
+        assertNotNull(ui.error)
+        }
+    }
+
+    @Test fun quickDrawCaptureDoesNotReplaceTopAfterOpponentMoveAndStillAdvancesRelatively() {
+        val f = BasicTableFixture(); f.connect()
+        val attempted = mutableListOf<Pair<PlayAction, String?>>()
+        val ui = TableToolkitController(f.actor, { f.play }, { true }, { action, invocation ->
+            attempted += action to invocation; f.lobby.gameplay(action, invocation)
+        })
+        val intent = ui.table.draw(f.play, true)!!
+        val remote = f.data.command(PlayAction.MoveCard(f.id(40), MoveSource(f.container(PlayZone.LIBRARY)),
+            MoveDestination(f.container(PlayZone.EXILE), MoveInsertion.UNORDERED)))
+        f.message(f.update(f.root, remote, 1, f.other))
+        assertTrue(ui.perform(intent))
+        assertEquals(f.id(40), (attempted.first().first as PlayAction.MoveCard).cardId)
+        assertEquals(listOf<PlayAction>(PlayAction.NextStep), f.actions()) // Known-stale prediction is refused, not replaced.
+        assertEquals(f.container(PlayZone.LIBRARY), f.card(41).containerId)
+        assertEquals("UPKEEP", f.play.board.turn.step)
+        assertEquals(1, f.commands().map { it.invocationId }.distinct().size)
+        assertEquals(1, attempted.map { it.second }.distinct().size)
+    }
+
+    @Test fun realDeclarationEffectsAndSourceEditingNormalizeAliasesWithoutMergingOccurrences() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0), true))
+        val start = f.commands().size
+        assertTrue(ui.declare(listOf(f.id(40)), true))
+        assertEquals(3, f.commands().drop(start).size)
+        assertEquals(1, f.commands().drop(start).map { it.invocationId }.distinct().size)
+        assertTrue(f.card(40).tapped)
+        assertTrue(ui.addEffects(listOf(f.id(40)))); assertTrue(ui.addEffects(listOf(f.id(40))))
+        val effects = f.play.board.stackEffects.map { it.id }
+        val occurrence = CombatStackRules.occurrences(f.play.board.combat).single().id
+        ui.openCard(TableScope(effects.first(), listOf(effects.first(), f.id(40), effects.last(), occurrence)))
+        assertEquals(listOf(f.id(40)), ui.manual.scope!!.targetIds)
+        assertEquals(4, ui.capture!!.viewIds.size)
+        assertTrue(ui.submit(PlayAction.AdjustCorner(f.id(40), CornerPart.BOTH, 1)))
+        assertEquals("8/9", CombatStackRules.inspection(f.play.board, effects.last())!!.corner)
+        ui.removeOccurrences(ui.capture!!.copy(viewIds = listOf(effects.first())))
+        assertEquals(listOf(effects.last()), f.play.board.stackEffects.map { it.id })
+        assertEquals(f.container(PlayZone.BATTLEFIELD), f.card(40).containerId)
+    }
+
+    @Test fun actualCombatPlacementUsesRealSessionDerivedOccurrenceIdsAndBoundSlots() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        for (n in 40..41) f.move(n, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), n - 40, 0), true)
+        ui.submit(PlayAction.Combat(CombatAction.Open))
+        val bound = ui.bind(TableScope(f.id(40), listOf(f.id(41), f.id(40))))!!
+        val area = f.play.board.combat!!.id
+        val start = f.commands().size
+        assertTrue(ui.place(bound, CombatDestination(area, CombatRole.BLOCKER)))
+        val pair = f.play.board.combat!!.pairs.single()
+        assertEquals(listOf(f.id(40), f.id(41)), pair.blockers.map { it.sourceId })
+        assertTrue(pair.attackers.isEmpty())
+        assertEquals(1, f.commands().drop(start).map { it.invocationId }.distinct().size)
+        assertEquals(f.id(40), bound.contextViewId)
+        assertEquals(2, f.commands().drop(start).size)
+        assertFalse(f.card(40).tapped)
+    }
+
+    @Test fun fixedContentsReferencesLocalHoldLoggedInspectionAndDisconnectedGatingAreDifferent() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        ui.openLibrary(f.container(PlayZone.LIBRARY))
+        val display = f.play.board.contentsDisplays.single()
+        assertEquals(display.id, ui.libraryDisplayId)
+        val before = f.commands().size
+        ui.inspect(f.id(40)); assertEquals(before, f.commands().size)
+        assertFalse(ui.inspection!!.explicit)
+        assertTrue(ui.submit(PlayAction.InspectFace(f.id(40), f.card(40).faceId, f.card(40).containerId)))
+        assertTrue(ui.inspection!!.provisional); assertEquals(f.root, f.lobby.state.acceptedPlay)
+        ui.library!!.controller.draw()
+        assertEquals(display.cardIds, f.play.board.contentsDisplays.single().cardIds)
+        assertEquals(f.container(PlayZone.HAND), f.card(40).containerId)
+        val sent = f.commands().size
+        f.wire.listener.disconnected()
+        assertFalse(ui.submit(PlayAction.SetLife(f.actor, "50")))
+        assertFalse(ui.perform(TableActionIntent.End(TableActionScope(f.game.id, f.play.id))))
+        assertEquals(sent, f.commands().size)
+    }
+
+    @Test fun capturedFieldReleaseSurvivesReflowButHoldAndCancelNeverAlsoTap() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        val scene = TablePresentation.scene(f.game, f.play, f.actor, 480f, 900f, false)
+        val life = scene.items.single { it.id == "life/${f.actor}" }
+        val events = mutableListOf<TableIntent>()
+        val gesture = TableGestureCoordinator({ events += it; ui.handle(it) })
+        gesture.update(scene, TableSelection(), true)
+        gesture.down(life.bounds.center, 0); gesture.move(life.bounds.center.copy(y = life.bounds.center.y - 48), 20)
+        assertTrue(f.commands().isEmpty())
+        gesture.update(scene.copy(items = scene.items.map { it.copy(bounds = it.bounds.copy(x = it.bounds.x + 20)) }), TableSelection(), true)
+        gesture.up(life.bounds.center.copy(y = life.bounds.center.y - 48), 30)
+        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(f.actor, "2")), f.actions())
+        val press = ActionPress(true)
+        assertEquals(PressAction.HOLD, press.hold()); assertNull(press.release())
+        val tooltip = ActionPress(false)
+        assertEquals(PressAction.TOOLTIP, tooltip.hold()); assertNull(tooltip.release())
+        val cancelled = ActionPress(true); cancelled.cancel(); assertNull(cancelled.release())
+        assertEquals(1, f.commands().size)
+    }
+
+    @Test fun rotationHolderRetainsEditorSelectionAndCameraButExitOrIdentityChangeClearsPersonalInput() {
+        val f = BasicTableFixture(); f.connect()
+        val holder = TableToolkitViewModel()
+        val key = listOf(f.game.id, f.play.id, f.actor)
+        val ui = holder.obtain(f.lobby, key) { toolkit(f) }
+        ui.openCard(TableScope(f.id(40), listOf(f.id(40))))
+        ui.manual.edit(ManualValue(ManualValueKind.NOTE), f.play, f.actor)
+        ui.manual.editor!!.text = "unsubmitted retained draft"
+        ui.layoutState.value = TableLayoutState(TableCamera(84f, 42f, 1.2f))
+        ui.selectionState.value = TableSelection(setOf(f.id(40)))
+        val rotated = holder.obtain(f.lobby, key) { error("Rotation must not create a replacement holder") }
+        assertSame(ui, rotated); assertEquals("unsubmitted retained draft", rotated.manual.editor!!.text)
+        assertEquals(1.2f, rotated.layoutState.value.camera.zoom)
+        assertEquals(setOf(f.id(40)), rotated.selectionState.value.ids)
+        val next = holder.obtain(f.lobby, key + "new-play") { toolkit(f) }
+        assertNotSame(ui, next); assertNull(ui.manual.scope); assertNull(ui.manual.editor)
+        assertTrue(f.commands().isEmpty())
+        holder.release(next)
+    }
+
+    @Test fun realTokenLinkAndDisappearanceKeepEffectLastLiveReadOnlyStateWithoutReplacement() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        assertTrue(ui.submit(PlayAction.CreateToken(TokenCatalog.blank)))
+        val token = f.play.board.cards.single { it.token }.id
+        assertTrue(ui.submit(PlayAction.SetCorner(token, "5/2")))
+        assertTrue(ui.submit(PlayAction.SetNote(token, "last live note")))
+        assertTrue(ui.addEffects(listOf(token)))
+        val effect = f.play.board.stackEffects.single().id
+        ui.openCard(TableScope(token, listOf(token)))
+        ui.tokens.beginLink()
+        assertTrue(ui.batch { ui.tokens.pick(LinkEndpoint(LinkEndpointKind.PLAYER, f.other)) })
+        assertEquals(1, f.play.board.links.size)
+        ui.batch { ui.tokens.removeTokens() }
+        assertTrue(f.play.board.cards.none { it.id == token }); assertTrue(f.play.board.links.isEmpty())
+        val frozen = f.play.board.stackEffects.single().frozen!!
+        assertEquals("5/2", frozen.corner); assertEquals("last live note", frozen.note)
+        val before = f.commands().size
+        ui.openCard(TableScope(effect, listOf(effect)))
+        assertEquals("occurrence", ui.panel); assertNull(ui.manual.scope)
+        ui.inspect(effect)
+        assertEquals(token, ui.inspection!!.snapshot!!.id)
+        assertEquals(before, f.commands().size)
+        ui.removeOccurrences(ui.capture!!)
+        assertTrue(f.play.board.stackEffects.isEmpty()); assertTrue(f.play.board.cards.none { it.id == token })
+    }
+}

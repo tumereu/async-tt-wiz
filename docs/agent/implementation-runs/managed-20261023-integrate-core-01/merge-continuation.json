@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "9258e0db02c373dedd403e5ced27ea8e39b594e9"
+  ],
+  "exitCode": 1,
+  "outputSha256": "dbb3b00c86eee00f36aca9c92ba1798defc0f3ec311d86672bbcb6826a8b9ea8",
+  "output": "Auto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\nCONFLICT (content): Merge conflict in protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\nCONFLICT (content): Merge conflict in protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt\nCONFLICT (content): Merge conflict in protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

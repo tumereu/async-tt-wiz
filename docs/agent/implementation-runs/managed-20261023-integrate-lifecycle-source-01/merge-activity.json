@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "919fd5110fcb849ae9094ea399279f109fe38c6e"
+  ],
+  "exitCode": 1,
+  "outputSha256": "11501eafd3454ac25d48aa1fd82c0b6f21eece0287e05449ad2175fdf45b1cd9",
+  "output": "Auto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt\nAuto-merging server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

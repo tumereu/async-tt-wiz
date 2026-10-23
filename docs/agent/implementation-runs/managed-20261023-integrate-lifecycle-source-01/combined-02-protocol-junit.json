@@ -1,0 +1,16 @@
+{
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.GameWireTest.xml": {
+    "sha256": "d14ffbca0d1082bab21b5e16e61ee127d14cbcb0c5a5f2fa3e28df1aa294c730",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJHYW1lV2lyZVRlc3RbanZtXSIgdGVzdHM9IjEiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwODowMTo1OS4zNTFaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjE0NiI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJnYW1lcGxheVNjb3Blc0FuZE5lc3RlZEludGVudFN0YXlEaXN0aW5jdEZyb21MaWZlY3ljbGVBbmRUcmFuc3BvcnQoKVtqdm1dIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LnByb3RvY29sLkdhbWVXaXJlVGVzdCIgdGltZT0iMC4xMzUiLz4KICA8c3lzdGVtLW91dD48IVtDREFUQVtdXT48L3N5c3RlbS1vdXQ+CiAgPHN5c3RlbS1lcnI+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tZXJyPgo8L3Rlc3RzdWl0ZT4K",
+    "tests": {
+      "name": "GameWireTest[jvm]",
+      "tests": "1",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T08:01:59.351Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.146"
+    }
+  }
+}

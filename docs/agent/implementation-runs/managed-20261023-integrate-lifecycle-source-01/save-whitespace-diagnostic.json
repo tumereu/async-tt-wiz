@@ -1,0 +1,11 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--cached",
+    "--check"
+  ],
+  "exitCode": 2,
+  "outputSha256": "0d73eb8c68e95a5e372d8da41d5da5311d85341a9a088df5b656f0e5eda78adf",
+  "output": "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:93: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:103: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:519: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:749: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:788: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:840: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:980: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:1008: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:6750: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:6771: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:6836: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:6850: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:6888: trailing whitespace.\n+ \ndocs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch:7833: trailing whitespace.\n+ \n"
+}

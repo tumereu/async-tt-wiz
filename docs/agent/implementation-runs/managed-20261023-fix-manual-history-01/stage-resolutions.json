@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "add",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "output": ""
+}

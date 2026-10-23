@@ -1,0 +1,242 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Delivered and early-pushed real shared selective Undo/Redo engine and native components/API over pinned I13 scalar/replay source. Exact target and entire retained-future tuples, same-tree stable-ID rewiring, account queues and technical work ceilings are implemented with affected passing host/APK evidence. Split I23a implemented/I23b pending preserves every relational FIFO, later mapping/exposure/reference and connected-native obligation; I23 is not complete. Initial direct-wrapper WSL daemon socket failure is retained diagnostic; repository gradle.sh tooling wrapper fixes the ordinary host invocation without product/config changes.",
+  "selectionReason": "Supervisor leased I23 speculative development against commit 7641ac3 and explicitly prioritized a real shared tree API/engine and native controls to unblock I24-I26 source lanes. Acceptance readiness and integrated prerequisites remain solely with the supervisor; no other task or live state advanced.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :protocol:jvmTest --tests org.asyncttwiz.protocol.GameplayTreeTest --tests org.asyncttwiz.protocol.SelectiveUndoTest --tests org.asyncttwiz.protocol.GameplayTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.UndoActionsTest :androidApp:assembleDebug --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i23-01/engine-tests-01.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.GameplayTreeTest --tests org.asyncttwiz.protocol.SelectiveUndoTest --tests org.asyncttwiz.protocol.GameplayTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.UndoActionsTest :androidApp:assembleDebug --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i23-01/engine-tests-02.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code 7641ac350cbadd277652be668680ba3049817393 -- docs/agent/implementation-state.json",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i23-01/state-unchanged.json"
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "I23a",
+      "sourceIds": [
+        "P-008",
+        "P-040",
+        "P-059",
+        "P-063",
+        "P-065",
+        "D-224",
+        "D-231",
+        "D-232",
+        "D-233",
+        "D-234",
+        "D-235",
+        "D-236",
+        "D-238",
+        "D-245",
+        "D-258"
+      ],
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i23-01/engine-tests-02.json"
+    }
+  ],
+  "sourceIds": [
+    "P-008",
+    "P-040",
+    "P-059",
+    "P-063",
+    "P-065",
+    "D-224",
+    "D-231",
+    "D-232",
+    "D-233",
+    "D-234",
+    "D-235",
+    "D-236",
+    "D-238",
+    "D-245",
+    "D-258"
+  ],
+  "dependencyCommits": [
+    "7641ac350cbadd277652be668680ba3049817393"
+  ],
+  "resourceBundle": [
+    "isolated-host-tests"
+  ],
+  "executedAssertions": [
+    "20 shared JVM tests and 3 native host tests passed, zero skips; exact original JUnit XML retained in junit-early.json.",
+    "Normal debug APK assembled including UndoQuickAction and UndoActionsMenu; not a claim of mounted native route or executed device gestures.",
+    "Authoritative state diff against immutable start commit is empty."
+  ],
+  "deferredAssertions": [
+    {
+      "owner": "I23b",
+      "scope": "All integration requirements in the pending child and interfaces.md, including actual SQL FIFO/shared devices/atomic deltas, all later per-kind and effective exposure/reference mappings, mounted native controls/prediction/recovery and normal-native gestures."
+    },
+    {
+      "owner": "I26",
+      "scope": "Complete-tree baseline/pruned-delta/third-instance recovery and retained removal-parent cursor fallback journey using this tree."
+    },
+    {
+      "owner": "B6/I34/B8",
+      "scope": "Independent capability review, full final integrated qualification and release gates; assigned IDs are not executed coverage."
+    }
+  ],
+  "proposal": {
+    "sourceIds": [
+      "P-008",
+      "P-040",
+      "P-059",
+      "P-063",
+      "P-065",
+      "D-224",
+      "D-231",
+      "D-232",
+      "D-233",
+      "D-234",
+      "D-235",
+      "D-236",
+      "D-238",
+      "D-245",
+      "D-258"
+    ],
+    "sourcePaths": [
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/SelectiveUndo.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoController.kt"
+    ],
+    "testPaths": [
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTreeTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/SelectiveUndoTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/UndoActionsTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoController.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/UndoActionsTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i23-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i23-01/engine-tests-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i23-01/engine-tests-02.json",
+      "docs/agent/implementation-runs/managed-20261023-i23-01/interfaces.md",
+      "docs/agent/implementation-runs/managed-20261023-i23-01/junit-early.json",
+      "docs/agent/implementation-runs/managed-20261023-i23-01/state-unchanged.json",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/SelectiveUndo.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTreeTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/SelectiveUndoTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I23",
+        "before": {
+          "id": "I23",
+          "batch": "B6",
+          "status": "pending"
+        },
+        "after": {
+          "id": "I23",
+          "batch": "B6",
+          "status": "in-progress",
+          "children": [
+            "I23a",
+            "I23b"
+          ],
+          "planningRecord": "docs/agent/implementation-runs/managed-20261023-i23-01.json"
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I23a",
+        "before": null,
+        "after": {
+          "id": "I23a",
+          "batch": "B6",
+          "status": "implemented",
+          "dependsOn": [],
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i23-01.json",
+          "outcome": "Deliver the shared immutable GameplayTree and processing-time selective Undo/Redo engine over pinned I13 early scalar/replay APIs, stable retained topology/removal-parent metadata, bounded exact target/suffix validation and account queues; typed Undo/Redo wire commands and compilable native explicit-menu/quick-action/controller components. This is an independently usable shared algorithm/component outcome, not relational or connected-native integration.",
+          "checks": [
+            "Run shared scalar/tree selective Undo/Redo tests for latest-own/no skip, strict stack order, target fidelity, full retained future including internal shared pointer, forks, stable node metadata/cursor fallback, references, clearing/no-op and hard work budgets.",
+            "Run native controller/gesture host tests for typed routes, connection gating and tap/hold/cancel mutual exclusion; assemble the normal debug APK. Native UI gesture execution and session mounting remain I23b.",
+            "Preserve unknown schema and unavailable movement mappings as fail-closed; do not claim later per-kind mappings, SQL FIFO, device synchronization or recovery."
+          ],
+          "qualification": "20 shared tests (5 tree, 13 selective, 2 existing reducer) and 3 native host tests pass with no skips; normal debug APK assembles. Real relational/native integration and all later action/reference/exposure mappings remain I23b. Proposed API was pushed early at e33327d for dependent lanes; not independent review or task acceptance."
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I23b",
+        "before": null,
+        "after": {
+          "id": "I23b",
+          "batch": "B6",
+          "status": "pending",
+          "dependsOn": [
+            "I23a",
+            "I12",
+            "I13",
+            "I14",
+            "I15",
+            "I16",
+            "I17",
+            "I18",
+            "I19",
+            "I20",
+            "I21",
+            "I22"
+          ],
+          "outcome": "Complete ALL original I23 integrated obligations against accepted I13 and I17-I22/native session inputs using the one GameplayTree model: actual PostgreSQL inbox FIFO processing-time latest-own targeting, atomic topology/account stacks/results/revisions/deltas and retained parent metadata; exact per-action tuple/read/choice/mandatory-effect and exposure-only/reference mappings; actual connected native request prediction/rebase/recovery, mounted G03 explicit actions and tap-Undo/hold-Redo controls. No unimplemented prerequisite or engine fixture is acceptance of this scope.",
+          "checks": [
+            "Run actual relational FIFO/concurrent same-account multi-device Undo and last-undone-first Redo; one mutation per distinct request, no skipped blocked/revealing/fork candidate, original-ID pending/completed/rejected/no-op retries and lost-response recovery without repeated removal/insertion/reset. Commit board/topology/stacks/outcome/revision/deltas atomically and fence access, account and play incarnation.",
+            "Integrate exact recorded target fidelity BEFORE suffix checks and every relevant retained successor/event beyond shared-current/review cursors for ALL accepted action families: scalar/text/counter/color/reset/Clone/face/owner/note; move/ordered draw/reorder/shuffle and destination resets; token disappearance/frozen state; combat/Stack/occurrence/area/link/pair cleanup; tracking/result suggestion; annotation/comment/ping/references; random results and accepted exposure-only events. Do not guess changed input/targets or omit obligatory cleanup.",
+            "Exercise real accepted revealing targets and effective exposure-only latest-own barriers, recording versus viewed context, fixed accepted contents references and dependent event/reference protection; rejected/different predicted glimpses create no extra barrier or clearing. Own-area holds are local. Integrate I22 actual grouping/EventReferenceResolver without broad whole-board locks or fabricated mappings.",
+            "Validate target/payload/reference/loading/effect-fan-out/reconstruction budgets for large targets and mandatory cleanup with zero/short suffix and all retained future records within N. Overflow must leave topology, board, queues and metadata unchanged; no prefix-only validation, history expiry or game-object caps.",
+            "Verify ordinary own success clears own queue only, opponent ordinary play retains other queue, rejected/no-op/personal review does not clear, deliberate activation/interruption/archive-return switches clear both atomically, same-current/rejected/metadata-only operations do not and recovered switch outcomes never clear newly created entries. Coordinate I24/I25 against this shared seam.",
+            "Mount actual native explicit menu and quick slot using typed callbacks and real session readiness/FIFO, online provisional application and accepted-state rebase; exercise press/hold/release/cancel/accessibility while acknowledgements/reconnect race, no hold-plus-tap dispatch or fake connected handler. Cover same-process original-request recovery, reauthentication/rotation/background, restart server-first loss and account/Logout/play fencing. Run affected host/APK and leased normal-native journeys.",
+            "Retain surviving logical IDs and states in the same tree with no pre-Undo branch/compensating node, current-target parent fallback and surviving cursor stability; publish incremental/full-recovery topology and parent information for I26. I26 owns full-tree/pruned-delta/third-instance journey; I34/B8 final qualification and independent B6 review remain mandatory."
+          ]
+        }
+      }
+    ]
+  },
+  "runId": "managed-20261023-i23-01",
+  "sessionID": "ses_e98bb12bdffejwaOOsfOD4IzOm",
+  "startCommit": "7641ac350cbadd277652be668680ba3049817393",
+  "mode": "implement",
+  "target": "I23",
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoController.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/UndoActionsTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i23-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i23-01/engine-tests-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i23-01/engine-tests-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i23-01/interfaces.md",
+    "docs/agent/implementation-runs/managed-20261023-i23-01/junit-early.json",
+    "docs/agent/implementation-runs/managed-20261023-i23-01/state-unchanged.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/SelectiveUndo.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTreeTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/SelectiveUndoTest.kt"
+  ]
+}

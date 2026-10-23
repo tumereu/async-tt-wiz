@@ -1,0 +1,11 @@
+{
+  "blockedPin": "e84f93557cd5093858e499af5eb747650d70b99f",
+  "reason": "Normal merge imports authoritative state and two unleased progress helpers. Patch tool denied restoration; no alternate edit route attempted. Preserve owned source resolution as unapplied checkpoint and abort only this owned merge. Integrate other independent ready pins.",
+  "unleasedImportedPaths": [
+    "docs/agent/implementation-state.json",
+    "scripts/implementation-progress.py",
+    "scripts/test-implementation-progress.py"
+  ],
+  "checkpoint": "lifecycle-resolution-checkpoint.patch",
+  "compileStatus": "not executed; proposed source only"
+}

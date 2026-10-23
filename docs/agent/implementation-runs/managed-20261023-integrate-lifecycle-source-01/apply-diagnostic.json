@@ -1,0 +1,15 @@
+{
+  "command": ["git", "apply", "--3way", "--index", "docs/agent/implementation-runs/managed-20261023-integrate-lifecycle-source-01/lifecycle-source.patch"],
+  "exitCode": 1,
+  "retention": "Small summary of actual foreground tool output; not a captured raw-output record and not a passing check. No retry of the already-applied patch.",
+  "outputSummary": "Allowlisted patch applied with seven conflicts. Other files applied cleanly or fell back to direct application.",
+  "conflicts": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameStartTest.kt"
+  ]
+}

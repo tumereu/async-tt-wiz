@@ -111,13 +111,22 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
                     }
                     is SubscribeGame -> {
                         if (1 !in message.readFormats) throw GameProtocolFailure("upgradeRequired")
-                        games.head(principal, gameId) // Authorize before enabling any publication delivery.
+                        games.subscriptionHead(principal, gameId) // Authorize before enabling any publication delivery.
                         // Register before snapshot selection; duplicates/races are reconciled by revision IDs.
                         subscriptions.add(gameId)
                         try {
-                            val revisions = games.revisions(principal, gameId, message.revision)
-                            revisions.revisions.forEach(::send)
-                            send(games.head(principal, gameId))
+                            // A fresh subscription to a tombstone gets lifecycle only, no old board/history.
+                            val head = games.subscriptionHead(principal, gameId)
+                            if (head.summary.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) {
+                                try {
+                                    games.revisions(principal, gameId, message.revision).revisions.forEach {
+                                        send(games.publicationState(principal, it))
+                                    }
+                                } catch (failure: GameProtocolFailure) {
+                                    if (failure.code != "accessDenied") throw failure
+                                }
+                            }
+                            send(games.subscriptionHead(principal, gameId))
                         } catch (failure: Exception) { subscriptions.remove(gameId); throw failure }
                     }
                     else -> Unit
@@ -134,11 +143,10 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
         fun publish(publication: GameService.Publication) {
             if (publication.gameId !in subscriptions && publication.gameId !in streams) return
             try {
-                principal() // A revoked socket is not a permanent authorization subscription.
+                val principal = principal() // A revoked socket is not a permanent authorization subscription.
                 if (publication.revision != null && publication.gameId in subscriptions) {
                     val revision = GameWire.json.decodeFromString<GameServerMessage>(publication.revision) as GameRevision
-                    send(games.visibleRevision(revision, accountId))
-                    if (revision.summary.lifecycle == GameLifecycle.CANCELLED) subscriptions.remove(publication.gameId)
+                    send(games.publicationState(principal, revision))
                 }
                 if (publication.accountId == accountId) sendText(publication.result)
             } catch (failure: GameProtocolFailure) { if (failure.code == "unauthorized") stop() }
@@ -146,7 +154,7 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
         fun heartbeat() {
             if (System.nanoTime() - lastTraffic > TimeUnit.SECONDS.toNanos(90)) { stop(); return }
             for (gameId in subscriptions) dispatcher.submit(gameId) {
-                send(games.head(principal(), gameId))
+                send(games.subscriptionHead(principal(), gameId))
             }.whenComplete { _, failure -> if (failure != null) stop() }
             if (subscriptions.isEmpty()) send(GamePong("heartbeat"))
         }

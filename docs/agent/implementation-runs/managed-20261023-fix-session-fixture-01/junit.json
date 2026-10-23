@@ -1,0 +1,16 @@
+{
+  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.GameplayMoveIntegrationTest.xml": {
+    "sha256": "5dd0d908206b457a37c5364637f93e57f4751dd5f2f94d4e335438630f0e15fb",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkdhbWVwbGF5TW92ZUludGVncmF0aW9uVGVzdCIgdGVzdHM9IjIiIHNraXBwZWQ9IjAiIGZhaWx1cmVzPSIwIiBlcnJvcnM9IjAiIHRpbWVzdGFtcD0iMjAyNi0xMC0yM1QwNjo1ODo1OC41OTNaIiBob3N0bmFtZT0iREVTS1RPUC1CMktBTFZNIiB0aW1lPSIwLjE2NyI+CiAgPHByb3BlcnRpZXMvPgogIDx0ZXN0Y2FzZSBuYW1lPSJndWFyZGVkTW92ZW1lbnRBbmRNYW51YWxUdXBsZXNTaGFyZUluZmxpZ2h0U2Vzc2lvbkFuZEJhc2VsaW5lV2l0aG91dEFja25vd2xlZGdlbWVudFJld2luZCIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5hbmRyb2lkLkdhbWVwbGF5TW92ZUludGVncmF0aW9uVGVzdCIgdGltZT0iMC4xNTEiLz4KICA8dGVzdGNhc2UgbmFtZT0icmVqZWN0ZWRFYXJsaWVyTW92ZURvZXNOb3REcm9wR3VhcmRlZExhdGVyT3JpZ2luYWxPclJldml2ZUl0c1dpdGhkcmF3blByZWRpY3Rpb24iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXouYW5kcm9pZC5HYW1lcGxheU1vdmVJbnRlZ3JhdGlvblRlc3QiIHRpbWU9IjAuMDExIi8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "org.asyncttwiz.android.GameplayMoveIntegrationTest",
+      "tests": "2",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T06:58:58.593Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.167"
+    }
+  }
+}

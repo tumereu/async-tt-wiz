@@ -1,0 +1,65 @@
+{
+  "runId": "managed-20261023-write-foreground-fix-01",
+  "sessionID": "ses_e97e2cdeaffeJ6cMJLONXkXtus",
+  "startCommit": "0436d6ec399ad821c19e24170f2e6ef01d637015",
+  "mode": "integration",
+  "target": "fix-ESP-ANDROID-FOREGROUND-JVM-CLASH-001",
+  "model": "openai/gpt-6.1-sol#high",
+  "outcome": "progress",
+  "verificationStatus": "UNVERIFIED",
+  "summary": "Supervisor-amended connected candidate: normal merge of exact saved location-ping commit into saved foreground API rename. Automatic TableScreen merge retained both changes without manual reconciliation. All source remains UNVERIFIED; no builds, tests, packaging, app execution or reviews.",
+  "originalReport": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01.json",
+  "identity": {
+    "branch": "managed/managed-20261023-write-foreground-fix-01",
+    "leaseContext": "/tmp/opencode/managed-20261023-write-foreground-fix-01/context.json",
+    "amendment": "2026-10-23T09:36:00.202971+00:00",
+    "foregroundFixCommit": "a0e7058536e7503d4d0a90111c0131a32d4d44d7",
+    "mergedDependencyCommit": "9e66023f1f7835743c1a249817779b387df915f8"
+  },
+  "mergeAndRepairDetails": "Saved/pushed the four-identifier foreground fix first to preserve uncommitted work before normal merge. Then ran the exact authorized --no-ff --no-commit command; automatic merge succeeded, no source edits afterward. Ping source/test/report/check bytes are preserved exactly except TableScreen's three already-renamed foreground callers. TableToolkitController was additionally leased but unchanged. Original foreground report/check bytes also remain unchanged. No other checkout, state/control or application-validator access for mutation.",
+  "checks": [
+    {"kind": "static", "command": "git merge --no-ff --no-commit 9e66023f1f7835743c1a249817779b387df915f8", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merge.json"},
+    {"kind": "static", "command": "Direct merged-source and retained-report byte comparison against the two saved parent pins; exact python argv retained", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merge-integrity.json"},
+    {"kind": "static", "command": "git diff --cached --check", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merged-whitespace.json"},
+    {"kind": "static", "command": "Static cumulative changed-path ownership comparison against integration.changedPaths; exact python argv retained", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merged-ownership.json"}
+  ],
+  "failureGroups": [
+    {
+      "id": "ESP-ANDROID-FOREGROUND-JVM-CLASH-001",
+      "status": "SOURCE-REPAIRED-UNVERIFIED",
+      "failingTask": ":androidApp:compileDebugKotlin",
+      "originalCommandEvidence": "aa89cf09:docs/agent/implementation-runs/managed-20261023-exec-spine-01/affected-pass.json",
+      "diagnostic": "CONFLICTING_JVM_DECLARATIONS: foreground setter and explicit setForeground(Boolean) share setForeground(Z)V.",
+      "likelyOwningTask": "Final history-ui-spine indexed-token normal-host/rotation-retained foreground integration amendment",
+      "sourcePaths": ["androidApp/src/main/kotlin/org/asyncttwiz/android/TableHistoryController.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt"],
+      "classification": "Shared Android normal-UI seam, local API correction; now merged with the connected ping input/callback change.",
+      "dependenciesAndOverlap": "Both saved parent pins are integrated. All Android scopes remain unexecuted. No new failure group inferred from unexecuted ping source. Retain independent fresh fix verification and original native/capability obligations.",
+      "freshAssignment": "One separate Android executor on the final saved merge candidate runs the original six blocked selector entries plus existing immediate-mode arbitration in one pass. Whole HistoryUiSpineTest already includes the single new locationPingCapturesLogicalTransformAndOriginalReferenceForOneExplicitUnping regression; do not run it again separately.",
+      "narrowRerunCommand": "./scripts/gradle.sh --no-daemon --max-workers=2 :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ProjectionLinkRuntimeTest --tests org.asyncttwiz.android.TokenSearchTest.asyncLoadingPagingEmptyAndImmediateExactOnceSelectionUseOnePanelState --tests org.asyncttwiz.android.TableToolkitWiringTest.actualNormalHistoryArmFlowsThroughLibraryMoveDefaultsAndEverySubsequentOriginalWithoutAckBarrier --tests org.asyncttwiz.android.HistoryUiSpineTest --tests org.asyncttwiz.android.HistoryRuntimeIntegrationTest.stalePreviousPlayRevisionCannotInvalidateNewerAcceptedCacheOrStartObsoleteRecovery --tests org.asyncttwiz.android.ActivityRuntimeIntegrationTest.normalLobbyColdWarmRouteUsesExactAuthorizedBoundaryAndNoReplacementCommands --tests org.asyncttwiz.android.TableGesturesTest.selectAndPingHaveIndependentImmediateTapsWithoutDoubleRecognizer :androidApp:compileDebugAndroidTestKotlin"
+    }
+  ],
+  "remainingOwners": [
+    {"owner": "Supervisor", "scope": "Accept actual saved session/upstream/latest-state metadata separately; pin final merge candidate for execution. No application acceptance or completion implied."},
+    {"owner": "Fresh Android executor/independent verifier", "scope": "Run consolidated Android command and verify compiler fix independently. Reuse unchanged prior protocol/server/storage/reset/E2E evidence; do not rerun those green scopes solely for this merge."},
+    {"owner": "Artifact/native/capability/release owners", "scope": "After Android qualification, package latest coherent APK/server artifacts once; reserve full device bundle for queued ping/lifecycle journeys. Privacy/native, independent capability reviews, final suites and release gates remain outstanding."}
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AnnotationActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableHistoryController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/HistoryUiSpineTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-location-ping-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-location-ping-01/protected-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-write-location-ping-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/source-diff.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/ownership.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/integration.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merge.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merge-integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merged-whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-foreground-fix-01/merged-ownership.json"
+  ]
+}

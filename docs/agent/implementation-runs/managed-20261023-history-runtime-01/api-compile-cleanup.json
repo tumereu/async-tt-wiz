@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import subprocess; c=\"ecd54c9fbbd3758aaefdb5274010d795fc75da308e9459173791a1528358c75f\"; v=\"93a56d1f610c0028a5763970dbade4123ac148985735a0cf428dcf8afab422b1\"; rows=subprocess.check_output([\"docker\",\"ps\",\"-aq\",\"--filter\",\"id=\"+c],text=True); assert not rows.strip(); p=subprocess.run([\"docker\",\"volume\",\"inspect\",v],capture_output=True,text=True); assert p.returncode!=0 and \"no such volume\" in p.stderr.lower(); print(\"Owned codegen container and exact volume absent; foreground Gradle process returned, no test resources allocated\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "0aecf4fbc160a3b23bf7710473de887cba0608cd70d1eb88c613376dc6c61eba",
+  "output": "Owned codegen container and exact volume absent; foreground Gradle process returned, no test resources allocated\n"
+}

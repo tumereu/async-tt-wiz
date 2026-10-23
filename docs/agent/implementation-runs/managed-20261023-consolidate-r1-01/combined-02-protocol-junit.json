@@ -1,0 +1,44 @@
+{
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.CoreCompositionRepairTest.xml": {
+    "sha256": "4e381b9a2deefd386ca1b84e8135227790277952d7d00c48a1501b491d18ad53",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJDb3JlQ29tcG9zaXRpb25SZXBhaXJUZXN0W2p2bV0iIHRlc3RzPSI0IiBza2lwcGVkPSIwIiBmYWlsdXJlcz0iMCIgZXJyb3JzPSIwIiB0aW1lc3RhbXA9IjIwMjYtMTAtMjNUMDc6MjA6MjQuMzE4WiIgaG9zdG5hbWU9IkRFU0tUT1AtQjJLQUxWTSIgdGltZT0iMC4xMjQiPgogIDxwcm9wZXJ0aWVzLz4KICA8dGVzdGNhc2UgbmFtZT0ibGlmZVNldFBpbnNFdmVyeVVuaWNvZGVXaGl0ZXNwYWNlRWRnZUJ1dFByZXNlcnZlc0ludGVyaW9yQW5kT3RoZXJDb2RlUG9pbnRzKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5Db3JlQ29tcG9zaXRpb25SZXBhaXJUZXN0IiB0aW1lPSIwLjA0MiIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJzaWduZWRaZXJvSXNOb0VkaXRBbmROZXZlckNhbm9uaWNhbGl6ZXNBblVuY2hhbmdlZExpZmVWYWx1ZSgpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuQ29yZUNvbXBvc2l0aW9uUmVwYWlyVGVzdCIgdGltZT0iMC4wMSIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJsaWZlVXNlc0V4YWN0U2lnbmVkQXJpdGhtZXRpY0FuZEFjY2VwdGVkQ29uY3VycmVudFR1cGxlc1dpdGhvdXRNYWNoaW5lQm91bmRzKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5Db3JlQ29tcG9zaXRpb25SZXBhaXJUZXN0IiB0aW1lPSIwLjA0MiIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJjYXB0dXJlZExpYnJhcnlFbnRyaWVzU2VuZEluZGl2aWR1YWxDbGVhbnVwQW5kUmVhZEZhY2VXaGVuUmVzZXRBY3R1YWxseVJ1bnMoKVtqdm1dIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LnByb3RvY29sLkNvcmVDb21wb3NpdGlvblJlcGFpclRlc3QiIHRpbWU9IjAuMDI2Ii8+CiAgPHN5c3RlbS1vdXQ+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tb3V0PgogIDxzeXN0ZW0tZXJyPjwhW0NEQVRBW11dPjwvc3lzdGVtLWVycj4KPC90ZXN0c3VpdGU+Cg==",
+    "tests": {
+      "name": "CoreCompositionRepairTest[jvm]",
+      "tests": "4",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T07:20:24.318Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.124"
+    }
+  },
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.GameResultLifecycleTest.xml": {
+    "sha256": "3047a366e3e6c1b89a8feb413327bdcb833b5917d19254232ac74205b6d5b785",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJHYW1lUmVzdWx0TGlmZWN5Y2xlVGVzdFtqdm1dIiB0ZXN0cz0iMSIgc2tpcHBlZD0iMCIgZmFpbHVyZXM9IjAiIGVycm9ycz0iMCIgdGltZXN0YW1wPSIyMDI2LTEwLTIzVDA3OjIwOjI0LjE5OVoiIGhvc3RuYW1lPSJERVNLVE9QLUIyS0FMVk0iIHRpbWU9IjAuMTE3Ij4KICA8cHJvcGVydGllcy8+CiAgPHRlc3RjYXNlIG5hbWU9InN0cmljdFNpbmdsZXRvbkhhc0JvdGhCb3VuZGFyaWVzSW5jbHVkaW5nVGFwQW5kU2FtZUF1dGhvckVkaXQoKVtqdm1dIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LnByb3RvY29sLkdhbWVSZXN1bHRMaWZlY3ljbGVUZXN0IiB0aW1lPSIwLjA5NSIvPgogIDxzeXN0ZW0tb3V0PjwhW0NEQVRBW11dPjwvc3lzdGVtLW91dD4KICA8c3lzdGVtLWVycj48IVtDREFUQVtdXT48L3N5c3RlbS1lcnI+CjwvdGVzdHN1aXRlPgo=",
+    "tests": {
+      "name": "GameResultLifecycleTest[jvm]",
+      "tests": "1",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T07:20:24.199Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.117"
+    }
+  },
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.PilePrefixInsertionTest.xml": {
+    "sha256": "cc0cc9f9b495964e18268ccd564ec566658123190c32dc292dc7c8b7ae189e9f",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJQaWxlUHJlZml4SW5zZXJ0aW9uVGVzdFtqdm1dIiB0ZXN0cz0iNSIgc2tpcHBlZD0iMCIgZmFpbHVyZXM9IjAiIGVycm9ycz0iMCIgdGltZXN0YW1wPSIyMDI2LTEwLTIzVDA3OjIwOjI0LjQ0M1oiIGhvc3RuYW1lPSJERVNLVE9QLUIyS0FMVk0iIHRpbWU9IjAuMDY3Ij4KICA8cHJvcGVydGllcy8+CiAgPHRlc3RjYXNlIG5hbWU9InNhbWVQaWxlUGVuZGluZ01lbWJlcnNBcmVOb3RVbnRvdWNoZWROZWlnaGJvcnNBbmRBbHJlYWR5UGxhY2VkSXNBTm9PcCgpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuUGlsZVByZWZpeEluc2VydGlvblRlc3QiIHRpbWU9IjAuMDA2Ii8+CiAgPHRlc3RjYXNlIG5hbWU9InVucmVsYXRlZE9yZGluYXJ5RWRpdHNTdGF5TGl2ZUFuZFN0YWNrRXF1YWxpdHlSZW1haW5zQURpc3RpbmN0R3VhcmQoKVtqdm1dIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LnByb3RvY29sLlBpbGVQcmVmaXhJbnNlcnRpb25UZXN0IiB0aW1lPSIwLjAwOSIvPgogIDx0ZXN0Y2FzZSBuYW1lPSJzb3VyY2VQcmVmaXhSaWdodE5laWdoYm9yQWRkcmVzc2VkVGFyZ2V0QW5kQ2FwYWNpdHlOZXZlclVzZVJlcGxhY2VtZW50UmVmZXJlbmNlcygpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuUGlsZVByZWZpeEluc2VydGlvblRlc3QiIHRpbWU9IjAuMDAzIi8+CiAgPHRlc3RjYXNlIG5hbWU9InByZWZpeE9wZXJhbmRzQXJlVHlwZWRCb3VuZGVkQW5kTm90QWNjZXB0ZWRPbk90aGVyRGVzdGluYXRpb25zKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5QaWxlUHJlZml4SW5zZXJ0aW9uVGVzdCIgdGltZT0iMC4wMDIiLz4KICA8dGVzdGNhc2UgbmFtZT0ib3JkZXJlZEluZGl2aWR1YWxCb3VuZGFyaWVzS2VlcEV4YWN0TG9jYXRpb25zQ29kZWNSZXBsYXlBbmRJbnZlcnNlKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5QaWxlUHJlZml4SW5zZXJ0aW9uVGVzdCIgdGltZT0iMC4wNDMiLz4KICA8c3lzdGVtLW91dD48IVtDREFUQVtdXT48L3N5c3RlbS1vdXQ+CiAgPHN5c3RlbS1lcnI+PCFbQ0RBVEFbXV0+PC9zeXN0ZW0tZXJyPgo8L3Rlc3RzdWl0ZT4K",
+    "tests": {
+      "name": "PilePrefixInsertionTest[jvm]",
+      "tests": "5",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T07:20:24.443Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.067"
+    }
+  }
+}

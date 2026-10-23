@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import hashlib,json,pathlib,subprocess\nreport=json.loads(pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-write-i33-01.json\").read_text())\nresult={\"sourceStatus\":\"UNCOMPILED/UNEXECUTED\",\"sourceHashes\":{},\"unchangedControls\":{}}\nfor p in report[\"changedPaths\"][:3]:\n data=pathlib.Path(p).read_bytes(); assert data.endswith(b\"\\n\"); assert not any(line.rstrip(b\" \\t\")!=line for line in data.splitlines()); result[\"sourceHashes\"][p]={\"sha256\":hashlib.sha256(data).hexdigest(),\"lines\":len(data.splitlines())}\nfor p in [\"docs/agent/implementation-state.json\",\"docs/agent/implementation-permissions.json\"]:\n data=pathlib.Path(p).read_bytes(); assert data==subprocess.check_output([\"git\",\"show\",\"HEAD:\"+p]); result[\"unchangedControls\"][p]=hashlib.sha256(data).hexdigest()\nassert report[\"assertionStatus\"][\"executedProductAssertions\"]==[]\nprint(json.dumps(result,indent=2))"
+  ],
+  "exitCode": 0,
+  "outputSha256": "f15979c1ad198a428ef595acb3d106c5a929acd345785cb66952b7dc0139aa82",
+  "output": "{\n  \"sourceStatus\": \"UNCOMPILED/UNEXECUTED\",\n  \"sourceHashes\": {\n    \"androidApp/src/androidTest/kotlin/org/asyncttwiz/android/RuntimeWorkloadTest.kt\": {\n      \"sha256\": \"30e186757e695ff6bd5abd4118e61b6b079ab539004ef00e8f6b36dd0ccb419d\",\n      \"lines\": 434\n    },\n    \"protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/RuntimeWorkloadTest.kt\": {\n      \"sha256\": \"8d1707d64cafa5f52a18a2553fa7f5e4964e15d2cefb3e0094887d912db97efc\",\n      \"lines\": 135\n    },\n    \"server/src/test/kotlin/org/asyncttwiz/server/game/RuntimeWorkloadTest.kt\": {\n      \"sha256\": \"d294426b003fe639d9ec5f4ec37ee6757092821b8b7a85d462a1dae162500a99\",\n      \"lines\": 86\n    }\n  },\n  \"unchangedControls\": {\n    \"docs/agent/implementation-state.json\": \"1df696aa47ee59e0ce6edc6a3908f01f416d680ed4012d5b8897dfea7d9eb45f\",\n    \"docs/agent/implementation-permissions.json\": \"6e1406ca754bd09499838355203d416acb45910c54694f546c292944dbb7e8f9\"\n  }\n}\n"
+}

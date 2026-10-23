@@ -1,0 +1,146 @@
+[
+  {
+    "path": "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "sha256": "063534fc9e1d4586180d0f182b6dd4ddd6e9413f29c4783c3451657fca25bf35",
+    "conflicts": [
+      {
+        "canonical": "    fun ready(gameId: String) = ready && available(gameId) && streams[gameId]?.let { it.generation != null && it.head } == true\n",
+        "pinnedRuntime": "    fun ready(gameId: String) = ready && available(gameId) && gameId !in recoveries && streams[gameId]?.let { it.generation != null && it.head } == true\n"
+      },
+      {
+        "canonical": "        preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId)\n        selections.entries.removeAll { it.value.command.scope.gameId == gameId }\n        transfers.entries.removeAll { it.value.command.scope.gameId == gameId }\n        readiness.entries.removeAll { it.value.command.scope.gameId == gameId }\n",
+        "pinnedRuntime": "        observedPlays.remove(gameId)\n        caches.remove(gameId)?.invalidate()\n        inspections.entries.removeAll { (_, observer) ->\n            (observer.subscription.request.scope.gameId == gameId).also { if (it) observer.subscription.close() }\n        }\n        preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId)\n        recoveries.remove(gameId)\n        messages.remove(gameId); chatRevisions.remove(gameId)\n        chatSubmissions.entries.removeAll { it.value.command.scope.gameId == gameId }\n        selections.entries.removeAll { it.value.command.scope.gameId == gameId }\n        transfers.entries.removeAll { it.value.command.scope.gameId == gameId }\n        readiness.entries.removeAll { it.value.command.scope.gameId == gameId }\n        resultIntents.entries.removeAll { it.value.command.scope.gameId == gameId }\n"
+      },
+      {
+        "canonical": "                message.ended?.let {\n                    require(it.id == message.gameId && it.lifecycle == GameLifecycle.CANCELLED)\n",
+        "pinnedRuntime": "                stream.lastGeneration = message.generation\n                stream.awaitingReady = false\n                require(message.statuses.size == stream.recoveryIds.size &&\n                    message.statuses.map { it.requestId }.toSet() == stream.recoveryIds.toSet())\n                message.ended?.let {\n                    require(it.id == message.gameId && ended(it))\n"
+      },
+      {
+        "canonical": "                val originals = pending.values.filter { it.scope.gameId == message.gameId }.toList()\n                require(message.statuses.map { it.requestId }.toSet() == originals.map { it.requestId }.toSet())\n",
+        "pinnedRuntime": ""
+      },
+      {
+        "canonical": "",
+        "pinnedRuntime": "                flush()\n            }\n            is GameHead -> {\n                require(message.gameId == message.summary.id && message.revision == message.summary.revision)\n                if (message.gameId !in streams) return\n                // Fence old-incarnation reads before they can create a replica or trigger recovery.\n                // A leading HTTP summary is deliberately not this accepted-state boundary.\n                if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return\n                if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return\n                installChat(message.gameId, message.revision, message.chat, snapshot = true)\n                observePlay(message.summary)\n                recoveries[message.gameId]?.let { if (newerOrEqual(message.revision, it.through)) it.through = message.revision }\n                if (message.play != null) {\n                    val replica = plays.getOrPut(message.gameId) { GameplayReplica() }\n                    if (replica.revision == message.revision) {\n                        streams[message.gameId]?.head = true\n                    } else if (treeCache == null && !message.retainedTreeRequired && replica.accepted == null && replica.root(message)) {\n                        install(message.summary, message.revision, null, message.play)\n                        streams[message.gameId]?.head = true\n                    } else if (replica.revision?.let { newerOrEqual(it, message.revision) } != true) recover(message.gameId, message.revision)\n                } else {\n                    install(message.summary, message.revision, message.preparation, null)\n                    streams[message.gameId]?.head = true\n                }\n"
+      },
+      {
+        "canonical": "                    message.requestId?.let { pending.remove(it); selections.remove(it); transfers.remove(it); readiness.remove(it); sent.remove(it) }\n",
+        "pinnedRuntime": "                    message.requestId?.let { id -> inspections.remove(id)?.let { observer ->\n                        presentInspection(observer, InspectionEvent.NotAccepted(observer.subscription.request, admissionError = message)) } }\n                    message.requestId?.let { id ->\n                        chatSubmissions[id]?.let { chatSubmissions[id] = it.copy(failure = \"Not sent. This request could not be used.\") }\n                        pending.remove(id)?.let { plays[it.scope.gameId]?.retire(id) }; selections.remove(id); transfers.remove(id); readiness.remove(id); resultIntents.remove(id); sent.remove(id)\n                    }\n"
+      },
+      {
+        "canonical": "        if (old != null && !newerOrEqual(revision, old.revision)) return\n        if (game.id in unavailableGames && old != null && revision == old.revision &&\n            game.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) return\n        if (old != null && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) unavailableGames.remove(game.id)\n",
+        "pinnedRuntime": "        if (old != null && ended(old) && !ended(game)) return\n        if (game.lifecycle != GameLifecycle.ACTIVE) plays.remove(game.id)\n        if (ended(game)) require(preparation == null && play == null)\n        if (game.id in unavailableGames && old != null && revision == old.revision &&\n            game.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) return\n        if (old != null && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) unavailableGames.remove(game.id)\n        observePlay(game)\n"
+      },
+      {
+        "canonical": "",
+        "pinnedRuntime": "                if (command.scope.gameId in recoveries) continue\n"
+      },
+      {
+        "canonical": "    fun clear() { disconnect(); pending.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); error = null; statusChanged() }\n    override fun close() { closed = true; clear(); connection.close() }\n",
+        "pinnedRuntime": "    fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();\n        messages.clear(); chatRevisions.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); account = null; error = null; statusChanged() }\n    override fun close() { closed = true; clear(); treeWorker.shutdown(); connection.close() }\n"
+      }
+    ]
+  },
+  {
+    "path": "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "sha256": "56b5f49197cc49d203b16d4963347b2985c204a95a221f1fe87ae92ffd19a513",
+    "conflicts": [
+      {
+        "canonical": "",
+        "pinnedRuntime": "    private var routeVersion = 0L\n    private var historyOwner: TableHistoryController? = null\n    private fun resetHistory() { historyOwner?.close(); historyOwner = null }\n    val history: TableHistoryController get() = historyOwner ?: TableHistoryController(worker, post, ::reviewHistory,\n        submit = { action, invocation, continuation ->\n            val game = state.detail\n            val actor = accountId()\n            game != null && actor != null && !closed && session?.gameplay(game, actor, action, invocation, continuation,\n                captured = { historyOwner?.captured(it) }) == true\n        }, control = ::historyControl).also { historyOwner = it }\n"
+      },
+      {
+        "canonical": "            if (command.action == GameAction.AcceptInvitation && result.outcome == \"accepted\" &&\n                latest[command.scope.gameId]?.lifecycle == GameLifecycle.LOBBY && sessionAvailable(command.scope.gameId)) open(command.scope.gameId)\n            refresh(background = true)\n        }, statusChanged = ::connectionState, installationId = installationId) }\n    private fun sessionAvailable(id: String) = session?.available(id) != false\n    fun clear() { epoch++; searchVersion++; pickerVersion++; inspection.close(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }\n",
+        "pinnedRuntime": "            historyOwner?.settled(command, result)\n            if (command.action == GameAction.AcceptInvitation && result.outcome == \"accepted\" &&\n                latest[command.scope.gameId]?.lifecycle == GameLifecycle.LOBBY && sessionAvailable(command.scope.gameId)) open(command.scope.gameId)\n            refresh(background = true)\n        }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache) }\n    private fun sessionAvailable(id: String) = session?.available(id) != false\n    fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }\n    fun openChat() {\n        if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }\n    }\n    fun closeChat() { state = state.copy(chatOpen = false) }\n    fun composeChat(text: String) { state.detail?.let { personalChat.compose(it, text); connectionState() } }\n    fun sendChat() {\n        val game = state.detail ?: return\n        val draft = state.chat.draft ?: return\n        if (!closed && state.chat.canSend(game, game.id in state.connectedGames) && session?.sendChat(game, draft.text) == true) {\n            personalChat.sent(game.id); connectionState()\n        }\n    }\n    val chatViewEpoch get() = epoch\n    fun presentedChat(gameId: String, viewEpoch: Long, ids: Set<String>) {\n        // Fence stale layout callbacks after navigation/Logout or a changed account's panel.\n        if (!closed && viewEpoch == epoch && state.chatOpen && state.selected == gameId) {\n            personalChat.presented(state.chat.messages, ids); connectionState()\n        }\n    }\n"
+      },
+      {
+        "canonical": "        latest[game.id] = game\n",
+        "pinnedRuntime": "        if (state.selected == game.id && state.detail?.playId != game.playId) resetHistory()\n        latest[game.id] = game\n        setupCancellation.accepted(game)\n        if (game.lifecycle in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)) state = state.copy(\n            gameContext = state.gameContext?.takeUnless { it.id == game.id },\n            deletion = state.deletion?.takeUnless { it.game.id == game.id })\n"
+      },
+      {
+        "canonical": "        if (state.selected == game.id && !listed) leaveUnavailable()\n    }\n    private fun leaveUnavailable() {\n        closePicker(); inspection.close()\n        state = state.copy(selected = null, detail = null, preparing = false, acceptedPreparation = null,\n            preparation = null, play = null, transferFeedback = null, queuedTransferCards = 0,\n            error = \"This game is no longer available.\")\n    }\n    /** The dialog's captured game/round is intent. Never replace it with today's selected row. */\n    fun cancelSetup(game: GameSummary): Boolean {\n        val actor = accountId() ?: return false\n        val current = latest[game.id] ?: game\n        if (closed || !sessionAvailable(game.id) || current.preparationRound != game.preparationRound ||\n            CancellationRules.rejection(current, actor, GameScope(game.id, game.preparationRound)) != null) return false\n        return session?.submit(game, GameAction.CancelSetup) == true\n",
+        "pinnedRuntime": "        if (state.selected == game.id) reconcileActivityTarget(game)\n        if (!listed && state.selected == game.id) leaveUnavailable()\n    }\n    private fun leaveUnavailable() {\n        resetHistory()\n        routeVersion++\n        closePicker(); inspection.close(); setupCancellation.clear()\n        state = state.copy(selected = null, detail = null, preparing = false, acceptedPreparation = null,\n            preparation = null, play = null, acceptedPlay = null, transferFeedback = null, queuedTransferCards = 0,\n            chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, activityTarget = null,\n            error = \"This game is no longer available.\")\n    }\n    fun gameContext(game: GameSummary) {\n        if (offersGameDeletion(game)) {\n            setupCancellation.clear()\n            state = state.copy(gameContext = game)\n        }\n    }\n    fun dismissGameContext() { state = state.copy(gameContext = null) }\n    internal fun offersGameDeletion(game: GameSummary): Boolean {\n        val actor = accountId() ?: return false\n        val current = session?.summary(game) ?: latest[game.id] ?: game\n        return !closed && sessionAvailable(game.id) && GameDeletion(game, actor).matches(current, actor)\n    }\n    fun requestGameDeletion(game: GameSummary) {\n        val actor = accountId() ?: return\n        if (!offersGameDeletion(game)) return\n        setupCancellation.clear()\n        state = state.copy(gameContext = null, deletion = GameDeletion(game, actor))\n    }\n    fun dismissGameDeletion() { state = state.copy(deletion = null) }\n    fun confirmGameDeletion(): Boolean {\n        val capture = state.deletion ?: return false\n        val dispatched = capture.actorId == accountId() && deleteGame(capture.game)\n        state = state.copy(deletion = null, error = if (dispatched) null else \"This game changed or is disconnected. Reconnect and choose Delete game again.\")\n        return dispatched\n    }\n    fun deleteGame(game: GameSummary): Boolean {\n        val current = (listOfNotNull(state.detail) + state.games).find { it.id == game.id }?.let { session?.summary(it) ?: it }\n        val capture = accountId()?.let { GameDeletion(game, it) } ?: return false\n        return !closed && capture.matches(current, accountId()) && session?.deleteGame(game) == true\n"
+      }
+    ]
+  },
+  {
+    "path": "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "sha256": "fa2d3d15467a8c9c8954e0ca55f068b9298bc63b85d8ec769e95e1c7f040cf6f",
+    "conflicts": [
+      {
+        "canonical": "            GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> require(command.scope.invitationId == null)\n            else -> require(command.scope.invitationId != null)\n",
+        "pinnedRuntime": ""
+      }
+    ]
+  },
+  {
+    "path": "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+    "sha256": "7cbec2b42aac18adec4710eddec48d016e25544a5ec632a571e2ed5ab53dad05",
+    "conflicts": [
+      {
+        "canonical": "                    send(games.visibleRevision(revision, accountId))\n                    if (revision.summary.lifecycle == GameLifecycle.CANCELLED) subscriptions.remove(publication.gameId)\n",
+        "pinnedRuntime": "                    send(games.publicationState(principal, revision))\n"
+      }
+    ]
+  },
+  {
+    "path": "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "sha256": "09f7782a1a9f1dbda22a2d8087138d35e4cc2ead2c983379d4e10d65e6ec6ac6",
+    "conflicts": [
+      {
+        "canonical": "    private fun authorize(game: GameRecord?, actor: UUID, originalOnly: Boolean = false): GameRecord {\n        if (game == null || actor !in listOf(game.inviterId, game.recipientId) ||\n            (game.lifecycle !in listOf(\"LOBBY\", \"ACTIVE\") && !(originalOnly && game.lifecycle == \"CANCELLED\")))\n            throw GameProtocolFailure(\"accessDenied\")\n        return game\n    }\n    private fun locked(sql: DSLContext, game: UUID, actor: UUID, originalOnly: Boolean = false): GameRecord = authorize(\n        sql.selectFrom(GAME).where(GAME.ID.eq(game)).forUpdate().fetchOne(), actor, originalOnly)\n",
+        "pinnedRuntime": "    private fun authorize(game: GameRecord?, actor: UUID, recovery: Boolean = false): GameRecord {\n        if (game == null || actor !in listOf(game.inviterId, game.recipientId) ||\n            (!recovery && game.lifecycle !in listOf(\"LOBBY\", \"ACTIVE\")))\n            throw GameProtocolFailure(\"accessDenied\")\n        return game\n    }\n    private fun locked(sql: DSLContext, game: UUID, actor: UUID, recovery: Boolean = false): GameRecord = authorize(\n        sql.selectFrom(GAME).where(GAME.ID.eq(game)).forUpdate().fetchOne(), actor, recovery)\n"
+      },
+      {
+        "canonical": "            val current = locked(sql, game, account, originalOnly = resume != null)\n",
+        "pinnedRuntime": "            val current = locked(sql, game, account, recovery = resume != null)\n"
+      },
+      {
+        "canonical": "                ended = if (current.lifecycle == \"CANCELLED\") lobby.summary(sql, game) else null)\n",
+        "pinnedRuntime": "                ended = if (current.lifecycle !in listOf(\"LOBBY\", \"ACTIVE\")) lobby.summary(sql, game) else null)\n"
+      },
+      {
+        "canonical": "            val row = locked(sql, game, account, originalOnly = true)\n",
+        "pinnedRuntime": "            val row = locked(sql, game, account, recovery = true)\n"
+      },
+      {
+        "canonical": "            if (row.lifecycle == \"CANCELLED\" && !sql.fetchExists(sql.selectOne().from(REQUEST_IDENTITY)\n",
+        "pinnedRuntime": "            if (row.lifecycle !in listOf(\"LOBBY\", \"ACTIVE\") && !sql.fetchExists(sql.selectOne().from(REQUEST_IDENTITY)\n"
+      },
+      {
+        "canonical": "            locked(sql, uuid(gameId), actor(principal), originalOnly = true)\n",
+        "pinnedRuntime": "            locked(sql, uuid(gameId), actor(principal), recovery = true)\n"
+      },
+      {
+        "canonical": "        val rejection = when (command.action) {\n",
+        "pinnedRuntime": "        val isGameplay = command.action is GameAction.Play || command.action is GameAction.MakeCurrent ||\n            command.action is GameAction.BranchArchive || command.action == GameAction.Undo || command.action == GameAction.Redo\n        var treeDelta: GameplayTreeDelta? = null\n        var createdMutation: GameplayMutation? = null\n        val gameplay = if (isGameplay) {\n            val state = PlayStore.read(sql, game.id!!)\n            if (game.lifecycle != \"ACTIVE\" || state == null) GameplayTreeChange(reason = \"lifecycleEnded\")\n            else {\n                val tree = gameplayStore.read(sql, state)\n                HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->\n                    change.tree?.let { next ->\n                        treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1))\n                        if (command.action is GameAction.Play) createdMutation = next.nodes[change.targetId]\n                    }\n                }\n            }\n        } else null\n        val rejection = if (game.lifecycle !in listOf(\"LOBBY\", \"ACTIVE\")) \"lifecycleEnded\" else if (isGameplay) gameplay!!.reason else when (command.action) {\n            is GameAction.AcceptResult -> PlayStore.accept(sql, lobby.summary(sql, game.id!!), inbox.accountId.toString(), command)\n            GameAction.DeleteGame -> applyDeletion(sql, game, command)\n            is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command)\n"
+      },
+      {
+        "canonical": "                if (play == null && summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null, play)\n",
+        "pinnedRuntime": "                if (summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null,\n                if (gameplay == null && command.action !is GameAction.SendChat) play else null, mutation,\n                if (mutation != null) play?.currentGroup else null,\n                if (command.action is GameAction.SendChat) ChatStore.read(sql, game.id!!).last() else null, treeDelta)\n"
+      },
+      {
+        "canonical": "",
+        "pinnedRuntime": "    private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {\n        if (game.lifecycle != \"ACTIVE\") return \"lifecycleEnded\"\n        if (command.scope.playId != game.currentPlay?.toString()) return \"inapplicable\"\n        sql.update(GAME).set(GAME.LIFECYCLE, \"DELETED\").where(GAME.ID.eq(game.id)).execute()\n        return null\n    }\n\n"
+      }
+    ]
+  },
+  {
+    "path": "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+    "sha256": "715d2229b785b14e19f139972334c300ec095e7cf6589a99d7e1a8de8b397f1c",
+    "conflicts": [
+      {
+        "canonical": "                    val terminal = recipient.revision(cancel.requestId)\n                    assertEquals(GameLifecycle.CANCELLED, terminal.summary.lifecycle); assertNull(terminal.preparation); assertNull(terminal.play)\n                    assertEquals(terminal, owner.revision(cancel.requestId))\n",
+        "pinnedRuntime": "                    // Terminal publication uses the same current-authority projection as Delete:\n                    // lifecycle only, never a historical preparation/chat/board revision.\n                    val terminal = recipient.next<GameHead>()\n                    assertEquals(GameLifecycle.CANCELLED, terminal.summary.lifecycle); assertNull(terminal.preparation); assertNull(terminal.play)\n                    assertTrue(terminal.chat.isEmpty()); assertEquals(terminal, owner.next<GameHead>())\n"
+      },
+      {
+        "canonical": "                    owner.send(SubscribeGame(game.id)); assertEquals(\"accessDenied\", owner.next<GameAdmissionError>().code)\n",
+        "pinnedRuntime": "                    owner.send(SubscribeGame(game.id)); assertEquals(terminal, owner.next<GameHead>())\n"
+      },
+      {
+        "canonical": "                println(\"PASS actual authenticated cancellation publication; ordinary cancelled reads/list/subscription denied, private same-ID HTTP/socket outcome recovery, intent/account isolation and reauthentication\")\n",
+        "pinnedRuntime": "                println(\"PASS actual authenticated cancellation lifecycle-only publication/subscription; ordinary cancelled content reads/list denied, private same-ID HTTP/socket outcome recovery, intent/account isolation and reauthentication\")\n"
+      }
+    ]
+  }
+]

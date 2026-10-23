@@ -76,6 +76,8 @@ class PasswordResetService @JvmOverloads constructor(private val runtime: Servic
                 .where(ACCOUNT.ID.eq(accountId)).execute()
             sql.update(ACCOUNT_SESSION).set(ACCOUNT_SESSION.REVOKED_AT, time)
                 .where(ACCOUNT_SESSION.ACCOUNT_ID.eq(accountId)).and(ACCOUNT_SESSION.REVOKED_AT.isNull).execute()
+            val installs = org.asyncttwiz.server.generated.tables.ActivityInstallation.ACTIVITY_INSTALLATION
+            sql.deleteFrom(installs).where(installs.ACCOUNT_ID.eq(accountId)).execute()
             sql.update(TOKEN).set(TOKEN.CONSUMED_AT, time).where(TOKEN.ACCOUNT_ID.eq(accountId))
                 .and(TOKEN.CONSUMED_AT.isNull).execute()
             sql.update(MAIL).set(MAIL.ENCRYPTED_PAYLOAD, null as ByteArray?).set(MAIL.STATUS, "cancelled")

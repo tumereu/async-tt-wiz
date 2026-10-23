@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-ff",
+    "--no-commit",
+    "ba11bc44f8ad67b8be9d20b83fc7c36ca337cec5"
+  ],
+  "exitCode": 1,
+  "outputSha256": "f5477ea800cd25b77126971592fe8980a3c943fb58667f55c5b721c71b1ef8ac",
+  "output": "Auto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/LinkActions.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/LinkActions.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

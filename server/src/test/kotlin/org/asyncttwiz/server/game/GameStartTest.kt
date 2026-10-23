@@ -271,7 +271,13 @@ class GameStartTest {
                 INSERT INTO game_definition VALUES ('$game','${submitted.digest}');
                 INSERT INTO request_identity VALUES ('$request','$b','gameCommand','$game','${GameWire.digest(command)}');
                 INSERT INTO game_inbox VALUES ('$request','$game','$b',1,'$stream',1,'${json.encodeToString<GameClientMessage>(command)}',NULL);""")
-            assertEquals(1, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            val migrations = FoundationMigrations.flyway(db.settings)
+            val pendingForwards = migrations.info().pending().count { it.version != null }
+            assertTrue(pendingForwards > 0)
+            assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings))
+            migrations.validate()
+            assertEquals(0, migrations.info().pending().size)
+            assertEquals(0, FoundationMigrations.migrate(db.settings))
             ServiceRuntime(db.settings).use { runtime ->
                 val games = GameService(runtime); runtime.attachWorker(games::validatePending) { true }; runtime.start(); ready(runtime)
                 val principal = AccountService.Principal(UUID.randomUUID(), AccountIdentity(a, "A"))

@@ -18,10 +18,26 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import org.asyncttwiz.protocol.DeckValidation
+import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.storage.StorageOpenFailure
 
 /** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
+    private var resumed by mutableStateOf(false)
+    private var notificationRoute by mutableStateOf<ActivityRoute?>(null)
+    private fun consumeActivityIntent(intent: android.content.Intent?) {
+        if (intent?.action != "org.asyncttwiz.ACTIVITY") return
+        val route = ActivityRoute.parse(intent.getStringExtra("account"), intent.getStringExtra("binding"),
+            intent.getStringExtra("kind"), intent.getStringExtra("game"), intent.getStringExtra("identity"))
+        setIntent(android.content.Intent(android.content.Intent.ACTION_MAIN).setClass(this, MainActivity::class.java))
+        notificationRoute = route
+    }
     private fun consumeResetIntent(intent: android.content.Intent?) {
         if (intent?.action != android.content.Intent.ACTION_VIEW) return
         val link = intent.dataString
@@ -32,6 +48,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
+        consumeActivityIntent(intent)
         consumeResetIntent(intent)
     }
     private fun fullscreen() {
@@ -52,10 +69,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        resumed = true
         window.decorView.post { fullscreen() }
         ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         if (auth.controller.state.destination == ShellDestination.DECKS) auth.decks.sync()
+        if (auth.controller.state.account != null) auth.lobby.reconnect()
+        auth.activity.foreground()
+    }
+
+    override fun onPause() {
+        resumed = false
+        AndroidActivityDelivery.get(this).display(null, false)
+        super.onPause()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,13 +89,43 @@ class MainActivity : ComponentActivity() {
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         val catalog = auth.catalog
+        consumeActivityIntent(intent)
         consumeResetIntent(intent)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         fullscreen()
         setContent {
             MaterialTheme {
+                val state = auth.controller.state
+                val token = auth.controller.sessionToken()
+                SideEffect {
+                    if (!state.restoring && !state.busy) {
+                        if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()
+                    }
+                    val displayed = ActivityDisplay.game(state.destination == ShellDestination.GAMES,
+                        auth.lobby.state.selected, auth.lobby.state.detail)
+                    auth.activity.display(displayed, resumed)
+                    val route = notificationRoute
+                    if (route != null && !state.restoring && !state.busy) {
+                        notificationRoute = null
+                        auth.openActivity(route)
+                    }
+                }
+                val permissionPrefs = remember { getSharedPreferences("notification-permission", 0) }
+                var asked by remember { mutableStateOf(permissionPrefs.getBoolean("asked", false)) }
+                val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { auth.activity.foreground() }
+                if (android.os.Build.VERSION.SDK_INT >= 33 && state.account != null &&
+                    state.destination == ShellDestination.GAMES && auth.lobby.state.selected == null && !asked &&
+                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
+                    AlertDialog(onDismissRequest = { dismiss() }, title = { Text("Invitation and game activity alerts") },
+                        text = { Text("Enable Android notifications for new invitations and opponent activity? You can change the two channels in Android settings.") },
+                        confirmButton = { TextButton(onClick = { dismiss(); permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }) { Text("Enable alerts") } },
+                        dismissButton = { TextButton(onClick = { dismiss() }) { Text("Not now") } })
+                }
                 Surface(Modifier.fillMaxSize()) {
-                    if (storage.state == StorageState.Ready) AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby)
+                    if (storage.state == StorageState.Ready) {
+                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby)
+                    }
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,

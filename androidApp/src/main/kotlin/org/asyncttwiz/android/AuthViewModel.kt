@@ -16,10 +16,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val deckImport = DeckImportController(DeckImportResolver(catalog.repository)::resolve,
         Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> main.post { action() } })
     private val revocations = Executors.newSingleThreadExecutor { Thread(it, "best-effort-logout") }
+    private val local = AndroidAccountLocalData(application)
+    val activity = AndroidActivityDelivery.get(application)
+    fun openActivity(route: ActivityRoute) {
+        controller.navigate(ShellDestination.GAMES)
+        if (controller.state.account?.accountId != route.accountId || !activity.accepts(route.accountId, route.binding)) {
+            lobby.activityUnavailable("This notification belongs to an earlier sign-in. Showing your current Games.")
+            return
+        }
+        lobby.openActivity(route) { activity.accepts(route.accountId, route.binding) }
+    }
+    private fun authenticationRequired(token: String) {
+        activity.rejected(token)
+        controller.authenticationRequired(token)
+    }
     val controller = AuthController(AccountApi(BuildConfig.ACCOUNT_ORIGIN),
         ProtectedSessionStore(application, BuildConfig.ACCOUNT_ORIGIN),
         Executors.newSingleThreadExecutor { Thread(it, "account-entry") },
-        local = AndroidAccountLocalData(application),
+        local = local,
         revoke = { token -> revocations.execute {
             runCatching { kotlinx.coroutines.runBlocking {
                 AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { it.revoke(token) }
@@ -28,34 +42,44 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         post = { action -> main.post { action() } }, clearPrivateWork = ::clearDeckWork)
 
     val decks = DeckLibraryController(DeckApi(BuildConfig.ACCOUNT_ORIGIN,
-        authenticationRequired = controller::authenticationRequired), controller::sessionToken,
+        authenticationRequired = ::authenticationRequired), controller::sessionToken,
         Executors.newSingleThreadExecutor { Thread(it, "saved-decks") }, { action -> main.post { action() } })
-    private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired)
-    val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired),
+    private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
+    val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },
         { action -> main.post { action() } }, openGame = { controller.navigate(ShellDestination.GAMES) },
         gameConnection = SocketGameConnection(BuildConfig.ACCOUNT_ORIGIN), accountId = { controller.state.account?.accountId },
-        authenticationRequired = controller::authenticationRequired,
+        authenticationRequired = ::authenticationRequired,
         installationId = application.getSharedPreferences("installation", 0).let { preferences ->
             preferences.getString("id", null) ?: java.util.UUID.randomUUID().toString().also {
                 preferences.edit().putString("id", it).apply()
             }
-        }, deckApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = controller::authenticationRequired))
+        }, deckApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
+        activityTarget = { token, route ->
+            try { ActivityApi(BuildConfig.ACCOUNT_ORIGIN).use { it.target(token, route) } }
+            catch (failure: ActivityFetchFailure) {
+                if (failure.status == 401) authenticationRequired(token)
+                throw failure
+            }
+        }, treeCache = local::treeCache)
     init {
+        activity.authenticationRequired = ::authenticationRequired
         deckImport.connectSave(saveApi, controller::sessionToken, saved = { if (!lobby.importedForPicker()) decks.open(it.deck.id) })
     }
-    private fun clearDeckWork() { deckImport.exit(); decks.clear(); lobby.clear() }
+    private fun clearDeckWork() { activity.clear(); deckImport.exit(); decks.clear(); lobby.clear() }
 
     val reset = ResetController(AccountApi(BuildConfig.ACCOUNT_ORIGIN), BuildConfig.RESET_ORIGIN,
         Executors.newSingleThreadExecutor { Thread(it, "password-reset") },
         succeeded = controller::passwordResetCompleted, post = { action -> main.post { action() } })
 
     override fun onCleared() {
+        activity.authenticationRequired = null
         controller.close()
         deckImport.close()
         decks.close()
         saveApi.close()
         lobby.close()
+        revocations.execute { local.close() }
         catalogStore.clear()
         reset.close()
         // Drain bounded best-effort requests without retaining credentials on disk.

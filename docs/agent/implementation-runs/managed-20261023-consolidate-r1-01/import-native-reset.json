@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "cherry-pick",
+    "--no-commit",
+    "5f470c4f7531e1874823448f26f01760fd6cc52b",
+    "0a2b5bd8d8cfb006dc457696110871ded7d64443"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "output": ""
+}

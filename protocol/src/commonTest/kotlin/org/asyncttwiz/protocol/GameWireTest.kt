@@ -38,4 +38,16 @@ class GameWireTest {
         for (value in listOf("01", "-1", "+1", "1.0", "1e2", "9223372036854775808", " 1")) assertFails { GameWire.ordinal(value) }
         assertFails { GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(command()).replace("\"generation\":\"1\"", "\"generation\":1")) }
     }
+    @Test fun gameplayScopesAndNestedIntentStayDistinctFromLifecycleAndTransport() {
+        val command = command().copy(scope = GameScope(id, playId = id), action = GameAction.Play(PlayAction.SetTapped(id, true)))
+        assertTrue(GameWire.valid(command))
+        for (scope in listOf(GameScope(id), GameScope(id, preparationId = id), GameScope(id, id, playId = id),
+            GameScope(id, invitationId = id, playId = id))) assertFalse(GameWire.valid(command.copy(scope = scope)))
+        assertNotEquals(GameWire.digest(command), GameWire.digest(command.copy(action = GameAction.Play(PlayAction.SetTapped(id, false)))))
+        assertEquals(GameWire.digest(command), GameWire.digest(command.copy(streamId = id.replace("001", "002"), generation = "2")))
+        val encoded = GameWire.json.encodeToString<GameClientMessage>(command)
+        assertFails { GameWire.decodeClient(encoded.replace("\"tapped\":true", "\"tapped\":true,\"previousTapped\":false")) }
+        assertTrue(GameWire.valid(command.copy(continuation = Continuation(id, true))))
+        assertFalse(GameWire.valid(command.copy(continuation = Continuation(id, false))))
+    }
 }

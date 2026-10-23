@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import ast,pathlib; paths=list(pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-i12-native-01\").glob(\"*.py\")); [ast.parse(p.read_text(), filename=str(p)) for p in paths]; print(\"PASS syntax for\", len(paths), \"run-owned orchestration/observation helpers; no native execution claim\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "44bd8f06f05cacec49c65e675ae32e7c7b2e2c0db411e4ff333bd2ed10d1b81b",
+  "output": "PASS syntax for 5 run-owned orchestration/observation helpers; no native execution claim\n"
+}

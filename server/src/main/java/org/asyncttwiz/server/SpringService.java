@@ -26,6 +26,9 @@ import org.asyncttwiz.server.decks.DeckHttp;
 import org.asyncttwiz.server.lobby.LobbyHttp;
 import org.asyncttwiz.server.game.GameHub;
 import org.asyncttwiz.server.game.GameHttp;
+import org.asyncttwiz.server.activity.ActivityDelivery;
+import org.asyncttwiz.server.activity.ActivityHttp;
+import org.asyncttwiz.server.activity.ActivityPushAdapter;
 
 /** Explicit Spring Boot servlet contexts; no auto-configured database, migrations, Actuator or APIs. */
 public final class SpringService implements AutoCloseable {
@@ -34,11 +37,18 @@ public final class SpringService implements AutoCloseable {
     private final PasswordResetService resets;
     private final ResetMailWorker mail;
     private final GameHub games;
+    private final ActivityDelivery activity;
     private ConfigurableApplicationContext health;
     private ConfigurableApplicationContext publicApi;
     private boolean closed;
 
     public SpringService(ServiceSettings settings) {
+        this(settings, null);
+    }
+
+    /** Optional explicit adapter injection; FCM callers supply their own token supplier.
+     * The ordinary service performs maintenance without any provider credentials. */
+    public SpringService(ServiceSettings settings, ActivityPushAdapter activityPush) {
         this.settings = settings;
         runtime = new ServiceRuntime(settings.database());
         resets = settings.resetMail() == null ? null : new PasswordResetService(runtime, settings.resetMail());
@@ -46,6 +56,7 @@ public final class SpringService implements AutoCloseable {
         if (mail != null) runtime.attachWorker(() -> resets.validatePending(), mail::available);
         games = new GameHub(runtime);
         runtime.attachWorker(() -> games.validatePending(), games::available);
+        activity = new ActivityDelivery(runtime, activityPush, java.time.Clock.systemUTC());
     }
 
     public synchronized void start() {
@@ -55,6 +66,7 @@ public final class SpringService implements AutoCloseable {
             publicApi = context(settings.publicAddress(), settings.publicPort(), false);
             if (mail != null) mail.start();
             games.start();
+            activity.start();
             runtime.start();
         } catch (RuntimeException failure) { close(); throw failure; }
     }
@@ -113,6 +125,7 @@ public final class SpringService implements AutoCloseable {
         private final DeckHttp decks;
         private final LobbyHttp lobby;
         private final GameHttp games;
+        private final ActivityHttp activity;
         Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings, GameHub hub) {
             this.runtime = runtime;
             this.health = health;
@@ -120,6 +133,7 @@ public final class SpringService implements AutoCloseable {
             decks = health ? null : new DeckHttp(runtime);
             lobby = health ? null : new LobbyHttp(runtime);
             games = health ? null : new GameHttp(runtime, hub);
+            activity = health ? null : new ActivityHttp(runtime);
         }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -127,6 +141,7 @@ public final class SpringService implements AutoCloseable {
             if (!health && decks.handle(request, response)) return;
             if (!health && games.handle(request, response)) return;
             if (!health && lobby.handle(request, response)) return;
+            if (!health && activity.handle(request, response)) return;
             int status = 404;
             String body = "Not found\n";
             if (health && (request.getMethod().equals("GET") || request.getMethod().equals("HEAD"))) {
@@ -149,6 +164,7 @@ public final class SpringService implements AutoCloseable {
         if (closed) return;
         closed = true;
         runtime.close();
+        activity.close();
         games.close();
         if (mail != null) mail.close();
         if (publicApi != null) publicApi.close();

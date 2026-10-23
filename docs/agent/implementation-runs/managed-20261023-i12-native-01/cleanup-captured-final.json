@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-check.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "6900e3a083dca881a01e903aa73f96c845e9c0d194c4e4846f161631770e5124",
+  "output": "{\"success\": true, \"exactOwnedCleanupChecked\": {\"environment\": \"/tmp/opencode/atw-e2e-4a39a11de4b34bc587a10ad44bcfa897\", \"devices\": [\"/tmp/opencode/atw-device-ac786a77f91444ce918c9e5574400894\", \"/tmp/opencode/atw-device-f533af2828be4903ac22428957882b01\"], \"diskArtifacts\": \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-i12-native-01/e2e/build/managed-20261023-i12-native-01\"}}\n"
+}

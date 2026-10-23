@@ -1,0 +1,9 @@
+{
+  "command": [
+    "sha256sum",
+    "androidApp/build/outputs/apk/debug/androidApp-debug.apk"
+  ],
+  "exitCode": 0,
+  "outputSha256": "c7cddc1a36fa5baaac3a89ae73d7bb7a5636bc400a2e8063e4fe246d013821fb",
+  "output": "d3dbce8ab41d03ae9fa3cfaa544c3ded1cdec7198dc2708aca1219737565f8ea  androidApp/build/outputs/apk/debug/androidApp-debug.apk\n"
+}

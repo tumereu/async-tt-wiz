@@ -1,0 +1,25 @@
+diff --git a/androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt b/androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt
+index 3b64db6..770c55d 100644
+--- a/androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt
++++ b/androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt
+@@ -88,6 +88,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean,
+             }
+         }
+     }
++    // Own the single dialog host here, outside route/orientation branches, not in MainActivity.
++    // This also keeps dialogs available when the authenticated shell is composed on its own.
+     if (lobby != null) {
+         SetupCancellationDialogs(lobby)
+         GameDeletionDialogs(lobby)
+diff --git a/androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt b/androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt
+index f645362..0a639fe 100644
+--- a/androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt
++++ b/androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt
+@@ -71,7 +71,6 @@ class MainActivity : ComponentActivity() {
+                 Surface(Modifier.fillMaxSize()) {
+                     if (storage.state == StorageState.Ready) {
+                         AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby)
+-                        if (auth.controller.state.account != null) SetupCancellationDialogs(auth.lobby)
+                     }
+                     else Column(
+                         modifier = Modifier.fillMaxSize().padding(24.dp),

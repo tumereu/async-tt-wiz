@@ -1,0 +1,30 @@
+{
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.HistoryGroupingTest.xml": {
+    "sha256": "b079c2dfc4e6e3b9b01cabcbc36f83bc131ad93c7c0f6dd909f087b82e69527f",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJIaXN0b3J5R3JvdXBpbmdUZXN0W2p2bV0iIHRlc3RzPSIxIiBza2lwcGVkPSIwIiBmYWlsdXJlcz0iMCIgZXJyb3JzPSIwIiB0aW1lc3RhbXA9IjIwMjYtMTAtMjNUMDY6NTk6MjYuMDk0WiIgaG9zdG5hbWU9IkRFU0tUT1AtQjJLQUxWTSIgdGltZT0iMC4wODMiPgogIDxwcm9wZXJ0aWVzLz4KICA8dGVzdGNhc2UgbmFtZT0iYWN0dWFsQ2F0YWxvZ01hcHBpbmdBbmRTZXJ2ZXJEZXJpdmVkQXBwZW5kKClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5IaXN0b3J5R3JvdXBpbmdUZXN0IiB0aW1lPSIwLjA3MyIvPgogIDxzeXN0ZW0tb3V0PjwhW0NEQVRBW11dPjwvc3lzdGVtLW91dD4KICA8c3lzdGVtLWVycj48IVtDREFUQVtdXT48L3N5c3RlbS1lcnI+CjwvdGVzdHN1aXRlPgo=",
+    "tests": {
+      "name": "HistoryGroupingTest[jvm]",
+      "tests": "1",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T06:59:26.094Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.083"
+    }
+  },
+  "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.StackLayoutGroupingRepairTest.xml": {
+    "sha256": "2ce3e187e9f891686ee3005a5b7bd45bed2186257f349c6e3349aac001513486",
+    "base64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHRlc3RzdWl0ZSBuYW1lPSJTdGFja0xheW91dEdyb3VwaW5nUmVwYWlyVGVzdFtqdm1dIiB0ZXN0cz0iMyIgc2tpcHBlZD0iMCIgZmFpbHVyZXM9IjAiIGVycm9ycz0iMCIgdGltZXN0YW1wPSIyMDI2LTEwLTIzVDA2OjU5OjI2LjE3OVoiIGhvc3RuYW1lPSJERVNLVE9QLUIyS0FMVk0iIHRpbWU9IjAuMTM1Ij4KICA8cHJvcGVydGllcy8+CiAgPHRlc3RjYXNlIG5hbWU9InJlYWxDYXJkRW50cmllc0xheW91dHNBbmRSZW1vdmFsc0tlZXBFdmVyeVByZWZpeEJvdW5kYXJ5KClbanZtXSIgY2xhc3NuYW1lPSJvcmcuYXN5bmN0dHdpei5wcm90b2NvbC5TdGFja0xheW91dEdyb3VwaW5nUmVwYWlyVGVzdCIgdGltZT0iMC4wODUiLz4KICA8dGVzdGNhc2UgbmFtZT0ibWl4ZWRSZWFsQ2FyZEFuZEVmZmVjdExheW91dHNTaGFyZUZpcnN0UmVwcmVzZW50YXRpdmVCdXRSZW1vdmFsc1N0YXlJc29sYXRlZCgpW2p2bV0iIGNsYXNzbmFtZT0ib3JnLmFzeW5jdHR3aXoucHJvdG9jb2wuU3RhY2tMYXlvdXRHcm91cGluZ1JlcGFpclRlc3QiIHRpbWU9IjAuMDIiLz4KICA8dGVzdGNhc2UgbmFtZT0idGFwUHJlZml4ZXNUYWtlQWN0dWFsTGF5b3V0RW50cnlSZW1vdmFsQW5kSW5zcGVjdGlvblJlcHJlc2VudGF0aXZlc1dpdGhvdXRNb3ZpbmdTdGFydHMoKVtqdm1dIiBjbGFzc25hbWU9Im9yZy5hc3luY3R0d2l6LnByb3RvY29sLlN0YWNrTGF5b3V0R3JvdXBpbmdSZXBhaXJUZXN0IiB0aW1lPSIwLjAyOSIvPgogIDxzeXN0ZW0tb3V0PjwhW0NEQVRBW11dPjwvc3lzdGVtLW91dD4KICA8c3lzdGVtLWVycj48IVtDREFUQVtdXT48L3N5c3RlbS1lcnI+CjwvdGVzdHN1aXRlPgo=",
+    "tests": {
+      "name": "StackLayoutGroupingRepairTest[jvm]",
+      "tests": "3",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-23T06:59:26.179Z",
+      "hostname": "DESKTOP-B2KALVM",
+      "time": "0.135"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "i31Merge": {
+    "command": "git merge --no-ff --no-commit 06a7d34d74147c556a6852e9a7cd1857ec59ab87",
+    "exitCode": 0,
+    "output": "Automatic merge went well; stopped before committing as requested\n"
+  },
+  "firstSave": {
+    "command": "./scripts/save.sh androidApp/src/androidTest/kotlin/org/asyncttwiz/android/IntegratedLifecycleTest.kt e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt docs/agent/implementation-runs/managed-20261023-write-i31-01.json docs/agent/implementation-runs/managed-20261023-write-i31-01 docs/agent/implementation-runs/managed-20261023-write-integrate-i31-01",
+    "exitCode": 0,
+    "output": "[managed/managed-20261023-write-integrate-i31-01 bc75a8b] Update project\nTo github.com:tumereu/async-tt-wiz.git\n   6314593..bc75a8b  managed/managed-20261023-write-integrate-i31-01 -> managed/managed-20261023-write-integrate-i31-01\n"
+  },
+  "initialToolDiagnostics": [
+    {"command": "git status --short && git rev-parse HEAD && git branch --show-current && git diff --cached --name-only", "result": {"error": {"type": "permission.rejected", "message": "Permission denied: shell"}, "content": []}},
+    {"command": "git branch --show-current", "result": {"error": {"type": "permission.rejected", "message": "Permission denied: shell"}, "content": []}}
+  ],
+  "resolution": "Individual permitted Git status/rev-parse/diff commands confirmed a clean start/index and exact branch. No permission changes. First merge was saved/pushed before the second normal merge; no reset, cherry-pick, archive rewrite or validator. Final save/upstream identity is independently resolved from Git."
+}

@@ -1,0 +1,11 @@
+{
+  "command": [
+    "git",
+    "merge",
+    "--no-edit",
+    "957acf9d210134c75028e8f09c2cab859be1ac22"
+  ],
+  "exitCode": 1,
+  "outputSha256": "c3aa7869c032f5cceb3e5344c0fe0132f9f613f39f4e0d2cec492a43318ce3c3",
+  "output": "Auto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/AuthenticatedShell.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt\nAuto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt\nCONFLICT (content): Merge conflict in androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+}

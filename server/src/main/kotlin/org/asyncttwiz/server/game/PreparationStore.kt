@@ -40,6 +40,18 @@ internal object PreparationStore {
             .doUpdate().set(PLAYER_PREPARATION.READY, ready).execute()
     }
 
+    fun returnToLobby(sql: DSLContext, state: LobbyPreparation) {
+        val game = UUID.fromString(state.gameId)
+        check(state.players.all { !it.ready })
+        // Deck JSON/definition membership are already retained from the last preparation.
+        // Never read saved sources or derive this data from the final play board.
+        sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.READY, false)
+            .where(PLAYER_PREPARATION.GAME_ID.eq(game)).execute()
+        sql.update(GAME).set(GAME.PREPARATION_ROUND, UUID.fromString(state.roundId))
+            .set(GAME.CURRENT_PLAY, null as UUID?).set(GAME.LIFECYCLE, "LOBBY")
+            .where(GAME.ID.eq(game)).and(GAME.LIFECYCLE.eq("ACTIVE")).execute().also { check(it == 1) }
+    }
+
     fun saveSelection(sql: DSLContext, actor: UUID, state: LobbyPreparation) {
         val game = UUID.fromString(state.gameId)
         val player = state.players.single { it.accountId == actor.toString() }

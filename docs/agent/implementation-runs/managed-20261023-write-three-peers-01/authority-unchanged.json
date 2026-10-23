@@ -1,0 +1,19 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--exit-code",
+    "HEAD",
+    "--",
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-permissions.json",
+    "e2e/devices.py",
+    "e2e/windows-device.ps1",
+    "scripts/implementation-loop.py",
+    "scripts/implementation-resources.py",
+    "scripts/implementation-evidence.py"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "output": ""
+}

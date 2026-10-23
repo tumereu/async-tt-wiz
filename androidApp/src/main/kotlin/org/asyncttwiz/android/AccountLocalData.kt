@@ -6,6 +6,8 @@ import org.asyncttwiz.storage.AndroidClientStorage
 import org.asyncttwiz.storage.ClientStorage
 import org.asyncttwiz.storage.StorageOpenResult
 import org.asyncttwiz.storage.StoredPayload
+import org.asyncttwiz.storage.GameplayTreeCache
+import org.asyncttwiz.storage.GameplayTreeStore
 import java.io.File
 
 enum class ShellDestination(val title: String) { MENU("Menu"), GAMES("Games"), DECKS("Manage decks"), CONTACTS("Contacts") }
@@ -18,15 +20,36 @@ interface AccountLocalData {
     fun logout(store: SessionStore) { store.clear() }
 }
 
-class AndroidAccountLocalData(context: Context) : AccountLocalData {
+/** The auth lifecycle and session factory share one existing driver. All calls are blocking worker
+ * calls. Injectable opening permits real SQLite/session lifecycle tests without Android UI stubs. */
+class AccountStorageHandle(private val open: () -> StorageOpenResult) : AutoCloseable {
+    private var handle: ClientStorage? = null
+    private var closed = false
+    @Synchronized fun <T> storage(block: (ClientStorage) -> T): T {
+        check(!closed)
+        val storage = handle ?: open().let { result ->
+            check(result is StorageOpenResult.Opened) { "Private storage unavailable" }
+            result.storage.also { handle = it }
+        }
+        return block(storage)
+    }
+
+    /** Called by GameSession's serial tree worker. Activation/Logout and the cache share this
+     * existing database/driver and its transaction lock; binding never activates an account. */
+    fun treeCache(accountId: String, gameId: String, playId: String): GameplayTreeStore = storage {
+        GameplayTreeCache.bind(it, accountId, gameId, playId)
+    }
+
+    @Synchronized override fun close() { closed = true; handle?.close(); handle = null }
+}
+
+class AndroidAccountLocalData(context: Context) : AccountLocalData, AutoCloseable {
     private val database = AndroidClientStorage.databaseFile(context)
     private val pending = AtomicFile(File(context.noBackupFilesDir, "account/logout.pending"))
-
-    private fun <T> storage(block: (ClientStorage) -> T): T {
-        val result = AndroidClientStorage.open(database)
-        check(result is StorageOpenResult.Opened) { "Private storage unavailable" }
-        return result.storage.use(block)
-    }
+    private val handle = AccountStorageHandle { AndroidClientStorage.open(database) }
+    private fun <T> storage(block: (ClientStorage) -> T) = handle.storage(block)
+    fun treeCache(accountId: String, gameId: String, playId: String) = handle.treeCache(accountId, gameId, playId)
+    override fun close() = handle.close()
 
     override fun activate(accountId: String): ShellDestination = storage {
         it.activateAccount(accountId)

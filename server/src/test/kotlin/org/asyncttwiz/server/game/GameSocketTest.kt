@@ -408,9 +408,11 @@ class GameSocketTest {
                     val cancel = GameCommand(id(), GameScope(game.id, game.preparationRound), GameAction.CancelSetup, stream.streamId, stream.generation)
                     owner.send(cancel); owner.receipt(cancel.requestId)
                     val result = owner.result(cancel.requestId); assertEquals("accepted", result.outcome)
-                    val terminal = recipient.revision(cancel.requestId)
+                    // Terminal publication uses the same current-authority projection as Delete:
+                    // lifecycle only, never a historical preparation/chat/board revision.
+                    val terminal = recipient.next<GameHead>()
                     assertEquals(GameLifecycle.CANCELLED, terminal.summary.lifecycle); assertNull(terminal.preparation); assertNull(terminal.play)
-                    assertEquals(terminal, owner.revision(cancel.requestId))
+                    assertTrue(terminal.chat.isEmpty()); assertEquals(terminal, owner.next<GameHead>())
                     for (actor in listOf(a, b)) {
                         assertEquals(404, request(settings, "GET", "/v1/games/${game.id}/head", actor.token).statusCode())
                         assertEquals(404, request(settings, "GET", "/v1/games/${game.id}/revisions?after=0", actor.token).statusCode())
@@ -427,7 +429,7 @@ class GameSocketTest {
                     owner.send(cancel); assertEquals(result, owner.result(cancel.requestId))
                     owner.send(cancel.copy(action = GameAction.Ready)); assertEquals("requestIdentityMismatch", owner.next<GameAdmissionError>().code)
                     owner.send(cancel.copy(requestId = id())); assertEquals("accessDenied", owner.next<GameAdmissionError>().code)
-                    owner.send(SubscribeGame(game.id)); assertEquals("accessDenied", owner.next<GameAdmissionError>().code)
+                    owner.send(SubscribeGame(game.id)); assertEquals(terminal, owner.next<GameHead>())
                     Socket(settings, a.token, owner.hello).use { resumed ->
                         resumed.negotiate(); resumed.send(ResumeGameStream(game.id, stream.streamId, listOf(cancel.requestId)))
                         val recovery = resumed.next<GameStreamReady>(); assertEquals(terminal.summary, recovery.ended)
@@ -441,7 +443,7 @@ class GameSocketTest {
                     assertEquals(result, json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/${game.id}/results/${cancel.requestId}", login.token).body()).result)
                     assertEquals(404, post(settings, "/v1/games/${game.id}/cancelSetup", LookupGameResults(emptyList()), b.token).statusCode())
                 } }
-                println("PASS actual authenticated cancellation publication; ordinary cancelled reads/list/subscription denied, private same-ID HTTP/socket outcome recovery, intent/account isolation and reauthentication")
+                println("PASS actual authenticated cancellation lifecycle-only publication/subscription; ordinary cancelled content reads/list denied, private same-ID HTTP/socket outcome recovery, intent/account isolation and reauthentication")
             }
         }
     }

@@ -1,0 +1,109 @@
+{
+  "runId": "managed-20261023-projection-links-01",
+  "sessionID": "ses_e9833e747ffeelW0YVCaDA2E3P",
+  "startCommit": "58fa38eb8bc6a26e80d7b918931fd5efe80919b6",
+  "mode": "integration",
+  "target": "real-projection-to-projection-links",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "qualification": "implemented-shared-and-native-component-boundary; pending-runtime-hooks-mounting-and-independent-verification",
+  "summary": "Added real typed occurrence-to-occurrence Link and explicit removal on the existing GameplayRules/record/CombatStack invariant boundary, with deterministic request-derived IDs, exact added/removed history tuples, undirected uniqueness/no-ops and no mixed/source alias endpoints. Extended actual TokenLinkController and LinkActions picker/removal APIs, retaining exact occurrence selection and one-invocation individual-request fanout. Production API compiled and was saved/pushed early at dfc0635. One combined affected pass executed 38 tests across shared, Android host and actual isolated PostgreSQL FIFO/relational store scopes, all green. Runtime history accounting/composite-inverse adapter and full TableToolkit mounting remain explicit other-owner seams, not certified complete.",
+  "selectionReason": "Supervisor explicitly assigned FG-TK-02's missing shared action path and native component API at the compile-qualified 58fa dependency. This delivers the missing connected reducer/store boundary and concrete mountable API without duplicating the parallel full toolkit/history runtime lanes or changing authoritative state.",
+  "preflight": {
+    "authorization": "D-304/D-309 and supplied custom integration dispatch; no application state transitions or validators, as explicitly instructed",
+    "contextPath": "/tmp/opencode/managed-20261023-projection-links-01/context.json",
+    "branch": "managed/managed-20261023-projection-links-01",
+    "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-projection-links-01",
+    "cleanStart": true,
+    "dependencyCommits": ["58fa38eb8bc6a26e80d7b918931fd5efe80919b6"],
+    "model": "openai/gpt-6.1-sol#high",
+    "modelEvidence": "Supplied serverCreatedMetadata identifies this exact session/worktree, provider openai, model gpt-6.1-sol and variant high. Supervisor owns independent actual session/idle metadata acceptance.",
+    "resourceBundle": ["isolated-host-tests", "owned-testcontainers"],
+    "resourceUse": "Separate worktree outputs, single Gradle worker, owned non-reused PostgreSQL container with reserved loopback publisher, automatic container/anonymous-volume cleanup asserted by OwnedPostgres. No shared DB/backend, device/routing lifecycle, APK, deployment, paid resource, subagent or integration-checkout edit."
+  },
+  "sourceIds": ["D-120", "D-71", "D-72", "D-122", "D-124", "D-125", "D-242", "I19", "I21"],
+  "diagnosisInputs": {
+    "report": "a6bff156f3c9acb3c9b16e6694121030a197a3ca:docs/agent/implementation-runs/managed-20261023-toolkit-ui-01.json",
+    "finding": "FG-TK-02-OCCURRENCE-LINK-ENDPOINT",
+    "qualification": "Read the exact Git object. Its broader proposed endpoint registry does not authorize mixed projection/card/player links; current D-120/domain-model policy and supplied dispatch explicitly constrain this implementation to projection-to-projection only.",
+    "reusedEvidence": "58fa38eb8bc6a26e80d7b918931fd5efe80919b6:docs/agent/implementation-runs/managed-20261023-consolidate-r1-01.json and its original child/compile evidence remain unchanged inputs, not new executions. No broad suite/clean build/APK qualification was repeated.",
+    "contracts": [
+      "docs/design/03-contracts/domain-model.md#binary-links-and-pings",
+      "docs/design/03-contracts/board-and-controls.md (D-70-D-72 generic link selection/removal)",
+      "docs/design/03-contracts/combat-stack-and-projections.md (D-120/D-122/D-124/D-125/D-242)"
+    ]
+  },
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :androidApp:compileDebugKotlin :server:compileKotlin",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-projection-links-01/public-api-compile.json",
+      "result": "Early meaningful production/API compilation before dfc0635 save/push; not a test or independent qualification."
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' --continue :protocol:jvmTest --tests org.asyncttwiz.protocol.ProjectionLinkRuntimeTest --tests org.asyncttwiz.protocol.CombatAndStackTest --tests org.asyncttwiz.protocol.TokensAndLinksTest --tests org.asyncttwiz.protocol.CompleteManualHistoryIntegrationTest --tests org.asyncttwiz.protocol.CompleteCoreIntegrationTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ProjectionLinkRuntimeTest --tests org.asyncttwiz.android.TokenLinkControllerTest --tests org.asyncttwiz.android.TokenActionsTest :server:test --tests org.asyncttwiz.server.game.ProjectionLinkRuntimeTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-projection-links-01/combined-affected.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-projection-links-01/junit.json"],
+      "result": "One foreground incremental combined affected pass: shared 27, Android host 10, real PostgreSQL 1; 38 tests, zero failures/errors/skips across 9 suites. All actual XML retained byte-for-byte with SHA-256/base64. No failed test/build diagnostics occurred; no green broad rerun."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-projection-links-01/source-integrity.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-projection-links-01/source-integrity.json",
+      "result": "Read-only exact lease/changed-path and state/control/original-report preservation, retained XML hashes/count and whitespace check; not an application validator or independent verification."
+    }
+  ],
+  "executedAssertions": {
+    "sharedNew": "3 new tests execute actual GameAction.Play codec/reducer/replay paths: deterministic exact occurrence pair, same-source distinct effects, repeated reversed-pair no-op with no mutation, explicit link-only removal/inverse, missing/card/player/self/invalid endpoints and no source alias, unrelated source edits, tampered transition refusal, exact reference/work hooks, duplicate pair/identity rejection, pure versus compound inverse refusal and actual shared SelectiveUndo cold replay. Actual reposition, combat role/slot change and Stack reorder retain links; combat removal/closure, token Remove/disappearance move and frozen effect resolution remove only incident links. Token disappearance removes source-card links, freezes exact last-live effects and retains their own links/identities. Retained prefix objects remain immutable.",
+    "nativeNew": "3 new actual TokenLinkController/LinkActions host tests: capture copies original selection and preserves two same-source occurrence endpoints, typed incompatible hits are consumed without source/menu edits, two originals queue before any results with distinct requests and one invocation, no direct board write, precise covered-information endpoint list/connections/removal, no source Clone/Remove from occurrence scope, vanished endpoint error/no substitution, surviving frozen links/removal, play-incarnation binding, enqueue retry capture and refusal without required invocation adapter.",
+    "postgresNew": "1 actual isolated PostgreSQL/FIFO GameService test admits the entire original request sequence before execution or result reads, including predicted request-derived occurrence/link IDs, same-source pairs, no-op/rejection and token/combat/Stack cleanup. Compares actual outcomes/mutations/materialized state to shared prediction, checks sequential ingress, original pending/final retries and changed-payload mismatch, exact relational inbox/outbox/mutation/revision coherence, no revision for no-op/rejection, immutable history and exact replay from real play root. OwnedPostgres asserts container/volume cleanup.",
+    "affectedExisting": "31 existing tests across CombatAndStackTest, TokensAndLinksTest, CompleteManualHistoryIntegrationTest, CompleteCoreIntegrationTest, TokenLinkControllerTest and TokenActionsTest preserve movement/manual/prefix/group/scalar/token/source lifecycle semantics on the same full engine. Requirement IDs above are traceability, not executed acceptance coverage."
+  },
+  "publicInterface": "docs/agent/implementation-runs/managed-20261023-projection-links-01/interfaces.md",
+  "failureGroups": [
+    {
+      "id": "FG-PL-01-HISTORY-RUNTIME-ADAPTER",
+      "type": "explicit-required-runtime-owner-hook; source-proven-incomplete-integration, not a failed executed test",
+      "failingTestOrCommand": null,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-projection-links-01/interfaces.md",
+      "passingHookEvidence": "docs/agent/implementation-runs/managed-20261023-projection-links-01/junit.json (shared ProjectionLinkRuntimeTest)",
+      "likelyOwner": "Parallel history runtime integration owner / I23 composite inverse/reference/HistoryWork adapter",
+      "sourcePaths": ["protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt", "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt", "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CombatAndStack.kt"],
+      "seam": "shared-integration, not a local projection-link reducer/test failure",
+      "diagnosis": "Exact new payload bytes are covered by existing GameplayMutation/GameplayTransition serialization metering, and root replay compares all exact link effects. GameplayTree.replay explicitly charges only field/movement effect units at the pin. It must add GameplayHistory.projectionLinkWorkUnits before replay; the public changes/references hooks retain occurrence endpoints and link IDs. Pure projection-link inverse is implemented; every compound cleanup returns null rather than a partial inverse. Full composite inverse or retained-root replay remains the runtime owner's responsibility.",
+      "dependenciesAndOverlap": "GameplayTree/runtime mounting is outside this lease and owned by the parallel history lane. That owner must integrate the compiling dfc0635 API and retain exact same-node token/movement/combat/effect cleanup. Do not introduce a second traversal/work meter, drop unknown tuples or accept partial inverses. No blocker to the separate TableToolkit mount.",
+      "freshFixAssignment": "Supervisor gives a fresh history runtime integrator the saved projection-link API. Charge added/removed projection-link effects through the existing HistoryWork, compose exact references and all invariant families, or explicitly use retained-root replay for compound inverses. Fresh independent verifier then checks the change; this unit does not certify it.",
+      "narrowRerun": "History runtime projection-link work-budget boundary plus create/unlink/compound cleanup backward traversal, same-source surviving frozen occurrence links, suffix replay and reference-change regressions. Reuse this green shared/native/store evidence for unchanged inputs; no full-suite/APK/device rerun for accounting alone."
+    }
+  ],
+  "deferredAssertions": [
+    {"owner": "Current full TableToolkit/lifecycle UI integration lane", "scope": "Mount the published typed occurrence API and one-invocation session callback on actual production occurrence selection/hit/list routes. Preserve source actions separately. TableToolkit source deliberately untouched; native component tests are not a mounted normal-UI journey."},
+    {"owner": "Fresh independent verifier and B5/B6 capability reviewers", "scope": "Independent source/check verification and connected capability review after consolidation; no self-review/self-verification or parent acceptance in this unit."},
+    {"owner": "Original native I19/I21 journey owners and final I34/I36/B8/release owners", "scope": "Actual normal-app occurrence link creation/removal/selection, both orientations/accessibility, concurrency/recovery/restart/branch history and complete final native/mock/full-suite/release gates. No device lifecycle, APK or production journey was run here."}
+  ],
+  "stateHandling": "State, original reports/evidence, permissions, live journals and runner controls unchanged. Custom integration artifact only: no application validator, proposal/state transition or acceptance claim, per explicit dispatch override. Supervisor owns latest-state acceptance, actual upstream/session metadata and independent verification.",
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LinkActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TokenLinkController.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ProjectionLinkRuntimeTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-projection-links-01.json",
+    "docs/agent/implementation-runs/managed-20261023-projection-links-01/combined-affected.json",
+    "docs/agent/implementation-runs/managed-20261023-projection-links-01/interfaces.md",
+    "docs/agent/implementation-runs/managed-20261023-projection-links-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-projection-links-01/public-api-compile.json",
+    "docs/agent/implementation-runs/managed-20261023-projection-links-01/source-integrity.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CombatAndStack.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TokensAndLinks.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ProjectionLinkRuntimeTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/ProjectionLinkRuntimeTest.kt"
+  ]
+}

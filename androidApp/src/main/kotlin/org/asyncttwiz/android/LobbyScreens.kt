@@ -2,6 +2,8 @@ package org.asyncttwiz.android
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -17,6 +19,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -105,7 +110,7 @@ private fun LobbyFeedback(controller: LobbyController) {
         Text(message, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = controller::reconnect) { Text("Reconnect") }
     }
-    if (state.pendingGames.isNotEmpty()) Text(if (state.preparation != null) "Checking game outcome…" else "Checking invitation outcome…", style = MaterialTheme.typography.bodySmall)
+    if (state.pendingGames.isNotEmpty()) Text("Checking game outcome…", style = MaterialTheme.typography.bodySmall)
     if (state.draft == null) state.error?.let {
         Text(it, color = MaterialTheme.colorScheme.error)
         TextButton(onClick = { controller.refresh() }) { Text("Retry") }
@@ -119,7 +124,7 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
         item { LobbyFeedback(controller) }
         if (state.loaded && state.games.isEmpty()) item { Text("No games yet.") }
         items(state.games, key = { it.id }) { game ->
-            OutlinedCard(onClick = { controller.open(game.id) }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedCard(modifier = Modifier.fillMaxWidth().gameRowActions(controller, game) { controller.open(game.id) }) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(game.gameName, fontWeight = FontWeight.SemiBold)
@@ -149,6 +154,41 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
 }
 
 @Composable
+internal fun GameDeletionDialogs(controller: LobbyController) {
+    controller.state.gameContext?.let { game ->
+        AlertDialog(onDismissRequest = controller::dismissGameContext,
+            title = { Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(game.gameName, Modifier.weight(1f))
+                IconButton(onClick = controller::dismissGameContext) { EntryIcon("Close game actions", "close") }
+            } }, text = { Text("${gameStatus(game)} · ${gameDate(game)}") },
+            confirmButton = { TextButton(onClick = { controller.requestGameDeletion(game) }) {
+                DeleteGameIcon(); Spacer(Modifier.width(8.dp)); Text("Delete game")
+            } })
+    }
+    controller.state.deletion?.let { capture ->
+        AlertDialog(onDismissRequest = controller::dismissGameDeletion,
+            title = { Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(capture.title, Modifier.weight(1f))
+                IconButton(onClick = controller::dismissGameDeletion) { EntryIcon("Keep game", "close") }
+            } }, text = { Text(capture.warning) },
+            dismissButton = { OutlinedButton(onClick = controller::dismissGameDeletion) { Text("Keep game") } },
+            confirmButton = { Button(onClick = { controller.confirmGameDeletion() }) { Text("Delete game") } })
+    }
+}
+
+@Composable
+private fun DeleteGameIcon() {
+    val color = LocalContentColor.current
+    androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
+        val w = size.width
+        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(w / 12)
+        drawRect(color, androidx.compose.ui.geometry.Offset(w * .25f, w * .3f), androidx.compose.ui.geometry.Size(w * .5f, w * .55f), style = stroke)
+        drawLine(color, androidx.compose.ui.geometry.Offset(w * .15f, w * .25f), androidx.compose.ui.geometry.Offset(w * .85f, w * .25f), w / 12)
+        drawLine(color, androidx.compose.ui.geometry.Offset(w * .4f, w * .12f), androidx.compose.ui.geometry.Offset(w * .6f, w * .12f), w / 12)
+    }
+}
+
+@Composable
 internal fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean = false,
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
@@ -164,6 +204,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger != null) IconButton(onClick = hamburger) { EntryIcon("Open navigation", "menu") }
             Text(state.detail?.gameName ?: "Loading game…", Modifier.weight(1f).padding(12.dp), style = MaterialTheme.typography.titleLarge)
+            state.detail?.takeIf(controller::offersSetupCancellation)?.let { game ->
+                TextButton(onClick = { controller.requestCancelSetup(game) }) { Text("Cancel") }
+            }
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -216,6 +259,74 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                     own != null && (own.ready || reason == null), modifier = Modifier.fillMaxWidth()) {
                 Text(if (own?.ready == true) "Withdraw Ready" else "Ready")
             }
+        }
+    }
+}
+
+/** Shared by Games and inherited navigation rows; a recognized hold must consume Open. */
+@OptIn(ExperimentalFoundationApi::class)
+internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, open: () -> Unit): Modifier {
+    val cancel = controller.offersSetupCancellation(game)
+    val delete = controller.offersGameDeletion(game)
+    return combinedClickable(onClick = open, role = Role.Button, onLongClickLabel = if (cancel || delete) "Game actions" else null,
+        onLongClick = when {
+            cancel -> ({ controller.showGameContext(game) })
+            delete -> ({ controller.gameContext(game) })
+            else -> null
+        })
+        .semantics {
+            if (cancel) customActions = listOf(CustomAccessibilityAction("Cancel game") {
+                controller.requestCancelSetup(game); true
+            })
+            else if (delete) customActions = listOf(CustomAccessibilityAction("Delete game") {
+                controller.requestGameDeletion(game); true
+            })
+        }
+}
+
+@Composable
+internal fun SetupCancellationDialogs(controller: LobbyController) {
+    val cancellation = controller.setupCancellation
+    cancellation.context?.let { game ->
+        SetupCancellationDialog(cancellation::dismissContext) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(game.gameName, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                IconButton(onClick = cancellation::dismissContext) { EntryIcon("Close game actions", "close") }
+            }
+            TextButton(onClick = { controller.requestCancelSetup(game) }) {
+                EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Cancel game")
+            }
+        }
+    }
+    cancellation.confirmation?.let { game ->
+        val connected = game.id in controller.state.connectedGames
+        val pending = game.id in controller.state.pendingGames
+        SetupCancellationDialog(cancellation::dismiss) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Cancel game?", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                IconButton(onClick = cancellation::dismiss) { EntryIcon("Close cancellation", "close") }
+            }
+            Text(game.gameName, fontWeight = FontWeight.SemiBold)
+            Text("Cancel this unstarted game and its invitation? This cannot be undone.")
+            if (!connected) Text("Disconnected. Reconnect to check the game.", style = MaterialTheme.typography.bodySmall)
+            if (pending) Text("Checking game outcome…", style = MaterialTheme.typography.bodySmall)
+            cancellation.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = cancellation::dismiss, modifier = Modifier.weight(1f)) { Text("Keep game") }
+                Button(onClick = controller::confirmCancelSetup, enabled = connected && !pending,
+                    modifier = Modifier.weight(1f)) { Text("Cancel game") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupCancellationDialog(dismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.padding(16.dp).widthIn(max = 420.dp).fillMaxWidth(), shape = MaterialTheme.shapes.large,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
         }
     }
 }

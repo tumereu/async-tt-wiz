@@ -23,6 +23,7 @@ import subprocess
 import sys
 import time
 from string import Template
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = Path("/tmp/opencode")
@@ -440,15 +441,86 @@ def fresh_services(value, timeout):
     compose(value, "up", "-d", "--no-build", "--pull", "never", "adapters", "backend")
 
 
+# Each entry qualifies exact implemented SQL bytes AND its new mutable stores.
+# Extend this registry with source-backed contracts/tests, never with DB discovery
+# or a guessed latest version/count. ALTER-only migrations still need an entry.
+RESET_MIGRATIONS = {
+    "V1__service_writer.sql": ("3af27013730d9dbff99acc2cabc21d8176d4f1abd9b0f1e45aef574d14506888", ()),
+    "V2__accounts_and_sessions.sql": ("c10d832e03f98cb603a55925e22dfea85ecd3e03503283115bf5c570036735e6", ("account", "account_session")),
+    "V3__password_reset.sql": ("e99c82aa2f345853990a0757b8417cd1574068fb93a5d605b0b0b3d10391b9ef", ("password_reset_token", "reset_mail")),
+    "V4__definitions_and_saved_decks.sql": ("586ddff06e89190419519ff7995d7843a5d7b8766dd312d511e1ad14e4576c4d", ("definition", "account_definition", "saved_deck", "deck_entry", "request_identity", "account_request")),
+    "V5__saved_deck_cover.sql": ("edeb31d44d10487c1bc7bedb9ee08fdd23554ccbb11dd72d2fddb216d69c9121", ()),
+    "V6__contacts_and_named_games.sql": ("5050ba5d005d86762ac51308df6a11b262fce666e1642fec1523c4cb185e5c08", ("contact", "game", "invitation")),
+    "V7__ordered_game_requests.sql": ("1cbffe97a4aa923141fbe7157beceb8c52310421a41d0925d21273300568af3e", ("game_inbox", "game_outbox", "game_revision", "game_stream")),
+    "V8__prepared_deck_copies.sql": ("c77a94b4ce3fe19a0a7d8f538bf22765a00e5f008874bbe727dd293237fe2817", ("player_preparation", "game_definition")),
+    "V9__initial_play.sql": ("70667ff78f0800022d39a2e97acc6ebdbc4b1663440c593ffff3cb2cc8c19cdf", ("game_play",)),
+    "V11__gameplay_mutations.sql": ("03801dd72905734c709b56f47c392a447edc93a75352ff2c3d87be28dfc00506", ("gameplay_group", "gameplay_mutation")),
+    "V13__game_chat.sql": ("1f371d77bb0fd5b7b8a6ae0106738274abe98242c2df8f0f3016d56d32cddf6e", ("game_chat",)),
+    "V14__returned_lobby_incarnations.sql": ("2a1e22b6a40320e2baf9202c69b45e5568864257a2adb0c7a8cf9fabf4e8d56e", ("game_play_mutation",)),
+    "V15__activity_notifications.sql": ("f7cb200fb4e3acb10adb6cb03534f5fe57db6013b16fbc46507b80ec4a003f22", ("activity_cursor", "account_activity", "activity_summary", "activity_installation", "activity_push")),
+    "V16__retained_gameplay_tree.sql": ("c4e7fa236b4e6e646a74fa2be43ae5c67250d218905f4ee134bcb0e43445c2e8", ("gameplay_tree_control",)),
+}
+
+
+def reset_inventory(value):
+    """Independently qualify source/image inputs before observing the database."""
+    migration_root = ROOT / "server/src/main/resources/db/migration"
+    source = {str(p.relative_to(migration_root)): sha(p)
+              for p in migration_root.rglob("*") if p.is_file()}
+    required = {name for name in RESET_MIGRATIONS if int(name.split("__")[0][1:]) <= 9}
+    require(required <= source.keys() <= RESET_MIGRATIONS.keys(), "Unqualified reset migrations")
+    require(all(digest == RESET_MIGRATIONS[name][0] for name, digest in source.items()),
+            "Changed reset migration source")
+
+    manifest_path = "server/build/application-image.json"
+    require(sha(ROOT / manifest_path) == value["inputs"][manifest_path], "Changed reset image manifest")
+    server = json.loads((ROOT / manifest_path).read_text())
+    require(server["imageId"] == value["images"]["server"] and server["platform"] == "linux/amd64",
+            "Reset image identity mismatch")
+    libraries = server["libraries"]
+    distribution = hashlib.sha256(json.dumps(libraries, sort_keys=True).encode()).hexdigest()
+    require(distribution == server["distributionSha256"], "Reset distribution identity mismatch")
+    image = json.loads(docker("image", "inspect", server["imageId"]))[0]
+    labels = image["Config"].get("Labels") or {}
+    require(image["Id"] == server["imageId"] and image["Os"] == "linux" and image["Architecture"] == "amd64" and
+            labels.get("org.asyncttwiz.distribution.sha256") == distribution and
+            labels.get("org.opencontainers.image.revision") == server["sourceCommit"],
+            "Reset image provenance mismatch")
+    resources = owned(value)
+    require(all(resources.get(service, {}).get("Image") == server["imageId"] for service in ("backend", "migrate")),
+            "Reset runtime image mismatch")
+
+    library_root = ROOT / "server/build/install/server/lib"
+    require({p.name for p in library_root.glob("*.jar")} == set(libraries), "Changed reset library inventory")
+    packaged = {}
+    try:
+        for name, digest in libraries.items():
+            require(Path(name).name == name and name.endswith(".jar"), "Invalid reset library name")
+            jar = library_root / name
+            require(not jar.is_symlink() and sha(jar) == digest, "Changed reset image library")
+            with zipfile.ZipFile(jar) as archive:
+                for entry in archive.infolist():
+                    if entry.filename.startswith("db/migration/") and not entry.is_dir():
+                        script = entry.filename.removeprefix("db/migration/")
+                        require(script not in packaged, "Ambiguous packaged reset migration")
+                        packaged[script] = hashlib.sha256(archive.read(entry)).hexdigest()
+    except zipfile.BadZipFile:
+        raise Refusal("Invalid reset image library") from None
+    require(packaged == source, "Reset source/image migration mismatch")
+    scripts = sorted(source, key=lambda name: int(name.split("__")[0][1:]))
+    mutable = [table for name in scripts for table in RESET_MIGRATIONS[name][1]]
+    versions = [name.split("__")[0][1:] for name in scripts]
+    identity = {"imageId": server["imageId"], "sourceCommit": server["sourceCommit"], "migrationSha256": source}
+    return mutable, versions, identity
+
+
 def empty_baseline(value):
-    # Deliberately explicit implemented-store inventory. New migrations/workers
-    # must extend this qualification, never silently escape the reset contract.
+    mutable, versions, identity = reset_inventory(value)
+    tables = mutable + ["flyway_schema_history", "service_writer"]
     require(database(value, "SELECT string_agg(tablename,',' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'")
-            == "account,account_definition,account_request,account_session,contact,deck_entry,definition,flyway_schema_history,game,game_definition,game_inbox,game_outbox,game_play,game_revision,game_stream,invitation,password_reset_token,player_preparation,request_identity,reset_mail,saved_deck,service_writer", "Unexpected baseline tables")
-    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank") == "1\n2\n3\n4\n5\n6\n7\n8\n9", "Unexpected migration baseline")
-    mutable = ("account", "account_session", "password_reset_token", "reset_mail", "definition",
-               "account_definition", "saved_deck", "deck_entry", "request_identity", "account_request", "contact", "game", "invitation",
-               "game_inbox", "game_outbox", "game_revision", "game_stream", "player_preparation", "game_definition", "game_play")
+            == ",".join(sorted(tables)), "Unexpected baseline tables")
+    require(database(value, "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank")
+            == "\n".join(versions), "Unexpected migration baseline")
     for table in mutable:
         require(database(value, "SELECT count(*) FROM " + table) == "0", "Retained private baseline")
     require(database(value, "SELECT count(*) FROM service_writer WHERE singleton AND epoch > 0") == "1", "Missing baseline writer")
@@ -457,7 +529,7 @@ def empty_baseline(value):
             state["generation"] == 0 and state["messageCount"] == 0 and
             state["sourceFault"] == state["mailFault"] == "ok", "Nonempty adapter baseline")
     require(admin(value, "/admin/messages") == [], "Retained baseline deliveries")
-    return {"tables": list(mutable) + ["flyway_schema_history", "service_writer"], "migrations": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    return {"tables": tables, "migrations": versions, "schemaIdentity": identity,
             "accountCount": 0, "sessionCount": 0, "resetTokenCount": 0, "resetMailCount": 0,
             "versions": state["versions"], "messageCount": 0, "faults": "ok"}
 

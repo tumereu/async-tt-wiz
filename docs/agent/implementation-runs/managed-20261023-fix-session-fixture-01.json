@@ -1,0 +1,120 @@
+{
+  "runId": "managed-20261023-fix-session-fixture-01",
+  "sessionID": "ses_e9873f13effexi5NWOI3YnXCw1",
+  "startCommit": "42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad",
+  "baseCommit": "42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad",
+  "mode": "integration",
+  "target": "repair-IC-SESSION-FIXTURE",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "qualification": "fixed-awaiting-independent-check",
+  "acceptanceReady": false,
+  "summary": "Confirmed the duplicate card/Library entity identity rejection and repaired only the production-session test fixture: Library ID 10 becomes stable ID 30 and all fixture cards reference it. Both original methods pass in one narrow invocation with their action sequences and assertions byte-identical. Runtime, shared invariants, historical failures/reports and authoritative state are unchanged. Independent checking remains mandatory; no application transition or capability review is claimed.",
+  "selectionReason": "Supervisor-assigned fresh IC-SESSION-FIXTURE repair on the retained integrated candidate. The fixture-only seam is independent of shared gameplay/grouping fix writers and does not require rerunning unchanged green session/replica suites.",
+  "lease": {
+    "contextPath": "/tmp/opencode/managed-20261023-fix-session-fixture-01/context.json",
+    "branch": "managed/managed-20261023-fix-session-fixture-01",
+    "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-fix-session-fixture-01",
+    "model": "openai/gpt-6.1-sol#high",
+    "modelEvidence": "Supplied serverCreatedMetadata identifies this session, provider openai, model gpt-6.1-sol, variant high and the leased directory. No fallback or model change.",
+    "dependencyCommits": ["42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad"],
+    "confirmedStart": "Actual HEAD and branch match the supplied pin/lease; initial worktree and index were empty. The supplied context reserves this exact test path and current report/evidence namespace. No other checkout or authoritative journal/control/state is edited.",
+    "resourceBundle": ["isolated-host-tests"],
+    "resourcesActuallyUsed": ["isolated-host-tests"],
+    "resourceIsolation": "One foreground Gradle invocation in this isolated worktree/build output, --no-daemon --max-workers=1 and 1280m JVM limit. No devices, APK, backend, Testcontainers or exclusive shared lifecycle resources used. No background check remains."
+  },
+  "diagnosis": {
+    "originalReport": "docs/agent/implementation-runs/managed-20261023-integrate-core-01.json",
+    "originalFailureEvidence": "docs/agent/implementation-runs/managed-20261023-integrate-core-01/native-junit.json",
+    "originalCommandEvidence": "docs/agent/implementation-runs/managed-20261023-integrate-core-01/native-after-fixture-repair.json",
+    "retainedFailure": "Decoded original XML has exactly two failures, both assertTrue at Fixture.submit, called at original lines 63 and 95. Original later delivery assertions were not reached in that run.",
+    "productionRejection": "GameplayRules.change routes MoveCard through move and record. Gameplay.kt:176-177 calls CombatStackRules.closeInvariants and returns GameplayChange(reason = invalidStructure) when closure is null. CombatAndStack.kt:255-257 combines card/container/other entity IDs and rejects duplicates. GameplayReplica.kt:23 returns false when change.state is absent, and GameSession.kt:139 propagates false to submit. Original cards 9..11 include the Library ID 10, so the initial move retains an invalid duplicate identity.",
+    "repair": "Keep card IDs, test commands and every assertion unchanged. Move Library to disjoint ID 30, retain Hand/Battlefield/Stack IDs 20/21/22, and explicitly copy each card.containerId to the new Library. This repairs both entity uniqueness and membership references without altering reducer or invariant behavior.",
+    "confirmation": "The sole narrow run completes both original methods after the fixture-only change. Current retained JUnit is exactly two tests with zero failures/errors/skips. integrity.json confirms original test method bodies byte-identical and original red evidence/report/state byte-identical to the start commit."
+  },
+  "checks": [
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest.guardedMovementAndManualTuplesShareInflightSessionAndBaselineWithoutAcknowledgementRewind --tests org.asyncttwiz.android.GameplayMoveIntegrationTest.rejectedEarlierMoveDoesNotDropGuardedLaterOriginalOrReviveItsWithdrawnPrediction",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/affected-tests.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/junit.json"],
+      "result": "Both exact methods passed in ONE invocation; no repeated green session/replica/protocol suite. Shared retain-junit preserved the current XML bytes losslessly."
+    },
+    {
+      "kind": "required",
+      "commandArgvFromEvidence": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/integrity.json#/command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/integrity.json",
+      "result": "Original test methods/action sequences/assertions are byte-identical. Only leased fixture is tracked as changed; state, original report and failure evidence are unchanged. Exact original failing/current passing method sets and retained XML hashes match. This is integrity evidence, not independent verification."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/implementation-evidence.py validate-proposal docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01.json",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/proposal-validation.json",
+      "result": "Supplied integration role/target is a custom candidate fixing handoff, not an application proposal. No application object transitions or fabricated finding/task objects are supplied. Existing validate-proposal requires an application proposal and supports only implement/fix/review/verify roles. Retain the rejection honestly; do not change assigned identity, validator or authoritative state to force acceptance. Supervisor owns the discrepancy and independent checking."
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/implementation-evidence.py validate-proposal docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01.json --saved",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/saved-proposal-validation.json",
+      "result": "After the test repair/report/checks were committed and pushed through save.sh, saved validation reproduced the same schema rejection: Proposal needs unique nonempty sourceIds. This is not an affected-test failure or a successful application-proposal validation. Retained without adding unauthorized application transitions; this follow-up batch only saves that actual diagnostic and its report reference."
+    }
+  ],
+  "executedCoverage": [
+    "Three simultaneous originals with guarded move, trimmed manual note and player counter; predicted board equals the production processor result.",
+    "Accepted result before state does not advance acceptedPlay; duplicate/out-of-order original delivery preserves predicted endpoints and manual fields.",
+    "Missing third delta enters complete-record baseline recovery with final original status, restores readiness and drains pending originals without rewind or extra commands.",
+    "Earlier rejected TOP move withdraws a dependent prediction without dropping later originals or independent manual work. Remote reorder does not revive the withdrawn move. Later accepted result still waits for its state; eventual original state is accepted, manual note survives, pending work drains, commands do not duplicate and outcome sequence stays rejected/accepted/accepted."
+  ],
+  "failureGroups": [
+    {
+      "id": "IC-SESSION-FIXTURE",
+      "status": "fixed-awaiting-independent-check",
+      "tests": [
+        "org.asyncttwiz.android.GameplayMoveIntegrationTest.guardedMovementAndManualTuplesShareInflightSessionAndBaselineWithoutAcknowledgementRewind",
+        "org.asyncttwiz.android.GameplayMoveIntegrationTest.rejectedEarlierMoveDoesNotDropGuardedLaterOriginalOrReviveItsWithdrawnPrediction"
+      ],
+      "originalFailingCommandEvidence": "docs/agent/implementation-runs/managed-20261023-integrate-core-01/native-after-fixture-repair.json",
+      "originalFailureEvidence": "docs/agent/implementation-runs/managed-20261023-integrate-core-01/native-junit.json",
+      "currentCommandEvidence": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/affected-tests.json",
+      "currentJUnit": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/junit.json",
+      "likelyOwningTasks": ["I14", "I13", "I21"],
+      "owningPaths": ["androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMoveIntegrationTest.kt"],
+      "readOnlyProductionAnchors": [
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CombatAndStack.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameplayReplica.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt"
+      ],
+      "seam": "Local invalid fixture exposed by the shared global-entity invariant boundary, not a demonstrated runtime defect.",
+      "remainingActualSourceSeam": null,
+      "overlapDependencies": "Test-only change on pinned combined candidate; no shared production writer overlap. Other integrate-core failure groups and missing mappings are untouched and remain their original owners obligations.",
+      "freshAgentAssignment": "Supervisor dispatches an independent checker at the saved candidate anchor to inspect the fixture identity/membership correction and retained assertions, and check these two exact methods only. Any new runtime failure requires a fresh fixer with supervisor-amended exact source ownership, never weakened closeInvariants.",
+      "narrowRerunScope": "Exactly the two methods listed above in one :androidApp:testDebugUnitTest invocation; no unchanged green session/replica suite, APK or device work."
+    }
+  ],
+  "toolDiagnostics": [
+    {"operation": "Initial compound Git inspection shell request", "error": "Permission denied: shell", "processExitCode": null, "resolution": "Separate authorized read-only Git commands succeeded; no permission or control edits."},
+    {"operation": "Initial source lookup under shared/src", "error": "Search path does not exist: shared/src", "processExitCode": null, "resolution": "Inspected actual protocol/src sources."},
+    {"operation": "Read Git-common implementation-loop directory", "error": "Permission denied: external_directory", "processExitCode": null, "resolution": "No retry or bypass; used supplied run context lease and immutable pin. External journal remains supervisor-owned."}
+  ],
+  "limitations": [
+    "Custom integration fixing report only: no proposal/application transitions, state edits, serial validation, independent self-verification, capability review or acceptance claim. The generic proposal validator cannot certify this integration role; its rejection is retained, not relabeled a pass.",
+    "Independent checking belongs to a fresh supervisor-dispatched session. All other integrated candidate failures/missing production mappings remain outside this lease.",
+    "No confidence broad suite, clean build, APK, device, E2E, PostgreSQL or release exercise. Final I34/I36 qualification, independent group reviews, B8 full interface/mock review and external release gates remain their original owners obligations."
+  ],
+  "changedPaths": [
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMoveIntegrationTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/affected-tests.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/proposal-validation.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/saved-proposal-validation.json"
+  ]
+}

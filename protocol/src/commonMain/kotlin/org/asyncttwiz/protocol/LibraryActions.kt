@@ -1,0 +1,202 @@
+package org.asyncttwiz.protocol
+
+import kotlinx.serialization.Serializable
+
+@Serializable enum class ContentsSelection { TOP, BOTTOM, ALL }
+/** References, not a second containing zone. Only provisional displays may reconcile membership. */
+@Serializable data class ContentsDisplay(val id: String, val author: String, val containerId: String,
+    val selection: ContentsSelection, val requestedCount: Int, val reveal: Boolean, val cardIds: List<String>) {
+    fun facesVisibleTo(accountId: String) = reveal || author == accountId
+}
+@Serializable data class LibraryOrderChange(val containerId: String, val from: List<String>, val to: List<String>)
+@Serializable data class ContentsDisplayChange(val from: ContentsDisplay? = null, val to: ContentsDisplay? = null)
+
+/** Shared processing helpers called only by GameplayRules, never an independent client engine. */
+object LibraryRules {
+    fun slice(cards: List<String>, selection: ContentsSelection, count: Int): List<String> {
+        require(count >= 0)
+        return when (selection) {
+            ContentsSelection.TOP -> cards.take(count)
+            ContentsSelection.BOTTOM -> cards.takeLast(count)
+            ContentsSelection.ALL -> cards.toList()
+        }
+    }
+
+    internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction): GameplayChange {
+        val board = state.board
+        return when (action) {
+            is PlayAction.ShuffleLibrary -> {
+                val source = board.containers.singleOrNull { it.id == action.containerId && it.zone == PlayZone.LIBRARY }
+                    ?: return GameplayChange(reason = "missingReference")
+                val order = RandomV1.shuffle(source.cards, action.seed, action.algorithm)
+                // Even a coincidentally identical permutation retains this fresh random invocation.
+                GameplayRules.record(state, actor, command, board.copy(containers = board.containers.map {
+                    if (it.id == source.id) it.copy(cards = order) else it
+                }), GameplayTransition(libraryOrder = LibraryOrderChange(source.id, source.cards, order)))
+            }
+            is PlayAction.ShowContents -> {
+                val source = board.containers.singleOrNull { it.id == action.containerId }
+                    ?: return GameplayChange(reason = "missingReference")
+                if (source.zone !in specialZones || source.zone != PlayZone.LIBRARY && action.selection != ContentsSelection.ALL)
+                    return GameplayChange(reason = "inapplicable")
+                val members = slice(source.cards, action.selection, action.count)
+                // ALL is orderless, including in history: no hidden Library indices in a full browser.
+                val display = ContentsDisplay(CommandIds.uuidV5(command.requestId, "contents/0"), actor, source.id,
+                    action.selection, action.count, action.reveal,
+                    if (action.selection == ContentsSelection.ALL) members.sorted() else members)
+                GameplayRules.record(state, actor, command,
+                    board.copy(contentsDisplays = board.contentsDisplays + display),
+                    GameplayTransition(contents = ContentsDisplayChange(to = display)))
+            }
+            is PlayAction.DismissContents -> {
+                val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(state)
+                GameplayRules.record(state, actor, command,
+                    board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id }),
+                    GameplayTransition(contents = ContentsDisplayChange(from = display)))
+            }
+            else -> error("Not a Library action")
+        }
+    }
+
+    private val specialZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
+
+    /** Early I13 seam: concrete Hand/special-container moves. Board/Stack and token cleanup stay I13/I19. */
+    internal fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard): GameplayChange {
+        fun reject() = GameplayChange(reason = "inapplicable")
+        val board = state.board
+        val card = board.cards.singleOrNull { it.id == action.cardId } ?: return GameplayChange(reason = "missingReference")
+        val source = board.containers.singleOrNull { it.id == action.source.containerId } ?: return reject()
+        val destination = board.containers.singleOrNull { it.id == action.destination.containerId } ?: return reject()
+        if (source.zone !in specialZones + PlayZone.HAND || destination.zone !in specialZones + PlayZone.HAND ||
+            card.token || card.containerId != source.id || card.id !in source.cards ||
+            card.placement != action.source.placement || action.destination.position != null ||
+            action.destination.pileId != null || action.expectedStackDigest != null) return reject()
+        if (action.source.edge != MoveSourceEdge.MEMBER && source.zone != PlayZone.LIBRARY) return reject()
+        if (action.source.edge == MoveSourceEdge.TOP && source.cards.firstOrNull() != card.id ||
+            action.source.edge == MoveSourceEdge.BOTTOM && source.cards.lastOrNull() != card.id) return reject()
+        val slice = action.source.bottomSlice
+        if (slice.isNotEmpty() && (source.zone != PlayZone.LIBRARY || slice.first() != card.id ||
+                source.cards.takeLast(slice.size) != slice)) return reject()
+        val target = action.destination
+        val remaining = destination.cards.filterNot { it == card.id }
+        val index = if (destination.zone == PlayZone.LIBRARY) when (target.insertion) {
+            MoveInsertion.TOP -> 0
+            MoveInsertion.BOTTOM -> remaining.size
+            MoveInsertion.GAP -> {
+                if (card.id in target.pendingIds || target.afterId in target.pendingIds || target.beforeId in target.pendingIds)
+                    return reject()
+                // Still-pending members of this invocation do not invalidate its normalized gap.
+                val reduced = remaining.filterNot { it in target.pendingIds }
+                val left = target.afterId?.let { reduced.indexOf(it).takeIf { index -> index >= 0 } ?: return reject() } ?: -1
+                val right = target.beforeId?.let { reduced.indexOf(it).takeIf { index -> index >= 0 } ?: return reject() } ?: reduced.size
+                if (right != left + 1) return reject()
+                target.afterId?.let { remaining.indexOf(it) + 1 } ?: 0
+            }
+            else -> return reject()
+        } else {
+            if (target.insertion != MoveInsertion.UNORDERED) return reject()
+            remaining.size
+        }
+        val order = remaining.toMutableList().apply { add(index, card.id) }
+        val entering = source.id != destination.id
+        val reset = entering && destination.zone in specialZones
+        val defaultCorner = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
+            ?.singleOrNull { it.faceId == card.faceId }?.corner.orEmpty()
+        val updated = card.copy(containerId = destination.id, placement = null,
+            corner = if (reset) defaultCorner else card.corner, counters = if (reset) emptyMap() else card.counters)
+        if (source.id == destination.id && destination.zone != PlayZone.LIBRARY ||
+            source.id == destination.id && order == source.cards && updated == card) return GameplayChange(state)
+        val fields = buildList {
+            if (updated.corner != card.corner) add(GameplayFieldChange(card.id, GameplayField.CORNER, card.corner, updated.corner))
+            for (color in CounterColor.entries) if (reset && color in card.counters)
+                add(GameplayFieldChange(card.id, GameplayField.COUNTER, card.counters.getValue(color), null, color))
+        }
+        fun location(container: PlayContainer, cards: List<String>): CardLocation {
+            val at = cards.indexOf(card.id)
+            return if (container.zone == PlayZone.LIBRARY) CardLocation(container.id,
+                afterId = cards.getOrNull(at - 1), beforeId = cards.getOrNull(at + 1)) else CardLocation(container.id)
+        }
+        val next = board.copy(cards = board.cards.map { if (it.id == card.id) updated else it },
+            containers = board.containers.map {
+                when (it.id) {
+                    destination.id -> it.copy(cards = order)
+                    source.id -> it.copy(cards = it.cards.filterNot { id -> id == card.id })
+                    else -> it
+                }
+            })
+        return GameplayRules.record(state, actor, command, next, GameplayTransition(fields,
+            GameplayMoveChange(card.id, location(source, source.cards), location(destination, order))))
+    }
+}
+
+/** Captured plans are immutable request intent; callers enqueue each constituent without awaiting results. */
+object LibraryActions {
+    fun draw(board: BoardState, libraryId: String, handId: String, count: Int): List<PlayAction.MoveCard> {
+        require(count >= 0)
+        val library = board.containers.single { it.id == libraryId && it.zone == PlayZone.LIBRARY }
+        require(board.containers.any { it.id == handId && it.zone == PlayZone.HAND && it.accountId == library.accountId })
+        return library.cards.take(count).map { PlayAction.MoveCard(it, MoveSource(libraryId, edge = MoveSourceEdge.TOP),
+            MoveDestination(handId, MoveInsertion.UNORDERED)) }
+    }
+
+    fun moveSlice(board: BoardState, libraryId: String, selection: ContentsSelection, count: Int,
+        destination: MoveDestination): List<PlayAction.MoveCard> {
+        val library = board.containers.single { it.id == libraryId && it.zone == PlayZone.LIBRARY }
+        val ids = LibraryRules.slice(library.cards, selection, count)
+        return moveCaptured(board, ids, destination).mapIndexed { index, action -> action.copy(source = action.source.copy(
+            edge = if (selection == ContentsSelection.TOP) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER,
+            bottomSlice = if (selection == ContentsSelection.BOTTOM) ids.drop(index) else emptyList())) }
+    }
+
+    fun moveCaptured(board: BoardState, capturedIds: List<String>, destination: MoveDestination): List<PlayAction.MoveCard> {
+        val ids = capturedIds.distinct()
+        val cards = ids.map { id -> board.cards.single { it.id == id } }
+        val target = board.containers.single { it.id == destination.containerId }
+        val reduced = target.cards.filterNot { it in ids }
+        if (target.zone == PlayZone.LIBRARY) require(destination.insertion in setOf(MoveInsertion.TOP, MoveInsertion.BOTTOM, MoveInsertion.GAP))
+        else require(target.zone in setOf(PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE) && destination.insertion == MoveInsertion.UNORDERED)
+        var after = when (destination.insertion) {
+            MoveInsertion.BOTTOM -> reduced.lastOrNull()
+            MoveInsertion.GAP -> destination.afterId
+            else -> null
+        }
+        val before = when (destination.insertion) {
+            MoveInsertion.TOP -> reduced.firstOrNull()
+            MoveInsertion.GAP -> destination.beforeId
+            else -> null
+        }
+        if (destination.insertion == MoveInsertion.GAP) {
+            val left = after?.let { reduced.indexOf(it).also { index -> require(index >= 0) } } ?: -1
+            val right = before?.let { reduced.indexOf(it).also { index -> require(index >= 0) } } ?: reduced.size
+            require(right == left + 1)
+        }
+        if (cards.all { it.containerId == target.id } && target.zone == PlayZone.LIBRARY) {
+            val at = after?.let { reduced.indexOf(it) + 1 } ?: 0
+            val final = reduced.toMutableList().apply { addAll(at, ids) }
+            if (final == target.cards) return emptyList()
+        }
+        return cards.mapIndexed { index, card ->
+            val move = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+                if (target.zone == PlayZone.LIBRARY) destination.copy(insertion = MoveInsertion.GAP,
+                    afterId = after, beforeId = before, pendingIds = ids.drop(index + 1)) else destination)
+            // I19's token-removal processor must never turn a disappearing member into an anchor.
+            if (!card.token || target.zone !in setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) after = card.id
+            move
+        }
+    }
+
+    data class Mulligan(val libraryId: String, val handId: String, val handIds: List<String>,
+        val preReturnSize: Int, val drawCount: Int, val seed: String, val returns: List<PlayAction.MoveCard>) {
+        fun prefix(): List<PlayAction> = returns + PlayAction.ShuffleLibrary(libraryId, seed)
+    }
+    fun mulligan(board: BoardState, libraryId: String, handId: String, displayedHand: List<String>, seed: String,
+        count: Int = 7, minusOne: Boolean = false): Mulligan {
+        require(count >= 0); RandomV1.decodeSeed(seed)
+        val library = board.containers.single { it.id == libraryId && it.zone == PlayZone.LIBRARY }
+        val hand = board.containers.single { it.id == handId && it.zone == PlayZone.HAND && it.accountId == library.accountId }
+        require(displayedHand.distinct().size == displayedHand.size && displayedHand.toSet() == hand.cards.toSet())
+        return Mulligan(libraryId, handId, displayedHand.toList(), displayedHand.size,
+            if (minusOne) (displayedHand.size - 1).coerceAtLeast(0) else count, seed,
+            moveCaptured(board, displayedHand, MoveDestination(libraryId, MoveInsertion.TOP)))
+    }
+}

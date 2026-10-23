@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "errors": [],
+  "environment": "/tmp/opencode/atw-e2e-4a39a11de4b34bc587a10ad44bcfa897",
+  "devices": [
+    "/tmp/opencode/atw-device-ac786a77f91444ce918c9e5574400894",
+    "/tmp/opencode/atw-device-f533af2828be4903ac22428957882b01"
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "runId": "managed-20261023-fix-i23-budget-01",
+  "sessionID": "ses_e98a8c9b4ffekBvLEAoOEnTfNN",
+  "startCommit": "654f4cf6e8b39c574ff7bcef4d039190c90a7c25",
+  "mode": "implement",
+  "target": "I23",
+  "statePath": "docs/agent/implementation-state.json",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Reproduced and repaired unaccepted candidate issue IG-I23-01: ordinary play and retained reads no longer consume selective-Undo budgets. A private current-only validated checkpoint supports incremental shared-reducer play; cold reads completely validate ancestry/references without an Undo-only ceiling. Hard N=128 and all selective target/suffix/work checks remain unchanged. Fresh affected JVM execution passes 28 tests. Corrected I23a implemented/I23b pending proposal preserves all original integration obligations; no canonical finding transition, independent verification, native/SQL integration or I23 completion is claimed. Original I23 source/proposal/API at the start commit are reused immutable inputs, not newly executed evidence.",
+  "selectionReason": "The supplied managed lease prioritizes concrete candidate IG-I23-01 before accepting the original I23 proposal, to remove a normal gameplay/history availability cap and unblock I24-I26. This is one bounded corrective implementation against the pinned dependency, not a new unit, self-review or advancement of an accepted finding. Supplied lease, exact branch/start commit, clean index and model metadata match; the supervisor alone owns latest-state readiness and acceptance.",
+  "dependencyCommits": [
+    "654f4cf6e8b39c574ff7bcef4d039190c90a7c25"
+  ],
+  "resourceBundle": [
+    "isolated-host-tests"
+  ],
+  "sourceIds": [
+    "P-008", "P-040", "P-059", "P-063", "P-065",
+    "D-224", "D-231", "D-232", "D-233", "D-234", "D-235", "D-236", "D-238", "D-245", "D-258", "D-266",
+    "T-506", "T-578", "T-640"
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.HistoryLargePlayTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/large-play-red.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.HistoryLargePlayTest --tests org.asyncttwiz.protocol.GameplayTreeTest --tests org.asyncttwiz.protocol.SelectiveUndoTest --tests org.asyncttwiz.protocol.GameplayTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code 654f4cf6e8b39c574ff7bcef4d039190c90a7c25 -- docs/agent/implementation-state.json docs/agent/implementation-runs/managed-20261023-i23-01.json docs/agent/implementation-runs/managed-20261023-i23-01",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/immutable-inputs.json"
+    }
+  ],
+  "executedAssertions": [
+    "Four pre-repair regression failures retained byte-for-byte in large-play-red.json and large-play-red-junit.json: valid ordinary append returned workLimit and valid retained reads returned null at 2100 ancestor records and 16385 retained branch records. Fixtures use GameplayRules.change, not fabricated transitions or another reducer.",
+    "Fresh affected execution: 8 HistoryLargePlayTest, 5 GameplayTreeTest, 13 SelectiveUndoTest and 2 GameplayTest cases passed, with zero failures/errors/skips. Exact XML is retained in affected-junit.json.",
+    "Ordinary append/cold retained reads work beyond selective ancestor and metadata ceilings, retain all nodes, and agree with the sole reducer. 2100 sequential ordinary appends and cold codec reconstruction agree; the disposable checkpoint is not serialized as an additional board.",
+    "Long-prefix replay does not skip corrupt first/tail schema, topology/cycles/missing parents, node IDs, transitions or recorded references. Copy/activation invalidate cached current state, including root/scope changes. Warm ordinary checkpoints do not bypass default long-prefix Undo limits or reduced ancestor/payload/effect/work/metadata budgets for Undo and Redo.",
+    "Existing unchanged tests exercised hard N=128/129, full retained future beyond internal current, forks, no skipped/revealing latest-own target, exact Redo target fidelity, account order/clearing, reference protection, large target effects and atomic work-limit failure.",
+    "Authoritative state and the entire original I23 report/evidence namespace remain byte-identical to the immutable start commit. No runtime/build dependency or native source changed; no broad suite, APK rebuild or device journey was repeated."
+  ],
+  "deferredAssertions": [
+    {
+      "owner": "I23b",
+      "scope": "Every original pending integrated I23b outcome/check below, including all accepted per-kind and effective exposure/reference mappings, actual relational FIFO/atomic outcomes/deltas/shared-device queues, real native controls/prediction/rebase/recovery and leased device gestures. Native components and their original host/APK evidence in managed-20261023-i23-01.json at 654f4cf6e8b39c574ff7bcef4d039190c90a7c25 are unchanged reused inputs, not fresh native passes. Cold reconstruction scheduling and accepted-revision checkpoint integration belong to these adapters; this run delivers only the shared synchronous API and current-instance disposable cache."
+    },
+    {
+      "owner": "I26",
+      "scope": "Complete retained-tree baseline/pruned-delta/third-instance recovery, durable rebuildable checkpoint/revision integrity and offline retained-review journeys using this single tree. Host codec tests here do not certify these integrated obligations."
+    },
+    {
+      "owner": "Supervisor-dispatched fresh repair verifier; B6/I34/B8",
+      "scope": "Fresh independent inspection of IG-I23-01 repair; complete first B6 capability review; full final integrated qualification, actual resource/performance measurements and release gates. Assigned source/acceptance IDs are not executed coverage."
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "I23a",
+      "sourceIds": ["P-008", "P-040", "P-059", "P-063", "P-065", "D-224", "D-231", "D-232", "D-233", "D-234", "D-235", "D-236", "D-238", "D-245", "D-258", "D-266"],
+      "evidence": "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-tests.json"
+    }
+  ],
+  "proposal": {
+    "sourceIds": ["P-008", "P-040", "P-059", "P-063", "P-065", "D-224", "D-231", "D-232", "D-233", "D-234", "D-235", "D-236", "D-238", "D-245", "D-258", "D-266", "T-506", "T-578", "T-640"],
+    "sourcePaths": [
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/SelectiveUndo.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/UndoController.kt"
+    ],
+    "testPaths": [
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryLargePlayTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTreeTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/SelectiveUndoTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/UndoActionsTest.kt"
+    ],
+    "allowedPaths": [
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-tests.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/immutable-inputs.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/interfaces.md",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/large-play-red-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/large-play-red.json",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryLargePlayTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I23",
+        "before": {"id": "I23", "batch": "B6", "status": "pending"},
+        "after": {
+          "id": "I23", "batch": "B6", "status": "in-progress",
+          "children": ["I23a", "I23b"],
+          "planningRecord": "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01.json"
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I23a",
+        "before": null,
+        "after": {
+          "id": "I23a", "batch": "B6", "status": "implemented", "dependsOn": [],
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01.json",
+          "outcome": "Deliver the shared immutable GameplayTree and processing-time selective Undo/Redo engine over pinned I13 early scalar/replay APIs, stable retained topology/removal-parent metadata, bounded exact target/suffix validation and account queues; typed Undo/Redo wire commands and reusable native explicit-menu/quick-action/controller components. Correct candidate IG-I23-01 so ordinary current play and retained review are independent of Undo-only ceilings, using a disposable current-instance validated materialization and full cold replay without losing history or weakening selective eligibility. This is an independently usable shared algorithm/component outcome, not relational or connected-native integration.",
+          "checks": [
+            "Run affected shared scalar/tree selective Undo/Redo tests for latest-own/no skip, strict stack order, target fidelity, full retained future including internal shared pointer, forks, stable node metadata/cursor fallback, references, clearing/no-op and hard work budgets.",
+            "Reproduce real long-prefix and large-retained-metadata normal play/read failures, retain red output, and pass HistoryLargePlayTest for ordinary append/read, incremental/cold equivalence, malformed ancestry/tail/reference rejection and copy/root/scope checkpoint invalidation. Warm ordinary materializations must not bypass any selective Undo/Redo budget or change N=128.",
+            "Reuse unchanged native controller/gesture host and normal debug APK evidence from managed-20261023-i23-01.json at 654f4cf6e8b39c574ff7bcef4d039190c90a7c25 for typed routes, connection gating and tap/hold/cancel arbitration; do not relabel it fresh execution. Actual native session mounting and gesture execution remain I23b.",
+            "Preserve unknown schema and unavailable movement mappings as fail-closed; do not claim later per-kind mappings, SQL FIFO, device synchronization or recovery."
+          ],
+          "qualification": "Fresh correction: four real red regressions followed by 28 passing affected JVM tests, zero skips; N/SelectiveUndo implementation and existing tests unchanged. Corrected API and source pushed early at c146082. Original engine/native source and proposal/API/evidence are reused immutable inputs at the start commit, not newly executed native coverage or accepted canonical task state. All integrated obligations remain I23b. Independent repair verification remains pending."
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I23b",
+        "before": null,
+        "after": {
+          "id": "I23b",
+          "batch": "B6",
+          "status": "pending",
+          "dependsOn": ["I23a", "I12", "I13", "I14", "I15", "I16", "I17", "I18", "I19", "I20", "I21", "I22"],
+          "outcome": "Complete ALL original I23 integrated obligations against accepted I13 and I17-I22/native session inputs using the one GameplayTree model: actual PostgreSQL inbox FIFO processing-time latest-own targeting, atomic topology/account stacks/results/revisions/deltas and retained parent metadata; exact per-action tuple/read/choice/mandatory-effect and exposure-only/reference mappings; actual connected native request prediction/rebase/recovery, mounted G03 explicit actions and tap-Undo/hold-Redo controls. No unimplemented prerequisite or engine fixture is acceptance of this scope.",
+          "checks": [
+            "Run actual relational FIFO/concurrent same-account multi-device Undo and last-undone-first Redo; one mutation per distinct request, no skipped blocked/revealing/fork candidate, original-ID pending/completed/rejected/no-op retries and lost-response recovery without repeated removal/insertion/reset. Commit board/topology/stacks/outcome/revision/deltas atomically and fence access, account and play incarnation.",
+            "Integrate exact recorded target fidelity BEFORE suffix checks and every relevant retained successor/event beyond shared-current/review cursors for ALL accepted action families: scalar/text/counter/color/reset/Clone/face/owner/note; move/ordered draw/reorder/shuffle and destination resets; token disappearance/frozen state; combat/Stack/occurrence/area/link/pair cleanup; tracking/result suggestion; annotation/comment/ping/references; random results and accepted exposure-only events. Do not guess changed input/targets or omit obligatory cleanup.",
+            "Exercise real accepted revealing targets and effective exposure-only latest-own barriers, recording versus viewed context, fixed accepted contents references and dependent event/reference protection; rejected/different predicted glimpses create no extra barrier or clearing. Own-area holds are local. Integrate I22 actual grouping/EventReferenceResolver without broad whole-board locks or fabricated mappings.",
+            "Validate target/payload/reference/loading/effect-fan-out/reconstruction budgets for large targets and mandatory cleanup with zero/short suffix and all retained future records within N. Overflow must leave topology, board, queues and metadata unchanged; no prefix-only validation, history expiry or game-object caps.",
+            "Verify ordinary own success clears own queue only, opponent ordinary play retains other queue, rejected/no-op/personal review does not clear, deliberate activation/interruption/archive-return switches clear both atomically, same-current/rejected/metadata-only operations do not and recovered switch outcomes never clear newly created entries. Coordinate I24/I25 against this shared seam.",
+            "Mount actual native explicit menu and quick slot using typed callbacks and real session readiness/FIFO, online provisional application and accepted-state rebase; exercise press/hold/release/cancel/accessibility while acknowledgements/reconnect race, no hold-plus-tap dispatch or fake connected handler. Cover same-process original-request recovery, reauthentication/rotation/background, restart server-first loss and account/Logout/play fencing. Run affected host/APK and leased normal-native journeys.",
+            "Retain surviving logical IDs and states in the same tree with no pre-Undo branch/compensating node, current-target parent fallback and surviving cursor stability; publish incremental/full-recovery topology and parent information for I26. I26 owns full-tree/pruned-delta/third-instance journey; I34/B8 final qualification and independent B6 review remain mandatory."
+          ]
+        }
+      },
+      {
+        "collection": "batches",
+        "id": "B6",
+        "before": {
+          "id": "B6", "status": "pending", "reviewedCommit": null,
+          "review": {"units": [{"id": "capability", "scope": "Full B6 catch-up/history/Undo/Redo/branch/archive/full-recovery journey and integration against the plan/contracts"}], "completed": {}, "blocked": {}}
+        },
+        "after": {
+          "id": "B6", "status": "pending", "reviewedCommit": null,
+          "review": {"units": [{"id": "capability", "scope": "Full B6 catch-up/history/Undo/Redo/branch/archive/full-recovery journey and integration against the plan/contracts"}], "completed": {}, "blocked": {}}
+        }
+      }
+    ]
+  },
+  "changedPaths": [
+    "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/affected-tests.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/immutable-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/interfaces.md",
+    "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/large-play-red-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-i23-budget-01/large-play-red.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryLargePlayTest.kt"
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "runId": "managed-20261023-write-three-peers-01",
+  "sessionID": "ses_e97c26ab4ffegxigtaKDUdEfht",
+  "startCommit": "6314593f246c6d7489f026e70cbb595c88c54fb6",
+  "mode": "integration",
+  "target": "I31-I01f3-complete-owned-three-peer-inventory",
+  "workKind": "writer",
+  "model": "openai/gpt-6.1-sol#high",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "executionStatus": "UNCOMPILED / UNEXECUTED / UNVERIFIED",
+  "summary": "Authored pair_owned(*values) to replace each member's discovery inventory with exactly all other owned members after complete identity/configuration, distinct owner/directory, nonoverlapping port and all live Windows snapshot checks. pair(first, second) and its CLI remain two-peer compatible. Added one focused three-peer publication/foreign-discovery regression; no behavioral checks executed, I31/I01f3 acceptance or physical-device claims.",
+  "selectionReason": "Explicit writer lease for the missing three-peer adapter identified by 06a7d34d:docs/agent/implementation-runs/managed-20261023-write-i31-01.json#remainingOwners; repeated pairs overwrite inventory and cannot qualify the third instance.",
+  "mergeRepairDetails": "Clean branch/index began at the sole start/dependency pin 6314593f246c6d7489f026e70cbb595c88c54fb6. No merge or infrastructure repair required. Only the two leased sources and this run's report/static evidence changed; no other checkout, authoritative state, controls, device helpers or resource operations touched. This custom writer artifact is not an application proposal; no validation/acceptance/state transition invoked.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "git log -1 --format=%H%n%D",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/pin.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --exit-code HEAD -- docs/agent/implementation-state.json docs/agent/implementation-permissions.json e2e/devices.py e2e/windows-device.ps1 scripts/implementation-loop.py scripts/implementation-resources.py scripts/implementation-evidence.py",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/authority-unchanged.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --cached --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/whitespace.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --cached --name-only",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/owned-paths.json"
+    }
+  ],
+  "sourceInspection": {
+    "scope": "Static authoring/source checks only, not independent review or execution.",
+    "consumers": [
+      "e2e/devices.py:load/validate_config, check_windows and selected_devices: retained exact private persisted identity/tool/configuration validation, Windows/AVD/process/listener checks, connected-peer AVD recheck and unknown/changed/cleaned-peer refusal. Each operation still selects only its local serial.",
+      "e2e/reset_runner.py:main: unchanged pair --directory FIRST --peer SECOND CLI remains under d.lock(); run/observe remain two-device reset/mail behavior.",
+      "docs/agent/implementation-runs/managed-20261023-i12-native-01/driver.py:67-78: existing whole owner provisions two, calls pair(*values), waits, attaches/prepares. Its two-profile construction/diagnostic guard/selector are NOT upgraded or qualified by this source change.",
+      "e2e/device_runner.py:fresh/run: existing exact serial/config, session/mapping and reset boundaries remain unchanged. No new runner or live cross-owner handoff."
+    ]
+  },
+  "callableHandoff": {
+    "api": "e2e.reset_runner.pair_owned(first, second, third)",
+    "preconditions": "Within the existing executor-owned complete resource-wrapped lifecycle, all three instances must have been provisioned by that same lifecycle owner with actual private instance.json records, distinct instance owner tokens and complete validated disjoint configurations. Hold d.lock() across this adapter seam; owned_directories below are those actual three recorded directories, not guessed identities or another owner's live resources.",
+    "example": [
+      "from e2e import devices as d, reset_runner",
+      "with d.lock():",
+      "    values = [d.load(d.directory_path(path)) for path in owned_directories]",
+      "    d.require(len(values) == 3, 'Three owned normal profiles required')",
+      "    reset_runner.pair_owned(*values)",
+      "    for value in values:",
+      "        d.wait(value, 180)"
+    ],
+    "continuation": "This replaces the existing pair seam after three owned provision attempts and before wait/attach/install/reset/use, not the whole lifecycle. Do not repeatedly call pair or manually write observed-peers.json. Existing provision readiness may refuse extra auto-discovered guests before pairing; the executor must qualify that exact stage/diagnostic for the third instance rather than broadly suppressing Refusal or reusing the old i == 1 guard. All finally cleanup remains with that same resource-wrapper owner.",
+    "publicationBoundary": "Every identity/config/port and every snapshot is validated before any inventory write. Existing write_json atomically replaces each individual file; this is not a cross-file transaction. An I/O publication failure must stop use and be repaired/retried as a whole set by the same locked lifecycle owner."
+  },
+  "authoredRegression": "OwnedPeerTest.test_complete_three_peer_set_preflights_before_publication_and_refuses_foreign_discovery: two-peer API setup; last-member snapshot refusal preserves both original inventories and publishes no third; complete set writes exactly two others per member; selected_devices accepts those observed peers but returns only self and refuses an unrecorded fourth. Reuses existing controller config/load/snapshot and unchanged peer safety tests, not a new matrix.",
+  "executedAssertions": [],
+  "failureGroups": [],
+  "failureGroupsNote": "No builds, tests, packaging, application/native journeys or reviews were run. No observed compiler/runtime failure groups; all new behavior remains unexecuted.",
+  "remainingOwners": [
+    {
+      "id": "THREE-PEER-FOCUSED-EXECUTION",
+      "owner": "Supervisor execution queue at integrated candidate source pin",
+      "command": "PYTHONPATH=.:tests python3 -m unittest test_reset_runner test_e2e_devices",
+      "scope": "One affected pass covering the new regression and existing owner/config/Windows identity/port/foreign-device safety cases. Retain actual output and source pin; do not count static checks as behavior or repeat unchanged green suites."
+    },
+    {
+      "id": "I31-I01f3-ACTUAL-INPUT-AND-LIFECYCLE-QUALIFICATION",
+      "owner": "Supervisor's same-owner three-profile executor, then independent qualification/review owners",
+      "scope": "Still pending: actual three complete tool/configuration inputs (qualified Appium/driver, Linux ADB, Windows SDK/PowerShell paths and all dedicated ports), persisted identities, all live Windows snapshots and ADB-discovery/AVD refusal, API29 non-GMS readiness, normal APK/companion hashes and common isolated backend/catalog origins. Extend the existing whole provisioning/attachment/reset/native/cleanup composition in the executor's own namespace, with windows-devices/windows-routing/shared-e2e-backend resource wrapper as applicable; retain third-run/peer-run/session/mapping identities and exact cleanup outputs. No qualified three-profile lifecycle or native pass is delivered here; I31/I01f3, repeated cold-boot requirements, independent verification/reviews and final gates remain owned and unpassed."
+    }
+  ],
+  "changedPaths": [
+    "e2e/reset_runner.py",
+    "tests/test_reset_runner.py",
+    "docs/agent/implementation-runs/managed-20261023-write-three-peers-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/pin.json",
+    "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/authority-unchanged.json",
+    "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-three-peers-01/owned-paths.json"
+  ]
+}

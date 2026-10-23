@@ -1,0 +1,117 @@
+{
+  "runId": "managed-20261023-i25-01",
+  "sessionID": "ses_e9898194dffejtI7g7Qs4Wb9xM",
+  "startCommit": "ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a",
+  "mode": "implement",
+  "target": "I25",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Delivered I25a shared archive/control/recovery engine on corrected GameplayTree, suffix-only personal hiding, exact independent archive/restore/atomic return and reusable contextual Compose controls with captured native intents. I25 remains in progress: I25b retains actual I24/server/FIFO/session/all-type/current-tree/download/native mounting and journey integration. No schema/device/full-suite/UI-document changes; authoritative state unchanged.",
+  "selectionReason": "Supervisor-leased speculative I25 implementation at pinned corrected I23 input. Deliver bounded usable shared/native controls without claiming pending I23/I24 prerequisites accepted, competing with I24 branch ownership or advancing unrelated work. Active lease, supplied session/model metadata, branch and clean start commit were confirmed before editing.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :protocol:jvmTest --tests org.asyncttwiz.protocol.BranchArchivesTest --tests org.asyncttwiz.protocol.GameplayTreeTest --tests org.asyncttwiz.protocol.SelectiveUndoTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.BranchArchiveActionsTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-01.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-i25-01/gradle-diagnostic.json"]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import os,subprocess,sys; os.environ[\"JAVA_TOOL_OPTIONS\"]=\"-Djava.net.preferIPv4Stack=true\"; sys.exit(subprocess.call(sys.argv[1:]))' ./gradlew :protocol:jvmTest --tests org.asyncttwiz.protocol.BranchArchivesTest --tests org.asyncttwiz.protocol.GameplayTreeTest --tests org.asyncttwiz.protocol.SelectiveUndoTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.BranchArchiveActionsTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-02.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import os,subprocess,sys; os.environ[\"JAVA_TOOL_OPTIONS\"]=\"-Djava.net.preferIPv4Stack=true\"; sys.exit(subprocess.call(sys.argv[1:]))' ./gradlew :protocol:jvmTest --tests org.asyncttwiz.protocol.BranchArchivesTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.BranchArchiveActionsTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-03.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-i25-01/junit.json"]
+    }
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/BranchArchiveActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/BranchArchiveController.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/BranchArchiveActionsTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i25-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-03.json",
+    "docs/agent/implementation-runs/managed-20261023-i25-01/gradle-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i25-01/junit.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/BranchArchives.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/BranchArchivesTest.kt"
+  ],
+  "implementationUnits": [
+    {"id": "I25a", "sourceIds": ["T-004", "T-019", "T-497", "T-498", "T-499", "T-500", "T-605", "T-606", "T-708", "D-258"],
+     "evidence": "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-03.json"}
+  ],
+  "executedAssertions": [
+    "Final 11 shared-control host tests cover suffix-only single-author hiding, prefix exclusion, exposure/comment/mixed tails, exact branch archive preserving all nodes/prefixes/descendant branches, exact preview board, explicit changed/missing/archived return flow, captured-head growth rejection, metadata/selection recovery and applicability including switch-away-and-back, scope/access/root protection, both-stack clearing only on actual branch/node switch and no-op/retry/metadata/review distinctions. Original outcomes survive serialization and do not replay selection or clear newer queues.",
+    "Final 4 native host tests cover captured exact preview/intent through sync, explicit return/restore choice, readiness/incarnation gating and original control identity without local authority/acknowledgement busy gates. Compose components compile. No instrumented/device/native journey assertion is claimed.",
+    "Initial passing affected check also ran GameplayTreeTest and SelectiveUndoTest against the additive tree field. A source-identified captured-head/selection-identity seam was then fixed; only archive suites reran. Final exact XML bytes/hashes/counts are retained in junit.json. First Gradle failure was JVM socket accept Invalid argument; IPv4-only JVM option repaired it without changing build inputs or checks."
+  ],
+  "integrationSeams": [
+    "BranchArchiveCatalog is an I24 adapter, not a competing branch model. resolve/head/displacedReturn must read actual retained branch metadata from the same GameplayTree; missing/incomplete data returns null. Context version changes when tree editing changes the target board. selectionControlId tracks every actual shared switch, including I24 controls, and remains unchanged for metadata-only changes/same-current no-ops/retries. Commit returned tree and selected branch/control identity atomically.",
+    "BranchArchiveRequest is a serializable payload seam, NOT a second endpoint/queue. GameWire/GameAction were deliberately not extended ahead of their actual consumers. I25b embeds this in the existing typed envelope/FIFO, checks access/lifecycle and atomically persists inbox outcome, tree, archive/selection and both-Redo reset. Original control records recover only outcome, never a snapshot to reapply over newer state.",
+    "Mount native controls only in advanced branch detail/context/accessibility routes; preserve normal Make current switching without archive/delete clutter or H07. Prepare cold exact board previews off the UI thread; supply the existing read-only board renderer. Bind original branch/target/head/control identity before opening menus. Show hidden is personal/downloaded read-only presentation, not a shared request, access policy or data/download filter."
+  ],
+  "deferredAssertions": [
+    {"owner": "I25b", "assertions": "Actual I24 branch/displacement/head/selection/control adapter and actual current GameplayTree through ordinary play, explicit forks/activation, selective Undo/Redo and all mutation families; actual I22 event-comment/exposure suffix inputs. Never infer branches by subtree, count prefix authors, implicitly archive descendants or delete shared nodes."},
+    {"owner": "I25b", "assertions": "Existing GameWire/server FIFO/admission/session implementation; durable atomic archive/tree/selection/Redo/inbox results and incremental publication; auth/lifecycle/incarnation, original retries/response loss/service restart/reconnect/reauth and concurrent same-account/multi-player controls; no second queue or retry resetting newer stacks."},
+    {"owner": "I25b", "assertions": "Normal-app mounting and connected provisional prediction/rebase/net-difference correction, captured preview/return/restore/recovery selection flow, both-state recovery applicability, control identity, metadata/no-op/retry/review distinctions, native Back/dismissal and normal two-player/same-account-device/all-type/current-tree journeys. Publish persisted recovery/control payloads to I26 download seam."},
+    {"owner": "I26", "assertions": "Complete-tree/fresh-third-instance/pruned-delta full recovery includes hidden/archived branches, shared prefixes, archive/control/recovery data and selected I24 context; offline downloaded read-only review omits no data due to filtering. These journeys were not executed here."},
+    {"owner": "I34/I36 and fresh independent B6/B8 review", "assertions": "Final integrated/full-suite qualification, device/orientation/accessibility and complete current mock/unpictured interface comparison remain mandatory. No self-review, self-verification, native journey or global I25 completion is claimed."}
+  ],
+  "proposal": {
+    "sourceIds": ["I25", "T-004", "T-019", "T-497", "T-498", "T-499", "T-500", "T-605", "T-606", "T-708", "D-258"],
+    "sourcePaths": [
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/BranchArchives.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/BranchArchiveController.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/BranchArchiveActions.kt"
+    ],
+    "testPaths": [
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/BranchArchivesTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTreeTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/SelectiveUndoTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/BranchArchiveActionsTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/BranchArchiveActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/BranchArchiveController.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/BranchArchiveActionsTest.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/BranchArchives.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/BranchArchivesTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i25-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i25-01/gradle-diagnostic.json",
+      "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-02.json",
+      "docs/agent/implementation-runs/managed-20261023-i25-01/affected-tests-03.json",
+      "docs/agent/implementation-runs/managed-20261023-i25-01/junit.json"
+    ],
+    "changes": [
+      {"collection": "tasks", "id": "I25", "before": {"id": "I25", "batch": "B6", "status": "pending"},
+       "after": {"id": "I25", "batch": "B6", "status": "in-progress", "children": ["I25a", "I25b"]}},
+      {"collection": "tasks", "id": "I25a", "before": null,
+       "after": {"id": "I25a", "batch": "B6", "status": "implemented", "dependsOn": ["I23"],
+         "outcome": "Shared archive/control/recovery engine on corrected GameplayTree, suffix-only hidden-path classifier and reusable contextual native controls with captured exact board previews. Actual I24 catalog and real server/session/native mounting remain I25b.",
+         "checks": ["Host suffix/prefix/exposure/comment filtering; independent exact-branch archive/restore, atomic exact return board/selection/Redo and recovery applicability/no-op/retry tests", "Compile contextual Compose controls and test captured native intents, changed/missing/archived return flow and connection/incarnation gating"],
+         "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i25-01.json"}},
+      {"collection": "tasks", "id": "I25b", "before": null,
+       "after": {"id": "I25b", "batch": "B6", "status": "pending", "dependsOn": ["I25a", "I22", "I23", "I24"],
+         "outcome": "Complete every original I25 integration obligation: bind actual I24 retained branch/displacement/head/selection/control identity and I22 comment/exposure metadata to actual all-type current GameplayTree; existing GameWire/server FIFO/session request, prediction and original recovery; durable atomic archive+selection+Redo and incremental publication, persisted control seam for I26 complete downloads; normal-app contextual controls and full native journeys without H07 or normal-switch clutter.",
+         "checks": ["Actual accepted I24/all-type current-tree metadata across ordinary play/forks/activation/selective edits; real comment/exposure/prefix filtering, exact branch/descendant retention, changed/missing/archived default selection/restore and exact captured board", "Same server FIFO/transaction/inbox/session, auth/lifecycle/play scope, atomic archive+return/selection/both-Redo delta and original retries/service restart/reconnect/reauth/same-account-device ordering without resetting newer queues", "Normal-app contextual archive/restore/return and both-state recovery, captured/control identity applicability, prediction/rebase/correction/readiness/Back and no-op/retry/review distinctions; persisted payload seam for I26 complete-tree download/offline hidden/archived review", "Retain affected host/integration and normal native journey evidence for independent B6/B8 review; preserve every original parent I25 obligation"]}},
+      {"collection": "batches", "id": "B6",
+       "before": {"id": "B6", "status": "pending", "reviewedCommit": null, "review": {"units": [{"id": "capability", "scope": "Full B6 catch-up/history/Undo/Redo/branch/archive/full-recovery journey and integration against the plan/contracts"}], "completed": {}, "blocked": {}}},
+       "after": {"id": "B6", "status": "pending", "reviewedCommit": null, "review": {"units": [{"id": "capability", "scope": "Full B6 catch-up/history/Undo/Redo/branch/archive/full-recovery journey and integration against the plan/contracts"}], "completed": {}, "blocked": {}}}}
+    ]
+  }
+}

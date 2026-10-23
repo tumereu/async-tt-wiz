@@ -1,0 +1,168 @@
+{
+  "runId": "managed-20261023-i17-01",
+  "sessionID": "ses_e98d91c76ffeO30wIyHWF8glFY",
+  "startCommit": "7641ac350cbadd277652be668680ba3049817393",
+  "statePath": "docs/agent/implementation-state.json",
+  "mode": "implement",
+  "target": "I17",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Delivered I17a: manual PlayAction variants through the existing GameplayRules processor; current-state corner Set/checked integer and slash-pair arithmetic/Reset, six-color card and player counters, notes, owner, printed face/cover, explicit logged inspection/disclosure and exact relevant tuple replay. Added reusable real Compose card/player action dialogs, current permitted card previews, retained captured-scope Set drafts, keyboard/cancel paths, filtered gameplay inspection and assigned-hold/name-tooltip arbitration, all through typed submit callbacks. Twenty affected host tests pass and the normal debug APK assembles. I17 remains in progress: I17b retains production table/controller/backend wiring and actual two-player native/recovery assertions after accepted I13-I16 prerequisites. No device, rendered Compose journey, complete E2E, independent review or prerequisite acceptance is claimed.",
+  "selectionReason": "Supervisor explicitly leased useful I17 speculative implementation against early I13 commit 7641ac3. Shared direct-edit semantics and actual reusable native components can be delivered now without editing another lane, inventing a local authoritative board, changing the early move stub or claiming I13/I14/I16 accepted. The bounded split preserves the complete parent outcome and all supplied checks while leaving integrated acceptance to its real prerequisites.",
+  "preflight": {
+    "branch": "managed/managed-20261023-i17-01",
+    "cleanStart": true,
+    "authorization": "D-304/D-309 and supplied managed I17 dispatch",
+    "lease": "/tmp/opencode/managed-20261023-i17-01/context.json",
+    "dependencyCommits": ["7641ac350cbadd277652be668680ba3049817393"],
+    "resourceBundle": ["isolated-host-tests"],
+    "constraints": "Only supplied leased source/test paths and current run report/evidence; no authoritative state, live journals/controls, devices, UI documentation, deployments or further units. Exact supplied server metadata pins openai/gpt-6.1-sol#high. Acceptance/model/lease verification remains the supervisor's responsibility."
+  },
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :protocol:jvmTest --tests org.asyncttwiz.protocol.ManualEditsTest --tests org.asyncttwiz.protocol.GameplayTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ManualActionsTest --tests org.asyncttwiz.android.ValueEditorTest :androidApp:assembleDebug",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-1.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8' :protocol:jvmTest --tests org.asyncttwiz.protocol.ManualEditsTest --tests org.asyncttwiz.protocol.GameplayTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ManualActionsTest --tests org.asyncttwiz.android.ValueEditorTest :androidApp:assembleDebug",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-2.json",
+      "supportPaths": ["docs/agent/implementation-runs/managed-20261023-i17-01/junit.json"]
+    }
+  ],
+  "executedAssertions": [
+    "Eight ManualEditsTest tests plus two existing GameplayTest tests: current authoritative input, independent-field preservation, actual nullable from/to, same-value no-op, all six colors on both target kinds, absent +/- without intermediate zero, zero retention/empty removal, nonnumeric rejection, signed arithmetic/overflow, whole/left/right/both corner edits, edge trimming with preserved internal lines, blank Set, current-face Reset/missing-default fallback, recorded replay without rerunning defaults, independent-field replay and relevant-input rejection, participant owner/face checks, covered versus visible face exposure, region-not-owner inspection, explicit recipient/context-bound inspection, wire serialization, scope and access rejection. These execute the shared processor, not HTTP/database/recovery.",
+    "Five ManualActionsTest and five ValueEditorTest host tests exercise the production state/gesture-decision classes: selected/unselected captured IDs and dedup, reflow and vanished-context/incarnation guards, mixed numeric applicability, live preview reads, retained scope after edits, local region-based permitted inspection, explicit accepted-disclosure recipient filtering, absent/blank/zero/dash drawing helpers, consumed tooltip/assigned hold/cancel, draft isolation from sync, cancel without submission, exact per-source typed Set callbacks, failed receipt retention and invalid-input suppression. They do not execute Compose pointer dispatch, IME, layout, rotation or native Back on a device.",
+    "Normal production Compose sources compile and androidApp:assembleDebug completes. Initial protocol tests were already green; the incremental completion reused that up-to-date task and executed the missing Android host tests/package build after fixing two test-only generic assertion inference errors. No full suite, clean build or repeated green device journey was run. Exact four-suite JUnit bytes are retained in junit.json: 20 tests, zero failures/errors/skips."
+  ],
+  "deferredAssertions": [
+    {
+      "owner": "I17b",
+      "scope": "Wire ManualActionsHost and its rotation/account/incarnation-retained personal holder into the actual I16 table and I14 gameplay callback. Apply accepted explicit disclosures through inspected(), never through submit's Boolean receipt. Complete read-only/disconnected/historical gating and retained uncertain original outcomes using I14, without introducing another queue. Prove both normal UIs, server admission/dedup/persistence/replay, delayed acknowledgements/concurrent edits/rejection/reconnect/process restart and no target replacement. Early I13 is a development pin, not accepted integration."
+    },
+    {
+      "owner": "I17b",
+      "scope": "Execute actual native portrait/landscape G04/G06/G07/G13 journeys with current preview during remote changes and open editor, every numeric/text/absent color, blank player versus card dash and zero, selected-set per-source applicability, owner/face/cover/inspection disclosure, text fallback/full note, keyboard/IME/native Back/outside cancel, scrolling/large text, accessibility and pointer-level tooltip/assigned hold/cancel arbitration. Verify successful context Graveyard dismissal and declared destination Reset behavior once I13/I16 moves are accepted; this lane intentionally leaves the move stub untouched. Component host fixtures are not full E2E."
+    },
+    {
+      "owner": "I21 and I34",
+      "scope": "I21 integrates source/projection normalization and dedup, live write-through and frozen disappeared-token read-only inspection using these real-source tools; no projection API exists in the pinned input. I18/I19/I20/I21 provide their actual constituent card actions rather than fake/stub buttons in this component. I34 owns final integrated full-suite/cross-capability coverage and I36/B8 owns complete both-orientation mock comparison, including all unpictured editor/inspector/error states and independently rechecked fixes. I22/I23 own final grouping and eligible selective Undo/Redo integration, including disclosure barriers. These obligations are not waived by shared tuple tests."
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "I17a",
+      "sourceIds": ["P-014", "P-024", "P-026", "T-072", "T-073", "T-074", "T-102", "T-103", "T-105", "T-110", "T-111", "T-112", "T-113", "T-117", "T-118", "T-119", "T-121", "T-122", "T-124", "T-126", "T-129", "T-131", "T-132", "T-134", "T-135", "T-688", "T-702", "T-712", "F44", "F67", "F68", "F76", "F77", "F78", "F79", "F83", "F85"],
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-2.json"
+    }
+  ],
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/PlayerActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ValueEditor.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ManualActionsTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ValueEditorTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i17-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i17-01/junit.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ManualEdits.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualEditsTest.kt"
+  ],
+  "proposal": {
+    "sourceIds": ["I17", "P-014", "P-024", "P-026", "T-072", "T-073", "T-074", "T-102", "T-103", "T-105", "T-110", "T-111", "T-112", "T-113", "T-117", "T-118", "T-119", "T-121", "T-122", "T-124", "T-126", "T-129", "T-131", "T-132", "T-134", "T-135", "T-688", "T-702", "T-712", "F44", "F67", "F68", "F76", "F77", "F78", "F79", "F83", "F85"],
+    "sourcePaths": [
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ManualEdits.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/CardActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/PlayerActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ValueEditor.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspectionController.kt"
+    ],
+    "testPaths": [
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualEditsTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ManualActionsTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ValueEditorTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/CardActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/CardInspection.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ManualActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/PlayerActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ValueEditor.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ManualActionsTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ValueEditorTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i17-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-1.json",
+      "docs/agent/implementation-runs/managed-20261023-i17-01/affected-tests-2.json",
+      "docs/agent/implementation-runs/managed-20261023-i17-01/junit.json",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/ManualEdits.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ManualEditsTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I17",
+        "before": {"id": "I17", "batch": "B5", "status": "pending"},
+        "after": {
+          "id": "I17", "batch": "B5", "status": "in-progress", "children": ["I17a", "I17b"],
+          "outcome": "G04/G06/G07/G13 direct packed card/player actions: corner strings/arithmetic/Set/Reset, all six counters, life, notes, owner, face/cover and permitted inspection. Retained current-state preview/menu lifetimes, absent-player blank versus zero/card-counter dash, input/keyboard, disclosure and assigned-hold-versus-name-tooltip arbitration. Complete actual shared server/native/recovery integration, not component-only demonstration.",
+          "checks": [
+            "Shared corner arithmetic/Set/Reset, six counters, life/note/owner/face/cover/permitted-inspection behavior and relevant-state/replay tests.",
+            "Captured menu/editor state current preview, absent/zero/dash semantics.",
+            "Keyboard/cancel/hold/tooltip arbitration production component/host checks and actual native integrated assertions.",
+            "Normal APK compile and exact affected tests; actual production server/table/recovery journeys after accepted I13/I14/I15/I16, with I21/I34 cross-capability assertions retained."
+          ]
+        }
+      },
+      {
+        "collection": "tasks", "id": "I17a", "before": null,
+        "after": {
+          "id": "I17a", "batch": "B5", "status": "implemented", "dependsOn": [],
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i17-01.json",
+          "outcome": "Shared manual direct-edit PlayAction variants in the existing GameplayRules processor plus actual reusable Compose card/player action sheets, retained Set editor/current-state preview and permitted inspection wiring through typed submit callbacks. Reads actual current input, preserves unrelated fields, records/replays nullable relevant tuples and explicit disclosures. All six colors, signed whole/slash-pair corner arithmetic, Set/blank/Reset, life, notes, owner, chosen face and cover; captured target identities, player-blank versus card-dash/zero, local hold/name-tooltip arbitration. This child is a shared/native component delivery, not production table/backend/recovery acceptance.",
+          "checks": [
+            "Affected shared tests for corner arithmetic/Set/Reset/current-face defaults, all six counter colors and both target types, absent versus zero versus empty removal, life/note/owner/face/cover/disclosure, current-state acceptance and exact relevant replay with unrelated-field preservation.",
+            "Production personal-UI and gesture-decision host tests for captured scope, current preview reads, mixed applicability, retained draft/Set/cancel, player blank/card dash/zero and assigned-hold/name-tooltip consumption. Native pointer/IME/rotation/Back execution remains I17b.",
+            "Normal production Compose compile/debug APK plus exact affected host tests, with original diagnostics and lossless JUnit retained."
+          ],
+          "qualification": "20 affected host tests pass with no failures/errors/skips; normal debug APK assembles. Shared protocol tests passed in initial command; corrected two Android test assertion inference errors and completed incremental affected Android checks without repeating green shared execution. No production table/controller/backend wiring, accepted I13-I16 prerequisite, rendered/native journey, integrated recovery, device qualification, self-review or release claim. I17b retains every missing parent assertion."
+        }
+      },
+      {
+        "collection": "tasks", "id": "I17b", "before": null,
+        "after": {
+          "id": "I17b", "batch": "B5", "status": "pending", "dependsOn": ["I17a", "I13", "I14", "I15", "I16"],
+          "outcome": "Finish the complete I17 outcome by integrating these real direct-edit components with the accepted production Canvas/table and I14 controller/gameplay submission, connected/read-only/history gating, rotation/account/incarnation-retained UI and uncertain original outcomes. Complete actual accepted server persistence/disclosure/replay and two-player native/reconnect/restart flows. Preserve the full G04/G06/G07/G13 parent toolkit and every original check; no stub handlers or alternate queue/model. Carry I21 projection/frozen-source and I22/I23 Undo/grouping seams into their owning cross-capability checks and I34 final qualification, not silent omissions.",
+          "checks": [
+            "Actual normal-app/server tests exercise corner integer/slash arithmetic, Set/blank/current-face Reset, every counter color on cards/players, life, notes, owner, printed face/cover and permitted/logged inspection, preserving unrelated state and exact actual tuples across persistence/replay and ordinary concurrent edits.",
+            "Captured selection/source IDs never substitute after reflow/sync; menu/editor preview follows current permitted orientation/face/cover/owner/corner/counters while drafts remain separate. Prove retained repeated-edit menus and successful context Graveyard dismissal with real accepted move/reset semantics; absent player blank, numeric zero, card dash, portrait row visibility and complete note/text fallback remain correct.",
+            "Execute portrait/landscape native keyboard/IME, cancel/outside/native Back, scroll/rotation/large text/accessibility and actual pointer assigned-hold-versus-name-tooltip/click/cancel arbitration on the production components; no press-down/release-after-hold duplicate edit or hidden-content tooltip leak.",
+            "Normal APK and exact affected native/server/host tests through I14/I16 production wiring: two players, delayed acknowledgements, independent/same-field edits, rejection, disconnect/read-only/reconnect, accepted explicit inspection response and original-outcome recovery/process restart. Do not substitute component fixtures for full E2E. I21 owns actual live/frozen projection source routing, I22/I23 final grouping/selective Undo barriers and I34/I36/B8 full integrated qualification/comparison."
+          ]
+        }
+      },
+      {
+        "collection": "batches", "id": "B5",
+        "before": {"id": "B5", "status": "pending", "reviewedCommit": null, "review": {"units": [{"id": "capability", "scope": "Full B5 manual toolkit, links, hidden inspection, tokens, combat/Stack and integrated real-use journey against the plan/contracts"}], "completed": {}, "blocked": {}}},
+        "after": {"id": "B5", "status": "pending", "reviewedCommit": null, "review": {"units": [{"id": "capability", "scope": "Full B5 manual toolkit, links, hidden inspection, tokens, combat/Stack and integrated real-use journey against the plan/contracts"}], "completed": {}, "blocked": {}}}
+      }
+    ]
+  }
+}

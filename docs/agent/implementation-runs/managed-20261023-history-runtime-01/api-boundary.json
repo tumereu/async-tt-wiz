@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import json,pathlib,subprocess; c=json.load(open(\"/tmp/opencode/managed-20261023-history-runtime-01/context.json\")); g=lambda *a:subprocess.check_output([\"git\",*a]); assert g(\"rev-parse\",\"HEAD\").decode().strip()==c[\"startCommit\"]; assert g(\"branch\",\"--show-current\").decode().strip()==c[\"branch\"]; assert pathlib.Path(c[\"state\"]).read_bytes()==g(\"show\",c[\"startCommit\"]+\":\"+c[\"state\"]); assert c[\"serverCreatedMetadata\"][\"model\"]=={\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"high\"}; assert g(\"diff\",\"--name-only\",\"--diff-filter=U\")==b\"\"; subprocess.run([\"git\",\"diff\",\"--check\"],check=True); subprocess.run([\"git\",\"diff\",\"--cached\",\"--check\"],check=True); print(\"Exact start/branch/model metadata and managed lease confirmed; state unchanged; exact I26 normal merge staged; source/test compilation passes; test execution deferred to ONE combined affected pass. No application transitions/validators or native resource usage.\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "075e08cf76b46fd8c52b914d0a7437bc18db52060eaa9cb48516743c7ff2e288",
+  "output": "Exact start/branch/model metadata and managed lease confirmed; state unchanged; exact I26 normal merge staged; source/test compilation passes; test execution deferred to ONE combined affected pass. No application transitions/validators or native resource usage.\n"
+}

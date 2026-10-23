@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import hashlib,json,pathlib,subprocess; c=json.load(open('/tmp/opencode/managed-20261023-i30-01/context.json')); head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(); assert head==c['startCommit']; subprocess.run(['git','merge-base','--is-ancestor',c['dependencyCommits'][0],'HEAD'],check=True); path=c['state']; original=subprocess.check_output(['git','show',head+':'+path]); current=pathlib.Path(path).read_bytes(); assert original==current; s=json.loads(current); assert s['authorization']=='authorized'; assert s['runner']['model']==c['model']; assert subprocess.check_output(['git','diff','--cached','--name-only'])==b''; subprocess.run(['git','diff','--check'],check=True); print(json.dumps({'head':head,'branch':subprocess.check_output(['git','branch','--show-current'],text=True).strip(),'dependencyAncestor':True,'stateByteIdentical':True,'stateSha256':hashlib.sha256(current).hexdigest(),'role':c['role'],'target':c['target'],'sessionID':c['sessionID'],'modelFromSuppliedServerMetadata':c['serverCreatedMetadata']['model'],'leaseContext':c['contextPath'],'writableSourcePaths':len(c['ownedPaths']),'stagedPaths':[]}))"
+  ],
+  "exitCode": 0,
+  "outputSha256": "a34f410fc8566d3da8641466c1c66795db14ea569474fbf6f874e051d2bb304c",
+  "output": "{\"head\": \"dd37718d30440e93d32e554a410ba171a923d436\", \"branch\": \"managed/managed-20261023-i30-01\", \"dependencyAncestor\": true, \"stateByteIdentical\": true, \"stateSha256\": \"1df696aa47ee59e0ce6edc6a3908f01f416d680ed4012d5b8897dfea7d9eb45f\", \"role\": \"implement\", \"target\": \"I30\", \"sessionID\": \"ses_e98c539d0ffeAVuKwo8mtbpppK\", \"modelFromSuppliedServerMetadata\": {\"id\": \"gpt-6.1-sol\", \"providerID\": \"openai\", \"variant\": \"high\"}, \"leaseContext\": \"/tmp/opencode/managed-20261023-i30-01/context.json\", \"writableSourcePaths\": 26, \"stagedPaths\": []}\n"
+}

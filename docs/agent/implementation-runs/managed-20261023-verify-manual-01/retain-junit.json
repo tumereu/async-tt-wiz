@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "scripts/implementation-evidence.py",
+    "retain-junit",
+    "docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json",
+    "protocol/build/test-results/jvmTest/TEST-org.asyncttwiz.protocol.ManualTokenLinkVerificationTest.xml"
+  ],
+  "exitCode": 0,
+  "outputSha256": "9216348d324e264d1bc05eb64f933b482daa3f993c16b12a40e784940d40afd1",
+  "output": "{\n  \"retainedSuites\": 1,\n  \"output\": \"docs/agent/implementation-runs/managed-20261023-verify-manual-01/junit.json\",\n  \"limit\": \"Retention is not a green-test claim\"\n}\n"
+}

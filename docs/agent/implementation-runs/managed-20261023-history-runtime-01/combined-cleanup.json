@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import json,re,subprocess; s=json.load(open(\"docs/agent/implementation-runs/managed-20261023-history-runtime-01/combined-affected.json\"))[\"output\"]; ids=set(re.findall(r\"OWNED integration PostgreSQL container=([a-f0-9]{64})\",s)); clean=set(re.findall(r\"CLEANUP removed owned integration container=([a-f0-9]{64})\",s)); assert ids and ids==clean; remaining=set(subprocess.check_output([\"docker\",\"ps\",\"-aq\",\"--no-trunc\"],text=True).splitlines()); assert not ids&remaining; volumes=re.findall(r\"volumes=\\[([a-f0-9]{64})\\]\",s)\nfor v in volumes:\n p=subprocess.run([\"docker\",\"volume\",\"inspect\",v],capture_output=True,text=True); assert p.returncode!=0 and \"no such volume\" in p.stderr.lower()\nprint(\"Foreground combined Gradle invocation returned; exact\",len(ids),\"owned PostgreSQL containers and\",len(volumes),\"volumes absent. No device resources allocated.\")"
+  ],
+  "exitCode": 0,
+  "outputSha256": "bda4b1910f7e7064f4888b7784947e10f38f4d392163249fbfc2439340d3eefa",
+  "output": "Foreground combined Gradle invocation returned; exact 10 owned PostgreSQL containers and 10 volumes absent. No device resources allocated.\n"
+}

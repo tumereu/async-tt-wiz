@@ -1,0 +1,5 @@
+{
+  "format": "actual tool-result transcript, not a process capture",
+  "initialPermissionFailure": {"command": "git merge --no-ff --no-commit dbae70f62c1fef14bad8048b10ac489a1e6cb109", "error": {"type": "permission.rejected", "message": "Permission denied: shell"}, "exitCode": null, "resolution": "Supervisor amended exact merge and git add authorization in the same session."},
+  "mergeManual": {"command": "git merge --no-ff --no-commit dbae70f62c1fef14bad8048b10ac489a1e6cb109", "exitCode": 1, "output": "Auto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\nCONFLICT (content): Merge conflict in protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt\nAuto-merging protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\nCONFLICT (content): Merge conflict in protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt\nAutomatic merge failed; fix conflicts and then commit the result.\n"}
+}

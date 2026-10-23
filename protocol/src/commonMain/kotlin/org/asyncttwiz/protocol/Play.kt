@@ -11,14 +11,18 @@ import kotlinx.serialization.Serializable
 @Serializable data class PlayCard(val id: String, val definition: String, val owner: String,
     val containerId: String, val faceId: String, val covered: Boolean = true, val tapped: Boolean = false,
     val corner: String = "", val counters: Map<CounterColor, String> = emptyMap(), val note: String = "",
-    val token: Boolean = false)
+    val token: Boolean = false, val placement: PlayPlacement? = null)
 /** Library order is top first. Other empty zones already have stable identities for later commands. */
 @Serializable data class PlayContainer(val id: String, val zone: PlayZone, val accountId: String? = null,
     val cards: List<String> = emptyList())
 @Serializable data class TurnState(val accountId: String, val number: String = "1",
     val phase: String = "BEGINNING", val step: String = "UNTAP")
 @Serializable data class BoardState(val players: List<PlayPlayer>, val cards: List<PlayCard>,
-    val containers: List<PlayContainer>, val turn: TurnState, val schemaVersion: Int = 1)
+    val containers: List<PlayContainer>, val turn: TurnState, val schemaVersion: Int = 1,
+    val contentsDisplays: List<ContentsDisplay> = emptyList(), val links: List<PlayLink> = emptyList(),
+    val combat: CombatArea? = null, val stackEffects: List<StackEffect> = emptyList(),
+    val projectionLinks: List<ProjectionLink> = emptyList(),
+    val resultSuggestion: ResultSuggestion? = null)
 @Serializable data class InitialShuffle(val accountId: String, val seed: String, val order: List<String>,
     val algorithm: String = "shuffle-v1")
 @Serializable data class InitialStarter(val choice: StarterChoice, val accountId: String,
@@ -28,7 +32,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class PlayState(val gameId: String, val id: String, val preparationRound: String,
     val startRequestId: String, val root: PlayRoot, val currentNodeId: String, val board: BoardState,
     val definitions: List<SubmittedDefinition>, val shuffles: List<InitialShuffle>, val starter: InitialStarter,
-    val engineVersion: Int = 1, val readFormat: Int = 1)
+    val engineVersion: Int = 1, val readFormat: Int = 1, val currentGroup: GameplayGroup? = null,
+    val annotations: EventAnnotationState = EventAnnotationState(),
+    val currentBranchId: String = root.branchId)
 
 object StartRules {
     fun change(game: GameSummary, current: LobbyPreparation, actor: String, scope: GameScope,

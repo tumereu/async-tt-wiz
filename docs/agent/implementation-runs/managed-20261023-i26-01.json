@@ -1,0 +1,400 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "runId": "managed-20261023-i26-01",
+  "sessionID": "ses_e98980ee0ffesKHDRGbSiCydG8",
+  "startCommit": "ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a",
+  "mode": "implement",
+  "target": "I26",
+  "summary": "Delivered I26a: real SQLDelight accepted-tree replacement/publication CAS, durable incomplete chunk staging, owner/incarnation fences, flat corrected-GameplayTree record validation/replay, bounded gzip staging/catch-up and downloaded read-only review coordination. 44 distinct affected host tests pass, including 26 real file-backed storage regressions. I26 remains unfinished: I26b retains the actual I14/I24/I25 relational exporter/delta/session/native integration, checkpoint qualification and every real third-instance/pruned-recovery/restart assertion. No server or device acceptance is claimed.",
+  "selectionReason": "Explicit managed I26 dispatch leases useful speculative storage/staging/offline development against the corrected shared-tree start commit and pinned I14 transport source. This bounded component outcome is possible without devices or editing another lane; pending prerequisite acceptance is not asserted. Latest-state selection and acceptance remain the supervisor's responsibility.",
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\" :protocol:jvmTest --tests org.asyncttwiz.protocol.TreeSyncTest :client-storage:testDebugUnitTest --tests org.asyncttwiz.storage.GameplayTreeCacheTest --tests org.asyncttwiz.storage.ClientStorageTest",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-check.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8 -Djava.net.preferIPv4Stack=true\" -Djava.net.preferIPv4Stack=true :protocol:jvmTest --tests org.asyncttwiz.protocol.TreeSyncTest :client-storage:testDebugUnitTest --tests org.asyncttwiz.storage.GameplayTreeCacheTest --tests org.asyncttwiz.storage.ClientStorageTest",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-ipv4-check.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\" --stacktrace help",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-connection-diagnostic.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 -c 'import socket,threading; s=socket.socket(); s.bind((\"127.0.0.1\",0)); s.listen(1); address=s.getsockname(); print(\"listener\",address); result=[]; t=threading.Thread(target=lambda: result.append(s.accept())); t.start(); c=socket.create_connection(address,timeout=3); t.join(3); print(\"accepted\",bool(result)); c.close(); [x[0].close() for x in result]; s.close(); assert result'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/loopback-diagnostic.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\" :protocol:jvmTest --tests org.asyncttwiz.protocol.TreeSyncTest :client-storage:testDebugUnitTest --tests org.asyncttwiz.storage.GameplayTreeCacheTest --tests org.asyncttwiz.storage.ClientStorageTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-recheck.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-junit.json"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\" :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.TreeDownloadTest --tests org.asyncttwiz.android.DownloadedHistoryTest",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-check.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-failed-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh --no-daemon --max-workers=1 -Dorg.gradle.jvmargs=\"-Xmx1280m -Dfile.encoding=UTF-8\" :protocol:jvmTest --tests org.asyncttwiz.protocol.TreeSyncTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.TreeDownloadTest --tests org.asyncttwiz.android.DownloadedHistoryTest",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-recheck.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-junit.json"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 -c 'import hashlib,json,pathlib,subprocess; c=json.load(open(\"/tmp/opencode/managed-20261023-i26-01/context.json\")); g=lambda *args: subprocess.check_output([\"git\",*args]); assert g(\"rev-parse\",\"HEAD\").decode().strip()==c[\"startCommit\"]; assert g(\"rev-parse\",\"--abbrev-ref\",\"HEAD\").decode().strip()==c[\"branch\"]; assert str(pathlib.Path.cwd())==c[\"worktree\"]; state=pathlib.Path(c[\"state\"]).read_bytes(); assert state==g(\"show\",c[\"startCommit\"]+\":\"+c[\"state\"]); assert c[\"role\"]==\"implement\" and c[\"target\"]==\"I26\"; assert c[\"resourceBundle\"]==[\"isolated-host-tests\"]; assert c[\"serverCreatedMetadata\"][\"model\"]=={\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"high\"}; transport=g(\"show\",c[\"dependencyCommits\"][1]+\":protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt\"); assert b\"val records: List<GameRevision>\" in transport and b\"GameplayTree\" not in transport; tree=g(\"show\",c[\"startCommit\"]+\":protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt\"); assert b\"removedParents\" in tree and b\"redoByAccount\" in tree; s=json.loads(state); tasks={t[\"id\"]:t for t in s[\"tasks\"]}; print(json.dumps({\"startCommit\":c[\"startCommit\"],\"branch\":c[\"branch\"],\"leaseAuthority\":\"supplied THIS RUN and matching context; no journal/control writes\",\"ownedPaths\":c[\"ownedPaths\"],\"pinnedTransportCommit\":c[\"dependencyCommits\"][1],\"transportInput\":\"linear GameRevision full envelopes; not an integrated complete-tree exporter\",\"pendingAtDispatch\":{i:tasks[i][\"status\"] for i in [\"I14\",\"I22\",\"I23\",\"I24\",\"I25\",\"I26\"]},\"nativeResourcesAssigned\":False,\"stateSha256\":hashlib.sha256(state).hexdigest(),\"stateByteIdentical\":True,\"modelMetadata\":c[\"serverCreatedMetadata\"][\"model\"]},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/input-boundary.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 -c 'import os; pids=[3615450,3615842,3616291]; remaining=[]; outcomes={};\nfor pid in pids:\n try: os.kill(pid,0); outcomes[str(pid)]=\"still exists\"; remaining.append(pid)\n except ProcessLookupError: outcomes[str(pid)]=\"exited\"\nprint(outcomes); assert not remaining, \"Retain/inspect owned failed-daemon lifecycle before handoff\"'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-cleanup.json"
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "I26a",
+      "sourceIds": [
+        "P-063",
+        "P-012",
+        "P-065",
+        "T-009",
+        "T-616",
+        "T-617",
+        "T-618",
+        "T-640",
+        "T-641"
+      ],
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-recheck.json"
+    }
+  ],
+  "executedAssertions": [
+    {
+      "scope": "Real generated SQLDelight/file-backed SQLite",
+      "tests": 26,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-junit.json",
+      "assertions": "9 new tree-cache plus 17 existing ClientStorage tests: atomic complete replacement and cursor, missing chunks cannot publish, restart/resume, SQLite failure during writes and after writes during staging cleanup, rollback/retry, local publication CAS including equal-revision ABA, no unchanged-node rewrites, separate-handle/account/incarnation fencing, private Logout cleanup, public cache/personal state separation. No schema version change or outgoing journal."
+    },
+    {
+      "scope": "Corrected shared-tree codec fixtures",
+      "tests": 5,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-junit.json",
+      "assertions": "Every retained node/offshoot and future beyond an internal pointer, opaque hidden/archive branch metadata, required definitions/references/Redo/removal parents, malformed/missing anchors and unsupported records fail closed, 320-node path beyond Undo ceiling, inactive-path replay, same-ID reparenting. One root board, not a board snapshot per node."
+    },
+    {
+      "scope": "Local Android staging/review components with a store double",
+      "tests": 13,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-junit.json",
+      "assertions": "Automatic bounded independent-gzip chunk fetch/hash/length/record-count validation, split record/UTF-8 handling, missing-chunk resume, prior complete tree retained on interruption/publication failure, coherent interleaved changed-record catch-up or explicit restart on gap/older generation, duplicates and stale callbacks, off-UI enforcement, retained-state offline review, deleted-cursor nearest-parent fallback, surviving paused same-ID cursor recomputed, shared-pointer change does not move personal review, own-area face hold/opponent covered hold and queued UI account/close fences. These are not real server or device journeys."
+    }
+  ],
+  "resolvedDiagnostics": [
+    {
+      "issue": "Direct wrapper Gradle daemon connection refused on this WSL host",
+      "resolution": "Used the existing scripts/gradle.sh wrapper, which passes IPv4 scoping via JAVA_TOOL_OPTIONS to child tooling JVMs. No machine/build/product configuration changed. Failed daemon PIDs have exited.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-cleanup.json"
+    },
+    {
+      "issue": "DownloadedHistoryTest.completeOfflineReviewReplaysAllRetainedStatesWithoutNetworkCommandsOrLoggedInspection failed at its thread assertion",
+      "resolution": "The test itself read the store on the test/UI thread immediately before asserting all controller store calls were off-UI. Moved the assertion before that test-only read; retained original failed XML and ran the combined affected typed-component selections. Also validated missing Redo anchors/account queue ownership and initialized stored review before first operation.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-recheck.json"
+    }
+  ],
+  "deferredAssertions": [
+    {
+      "owner": "I26b",
+      "requirements": [
+        "P-063",
+        "T-616",
+        "T-617",
+        "T-618",
+        "T-627",
+        "T-640",
+        "T-641"
+      ],
+      "scope": "Actual server complete retained-tree exporter and normal incremental GameRevision adapter through I14's SAME manifest/chunk/snapshot/record transport; integrate actual I24/I25 branch/archive/hidden controls, I22 effective/reference/group data and all retained game definitions/Redo/removal parents. Verify semantic current-state/checkpoint integrity/rebuild and complete-replica scope, pruning/pin/expiry restart, no routine full-tree updates. Local closed topology/hashes cannot prove an offshoot omitted by a server."
+    },
+    {
+      "owner": "I26b",
+      "requirements": [
+        "T-009",
+        "T-010",
+        "T-559",
+        "T-617",
+        "T-618",
+        "T-640",
+        "T-641"
+      ],
+      "scope": "Real normal Android route/session integration and fresh third-instance complete download, long/sparse/heavily branched hidden/archive trees built through UI, paused review during opponent edits and changed active path, real service/process restart, pruned-delta full recovery and native transfer interruption/account/lifecycle callbacks; offline retained review with no shared edits/logged inspection. Requires whole device lifecycle resource bundle and accepted I14/I22/I23/I24/I25 integration. No native resources were assigned here."
+    },
+    {
+      "owner": "B6 independent review; I34/I36 final qualification and B8 interface gate",
+      "scope": "Fresh independent capability review and any separate fix verification, complete required native/full-suite/coverage/performance/compatibility/release gates. This implementation unit performs no independent self-review or release certification."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "I26b-shared-integration-prerequisite",
+      "status": "deferred-prerequisite-not-a-red-test",
+      "failingTests": [],
+      "command": null,
+      "notRunReason": "No real complete-tree exporter/session acceptance command executed: pinned I14 source is linear full-envelope input and actual I24/I25 relational controls are not integrated in this checkout.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/input-boundary.json",
+      "likelyOwnerTask": "I26b",
+      "likelySourcePaths": [
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameplayStore.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplaySync.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TreeDownload.kt"
+      ],
+      "classification": "shared integration seam",
+      "dependencies": [
+        "I14",
+        "I22",
+        "I23",
+        "I24",
+        "I25",
+        "I26a"
+      ],
+      "overlap": "The SAME accepted GameplayTree, relational branch/control records, I14 manifest/snapshot adapter, and session accepted-replica authority; no parallel protocol/cache/tree.",
+      "proposedFreshAgentAssignment": "Supervisor alone dispatches a fresh I26b implement integration unit after pins land: adapt the existing exporter/changed-record transport and normal session to these durable components, preserving the entire pending child scope.",
+      "narrowRerunScope": "New affected real exporter/delta/storage/session seam tests, including required references/control/definitions and pinned/pruned recovery. Reuse the 44 passing component/storage assertions unless an affected input changes; do not rerun unchanged broad suites."
+    },
+    {
+      "id": "I26b-native-resource-and-prerequisite",
+      "status": "deferred-resource-not-a-red-test",
+      "failingTests": [],
+      "command": null,
+      "notRunReason": "Fresh-third-instance/paused-during-edits/service-restart/pruned-delta normal Android assertions were not run; this lane owns isolated-host-tests only.",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i26-01/input-boundary.json",
+      "likelyOwnerTask": "I26b",
+      "likelySourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/DownloadedHistory.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt"
+      ],
+      "classification": "shared integration seam and exclusive native resources",
+      "dependencies": [
+        "I26a",
+        "I14",
+        "I22",
+        "I23",
+        "I24",
+        "I25"
+      ],
+      "overlap": "Normal route/accepted playback integration and complete Windows-device/routing/backend lifecycle; fixtures cannot substitute for these journeys.",
+      "proposedFreshAgentAssignment": "Supervisor assigns a fresh native integration unit after the real tree/session seam is usable, reserving the complete device lifecycle bundle. Any actual discovered failures get bounded fresh fixing assignments and independent verification under normal policy.",
+      "narrowRerunScope": "T-640/T-641 complete retained-tree download/offline navigation plus I26 paused-review, changed-current, service/process restart and T-617/T-618 pruned recovery variants through normal app interfaces; final full qualification remains separate and mandatory."
+    }
+  ],
+  "proposal": {
+    "sourceIds": [
+      "P-063",
+      "P-012",
+      "P-065",
+      "T-009",
+      "T-010",
+      "T-559",
+      "T-616",
+      "T-617",
+      "T-618",
+      "T-627",
+      "T-640",
+      "T-641"
+    ],
+    "sourcePaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/DownloadedHistory.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TreeDownload.kt",
+      "client-storage/src/main/kotlin/org/asyncttwiz/storage/ClientStorage.kt",
+      "client-storage/src/main/kotlin/org/asyncttwiz/storage/GameplayTreeCache.kt",
+      "client-storage/src/main/sqldelight/org/asyncttwiz/storage/internaldb/Replica.sq",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TreeSync.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayTree.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/SelectiveUndo.kt"
+    ],
+    "testPaths": [
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/DownloadedHistoryTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TreeDownloadTest.kt",
+      "client-storage/src/test/kotlin/org/asyncttwiz/storage/GameplayTreeCacheTest.kt",
+      "client-storage/src/test/kotlin/org/asyncttwiz/storage/ClientStorageTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TreeSyncTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/DownloadedHistory.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TreeDownload.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/DownloadedHistoryTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TreeDownloadTest.kt",
+      "client-storage/src/main/kotlin/org/asyncttwiz/storage/ClientStorage.kt",
+      "client-storage/src/main/kotlin/org/asyncttwiz/storage/GameplayTreeCache.kt",
+      "client-storage/src/main/sqldelight/org/asyncttwiz/storage/internaldb/Replica.sq",
+      "client-storage/src/test/kotlin/org/asyncttwiz/storage/GameplayTreeCacheTest.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TreeSync.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TreeSyncTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i26-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-check.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-ipv4-check.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-connection-diagnostic.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/loopback-diagnostic.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-recheck.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-check.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-failed-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-recheck.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/input-boundary.json",
+      "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-cleanup.json"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I26",
+        "before": {
+          "id": "I26",
+          "batch": "B6",
+          "status": "pending"
+        },
+        "after": {
+          "id": "I26",
+          "batch": "B6",
+          "status": "in-progress",
+          "children": [
+            "I26a",
+            "I26b"
+          ]
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I26a",
+        "before": null,
+        "after": {
+          "id": "I26a",
+          "batch": "B6",
+          "status": "implemented",
+          "dependsOn": [
+            "I01",
+            "I23"
+          ],
+          "outcome": "Genuine SQLDelight accepted-record complete replacement/publication CAS and durable incomplete staging/owner cleanup, typed flat corrected-GameplayTree generation validation, bounded gzip automatic chunk staging with coherent catch-up/restart, and worker-based downloaded read-only review/deleted-cursor fallback components. No actual server/exporter/session/route/native completion claim.",
+          "checks": [
+            "Real SQLDelight file-backed rollback/restart/CAS/account isolation and unchanged-record preservation; 26 storage tests",
+            "5 shared-tree and 13 local Android codec/staging/review fixtures pass; complete local records, automatic chunk/hash/coherence, retained replay and personal cursor/inspection boundaries; fixtures are not real-server/native acceptance"
+          ],
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i26-01.json"
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I26b",
+        "before": null,
+        "after": {
+          "id": "I26b",
+          "batch": "B6",
+          "status": "pending",
+          "dependsOn": [
+            "I26a",
+            "I14",
+            "I22",
+            "I23",
+            "I24",
+            "I25"
+          ],
+          "outcome": "Complete I26 against the actual integrated relational GameplayTree: extend I14's same manifest/chunk/snapshot/record adapter and ordinary session/route for every retained current-game node, inactive/hidden/archived branch and future beyond internal current, required definitions/effective/group/reference/Redo/removal-parent/control data. Complete real incremental/pruned full recovery and rebuildable checkpoint integrity. Preserve normal prediction/request/account/lifecycle boundaries. Exercise a fresh third normal client, paused review during opponent edits, changed active path, service/process restart, offline downloaded navigation and interrupted/pruned transfer recovery. No lazy offshoots, outgoing disk journal, second authoritative tree, history cap/age expiry or finished-session archive.",
+          "checks": [
+            "Real server full exporter and incremental delta semantics through the existing I14 transport, coherent generation/pins/expiry/pruning/required definitions and references, semantic checkpoint verification/rebuild and unchanged-history preservation",
+            "Actual SQLDelight plus real session/route integration, no stale account/incarnation store/display, old complete generation retained through publication failure/restart",
+            "Whole-resource normal Android fresh-third-instance T-640/T-641 branched/hidden/archived/internal-current download then offline review; no shared edits/new logged inspection",
+            "Native paused-during-edits/deleted-parent fallback/surviving paused-cursor stability, changed active path, service/process restart and T-617/T-618 pruned-delta full recovery including original admitted-outcome recovery",
+            "Retain final B6 independent review, any fresh fix verification, I34/I36 full qualification and B8 complete interface gate"
+          ]
+        }
+      },
+      {
+        "collection": "batches",
+        "id": "B6",
+        "before": {
+          "id": "B6",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B6 catch-up/history/Undo/Redo/branch/archive/full-recovery journey and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        },
+        "after": {
+          "id": "B6",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B6 catch-up/history/Undo/Redo/branch/archive/full-recovery journey and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        }
+      }
+    ]
+  },
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DownloadedHistory.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TreeDownload.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/DownloadedHistoryTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TreeDownloadTest.kt",
+    "client-storage/src/main/kotlin/org/asyncttwiz/storage/ClientStorage.kt",
+    "client-storage/src/main/kotlin/org/asyncttwiz/storage/GameplayTreeCache.kt",
+    "client-storage/src/main/sqldelight/org/asyncttwiz/storage/internaldb/Replica.sq",
+    "client-storage/src/test/kotlin/org/asyncttwiz/storage/GameplayTreeCacheTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-i26-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-cleanup.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-connection-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/input-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/loopback-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-ipv4-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-recheck.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-recheck.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TreeSync.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TreeSyncTest.kt"
+  ]
+}

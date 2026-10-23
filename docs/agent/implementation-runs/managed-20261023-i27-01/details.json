@@ -1,0 +1,278 @@
+{
+  "outcome": "progress",
+  "summary": "Delivered I27a direct production game-wide chat on the existing active-game and durable ordered request domain, with immutable accepted messages, separate retained originals/draft, exact account/play binding, reconnect deduplication, personal viewport-only unread and reachable TableScreen modal panel with native Back/IME. Actual PostgreSQL/two-account socket chat/privacy/revocation/rollback/restart checks, protocol/production session/controller host tests, normal APK, module boundaries, discovered-forward migration guard/deterministic jOOQ generation and targeted retained V8 migration all pass. Retained failures remain diagnostic. I27 stays in progress for I27b actual B6 comment/Undo/grouping/history integration; native I31/final, I34 older baseline migration-test repairs, independent reviews and gates remain. Exact deferred source locations and ownership are in the proposed I27a qualification. No state edits or prerequisite/release claims.",
+  "selectionReason": "Supervisor expressly leased useful speculative I27 development against pinned implemented I11 before B6 acceptance. Deliver the independent direct-chat capability now and preserve all B6-dependent scope in I27b; supervisor alone decides latest-prerequisite acceptance. Lease extensions for codegen and the actual schema-sensitive GameStartTest expectation were confirmed in updated context.",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./gradlew :protocol:jvmTest :server:test --tests org.asyncttwiz.server.game.GameChatTest --tests org.asyncttwiz.server.game.GameSocketTest --tests org.asyncttwiz.server.game.GameStartTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameChatTest --tests org.asyncttwiz.android.ChatPresentationTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.LobbyControllerTest --tests org.asyncttwiz.android.LobbyStartTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyPreparationTest :androidApp:assembleDebug --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/affected-01.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest :server:test --tests org.asyncttwiz.server.game.GameChatTest --tests org.asyncttwiz.server.game.GameSocketTest --tests org.asyncttwiz.server.game.GameStartTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameChatTest --tests org.asyncttwiz.android.ChatPresentationTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.LobbyControllerTest --tests org.asyncttwiz.android.LobbyStartTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyPreparationTest :androidApp:assembleDebug --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/affected-02.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameChatTest --tests org.asyncttwiz.android.ChatPresentationTest --tests org.asyncttwiz.android.GameSessionTest --tests org.asyncttwiz.android.LobbyControllerTest --tests org.asyncttwiz.android.LobbyStartTest --tests org.asyncttwiz.android.GameLobbyIntegrationTest --tests org.asyncttwiz.android.LobbyPreparationTest :androidApp:assembleDebug verifyModuleBoundaries --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/android-01.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.ChatTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameChatTest --tests org.asyncttwiz.android.ChatPresentationTest :androidApp:assembleDebug --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/chat-host-02.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i27-01/chat-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:assembleDebug --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/apk-02.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.game.GameChatTest --tests org.asyncttwiz.server.game.GameSocketTest --tests org.asyncttwiz.server.game.GameStartTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/server-03.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i27-01/server-03-junit.json"
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.game.GameChatTest :server:verifyJooqGeneration --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-04.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-04-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :server:test --tests org.asyncttwiz.server.game.GameChatTest :server:verifyJooqGeneration --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-05.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-05-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :server:test --tests '*GameStartTest.explicit V8 migration*' --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/retained-migration-06.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-i27-01/retained-migration-06-junit.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import hashlib,json,pathlib,subprocess; c=json.load(open(\"/tmp/opencode/managed-20261023-i27-01/context.json\")); p=pathlib.Path; s=p(c[\"state\"]).read_bytes(); assert s==subprocess.check_output([\"git\",\"show\",c[\"startCommit\"]+\":\"+c[\"state\"]]); h=lambda f:hashlib.sha256(p(f).read_bytes()).hexdigest(); files=[f for f in c[\"ownedPaths\"] if p(f).is_file()]; print(json.dumps({\"runId\":c[\"runId\"],\"sessionID\":c[\"sessionID\"],\"head\":subprocess.check_output([\"git\",\"rev-parse\",\"HEAD\"],text=True).strip(),\"branch\":subprocess.check_output([\"git\",\"rev-parse\",\"--abbrev-ref\",\"HEAD\"],text=True).strip(),\"pinnedDependencies\":c[\"dependencyCommits\"],\"suppliedServerModel\":c[\"serverCreatedMetadata\"][\"model\"],\"stateUnchangedSha256\":hashlib.sha256(s).hexdigest(),\"inputs\":{f:h(f) for f in files},\"apkSha256\":h(\"androidApp/build/outputs/apk/debug/androidApp-debug.apk\"),\"postgresImageProperties\":p(\"server/database-images.properties\").read_text(),\"deviceResourcesUsed\":False},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/input-identities.json"
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "I27a",
+      "sourceIds": [
+        "A-028",
+        "P-059",
+        "T-608",
+        "T-701"
+      ],
+      "evidence": "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-05.json"
+    }
+  ],
+  "proposal": {
+    "sourceIds": [
+      "A-028",
+      "P-059",
+      "T-540",
+      "T-608",
+      "T-701"
+    ],
+    "sourcePaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ChatScreen.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameChat.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Chat.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/ChatStore.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/resources/db/migration/V13__game_chat.sql",
+      "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameHttp.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt"
+    ],
+    "testPaths": [
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ChatPresentationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameChatTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ChatTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameChatTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameStartTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameSessionTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyControllerTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyStartTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameLobbyIntegrationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyPreparationTest.kt"
+    ],
+    "allowedPaths": [
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ChatScreen.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameChat.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ChatPresentationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameChatTest.kt",
+      "docs/agent/implementation-runs/managed-20261023-i27-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/affected-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/affected-02.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/android-01.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/apk-02.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/chat-host-02.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/chat-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/details.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/input-identities.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/retained-migration-06-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/retained-migration-06.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/server-03-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/server-03.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-04-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-04.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-05-junit.json",
+      "docs/agent/implementation-runs/managed-20261023-i27-01/server-chat-05.json",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Chat.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ChatTest.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/ChatStore.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/resources/db/migration/V13__game_chat.sql",
+      "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameChatTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameStartTest.kt"
+    ],
+    "changes": [
+      {
+        "collection": "tasks",
+        "id": "I27",
+        "before": {
+          "id": "I27",
+          "batch": "B7",
+          "status": "pending"
+        },
+        "after": {
+          "id": "I27",
+          "batch": "B7",
+          "status": "in-progress",
+          "children": [
+            "I27a",
+            "I27b"
+          ],
+          "planningRecord": "docs/agent/implementation-runs/managed-20261023-i27-01.json",
+          "outcome": "Preserve the entire original I27: directly available G09 game-wide chat/composer/unread/account-incarnation binding, separate from I22 event comments and selected history; immutable non-Undoable sent messages without Edit/Delete/read receipts/presence. I27a delivers the real production active-game path speculatively against implemented I11; I27b completes all actual B6 comment retention/Undo/grouping/history integration and closes the parent in that same qualified delivery. I31/final and independent reviews/gates remain.",
+          "checks": [
+            "Reconcile I27a actual protocol/host/PostgreSQL/socket/APK/codegen evidence with later B6 integration; run only changed inputs/missing seams.",
+            "Complete I27b actual comment retention/ordinary Undo/Redo/grouping/history integration against independent immutable chat, personal unread/viewing and original account/play delivery binding.",
+            "Keep actual installed two-player/three-instance communication, keyboard/Back/scroll/large-text/orientation and lifecycle/relogin/background qualification with I31/I32/I34/I36 and B7/B8 review; no claim from host tests alone."
+          ]
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I27a",
+        "before": null,
+        "after": {
+          "id": "I27a",
+          "batch": "B7",
+          "status": "implemented",
+          "dependsOn": [
+            "I11"
+          ],
+          "planningRecord": "docs/agent/implementation-runs/managed-20261023-i27-01.json",
+          "implementationRecord": "docs/agent/implementation-runs/managed-20261023-i27-01.json",
+          "outcome": "Deliver G09 directly reachable production game-wide chat using the existing accepted active-game model and same durable GameCommand FIFO/inbox/revision/outcome/outbox. Capture exact account/game/play context; retain original uncertain requests and exact text without duplicate effects after reconnect/retry. Immutable accepted messages are outside board/history and Undo; separate editable draft, retained outgoing/refused requests and accepted messages. Only visible incoming rows lose personal unread; own echoes, opening, offscreen/prefetched or hidden rows do not publish read receipts/presence or game mutations. Preserve table/lobby navigation, modal keyboard/Close/native Back, account cleanup and stale callback fencing.",
+          "checks": [
+            "Run actual chat protocol serialization/validation/canonical identity and real PostgreSQL shared-FIFO/dedup/privacy/stale-play/lifecycle/atomic rollback/restart assertions; use two actual authenticated WebSocket participants for both-direction chat/correction, catchup, private result/nonparticipant denial and revoked writes, without a new write endpoint.",
+            "Run affected production GameSession/LobbyController/composer/unread tests: multiple originals, pending/notAdmitted/final reconnect, head/result ordering, no result-as-state echo, monotonic reads, captured draft/play binding, viewport-only personal unread/no viewing frames, navigation and private clear/callback fences. Build normal APK and check affected module boundaries.",
+            "Qualify forward-only V13, explicit game_chat jOOQ inclusion and discovered validated forward-migration counts with independent deterministic generation and owned container/volume cleanup. Execute only the approved schema-sensitive GameStartTest retained-migration count repair, preserving its data/identity/outcome assertions."
+          ],
+          "qualification": "Current run: 2 chat protocol and 6 chat session/controller/presentation host cases pass, along with affected existing Android session/lobby regressions, final normal APK and module boundaries. Four real PostgreSQL chat tests pass, including actual bearer-authenticated two-player socket traffic and correction both directions, private results/nonparticipant reads, revoked writes, unchanged play/tree, shared FIFO/dedup, stale captured play, execution-time lifecycle refusal and SQL rollback/durable worker restart exactly once. Lifecycle refusal uses explicitly labelled owned SQL setup, not the unimplemented I28 ending path. Independent deterministic jOOQ generation passes on the actual gapped discovered forward set, with clean install/validation and owned cleanup. The targeted V8 retained-migration test passes after replacing only literal pending-count assumptions with validated pending forwards. Earlier daemon/codegen guard/invalid empty fixture/fenced test read/migration-count failures remain diagnostic with original XML. Existing GameSocketTest and other GameStartTest cases passed inside server-03 diagnostic output and were not broadly rerun. These are scoped assertions, not a full native T-701 or T-540 acceptance claim. Deferred: I27b actual I22 event-comment retention/grouping, I23 Undo/Redo and B6 history/branch/full-recovery integration including chat immunity to gameplay Undo (T-540); I31 actual installed two-player/three-instance chat, lifecycle/rematch, restart/relogin/background journeys; I32/I34/I36 remaining large-text/orientation/accessibility/final full-suite/complete UI comparison; B7/B8 independent review and all release gates. I34 explicitly retains older baseline migration-expectation repairs, not executed here: server/src/test/kotlin/org/asyncttwiz/server/accounts/AccountRepositoryTest.kt:27 literal 2; server/src/test/kotlin/org/asyncttwiz/server/accounts/PasswordResetTest.kt:56 literal 1; server/src/test/kotlin/org/asyncttwiz/server/decks/DeckHttpTest.kt:498 literal 2; server/src/test/kotlin/org/asyncttwiz/server/lobby/LobbyHttpTest.kt:205 literal 2; server/src/test/kotlin/org/asyncttwiz/server/game/GameDurabilityTest.kt:197 literal 3; server/src/test/kotlin/org/asyncttwiz/server/game/PreparedDeckTest.kt:349 literal 2; server/src/test/kotlin/org/asyncttwiz/server/database/FoundationDatabaseTest.kt:156 literal applied-version list 1,2,3,4,5,999. These inspected unchanged source/known baseline locations are not newly executed passes/failures. Fresh GameStartTest.kt:274 expected-1/actual-2 failure is retained in server-03 output/XML and fixed by retained-migration-06. No devices/native resources, earlier-task advancement, review or release pass. State remains byte-identical; speculative acceptance belongs to the supervisor."
+        }
+      },
+      {
+        "collection": "tasks",
+        "id": "I27b",
+        "before": null,
+        "after": {
+          "id": "I27b",
+          "batch": "B7",
+          "status": "pending",
+          "dependsOn": [
+            "I27a",
+            "I22",
+            "I23",
+            "I24",
+            "I25",
+            "I26"
+          ],
+          "planningRecord": "docs/agent/implementation-runs/managed-20261023-i27-01.json",
+          "outcome": "Complete all original I27 B6-dependent communication integration on actual implemented paths: I22 event-comment requests/composer/retained references and same-author grouping/author boundaries; ordinary eligible comment Undo/Redo and retained alternatives, contrasted with independent immutable game-wide chat unchanged by board Undo/Redo/branch activation/archive or selected history. Preserve local viewport-only unread, no viewing mutations/receipts/presence, no submitted chat Edit/Delete, original account/play FIFO delivery and private cleanup. Reconcile I27a with current prediction/full recovery/history UI and close I27 in this same qualified child session when parent-scoped evidence passes, without a redundant closure-only session or skipped prerequisites.",
+          "checks": [
+            "Run actual B6 integration for T-540/T-701: submit chat mistake/correction and event-linked comments, use eligible Undo/Redo and deliberate branch activation/history review, retain both immutable messages across selected branches while ordinary comment retention/grouping/author/history rules hold. Do not impose one Message Undo policy or another chat/history engine.",
+            "Exercise receive/open/scroll/close/send during paused/live review and changed active path through production session/controller/UI, original FIFO retry/outcome correlation, exact captured account/incarnation and account-private cleanup. Viewing must not change history boundary/fork intent, emit receipts/presence or mark offscreen messages read; own echoes are not unread.",
+            "Reconcile exact I27a evidence/current inputs, test only missing/materially changed seams and use qualified ancestorClosures with current passing parent-scoped evidence to finish I27 in this unit. Preserve I31 actual multi-instance native journeys, I34 final full-suite/baseline fixture repairs, I36 full UI comparison, independent B7/B8 reviews and external gates."
+          ]
+        }
+      },
+      {
+        "collection": "batches",
+        "id": "B7",
+        "before": {
+          "id": "B7",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B7 chat/result/rematch/deletion/notifications/background journey and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        },
+        "after": {
+          "id": "B7",
+          "status": "pending",
+          "reviewedCommit": null,
+          "review": {
+            "units": [
+              {
+                "id": "capability",
+                "scope": "Full B7 chat/result/rematch/deletion/notifications/background journey and integration against the plan/contracts"
+              }
+            ],
+            "completed": {},
+            "blocked": {}
+          }
+        }
+      }
+    ]
+  }
+}

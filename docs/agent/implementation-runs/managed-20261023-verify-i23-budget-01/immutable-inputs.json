@@ -1,0 +1,22 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--exit-code",
+    "ebbbae9626296ffd5ec6b3af1987d3a59b5fbb8a",
+    "--",
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-permissions.json",
+    "protocol/src/commonMain",
+    "androidApp",
+    "scripts",
+    "build.gradle.kts",
+    "settings.gradle.kts",
+    "gradle.properties",
+    "protocol/build.gradle.kts",
+    "core/build.gradle.kts"
+  ],
+  "exitCode": 0,
+  "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "output": ""
+}

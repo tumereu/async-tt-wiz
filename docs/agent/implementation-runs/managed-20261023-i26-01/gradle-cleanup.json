@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import os; pids=[3615450,3615842,3616291]; remaining=[]; outcomes={};\nfor pid in pids:\n try: os.kill(pid,0); outcomes[str(pid)]=\"still exists\"; remaining.append(pid)\n except ProcessLookupError: outcomes[str(pid)]=\"exited\"\nprint(outcomes); assert not remaining, \"Retain/inspect owned failed-daemon lifecycle before handoff\""
+  ],
+  "exitCode": 0,
+  "outputSha256": "4b22fd76e10dd4c60c98f4f12939ec64929b9d65e0a2904bbeb5a24369001d37",
+  "output": "{'3615450': 'exited', '3615842': 'exited', '3616291': 'exited'}\n"
+}

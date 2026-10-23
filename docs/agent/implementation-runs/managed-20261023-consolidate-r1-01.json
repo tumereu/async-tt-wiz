@@ -1,0 +1,891 @@
+{
+  "runId": "managed-20261023-consolidate-r1-01",
+  "sessionID": "ses_e9872c38dffeTyCrZDlVDl92fi",
+  "startCommit": "42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad",
+  "baseCommit": "42bf919e161e4a3f46a18fe429a8ce7ef3d0a6ad",
+  "mode": "integration",
+  "target": "combined-table-history-lifecycle-notifications",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "acceptanceReady": false,
+  "qualification": "Saved partial source candidate; lifecycle pin not imported, original chat reset fixtures remain red, and runtime integration repairs require a separate fresh verifier. No application transitions or global/native success.",
+  "summary": "Merged basic production table/pile-prefix, full guarded core corrections, result lifecycle, typed flat cache/staging, notifications/public service and independent test pins. Removed the alternate result mutation writer, reconciled ending groups, generated both case-colliding relational tables without SQL edits and fixed stale-incarnation head recovery. Selected protocol/server/controller/session checks and current normal APK are green. The lifecycle e84f935 pin cannot be safely imported under current state/control grants; its owned resolution is retained as an unapplied checkpoint. Its missing V13 causes original chat reset fixtures to fail. Canonical state remains byte-identical. Advanced server/tree/tools/notification mappings and independent verification remain unfinished.",
+  "selectionReason": "Explicit fresh integration lease combines ready pinned capabilities and newly supplied fix commits without duplicating independent fix labor; materially changed seams share combined execution, unchanged child checks are reused.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "git merge --abort",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/abort-lifecycle-boundary.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests org.asyncttwiz.protocol.R1ConsolidationTest --tests org.asyncttwiz.protocol.GameResultLifecycleTest --tests 'org.asyncttwiz.protocol.HistoryGroupingTest.actualCatalogMappingAndServerDerivedAppend*' --tests org.asyncttwiz.protocol.StackLayoutGroupingRepairTest :server:test --tests org.asyncttwiz.server.game.GameResultLifecycleTest --tests org.asyncttwiz.server.game.GameplayMergeVerificationTest --tests org.asyncttwiz.server.game.GameplaySyncTest --tests org.asyncttwiz.server.activity.ActivityPublicLifecycleTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.R1ConsolidationTest --tests org.asyncttwiz.android.ResultActionsTest --tests org.asyncttwiz.android.BasicTableControllerTest --tests org.asyncttwiz.android.TableActionWiringTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest :androidApp:assembleDebug --continue --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-affected-01.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests 'org.asyncttwiz.protocol.GameResultLifecycleTest.strictSingletonHasBothBoundariesIncludingTapAndSameAuthorEdit*' --tests org.asyncttwiz.protocol.PilePrefixInsertionTest --tests org.asyncttwiz.protocol.CoreCompositionRepairTest :server:test --tests org.asyncttwiz.server.game.GameResultLifecycleTest --tests org.asyncttwiz.server.game.GameplayMergeVerificationTest --tests org.asyncttwiz.server.game.GameplaySyncTest --tests org.asyncttwiz.server.game.PilePrefixInsertionTest --tests org.asyncttwiz.server.activity.ActivityPublicLifecycleTest :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.R1ConsolidationTest --tests org.asyncttwiz.android.ResultActionsTest --tests org.asyncttwiz.android.BasicTableControllerTest --tests org.asyncttwiz.android.TableActionWiringTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest :androidApp:assembleDebug --continue --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-affected-02.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:assembleDebug --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/final-apk.json"
+    },
+    {
+      "kind": "required",
+      "command": "git cherry-pick --no-commit 5f470c4f7531e1874823448f26f01760fd6cc52b 0a2b5bd8d8cfb006dc457696110871ded7d64443",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/import-native-reset.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import json,pathlib,subprocess,hashlib; g=lambda *a: subprocess.check_output([\"git\",*a]); pairs=[(\"i28-01\",\"3d3bc46fb69c286915b404b986ecde6f2e583881\"),(\"i30-continue-01\",\"a4485ad2a083286b7f5f060dded8f15bef675eab\"),(\"i16-01\",\"735fc41f08e5879c57ab77cef3c449d9d07f44fe\"),(\"i26-01\",\"8a6dd20c5710201fbbf56bb3714a46b0e9656dde\"),(\"verify-gameplay-01\",\"ea53ec1035e80d63770e1f8752f83b82e4eae34c\"),(\"verify-complete-manual-01\",\"e0f430c46c7a318da82663b79751632505b5b0f7\"),(\"verify-i23-budget-01\",\"fbbf3e456cc16007448f01f11263e861a5dc2b10\"),(\"fix-stack-grouping-01\",\"057758eed8ed31bad3e051ef4552c671b4e4ff54\"),(\"fix-core-composition-01\",\"e1f7ea1389cda5e85c65fb72efc2986cdf1f9c69\"),(\"fix-session-fixture-01\",\"0ed29bbd3fe2bc97283d93418ce1b83739fdc2c4\"),(\"fix-pile-prefix-01\",\"fd06b67a340ce9edf73da27c2712ad9a9e12c91d\"),(\"fix-native-reset-01\",\"0a2b5bd8d8cfb006dc457696110871ded7d64443\")]; result=[];\nfor name,pin in pairs:\n prefix=\"docs/agent/implementation-runs/managed-20261023-\"+name; paths=[prefix+\".json\"]+[str(p) for p in pathlib.Path(prefix).rglob(\"*\") if p.is_file()]; hashes={};\n for path in paths:\n  raw=pathlib.Path(path).read_bytes(); assert raw==g(\"show\",pin+\":\"+path),path; hashes[path]=hashlib.sha256(raw).hexdigest()\n result.append({\"report\":prefix+\".json\",\"commit\":pin,\"byteIdenticalFiles\":len(hashes),\"sha256\":hashes})\nprint(json.dumps({\"scope\":\"Imported original report/evidence preservation, not new execution or state acceptance\",\"inputs\":result},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/imported-evidence-bytes.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit 735fc41f08e5879c57ab77cef3c449d9d07f44fe",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-basic-table.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit e1f7ea1389cda5e85c65fb72efc2986cdf1f9c69",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-composition-fixer.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit ea53ec1035e80d63770e1f8752f83b82e4eae34c",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-gameplay-verifier.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit 057758eed8ed31bad3e051ef4552c671b4e4ff54",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-grouping-fixer.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit fbbf3e456cc16007448f01f11263e861a5dc2b10",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-history-budget-verifier.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git merge --no-ff --no-commit e84f93557cd5093858e499af5eb747650d70b99f",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-lifecycle.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit e0f430c46c7a318da82663b79751632505b5b0f7",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-manual-verifier.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git merge --no-ff --no-commit a4485ad2a083286b7f5f060dded8f15bef675eab",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-notifications.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git merge --no-ff --no-commit fd06b67a340ce9edf73da27c2712ad9a9e12c91d",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-pile-prefix-02.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git merge --no-ff --no-commit fd06b67a340ce9edf73da27c2712ad9a9e12c91d",
+      "exitCode": 2,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-pile-prefix.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git merge --no-ff --no-commit 3d3bc46fb69c286915b404b986ecde6f2e583881",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-result.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit 0ed29bbd3fe2bc97283d93418ce1b83739fdc2c4",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-session-fixer.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit 8a6dd20c5710201fbbf56bb3714a46b0e9656dde",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-storage.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 scripts/implementation-evidence.py reconcile docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reused-evidence.json docs/agent/implementation-runs/managed-20261023-i28-01.json@3d3bc46fb69c286915b404b986ecde6f2e583881 docs/agent/implementation-runs/managed-20261023-i30-continue-01.json@a4485ad2a083286b7f5f060dded8f15bef675eab docs/agent/implementation-runs/managed-20261023-i16-01.json@735fc41f08e5879c57ab77cef3c449d9d07f44fe docs/agent/implementation-runs/managed-20261023-i26-01.json@8a6dd20c5710201fbbf56bb3714a46b0e9656dde docs/agent/implementation-runs/managed-20261023-verify-gameplay-01.json@ea53ec1035e80d63770e1f8752f83b82e4eae34c docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01.json@e0f430c46c7a318da82663b79751632505b5b0f7 docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01.json@fbbf3e456cc16007448f01f11263e861a5dc2b10 docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01.json@057758eed8ed31bad3e051ef4552c671b4e4ff54 docs/agent/implementation-runs/managed-20261023-fix-core-composition-01.json@e1f7ea1389cda5e85c65fb72efc2986cdf1f9c69 docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01.json@0ed29bbd3fe2bc97283d93418ce1b83739fdc2c4 docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01.json@fd06b67a340ce9edf73da27c2712ad9a9e12c91d docs/agent/implementation-runs/managed-20261023-fix-native-reset-01.json@0a2b5bd8d8cfb006dc457696110871ded7d64443",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reconciliation-tool-diagnostic.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 -m unittest discover -s tests -p test_environment_game_reset.py -v",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reset-registry-01.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -m unittest discover -s tests -p test_environment_game_reset.py -k consolidated -v",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reset-registry-focused-02.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ResultActionsTest.otherPlayerAcceptsExactCapturedDialogOnceAndOnlyRevisionReturnsBothReadyCleared --tests org.asyncttwiz.android.ResultActionsTest.resultSuggestionPredictsSharedMutationButReceiptOrResultCannotReturnOrResetBoard --tests org.asyncttwiz.android.ResultActionsTest.rejectionRemovesOnlySuggestionOverlayAndNoOfflineOrOldTargetRetargeting --tests org.asyncttwiz.android.ResultActionsTest.uncertainAcceptanceRecoversOriginalIdentityAcrossReconnectWithoutReapplyingCurrentState --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/result-fixture-03.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.ResultActionsTest --tests org.asyncttwiz.android.R1ConsolidationTest --tests org.asyncttwiz.android.GameplayMoveIntegrationTest --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx1280m -Dfile.encoding=UTF-8'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/result-head-seam-04.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git diff --cached --check",
+      "exitCode": 2,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/save-whitespace-diagnostic.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import pathlib,subprocess,json,hashlib; c=json.load(open(\"/tmp/opencode/managed-20261023-consolidate-r1-01/context.json\")); g=lambda *a: subprocess.check_output([\"git\",*a]); state=pathlib.Path(c[\"state\"]).read_bytes(); assert state==g(\"show\",c[\"startCommit\"]+\":\"+c[\"state\"]); assert g(\"branch\",\"--show-current\").decode().strip()==c[\"branch\"]; assert str(pathlib.Path.cwd())==c[\"worktree\"]; assert c[\"serverCreatedMetadata\"][\"model\"]=={\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"high\"}; merged={p:subprocess.run([\"git\",\"merge-base\",\"--is-ancestor\",p,\"HEAD\"]).returncode==0 for p in c[\"dependencyCommits\"]}; apk=pathlib.Path(\"androidApp/build/outputs/apk/debug/androidApp-debug.apk\"); print(json.dumps({\"base\":c[\"startCommit\"],\"observedHEAD\":g(\"rev-parse\",\"HEAD\").decode().strip(),\"modelMetadata\":c[\"serverCreatedMetadata\"][\"model\"],\"branch\":c[\"branch\"],\"canonicalStateByteIdentical\":True,\"stateSha256\":hashlib.sha256(state).hexdigest(),\"dependencyAncestry\":merged,\"resetImportStrategy\":\"source-only cherry-pick 5f470c4f7531e1874823448f26f01760fd6cc52b and 0a2b5bd8d8cfb006dc457696110871ded7d64443, not merged ancestry\",\"apkSha256\":hashlib.sha256(apk.read_bytes()).hexdigest(),\"migrations\":{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in pathlib.Path(\"server/src/main/resources/db/migration\").glob(\"*.sql\")}},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/source-boundary.json"
+    }
+  ],
+  "changedPaths": [
+    "androidApp/build.gradle.kts",
+    "androidApp/gradle.lockfile",
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/BasicTableTest.kt",
+    "androidApp/src/main/AndroidManifest.xml",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityApi.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityDelivery.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityNotifications.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityPushService.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityWorker.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/BasicTableController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/DownloadedHistory.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ResultActions.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/ResultScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionsScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TablePresentation.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TableSelection.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/TreeDownload.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityDeliveryTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityNotificationsTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/BasicTableControllerTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/CompleteManualFixVerificationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/DownloadedHistoryTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMergeVerificationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMoveIntegrationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/R1ConsolidationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/ResultActionsTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TableActionWiringTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/TreeDownloadTest.kt",
+    "client-storage/src/main/kotlin/org/asyncttwiz/storage/ClientStorage.kt",
+    "client-storage/src/main/kotlin/org/asyncttwiz/storage/GameplayTreeCache.kt",
+    "client-storage/src/main/sqldelight/org/asyncttwiz/storage/internaldb/Replica.sq",
+    "client-storage/src/test/kotlin/org/asyncttwiz/storage/GameplayTreeCacheTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/abort-lifecycle-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-01-protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-02-native-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-02-protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-02-server-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-affected-01.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-affected-02.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/final-apk.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/import-native-reset.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/imported-evidence-bytes.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/lifecycle-import-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/lifecycle-resolution-checkpoint.patch",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-basic-table.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-composition-fixer.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-gameplay-verifier.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-grouping-fixer.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-history-budget-verifier.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-lifecycle.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-manual-verifier.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-notifications.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-pile-prefix-02.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-pile-prefix.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-result.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-session-fixer.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-storage.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reconciliation-tool-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reset-registry-01.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reset-registry-focused-02.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/result-fixture-03.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/result-head-seam-04-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/result-head-seam-04.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/save-whitespace-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/source-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-core-composition-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-core-composition-01/combined-affected.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-core-composition-01/handoff-check.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-core-composition-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-native-reset-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-native-reset-01/boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-native-reset-01/focused-reset-environment.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01/affected-tests-apk-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01/affected-tests-apk-02.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01/apk-inspection-02.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01/apk-inspection.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01/artifact-integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01/passing-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01/protocol-junit-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/affected-tests.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/proposal-validation.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01/saved-proposal-validation.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/affected-tests.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/immutable-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/active-environment.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/adapter-records.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/adapters-image.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/affected-host.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/build-image.py",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-4a39a11de4b34bc587a10ad44bcfa897.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-captured-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-captured.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-check.py",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-device-0-4a39a11de4b34bc587a10ad44bcfa897.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-device-1-4a39a11de4b34bc587a10ad44bcfa897.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-environment-4a39a11de4b34bc587a10ad44bcfa897.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/compile-native-final.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/compile-native-with-identities.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/compile-native.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/configured-apks.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/control.py",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/driver.py",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/helper-syntax.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/host-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/identities.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/images.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/junit-retain-path-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/lifecycle-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/lifecycle-failure-4a39a11de4b34bc587a10ad44bcfa897.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/provision-1-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/retain-host-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/retain.py",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/retained-identities.json",
+    "docs/agent/implementation-runs/managed-20261023-i12-native-01/server-image.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01/affected-build-tests-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01/affected-build-tests-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01/affected-build-tests-03.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01/artifact-integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01/daemon-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i16-01/final-ui-build.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/android-components-failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-cleanup.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/gradle-connection-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/input-boundary.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/loopback-diagnostic.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-ipv4-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/storage-protocol-recheck.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i26-01/typed-components-recheck.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/affected-check-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/affected-check-02.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/affected-check-03.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/affected-check-04.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/apk-identity.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/boundary-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/final-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/server-red-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i28-01/shared-check.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-3.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/affected-server-4.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/android-build-3.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/handoff-preflight.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-compile-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-failed-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-01/server-second-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/affected-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/android-default-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/android-lock-default.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/android-lock-optional.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/default-and-public-2.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/default-and-public-3.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/default-boundaries.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/handoff-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/optional-compile-1.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/public-lifecycle-final-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-i30-continue-01/public-lifecycle-final.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/affected-checks.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/diagnostic-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/handoff.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/independent-checks.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/provenance.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/retain-diagnostic-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01/retain-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/host-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/host-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/integrity-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-check.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-diagnostic-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01/server-recheck.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/focused-junit.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/focused-tests.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/immutable-inputs.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/inspection.md",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/reused-evidence-inspection.json",
+    "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01/unchanged-selective-inputs.json",
+    "e2e/environment.py",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeBasicTableTest.kt",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeLobbyCompletionTest.kt",
+    "gradle/libs.versions.toml",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Activity.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameResultLifecycle.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TableActions.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TreeSync.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ActivityTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CompleteManualFixVerificationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CoreCompositionRepairTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameResultLifecycleTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayMergeVerificationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryGroupingTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryLargePlayVerificationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/LibraryActionsTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/PilePrefixInsertionTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/R1ConsolidationTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/StackLayoutGroupingRepairTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TokensAndLinksTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TreeSyncTest.kt",
+    "server/src/main/java/org/asyncttwiz/server/SpringService.java",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/accounts/PasswordResetService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityDelivery.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityHttp.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/PlayStore.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/PreparationStore.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+    "server/src/main/resources/db/migration/V14__returned_lobby_incarnations.sql",
+    "server/src/main/resources/db/migration/V15__activity_notifications.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityHttpTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityPublicLifecycleTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityServiceTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameResultLifecycleTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameplayMergeVerificationTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/PilePrefixInsertionTest.kt",
+    "tests/test_environment_game_reset.py"
+  ],
+  "conflictRepairs": [
+    {
+      "pin": "3d3bc46fb69c286915b404b986ecde6f2e583881",
+      "paths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+        "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java"
+      ],
+      "resolution": "Union ResultSuggestion DTO/action/transition with all full existing families and controls. Suggestion uses the existing GameplayReplica and durable GameplayStore, acceptance remains a lifecycle request in the same FIFO. Remove unused PlayStore.apply alternate writer; V14 legacy table and migration bytes remain unchanged. Keep starter field unchanged as UNAPPROVED owner policy."
+    },
+    {
+      "pin": "a4485ad2a083286b7f5f060dded8f15bef675eab",
+      "paths": [
+        "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java"
+      ],
+      "resolution": "Union exact table inventory with public service/activity tables; preserve discovered-version checksum equality guard rather than old literal counts. Default APK remains non-FCM; optional provider compilation evidence is reused."
+    },
+    {
+      "pin": "fd06b67a340ce9edf73da27c2712ad9a9e12c91d",
+      "paths": [
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt"
+      ],
+      "resolution": "Add PILE_GAP/target guards while preserving full bottomSlice and arbitrary GAP pending-prefix semantics, existing positional DTO parameter compatibility, explicit Move/ClearCardCounter/Reset constituents, manual/token cleanup and decimal/Unicode fixes. PILE_GAP-only pending-member cap/exclusions do not invalidate Library prefixes. All five prefix protocol cases, real PostgreSQL case and nine basic-controller cases execute green on the union."
+    }
+  ],
+  "failureGroups": [
+    {
+      "id": "CON-LIFECYCLE-IMPORT-AUTHORITY",
+      "status": "blocked-permission-not-product-disposition",
+      "tests": [
+        "git merge --no-ff --no-commit e84f93557cd5093858e499af5eb747650d70b99f",
+        "Original chat reset fixtures in tests/test_environment_game_reset.py"
+      ],
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/merge-lifecycle.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/lifecycle-import-boundary.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/abort-lifecycle-boundary.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reset-registry-01.json"
+      ],
+      "likelyOwningTask": "Supervisor lifecycle source integration, I12/I27/I29; reset source prerequisite",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/GameHub.kt",
+        "server/src/main/resources/db/migration/V13__game_chat.sql",
+        "e2e/environment.py",
+        "tests/test_environment_game_reset.py"
+      ],
+      "seam": "Shared integration/authorization and missing source prerequisite, not independent reset product defects.",
+      "diagnosis": "Normal lifecycle merge automatically imports newer canonical I12a state and unleased progress-helper changes. Restoration patch was denied by the harness; no alternate state edit route was used. Only the owned attempted merge was aborted after saving the source-resolution patch. Native reset amendment separately authorizes two source-only cherry-picks, not lifecycle ancestry or canonical restoration. Current schema has V1-V9,V11,V14,V15, not V13. Reset original chat fixtures truthfully expect V13 and fail; reset-registry-01 ran 16 tests with 9 failures/4 errors before focused current-schema fixture correction. The two added exact-current-schema registry tests subsequently pass. No V10/V12 SQL exists in this candidate or the inspected lifecycle pin; existing lifecycle enum supports cancellation/deletion. Do not invent those migrations.",
+      "freshFixAssignment": "Supervisor supplies an authorized lifecycle source-only import strategy or performs canonical preservation under its sole authority. A fresh integrator reconciles the saved checkpoint against the current result/session/basic/prefix candidate, imports original lifecycle evidence unchanged and finishes normal production chat/Delete/Cancel integration.",
+      "narrowRerunScope": "Combined changed GameWire/GameService/GameHub/session/TableScreen lifecycle tests plus original full tests/test_environment_game_reset.py after V13 is actually present; reuse unchanged green current result/prefix/public-service checks unless reconciliation materially changes their inputs.",
+      "dependenciesAndOverlap": "Conflicts overlap GameSession/GameService/GameWire/TableScreen/GenerateJooq and result/prefix candidate. Do not dispatch parallel writers to those files. Exact excluded paths are docs/agent/implementation-state.json, scripts/implementation-progress.py and scripts/test-implementation-progress.py. No state/control authority is implied by this report."
+    },
+    {
+      "id": "CON-JOOQ-CASE-COLLISION",
+      "status": "repaired-awaiting-fresh-independent-verification",
+      "tests": [
+        ":server:compileKotlin",
+        "GameResultLifecycleTest",
+        "GameplayMergeVerificationTest",
+        "GameplaySyncTest",
+        "PilePrefixInsertionTest",
+        "ActivityPublicLifecycleTest"
+      ],
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-affected-01.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-02-server-junit.json"
+      ],
+      "likelyOwningTask": "Shared I14/I28/I30 schema/codegen integration",
+      "sourcePaths": [
+        "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+        "server/src/main/kotlin/org/asyncttwiz/server/game/PlayStore.kt",
+        "server/src/test/kotlin/org/asyncttwiz/server/game/GameResultLifecycleTest.kt"
+      ],
+      "seam": "Shared generated-name/persistence seam, not dozens of independent unresolved-reference defects.",
+      "diagnosis": "V11 gameplay_mutation and V14 game_play_mutation collide under default generated naming. Add explicit LegacyGamePlayMutation/LegacyGamePlayMutationRecord matcher names for V14, retaining both inventories and original migrations. GameService uses the sole GameplayStore writer; remove unused PlayStore.apply. The exact one-mutation assertion now observes canonical gameplay_mutation instead of the abandoned legacy store, not a reduced count. V9-forward fixture expects exact discovered pending migrations rather than literal one. Eight selected real server tests are green after codegen recompiles.",
+      "freshFixAssignment": "Fresh consolidated runtime verifier inspects codegen matcher, unchanged SQL/checksum guard, sole writer and original relational assertions at saved codeCommit; reopen a narrowly scoped fresh fixing unit if incorrect.",
+      "narrowRerunScope": "Only materially changed generator/relational result and baseline seams; reuse this exact eight-case green output if inputs remain unchanged.",
+      "dependenciesAndOverlap": "Generator inventory will change when lifecycle V13 is imported; preserve legacy rename and checksum equality. No applied SQL rewrite or alternate authority."
+    },
+    {
+      "id": "CON-BASIC-ENABLED",
+      "status": "repaired-awaiting-fresh-independent-verification",
+      "tests": [
+        ":androidApp:compileDebugKotlin",
+        "BasicTableControllerTest",
+        "TableActionWiringTest",
+        ":androidApp:assembleDebug"
+      ],
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-affected-01.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-02-native-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/final-apk.json"
+      ],
+      "likelyOwningTask": "I16 production basic controls/shared manual UI API",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionsScreen.kt"
+      ],
+      "seam": "Local source composition compile seam.",
+      "diagnosis": "Two personal Inspect/Select ActionSquare calls omitted the shared required enabled argument. Explicit true preserves personal read-only interaction without enabling shared commands. Prefix source merge retains the repaired calls. Nine basic-controller and four callback-wiring cases pass; current normal APK builds.",
+      "freshFixAssignment": "Fresh combined verifier inspects personal-versus-shared enabled semantics and production TableScreen callbacks; no self-verification here.",
+      "narrowRerunScope": "Affected basic callback/controller tests only if source materially changes; no device execution in this lane.",
+      "dependenciesAndOverlap": "TableScreen still needs lifecycle chat UI import. Native delayed-ack/restart/full journey remains I16/I31."
+    },
+    {
+      "id": "CON-ENDING-CATEGORY",
+      "status": "repaired-awaiting-fresh-independent-verification",
+      "tests": [
+        "GameResultLifecycleTest.strictSingletonHasBothBoundariesIncludingTapAndSameAuthorEdit",
+        "R1ConsolidationTest.endingSuggestionRetainsManualTuplesThroughFlatTreeDownloadAndReplay"
+      ],
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-01-protocol-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-02-protocol-junit.json"
+      ],
+      "likelyOwningTask": "I22/I28 shared history semantics",
+      "sourcePaths": [
+        "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt",
+        "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameResultLifecycleTest.kt",
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/ResultActionsTest.kt",
+        "server/src/test/kotlin/org/asyncttwiz/server/game/GameResultLifecycleTest.kt"
+      ],
+      "seam": "Shared semantic catalog versus older result grouping stub.",
+      "diagnosis": "Map SuggestResult exhaustively to existing ENDING_SUGGESTION/S (ending), not old suggestion literal or a second grouping engine. Keep every singleton boundary/count assertion and update expected category in all three layers. Corrected singleton test, new flat-tree replay seam and actual server lifecycle tests pass. Original 36 mapping assertions and actual same-Stack cases also pass in combined-01.",
+      "freshFixAssignment": "Fresh consolidated verifier checks ending singleton semantics and new symbol mapping against the contract; retain first capability-review obligations.",
+      "narrowRerunScope": "Ending suggestion/singleton/replay cases if changed, not the unchanged full grouping matrix.",
+      "dependenciesAndOverlap": "HistoryGrouping move semantics were preserved; original IC-STACK-LAYOUT-GROUP is supplied by 057758e and is not re-fixed here."
+    },
+    {
+      "id": "CON-RESULT-SESSION-HEAD",
+      "status": "repaired-awaiting-fresh-independent-verification",
+      "tests": [
+        "ResultActionsTest.otherPlayerAcceptsExactCapturedDialogOnceAndOnlyRevisionReturnsBothReadyCleared",
+        "ResultActionsTest.resultSuggestionPredictsSharedMutationButReceiptOrResultCannotReturnOrResetBoard",
+        "ResultActionsTest.rejectionRemovesOnlySuggestionOverlayAndNoOfflineOrOldTargetRetargeting",
+        "ResultActionsTest.uncertainAcceptanceRecoversOriginalIdentityAcrossReconnectWithoutReapplyingCurrentState"
+      ],
+      "evidence": [
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/combined-02-native-junit.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/result-fixture-03.json",
+        "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/result-head-seam-04-junit.json"
+      ],
+      "likelyOwningTask": "Shared I14/I28 incarnation/session integration",
+      "sourcePaths": [
+        "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/ResultActionsTest.kt",
+        "androidApp/src/test/kotlin/org/asyncttwiz/android/R1ConsolidationTest.kt"
+      ],
+      "seam": "Fixture admission plus real stale-head recovery boundary, not four independent lost-result bugs.",
+      "diagnosis": "I28 fixture used currentNodeId unrelated to root and arbitrary non-root heads. Supply valid roots and recorded authoritative suggestion deltas without weakening original receipt/result/pending/return/reconnect assertions. Three failures resolve; remaining stale active head after accepted return triggered unavailable baseline recovery/disconnect and fenced the next genuine fresh root. Reject heads older than acceptedRevisions before replica allocation/recovery, deliberately not against a leading HTTP summary. All five original ResultActions cases, new basic-to-result one-replica case and two supplied session-fixture cases pass together (8/8). Intermediate result-fixture-03 retains actual console output; its overwritten XML was not separately archived and is not claimed.",
+      "freshFixAssignment": "Fresh consolidated runtime verifier inspects accepted-revision head fence and fixture realism at codeCommit, including return/stale head/fresh root and result-before-state boundaries. No independent verification by this agent.",
+      "narrowRerunScope": "ResultActionsTest, R1ConsolidationTest and GameplayMoveIntegrationTest only if later lifecycle reconciliation materially changes these paths.",
+      "dependenciesAndOverlap": "GameSession overlaps pending lifecycle import; retain one replica/recovery queue and account fencing. Original IC-SESSION-FIXTURE source repair remains the separate supplied 0ed29bb fixture fix."
+    }
+  ],
+  "remainingIntegrationMappings": [
+    {
+      "owner": "Supervisor lifecycle integration; I12/I27/I29",
+      "scope": "e84f935 not merged: production chat/Delete/Cancel/list/session lifecycle code and V13 are absent, not completed by this candidate. Retained checkpoint is unapplied and uncompiled, predates subsequent result/prefix amendments and normalizes blank context lines only for whitespace-safe preservation."
+    },
+    {
+      "owner": "I23b/I24b/I25b/I26b",
+      "scope": "Existing GameplayStore transport is linear GameRevision/full envelopes, not the corrected complete relational GameplayTree exporter/control/archive authority. Typed I26 staging/review codecs are components, not production session/route/server download completion. Undo/Redo/MakeCurrent/archive/continuation server FIFO/history routes and full retained offshoot/hidden/archive/Redo/removed-parent export remain missing."
+    },
+    {
+      "owner": "I17-I22 production integration, I28b",
+      "scope": "Basic I16 is in normal TableScreen, not a test scene. Advanced manual/library/turn/token/link/combat/Stack/annotation controllers, event reference resolver and full history/playback remain component seams needing production route/server mapping. Suggest/accept components are not a completed Table action/final-board-before-dialog journey."
+    },
+    {
+      "owner": "Owner policy resolution before I28b closure",
+      "scope": "Stored returned-lobby starter field remains unchanged as UNAPPROVED policy. Tests explicitly choose Random again. No retain/reset policy chosen by this integration."
+    },
+    {
+      "owner": "I30b, I31",
+      "scope": "Real opponent committed gameplay-group ActivityService.record integration, polling quiet/max10 coalescing, native foreground/review/background suppression and authorized notification-boundary navigation remain missing. Public service/provider-free maintenance and synthetic optional adapter tests do not execute those mappings."
+    },
+    {
+      "owner": "Fresh consolidated verifier and B4-B8 capability reviewers",
+      "scope": "Independently verify runtime merge repairs and supplied fixing commits at final code anchor. Reused verifier evidence is only its original scope and materially unchanged behavior, not a new capability review or self-verification."
+    },
+    {
+      "owner": "I16/I26b/I28b/I30b/I31; I34-I36 and external gate owners",
+      "scope": "No device, native lifecycle, two-player/three-instance, full suite, clean build, release deployment, UI doc, real provider credentials or external gate execution. Final full-suite fixes, fresh fix verification, independent reviews and complete interface/mock/orientation/unpictured-state gate remain required."
+    }
+  ],
+  "limitations": [
+    "Custom integration artifact only: no proposal, application-state transitions, validators, acceptance or global blocked/completion decision. Canonical state/control bytes remain unchanged.",
+    "The combined Gradle commands both exited 1; their distinct green protocol/server/host scopes are recorded as component evidence, not whole-command passes. All failure outputs are retained. Only narrowed materially changed scopes were rerun.",
+    "Runtime repairs are not independently verified by this unit. The full original reset chat suite remains blocked/red due to the unimported V13 prerequisite; no assertion or check was removed to label it green.",
+    "No background test process owns handoff resources; all checks ran foreground with --no-daemon --max-workers=1 and 1280m JVM limit. Testcontainers/codegen own random databases and ports and log cleanup; no shared backend/device operation was run."
+  ],
+  "codeCommit": "341c4c6a8664d15b48e589bd78700bcc9fc33f9d",
+  "candidateHEAD": "341c4c6a8664d15b48e589bd78700bcc9fc33f9d",
+  "branch": "managed/managed-20261023-consolidate-r1-01",
+  "worktree": "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-consolidate-r1-01",
+  "mergedCommits": [
+    "3d3bc46fb69c286915b404b986ecde6f2e583881",
+    "a4485ad2a083286b7f5f060dded8f15bef675eab",
+    "735fc41f08e5879c57ab77cef3c449d9d07f44fe",
+    "8a6dd20c5710201fbbf56bb3714a46b0e9656dde",
+    "ea53ec1035e80d63770e1f8752f83b82e4eae34c",
+    "e0f430c46c7a318da82663b79751632505b5b0f7",
+    "fbbf3e456cc16007448f01f11263e861a5dc2b10",
+    "057758eed8ed31bad3e051ef4552c671b4e4ff54",
+    "e1f7ea1389cda5e85c65fb72efc2986cdf1f9c69",
+    "0ed29bbd3fe2bc97283d93418ce1b83739fdc2c4",
+    "fd06b67a340ce9edf73da27c2712ad9a9e12c91d"
+  ],
+  "unmergedPins": [
+    {
+      "commit": "e84f93557cd5093858e499af5eb747650d70b99f",
+      "status": "blocked-unimported-see-CON-LIFECYCLE-IMPORT-AUTHORITY"
+    },
+    {
+      "commit": "0a2b5bd8d8cfb006dc457696110871ded7d64443",
+      "status": "source-only-imported-not-merged-per-correction"
+    }
+  ],
+  "sourceOnlyImports": {
+    "originalCommits": [
+      "5f470c4f7531e1874823448f26f01760fd6cc52b",
+      "0a2b5bd8d8cfb006dc457696110871ded7d64443"
+    ],
+    "candidateCommit": "b0b5f52",
+    "command": "git cherry-pick --no-commit 5f470c4f7531e1874823448f26f01760fd6cc52b 0a2b5bd8d8cfb006dc457696110871ded7d64443",
+    "noAncestryClaim": true
+  },
+  "lease": {
+    "authority": "Supplied THIS RUN, matching dispatch/context and same-role supervisor amendments; no journal/control writes",
+    "modelMetadata": {
+      "id": "gpt-6.1-sol",
+      "providerID": "openai",
+      "variant": "high"
+    },
+    "resourceBundle": [
+      "isolated-host-tests",
+      "owned-testcontainers"
+    ],
+    "canonicalStateByteIdentical": true,
+    "applicationTransitions": [],
+    "validatorsRun": [],
+    "ownedChangedSourceAndTestPaths": [
+      "androidApp/build.gradle.kts",
+      "androidApp/gradle.lockfile",
+      "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/BasicTableTest.kt",
+      "androidApp/src/main/AndroidManifest.xml",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityApi.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityDelivery.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityNotifications.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityPushService.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ActivityWorker.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/AuthViewModel.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/BasicTableController.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/DownloadedHistory.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/MainActivity.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ResultActions.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/ResultScreen.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionsScreen.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableGestures.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TablePresentation.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScene.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TableSelection.kt",
+      "androidApp/src/main/kotlin/org/asyncttwiz/android/TreeDownload.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityDeliveryTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ActivityNotificationsTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/BasicTableControllerTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/CompleteManualFixVerificationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/DownloadedHistoryTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMergeVerificationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMoveIntegrationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/R1ConsolidationTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/ResultActionsTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TableActionWiringTest.kt",
+      "androidApp/src/test/kotlin/org/asyncttwiz/android/TreeDownloadTest.kt",
+      "client-storage/src/main/kotlin/org/asyncttwiz/storage/ClientStorage.kt",
+      "client-storage/src/main/kotlin/org/asyncttwiz/storage/GameplayTreeCache.kt",
+      "client-storage/src/main/sqldelight/org/asyncttwiz/storage/internaldb/Replica.sq",
+      "client-storage/src/test/kotlin/org/asyncttwiz/storage/GameplayTreeCacheTest.kt",
+      "e2e/environment.py",
+      "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeBasicTableTest.kt",
+      "gradle/libs.versions.toml",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Activity.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameResultLifecycle.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Gameplay.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameplayHistory.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/HistoryGrouping.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TableActions.kt",
+      "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/TreeSync.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/ActivityTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CompleteManualFixVerificationTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/CoreCompositionRepairTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameResultLifecycleTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/GameplayMergeVerificationTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryGroupingTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/HistoryLargePlayVerificationTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/LibraryActionsTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/PilePrefixInsertionTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/R1ConsolidationTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/StackLayoutGroupingRepairTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TokensAndLinksTest.kt",
+      "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/TreeSyncTest.kt",
+      "server/src/main/java/org/asyncttwiz/server/SpringService.java",
+      "server/src/main/kotlin/org/asyncttwiz/server/accounts/AccountService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/accounts/PasswordResetService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityDelivery.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityHttp.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/activity/ActivityService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/PlayStore.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/game/PreparationStore.kt",
+      "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+      "server/src/main/resources/db/migration/V14__returned_lobby_incarnations.sql",
+      "server/src/main/resources/db/migration/V15__activity_notifications.sql",
+      "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+      "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityHttpTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityPublicLifecycleTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/activity/ActivityServiceTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameResultLifecycleTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/GameplayMergeVerificationTest.kt",
+      "server/src/test/kotlin/org/asyncttwiz/server/game/PilePrefixInsertionTest.kt",
+      "tests/test_environment_game_reset.py"
+    ],
+    "sourceOnlyImportedReadOnlyPaths": {
+      "paths": [
+        "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeLobbyCompletionTest.kt"
+      ],
+      "authority": "Exact supervisor-authorized two-commit cherry-pick includes original native test. Bytes verified identical to 5f470c4; no direct edit or native execution by this unit."
+    }
+  },
+  "reusedEvidence": [
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-i28-01.json",
+      "commit": "3d3bc46fb69c286915b404b986ecde6f2e583881",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-i30-continue-01.json",
+      "commit": "a4485ad2a083286b7f5f060dded8f15bef675eab",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-i16-01.json",
+      "commit": "735fc41f08e5879c57ab77cef3c449d9d07f44fe",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-i26-01.json",
+      "commit": "8a6dd20c5710201fbbf56bb3714a46b0e9656dde",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-verify-gameplay-01.json",
+      "commit": "ea53ec1035e80d63770e1f8752f83b82e4eae34c",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-verify-complete-manual-01.json",
+      "commit": "e0f430c46c7a318da82663b79751632505b5b0f7",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-verify-i23-budget-01.json",
+      "commit": "fbbf3e456cc16007448f01f11263e861a5dc2b10",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-fix-stack-grouping-01.json",
+      "commit": "057758eed8ed31bad3e051ef4552c671b4e4ff54",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-fix-core-composition-01.json",
+      "commit": "e1f7ea1389cda5e85c65fb72efc2986cdf1f9c69",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-fix-session-fixture-01.json",
+      "commit": "0ed29bbd3fe2bc97283d93418ce1b83739fdc2c4",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-fix-pile-prefix-01.json",
+      "commit": "fd06b67a340ce9edf73da27c2712ad9a9e12c91d",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    },
+    {
+      "report": "docs/agent/implementation-runs/managed-20261023-fix-native-reset-01.json",
+      "commit": "0a2b5bd8d8cfb006dc457696110871ded7d64443",
+      "scope": "Original passing/failing checks and deferred scope only; byte preservation is not new execution or acceptance"
+    }
+  ],
+  "reusedEvidencePolicy": {
+    "byteCheck": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/imported-evidence-bytes.json",
+    "unchangedStorage": "Reuse real SQLDelight GameplayTreeCacheTest/ClientStorageTest checks at 8a6dd20; no client-storage source or original tests edited after import. New typed full-tree/result/manual replay seam executes in protocol R1ConsolidationTest. No server/exporter/route acceptance inferred.",
+    "independentEvidence": "Reuse unchanged manual e0f430c, gameplay ea53ec and large-tree budget fbbf3e verifier evidence only for original materially unchanged scope. New session/result/prefix/generator/reset changes need fresh combined verifier.",
+    "toolDiagnostic": "docs/agent/implementation-runs/managed-20261023-consolidate-r1-01/reconciliation-tool-diagnostic.json"
+  },
+  "knownFailureResolution": [
+    {
+      "ids": [
+        "IC-MOVEMENT-EXPECTATIONS",
+        "IC-LIFE-TEXT"
+      ],
+      "suppliedFixCommit": "e1f7ea1389cda5e85c65fb72efc2986cdf1f9c69",
+      "status": "Imported original fixes, not duplicated; four core composition cases green on prefix union. Independent verification remains due."
+    },
+    {
+      "ids": [
+        "IC-STACK-LAYOUT-GROUP"
+      ],
+      "suppliedFixCommit": "057758eed8ed31bad3e051ef4552c671b4e4ff54",
+      "status": "Imported test-only correction; original 36 mapping assertions and three actual full-engine cases green in combined-01."
+    },
+    {
+      "ids": [
+        "IC-SESSION-FIXTURE"
+      ],
+      "suppliedFixCommit": "0ed29bbd3fe2bc97283d93418ce1b83739fdc2c4",
+      "status": "Imported disjoint-ID fixture without invariant relaxation; both original session cases green after materially changed head seam."
+    },
+    {
+      "ids": [
+        "I16-existing-pile-prefix"
+      ],
+      "suppliedFixCommit": "fd06b67a340ce9edf73da27c2712ad9a9e12c91d",
+      "status": "Imported prefix runtime repair; five protocol cases, one PostgreSQL case and actual basic callback/controller cases green; not independently verified here."
+    }
+  ],
+  "executedCoverage": {
+    "combined01": {
+      "protocol": "9 executed, 1 failed category expectation; 8 green retained",
+      "server": "Compile blocked; no tests executed",
+      "android": "Compile blocked; no host tests/APK completed"
+    },
+    "combined02": {
+      "protocol": "10/10 selected cases green: 4 core composition, 5 prefix, 1 corrected singleton",
+      "server": "8/8 real selected PostgreSQL/public SpringService cases green",
+      "android": "21 executed, 4 ResultActions cases failed; basic 9, wiring 4, R1 1 and supplied session 2 green",
+      "apk": "Built successfully; later real GameSession head guard source change necessitated final incremental packaging"
+    },
+    "resultFixture03": "4 executed, 1 real stale-head/fresh-root failure; console retained, intermediate XML not separately archived",
+    "resultHead04": "8/8 host cases green: ResultActions 5, R1 1, supplied session fixture 2",
+    "reset01": "16 executed, 9 failures/4 errors from missing V13 source prerequisite including initial added consolidated profile; complete console retained",
+    "resetFocused02": "2/2 added exact-current-schema tests green for V1-V9,V11,V14,V15, every new dirty/missing store and exact migration bytes",
+    "finalAPK": "Current saved default non-FCM source builds; SHA256 in source-boundary.json",
+    "notExecuted": "Lifecycle pin source/tests/UI unimported; no device journey/full suite/clean build, current full chat reset success, native or release qualification"
+  }
+}

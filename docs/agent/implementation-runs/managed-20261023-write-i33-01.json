@@ -1,0 +1,92 @@
+{
+  "runId": "managed-20261023-write-i33-01",
+  "sessionID": "ses_e97d6dba4ffeU7cFOO6xbQ61ZQ",
+  "startCommit": "0436d6ec399ad821c19e24170f2e6ef01d637015",
+  "mode": "integration",
+  "target": "I33-required-runtime-measurement-workloads",
+  "artifactKind": "custom-source-writing-handoff-not-application-proposal",
+  "outcome": "progress",
+  "model": "openai/gpt-6.1-sol#high",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "summary": "Authored the three leased I33 workload tests against pinned production APIs. Shared 10k/100k sparse/heavy replay, complete validation/index reconstruction, flat codec and default selective work-meter observations; real PostgreSQL service ingress-through-commit timing; real Android scene/pointer/prediction/window-frame observations plus disk-chunk export and actual SQLite TreeDownload staging/publication/cold open. UNCOMPILED/UNEXECUTED: no performance pass, E2E acceptance, I33 completion or state transition.",
+  "selectionReason": "Explicit next required I33 source-only lane; supplies missing production-path measurement inputs without competing for I31/I35/native execution resources.",
+  "leaseConfirmation": "Supplied context and Git agree on this branch/worktree, exact three source paths, source-writing-only resources and sole dependency/start pin 0436d6ec399ad821c19e24170f2e6ef01d637015. No dependency merge was needed. Supervisor retains authoritative dispatch/session/acceptance ownership.",
+  "mergeAndRepairDetails": "No merges, production changes, build/dependency changes or other-checkout inspection. Initial compound Git tool call was rejected before execution; separate permitted Git reads succeeded. No compile/test/device/image commands were run. Static authoring corrections were confined to leased sources.",
+  "assertionStatus": {
+    "authored": "UNCOMPILED/UNEXECUTED",
+    "executedProductAssertions": [],
+    "shared": "Four size/shape selectors, three cold replay and three full-validation observations each; one complete codec stream and default-meter observation. Exact retained topology and known life/card endpoints checked. Common Kotlin memory is explicitly external RSS/cgroup evidence, not invented heap data.",
+    "server": "100 measured sequential simple commands after 20 excluded warmups by default; actual admit transaction, execute-through-commit and combined service-boundary raw nanos/p95/p99 plus sampled heap. Setup/auth/command creation/result reads excluded. Combined p95 budget 100ms, not socket ingress or remote visibility.",
+    "android": "Portrait component, 200 real battlefield cards plus four visible projections, 400 real links and four projection links, each player Library 0/60/250. Real pointer double tap, production BasicTableController/GameplayReplica, real-time 180ms TableSurface animation and window FrameMetrics (not Compose simulated frames). Separately labelled pointer-recognition window, release-to-callback upper bound, callback-to-provisional and actual frames; strict 50ms/16.7ms/33.3ms targets. Real SQLite stage/publish/cold accepted open at 10k/100k, two/100 continuations, strict 10k open 3s target and no invented 100k transfer deadline. Measurements include actual sampled heap/PSS/native heap, not a claimed peak. All inputs are synthesized LOWER-LAYER only."
+  },
+  "checks": [
+    {
+      "kind": "static",
+      "commandRecord": "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-source.json#command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-source.json",
+      "scope": "Pre-save source ownership/start/branch/control identity; source hashes before final static authoring corrections, not executable evidence."
+    },
+    {
+      "kind": "static",
+      "commandRecord": "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-final.json#command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-final.json",
+      "scope": "Final source identities and byte-identical authoritative state/permission controls only."
+    },
+    {
+      "kind": "static",
+      "command": "python3 scripts/capture-check.py docs/agent/implementation-runs/managed-20261023-write-i33-01/whitespace.json -- git diff --cached --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-i33-01/whitespace.json",
+      "scope": "Staged whitespace, not compilation or product tests. save.sh checks the final staged set again."
+    }
+  ],
+  "executionQueue": [
+    {
+      "owner": "Supervisor's fresh combined affected compile executor",
+      "sourcePin": "Actual saved worker commit/upstream to be recorded by supervisor; source hashes are in static-final.json",
+      "command": "./gradlew --no-daemon --max-workers=2 :protocol:compileTestKotlinJvm :server:compileTestKotlin :androidApp:compileDebugAndroidTestKotlin",
+      "resources": "Isolated worktree outputs and owned Testcontainers/codegen resources; compile once with other ready pinned affected work. Preserve first compiler failure and list all unexecuted scopes."
+    },
+    {
+      "owner": "Supervisor's fresh host/runtime executor",
+      "command": "./gradlew --no-daemon --max-workers=2 :protocol:jvmTest --tests org.asyncttwiz.protocol.RuntimeWorkloadTest :server:test --tests org.asyncttwiz.server.game.RuntimeWorkloadTest",
+      "configuration": "ATW_RUNTIME_SOURCE_COMMIT=actual-tested-40-hex-commit; ATW_RUNTIME_PROFILE=2cpu-2g-app-2g-pg-ssd; ATW_RUNTIME_SAMPLES=100 (20..500); ATW_RUNTIME_WARMUP=20 (10..100). Executor must actually supply/retain 2-CPU/2-GiB app resource isolation, separate 2-GiB PG allocation/SSD, exact OS/arch/JVM/image/source identities and peak RSS/cgroup observations. Profile environment string is a required attestation, not resource enforcement. Retain JUnit XML/system-out and raw stdout via existing capture-check adapter. Protocol method selectors can isolate 10k/100k sparse/heavy without removing the required final four scopes."
+    },
+    {
+      "owner": "Existing native resource/lifecycle executor; not this writer",
+      "command": "./gradlew --no-daemon --max-workers=2 :androidApp:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=org.asyncttwiz.android.RuntimeWorkloadTest -Pandroid.testInstrumentationRunnerArguments.runtimeSourceCommit=ACTUAL_TESTED_40_HEX_COMMIT",
+      "configuration": "runtimeSamples=20 (20..100), runtimeWarmup=3 (3..20), runtimeHistoryNodes=10000,100000 (either required size selectable for a narrow rerun). Portrait, system animations enabled, normal non-GMS APK. Test-owned outputs: target app no_backup/managed-20261023-write-i33-01-observations/observations.jsonl; pull under the same resource owner and retain bytes with instrumentation/JUnit/log output. Each record has execution ID, source commit, raw observations, percentiles/counts, build/model/API/ABI/density/hardware and actual display refresh for scene output.",
+      "resources": "Insert this exact selector into the existing complete provision/install/run/output-collection/cleanup lifecycle, wrapped by scripts/implementation-resources.py with windows-devices + windows-routing (and shared-e2e-backend if reused). Do not acquire a phase-only device lease or claim this component run is a UI-created whole journey. Physical API29 arm64/4GiB/60Hz/1080-class phone, current phone/API, non-GMS emulators, tablet and arm64 server availability remain external gates."
+    }
+  ],
+  "remainingOwners": [
+    {
+      "owner": "I33 production timing-seam owner + existing native whole-journey author",
+      "gap": "androidApp/.../TableGestures.kt:105-117 recognizes double tap before emitting Rotate; TableScene.kt:88 invokes onIntent with no recognition timestamp. The test observes Initial-pass pointer release and callback boundaries, so it reports dispatch upper bounds, NOT an exact recognition-complete timestamp. GameSession.kt:680-705 flush/send and GameConnection.kt:30,67 expose only Boolean send/enqueue, no actual transport write-start callback. Exact recognition-to-provisional, enqueue/write-start p95 and 50ms-RTT remote committed-visible p95 need correlated real app/network seams, not a synthetic reducer result."
+    },
+    {
+      "owner": "I33 bounded production export/staging owner",
+      "gap": "server/.../GameplayStore.kt:29-43 materializes all records, full joined UTF-8 bytes, decoded chunks and compressed chunks; :68-78 also reads all relational records. The authored streamed disk fixture exercises shared codec + actual TreeDownload/SQLite but is explicitly NOT that server exporter. Production 100k complete-server-export streaming/OOM qualification is still required; this lease cannot repair exporter code. TreeDownload.kt:112 and GameplayTreeCache publication also materialize accepted records, so bounded transfer buffers do not establish bounded total retained-state memory."
+    },
+    {
+      "owner": "Native full-journey/image workload author and final capability/release reviewers",
+      "gap": "Actual UI-created game setup, artwork downloader/cache loading, complete app trajectories, both-orientation integration/retarget behavior, real GameSession/network backpressure and physical/current-API/tablet/arm64 qualification are not substituted by these synthesized component histories/scenes. TableScene.kt:194,309-432 currently draws text/geometry directly; no artwork-loading timing claim is made. Independent review/fresh verification/final suites remain mandatory."
+    }
+  ],
+  "failureGroups": [],
+  "failureGroupsNote": "No compiler/test/runtime command was executed; there is no observed failing test to assign. Future executor failures must be grouped by exact failing selector/output/source ownership before fresh fixes.",
+  "stateUpdates": "None; state/permissions remain byte-identical. No serial/proposal/acceptance validation or journal/control mutation performed.",
+  "changedPaths": [
+    "androidApp/src/androidTest/kotlin/org/asyncttwiz/android/RuntimeWorkloadTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/RuntimeWorkloadTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/RuntimeWorkloadTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-source.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01/static-final.json",
+    "docs/agent/implementation-runs/managed-20261023-write-i33-01/whitespace.json"
+  ]
+}

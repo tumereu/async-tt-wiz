@@ -74,6 +74,8 @@ class AccountService(private val runtime: ServiceRuntime, private val passwords:
             DSL.using(connection, SQLDialect.POSTGRES).update(ACCOUNT_SESSION)
                 .set(ACCOUNT_SESSION.REVOKED_AT, java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC))
                 .where(ACCOUNT_SESSION.ID.eq(principal.sessionId)).and(ACCOUNT_SESSION.REVOKED_AT.isNull).execute()
+            val installs = org.asyncttwiz.server.generated.tables.ActivityInstallation.ACTIVITY_INSTALLATION
+            DSL.using(connection, SQLDialect.POSTGRES).deleteFrom(installs).where(installs.SESSION_ID.eq(principal.sessionId)).execute()
         }
     }
 
@@ -85,6 +87,9 @@ class AccountService(private val runtime: ServiceRuntime, private val passwords:
             DSL.using(connection, SQLDialect.POSTGRES).update(ACCOUNT_SESSION)
                 .set(ACCOUNT_SESSION.REVOKED_AT, java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC))
                 .where(ACCOUNT_SESSION.TOKEN_HASH.eq(hash(token))).and(ACCOUNT_SESSION.REVOKED_AT.isNull).execute()
+            val installs = org.asyncttwiz.server.generated.tables.ActivityInstallation.ACTIVITY_INSTALLATION
+            DSL.using(connection, SQLDialect.POSTGRES).deleteFrom(installs).where(installs.SESSION_ID.`in`(
+                DSL.select(ACCOUNT_SESSION.ID).from(ACCOUNT_SESSION).where(ACCOUNT_SESSION.TOKEN_HASH.eq(hash(token))))).execute()
         }
     }
 

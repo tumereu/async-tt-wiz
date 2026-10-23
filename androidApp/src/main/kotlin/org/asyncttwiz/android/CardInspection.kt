@@ -16,10 +16,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import org.asyncttwiz.protocol.*
 
 /** Text remains available regardless of artwork/network state. No gameplay permission policy here. */
 @Composable
-internal fun CardInspection(controller: CardInspectionController) {
+internal fun CardInspection(controller: CardInspectionController, annotation: String? = null) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
@@ -60,6 +61,7 @@ internal fun CardInspection(controller: CardInspectionController) {
                     }
                     val text: @Composable () -> Unit = {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            annotation?.let { Text(it) }
                             Text(face.name, style = MaterialTheme.typography.titleLarge)
                             if (face.manaCost.isNotEmpty()) Text(face.manaCost)
                             if (face.typeLine.isNotEmpty()) Text(face.typeLine)
@@ -86,5 +88,34 @@ internal fun CardInspection(controller: CardInspectionController) {
                 }
             }
         }
+    }
+}
+
+/** Game inspection filters playable faces BEFORE entering the general deck/art inspector. */
+@Composable
+internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit) {
+    if (inspection.gameId != state.gameId || inspection.playId != state.id) return
+    val card = inspection.snapshot ?: state.board.cards.singleOrNull { it.id == inspection.cardId } ?: return
+    val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
+    val allowed = if (inspection.explicit) inspection.faceIds else
+        ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }.filter { it in inspection.faceIds }
+    val faces = definition?.faces.orEmpty().filter { it.faceId in allowed }
+    if (faces.isEmpty()) {
+        AlertDialog(onDismissRequest = close, title = { Text(if (definition == null) "Card data unavailable" else "Covered card") },
+            text = { Text("Owner ${card.owner}") },
+            confirmButton = { TextButton(onClick = close) { Text("Close") } })
+    } else {
+        val filtered = definition!!.copy(name = faces.first().name, faces = faces)
+        val full = remember(card.definition, definition) { InspectedCard.retained(card.definition, definition) }
+        val permitted = remember(full, filtered) { InspectedCard(filtered,
+            faces.map { face -> full.artwork[definition.faces.indexOf(face)] }) }
+        val controller = remember(inspection) { CardInspectionController().apply { open(permitted) } }
+        LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted) }
+        if (controller.state != null) CardInspection(controller,
+            (if (inspection.provisional) "Provisional inspection · awaiting shared result\n" else "") +
+                "Owner ${card.owner} · ${if (card.tapped) "tapped" else "untapped"}\n${card.corner}\n" +
+                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}")
+        // Inner dialog's native Back/outside/close must also release the retained outer route.
+        LaunchedEffect(controller.state) { if (controller.state == null) close() }
     }
 }

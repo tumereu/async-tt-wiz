@@ -37,8 +37,12 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
     val state = controller.state
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
-    MaterialTheme(colorScheme = lightColorScheme(primary = Teal, onPrimary = Color.White,
-        background = Backdrop, surface = Color.White, onSurface = Ink)) {
+    val tabletop = state.account != null && state.destination == ShellDestination.GAMES &&
+        lobby?.state?.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
+    val theme: @Composable (@Composable () -> Unit) -> Unit = { content ->
+        if (tabletop) MaterialTheme(content = content) else ScreenTheme(content)
+    }
+    theme {
         BackHandler(enabled = reset.state != null) { reset.dismiss() }
         BackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
             controller.page(AuthPage.LOGIN)
@@ -66,9 +70,15 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                     horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     Column(Modifier.weight(0.35f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("ASYNC TABLETOP WIZARDS", fontWeight = FontWeight.SemiBold)
-                        Text("Create your player account", style = MaterialTheme.typography.headlineSmall)
+                         Text("Create your player account", style = MaterialTheme.typography.titleLarge)
                     }
                     FormCard(Modifier.weight(0.65f).fillMaxHeight().verticalScroll(rememberScrollState()), state, controller, reset, branded = false)
+                }
+                state.page == AuthPage.REGISTER -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("ASYNC TABLETOP WIZARDS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Create your player account", style = MaterialTheme.typography.headlineSmall)
+                    FormCard(Modifier.fillMaxWidth(), state, controller, reset, branded = false)
                 }
                 else -> BoxWithConstraints(Modifier.fillMaxSize()) {
                     // minHeight centers the same bounded card when it fits; short/IME viewports scroll it.
@@ -90,13 +100,12 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (branded) {
                 WizardLogo(Modifier.align(Alignment.CenterHorizontally))
-                Text("Async Tabletop Wizards", Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleLarge,
+                Text("Async Tabletop Wizards", Modifier.fillMaxWidth(), style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Text("Specialized tabletop simulator for asynchronous wizardry", Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodyMedium, color = Color(0xff6b7788), textAlign = TextAlign.Center)
             }
-            Text(if (state.page == AuthPage.REGISTER) "Create account" else "Sign in",
-                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            if (branded) Text("Sign in", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (state.page == AuthPage.REGISTER) {
                 EntryField("Username", state.username, !state.busy, "username", KeyboardType.Text,
                     onValueChange = { controller.edit(username = it) })
@@ -108,30 +117,36 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
                 Text("Your email stays private.", style = MaterialTheme.typography.bodySmall, color = Color(0xff6b7788))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Password", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(state.password, { controller.edit(password = it) }, Modifier.fillMaxWidth().testTag("password")
+                ScreenTextField(state.password, { controller.edit(password = it) }, Modifier.fillMaxWidth().testTag("password")
                     .semantics { contentDescription = "Password" },
                     enabled = !state.busy, singleLine = true,
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                     trailingIcon = {
                         IconButton(onClick = { visible = !visible }, enabled = !state.busy) {
-                            EntryIcon(if (visible) "Hide password" else "Show password", "eye")
+                            EntryIcon(if (visible) "Hide password" else "Show password", if (visible) "eye-off" else "eye")
                         }
-                    }, shape = RoundedCornerShape(8.dp))
+                    })
             }
             state.message?.let {
-                Text(it, Modifier.testTag("auth-message"), color = if (state.error) MaterialTheme.colorScheme.error else Teal,
-                    style = MaterialTheme.typography.bodyMedium)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (state.error) Icon(screenIcon("error"), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                    Text(it, Modifier.testTag("auth-message"), color = if (state.error) MaterialTheme.colorScheme.error else Teal,
+                        style = MaterialTheme.typography.bodySmall)
+                }
             }
-            Button(onClick = controller::submit, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                shape = RoundedCornerShape(8.dp)) {
+            ScreenButton(onClick = controller::submit, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 EntryIcon(null, if (state.page == AuthPage.REGISTER) "person" else "login")
                 Spacer(Modifier.width(8.dp))
                 Text(if (state.busy) "Please wait…" else if (state.page == AuthPage.REGISTER) "Create account" else "Sign in")
             }
-            HorizontalDivider()
+            if (branded) HorizontalDivider()
             TextButton(onClick = { controller.page(if (state.page == AuthPage.REGISTER) AuthPage.LOGIN else AuthPage.REGISTER) },
                 enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                if (state.page == AuthPage.REGISTER) {
+                    Text("Already have an account?", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
+                }
                 EntryIcon(null, if (state.page == AuthPage.REGISTER) "login" else "person")
                 Spacer(Modifier.width(8.dp))
                 Text(if (state.page == AuthPage.REGISTER) "Sign in" else "Create account")
@@ -152,9 +167,11 @@ private fun ResetEntry(controller: ResetController) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            if (state.page == ResetPage.REQUEST) Text("Reset password",
-                Modifier.widthIn(max = 400.dp).fillMaxWidth().padding(bottom = 16.dp),
-                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+            val title: @Composable () -> Unit = {
+                Text("Reset password", Modifier.padding(bottom = 16.dp), style = MaterialTheme.typography.titleLarge)
+            }
+            val form: @Composable () -> Unit = {
             Surface(Modifier.widthIn(max = 400.dp).fillMaxWidth(), shape = RoundedCornerShape(8.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xffcdd3dc))) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -163,14 +180,14 @@ private fun ResetEntry(controller: ResetController) {
                             onValueChange = { controller.edit(email = it) })
                     } else if (state.page == ResetPage.PASSWORD && !state.checking) {
                         Text("New password", fontWeight = FontWeight.SemiBold)
-                        OutlinedTextField(state.password, { controller.edit(password = it) },
+                        ScreenTextField(state.password, { controller.edit(password = it) },
                             Modifier.fillMaxWidth().testTag("password").semantics { contentDescription = "New password" },
                             enabled = !state.busy, singleLine = true,
                             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                             trailingIcon = { IconButton(onClick = { visible = !visible }, enabled = !state.busy) {
                                 EntryIcon(if (visible) "Hide password" else "Show password", "eye")
-                            } }, shape = RoundedCornerShape(8.dp))
+                            } })
                     }
                     if (state.checking && !state.checkFailed) {
                         Text("Checking reset link…"); CircularProgressIndicator(Modifier.size(24.dp))
@@ -183,9 +200,9 @@ private fun ResetEntry(controller: ResetController) {
                         }
                         state.page == ResetPage.INVALID -> TextButton(onClick = { controller.request() },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Request another link") }
-                        !state.checking -> Button(onClick = controller::submit, enabled = !state.busy,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(8.dp)) {
-                            EntryIcon(null, "key"); Spacer(Modifier.width(8.dp))
+                        !state.checking -> ScreenButton(onClick = controller::submit, enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth()) {
+                            EntryIcon(null, if (state.page == ResetPage.REQUEST) "email" else "key"); Spacer(Modifier.width(8.dp))
                             Text(if (state.busy) "Please wait…" else if (state.page == ResetPage.REQUEST) "Send reset link" else "Change password")
                         }
                     }
@@ -194,6 +211,15 @@ private fun ResetEntry(controller: ResetController) {
                         EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Back to sign in")
                     }
                 }
+            }
+            }
+            if (landscape && state.page == ResetPage.REQUEST) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Box(Modifier.weight(1f)) { title() }
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { form() }
+            } else {
+                if (state.page == ResetPage.REQUEST) Box(Modifier.widthIn(max = 400.dp).fillMaxWidth()) { title() }
+                form()
             }
         }
     }
@@ -204,16 +230,15 @@ private fun EntryField(label: String, value: String, enabled: Boolean, tag: Stri
     onValueChange: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(value, onValueChange, Modifier.fillMaxWidth().testTag(tag).semantics { contentDescription = label }, enabled = enabled,
-            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = type, autoCorrectEnabled = false),
-            shape = RoundedCornerShape(8.dp))
+        ScreenTextField(value, onValueChange, Modifier.fillMaxWidth().testTag(tag).semantics { contentDescription = label }, enabled = enabled,
+            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = type, autoCorrectEnabled = false))
     }
 }
 
 @Composable
 internal fun WizardLogo(modifier: Modifier = Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Canvas(Modifier.size(112.dp, 76.dp).semantics { contentDescription = "Wizard hat" }) {
+        Canvas(Modifier.size(112.dp, 86.dp).semantics { contentDescription = "Wizard hat" }) {
             val hat = Path().apply { moveTo(size.width * .25f, size.height * .85f); lineTo(size.width * .55f, 0f)
                 lineTo(size.width * .76f, size.height * .85f); close() }
             drawPath(hat, Color(0xff365f53))
@@ -229,58 +254,8 @@ internal fun WizardLogo(modifier: Modifier = Modifier) {
     }
 }
 
-/** Small original vector glyphs; buttons carry accessible names and full native targets. */
+/** Shared Material glyphs; decorative icons leave the button's text as its accessible name. */
 @Composable
 internal fun EntryIcon(description: String?, kind: String) {
-    val color = LocalContentColor.current
-    Canvas(Modifier.size(24.dp).semantics { if (description != null) contentDescription = description }) {
-        val w = size.width
-        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(w / 12)
-        when (kind) {
-            "menu" -> for (line in listOf(.25f, .5f, .75f))
-                drawLine(color, Offset(w * .15f, w * line), Offset(w * .85f, w * line), w / 12)
-            "close" -> {
-                drawLine(color, Offset(w * .25f, w * .25f), Offset(w * .75f, w * .75f), w / 12)
-                drawLine(color, Offset(w * .75f, w * .25f), Offset(w * .25f, w * .75f), w / 12)
-            }
-            "decks" -> {
-                drawRect(color, Offset(w * .32f, w * .15f), Size(w * .5f, w * .7f), style = stroke)
-                drawLine(color, Offset(w * .18f, w * .25f), Offset(w * .1f, w * .85f), w / 12)
-                drawLine(color, Offset(w * .1f, w * .85f), Offset(w * .6f, w * .95f), w / 12)
-            }
-            "contacts" -> {
-                for (x in listOf(.35f, .65f)) {
-                    drawCircle(color, w / 8, Offset(w * x, w * .3f), style = stroke)
-                    drawArc(color, 180f, 180f, false, Offset(w * (x - .25f), w * .55f), Size(w * .5f, w * .4f), style = stroke)
-                }
-            }
-            "games" -> {
-                drawLine(color, Offset(w * .2f, w * .2f), Offset(w * .8f, w * .8f), w / 9)
-                drawLine(color, Offset(w * .8f, w * .2f), Offset(w * .2f, w * .8f), w / 9)
-                drawLine(color, Offset(w * .1f, w * .65f), Offset(w * .35f, w * .9f), w / 12)
-                drawLine(color, Offset(w * .65f, w * .9f), Offset(w * .9f, w * .65f), w / 12)
-            }
-            "search" -> {
-                drawCircle(color, w * .25f, Offset(w * .4f, w * .4f), style = stroke)
-                drawLine(color, Offset(w * .58f, w * .58f), Offset(w * .88f, w * .88f), w / 12)
-            }
-            "refresh" -> {
-                drawArc(color, 30f, 300f, false, Offset(w * .2f, w * .2f), Size(w * .6f, w * .6f), style = stroke)
-                drawLine(color, Offset(w * .8f, w * .15f), Offset(w * .8f, w * .4f), w / 12)
-                drawLine(color, Offset(w * .8f, w * .4f), Offset(w * .55f, w * .4f), w / 12)
-            }
-            "eye" -> { drawOval(color, Offset(1f, w / 4), Size(w - 2, w / 2), style = stroke); drawCircle(color, w / 8) }
-            "person" -> { drawCircle(color, w / 7, Offset(w * .4f, w / 3), style = stroke)
-                drawArc(color, 180f, 180f, false, Offset(w * .1f, w * .6f), Size(w * .6f, w * .4f), style = stroke)
-                drawLine(color, Offset(w * .7f, w * .35f), Offset(w, w * .35f), w / 12)
-                drawLine(color, Offset(w * .85f, w * .2f), Offset(w * .85f, w * .5f), w / 12) }
-            "key" -> { drawCircle(color, w / 5, Offset(w / 4, w / 2), style = stroke)
-                drawLine(color, Offset(w * .45f, w / 2), Offset(w, w / 2), w / 12)
-                drawLine(color, Offset(w * .8f, w / 2), Offset(w * .8f, w * .7f), w / 12) }
-            else -> { drawLine(color, Offset(w * .1f, w / 2), Offset(w * .7f, w / 2), w / 12)
-                drawLine(color, Offset(w * .5f, w * .3f), Offset(w * .7f, w / 2), w / 12)
-                drawLine(color, Offset(w * .5f, w * .7f), Offset(w * .7f, w / 2), w / 12)
-                drawLine(color, Offset(w * .9f, w * .15f), Offset(w * .9f, w * .85f), w / 12) }
-        }
-    }
+    Icon(screenIcon(kind), description, Modifier.size(22.dp))
 }

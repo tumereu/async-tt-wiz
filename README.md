@@ -29,6 +29,11 @@ Testcontainers PostgreSQL).
 
 `scripts/gradle.sh` wraps `./gradlew` and applies a WSL networking workaround.
 
+## Play with a friend (self-hosting)
+
+See the [self-hosting guide](deploy/README.md) for the Docker stack, HTTPS setup
+and an APK you can both sideload. Public-domain and private Tailscale setups work.
+
 ## Run locally
 
 Requires the build prerequisites above, Bash, Python 3, curl, OpenSSL, `setsid`,

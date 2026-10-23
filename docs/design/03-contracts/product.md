@@ -99,7 +99,7 @@ P-065 governs older references above to preserving pending recovery through rest
 upgrade: preserve accepted downloads/login, not a required durable outgoing journal.
 P-066–P-069 and the focused technical profiles complete earlier tentative defaults;
 they do not independently authorize application code or a stage transition.
-The current [D-304 owner record](../../agent/implementation-authorization.md)
+The current [D-304 owner record](../../decisions.md)
 separately supplies that implementation authorization.
 
 The [accounts, decks, and lobby contract](accounts-decks-and-lobby.md) owns these

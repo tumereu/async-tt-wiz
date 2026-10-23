@@ -42,6 +42,9 @@ fun externalSigningPassword(reference: String): String = providers.fileContents(
     }
 val releaseSigningInputs = externalSigningInputs("Release", "RELEASE")
 val testSigningInputs = externalSigningInputs("Test", "TEST")
+// Opt-in self-hosting mode reuses the locked release graph and HTTPS policy.
+val selfHosted = providers.gradleProperty("atwSelfHosted").orElse("false").get().toBooleanStrict()
+val localSelfHosted = selfHosted && releaseSigningInputs == null
 
 val fcmProperties = listOf("atwFcmApplicationId", "atwFcmProject", "atwFcmApiKey", "atwFcmSender")
 val fcmConfiguredCount = fcmProperties.count { providers.gradleProperty(it).orElse("").get().isNotEmpty() }
@@ -99,6 +102,7 @@ android {
     testOptions.unitTests.isIncludeAndroidResources = true
     // No guessed production host. Release endpoints must use normal platform TLS.
     val origin = providers.gradleProperty("atwApiOrigin").orElse("").get()
+    require(!selfHosted || origin.startsWith("https://")) { "Self-hosted APKs require an HTTPS API origin" }
     require(origin.isEmpty() || runCatching {
         val uri = URI(origin)
         uri.host != null && uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null &&
@@ -154,8 +158,13 @@ android {
     }
     buildTypes.getByName("release") {
         buildConfigField("boolean", "ACCOUNT_SWITCHER", "false")
-        // Missing external inputs deliberately produces an unsigned APK, never a debug-signed release.
-        signingConfig = externalReleaseSigning
+        // Ordinary releases stay unsigned without operator inputs. Only the explicit
+        // self-hosting fallback uses AGP's local debug signer, under a distinct app ID.
+        signingConfig = if (localSelfHosted) signingConfigs.getByName("debug") else externalReleaseSigning
+        if (localSelfHosted) {
+            applicationIdSuffix = ".local"
+            versionNameSuffix = "-local"
+        }
         // The release manifest also forbids cleartext, even if misconfigured.
         buildConfigField("String", "ACCOUNT_ORIGIN", "\"${origin.takeIf { it.startsWith("https://") }.orEmpty()}\"")
     }

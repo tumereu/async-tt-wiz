@@ -1,0 +1,15 @@
+# Optional authenticated SMTP; combine with compose.yml, not a standalone stack.
+services:
+  server:
+    environment:
+      SMTP_USERNAME_FILE: /run/secrets/smtp_username
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+    secrets:
+      - smtp_username
+      - smtp_password
+
+secrets:
+  smtp_username:
+    file: ${SMTP_USERNAME_PATH:-./secrets/smtp-username}
+  smtp_password:
+    file: ${SMTP_PASSWORD_PATH:-./secrets/smtp-password}

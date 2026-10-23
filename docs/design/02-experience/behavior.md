@@ -4,7 +4,7 @@ This is the Tier 2 behavior summary, not a new set of decisions. It explains
 confirmed behavior; broader proposals and gaps are [listed separately](gaps.md).
 Start with [Tier 1's general principles](../01-product/overview.md). Use the
 [Tier 3 contract index](../03-contracts/README.md) for exact detail; approval
-provenance is retained separately in [agent records](../../agent/decisions.md).
+provenance is retained separately in the [decision log](../../decisions.md).
 
 ## The whole idea
 
@@ -850,5 +850,5 @@ in [Tier 3](../03-contracts/README.md); agent interpretation notes and handoffs 
 kept separately, not mixed into the player-facing design.
 
 **Current status:** the agreed R1 implementation is authorized under
-[D-304](../../agent/implementation-authorization.md). This overview remains a
+[D-304](../../decisions.md). This overview remains a
 behavior baseline, not approval of extra features or a claim of passing app tests.

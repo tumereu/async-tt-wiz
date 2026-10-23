@@ -85,7 +85,7 @@ must be completed against existing rules, escalating only a demonstrated new gap
 The October 19 review was reconciled with D-245–D-250. The October 20 review is
 now reconciled with **D-251–D-253**, which replace the earlier tap/hold/full-combined
 wording where stated, plus derived command/lifecycle/reference/durability repairs.
-See the [latest disposition](../../agent/adversarial-review-2026-10-20.md#documentation-follow-up-after-owner-discussion)
+See the [decision log](../../decisions.md)
 and [grouping E2E matrix](../05-verification/grouping-matrix.md).
 Technical completion and additional consistency audits remain; this is not an
 exhaustiveness claim or approval of implementation/UI/stage transition.
@@ -97,7 +97,7 @@ not another owner choice. **F-05 is resolved by D-257's strict singleton ending
 groups**, rather than the proposed E-family mapping. D-286 supersedes F-03's special
 speculative-exposure recovery requirement; D-288 completes F-04's token-anchor
 example. Remaining unrelated F-06 editorial work stays separate; see the
-[review disposition](../../agent/adversarial-review-2026-10-20-follow-up.md#outcome).
+[decision log](../../decisions.md).
 
 **F-02 is resolved by D-258:** successful deliberate shared-history switches clear
 both queues, while ordinary events, Undo/Redo and UI-only review retain their
@@ -219,10 +219,9 @@ Prediction withdrawal is local; already-sent requests retain actual-outcome reco
 and late accepted changes apply normally. Exact mode UI/timing/storage representation
 remains completion work, not new permission for request cancellation/offline play.
 
-The [classified Q-register](../../agent/decisions.md#93-release-blocking-questions)
+The [classified Q-register](../../decisions.md#93-release-blocking-questions)
 keeps stable tracking IDs while replacing the original mixed question queue.
-Older "open" wording elsewhere is not an automatic owner-question queue. Known
-drift and the pruning rationale are in the [specification audit](../../agent/specification-audit.md).
+Older "open" wording elsewhere is not an automatic owner-question queue.
 
 ## Broader draft scope — D-241 release exclusion
 

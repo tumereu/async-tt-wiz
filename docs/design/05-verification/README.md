@@ -29,6 +29,3 @@ request authorization, best-effort remote Logout and complete definition HTTP PO
 T-671–T-673 reaffirm stable UUID references, ancestor fallback across full recovery
 and acceptable shared-socket backpressure. No custom upload or reset-race machinery
 is required to satisfy earlier oracles.
-
-Agent delivery gates and implementation-loop instructions live separately in
-[the delivery workflow](../../agent/delivery-workflow.md).

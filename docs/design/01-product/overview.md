@@ -150,5 +150,5 @@ look simpler.
 For traceability, see the [detailed product contract](../03-contracts/product.md).
 
 **Status:** stage-4 implementation of the agreed R1 is authorized under
-[D-304](../../agent/implementation-authorization.md); this design is the baseline,
+[D-304](../../decisions.md); this design is the baseline,
 not a claim of implemented or verified application behavior.

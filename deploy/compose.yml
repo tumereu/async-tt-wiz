@@ -1,0 +1,85 @@
+name: atw-selfhost
+
+x-server: &server
+  image: async-tt-wiz-server:local
+  build:
+    context: ../server/build/docker-context
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+  stop_grace_period: 30s
+
+x-database-environment: &database-environment
+  DB_URL: jdbc:postgresql://db:5432/atw
+  DB_USER: atw
+  DB_PASSWORD_FILE: /run/secrets/db_password
+
+services:
+  db:
+    # Keep identical to server/database-images.properties (PostgreSQL 17.11-bookworm).
+    image: postgres@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+    environment:
+      POSTGRES_DB: atw
+      POSTGRES_USER: atw
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U atw -d atw"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *server
+    command: [migrate]
+    environment: *database-environment
+    secrets: [db_password]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  server:
+    <<: *server
+    command: [serve]
+    environment:
+      <<: *database-environment
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?Set the public HTTPS origin in deploy/.env}
+      RESET_BASE_URL: ${RESET_BASE_URL:-${PUBLIC_BASE_URL}}
+      RESET_MAIL_KEY_FILE: /run/secrets/reset_mail_key
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8080"
+      HEALTH_ADDRESS: 127.0.0.1
+      HEALTH_PORT: "8081"
+      # No SMTP listener is provisioned by default: play works, reset delivery does not.
+      SMTP_HOST: ${SMTP_HOST:-127.0.0.1}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@example.invalid}
+      SMTP_TLS: ${SMTP_TLS:-starttls}
+    secrets: [db_password, reset_mail_key]
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --max-time, "3", "http://127.0.0.1:8081/health/ready"]
+      interval: 5s
+      timeout: 4s
+      start_period: 20s
+      retries: 20
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+secrets:
+  db_password:
+    file: ${DB_PASSWORD_PATH:-./secrets/db-password}
+  reset_mail_key:
+    file: ${RESET_MAIL_KEY_PATH:-./secrets/reset-mail-key}
+
+volumes:
+  db_data:

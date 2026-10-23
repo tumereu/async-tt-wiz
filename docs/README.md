@@ -16,41 +16,12 @@ You should not need decision logs or an agent handoff to understand the app.
 These are **levels of explanation**, not implementation stages. Reading farther
 down should add precision, not introduce a new usability model.
 
-### UI review pilot
+## Current status
 
-The owner has authorized a limited **[UI review packet](design/02-experience/ui/README.md)**
-using Stitch, with portrait and landscape mockups, interaction notes and compiled
-HTML/PDF review editions: the original non-gameplay pilot (D-290) and the
-[gameplay-screen extension](design/02-experience/gameplay-screen-proposal.md) (D-291).
-The [cumulative UI feedback record](design/02-experience/ui/feedback.md) preserves
-D-292's fullscreen/branding/navigation and D-293's compact icons, contextual game/
-deck actions, drag preparation and art inspection; D-294 adds named/date-stamped
-games, globally no app Back arrows, shared title rows and refined selection.
-D-295 adds naming dialog/select-all, simpler reconnect/delete presentation,
-unruled equal-space fields, owner borders/actions, compact life, corner-peek Stack,
-token/ping/reveal mocks and dense type-icon history. D-296 refines search/results,
-uniform card scale, sidebar Stack/count badges, player counters/drag previews and
-author/group-aware history transport/continuation. D-297 adds login logo/readiness,
-compact pannable hands in landscape control rows, narrow combat/insertion targets,
-circular player counters, centered timeline/endpoints, direct chat and icon-only
-card actions with retained state preview. D-298 packs card/player values, adds
-full quick/icon legends, phase picker and graphical tree/return designs, centers
-hands and fixes small full-width counters. One quick slot now combines tap Next
-step/hold End turn; combat uses dividers only and source-relationship highlights. The
-same-URL full HTML publication workflow persists. D-299 adds blank absent player
-counters, ending-player-filled End controls, short action-name tooltips without
-stealing hold actions, and a compact pannable grouped tree with delegated R1 icon
-ranking. H07's archive/return UI is withdrawn as unnecessary for branch switching,
-not a retirement of the older archive feature. G13 pictures the tooltip. Remaining copy cuts are proposals.
-Those pilot decisions authorized design artifacts, not implementation by themselves.
-D-304 now separately authorizes the agreed implementation using the packet as its
-initial baseline; no claim of perfect/frozen UI or already-passed app verification.
-
-## Separate agent records
-
-[Agent records](agent/README.md) contain decision history, session handoffs,
-review worklists, specification-audit notes and delivery instructions. They are
-kept outside `design/` so process/history does not become the product description.
+R1 is implemented in the Android app and backend.
+The tiered design documents are the spec, not a test execution report.
+Decision history is retained in [docs/decisions.md](decisions.md).
+See the [self-hosting guide](../deploy/README.md) to play with another person.
 
 ## How the tiers fit together
 
@@ -68,7 +39,7 @@ kept outside `design/` so process/history does not become the product descriptio
   updates that contract, the affected summaries, verification outcomes and decision
   provenance together. Requirement/scenario IDs remain stable across file moves.
 - The tier split preserves the existing detail; it is not a claim that all old
-  duplication or wording drift is fixed. See the [audit](agent/specification-audit.md).
+  duplication or wording drift is fixed.
 
 ## How to read normative language
 
@@ -81,25 +52,3 @@ kept outside `design/` so process/history does not become the product descriptio
 
 Unless marked confirmed, the detailed behavior in these documents is proposed.
 Do not silently promote a proposal to an approved requirement during coding.
-
-## Current status
-
-**Stage 4: implementation authorized — D-304.** The owner explicitly authorized
-the agreed entire-R1 plan after attempting the runner. See the
-[authorization record](agent/implementation-authorization.md) and
-[active state](agent/implementation-state.json). Earlier specification-only/no-code
-stage statements are historical; current scope, tests, review/fix obligations and
-external release gates remain. No application task or verification result is
-declared complete by authorization alone.
-
-The architecture review's agreed simplifications/repairs (D-285–D-289), following
-the D-278–D-284 technical batch, remain the implementation baseline. See
-[review disposition](design/02-experience/gaps.md#architecture-review-disposition--d-285d-288).
-The [follow-up disposition](design/02-experience/gaps.md#follow-up-architecture-review-disposition--d-289)
-records the simpler UUID, authorization and ordinary HTTP definition-submission rules.
-
-The confirmed delivery order remains: behavior specification → adversarial review
-and refinement → UI decisions → explicitly authorized iterative implementation.
-Finishing behavior does not require every technical detail or final screen draft.
-The full [delivery gates](agent/delivery-workflow.md) are agent/process material,
-not additional user-facing rules.

@@ -1,0 +1,6 @@
+# Run Caddy on the Docker host. Replace with your public DNS name.
+tabletop.example.com {
+    # Caddy automatically obtains/renews TLS and proxies WebSocket upgrades.
+    reverse_proxy 127.0.0.1:8080
+    # Do not enable access logging: reset URLs contain secret tokens.
+}

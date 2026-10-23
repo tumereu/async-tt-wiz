@@ -495,12 +495,12 @@ class DeckHttpTest {
                     INSERT INTO account_request VALUES ('$request',201,'retained original');
                 """.trimIndent())
             }
-            assertEquals(2, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(10, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             db.connection().use { c -> c.createStatement().executeQuery("SELECT name,revision,cover_digest FROM saved_deck").use {
                 assertTrue(it.next()); assertEquals("Retained deck", it.getString(1)); assertEquals(9, it.getLong(2)); assertNull(it.getString(3))
             } }
             assertEquals(1, count(db, "deck_entry")); assertEquals(1, count(db, "definition")); assertEquals(1, count(db, "account_request"))
-            println("PASS explicit forward V4-to-V5 migration retains populated accepted deck/entries/definitions/revision/original outcome without destructive reset")
+            println("PASS explicit forward V4-to-current migration retains populated accepted deck/entries/definitions/revision/original outcome without destructive reset")
         }
     }
 
@@ -528,13 +528,13 @@ class DeckHttpTest {
                 val process = migration.start()
                 val output = process.inputStream.bufferedReader().readText()
                 assertTrue(process.waitFor(45, TimeUnit.SECONDS)); assertEquals(0, process.exitValue(), output)
-                assertTrue(output.contains("applied=3")); println(output.trim())
+                assertTrue(output.contains("applied=11")); println(output.trim())
                 assertEquals(1, count(db, "account")); assertEquals(0, count(db, "saved_deck"))
                 assertEquals(0, FoundationMigrations.migrate(db.settings))
                 db.connection().use { connection -> connection.createStatement().executeQuery("SELECT password_phc FROM account").use {
                     assertTrue(it.next()); assertEquals("retained-phc", it.getString(1))
                 } }
-                println("PASS installed explicit V4 migration preserves populated V3 account; clean unsupported routes never migrate; real generated deck bindings exercised by HTTP tests")
+                println("PASS installed explicit V3-to-current migration preserves populated V3 account; clean unsupported routes never migrate; real generated deck bindings exercised by HTTP tests")
             } finally { java.nio.file.Files.deleteIfExists(secret) }
         }
     }

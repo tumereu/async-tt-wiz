@@ -346,7 +346,7 @@ class PreparedDeckTest {
                 INSERT INTO invitation VALUES ('$invite','$game','PENDING'); COMMIT;
                 INSERT INTO request_identity VALUES ('$request','$b','gameCommand','$game','${GameWire.digest(command)}');
                 INSERT INTO game_inbox VALUES ('$request','$game','$b',1,'$stream',1,'${json.encodeToString<GameClientMessage>(command)}',NULL);""")
-            assertEquals(2, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(7, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             assertEquals(1, number(db, "SELECT count(*) FROM saved_deck WHERE revision=9"))
             assertEquals(1, number(db, "SELECT count(*) FROM deck_entry WHERE quantity=3"))
             assertEquals(1, number(db, "SELECT count(*) FROM game WHERE id='$game' AND preparation_round='$round' AND current_invitation='$invite' AND revision=0 AND next_ingress=2"))
@@ -358,7 +358,7 @@ class PreparedDeckTest {
             assertEquals(1, number(db, "SELECT count(*) FROM invitation WHERE state='DECLINED'"))
             assertEquals(1, number(db, "SELECT count(*) FROM game_inbox WHERE result IS NOT NULL"))
             assertEquals(1, number(db, "SELECT count(*) FROM game_revision")); assertEquals(1, number(db, "SELECT count(*) FROM game_outbox"))
-            println("PASS explicit V7-to-V9 retained source/definition/game/round/current attempt/next ordinal and original pending command survive; preparation tables start empty and existing durable invitation resumes once after migration")
+            println("PASS explicit V7-to-current retained source/definition/game/round/current attempt/next ordinal and original pending command survive; preparation tables start empty and existing durable invitation resumes once after migration")
         }
     }
 }

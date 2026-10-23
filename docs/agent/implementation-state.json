@@ -109,7 +109,8 @@
                                                               "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json",
                                                                "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3.json",
                                                                 "docs/agent/implementation-runs/20261023T024324Z-aa902dde.json",
-                                                                "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json"
+                                                                 "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+     "docs/agent/implementation-runs/managed-20261023-accept-i12a-01.json"
    ],
   "findings": [
     {
@@ -1119,9 +1120,11 @@
     {
       "id": "I12a",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
       "dependsOn": ["I11"],
       "planningRecord": "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+      "implementationRecord": "docs/agent/implementation-runs/managed-20261023-accept-i12a-01.json",
+      "qualification": "Accepted exact saved worker fc746ec58593d14b1630c74c638eae00c112ce0f through fresh minimal and latest-base candidate reconciliation. Captured-round CancelSetup, original-only cancelled outcome recovery, monotonic list/session/context fencing, affected shared/PostgreSQL/socket/HTTP/controller checks and actual SQL rollback/worker recovery are retained with unchanged source/test/check bytes. Unrelated pushed helper updates were preserved without replaying unchanged green suites. Native controls/full two-Android journey remain I12b; parent I12 and first independent B3 review remain unfinished. Returned rounds, final full-suite/mock/compatibility and external gates are not passed.",
       "outcome": "Implement real unstarted-game cancellation and coherent lobby/list lifecycle recovery on the existing GameAction/GameService/inbox/revision/outbox and GameSession/LobbyController path. Bind cancellation to the captured persistent game/preparation round, serialize it with invitation/preparation/readiness/start, allow either admitted lobby participant without opponent consent and let inviter cancel a pending invitation with the same action. Cancel-first removes current game/invitation and prevents revival; start-first rejects late cancellation without resetting play. Preserve private original outcomes after cancellation without restoring ordinary cancelled-game access. Reconcile accepted lifecycle/list state, pending originals and personal UI separately; leaving alone preserves preparation/Ready. Native entry points/dialog and full two-Android journey are I12b, not fake controls here.",
       "checks": [
         "Run affected shared codec/semantic and real PostgreSQL/authenticated socket/HTTP checks for exact game/round cancellation, inviter pending-invitation cancellation and either accepted participant cancellation; no vote, presence gate or active-game deletion. Exercise cancellation versus second Ready/start, Accept, preparation and Reinvite in relevant server orders: no started-board reset, stale-round retargeting, replacement/revival, current cancelled row or pending invite. Use existing ordered processor, not a new HTTP mutation/queue or broad head-revision lock.",

@@ -1,0 +1,40 @@
+{
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Accepted unchanged I12a cancellation/server/session outcome from exact saved worker after two fresh candidate reconciliations; unrelated external progress-helper updates preserved. Native I12b, B3 review, returned rounds and final qualification remain pending.",
+  "selectionReason": "Latest canonical selection is I12a, inherited I11 is implemented, exact selected task contract unchanged from worker base; one supervisor applies bounded proposal to latest state.",
+  "workerProposal": {
+    "report": "docs/agent/implementation-runs/managed-20261023-i12a-01.json",
+    "commit": "fc746ec58593d14b1630c74c638eae00c112ce0f"
+  },
+  "inspectedCommit": "c2f62627aaec08806a2c30157df5ed298c194089",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 -c 'import hashlib,json,pathlib,subprocess,importlib.util\nspec=importlib.util.spec_from_file_location('\"'\"'loop'\"'\"','\"'\"'scripts/implementation-loop.py'\"'\"'); loop=importlib.util.module_from_spec(spec); spec.loader.exec_module(loop); j=json.load(open('\"'\"'.git/implementation-loop/orchestrator.json'\"'\"')); assert j['\"'\"'sessionID'\"'\"']=='\"'\"'ses_e98e692b5ffeBJQVZlMZLGeAsS'\"'\"'; worker='\"'\"'fc746ec58593d14b1630c74c638eae00c112ce0f'\"'\"'; rp='\"'\"'docs/agent/implementation-runs/managed-20261023-i12a-01.json'\"'\"'\ndef blob(c,p): return subprocess.check_output(['\"'\"'git'\"'\"','\"'\"'show'\"'\"',c+'\"'\"':'\"'\"'+p])\nr=json.loads(blob(worker,rp)); assert pathlib.Path(rp).read_bytes()==blob(worker,rp)\npaths=set(r['\"'\"'changedPaths'\"'\"']+r['\"'\"'proposal'\"'\"']['\"'\"'sourcePaths'\"'\"']+r['\"'\"'proposal'\"'\"']['\"'\"'testPaths'\"'\"'])\nfor p in paths: assert pathlib.Path(p).read_bytes()==blob(worker,p),p\nfor chk in r['\"'\"'checks'\"'\"']:\n e=json.loads(pathlib.Path(chk['\"'\"'evidence'\"'\"']).read_text()); assert e['\"'\"'exitCode'\"'\"']==chk['\"'\"'exitCode'\"'\"']; assert hashlib.sha256(e['\"'\"'output'\"'\"'].encode()).hexdigest()==e['\"'\"'outputSha256'\"'\"']\nclient=loop.OpenCode(pathlib.Path.cwd()); metadata=[]\nfor key in ['\"'\"'managed-20261023-i12a-01'\"'\"','\"'\"'managed-20261023-integrate-cancel-01'\"'\"','\"'\"'managed-20261023-resync-cancel-01'\"'\"']:\n l=j['\"'\"'leases'\"'\"'][key]; s=client.info(l['\"'\"'sessionID'\"'\"']); assert s['\"'\"'model'\"'\"']==loop.MODEL_REF and s['\"'\"'outcome'\"'\"']=='\"'\"'succeeded'\"'\"' and not client.is_active(l['\"'\"'sessionID'\"'\"']); assert s['\"'\"'location'\"'\"']['\"'\"'directory'\"'\"']==l['\"'\"'worktree'\"'\"']; metadata.append({k:s[k] for k in ['\"'\"'id'\"'\"','\"'\"'model'\"'\"','\"'\"'location'\"'\"','\"'\"'outcome'\"'\"']})\nbefore=pathlib.Path('\"'\"'/tmp/opencode/managed-20261023-accept-i12a-01/before.json'\"'\"').read_bytes(); assert before==blob('\"'\"'HEAD'\"'\"','\"'\"'docs/agent/implementation-state.json'\"'\"'); assert loop.selection(json.loads(before))['\"'\"'target'\"'\"']=='\"'\"'I12a'\"'\"'\nfor p in ['\"'\"'docs/agent/implementation-runs/managed-20261023-integrate-cancel-01/provenance.json'\"'\"','\"'\"'docs/agent/implementation-runs/managed-20261023-resync-cancel-01/reconciliation.json'\"'\"']:\n e=json.loads(pathlib.Path(p).read_text()); assert e['\"'\"'exitCode'\"'\"']==0 and hashlib.sha256(e['\"'\"'output'\"'\"'].encode()).hexdigest()==e['\"'\"'outputSha256'\"'\"']\nprint(json.dumps({'\"'\"'sourceEquivalentToWorker'\"'\"':worker,'\"'\"'exactRetainedInputs'\"'\"':len(paths),'\"'\"'workerChecksAreReusedNotRerun'\"'\"':True,'\"'\"'candidate'\"'\"':subprocess.check_output(['\"'\"'git'\"'\"','\"'\"'rev-parse'\"'\"','\"'\"'HEAD'\"'\"'],text=True).strip(),'\"'\"'latestSelection'\"'\"':'\"'\"'I12a'\"'\"','\"'\"'actualServerMetadata'\"'\"':metadata,'\"'\"'stateBeforeSha256'\"'\"':hashlib.sha256(before).hexdigest(),'\"'\"'remaining'\"'\"':'\"'\"'I12b native full journey, B3 independent review, returned rounds and final qualification are NOT passed'\"'\"'},indent=2))\n'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-accept-i12a-01/reconciliation.json"
+    }
+  ],
+  "reusedEvidence": {
+    "worker": "fc746ec58593d14b1630c74c638eae00c112ce0f",
+    "candidateReports": [
+      "docs/agent/implementation-runs/managed-20261023-integrate-cancel-01.json",
+      "docs/agent/implementation-runs/managed-20261023-resync-cancel-01.json"
+    ],
+    "limit": "Exact unchanged worker product execution, not a new product suite/device run or independent capability review."
+  },
+  "runId": "managed-20261023-accept-i12a-01",
+  "sessionID": "ses_e98e692b5ffeBJQVZlMZLGeAsS",
+  "startCommit": "c2f62627aaec08806a2c30157df5ed298c194089",
+  "mode": "implement",
+  "target": "I12a",
+  "statePath": "docs/agent/implementation-state.json",
+  "changedPaths": [
+    "docs/agent/implementation-runs/managed-20261023-accept-i12a-01.json",
+    "docs/agent/implementation-runs/managed-20261023-accept-i12a-01/reconciliation.json",
+    "docs/agent/implementation-state.json"
+  ]
+}

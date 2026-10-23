@@ -89,12 +89,6 @@ class CatalogTest {
         failure("checksum") { source.hash = "0".repeat(64) }
         failure("truncated gzip") { source.payload = source.bytes().copyOf(source.bytes().size - 12) }
         failure("unsupported schema") { source.payload = gzip(original.replace("5.2.2", "6.0.0")) }
-        failure("missing reciprocal face") {
-            val root = JsonParser.parseString(original).asJsonObject
-            val set = root.getAsJsonObject("data").entrySet().first().value.asJsonObject
-            set.getAsJsonArray("cards").first { it.asJsonObject.has("otherFaceIds") }.asJsonObject.remove("otherFaceIds")
-            source.payload = gzip(root.toString())
-        }
         failure("invalid UTF-8") { source.payload = ByteArrayOutputStream().apply {
             GZIPOutputStream(this).use { it.write(byteArrayOf(0xc3.toByte(), 0x28)) }
         }.toByteArray() }
@@ -126,19 +120,68 @@ class CatalogTest {
         assertEquals(1, directory.listFiles()!!.count { it.extension == "db" })
     }
 
-    @Test fun boundedRecordsFieldsNestingDuplicateIdsAndTrailingJsonAreRejected() {
+    @Test fun corruptStructureNestingDuplicateKeysAndTrailingJsonAreRejected() {
         val source = FilesSource(File(fixtures, "prism/v1"))
         val before = install(source)
         val original = File(source.edition, "AllPrintings.json").readText()
         val mutations = listOf(
-            original.replace("Original synthetic survey text, revision 1.", "x".repeat(64 * 1024 + 1)),
             original.dropLast(2),
             original + "{}",
             original.replace("\"text\":", "\"text\": \"duplicate\", \"text\":"),
             original.replace("\"legalities\": {}", "\"legalities\":" + "[".repeat(33) + "0" + "]".repeat(33)),
+            original.replace("Original synthetic survey text, revision 1.", "x".repeat(500_000) + "\\q"),
         )
         mutations.forEach { text -> source.payload = gzip(text); assertThrows(Exception::class.java) { install(source) } }
         assertEquals(before, repo().metadata())
+    }
+
+    @Test fun unsupportedRecordsAreSkippedAndBrokenFaceGroupsQuarantinedWithoutLosingHealthyCards() {
+        val source = FilesSource(File(fixtures, "prism/v1"))
+        val before = install(source)
+        val root = JsonParser.parseString(File(source.edition, "AllPrintings.json").readText()).asJsonObject
+        val cards = root.getAsJsonObject("data").getAsJsonObject("ZPA").getAsJsonArray("cards")
+        val original = cards.first().asJsonObject
+        fun extra(change: (com.google.gson.JsonObject) -> Unit) {
+            cards.add(original.deepCopy().apply {
+                addProperty("uuid", java.util.UUID.randomUUID().toString())
+                change(this)
+            })
+        }
+        extra { it.addProperty("uuid", "not-a-uuid") }
+        extra { it.remove("number") }
+        extra { it.addProperty("faceName", 42) }
+        extra { it.addProperty("isOnlineOnly", "invalid") }
+        extra { it.getAsJsonObject("identifiers").addProperty("scryfallId", "bad") }
+        extra { it.addProperty("text", "x".repeat(64 * 1024 + 1)) }
+        extra { it.addProperty("text", "x".repeat(1024 * 1024) + "\"\\\n\u0001") }
+        extra { it.addProperty("text", "\u0001".repeat(100_000)) }
+        extra { record -> repeat(6) { record.addProperty("extra$it", "x".repeat(60 * 1024)) } }
+        cards.add(original.deepCopy()) // Duplicate UUID must not destroy the generation either.
+        val missingOptions = original.deepCopy().apply {
+            addProperty("uuid", java.util.UUID.randomUUID().toString())
+            addProperty("name", "A-Optional Defaults")
+            addProperty("number", "A-1")
+            listOf("side", "faceName", "otherFaceIds", "language", "availability", "isPromo", "identifiers").forEach {
+                add(it, com.google.gson.JsonNull.INSTANCE)
+            }
+            addProperty("isOnlineOnly", true)
+        }
+        cards.add(missingOptions)
+        // An absent reciprocal link quarantines both faces, not just the first bad edge.
+        val broken = cards.first { it.asJsonObject.has("otherFaceIds") && !it.asJsonObject.get("otherFaceIds").isJsonNull }.asJsonObject
+        val group = broken.getAsJsonArray("otherFaceIds").map { it.asString } + broken.get("uuid").asString
+        broken.remove("otherFaceIds")
+        source.payload = gzip(root.toString())
+        val installed = install(source)
+        assertEquals(before.records + 1 - group.size, installed.records)
+        assertNotNull(repo().printing(original.get("uuid").asString))
+        group.forEach { assertNull(repo().printing(it)) }
+        val defaults = DeckImportResolver(repo()).resolve("1 A-Optional Defaults")
+        assertTrue(defaults.resolved, defaults.issues.toString())
+        assertEquals("", defaults.entries.single().printing.language)
+        assertNull(defaults.entries.single().printing.scryfallId)
+        assertEquals(missingOptions, JsonParser.parseString(defaults.entries.single().printing.json))
+        assertTrue(DeckImportResolver(repo()).resolve("1 Velvet Prism Engine").resolved)
     }
 
     @Test fun cadencePersistsSuccessBackoffAndClockCorrectionAcrossRelaunches() {

@@ -7,6 +7,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 import java.util.UUID
+import java.util.logging.Logger
 
 internal const val CATALOG_INDEX_VERSION = 1
 data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
@@ -116,6 +117,7 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
 
 /** One disk-backed generation. Caller confines it to its catalog worker. Uses SQLDelight drivers. */
 class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight.TransacterImpl(driver), AutoCloseable {
+    private var duplicateRecords = 0L
     internal fun create() {
         sql("PRAGMA synchronous=FULL")
         sql("PRAGMA page_size=4096")
@@ -134,15 +136,39 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     fun addBatch(records: List<CatalogPrinting>) = transaction {
         records.forEach { record ->
-            sql("INSERT INTO printing VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", listOf(record.id, record.name,
+            sql("INSERT OR IGNORE INTO printing VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", listOf(record.id, record.name,
                 record.name.lowercase(Locale.ROOT), record.set, record.number, record.language, record.side,
                 record.scryfallId, if (record.token) "1" else "0", record.json))
+            if (long("SELECT changes()") == 0L) { duplicateRecords++; return@forEach }
             record.otherFaces.forEach { target -> sql("INSERT INTO face VALUES (?, ?)", listOf(record.id, target)) }
             addImportNames(record)
         }
     }
 
     internal fun validate() {
+        // Unsupported/missing faces quarantine the whole connected printing, not the catalog.
+        // Work stays on disk, including propagation when a malformed provider group has many links.
+        transaction {
+            sql("CREATE TABLE unsupported_printing (id TEXT NOT NULL PRIMARY KEY)")
+            sql("""INSERT OR IGNORE INTO unsupported_printing
+                SELECT f.source FROM face f
+                LEFT JOIN printing a ON a.id=f.source LEFT JOIN printing b ON b.id=f.target
+                LEFT JOIN face r ON r.source=f.target AND r.target=f.source
+                WHERE b.id IS NULL OR f.source=f.target OR r.source IS NULL OR
+                    a.set_code != b.set_code OR a.side='' OR b.side='' OR a.side=b.side""")
+            do {
+                sql("""INSERT OR IGNORE INTO unsupported_printing
+                    SELECT f.target FROM face f JOIN unsupported_printing u ON u.id=f.source
+                    UNION SELECT f.source FROM face f JOIN unsupported_printing u ON u.id=f.target""")
+            } while (long("SELECT changes()") > 0)
+            val quarantined = long("SELECT count(*) FROM printing WHERE id IN (SELECT id FROM unsupported_printing)")
+            sql("DELETE FROM import_name WHERE printing_id IN (SELECT id FROM unsupported_printing)")
+            sql("DELETE FROM face WHERE source IN (SELECT id FROM unsupported_printing) OR target IN (SELECT id FROM unsupported_printing)")
+            sql("DELETE FROM printing WHERE id IN (SELECT id FROM unsupported_printing)")
+            sql("DROP TABLE unsupported_printing")
+            Logger.getLogger(CatalogIndex::class.java.name).info(
+                "Catalog index: installed=${count()} skippedDuplicates=$duplicateRecords quarantinedFaces=$quarantined")
+        }
         check(count() > 0) { "Empty catalog" }
         check(long("SELECT count(*) FROM face f LEFT JOIN printing p ON p.id=f.target WHERE p.id IS NULL OR f.source=f.target") == 0L)
         check(long("SELECT count(*) FROM face f LEFT JOIN face r ON r.source=f.target AND r.target=f.source WHERE r.source IS NULL") == 0L)
@@ -174,7 +200,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     private fun createImportNames() = sql("CREATE TABLE import_name (normalized TEXT NOT NULL, printing_id TEXT NOT NULL, PRIMARY KEY(normalized, printing_id))")
 
     private fun addImportNames(record: CatalogPrinting) {
-        val faceName = JsonParser.parseString(record.json).asJsonObject.get("faceName")?.asString
+        val faceName = JsonParser.parseString(record.json).asJsonObject.get("faceName")?.takeUnless { it.isJsonNull }?.asString
         listOfNotNull(record.name, faceName?.takeIf { it.isNotEmpty() }).map { it.lowercase(Locale.ROOT) }.distinct().forEach {
             sql("INSERT INTO import_name VALUES (?, ?)", listOf(it, record.id))
         }

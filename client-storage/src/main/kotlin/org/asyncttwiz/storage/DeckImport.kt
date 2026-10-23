@@ -87,11 +87,17 @@ class DeckImportResolver(private val repository: CatalogRepository) {
                 } while (page.size == 256)
             }
             val groups = found.groupBy { (it.otherFaces + it.id).sorted().joinToString("|") }
-            val candidates = groups.values.map { group ->
+            val matching = groups.values.map { group ->
                 val record = group.first()
                 Candidate((record.otherFaces + record.id).map { id -> checkNotNull(catalog.printing(id)) }
                     .sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id }))
             }
+            // Art-series/token faces can share names with playable cards. Likewise a spell
+            // on another card's back (e.g. Emeritus of Conflict // Lightning Bolt) is not
+            // the card named Lightning Bolt. Prefer full/front names, retaining back-face
+            // lookup only when there is no primary match; genuine front-name conflicts stay errors.
+            val cards = matching.filterNot { it.printing.token }.ifEmpty { matching }
+            val candidates = cards.filter { it.primaryName(line.name) }.ifEmpty { cards }
             val ambiguous = if (line.set != null) candidates.size != 1 else !sameCard(candidates)
             if (ambiguous) {
                 issues += ImportIssue(line.line, if (found.isEmpty())
@@ -115,16 +121,19 @@ class DeckImportResolver(private val repository: CatalogRepository) {
     private class Candidate(val faces: List<CatalogPrinting>) {
         val printing = faces.first()
         val json: List<JsonObject> = faces.map { JsonParser.parseString(it.json).asJsonObject }
-        val oracleIds = json.mapNotNull { it.getAsJsonObject("identifiers")?.get("scryfallOracleId")?.asString }
+        val oracleIds = json.mapNotNull { it.get("identifiers")?.takeUnless { it.isJsonNull }?.asJsonObject
+            ?.get("scryfallOracleId")?.takeUnless { it.isJsonNull }?.asString }
             .distinct().sorted()
         val shape = faces.zip(json).map { (face, raw) ->
-            listOf(face.name.lowercase(Locale.ROOT), raw.get("faceName")?.asString?.lowercase(Locale.ROOT).orEmpty(),
+            listOf(face.name.lowercase(Locale.ROOT), raw.get("faceName")?.takeUnless { it.isJsonNull }?.asString?.lowercase(Locale.ROOT).orEmpty(),
                 face.side, face.token.toString())
         }
         val english = printing.language.equals("English", ignoreCase = true)
-        val promo = json.first().get("isPromo")?.asBoolean == true
-        val paper = json.first().let { raw -> raw.get("isOnlineOnly")?.asBoolean != true &&
-            (raw.getAsJsonArray("availability")?.any { it.asString == "paper" } != false) }
+        val promo = json.first().get("isPromo")?.takeUnless { it.isJsonNull }?.asBoolean == true
+        val paper = json.first().let { raw -> raw.get("isOnlineOnly")?.takeUnless { it.isJsonNull }?.asBoolean != true &&
+            (raw.get("availability")?.takeUnless { it.isJsonNull }?.asJsonArray?.any { it.asString == "paper" } != false) }
+        fun primaryName(name: String) = printing.name.equals(name, ignoreCase = true) ||
+            json.first().get("faceName")?.takeUnless { it.isJsonNull }?.asString?.equals(name, ignoreCase = true) == true
     }
 
     private fun sameCard(candidates: List<Candidate>): Boolean {

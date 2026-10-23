@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.json.*
 
 /** Shared logical coordinates, never pixels. Each free-standing card also has a stable pile ID. */
@@ -37,8 +38,11 @@ import kotlinx.serialization.json.*
         constructor(sides: Int, value: Int) : this(sides.toString(), value)
     }
     @Serializable @SerialName("flipCoin") data class FlipCoin(val value: CoinFace) : PlayAction
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @Serializable @SerialName("moveCard") data class MoveCard(val cardId: String, val source: MoveSource,
-        val destination: MoveDestination, val expectedStackDigest: String? = null) : PlayAction
+        val destination: MoveDestination, val expectedStackDigest: String? = null,
+        /** Null uses zone-entry defaults; only Battlefield-to-Battlefield preserves explicit covering. */
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null) : PlayAction
     @Serializable @SerialName("shuffleLibrary") data class ShuffleLibrary(val containerId: String,
         val seed: String, val algorithm: String = "shuffle-v1") : PlayAction
     @Serializable @SerialName("showContents") data class ShowContents(val containerId: String,
@@ -224,8 +228,16 @@ object GameplayRules {
     /** D-247: semantic ordered entries only; no face, text, orientation, coordinates or owner. */
     fun stackDigest(state: PlayState): String = CombatStackRules.stackDigest(state)
 
+    internal fun replayMove(state: PlayState, mutation: GameplayMutation, command: GameCommand): GameplayChange {
+        val version = mutation.transition.movement?.coverRulesVersion ?: 1
+        if (version !in 1..2 || !GameWire.valid(command) || mutation.author !in state.board.players.map { it.accountId })
+            return GameplayChange(reason = "replayBlocked")
+        return move(state, mutation.author, command, mutation.action as PlayAction.MoveCard, version)
+    }
+
     private val resetZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
-    private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard): GameplayChange {
+    private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
+        coverRulesVersion: Int = 2): GameplayChange {
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
         val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")
@@ -259,10 +271,11 @@ object GameplayRules {
                     val others = reduced.map { id -> board.cards.single { it.id == id } }
                     if (others.any { it.placement?.position == position }) return reject("movementConflict")
                     // An unchanged solo placement is a no-op, retaining its stable pile identity.
-                    if (source.id == target.id && card.placement?.position == position && sourceMembers.size == 1)
+                    if (source.id == target.id && card.placement?.position == position && sourceMembers.size == 1 && action.faceDown == null)
                         return GameplayChange(state)
-                    val pile = CommandIds.uuidV5(command.requestId, "pile/0")
-                    if (board.cards.any { it.placement?.pileId == pile }) return reject("inapplicable")
+                    val pile = if (source.id == target.id && card.placement?.position == position && sourceMembers.size == 1)
+                        card.placement.pileId else CommandIds.uuidV5(command.requestId, "pile/0")
+                    if (board.cards.any { it.id != card.id && it.placement?.pileId == pile }) return reject("inapplicable")
                     placement = PlayPlacement(position, pile)
                     ordered = emptyList()
                 } else {
@@ -316,7 +329,13 @@ object GameplayRules {
             PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE -> (reduced + card.id).sorted()
             else -> inserted
         }
-        val next = canonicalBoard(board.copy(cards = board.cards.map { if (it.id == card.id) it.copy(containerId = target.id, placement = placement) else it },
+        val hiddenZone = target.zone == PlayZone.LIBRARY || target.zone == PlayZone.HAND
+        val faceDown = !hiddenZone && (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD &&
+            target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
+        val moved = card.copy(containerId = target.id, placement = placement,
+            covered = if (coverRulesVersion == 1) card.covered else hiddenZone || faceDown,
+            explicitlyCovered = if (coverRulesVersion == 1) card.explicitlyCovered else faceDown)
+        val next = canonicalBoard(board.copy(cards = board.cards.map { if (it.id == card.id) moved else it },
             containers = board.containers.map { when (it.id) {
                 target.id -> it.copy(cards = targetCards)
                 source.id -> it.copy(cards = it.cards.filter { id -> id != card.id })
@@ -324,12 +343,21 @@ object GameplayRules {
             } }))
         val from = location(board, card.id)
         val to = location(next, card.id)
-        if (from == to) return GameplayChange(state)
+        if (from == to && card == moved) return GameplayChange(state)
         val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
-        val transition = GameplayTransition(movement = GameplayMoveChange(card.id, from, to,
+        val fields = listOf(
+            GameplayFieldChange(card.id, GameplayField.COVERED, card.covered.toString(), moved.covered.toString()),
+            GameplayFieldChange(card.id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), moved.explicitlyCovered.toString())
+        ).filter { it.from != it.to }
+        val newViewers = if (coverRulesVersion == 1) emptyList()
+            else CardVisibility.viewers(next, moved) - CardVisibility.viewers(board, card).toSet()
+        val transition = GameplayTransition(fields = fields,
+            disclosures = if (newViewers.isEmpty()) emptyList() else listOf(
+                GameplayDisclosure(card.id, card.faceId, target.id, newViewers)),
+            movement = GameplayMoveChange(card.id, from, to,
             if (target.zone == PlayZone.BATTLEFIELD) ordered.size else null,
             if (stackChanged) stackDigest(state) else null,
-            if (stackChanged) stackDigest(state.copy(board = next)) else null))
+            if (stackChanged) stackDigest(state.copy(board = next)) else null, coverRulesVersion))
         return record(state, actor, command, next, transition)
     }
 

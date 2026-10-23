@@ -99,6 +99,12 @@ class GameplayDurabilityTest {
                 assertEquals(GameplayFieldChange(a.account.accountId, GameplayField.LIFE, "21", "22"), results[1].mutation!!.transition.fields.single())
                 assertEquals("22", games.head(a, fixture.game.id).play!!.board.players.single { it.accountId == a.account.accountId }.life)
                 assertTrue(games.head(a, fixture.game.id).play!!.board.cards.single { it.id == first }.tapped)
+                val played = games.head(a, fixture.game.id).play!!.board.cards.single { it.id == first }
+                assertFalse(played.covered); assertFalse(played.isFaceDown)
+                assertTrue(results[2].mutation!!.revealsInformation)
+                assertEquals(listOf(a.account.accountId), results[2].mutation!!.transition.disclosures.single().viewers)
+                assertTrue(results.last().mutation!!.revealsInformation)
+                assertEquals(listOf(fixture.b.account.accountId), results.last().mutation!!.transition.disclosures.single().viewers)
                 assertEquals(2, results.last().createdIds.size)
                 assertEquals(CommandIds.uuidV5(inputs.last().requestId, "board-node"), results.last().createdIds.first())
                 val accepted = games.head(a, fixture.game.id)

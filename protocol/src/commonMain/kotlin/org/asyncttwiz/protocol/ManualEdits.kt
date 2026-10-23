@@ -40,7 +40,7 @@ object ManualDisclosure {
     fun permittedFaces(state: PlayState, card: PlayCard, viewer: String, inspecting: Boolean): List<DefinitionFace> {
         val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
         return if (inspecting && ownRegion(state, card, viewer)) faces
-        else if (!card.covered) faces.filter { it.faceId == card.faceId } else emptyList()
+        else if (CardVisibility.isVisibleFaceUp(state.board, card, viewer)) faces.filter { it.faceId == card.faceId } else emptyList()
     }
 }
 
@@ -112,13 +112,21 @@ object ManualEditRules {
                 else field(id, GameplayField.OWNER, card.owner, action.accountId)
             is PlayAction.SetFace -> if (faces.none { it.faceId == action.faceId }) null
                 else field(id, GameplayField.FACE, card.faceId, action.faceId,
-                    reads = listOf(GameplayRead(id, GameplayField.COVERED, card.covered.toString())),
-                    disclosures = if (!card.covered && card.faceId != action.faceId)
-                        listOf(exposure(action.faceId, board.players.map { it.accountId })) else emptyList())
-            is PlayAction.SetCovered -> field(id, GameplayField.COVERED, card.covered.toString(), action.covered.toString(),
-                reads = if (!action.covered) listOf(GameplayRead(id, GameplayField.FACE, card.faceId)) else emptyList(),
-                disclosures = if (card.covered && !action.covered)
-                    listOf(exposure(card.faceId, board.players.map { it.accountId })) else emptyList())
+                    reads = listOf(GameplayRead(id, GameplayField.COVERED, card.covered.toString()),
+                        GameplayRead(id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString()),
+                        GameplayRead(id, GameplayField.CONTAINER, card.containerId)),
+                    disclosures = CardVisibility.viewers(board, card).takeIf { card.faceId != action.faceId && it.isNotEmpty() }
+                        ?.let { listOf(exposure(action.faceId, it)) }.orEmpty())
+            is PlayAction.SetCovered -> {
+                val changed = card.copy(covered = action.covered, explicitlyCovered = action.covered)
+                val viewers = CardVisibility.viewers(board, changed) - CardVisibility.viewers(board, card).toSet()
+                GameplayTransition(fields = listOf(
+                    GameplayFieldChange(id, GameplayField.COVERED, card.covered.toString(), changed.covered.toString()),
+                    GameplayFieldChange(id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), changed.explicitlyCovered.toString())
+                ).filter { it.from != it.to },
+                    reads = if (viewers.isNotEmpty()) listOf(GameplayRead(id, GameplayField.FACE, card.faceId)) else emptyList(),
+                    disclosures = if (viewers.isNotEmpty()) listOf(exposure(card.faceId, viewers)) else emptyList())
+            }
             is PlayAction.InspectFace -> if (card.containerId != action.containerId || faces.none { it.faceId == action.faceId }) null
                 else GameplayTransition(reads = listOf(GameplayRead(id, GameplayField.CONTAINER, card.containerId)),
                     disclosures = listOf(exposure(action.faceId, listOf(actor))))
@@ -139,6 +147,7 @@ object ManualEditRules {
                 GameplayField.OWNER -> card?.owner
                 GameplayField.FACE -> card?.faceId
                 GameplayField.COVERED -> card?.covered?.toString()
+                GameplayField.EXPLICITLY_COVERED -> card?.explicitlyCovered?.toString()
                 GameplayField.CONTAINER -> card?.containerId
                 else -> null
             }
@@ -171,6 +180,7 @@ object ManualEditRules {
                     GameplayField.OWNER -> it.copy(owner = field.to!!)
                     GameplayField.FACE -> it.copy(faceId = field.to!!)
                     GameplayField.COVERED -> it.copy(covered = field.to!!.toBooleanStrict())
+                    GameplayField.EXPLICITLY_COVERED -> it.copy(explicitlyCovered = field.to!!.toBooleanStrict())
                     else -> error("Not a manual card field")
                 }
             })

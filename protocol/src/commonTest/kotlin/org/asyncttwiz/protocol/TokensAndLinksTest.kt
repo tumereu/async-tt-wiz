@@ -13,7 +13,7 @@ class TokensAndLinksTest {
         BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
             listOf(PlayCard(id(9), submitted.digest, id(8), id(10), id(12), covered = true, tapped = true,
                 corner = "5/2", counters = mapOf(CounterColor.BLUE to "0"), note = "current note",
-                placement = PlayPlacement(BoardPosition(0, 0), id(13)))),
+                placement = PlayPlacement(BoardPosition(0, 0), id(13)), explicitlyCovered = true)),
             listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, id(7), listOf(id(9))),
                 PlayContainer(id(14), PlayZone.LIBRARY, id(7)), PlayContainer(id(15), PlayZone.GRAVEYARD, id(8)),
                 PlayContainer(id(16), PlayZone.EXILE, id(7)), PlayContainer(id(17), PlayZone.HAND, id(8))), TurnState(id(7))),

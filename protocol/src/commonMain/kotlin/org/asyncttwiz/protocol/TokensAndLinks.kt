@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 /** Clone does not read the source's owner, token flag or location. Definition retains face defaults. */
 @Serializable data class CloneRead(val sourceId: String, val definition: SubmittedDefinition,
     val faceId: String, val covered: Boolean, val tapped: Boolean, val corner: String,
-    val counters: Map<CounterColor, String>, val note: String)
+    val counters: Map<CounterColor, String>, val note: String, val explicitlyCovered: Boolean = false)
 
 object TokenCatalog {
     val blank: SubmittedDefinition = CardDefinition("Blank", listOf(DefinitionFace(
@@ -45,7 +45,8 @@ object TokenLinkRules {
                     val definition = state.definitions.singleOrNull { it.digest == card.definition }
                         ?: return reject("missingReference")
                     if (definition.definition.faces.none { it.faceId == card.faceId }) return reject("missingReference")
-                    CloneRead(card.id, definition, card.faceId, card.covered, card.tapped, card.corner, card.counters, card.note)
+                    CloneRead(card.id, definition, card.faceId, card.covered, card.tapped, card.corner, card.counters, card.note,
+                        card.explicitlyCovered)
                 } else null
                 val definition = read?.definition ?: (action as PlayAction.CreateToken).definition
                 val retained = state.definitions.singleOrNull { it.digest == definition.digest }
@@ -63,7 +64,7 @@ object TokenLinkRules {
                 val token = PlayCard(tokenId, definition.digest, actor, container.id, read?.faceId ?: face.faceId,
                     covered = read?.covered ?: false, tapped = read?.tapped ?: false, corner = read?.corner ?: face.corner,
                     counters = read?.counters ?: emptyMap(), note = read?.note ?: "", token = true,
-                    placement = PlayPlacement(BoardPosition(x, 0), pileId))
+                    placement = PlayPlacement(BoardPosition(x, 0), pileId), explicitlyCovered = read?.explicitlyCovered ?: false)
                 val presence = TokenPresence(token, CardLocation(container.id, token.placement))
                 val next = board.copy(cards = (board.cards + token).sortedBy { it.id }, containers = board.containers.map {
                     if (it.id == container.id) it.copy(cards = (it.cards + token.id).sorted()) else it

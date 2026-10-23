@@ -110,12 +110,13 @@ class LibraryActionsTest {
             }
         }
         assertEquals(3, changes.map { it.mutation!!.id }.distinct().size)
-        assertTrue(changes.first().mutation!!.transition.fields.isEmpty())
-        assertEquals(initial.board.cards.last().copy(containerId = id(13)), changes.first().state!!.board.cards.last())
+        assertEquals(listOf(GameplayFieldChange(id(24), GameplayField.COVERED, "true", "false")),
+            changes.first().mutation!!.transition.fields)
+        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false), changes.first().state!!.board.cards.last())
         val card = current.board.cards.single { it.id == id(24) }
         assertEquals("4/5", card.corner); assertTrue(card.counters.isEmpty())
-        assertEquals(initial.board.cards.last().copy(containerId = id(13), corner = "4/5", counters = emptyMap()), card)
-        assertEquals(2, changes.sumOf { it.mutation!!.transition.fields.size })
+        assertEquals(initial.board.cards.last().copy(containerId = id(13), corner = "4/5", counters = emptyMap(), covered = false), card)
+        assertEquals(3, changes.sumOf { it.mutation!!.transition.fields.size })
         assertEquals(GameplayRead(id(24), GameplayField.FACE, id(41)), changes.last().mutation!!.transition.reads.single())
         val missing = apply(initial.copy(definitions = emptyList()), listOf(action))
         assertEquals("", missing.board.cards.last().corner)

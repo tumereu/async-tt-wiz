@@ -10,7 +10,7 @@ class ManualEditsTest {
         return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
             BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
                 listOf(PlayCard(id(9), "definition", id(8), id(10), id(11), tapped = true, corner = "2/3", note = "keep",
-                    placement = PlayPlacement(BoardPosition(3, 4), id(20)))),
+                    placement = PlayPlacement(BoardPosition(3, 4), id(20)), explicitlyCovered = true)),
                 listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, id(7), listOf(id(9)))), TurnState(id(7))),
             listOf(SubmittedDefinition("definition", definition)), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
     }

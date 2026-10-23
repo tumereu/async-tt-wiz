@@ -94,10 +94,18 @@ class Rendering(unittest.TestCase):
         self.assertIn('5 lanes', text)
         for role in ('Build', 'Review', 'Fix', 'Verify', 'Integrate'):
             self.assertIn(role + ':', text)
-        self.assertIn('ran 1m20s', text)
+        self.assertIn('1m20s await:', text)
         self.assertIn('1m05s Build:', text)
         self.assertNotIn('I13', text)
         self.assertIn('2 scoped work items', text.replace('0/2', '2'))
+
+    def test_awaiting_integration_is_one_compact_line(self):
+        records = {'saved': dict(target='I13', role='implement', _status='saved',
+                                  _times=(NOW - 100, NOW - 20))}
+        text = self.render(records=records)
+        current = text.split('-- CURRENT', 1)[1].split('-- RECENT', 1)[0].splitlines()[1:]
+        self.assertEqual(current, ['1m20s await: Ordered gameplay engine and server'])
+        self.assertNotIn('Ran ', text)
 
     def test_short_titles_and_no_ids_or_control_sequences(self):
         events = [dict(kind='items', target='I12', when=NOW - 100)]

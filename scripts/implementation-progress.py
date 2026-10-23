@@ -330,8 +330,10 @@ def render(state, events, records, orchestrator, now, width, recent=5, details=F
                     add(f'  Last log activity {elapsed(max(0, now - Path(log).stat().st_mtime))} ago')
                 except OSError:
                     add('  Log activity unavailable')
+        elif status in WAITING:
+            brief(f'{elapsed(end - start if start is not None and end is not None else None)} await: {name}')
         else:
-            brief(f'{"Awaiting integration" if status in WAITING else status}: {name}; '
+            brief(f'{status}: {name}; '
                   f'ran {elapsed(end - start if start is not None and end is not None else None)}')
             if not details:
                 add(f'  Ran {elapsed(end - start if start is not None and end is not None else None)}')

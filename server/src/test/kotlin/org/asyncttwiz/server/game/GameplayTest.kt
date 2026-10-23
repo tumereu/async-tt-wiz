@@ -99,6 +99,11 @@ class GameplayTest {
                     setup(owner, ast, GameAction.Ready); val started = setup(recipient, bst, GameAction.Ready)
                     val root = started.play!!; val library = root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == a.account.accountId }
                     val hand = root.board.containers.single { it.zone == PlayZone.HAND && it.accountId == a.account.accountId }
+                    var liveTree = TreeSync.generation(GameplayTree(root))
+                    fun apply(revision: GameRevision): PlayState {
+                        liveTree = TreeSync.apply(liveTree, revision.treeDelta!!)
+                        return liveTree.tree.stateAt(liveTree.tree.currentNodeId)!!
+                    }
                     fun command(action: PlayAction, stream: GameStreamReady = ast) = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
                         GameAction.Play(action), stream.streamId, stream.generation)
                     val draw = command(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED)))
@@ -112,41 +117,46 @@ class GameplayTest {
                         val result = owner.result(input.requestId); assertEquals("accepted", result.outcome)
                         assertEquals(change.mutation, result.mutation)
                         val revision = recipient.revision(input.requestId)
-                        assertEquals(prediction, revision.play); assertEquals(change.mutation, revision.mutation)
+                        assertEquals(prediction, apply(revision)); assertEquals(change.mutation, revision.mutation)
                         assertEquals(prediction.currentGroup, revision.group)
                     }
                     val secondLife = command(PlayAction.AdjustLife(a.account.accountId, "1"), bst)
                     recipient.send(secondLife)
                     assertEquals("21", recipient.result(secondLife.requestId).mutation!!.transition.fields.single().from)
-                    var accepted = owner.revision(secondLife.requestId).play!!
+                    var accepted = apply(owner.revision(secondLife.requestId))
                     val stack = root.board.containers.single { it.zone == PlayZone.STACK }
                     val oldDigest = GameplayRules.stackDigest(accepted)
                     val rotate = command(PlayAction.SetTapped(library.cards[1], true))
                     val entry = command(PlayAction.MoveCard(library.cards[1], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), oldDigest))
                     owner.send(rotate); owner.send(entry)
                     assertEquals("accepted", owner.result(rotate.requestId).outcome); assertEquals("accepted", owner.result(entry.requestId).outcome)
-                    accepted = recipient.revision(entry.requestId).play!!
+                    apply(recipient.revision(rotate.requestId))
+                    accepted = apply(recipient.revision(entry.requestId))
                     val stale = command(PlayAction.MoveCard(library.cards[2], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), oldDigest))
                     val next = command((stale.action as GameAction.Play).action.let { (it as PlayAction.MoveCard).copy(expectedStackDigest = GameplayRules.stackDigest(accepted)) })
                     owner.send(stale); owner.send(next)
                     assertEquals("stackConflict", owner.result(stale.requestId).reason); assertEquals("accepted", owner.result(next.requestId).outcome)
                     val final = recipient.revision(next.requestId)
+                    val finalPlay = apply(final)
                     val historyResponse = request(settings, "GET", "/v1/games/${game.id}/plays/${root.id}/mutations?after=0", b.token)
                     assertEquals(200, historyResponse.statusCode())
                     val history = json.decodeFromString<GameplayHistoryPage>(historyResponse.body())
                     assertEquals(7, history.mutations.size); assertEquals(final.resultRevision, history.throughRevision)
                     var replay = root
                     history.mutations.forEach { replay = GameplayHistory.replay(replay, it).state!! }
-                    assertEquals(final.play, replay)
+                    assertEquals(finalPlay, replay)
                     val revisions = json.decodeFromString<GameRevisions>(request(settings, "GET", "/v1/games/${game.id}/revisions?after=${started.resultRevision}", a.token).body())
                     assertEquals(history.mutations, revisions.revisions.map { it.mutation })
+                    var httpTree = TreeSync.generation(GameplayTree(root))
+                    revisions.revisions.forEach { httpTree = TreeSync.apply(httpTree, it.treeDelta!!) }
+                    assertEquals(liveTree, httpTree)
                     val original = json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/${game.id}/results/${draw.requestId}", a.token).body()).result!!
                     owner.send(draw); assertEquals(original, owner.result(draw.requestId))
                     assertEquals(original, json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/${game.id}/results/${draw.requestId}", a.token).body()).result)
                     assertEquals(404, request(settings, "GET", "/v1/games/${game.id}/plays/${root.id}/mutations", other.token).statusCode())
                     assertEquals(405, post(settings, "/v1/games/${game.id}/plays/${root.id}/mutations", LookupGameResults(emptyList()), a.token).statusCode())
                     assertEquals(404, post(settings, "/v1/games/${game.id}/moveCard", LookupGameResults(emptyList()), a.token).statusCode())
-                    recipient.send(SubscribeGame(game.id, final.resultRevision)); assertEquals(final.play, recipient.next<GameHead>().play)
+                    recipient.send(SubscribeGame(game.id, final.resultRevision)); assertEquals(finalPlay, recipient.next<GameHead>().play)
                 } }
             }
             println("PASS real HTTP accounts/decks and two authenticated gameplay sockets, no-ack draw/tap/life pipeline equals shared prediction, compatible opponent life uses actual input, Stack ignores orientation but rejects stale ordered entries, concrete revision/result/history HTTP codec and replay agree, original retry no duplication and no alternate write ingress")

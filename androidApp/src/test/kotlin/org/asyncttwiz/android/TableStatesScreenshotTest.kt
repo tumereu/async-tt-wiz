@@ -43,7 +43,8 @@ class TableStatesScreenshotTest {
         if (review) history.select(when (kind) { "history-start" -> path.first(); "history-end" -> path.last(); else -> path[3] })
         history.displayPosition()
         if (kind == "history-playing") playback.play()
-        val current = { if (review) requireNotNull(tree.stateAt(playback.position.cursorId)) else f.combat() }
+        val current = { if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
+            else if (kind == "graveyard-contents") f.initial else f.combat() }
         val toolkit = TableToolkitController(f.a, current, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
             { action, _ -> sent += action; true })
         if (kind == "combat") toolkit.selectionState.value = TableSelection(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), mode = TableMode.SELECT)
@@ -93,6 +94,13 @@ class TableStatesScreenshotTest {
                 compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
                 compose.onNodeWithText("Stack · 2 entries").assertExists()
             }
+            "graveyard-contents" -> {
+                compose.onNodeWithContentDescription("Alice graveyard, 2 cards").performClick()
+                compose.onNodeWithText("Graveyard · 2").assertIsDisplayed()
+                compose.onNodeWithText("Search by name").assertIsDisplayed()
+                compose.onNodeWithText("Creature", substring = false).assertIsDisplayed()
+                compose.onNodeWithText("Meadow Sentinel", substring = false).assertIsDisplayed()
+            }
             "history-start" -> compose.onNodeWithContentDescription("Previous").assertIsNotEnabled()
             "history-end" -> compose.onNodeWithContentDescription("Next").assertIsNotEnabled()
         }
@@ -111,6 +119,34 @@ class TableStatesScreenshotTest {
     @Test fun combatPortrait() { render("combat", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
+    @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }
+    @Test fun graveyardSearchAndTapUseExistingCardActionMenu() {
+        val sent = render("graveyard-contents", false)
+        compose.onNodeWithText("Search by name").performTextInput("Sentinel")
+        compose.onNodeWithText("Meadow Sentinel", substring = false).performClick()
+        compose.mainClock.advanceTimeBy(400) // Normal single tap waits for the double-tap window.
+        compose.onNodeWithContentDescription("Graveyard · Alice").assertExists()
+        compose.onNodeWithContentDescription("Library top · Alice").assertExists()
+        compose.onNodeWithContentDescription("Library bottom · Alice").assertExists()
+        compose.onNodeWithContentDescription("Exile · Alice").assertExists()
+        assertTrue(sent.isEmpty())
+    }
+    @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
+        val sent = render("graveyard-contents", false)
+        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { longClick() }
+        compose.onNodeWithContentDescription("Graveyard · Alice").assertDoesNotExist()
+        compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
+        assertTrue(sent.isEmpty())
+    }
+    @Test fun graveyardDoubleTapOnlyRotatesTheAddressedCard() {
+        val sent = render("graveyard-contents", false)
+        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { doubleClick() }
+        compose.mainClock.advanceTimeBy(400)
+        val card = f.initial.board.cards.single { it.containerId == f.id("a/GRAVEYARD") && it.corner == "1/3" }
+        assertEquals(listOf<PlayAction>(PlayAction.SetTapped(card.id, true)), sent)
+        compose.onNodeWithContentDescription("Graveyard · Alice").assertDoesNotExist()
+        compose.onNodeWithText("Graveyard · 2").assertIsDisplayed()
+    }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackLandscape() { render("stack-contents", true) }
     @Test fun historyStartPortrait() { render("history-start", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun historyStartLandscape() { render("history-start", true) }

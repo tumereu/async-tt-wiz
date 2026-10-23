@@ -80,13 +80,6 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                     onComplete = toolkit::dismiss)
             }
         } }
-        "stack" -> TableMenuPanel(toolkit::dismiss, title = "Stack") {
-            Column(Modifier.padding(12.dp).heightIn(max = 480.dp)) {
-                Text("Stack · ${CombatStackRules.stack(play.board).cards.size} entries")
-                StackContents(play, onEntry = { target -> toolkit.openCard(selection.scope(target.viewId,
-                    CombatStackRules.stack(play.board).cards)) }, modifier = Modifier.weight(1f, fill = false))
-            }
-        }
         "occurrence" -> if (bound != null) ToolkitDialog(toolkit::dismiss) {
             Text("Retained source · read-only")
             ManualActionSquare("Inspect", "", true, onClick = { toolkit.inspect(bound.contextViewId) })
@@ -109,15 +102,20 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 }) { Text("Move to ${names[choice.label]} ${choice.zone.name.lowercase()}") }
             }
         }
-        else -> if (panel?.startsWith("container/") == true) {
-            val container = play.board.containers.singleOrNull { it.id == panel.substringAfter('/') }
-            if (container != null) ToolkitDialog(toolkit::dismiss, "${container.zone.name.lowercase().replaceFirstChar { it.uppercase() }} · ${container.cards.size}") {
-                for (id in container.cards.sorted()) {
-                    val card = play.board.cards.singleOrNull { it.id == id } ?: continue
-                    val title = if (card.covered) "Covered card" else play.definitions.singleOrNull { it.digest == card.definition }
-                        ?.definition?.faces?.singleOrNull { it.faceId == card.faceId }?.name ?: "Card unavailable"
-                    MenuButton("Card actions · $title", Modifier.fillMaxWidth()) { toolkit.openCard(selection.scope(id, container.cards)) }
-                }
+        else -> if (panel?.startsWith("contents/") == true) {
+            val pile = toolkit.publicContents()
+            if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
+            else TableMenuPanel(toolkit::dismiss, title = "${pile.title} · ${pile.cardIds.size}${if (pile.ordered) " entries" else ""}") {
+                ContentsScreen(play, pile, toolkit.viewer, modifier = Modifier.height(if (landscape) 220.dp else 480.dp),
+                    onActions = { if (selection.mode == TableMode.SELECT) select(it) else toolkit.openCard(selection.scope(it, pile.cardIds)) },
+                    onInspect = toolkit::inspect,
+                    onRotate = if (selection.mode != TableMode.NORMAL) null else { id ->
+                        val card = CombatStackRules.liveSource(play.board, id)
+                        if (card != null) {
+                            toolkit.selectionState.value = selection.orientation(id)
+                            toolkit.handle(TableIntent.Rotate(selection.scope(id, pile.cardIds), !card.tapped))
+                        }
+                    })
             }
         } else if (panel?.startsWith("display/") == true) {
             val display = play.board.contentsDisplays.singleOrNull { it.id == panel.substringAfter('/') }

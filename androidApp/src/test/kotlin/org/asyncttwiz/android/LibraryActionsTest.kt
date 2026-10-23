@@ -5,6 +5,41 @@ import org.junit.Test
 import org.asyncttwiz.protocol.*
 
 class LibraryActionsTest {
+    @Test fun publicContentsUseTypeColumnsAndLocalSearchWithoutCoveredMetadata() {
+        val play = TableStatesFixture.initial
+        val container = play.board.containers.first { it.zone == PlayZone.GRAVEYARD }
+        val pile = PileContents(container.id, "Graveyard", container.cards)
+        val entries = contentsEntries(play, pile, TableStatesFixture.a)
+        assertEquals(listOf("Creature", "Land"), entries.map { it.category })
+        assertEquals(entries, contentsEntries(play, pile.copy(cardIds = pile.cardIds.reversed()), TableStatesFixture.a))
+        assertEquals(listOf("Meadow Sentinel"), contentsEntries(play, pile, TableStatesFixture.a, "sent").map { it.name })
+        val hiddenId = entries.first().cardId
+        val covered = play.copy(board = play.board.copy(cards = play.board.cards.map {
+            if (it.id == hiddenId) it.copy(covered = true, explicitlyCovered = true) else it
+        }))
+        val hidden = contentsEntries(covered, pile, TableStatesFixture.b, "Forest").single { it.cardId == hiddenId }
+        assertEquals("Card back", hidden.name); assertEquals("Cards", hidden.category); assertFalse(hidden.faceVisible)
+        assertFalse(hidden.bottommost)
+        // No source mutation or logged reference display is created by filtering.
+        assertEquals(container.cards, play.board.containers.single { it.id == container.id }.cards)
+        assertTrue(play.board.contentsDisplays.isEmpty())
+    }
+
+    @Test fun stackContentsRetainOrderedDistinctLiveAndFrozenEffectsAndSearch() {
+        val play = TableStatesFixture.combat()
+        val order = CombatStackRules.stack(play.board).cards
+        val effect = play.board.stackEffects.single()
+        val card = CombatStackRules.inspection(play.board, effect.id)!!
+        val frozen = play.copy(board = play.board.copy(cards = play.board.cards.filterNot { it.id == card.id },
+            stackEffects = listOf(effect.copy(frozen = card), effect.copy(id = "second-effect", frozen = card))))
+        val pile = PileContents("stack", "Stack", order + "second-effect", ordered = true)
+        val entries = contentsEntries(frozen, pile, TableStatesFixture.a)
+        assertEquals(pile.cardIds, entries.map { it.cardId })
+        assertTrue(entries.first().location.startsWith("1 · "))
+        assertTrue(entries.last().location.endsWith("Retained effect"))
+        assertEquals(listOf(effect.id, "second-effect"), contentsEntries(frozen, pile, TableStatesFixture.a, "River").map { it.cardId })
+    }
+
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun state(): PlayState = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
         BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),

@@ -231,6 +231,12 @@ class TableGestureCoordinator(
         }
     }
     private fun destination(p: TablePoint, scope: TableScope?): TableDestination? {
+        // Stack drawings are faces of the container, not battlefield pile targets. Resolve the
+        // entire visible pile before its top card (and independently of the count badge routing).
+        scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
+            it.visible.any { bounds -> bounds.contains(p) } }?.let {
+            return TableDestination.Container(it.id, PlayZone.STACK)
+        }
         scene.combatDrops.asReversed().firstOrNull { it.bounds.contains(p) }?.let { return TableDestination.Combat(it.destination) }
         val hit = scene.items.asReversed().firstOrNull { i -> i.cardId !in (scope?.cardIds ?: emptyList()) && i.visible.any { it.contains(p) } }
         if (hit != null) {

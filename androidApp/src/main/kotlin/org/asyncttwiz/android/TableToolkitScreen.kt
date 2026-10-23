@@ -110,6 +110,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 ContentsScreen(play, pile, toolkit.viewer, modifier = Modifier.height(if (landscape) 220.dp else 480.dp),
                     onActions = { if (selection.mode == TableMode.SELECT) select(it) else toolkit.openCard(selection.scope(it, pile.cardIds)) },
                     onInspect = toolkit::inspect,
+                    onStackIntent = if (pile.ordered && selection.mode == TableMode.NORMAL) toolkit::handle else null,
+                    stackWritable = enabled,
                     onRotate = if (selection.mode != TableMode.NORMAL || pile.containerId == CombatStackRules.stack(play.board).id) null else { id ->
                         val card = CombatStackRules.liveSource(play.board, id)
                         if (card != null) {

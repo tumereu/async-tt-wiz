@@ -60,14 +60,24 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val sources: Map<String, TableMoveSource> = emptyMap(), val combatDrops: List<CombatDropRegion> = emptyList(),
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     val stackBubbles: StackBubbleGeometry? = null) {
-    fun hit(point: TablePoint): TableItem? = stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }
-        ?: items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
-            TableBounds(it.bounds.x, it.bounds.y, 20f, 20f).contains(point) && it.visible.isNotEmpty() }
-        ?: items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } }
+    fun hit(point: TablePoint): TableItem? {
+        stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
+        val stack = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
+            it.visible.any { bounds -> bounds.contains(point) } }
+        if (stack != null) {
+            if (stack.stackBadge.contains(point)) return stack
+            // The pile shows one actionable top entry; peeks and empty space are not separate rows.
+            return items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD &&
+                it.viewport == stack.viewport && it.visible.isNotEmpty() } ?: stack
+        }
+        return items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } }
+    }
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
     fun viewport(point: TablePoint) = viewports.firstOrNull { it.bounds.contains(point) }
 }
+
+internal val TableItem.stackBadge get() = TableBounds(bounds.x, bounds.y, 20f, 20f)
 
 object TablePresentation {
     const val GRID = 56f
@@ -76,6 +86,14 @@ object TablePresentation {
     const val HEADER = 48f
     const val TOOLBAR = 264f
     fun sidebarWidth(width: Float) = minOf(326f, width * .366f)
+
+    fun stackBubbles(scene: TableScene, play: PlayState, entryId: String?, width: Float, height: Float): StackBubbleGeometry? {
+        val card = scene.items.find { entryId != null && it.cardId == entryId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
+            ?: return null
+        val pile = scene.items.single { it.id == card.viewport }
+        return StackBubbleGeometry.create(requireNotNull(entryId), pile.bounds, width, height,
+            play.board.stackTextMarks[entryId], StackText.options(play, entryId).size)
+    }
 
     fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,
         ui: TableLayoutState = TableLayoutState(), placements: Map<String, TablePlacement> = emptyMap(),

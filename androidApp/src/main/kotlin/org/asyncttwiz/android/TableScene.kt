@@ -195,8 +195,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }
         val bubbleCard = baseScene.items.find { bubbleId != null && it.cardId == bubbleId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
-        val bubble = bubbleCard?.let { StackBubbleGeometry.create(requireNotNull(bubbleId), it.bounds, maxWidth.value,
-            maxHeight.value, play.board.stackTextMarks[bubbleId], StackText.options(play, bubbleId).size) }
+        val bubble = TablePresentation.stackBubbles(baseScene, play, bubbleId, maxWidth.value, maxHeight.value)
         val scene = baseScene.copy(stackBubbles = bubble)
         val annotations = TableAnnotationGeometry(scene, game.inviter.accountId)
         val artwork = tableArtwork(scene)
@@ -302,7 +301,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             for (item in scene.items) {
                 if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
                 val b = if (item.zone == PlayZone.STACK && item.kind == TableItemKind.PILE)
-                    TableBounds(item.bounds.x, item.bounds.y, 20f, 20f)
+                    item.stackBadge
                     else item.visible.maxByOrNull { it.width * it.height } ?: continue
                 key(item.id) {
                     Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).semantics {

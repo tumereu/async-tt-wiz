@@ -65,8 +65,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val before = current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
         return gameplay(action, invocationId).also { sent ->
             if (!sent) error = "One or more actions could not be queued. Already queued actions are retained."
-            else current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty().firstOrNull { it !in before }
-                ?.let { stackBubbleEntry = it }
+            else current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
+                .takeIf { after -> after.any { it !in before } }?.firstOrNull()?.let { stackBubbleEntry = it }
         }
     }
 
@@ -122,7 +122,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openPublicPile(id: String) {
         val container = current()?.board?.containers?.singleOrNull { it.id == id &&
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
-        dismiss(); panel = "contents/${container.id}"
+        dismiss(); stackBubbleEntry = null; panel = "contents/${container.id}"
     }
     fun publicContents(): PileContents? {
         val id = panel?.takeIf { it.startsWith("contents/") }?.substringAfter('/') ?: return null

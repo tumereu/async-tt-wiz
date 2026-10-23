@@ -2,6 +2,8 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
@@ -61,12 +69,75 @@ fun contentsEntries(state: PlayState, display: ContentsDisplay, viewer: String, 
 
 @Composable
 fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActions: (String) -> Unit,
-    onInspect: (String) -> Unit, modifier: Modifier = Modifier, onRotate: ((String) -> Unit)? = null) {
+    onInspect: (String) -> Unit, modifier: Modifier = Modifier, onRotate: ((String) -> Unit)? = null,
+    onStackIntent: ((TableIntent) -> Boolean)? = null, stackWritable: Boolean = false) {
     var search by remember(pile.containerId) { mutableStateOf("") }
-    Column(modifier) {
-        OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), label = { Text("Search by name") }, singleLine = true)
-        ContentsRows(state, viewer, contentsEntries(state, pile, viewer, search), !pile.ordered, onActions, onInspect,
-            Modifier.weight(1f), onRotate)
+    var bubbleId by remember(pile.containerId) { mutableStateOf<String?>(null) }
+    var root by remember { mutableStateOf(Rect.Zero) }
+    val rows = remember(pile.containerId) { mutableStateMapOf<String, Rect>() }
+    val density = LocalDensity.current.density
+    val stack = pile.ordered && onStackIntent != null
+    val entries = contentsEntries(state, pile, viewer, search)
+    val callback by rememberUpdatedState(onStackIntent)
+    val coordinator = remember(pile.containerId) { TableGestureCoordinator({ intent ->
+        if (intent is TableIntent.StackBubbles) bubbleId = intent.entryId
+        else {
+            if (intent is TableIntent.StackDestination) bubbleId = null
+            callback?.invoke(intent)
+        }
+    }) }
+    var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
+    DisposableEffect(coordinator) { onDispose { coordinator.cancel() } }
+    BoxWithConstraints(modifier.onGloballyPositioned { root = it.boundsInRoot() }) {
+        val anchor = rows[bubbleId]?.takeIf { bubbleId in entries.map { it.cardId } && it.width > 0 && it.height > 0 }
+            ?.let { TableBounds((it.left - root.left) / density, (it.top - root.top) / density, it.width / density, it.height / density) }
+        val bubble = if (stack && anchor != null) StackBubbleGeometry.create(requireNotNull(bubbleId), anchor,
+            maxWidth.value, maxHeight.value, state.board.stackTextMarks[bubbleId], StackText.options(state, requireNotNull(bubbleId)).size) else null
+        val currentBubble by rememberUpdatedState(bubble)
+        SideEffect {
+            // The same production coordinator owns the bubble taps and mark-text drag as on the table.
+            val item = bubble?.let { TableItem("contents/${it.entryId}", it.anchor, "Stack entry", "",
+                zone = PlayZone.STACK, kind = TableItemKind.CARD, cardId = it.entryId) }
+            coordinator.update(TableScene(listOfNotNull(item), emptyList(), stackBubbles = bubble), TableSelection(), stackWritable)
+        }
+        Box(Modifier.fillMaxSize().pointerInput(coordinator) {
+            try {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val point = TablePoint(down.position.x / density, down.position.y / density)
+                    if (currentBubble?.controls?.any { it.bounds.contains(point) } != true) {
+                        bubbleId = null // No scrim: outside touches continue to rows, search and scrolling.
+                    } else {
+                        coordinator.down(point, down.uptimeMillis); down.consume()
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                            if (change == null || event.changes.count { it.pressed } > 1) coordinator.cancel()
+                            else {
+                                val p = TablePoint(change.position.x / density, change.position.y / density)
+                                if (change.pressed) coordinator.move(p, change.uptimeMillis) else coordinator.up(p, change.uptimeMillis)
+                            }
+                            preview = coordinator.preview
+                            event.changes.forEach { it.consume() }
+                        } while (event.changes.any { it.pressed })
+                    }
+                }
+            } finally { coordinator.cancel() }
+        }) {
+            Column(Modifier.fillMaxSize()) {
+                OutlinedTextField(search, { search = it; bubbleId = null }, Modifier.fillMaxWidth(), label = { Text("Search by name") }, singleLine = true)
+                ContentsRows(state, viewer, entries, !pile.ordered,
+                    onActions = { if (stack) bubbleId = it else onActions(it) }, onInspect = onInspect,
+                    modifier = Modifier.weight(1f), onRotate = if (stack) { id -> bubbleId = null; onActions(id) } else onRotate,
+                    onRowBounds = { id, bounds -> rows[id] = bounds })
+            }
+            if (bubble != null) StackBubbleOverlay(bubble, StackText.options(state, bubble.entryId),
+                if (CombatStackRules.inspection(state.board, bubble.entryId)?.owner == viewer) OwnTableColor else OpponentTableColor,
+                preview, stackWritable) { intent ->
+                if (intent is TableIntent.StackDestination) bubbleId = null
+                callback?.invoke(intent)
+            }
+        }
     }
 }
 
@@ -115,7 +186,8 @@ fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, c
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ContentsRows(state: PlayState, viewer: String, entries: List<ContentsEntry>, grouped: Boolean, onActions: (String) -> Unit,
-    onInspect: (String) -> Unit, modifier: Modifier = Modifier, onRotate: ((String) -> Unit)? = null) {
+    onInspect: (String) -> Unit, modifier: Modifier = Modifier, onRotate: ((String) -> Unit)? = null,
+    onRowBounds: ((String, Rect) -> Unit)? = null) {
     if (entries.isEmpty()) { Box(modifier.padding(8.dp)) { Text("No cards") }; return }
     val groups = if (grouped) entries.groupBy { it.category } else mapOf("" to entries)
     Row(modifier.horizontalScroll(rememberScrollState())) {
@@ -123,7 +195,8 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
             Column(Modifier.width(220.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {
                 if (category.isNotEmpty()) Text(category, style = MaterialTheme.typography.labelMedium)
                 cards.forEach { entry ->
-                    Row(Modifier.fillMaxWidth().combinedClickable(onClick = { onActions(entry.cardId) },
+                    Row(Modifier.fillMaxWidth().onGloballyPositioned { onRowBounds?.invoke(entry.cardId, it.boundsInRoot()) }
+                        .combinedClickable(onClick = { onActions(entry.cardId) },
                         onLongClickLabel = "Inspect", onLongClick = { onInspect(entry.cardId) },
                         onDoubleClick = onRotate?.let { rotate -> { rotate(entry.cardId) } }).padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,7 +30,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 
 @Composable
-internal fun PreparationScreen(controller: LobbyController, actor: String, landscape: Boolean) {
+internal fun PreparationScreen(controller: LobbyController, actor: String, landscape: Boolean, hamburger: (() -> Unit)? = null) {
     val state = controller.state
     val preparation = state.preparation ?: return
     val deck = preparation.players.find { it.accountId == actor }?.deck ?: return
@@ -40,9 +42,8 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
         if (feedback != null) { alpha.snapTo(1f); alpha.animateTo(0f, tween(1500)) } else alpha.snapTo(0f)
     }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Prepare deck", Modifier.weight(1f).padding(16.dp), style = MaterialTheme.typography.titleLarge)
-            IconButton(onClick = controller::back) { EntryIcon("Close preparation", "close") }
+        ScreenHeader("Prepare deck", hamburger) {
+            ScreenIconButton("Close preparation", "close", controller::back)
         }
         // Always allocated, including before the first move and after the text fades.
         Box(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
@@ -57,9 +58,10 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
             val title = if (source == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"
             val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
             OutlinedCard(modifier.onGloballyPositioned { targets[source] = it.boundsInRoot() }) {
-                Text("$title · ${deck.count(source)}", Modifier.padding(12.dp), fontWeight = FontWeight.SemiBold)
+                Text("$title · ${deck.count(source)}", Modifier.padding(12.dp), style = MaterialTheme.typography.titleMedium)
                 val rows = deck.entries.filter { it.section == source }.groupBy { it.definition }
-                LazyColumn(Modifier.fillMaxSize().semantics { contentDescription = "$title preparation" }) {
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = if (landscape) 260.dp else 340.dp)
+                    .semantics { contentDescription = "$title preparation" }) {
                     items(rows.keys.toList(), key = { "${deck.id}/$source/$it" }) { digest ->
                         val definition = preparation.definitions.find { it.digest == digest }?.definition
                         val name = definition?.name ?: "Card"
@@ -69,19 +71,18 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
                             .semantics {
                                 customActions = listOf(CustomAccessibilityAction("Move one $name to ${opposite.label()}") { accessible(false) },
                                     CustomAccessibilityAction("Move all $name to ${opposite.label()}") { accessible(true) })
-                            }.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            for (all in listOf(false, true)) {
-                                PreparationHandle("${if (all) "Move all" else "Move one"} $name from $title", if (all) "∞" else "1",
-                                    connected, { controller.captureTransfer(digest, source, all) }, controller::transfer,
-                                    { point -> targets[opposite]?.contains(point) == true })
-                            }
+                            }.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(quantity.toString(), Modifier.widthIn(min = 28.dp).padding(horizontal = 4.dp), style = MaterialTheme.typography.bodySmall)
                             Row(Modifier.weight(1f).heightIn(min = 56.dp).clickable(onClickLabel = "Inspect $name") { controller.inspectPrepared(digest) }
                                 .semantics { contentDescription = "Inspect $name in $title" }, verticalAlignment = Alignment.CenterVertically) {
                                 val face = definition?.faces?.firstOrNull()
-                                CardArtwork(face?.let { ArtworkReference(it.scryfallId, 0, digest, "small", it.imageUri) }, name,
-                                    28, 40, Modifier.size(28.dp, 40.dp))
+                                DeckThumbnail(face?.let { ArtworkReference(it.scryfallId, 0, digest, "small", it.imageUri) }, name, 22.dp, 30.dp)
                                 Text(name, Modifier.padding(start = 8.dp, end = 4.dp), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            for (all in listOf(false, true)) {
+                                PreparationHandle("${if (all) "Move all" else "Move one"} $name from $title", if (all) "∞" else "1",
+                                    connected, { controller.captureTransfer(digest, source, all) }, controller::transfer,
+                                    { point -> targets[opposite]?.contains(point) == true })
                             }
                         }
                     }
@@ -89,15 +90,15 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
                 }
             }
         }
-        if (landscape) Row(Modifier.weight(1f).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            section(SavedDeckSection.MAINBOARD, Modifier.weight(1f).fillMaxHeight())
-            section(SavedDeckSection.SIDEBOARD, Modifier.weight(1f).fillMaxHeight())
-        } else Column(Modifier.weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            section(SavedDeckSection.MAINBOARD, Modifier.weight(1f).fillMaxWidth())
-            section(SavedDeckSection.SIDEBOARD, Modifier.weight(1f).fillMaxWidth())
+        if (landscape) Row(Modifier.weight(1f).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            section(SavedDeckSection.MAINBOARD, Modifier.weight(1f))
+            section(SavedDeckSection.SIDEBOARD, Modifier.weight(1f))
+        } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            section(SavedDeckSection.MAINBOARD, Modifier.fillMaxWidth())
+            section(SavedDeckSection.SIDEBOARD, Modifier.fillMaxWidth())
         }
     }
-    CardInspection(controller.inspection)
+    DeckCardInspection(controller.inspection)
 }
 
 private fun SavedDeckSection.label() = if (this == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"

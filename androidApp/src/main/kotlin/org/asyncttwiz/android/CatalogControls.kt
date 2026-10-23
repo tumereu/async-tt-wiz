@@ -19,12 +19,12 @@ internal fun CatalogControls(controller: CatalogViewModel) {
         else if (state.available != null) {
             val size = state.size?.let { "${(it + 1023) / 1024} KiB" } ?: "up to 4 GiB (size unavailable)"
             Text("${state.available.date} · Download $size. ${if (state.metered) "This connection may charge for data." else "Using an unmetered connection."} Indexed records may use up to 4 GiB of storage.")
-            Button(onClick = controller::consent, Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text(if (state.error) "Retry download" else "Download card records")
+            ScreenButton(onClick = controller::consent, Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text(if (state.error) "Retry download" else "Download card records")
             }
         }
         if (!state.busy) TextButton(onClick = { controller.foreground(force = true) }, Modifier.heightIn(min = 48.dp)) {
-            Text(if (state.error && state.available == null) "Retry" else "Check for updates")
+            EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text(if (state.error && state.available == null) "Retry" else "Check for updates")
         }
     }
 }

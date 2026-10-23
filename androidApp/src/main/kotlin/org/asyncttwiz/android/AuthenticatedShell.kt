@@ -66,7 +66,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         .semantics { contentDescription = "Signed in as ${state.account!!.username}" }) {
         if (landscape && !tabletop) {
             Row(Modifier.fillMaxSize()) {
-                Surface(Modifier.width(200.dp).fillMaxHeight(), color = Color.White,
+                Surface(Modifier.width(220.dp).fillMaxHeight(), color = Color.White,
                     border = BorderStroke(1.dp, Color(0xffd0d6dd))) {
                     Navigation(controller, close = false, lobby)
                 }
@@ -97,12 +97,12 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
 }
 
 @Composable
-private fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyController?) {
+internal fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyController?) {
     Column(Modifier.fillMaxSize()) {
         if (close) IconButton(onClick = { controller.drawer(false) }, Modifier.align(Alignment.End)) {
             EntryIcon("Close navigation", "close")
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(8.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
@@ -111,7 +111,6 @@ private fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyC
                     controller.navigate(destination)
                 }
             }
-            Spacer(Modifier.height(12.dp))
             NavigationItem("Games", null, controller.state.destination == ShellDestination.GAMES) {
                 lobby?.back()
                 controller.navigate(ShellDestination.GAMES)
@@ -120,22 +119,27 @@ private fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyC
                 val selectedGame = controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id
                 // One combined handler owns tap/hold; nesting another clickable drawer item would
                 // allow a recognized context hold to also open the game on release.
-                Surface(Modifier.padding(start = 12.dp).fillMaxWidth().heightIn(min = 56.dp)
+                Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
                     .gameRowActions(lobby!!, game) { lobby.open(game.id); controller.drawer(false) }
                     .semantics { selected = selectedGame }, shape = MaterialTheme.shapes.extraLarge,
                     color = if (selectedGame) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text(game.gameName)
-                        Text("${game.opponent(controller.state.account!!.accountId).username} · ${gameStatus(game)} · ${gameDate(game)}",
-                            style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        EntryIcon(null, "games")
+                        Column(Modifier.weight(1f)) {
+                            Text(game.gameName)
+                            Text("${game.opponent(controller.state.account!!.accountId).username} · ${gameStatus(game)} · ${gameDate(game)}",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        EntryIcon(null, "chevron")
                     }
                 }
             }
         }
         HorizontalDivider()
-        TextButton(onClick = controller::logout, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("logout"),
+        TextButton(onClick = controller::logout, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag("logout"),
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-            EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Logout")
+            EntryIcon(null, "logout"); Spacer(Modifier.width(8.dp)); Text("Logout")
             Spacer(Modifier.weight(1f))
         }
     }
@@ -143,15 +147,16 @@ private fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyC
 
 @Composable
 private fun NavigationItem(label: String, icon: String?, selected: Boolean, indented: Boolean = false, action: () -> Unit) {
-    NavigationDrawerItem(label = { Text(label, fontWeight = if (icon == null) FontWeight.Bold else FontWeight.Normal) },
-        selected = selected, onClick = action,
-        icon = if (icon != null) { { EntryIcon(null, icon) } } else null,
-        colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = .08f)),
-        modifier = Modifier.padding(start = if (indented) 12.dp else 0.dp).heightIn(min = 48.dp))
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = action).semantics { this.selected = selected }
+        .padding(start = if (indented) 20.dp else 4.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (icon != null) EntryIcon(null, icon)
+        Text(label, fontWeight = if (icon == null) FontWeight.Bold else FontWeight.Normal)
+    }
 }
 
 @Composable
-private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
+internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String) {
     Column(Modifier.fillMaxSize()) {
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -161,7 +166,7 @@ private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open
                      fontWeight = FontWeight.Bold)
             if (destination == ShellDestination.GAMES) {
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { navigate(ShellDestination.CONTACTS) }) { EntryIcon(null, "games"); Spacer(Modifier.width(4.dp)); Text("New game") }
+                TextButton(onClick = { navigate(ShellDestination.CONTACTS) }) { EntryIcon(null, "add"); Spacer(Modifier.width(8.dp)); Text("New game") }
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -175,14 +180,18 @@ private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open
                     WizardLogo()
                     Spacer(Modifier.height(24.dp))
                     for (item in listOf(ShellDestination.GAMES, ShellDestination.DECKS, ShellDestination.CONTACTS)) {
-                        OutlinedButton(onClick = { navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
-                            .heightIn(min = 64.dp).testTag("menu-${item.name}"),
+                         OutlinedButton(onClick = { navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
+                             .heightIn(min = if (hamburger) 78.dp else 60.dp).testTag("menu-${item.name}"),
                             shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color(0xffcdd3dc)),
                             colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White,
                                 contentColor = if (item == ShellDestination.GAMES) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)) {
-                            EntryIcon(null, item.icon()); Spacer(Modifier.width(12.dp))
-                            Text(item.title, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                            Text("›", Modifier.padding(start = 8.dp))
+                             Surface(shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, ScreenBorder),
+                                 color = if (item == ShellDestination.GAMES) MaterialTheme.colorScheme.primaryContainer else ScreenBackground) {
+                                 Box(Modifier.size(if (hamburger) 44.dp else 36.dp), contentAlignment = Alignment.Center) { EntryIcon(null, item.icon()) }
+                             }
+                             Spacer(Modifier.width(16.dp))
+                             Text(item.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                             EntryIcon(null, "chevron")
                         }
                         Spacer(Modifier.height(12.dp))
                     }
@@ -198,8 +207,8 @@ private fun ShellContent(destination: ShellDestination, hamburger: Boolean, open
             }
         }
         if (destination == ShellDestination.DECKS && deckImport != null) {
-            Button(onClick = deckImport::open, modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("import-deck")) {
-                EntryIcon(null, "decks"); Spacer(Modifier.width(8.dp)); Text("Import deck")
+            ScreenButton(onClick = deckImport::open, modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("import-deck")) {
+                EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Import deck")
             }
         }
     }

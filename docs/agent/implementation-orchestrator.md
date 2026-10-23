@@ -19,6 +19,14 @@ copies or alter its shared lock/state to simulate parallelism. The
 
 ## Dispatch leases and readiness
 
+Feature writing, execution and fixing run concurrently, not in serial batches.
+Implementation writes UI/app/test code only; executors run builds/tests/apps/UI
+inspections and return failures to separate fix writers. Keep maximum useful
+feature-writing capacity filled while validation lags, including during fixes;
+use separate branches/pinned proposed interfaces before prerequisites pass.
+Acceptance still requires real evidence and original prerequisites. Retain this
+owner direction and the execution/fix queues in every compaction handoff.
+
 **No fixed lane cap or five-unit checkpoint rule.** Keep as many useful implement/fix/
 review/verify units running as model quota, memory/CPU and truly exclusive resources
 permit. Prefer parallel development plus merge repair even for modest file/task

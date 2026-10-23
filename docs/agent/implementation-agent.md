@@ -12,16 +12,21 @@ No subagents, new loop, deployment or paid resources from a unit.
    speculative development before prerequisites are accepted; this is not permission
    to claim them complete. Latest-state priority/prerequisites guard acceptance.
    The [orchestrator](implementation-orchestrator.md) owns dispatch and discrepancies.
-2. Deliver one bounded usable outcome. Implement affected tests alongside code;
-   split only when useful. Qualified D-309 `implementationUnits` allows decomposition
+2. Deliver one bounded usable outcome. Writers implement UI/app/test code, save/push
+   and hand execution to separate executors; do not run builds/tests/apps/inspections.
+   Next-feature writers and fix writers proceed concurrently on separate branches
+   before validation; pending remains **UNVERIFIED**. Split only when useful.
+   Qualified D-309 `implementationUnits` allows decomposition
    plus a ready first child in this session; explicit `ancestorClosures` can reconcile
     completed ancestry. Follow the exact report schemas in the contract; no unrelated
     advancement or extra closure-only session when evidence already covers the parent.
-3. Run/fix affected checks using incremental builds; stop once green unless evidence
-   identifies another affected input/assertion. No confidence full-suite/clean-build
-   reruns or bespoke 100-line audits. Final qualification/reviews remain required.
-   Run dependent commands in the foreground (`timeout: 0` when needed); do not exit
-   while a background check still owns the handoff/resources.
+3. Executors run assigned existing checks/apps/inspections, report exact failures
+   and return repairs to fresh writers; no source/test fixes or extra scenarios.
+   Use incremental affected checks, no confidence full-suite/clean-build reruns or
+   bespoke audits. Final qualification/reviews remain required. Run dependent
+   commands in the foreground (`timeout: 0` when needed); do not exit while a
+   background check still owns the handoff/resources. Writers still perform static
+   ownership/whitespace/save checks, not behavioral validation.
 4. Retain actual output, including failed diagnostics, under this run's namespace.
    Prefer `python3 scripts/capture-check.py <run-directory>/check.json -- <command> ...`;
     small truthful summaries suffice. Assigned requirement

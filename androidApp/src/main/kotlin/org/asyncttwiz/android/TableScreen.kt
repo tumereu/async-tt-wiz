@@ -47,7 +47,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
     val tree = controller.retainedTree()
     LaunchedEffect(tree, live?.currentNodeId, live?.board, game.revision) {
-        tree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}") }
+        tree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId) }
     }
     val playback = history.playback
     val position = playback?.position
@@ -199,7 +199,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
             game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),
         showHidden, { showHidden = it }, { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
-        onAdvanced = { advanced = true })
+        onAdvanced = { advanced = true }, texts = playback?.tree?.texts.orEmpty())
     if (advanced && tree != null) HistoryAdvanced(history, tree, position?.cursorId ?: tree.currentNodeId,
         game, accountId, landscape, game.id in state.connectedGames, { advanced = false })
     if (history.gate?.suggestionId != dismissedResult) ResultAcceptanceDialog(game, state.acceptedPlay, accountId,

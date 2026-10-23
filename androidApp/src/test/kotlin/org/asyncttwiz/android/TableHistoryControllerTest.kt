@@ -23,6 +23,33 @@ class TableHistoryControllerTest {
     private fun view(tree: GameplayTree) = DownloadedHistoryState(1L, tree.currentNodeId,
         state = tree.stateAt(tree.currentNodeId))
 
+    @Test fun publishedTimelineResolvesAuthorNamesWithoutExposingCoveredCards() {
+        Harness().use { h ->
+            val tree = f.tap(f.root())
+            val game = GameSummary(tree.initial.gameId, "game", "now", AccountIdentity(f.a, "alice"),
+                AccountIdentity(f.b, "bob"), tree.initial.preparationRound, f.id(500), InvitationState.ACCEPTED)
+            h.history.update(tree, "v1", game, f.a); h.publish()
+            val timeline = HistoryTimelineLayout.events(h.history.playback!!.tree, tree.currentNodeId)
+            assertEquals("alice tapped a card", timeline.last().description)
+            assertEquals("Tap", timeline.last().label)
+            assertEquals(mapOf(f.a to "alice", f.b to "bob"), h.history.usernames)
+            assertTrue(timeline.none { it.description.contains("00000000-") })
+        }
+    }
+
+    @Test fun workerIndexIncludesUsernamesAndRefreshesWhenDisplayContextChanges() {
+        Harness().use { h ->
+            val tree = f.tap(f.root())
+            val game = GameSummary(tree.initial.gameId, "Table", "2026-10-23T00:00:00Z",
+                AccountIdentity(f.a, "alice"), AccountIdentity(f.b, "bob"), tree.initial.preparationRound,
+                f.id(90), InvitationState.ACCEPTED)
+            h.history.update(tree, "v1", game, f.a); h.publish()
+            assertEquals("alice tapped a card", h.history.playback!!.tree.texts.getValue(tree.currentNodeId).description)
+            h.history.update(tree, "v1", game.copy(inviter = AccountIdentity(f.a, "alicia")), f.a); h.publish()
+            assertEquals("alicia tapped a card", h.history.playback!!.tree.texts.getValue(tree.currentNodeId).description)
+        }
+    }
+
     @Test fun reviewFromNewerSessionTreeIsIgnoredUntilPlaybackIndexCatchesUp() {
         Harness().use { h ->
             val root = f.root()

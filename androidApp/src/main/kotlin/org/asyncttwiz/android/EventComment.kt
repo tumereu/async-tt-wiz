@@ -18,7 +18,7 @@ fun EventCommentComposer(draft: EventCommentDraft, connected: Boolean, onSubmit:
     onCancel: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.padding(12.dp)) {
         Text("Event comment", style = MaterialTheme.typography.titleMedium)
-        Text("Boundary ${draft.reference.nodeId}", style = MaterialTheme.typography.labelSmall)
+        Text("Selected event", style = MaterialTheme.typography.labelSmall)
         OutlinedTextField(draft.text, { draft.text = it }, Modifier.fillMaxWidth(),
             label = { Text("Comment") }, minLines = 3, maxLines = 8)
         Row {

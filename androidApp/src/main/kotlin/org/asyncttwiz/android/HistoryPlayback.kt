@@ -12,7 +12,8 @@ data class HistoryPosition(val cursorId: String, val mode: HistoryMode = History
 /** An index over the shared mutation model, not another history/replay engine. The caller supplies a
  * coherent accepted tree and a version of its already-rebased live target (not an acknowledgement revision). */
 class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sharedHeadId: String,
-    val liveVersion: String, val versions: Map<String, String> = emptyMap()) {
+    val liveVersion: String, val versions: Map<String, String> = emptyMap(),
+    val texts: Map<String, HistoryText> = emptyMap()) {
     val nodes = mutations.associateBy { it.id }
     init {
         require(nodes.size == mutations.size && rootId !in nodes && (sharedHeadId == rootId || sharedHeadId in nodes))

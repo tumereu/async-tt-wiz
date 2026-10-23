@@ -19,10 +19,10 @@ import org.asyncttwiz.protocol.*
     TextButton(onClick = { open = true }) { Text("Event details") }
     if (open) Dialog(onDismissRequest = { open = false; draft = null }) { Surface {
         Column(Modifier.padding(12.dp).heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
-            Text("Boundary $cursor", style = MaterialTheme.typography.labelSmall)
+            Text("Selected event", style = MaterialTheme.typography.labelSmall)
             val reference = EventReference(play.id, cursor, history.view?.takeIf { it.cursor == cursor }?.contextVersion)
             val event = history.playback?.tree?.nodes?.get(cursor)
-            Text(event?.action?.toString() ?: "Initial state")
+            Text(history.playback?.tree?.texts?.get(cursor)?.description ?: historyText(event).description)
             for (comment in play.annotations.comments) EventCommentRecord(comment, { history.select(it.nodeId) })
             val selected = toolkit.selectionState.value.ids.mapNotNull { id -> when {
                 play.board.cards.any { it.id == id } -> PingTarget(PingTargetKind.CARD, id)
@@ -34,10 +34,10 @@ import org.asyncttwiz.protocol.*
             EventPingAction(EventPingIntent(reference, selected, false), connected) { actions -> actions.forEach { submit(it) } }
             for (player in play.board.players) TextButton(enabled = connected,
                 onClick = { submit(PlayAction.Ping(reference, PingTarget(PingTargetKind.PLAYER, player.accountId))) }) {
-                Text("Ping player ${player.accountId.take(8)}")
+                Text("Ping ${historyPlayerName(player.accountId, history.usernames)}")
             }
             for (ping in play.annotations.pings.filter { it.reference.reference.nodeId == cursor })
-                EventPingMarker(ping, ping.target.kind.name.lowercase(), targetPresent = true, onReference = { history.select(it.nodeId) })
+                EventPingMarker(ping, ping.target.kind.name.lowercase(), targetPresent = true, onReference = { history.select(it.nodeId) }, usernames = history.usernames)
             TextButton(enabled = connected, onClick = { draft = EventCommentDraft(reference) }) { Text("Comment on event") }
             draft?.let { captured -> EventCommentComposer(captured, connected, { action ->
                 if (submit(action)) draft = null
@@ -55,15 +55,15 @@ import org.asyncttwiz.protocol.*
     val scope = GameScope(tree.initial.gameId, playId = tree.initial.id)
     Dialog(onDismissRequest = dismiss) { Surface {
         Column(Modifier.padding(12.dp).heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
-            Text("Branch details · ${branchId.take(8)}")
+            Text("Branch details")
             val archived = branchId in tree.branchArchives.archivedBranchIds
             TextButton(enabled = connected && (archived || branchId != tree.currentBranchId), onClick = {
                 history.request(CapturedBranchArchiveAction(scope, if (archived) BranchArchiveIntent.Restore(branchId) else BranchArchiveIntent.Archive(branchId)))
             }) { Text(if (archived) "Restore branch" else "Archive branch") }
             TextButton(enabled = connected, onClick = { history.prepareReturn(branchId) }) { Text("Delete this branch and return…") }
-            for (id in tree.branchArchives.archivedBranchIds.sorted()) TextButton(enabled = connected, onClick = {
+            for ((index, id) in tree.branchArchives.archivedBranchIds.sorted().withIndex()) TextButton(enabled = connected, onClick = {
                 history.request(CapturedBranchArchiveAction(scope, BranchArchiveIntent.Restore(id)))
-            }) { Text("Restore archived ${id.take(8)}") }
+            }) { Text("Restore archived continuation ${index + 1}") }
             tree.branchArchives.lastControlByBranch[branchId]?.let { control ->
                 for (selection in listOf(false, true)) TextButton(enabled = connected, onClick = {
                     history.request(CapturedBranchArchiveAction(scope, BranchArchiveIntent.Recover(control, selection)))
@@ -76,8 +76,8 @@ import org.asyncttwiz.protocol.*
         if (confirmation.preview.needsSelection) BranchReturnSelectionDialog(history.choices,
             confirmation.preview.reason.orEmpty(), connected, history::dismissReturn) { chosen, restore ->
             history.branch?.let { history.prepareReturn(it, chosen, restore) }
-        } else BranchArchiveReturnDialog(confirmation, history.branch.orEmpty().take(8),
-            confirmation.preview.target?.nodeId.orEmpty().take(8), connected, history::dismissReturn,
+        } else BranchArchiveReturnDialog(confirmation, "selected continuation",
+            "return point", connected, history::dismissReturn,
             onConfirm = { history.request(it); history.dismissReturn() }) { preview ->
             Box(Modifier.fillMaxWidth().height(230.dp)) {
                 TableSurface(game, preview, viewer, landscape, connected = false)

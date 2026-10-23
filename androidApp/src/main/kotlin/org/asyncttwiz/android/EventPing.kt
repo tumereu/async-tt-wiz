@@ -32,9 +32,9 @@ fun EventPingAction(intent: EventPingIntent, connected: Boolean, onSubmit: (List
 /** Uses only recorded identity/ordinal and a host-provided non-disclosing description, never card metadata. */
 @Composable
 fun EventPingMarker(record: RecordedPingChange, targetDescription: String, targetPresent: Boolean,
-    onReference: (EventReference) -> Unit, modifier: Modifier = Modifier) {
+    onReference: (EventReference) -> Unit, modifier: Modifier = Modifier, usernames: Map<String, String> = emptyMap()) {
     val presence = record.to ?: return
-    Row(modifier.semantics { contentDescription = "Ping ${presence.ordinal}, $targetDescription, author ${record.recording.author}" }) {
+    Row(modifier.semantics { contentDescription = "Ping ${presence.ordinal}, $targetDescription, by ${historyPlayerName(record.recording.author, usernames)}" }) {
         Text("◎${presence.ordinal}")
         if (!targetPresent) TextButton({ onReference(record.reference.reference) }) { Text("Original context") }
     }

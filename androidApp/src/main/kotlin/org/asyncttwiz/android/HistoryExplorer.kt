@@ -37,7 +37,7 @@ import kotlin.math.roundToInt
 fun HistoryExplorer(controller: HistoryExplorerController, connected: Boolean,
     authorColors: Map<String, Color>, showHidden: Boolean, onShowHidden: (Boolean) -> Unit,
     onDismiss: () -> Unit, onReview: (org.asyncttwiz.protocol.PlayState) -> Unit,
-    onAdvanced: (() -> Unit)? = null) {
+    onAdvanced: (() -> Unit)? = null, texts: Map<String, HistoryText> = emptyMap()) {
     val state = controller.state
     val graph = state.graph
     var menu by remember { mutableStateOf(false) }
@@ -116,13 +116,14 @@ fun HistoryExplorer(controller: HistoryExplorerController, connected: Boolean,
                         }
                         for (range in graph.ranges) {
                             val color = authorColors[range.author] ?: MaterialTheme.colorScheme.onSurface
+                            val text = historyRangeText(range, texts)
                             Box(Modifier.offset {
                                 IntOffset(((range.position.x + pan.x - 24) * density).roundToInt(),
                                     ((range.position.y + pan.y - 24) * density).roundToInt())
                             }.size(48.dp).semantics {
-                                contentDescription = "${range.glyph.label}, ${range.nodeIds.size} events, review group end"
+                                contentDescription = "${text.description}, ${range.nodeIds.size} events, review group end"
                             }.combinedClickable(onClick = { tooltip = null; controller.select(range.targetId) },
-                                onLongClick = { tooltip = range.glyph.label }), contentAlignment = Alignment.Center) {
+                                onLongClick = { tooltip = text.description }), contentAlignment = Alignment.Center) {
                                 Text(range.glyph.symbol, color = color)
                             }
                         }

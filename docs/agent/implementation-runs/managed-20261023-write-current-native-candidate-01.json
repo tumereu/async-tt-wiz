@@ -1,0 +1,153 @@
+{
+  "runId": "managed-20261023-write-current-native-candidate-01",
+  "sessionID": "ses_e97a30705ffe9JTDXuZN9lKDBd",
+  "startCommit": "1829313a17be725153e72d3aef70bed681f9e0d1",
+  "mode": "integration",
+  "target": "current-canonical-native-qualification-source",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Prepared current canonical qualification source: preserved cleanup proof/state, reconciled real OS-notification checkpoint with current Draw/readiness labels, restored exact whole I12 lobby test, and imported exact installed-APK whole-file identity optimization. UNCOMPILED/UNEXECUTED/UNVERIFIED; no application proposal or acceptance.",
+  "selectionReason": "Explicit source-only writer lease plus ready owner amendment; resolves known stale native test and installed-APK transfer bottleneck without migrating old runtime/state.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 -c 'import subprocess,json,pathlib; c=json.loads(pathlib.Path(\"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\").read_text()); g=lambda *a: subprocess.check_output([\"git\",*a],text=True).strip(); assert g(\"rev-parse\",\"HEAD\")==c[\"startCommit\"]; assert g(\"rev-parse\",\"--abbrev-ref\",\"HEAD\")==c[\"branch\"]; assert not g(\"status\",\"--porcelain\"); assert c[\"model\"]==\"openai/gpt-6.1-sol#high\"; assert c[\"serverCreatedMetadata\"][\"model\"]=={\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"high\"}; print(json.dumps({\"startCommit\":c[\"startCommit\"],\"branch\":c[\"branch\"],\"sessionID\":c[\"sessionID\"],\"leaseContext\":c[\"contextPath\"],\"resourceBundle\":c[\"resourceBundle\"],\"dependencies\":{p:g(\"rev-parse\",p+\"^{commit}\") for p in c[\"dependencyCommits\"]},\"proofCommitDelta\":g(\"diff-tree\",\"--no-commit-id\",\"--name-only\",\"-r\",c[\"mergeCommits\"][0])},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/preflight.json"
+    },
+    {
+      "kind": "required",
+      "command": "git merge --no-ff --no-commit a264da1aa806e51c9acb4ff91a0370d91260d6f4",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/merge.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import subprocess,json,pathlib,hashlib; c=json.loads(pathlib.Path(\"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\").read_text()); i=c[\"sourceOnlyImports\"][0]; args=[\"git\",\"diff\",\"--binary\",i[\"from\"],i[\"to\"],\"--\",*i[\"paths\"]]; data=subprocess.check_output(args); p=pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/notification.patch\"); p.write_bytes(data); print(json.dumps({\"command\":args,\"path\":str(p),\"sha256\":hashlib.sha256(data).hexdigest(),\"bytes\":len(data)},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/patch-input.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "git apply --3way --index docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/notification.patch",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/apply.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/applied-patch-bytes.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import subprocess,json,pathlib,hashlib; c=json.loads(pathlib.Path(\"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\").read_text()); g=lambda *a: subprocess.check_output([\"git\",*a]); rows=[]; pairs=[(c[\"dependencyCommits\"][0],c[\"ownedPaths\"][0]), *[(c[\"sourceOnlyImports\"][0][\"to\"],p) for p in c[\"sourceOnlyImports\"][0][\"paths\"] if p.startswith(\"docs/\")],(c[\"sourceOnlyImports\"][1][\"source\"],c[\"sourceOnlyImports\"][1][\"paths\"][0]),(c[\"startCommit\"],c[\"state\"]),(c[\"startCommit\"],\"androidApp/src/androidTest/kotlin/org/asyncttwiz/android/SetupCancellationTest.kt\")];\nfor ref,p in pairs:\n data=pathlib.Path(p).read_bytes(); assert data==g(\"show\",ref+\":\"+p),p; rows.append({\"path\":p,\"exactCommit\":ref,\"sha256\":hashlib.sha256(data).hexdigest()})\nchanged=set(g(\"diff\",\"--name-only\",c[\"startCommit\"]).decode().splitlines()); assert changed<=set(c[\"ownedPaths\"]),sorted(changed-set(c[\"ownedPaths\"])); assert not g(\"ls-files\",\"-u\"); s=pathlib.Path(\"e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt\").read_text(); assert all(x not in s for x in [\"<<<<<<<\",\"=======\",\">>>>>>>\"]); print(json.dumps({\"exactBytes\":rows,\"trackedChangedPaths\":sorted(changed),\"noUnmergedEntries\":True,\"nativeIntegratedSha256\":hashlib.sha256(s.encode()).hexdigest(),\"scope\":\"Static ownership/byte identity only; no compile, test, device or acceptance\"},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/integrity.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff 792271f14741e042bc433d40c7587b7ae0b34712 -- e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/resolution-diff.json"
+    },
+    {
+      "kind": "required",
+      "command": "git grep -n -E 'Draw one|Choose phase/step|review group end|Check for updates|Replace both sections with this list\\.' -- androidApp/src/main/kotlin/org/asyncttwiz/android/TableActionMenu.kt androidApp/src/main/kotlin/org/asyncttwiz/android/HistoryExplorer.kt androidApp/src/main/kotlin/org/asyncttwiz/android/CatalogControls.kt androidApp/src/main/kotlin/org/asyncttwiz/android/DeckImportScreen.kt",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/source-labels.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import subprocess,json,pathlib,hashlib; c=json.loads(pathlib.Path(\"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\").read_text()); i=c[\"amendments\"][0]; assert set(i[\"paths\"])<=set(c[\"ownedPaths\"]); args=[\"git\",\"diff\",\"--binary\",i[\"from\"],i[\"sourceCommit\"],\"--\",*i[\"paths\"]]; data=subprocess.check_output(args); p=pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/installed-identity.patch\"); p.write_bytes(data); print(json.dumps({\"command\":args,\"path\":str(p),\"sha256\":hashlib.sha256(data).hexdigest(),\"bytes\":len(data),\"leasedPaths\":i[\"paths\"]},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/identity-patch-input.json"
+    },
+    {
+      "kind": "required",
+      "command": "git apply --3way --index docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/installed-identity.patch",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/identity-apply.json",
+      "supportPaths": [
+        "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/identity-applied-patch-bytes.json"
+      ]
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import subprocess,json,pathlib,hashlib,base64; c=json.loads(pathlib.Path(\"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\").read_text()); g=lambda *a: subprocess.check_output([\"git\",*a]); i=c[\"amendments\"][0]; rows=[];\nfor p in i[\"paths\"]:\n data=pathlib.Path(p).read_bytes(); assert data==g(\"show\",i[\"sourceCommit\"]+\":\"+p),p; rows.append({\"path\":p,\"exactCommit\":i[\"sourceCommit\"],\"sha256\":hashlib.sha256(data).hexdigest()})\np=pathlib.Path(\"docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/installed-identity.patch\"); data=p.read_bytes(); assert data==g(\"diff\",\"--binary\",i[\"from\"],i[\"sourceCommit\"],\"--\",*i[\"paths\"]); p.with_name(\"identity-applied-patch-bytes.json\").write_text(json.dumps({\"appliedPath\":str(p),\"sha256\":hashlib.sha256(data).hexdigest(),\"bytes\":len(data),\"base64\":base64.b64encode(data).decode()},indent=2)+\"\\n\"); changed=set(g(\"diff\",\"--name-only\",c[\"startCommit\"]).decode().splitlines()); assert changed<=set(c[\"ownedPaths\"]); assert pathlib.Path(c[\"state\"]).read_bytes()==g(\"show\",c[\"startCommit\"]+\":\"+c[\"state\"]); print(json.dumps({\"amendmentExactBytes\":rows,\"trackedChangedPaths\":sorted(changed),\"canonicalStateUnchanged\":True,\"scope\":\"Static exact input/ownership only; Python checks deferred to execution queue\"},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/amendment-integrity.json"
+    },
+    {
+      "kind": "required",
+      "command": "git diff --cached --check",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/whitespace.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 -c 'import subprocess,json,pathlib; c=json.loads(pathlib.Path(\"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\").read_text()); r=json.loads(pathlib.Path(c[\"report\"]).read_text()); g=lambda *a: subprocess.check_output([\"git\",*a],text=True); actual=set(g(\"diff\",\"--name-only\",c[\"startCommit\"]).splitlines())|set(g(\"ls-files\",\"--others\",\"--exclude-standard\").splitlines())|{\"docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/ownership.json\"}; assert actual==set(r[\"changedPaths\"]),sorted(actual^set(r[\"changedPaths\"])); prefix=\"docs/agent/implementation-runs/\"+c[\"runId\"]+\"/\"; assert all(p in c[\"ownedPaths\"] or p==c[\"report\"] or p.startswith(prefix) for p in actual); assert not g(\"ls-files\",\"-u\"); print(json.dumps({\"exactChangedPaths\":sorted(actual),\"stagedPaths\":g(\"diff\",\"--cached\",\"--name-only\").splitlines(),\"leaseOnly\":True,\"unmergedEntries\":False,\"applicationStateTransitions\":False},indent=2))'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/ownership.json"
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-runs/managed-20261023-exec-cancel-02/recovered-cleanup.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/amendment-integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/applied-patch-bytes.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/apply.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/handoff.md",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/identity-applied-patch-bytes.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/identity-apply.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/identity-patch-input.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/integrity.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/merge.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/ownership.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/patch-input.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/preflight.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/resolution-diff.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/source-labels.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/tool-diagnostics.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-installed-identity-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-installed-identity-01/android10-tool-source.json",
+    "docs/agent/implementation-runs/managed-20261023-write-installed-identity-01/static-source.json",
+    "docs/agent/implementation-runs/managed-20261023-write-installed-identity-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/adapter-source.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/authority-unchanged.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/execution.md",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/owned-paths.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/pin.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/source-routes.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/tool-diagnostics.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/whitespace.json",
+    "e2e/device_app.py",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt",
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeLobbyCompletionTest.kt",
+    "tests/test_device_app.py"
+  ],
+  "mergeDetails": {
+    "normalMerge": "a264da1aa806e51c9acb4ff91a0370d91260d6f4",
+    "notificationDelta": "06a7d34d74147c556a6852e9a7cd1857ec59ab87..792271f14741e042bc433d40c7587b7ae0b34712",
+    "lobbyExactSource": "c3241021249c4bc0be20e5dbfd29f41bc071e840",
+    "identityDelta": "c3241021249c4bc0be20e5dbfd29f41bc071e840..79a68675ea28ce64ecfffe9fc7c5940e537e77d0",
+    "repair": "Two adjacent notification apply conflicts reconciled: retain current starter-derived labels and menu dismissal wait; observe Draw on foreground peer while first phone awaits real OS notification. Original imported archives unchanged.",
+    "patchBytes": [
+      "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/applied-patch-bytes.json",
+      "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/identity-applied-patch-bytes.json"
+    ]
+  },
+  "failureGroups": [],
+  "diagnostics": [
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/apply.json",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/tool-diagnostics.json"
+  ],
+  "remainingOwners": {
+    "executionQueue": "Imported Python regression host check; affected e2e compilation; whole original current-runtime I12b plus actual unchanged SetupCancellationTest, qualified source/artifact identities and resource-wrapped cleanup. All UNEXECUTED here.",
+    "I31Executor": "Fresh later instrumentation artifact and qualified three-profile whole notification journey; no OS/native pass inferred.",
+    "supervisor": "Latest-state acceptance, root promotion, lease/session/upstream checks; no state touched here.",
+    "freshReviewersAndFinalOwners": "Independent verification/capability reviews, remaining variants and I34-I36 final gates."
+  },
+  "handoff": "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/handoff.md"
+}

@@ -1,0 +1,49 @@
+{
+  "runId": "managed-20261023-write-os-notification-01",
+  "sessionID": "ses_e97c081f4ffebQAngdyxLn1Cug",
+  "startCommit": "06a7d34d74147c556a6852e9a7cd1857ec59ab87",
+  "mode": "integration",
+  "target": "I31-missing-real-OS-notification-return-checkpoint",
+  "workKind": "writer",
+  "model": "openai/gpt-6.1-sol#high",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "executionStatus": "UNCOMPILED / UNEXECUTED / UNVERIFIED",
+  "summary": "Extended only the existing cohesive I31 history checkpoint: first phone backgrounds before the peer's existing UI-created fork-Draw; real registered non-GMS WorkManager polling must post one Game activity OS notice; SystemUI tap must authorize exact before-group/root review, preserve peer current Draw, then return to that Draw. Added narrow read-only registration/OS observers and foreground suppression/no-duplicate assertions. No extra gameplay, test, scenario matrix or application/task/review completion claim.",
+  "selectionReason": "Explicit writer-only lease for the I30/I31 real OS notification gap left by the pinned original report; independent profile qualification/host execution remain with other workers.",
+  "mergeRepairDetails": "Initial clean HEAD equals the sole start/dependency pin and supplied branch. No merge required or performed. One leased test source plus own report/evidence changed; authoritative state/product/adapters untouched. Repaired two preflight shell permission rejections by issuing separate permitted Git commands; no permission/configuration changes.",
+  "checks": [
+    {"kind": "required", "command": "git log -1 --format=%H%n%D", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/pin.json"},
+    {"kind": "required", "command": "git diff --exit-code HEAD -- docs/agent/implementation-state.json docs/agent/implementation-permissions.json androidApp/src/main androidApp/build.gradle.kts e2e/devices.py e2e/reset_runner.py e2e/device_runner.py scripts/implementation-loop.py scripts/implementation-resources.py", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/authority-unchanged.json"},
+    {"kind": "required", "command": "git diff --cached --check", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/whitespace.json"},
+    {"kind": "required", "command": "git diff --cached --name-only", "exitCode": 0, "evidence": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/owned-paths.json"}
+  ],
+  "sourceInspection": [
+    {"evidence": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/adapter-source.json", "exitCode": 0, "exactArgvField": "command", "scope": "Installed qualified UiAutomator2 8.7.0 openNotifications route and repository's explicit isolated ADB/version selection; source inspection only, no device operation."},
+    {"evidence": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/source-routes.json", "exitCode": 0, "exactArgvField": "command", "scope": "Production periodic/registration/posting/intent/authorized target/review wiring and notification E2E contract; source inspection only."}
+  ],
+  "toolDiagnostics": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/tool-diagnostics.json",
+  "executionHandoff": "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/execution.md",
+  "executedRuntimeAssertions": [],
+  "failureGroups": [],
+  "failureGroupsNote": "No builds/tests/device operations permitted or run, so no observed compiler/runtime failure groups. OS layouts/log format/natural schedule and integration prerequisites remain unqualified, not fabricated failed tests or passed assertions.",
+  "remainingOwners": [
+    {"owner": "Supervisor's fresh execution queue", "scope": "Compile against combined candidate, then run the existing complete native selector with whole-resource wrapper; qualify real AOSP notification dump/SystemUI tap/registration/poll/suppression/authorized boundary/current route. Preserve all output and split actual failures by source owner before fresh fixes. Exact argv, source pin and prerequisites are in execution.md."},
+    {"owner": "Independent I31 profile-adapter/integration worker", "scope": "Existing three-profile qualification and lifecycle driver; this unit neither waits for it nor claims it complete. Source overlap is only NativeIntegratedR1Test.kt; supervisor merges with any concurrent native-label fixes, preserving both checkpoints."},
+    {"owner": "I30/I31 supervisor and I34-I36 independent review/final-gate owners", "scope": "Original permission/FCM/other notification variants, captured lifecycle overlaps and all other deferred I31 assertions, independent verification/capability review/final suite/compatibility/release gates remain unchanged and unpassed."}
+  ],
+  "changedPaths": [
+    "e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/execution.md",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/tool-diagnostics.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/pin.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/authority-unchanged.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/adapter-source.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/source-routes.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/whitespace.json",
+    "docs/agent/implementation-runs/managed-20261023-write-os-notification-01/owned-paths.json"
+  ]
+}

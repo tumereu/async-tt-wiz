@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "import subprocess,json,pathlib; c=json.loads(pathlib.Path(\"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\").read_text()); g=lambda *a: subprocess.check_output([\"git\",*a],text=True).strip(); assert g(\"rev-parse\",\"HEAD\")==c[\"startCommit\"]; assert g(\"rev-parse\",\"--abbrev-ref\",\"HEAD\")==c[\"branch\"]; assert not g(\"status\",\"--porcelain\"); assert c[\"model\"]==\"openai/gpt-6.1-sol#high\"; assert c[\"serverCreatedMetadata\"][\"model\"]=={\"id\":\"gpt-6.1-sol\",\"providerID\":\"openai\",\"variant\":\"high\"}; print(json.dumps({\"startCommit\":c[\"startCommit\"],\"branch\":c[\"branch\"],\"sessionID\":c[\"sessionID\"],\"leaseContext\":c[\"contextPath\"],\"resourceBundle\":c[\"resourceBundle\"],\"dependencies\":{p:g(\"rev-parse\",p+\"^{commit}\") for p in c[\"dependencyCommits\"]},\"proofCommitDelta\":g(\"diff-tree\",\"--no-commit-id\",\"--name-only\",\"-r\",c[\"mergeCommits\"][0])},indent=2))"
+  ],
+  "exitCode": 0,
+  "outputSha256": "35a870a23739b22a30c001b1718e536cd8d159619df8bb4aceb5b691f7e5565a",
+  "output": "{\n  \"startCommit\": \"1829313a17be725153e72d3aef70bed681f9e0d1\",\n  \"branch\": \"managed/managed-20261023-write-current-native-candidate-01\",\n  \"sessionID\": \"ses_e97a30705ffe9JTDXuZN9lKDBd\",\n  \"leaseContext\": \"/tmp/opencode/managed-20261023-write-current-native-candidate-01/context.json\",\n  \"resourceBundle\": [\n    \"source-writing-only\"\n  ],\n  \"dependencies\": {\n    \"a264da1aa806e51c9acb4ff91a0370d91260d6f4\": \"a264da1aa806e51c9acb4ff91a0370d91260d6f4\",\n    \"792271f14741e042bc433d40c7587b7ae0b34712\": \"792271f14741e042bc433d40c7587b7ae0b34712\",\n    \"c3241021249c4bc0be20e5dbfd29f41bc071e840\": \"c3241021249c4bc0be20e5dbfd29f41bc071e840\"\n  },\n  \"proofCommitDelta\": \"docs/agent/implementation-runs/managed-20261023-exec-cancel-02/recovered-cleanup.json\"\n}\n"
+}

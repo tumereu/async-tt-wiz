@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "from pathlib import Path; p=Path(\"/tmp/opencode/atw-device-tools-932550a0/driver/node_modules/appium-uiautomator2-driver\"); import json; assert json.loads((p/\"package.json\").read_text())[\"version\"] == \"8.7.0\"; print(p); print((p/\"lib/commands/misc.ts\").read_text().split(\"/**\\n * Opens the device notification shade.\")[1].split(\"/**\")[0]); print(\"Repository qualified ADB selection:\"); s=Path(\"e2e/devices.py\").read_text(); print(s[s.index(\"def adb(\"):s.index(\"def appium_identity(\")]); print(\"Qualified version guard:\"); print(s[s.index(\"    appium = json.loads\"):s.index(\"    return value\")])"
+  ],
+  "exitCode": 0,
+  "outputSha256": "c13031d16f6cb6e5f2f73182d46d235bd379899797a543a4117258d5c5dbc61c",
+  "output": "/tmp/opencode/atw-device-tools-932550a0/driver/node_modules/appium-uiautomator2-driver\n\n */\nexport async function openNotifications(this: AndroidUiautomator2Driver): Promise<void> {\n  await this.uiautomator2.jwproxy.command('/appium/device/open_notifications', 'POST', {});\n}\n\n\nRepository qualified ADB selection:\ndef adb(value, *arguments, check=True, timeout=12):\n    config = value['config']\n    # Never let a failed connection start/adopt a replacement server.\n    with socket.create_connection(('127.0.0.1', config['adbPort']), timeout=2):\n        pass\n    return run(value, [config['linuxAdb'], '-H', '127.0.0.1', '-P', str(config['adbPort']), *arguments], check=check, timeout=timeout)\n\n\n\nQualified version guard:\n    appium = json.loads((Path(value['appiumMain']).parents[2] / 'package.json').read_text())\n    driver = json.loads((Path(value['appiumHome']) / 'node_modules/appium-uiautomator2-driver/package.json').read_text())\n    require(appium['name'] == 'appium' and appium['version'] == '3.8.0' and\n            driver['name'] == 'appium-uiautomator2-driver' and driver['version'] == '8.7.0',\n            'Qualified Appium3.8.0/UiAutomator2-8.7.0 required')\n\n"
+}

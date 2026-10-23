@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "--3way",
+    "--index",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/notification.patch"
+  ],
+  "exitCode": 1,
+  "outputSha256": "be1ec2df194f9b9d8ae8183a6135980fc919535f60f08fdfbe18f24d2c0c6ba3",
+  "output": "Falling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nApplied patch to 'e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt' with conflicts.\nU e2e/src/test/kotlin/org/asyncttwiz/e2e/NativeIntegratedR1Test.kt\n"
+}

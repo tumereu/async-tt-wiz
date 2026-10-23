@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "operation": "Initial combined shell preflight",
+      "command": "git status --short; git rev-parse HEAD; git branch --show-current; git diff --cached --name-only",
+      "error": {"type": "permission.rejected", "message": "Permission denied: shell"},
+      "exitCode": null,
+      "resolution": "Ran separately allowed Git status/rev-parse/diff commands; retained successful preflight.json. No permission changes."
+    },
+    {
+      "operation": "Initial production-label search",
+      "path": "app",
+      "error": {"type": "tool.execution", "message": "Search path does not exist: app"},
+      "resolution": "Located androidApp/src/main/kotlin/org/asyncttwiz/android and inspected current TableActionMenu/TableScene labels."
+    },
+    {
+      "operation": "Optional old execution report lookup",
+      "path": "docs/agent/implementation-runs/managed-20261023-exec-cancel-02.json",
+      "error": "File not found; directory exists, but no report at that path.",
+      "resolution": "No evidence inferred from the missing report. Exact immutable lobby input and preserved recovered-cleanup proof are checked in integrity.json."
+    }
+  ]
+}

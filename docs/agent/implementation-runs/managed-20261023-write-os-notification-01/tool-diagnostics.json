@@ -1,0 +1,19 @@
+{
+  "scope": "Source/preflight tool diagnostics, not build/test failures. Neither rejected shell command started. Repaired using separate permitted Git commands and the actual pinned report path.",
+  "rejections": [
+    {
+      "command": "git status --short && git rev-parse HEAD && git branch --show-current && git diff --cached --name-only",
+      "result": {"error": {"type": "permission.rejected", "message": "Permission denied: shell"}, "content": []}
+    },
+    {
+      "command": "git branch --show-current",
+      "result": {"error": {"type": "permission.rejected", "message": "Permission denied: shell"}, "content": []}
+    }
+  ],
+  "readFailure": {
+    "path": "docs/agent/implementation-runs/managed-20261023-write-integrated-ui-01.json",
+    "result": {"error": {"type": "tool.execution", "message": "File not found: docs/agent/implementation-runs/managed-20261023-write-integrated-ui-01.json"}, "content": []},
+    "repair": "Located and read the actual pinned managed-20261023-write-i31-01.json and its execution.md. No old report was edited."
+  },
+  "repair": "git status --short and git diff --cached --name-only returned empty; git rev-parse HEAD matched the supplied pin; git rev-parse --abbrev-ref HEAD returned managed/managed-20261023-write-os-notification-01. Captured pin.json also records branch decorations."
+}

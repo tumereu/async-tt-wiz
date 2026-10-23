@@ -16,6 +16,15 @@ import java.util.Properties
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+/** Match PreparationStore.read: untouched participants have no row and are not Ready. */
+internal fun observedNativeReady(state: JsonObject, gameId: String, actorId: String): Boolean {
+    val rows = state.getAsJsonArray("preparations").filter {
+        it.asJsonObject["game"].asString == gameId && it.asJsonObject["actor"].asString == actorId
+    }
+    check(rows.size <= 1) { "Duplicate preparation rows for $gameId/$actorId" }
+    return rows.singleOrNull()?.asJsonObject?.get("ready")?.asBoolean ?: false
+}
+
 /** Two ordinary APKs own every business mutation. SQL is a read-only identity/outcome oracle. */
 @Tag("device")
 class NativeLobbyCompletionTest {
@@ -42,7 +51,10 @@ class NativeLobbyCompletionTest {
                 Files.copy(peer.resolve("session.json"), Path.of(peerInput.getProperty("metadataRun")).resolve("session.json"))
                 fun waitFor(ui: NativeLobbyCreationTest.Device, predicate: () -> Boolean) =
                     WebDriverWait(ui.driver, Duration.ofSeconds(60)).until { predicate() }
-                fun settled(ui: NativeLobbyCreationTest.Device) = waitFor(ui) { !ui.driver.pageSource.contains("Checking game outcome…") }
+                fun settled(ui: NativeLobbyCreationTest.Device) = waitFor(ui) {
+                    !ui.driver.pageSource.contains("Checking game outcome…") &&
+                        observe().getAsJsonArray("requests").all { !it.asJsonObject["result"].isJsonNull }
+                }
                 fun portrait(ui: NativeLobbyCreationTest.Device) { ui.driver.rotate(ScreenOrientation.PORTRAIT) }
                 fun games(ui: NativeLobbyCreationTest.Device) { portrait(ui); ui.destination("Games"); ui.text("Invitations") }
                 fun open(ui: NativeLobbyCreationTest.Device, name: String) { games(ui); ui.button(name) }
@@ -78,6 +90,7 @@ class NativeLobbyCompletionTest {
                     portrait(ui); ui.destination("Manage decks"); ui.button(name); ui.button("Edit"); ui.button("Rename")
                     ui.driver.findElement(AppiumBy.className("android.widget.EditText")).clear(); paste(ui, replacement)
                     ui.button("Save name"); ui.text(replacement); ui.button("Edit"); ui.button("Import decklist")
+                    ui.text("Replace both sections with this list.")
                     paste(ui, "1 Feltwing Atlas"); ui.button("Review import"); ui.button("Save deck"); ui.text("Mainboard · 1")
                     ui.capture("source-overwritten-$replacement")
                     if (delete) { ui.button("Edit"); ui.button("Delete saved deck"); ui.button("Delete saved deck"); ui.scroll("Refresh saved decks") }
@@ -88,7 +101,8 @@ class NativeLobbyCompletionTest {
                     first.register("completion-first@example.test", "Completion First"); first.login("completion-first@example.test", "Completion First")
                     second.register("completion-second@example.test", "Completion Second"); second.login("completion-second@example.test", "Completion Second")
                     for (ui in listOf(first, second)) {
-                        ui.button("Manage decks"); ui.button("Download card records"); ui.text("Card records are up to date.")
+                        ui.button("Manage decks"); ui.button("Check for updates")
+                        ui.button("Download card records"); ui.text("Card records are up to date.")
                     }
                     first.destination("Contacts"); first.field("Search usernames").sendKeys("Completion Sec"); first.hide(); first.button("Search")
                     first.button("Add contact"); first.text("Added")
@@ -103,9 +117,15 @@ class NativeLobbyCompletionTest {
                 val actorA = initial.getAsJsonArray("players").single { it.asJsonObject["username"].asString == "Completion First" }.asJsonObject["id"].asString
                 val actorB = initial.getAsJsonArray("players").single { it.asJsonObject["username"].asString == "Completion Second" }.asJsonObject["id"].asString
                 fun readyState(a: Boolean, b: Boolean) {
+                    waitFor(first) {
+                        val state = observe()
+                        listOf(actorA to a, actorB to b).all { (actor, value) ->
+                            observedNativeReady(state, id, actor) == value
+                        }
+                    }
                     val state = observe(); assertEquals(id, game(state, mainName)["id"].asString)
                     for ((actor, value) in listOf(actorA to a, actorB to b))
-                        assertEquals(value, preparations(state, id).single { it.asJsonObject["actor"].asString == actor }.asJsonObject["ready"].asBoolean)
+                        assertEquals(value, observedNativeReady(state, id, actor))
                     assertEquals("LOBBY", game(state, mainName)["lifecycle"].asString)
                 }
                 if (phases.includes("readiness")) {
@@ -114,7 +134,7 @@ class NativeLobbyCompletionTest {
                     first.button("Reinvite"); first.text("Waiting for Completion Second to accept."); settled(first)
                     val reinvited = observe(); assertEquals(copy, deck(reinvited, id, actorA)); readyState(true, false)
                     assertNotEquals(initialGame["invitation"], game(reinvited, mainName)["invitation"])
-                    second.button("Accept"); second.text("Select your deck to get ready."); second.text("✓ Ready")
+                    second.button("Accept"); second.text("Select your deck to get ready."); second.scroll("✓ Ready")
                     readyState(true, false); assertEquals(copy, deck(observe(), id, actorA))
                     import(second, "Completion source B", "Deck\n3 Quiet Lattice Bolt\n2 Feltwing Atlas\nSideboard\n2 Velvet Prism Engine")
                     // Every changing actor's Ready is checked while the other player remains Ready.
@@ -140,7 +160,7 @@ class NativeLobbyCompletionTest {
                     readyState(true, false)
                     for (orientation in listOf(ScreenOrientation.PORTRAIT, ScreenOrientation.LANDSCAPE)) {
                         for ((index, ui) in listOf(first, second).withIndex()) {
-                            ui.driver.rotate(orientation); ui.text(mainName); ui.text("✓ Ready"); ui.text("Not ready")
+                            ui.driver.rotate(orientation); ui.text(mainName); ui.scroll("✓ Ready"); ui.scroll("Not ready")
                             ui.capture("accepted-preparation-$index-${orientation.name.lowercase()}")
                         }
                     }
@@ -149,8 +169,8 @@ class NativeLobbyCompletionTest {
                 if (phases.includes("isolation")) {
                     val before = observe(); val copies = preparations(before, id); val definitions = before["definitions"]
                     editSource(first, "Completion source A", "Edited A", delete = true)
-                    open(first, mainName); first.text("Completion source A"); first.text("Mainboard · 5"); first.text("Withdraw Ready")
-                    portrait(second); second.text("Completion source A"); second.text("Mainboard · 5"); second.capture("remote-retained-deleted-source")
+                    open(first, mainName); first.scroll("Completion source A"); first.scroll("Mainboard · 5"); first.text("Withdraw Ready")
+                    portrait(second); second.scroll("Completion source A"); second.scroll("Mainboard · 5"); second.capture("remote-retained-deleted-source")
                     val after = observe(); assertEquals(copies, preparations(after, id)); assertEquals(definitions, after["definitions"])
                     assertFalse(after.getAsJsonArray("sources").any { it.asJsonObject["id"] == deck(before, id, actorA).asJsonObject["sourceId"] })
                     readyState(true, false); phases.completed("isolation")

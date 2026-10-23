@@ -1,0 +1,12 @@
+{
+  "command": [
+    "git",
+    "apply",
+    "--3way",
+    "--index",
+    "docs/agent/implementation-runs/managed-20261023-write-current-native-candidate-01/installed-identity.patch"
+  ],
+  "exitCode": 0,
+  "outputSha256": "4ccf565cbe38013e3e24ae8ecab36baca77982dace8a43a0ba47f3565adcd5ee",
+  "output": "Falling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nFalling back to direct application...\nApplied patch to 'e2e/device_app.py' cleanly.\nApplied patch to 'tests/test_device_app.py' cleanly.\n"
+}

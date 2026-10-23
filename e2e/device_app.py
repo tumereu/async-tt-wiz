@@ -79,15 +79,39 @@ def binary_adb(value, serial, path, *arguments, timeout=30):
 
 
 def installed(value, serial, expected, directory):
-    result = d.adb(value, '-s', serial, 'shell', 'pm', 'path', PACKAGE).stdout.strip().splitlines()
-    d.require(len(result) == 1 and re.fullmatch(r'package:/data/app/[A-Za-z0-9_+=/.-]+/base.apk', result[0]),
+    record = {'owner': value['owner'], 'serial': serial, 'expected': expected, 'commands': []}
+
+    def query(*arguments):
+        arguments = ['-s', serial, 'shell', *arguments]
+        result = d.adb(value, *arguments, check=False)
+        record['commands'].append({'adbArguments': arguments, 'exitCode': result.returncode, 'output': result.stdout})
+        d.write_json(directory / 'installed-identity.json', record)
+        d.require(result.returncode == 0, 'Installed APK identity command failed; inspect retained evidence')
+        return result.stdout
+
+    result = query('pm', 'path', PACKAGE).strip().splitlines()
+    d.require(len(result) == 1 and re.fullmatch(r'package:/data/app/[A-Za-z0-9_+=/.-]+/base\.apk', result[0]),
               'One installed normal base APK required')
-    path = directory / 'installed.apk'
-    binary_adb(value, serial, path, 'exec-out', 'cat', result[0][8:], timeout=60)
-    actual = verify_apk(value, path)
-    d.require(actual == expected, 'Installed normal APK identity differs from the verified input')
-    resolved = d.adb(value, '-s', serial, 'shell', 'cmd', 'package', 'resolve-activity', '--brief',
-                     '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER', PACKAGE).stdout
+    path = record['path'] = result[0][8:]
+    # Android 10 toybox supplies both applets. Hash the entire installed file in
+    # this guest, not a prefix, size/version proxy or cached prior observation.
+    digest = query('/system/bin/toybox', 'sha256sum', path)
+    match = re.fullmatch(r'([0-9a-f]{64})  ' + re.escape(path) + r'\n?', digest)
+    d.require(match is not None, 'Malformed installed APK SHA256 result')
+    record['sha256'] = match[1]
+    count = query('/system/bin/toybox', 'wc', '-c', path)
+    match = re.fullmatch(r'([0-9]+) ' + re.escape(path) + r'\n?', count)
+    d.require(match is not None, 'Malformed installed APK byte count result')
+    record['bytes'] = int(match[1])
+    d.write_json(directory / 'installed-identity.json', record)
+    d.require(record['sha256'] == expected['sha256'] and record['bytes'] == expected['bytes'],
+              'Installed normal APK identity differs from the verified input')
+    # Whole-file cryptographic equality also binds the already host-verified
+    # signature/manifest (package, SDK, debug/source and launcher metadata).
+    # Keep independent checks of the actual installed package path and resolver.
+    actual = dict(expected, sha256=record['sha256'], bytes=record['bytes'])
+    resolved = query('cmd', 'package', 'resolve-activity', '--brief',
+                     '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER', PACKAGE)
     d.require(bool(resolved.strip()) and resolved.strip().splitlines()[-1] in (COMPONENT, PACKAGE + '/.MainActivity'),
               'Installed production launcher differs')
     return actual

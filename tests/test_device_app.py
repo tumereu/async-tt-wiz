@@ -107,13 +107,26 @@ class NormalAppControllerTest(unittest.TestCase):
                 adb.assert_not_called()
 
     def test_installed_bytes_must_match_even_with_right_package(self):
-        def binary(value, serial, path, *args, **kwargs):
-            path.write_bytes(b'other signed APK')
-        with patch.object(d, 'adb', return_value=self.reply('package:/data/app/abc/base.apk\n')), \
-                patch.object(a, 'binary_adb', side_effect=binary), \
-                patch.object(a, 'verify_apk', return_value=dict(self.expected, sha256='c' * 64)):
+        with patch.object(d, 'adb', side_effect=[self.reply('package:/data/app/abc/base.apk\n'),
+                self.reply('c' * 64 + '  /data/app/abc/base.apk\n'),
+                self.reply(str(self.expected['bytes']) + ' /data/app/abc/base.apk\n')]) as adb:
             with self.assertRaises(d.Refusal):
                 a.installed(self.value, self.serial, self.expected, self.root)
+        self.assertEqual(adb.call_count, 3)  # Correct size cannot substitute for full-content identity.
+        evidence = json.loads((self.root / 'installed-identity.json').read_text())
+        self.assertEqual(evidence['sha256'], 'c' * 64)
+        self.assertEqual(evidence['bytes'], self.expected['bytes'])
+
+    def test_installed_byte_count_must_match_even_with_right_digest(self):
+        with patch.object(d, 'adb', side_effect=[self.reply('package:/data/app/abc/base.apk\n'),
+                self.reply(self.expected['sha256'] + '  /data/app/abc/base.apk\n'),
+                self.reply(str(self.expected['bytes'] - 1) + ' /data/app/abc/base.apk\n')]) as adb:
+            with self.assertRaises(d.Refusal):
+                a.installed(self.value, self.serial, self.expected, self.root)
+        self.assertEqual(adb.call_count, 3)
+        evidence = json.loads((self.root / 'installed-identity.json').read_text())
+        self.assertEqual(evidence['sha256'], self.expected['sha256'])
+        self.assertEqual(evidence['bytes'], self.expected['bytes'] - 1)
 
     def test_install_changed_copy_refused_before_mutation(self):
         with patch.object(a, 'verify_apk', side_effect=[self.expected, dict(self.expected, sha256='changed')]), patch.object(d, 'adb') as adb:
@@ -121,29 +134,49 @@ class NormalAppControllerTest(unittest.TestCase):
                 a.install(self.value, self.serial, self.apk)
             adb.assert_not_called()
 
-    def test_disk_artifacts_keep_fresh_installed_readback_and_input_hash_provenance(self):
+    def test_disk_artifacts_keep_fresh_installed_whole_file_proof_and_input_hash_provenance(self):
         def adb(value, *args, **kwargs):
             if 'install' in args:
                 return self.reply('Success\n')
             if 'path' in args:
                 return self.reply('package:/data/app/abc/base.apk\n')
+            if 'sha256sum' in args:
+                return self.reply(self.expected['sha256'] + '  /data/app/abc/base.apk\n')
+            if 'wc' in args:
+                return self.reply(str(self.expected['bytes']) + ' /data/app/abc/base.apk\n')
             return self.reply(a.COMPONENT + '\n')
-        captures = []
-        def binary(value, serial, path, *args, **kwargs):
-            captures.append(path)
-            path.write_bytes(self.apk.read_bytes())
-        with patch.object(a, 'verify_apk', return_value=self.expected), patch.object(d, 'adb', side_effect=adb), \
-                patch.object(a, 'binary_adb', side_effect=binary):
+        with patch.object(a, 'verify_apk', return_value=self.expected) as verify, patch.object(d, 'adb', side_effect=adb), \
+                patch.object(a, 'binary_adb') as binary:
             record = a.install(self.value, self.serial, self.apk)
             with patch.object(d, 'infrastructure', return_value={'device': {'serial': self.serial}}), \
                     patch.object(a, 'observe', return_value={'observed': True}):
                 for _ in range(2):
                     a.operation(self.value, 'capture-app', 1)
-        self.assertEqual(len(captures), 3)
-        self.assertEqual(len(set(captures)), 3)  # Never substitute old bytes for a fresh readback.
-        for path in captures + [Path(record['retainedApk'])]:
-            self.assertTrue(path.is_relative_to(self.root / 'e2e/build/device-artifacts'))
-            self.assertEqual(a.sha(path), self.expected['sha256'])
+        binary.assert_not_called()
+        self.assertEqual(verify.call_count, 2)  # Input and snapshot; no reinspection of identical installed bytes.
+        retained = Path(record['retainedApk'])
+        self.assertTrue(retained.is_relative_to(self.root / 'e2e/build/device-artifacts'))
+        self.assertEqual(a.sha(retained), self.expected['sha256'])
+        proofs = list(retained.parent.glob('app-*/installed-identity.json'))
+        self.assertEqual(len(proofs), 3)  # Each install/capture freshly queries the same exact guest.
+        for path in proofs:
+            self.assertFalse((path.parent / 'installed.apk').exists())
+            proof = json.loads(path.read_text())
+            self.assertEqual(proof['owner'], self.value['owner'])
+            self.assertEqual(proof['serial'], self.serial)
+            self.assertEqual(proof['expected'], self.expected)
+            self.assertEqual(proof['sha256'], self.expected['sha256'])
+            self.assertEqual(proof['bytes'], self.expected['bytes'])
+            self.assertEqual(proof['path'], '/data/app/abc/base.apk')
+            self.assertEqual([command['adbArguments'] for command in proof['commands']], [
+                ['-s', self.serial, 'shell', 'pm', 'path', a.PACKAGE],
+                ['-s', self.serial, 'shell', '/system/bin/toybox', 'sha256sum', proof['path']],
+                ['-s', self.serial, 'shell', '/system/bin/toybox', 'wc', '-c', proof['path']],
+                ['-s', self.serial, 'shell', 'cmd', 'package', 'resolve-activity', '--brief',
+                 '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER', a.PACKAGE]])
+            self.assertTrue(all(command['exitCode'] == 0 for command in proof['commands']))
+            self.assertEqual(proof['commands'][1]['output'], self.expected['sha256'] + '  ' + proof['path'] + '\n')
+            self.assertEqual(proof['commands'][2]['output'], str(self.expected['bytes']) + ' ' + proof['path'] + '\n')
         self.assertFalse((self.root / 'normal.apk').exists())
         self.assertEqual(a.app_record(self.value), record)
         record['retainedApk'] = str(self.apk)

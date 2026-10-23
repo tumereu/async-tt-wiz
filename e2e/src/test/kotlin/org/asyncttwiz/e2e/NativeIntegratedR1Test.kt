@@ -12,11 +12,14 @@ import org.openqa.selenium.By
 import org.openqa.selenium.ScreenOrientation
 import org.openqa.selenium.remote.RemoteWebElement
 import org.openqa.selenium.support.ui.WebDriverWait
+import org.xml.sax.InputSource
+import java.io.StringReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.Properties
 import java.util.concurrent.TimeUnit
+import javax.xml.parsers.DocumentBuilderFactory
 
 /** Initial I31 coverage, NOT a replacement for the remaining e2e-strategy variants.
  * All shared actions originate in the three normal UIs. The existing whole-resource lifecycle
@@ -176,6 +179,66 @@ class NativeIntegratedR1Test {
                         assertTrue(exited && process.exitValue() == 0 && output.contains("OK (1 test)") &&
                             !output.contains("FAILURES!!!"), output)
                     }
+                    // Read-only observations through the SAME explicitly owned ADB/serial as Device.
+                    // No shell notification posting, push hints, grants, worker calls or job overrides.
+                    val appPackage = "org.asyncttwiz.android"
+                    fun notificationShell(index: Int, label: String, vararg args: String): String {
+                        val p = inputs[index]
+                        // Refuse a missing owned server rather than letting ADB create a replacement.
+                        java.net.Socket().use { it.connect(java.net.InetSocketAddress("127.0.0.1",
+                            requireNotNull(p.getProperty("adbPort")).toInt()), 2_000) }
+                        val command = listOf(requireNotNull(p.getProperty("linuxAdb")), "-H", "127.0.0.1", "-P",
+                            requireNotNull(p.getProperty("adbPort")), "-s", requireNotNull(p.getProperty("serial"))) + args
+                        val stem = "i31-notification-$label-${System.nanoTime()}"
+                        val outputFile = directories[index].resolve("$stem.txt")
+                        val process = ProcessBuilder(command).redirectErrorStream(true).redirectOutput(outputFile.toFile()).start()
+                        val exited = process.waitFor(30, TimeUnit.SECONDS)
+                        if (!exited) { process.destroyForcibly(); process.waitFor() }
+                        val output = Files.readString(outputFile)
+                        if (label == "delivery") Files.writeString(outputFile, output.replace(Regex(
+                            "<string name=\"(?:credentialFingerprint|pushToken)\">.*?</string>", RegexOption.DOT_MATCHES_ALL),
+                            "<string name=\"redacted-private-delivery-field\">[redacted]</string>"))
+                        all[index].record("$stem.json", mapOf("command" to command, "exitCode" to process.exitValue(),
+                            "timedOut" to !exited, "output" to outputFile.fileName.toString()))
+                        check(exited && process.exitValue() == 0) { "Notification observation failed: $stem (see retained output)" }
+                        return output
+                    }
+                    fun delivery(index: Int): Map<String, String> {
+                        // Never read the protected session/token. Observe registration/dedup only; no writes.
+                        val xml = notificationShell(index, "delivery", "exec-out", "run-as", appPackage, "cat",
+                            "shared_prefs/activity-delivery.xml")
+                        val factory = DocumentBuilderFactory.newInstance().apply {
+                            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+                        }
+                        val nodes = factory.newDocumentBuilder().parse(InputSource(StringReader(xml))).documentElement.childNodes
+                        val values = (0 until nodes.length).map { nodes.item(it) }.filter { it.hasAttributes() }
+                            .associate { it.attributes.getNamedItem("name").nodeValue to
+                                (it.attributes.getNamedItem("value")?.nodeValue ?: it.textContent) }
+                        check("pushToken" !in values) { "This checkpoint requires the normal non-FCM installation" }
+                        return values.filterKeys { it in setOf("account", "binding", "registration", "cursor",
+                            "identity:game:${id("game")}", "watermark:game:${id("game")}") }
+                    }
+                    fun gameNotices(index: Int): List<String> {
+                        val dump = notificationShell(index, "manager", "shell", "dumpsys", "notification", "--noredact")
+                        val lines = dump.lines()
+                        val start = lines.indexOfFirst { it.trim() == "Notification List:" }
+                        check(start >= 0) { "Unqualified NotificationManager dump layout; retain output, do not substitute app UI" }
+                        val active = lines.drop(start + 1).takeWhile { it.isBlank() || it.startsWith("    ") }.joinToString("\n")
+                        return Regex("(?m)(?=^    NotificationRecord\\()").split(active).filter {
+                            it.trimStart().startsWith("NotificationRecord(") && it.contains("pkg=$appPackage ") &&
+                                it.contains("channel=game_activity")
+                        }
+                    }
+                    fun workerCompletions(index: Int) = notificationShell(index, "workers", "shell", "logcat", "-d", "-v", "epoch",
+                        "-s", "WM-WorkerWrapper:I", "*:S").lines().filter {
+                        it.contains("Worker result SUCCESS") && it.contains("org.asyncttwiz.android.ActivityWorker")
+                    }.toSet()
+                    fun awaitDelivery(index: Int, timeout: Duration, ready: (Map<String, String>) -> Boolean): Map<String, String> =
+                        WebDriverWait(all[index].driver, timeout).pollingEvery(Duration.ofSeconds(5)).until {
+                            // Natural periodic polling can take minutes. Keep ALL three existing sessions alive.
+                            all.forEach { it.driver.currentPackage }
+                            delivery(index).takeIf(ready)
+                        }
                     for (device in opponents) {
                         device.driver.rotate(ScreenOrientation.PORTRAIT)
                         if (phases.start == "rematch") device.ui.reopen("Native Initial Spark", "Starting player", description = false)
@@ -185,13 +248,29 @@ class NativeIntegratedR1Test {
                     if (phases.includes("history")) {
                         val drawPlayer = id("drawPlayer")
                         opponents.forEach { it.named("Turn 1, $drawPlayer, beginning / untap") }
+                        // This is the existing non-GMS variant, not a new permissions/provider matrix.
+                        for (index in opponents.indices) {
+                            assertFalse(notificationShell(index, "packages", "shell", "pm", "list", "packages")
+                                .lineSequence().any { it.trim() == "package:com.google.android.gms" })
+                            val registered = awaitDelivery(index, Duration.ofSeconds(45)) {
+                                it["registration"]?.matches(Regex("[0-9a-f-]{36}")) == true && it["cursor"] != null
+                            }
+                            all[index].record("i31-notification-registration.json", registered)
+                        }
                         remember("root", boundary(first))
                         life(first, "Start First", 20, increase = true)
                         opponents.forEach { it.named("Start First, life 21") }
                         remember("life", changedBoundary(second, id("root"))) // Remote render, not prediction/receipt.
                         assertEquals(id("life"), boundary(first)); assertNotEquals(id("root"), id("life"))
+                        val displayedGroup = play(control("observe"), id("firstPlay")).getAsJsonObject("currentGroup").get("id").asString
                         second.button("‹ Previous"); second.text("Paused"); second.named("Start First, life 20")
                         assertEquals(id("root"), boundary(second))
+                        // Resume normally to request the app's own foreground refresh, while reviewing.
+                        // There is no new activity during this short background interval.
+                        second.driver.pressKey(KeyEvent(AndroidKey.HOME)); second.driver.activateApp(appPackage)
+                        second.text("Paused"); assertEquals(id("root"), boundary(second))
+                        awaitDelivery(1, Duration.ofSeconds(45)) { it["identity:game:${id("game")}"] == displayedGroup }
+                        assertTrue(gameNotices(1).isEmpty(), "Polling while reviewing this game must be locally suppressed")
                         send(first, "I31 chat while your history is paused")
                         second.named("Chat, 1 unread messages").click(); second.text("I31 chat while your history is paused")
                         second.named("Close chat").click(); second.named("Chat, 0 unread messages")
@@ -201,6 +280,12 @@ class NativeIntegratedR1Test {
                         assertEquals(id("root"), boundary(second)); assertEquals(id("life"), boundary(first))
                         second.button("Continue playing from here"); second.button("Cancel continuation")
                         assertEquals(id("root"), boundary(second)); first.named("Start First, life 21")
+                        val registeredFirst = delivery(0)
+                        assertTrue(gameNotices(0).isEmpty(), "Displayed game must start with no stale activity notice")
+                        first.driver.pressKey(KeyEvent(AndroidKey.HOME))
+                        WebDriverWait(first.driver, Duration.ofSeconds(15)).until {
+                            first.driver.currentPackage !in setOf(appPackage, "com.android.systemui")
+                        }
                         second.button("Continue playing from here")
                         // A Library tap now logs View contents. Use the normal turn-player Draw
                         // action instead: one real continuation mutation, not an extra disclosure.
@@ -211,9 +296,52 @@ class NativeIntegratedR1Test {
                             second.driver.findElements(AppiumBy.androidUIAutomator(
                                 NativeSelectors.selector("Choose phase/step"))).none { it.isDisplayed }
                         }
-                        opponents.forEach { it.named("$drawPlayer Hand, 1 cards"); it.named("Start First, life 20") }
-                        remember("draw", changedBoundary(first, id("life"))); atBoundary(second, id("draw"))
+                        second.named("$drawPlayer Hand, 1 cards"); second.named("Start First, life 20")
+                        remember("draw", changedBoundary(second, id("root"))); atBoundary(second, id("draw"))
                         assertNotEquals(id("life"), id("draw"))
+                        // Supplementary read-only identity capture. UI, not this observer, creates the fork.
+                        val notifiedPlay = play(control("observe"), id("firstPlay"))
+                        assertEquals(id("draw"), notifiedPlay.get("currentNodeId").asString)
+                        val notifiedGroup = notifiedPlay.getAsJsonObject("currentGroup")
+                        assertEquals(id("draw"), notifiedGroup.get("firstNodeId").asString)
+                        remember("notificationGroup", notifiedGroup.get("id").asString)
+                        // No guaranteed polling deadline: this is a bounded qualification wait. No force-run,
+                        // force-stop, foreground activation or synthetic notify may stand in for real delivery.
+                        val delivered = awaitDelivery(0, Duration.ofMinutes(35)) {
+                            it["identity:game:${id("game")}"] == id("notificationGroup") && gameNotices(0).isNotEmpty()
+                        }
+                        assertEquals(registeredFirst["binding"], delivered["binding"])
+                        assertEquals(registeredFirst["registration"], delivered["registration"])
+                        assertEquals(registeredFirst["account"], delivered["account"])
+                        assertNotEquals(registeredFirst["cursor"], delivered["cursor"])
+                        assertNotEquals(appPackage, first.driver.currentPackage, "Polling must deliver while truly backgrounded")
+                        val notices = gameNotices(0)
+                        assertEquals(1, notices.size, "One coalesced Game activity notice, not duplicates")
+                        assertTrue(notices.single().contains("tag=activity:${delivered["binding"]}:game:${id("game")}"))
+                        val completedBeforeTap = workerCompletions(0)
+                        first.driver.openNotifications()
+                        val noticeRows = By.xpath("//*[@resource-id='android:id/title' and @text='Game activity']/ancestor::*" +
+                            "[@clickable='true' and .//*[@resource-id='android:id/app_name' and @text='Async Tabletop Wizards']][1]")
+                        val notice = WebDriverWait(first.driver, Duration.ofSeconds(15)).until {
+                            first.driver.findElements(noticeRows).filter { it.isDisplayed }.singleOrNull()
+                        }
+                        first.capture("i31-real-os-game-activity-shade")
+                        // The unique package/channel/tag above ties this real SystemUI row to our game.
+                        notice.click()
+                        first.named("Shared table"); first.text("Native Initial Spark"); first.text("Paused")
+                        // Authorized GROUP navigation selects BEFORE the group, not its end or the old Life
+                        // branch, and must not make that personal historical selection shared/current.
+                        atBoundary(first, id("root")); first.named("Start First, life 20"); first.named("$drawPlayer Hand, 0 cards")
+                        second.text("Live"); atBoundary(second, id("draw")); second.named("$drawPlayer Hand, 1 cards")
+                        first.capture("i31-notification-authorized-before-group")
+                        current(first); atBoundary(first, id("draw")); first.named("$drawPlayer Hand, 1 cards")
+                        WebDriverWait(first.driver, Duration.ofSeconds(45)).until {
+                            workerCompletions(0).any { it !in completedBeforeTap }
+                        }
+                        assertTrue(gameNotices(0).isEmpty(), "Tap/display and an unchanged real foreground poll must not duplicate the notice")
+                        first.record("i31-os-notification.json", mapOf("registration" to delivered, "group" to id("notificationGroup"),
+                            "authorizedBeforeGroup" to id("root"), "currentBoundary" to id("draw"), "osNoticeCount" to notices.size,
+                            "delivery" to "natural non-GMS WorkManager polling; real NotificationManager + SystemUI tap"))
                         review(first, "Life", id("life")); first.named("Start First, life 21")
                         first.named("$drawPlayer Hand, 0 cards")
                         current(first); assertEquals(id("draw"), boundary(first))
@@ -411,8 +539,8 @@ class NativeIntegratedR1Test {
                     }
                     first.record("i31-journey.json", phases.finish() + mapOf("normalApks" to 3,
                         "identities" to ids, "requiredScopeComplete" to false,
-                        "authoredScope" to "UI setup, chat during paused review, real fork, complete cached offline small tree, shared-account Undo/Redo, relogin/restart, background return, ordered result acceptance, prepared rematch, privacy UI, active Delete",
-                        "remainingOwners" to mapOf("I31 supervisor" to "Independent verification/review; real OS notification route; ordinary overlapping lifecycle captured-request variants",
+                        "authoredScope" to "UI setup, chat during paused review, real fork, non-GMS polling/system notification tap/authorized before-group review/current return, complete cached offline small tree, shared-account Undo/Redo, relogin/restart, background return, ordered result acceptance, prepared rematch, privacy UI, active Delete",
+                        "remainingOwners" to mapOf("I31 supervisor" to "Compile and real OS/resource qualification of authored notification checkpoint; independent verification/review; ordinary overlapping lifecycle captured-request variants",
                             "I34-I36" to "Other e2e-strategy variants, final suite/compatibility/UI gates and independent capability review")))
                 }
             }

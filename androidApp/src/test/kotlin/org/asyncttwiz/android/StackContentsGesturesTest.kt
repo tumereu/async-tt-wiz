@@ -70,7 +70,7 @@ class StackContentsGesturesTest {
             assertTrue(bounds.left >= root.left && bounds.right <= root.right && bounds.top >= root.top && bounds.bottom <= root.bottom)
         }
         compose.onNodeWithContentDescription("Mark text · drag up or down").performTouchInput {
-            down(center); moveTo(center + Offset(0f, -28f)); up()
+            down(center); moveTo(center + Offset(0f, 28f)); up()
         }
         assertEquals(listOf<TableIntent>(TableIntent.Submit(PlayAction.Stack(StackAction.MarkText(entry.cardId, 0)), null)), intents)
         intents.clear()

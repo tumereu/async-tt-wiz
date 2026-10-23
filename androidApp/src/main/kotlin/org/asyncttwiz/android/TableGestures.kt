@@ -11,11 +11,17 @@ data class TableGesturePreview(val pressedId: String? = null, val scope: TableSc
     val destination: TableDestination? = null, val delta: Int? = null,
     val marking: Boolean = false, val markIndex: Int? = null)
 
-/** The ONLY pointer arbiter on the table, including docks/hands. Pure clock-driven logic is host testable. */
+/** The ONLY pointer arbiter on the table, including docks/hands. Scene, preview and gesture distances
+ * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
 class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
-    private val slop: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = 500
+    private val slopDp: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = 500,
+    private val density: Float = 1f
 ) {
+    init { require(density.isFinite() && density > 0f) }
+    private val markStepDp = 28f
+    private val valueStepDp = 24f
+    fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
     private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM, MARK }
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
@@ -57,7 +63,7 @@ class TableGestureCoordinator(
         val old = pending
         if (old != null) {
             if (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id &&
-                distance(point, old.capture.start) <= slop * 2 && time <= old.deadline) {
+                distance(point, old.capture.start) <= slopDp * 2 && time <= old.deadline) {
                 next.double = true
                 // The first press's stable scope wins even if sync/selection changed between taps.
                 capture = next.copy(scope = old.capture.scope, selection = old.capture.selection, sources = old.capture.sources)
@@ -84,7 +90,7 @@ class TableGestureCoordinator(
         c.point = point
         if (c.phase == Phase.HOLD || c.phase == Phase.TRANSFORM) return
         val dx = point.x - c.start.x; val dy = point.y - c.start.y
-        if (c.phase == Phase.PRESS && hypot(dx, dy) > slop) {
+        if (c.phase == Phase.PRESS && hypot(dx, dy) > slopDp) {
             // Crossing slop wins over hold even when a delayed input frame arrives after its deadline.
             pending = null
             c.phase = when {
@@ -98,13 +104,13 @@ class TableGestureCoordinator(
         when (c.phase) {
             Phase.MARK -> {
                 val bubble = c.bubble ?: return
-                val index = ((bubble.selected ?: -1) + (-dy / 28f).roundToInt()).coerceIn(-1, bubble.optionCount - 1)
+                val index = ((bubble.selected ?: -1) + (dy / markStepDp).roundToInt()).coerceIn(-1, bubble.optionCount - 1)
                 preview = TableGesturePreview(c.item?.id, point = point, marking = true, markIndex = index.takeIf { it >= 0 })
             }
             Phase.SCROLL -> c.viewport?.let { p -> emit(TableIntent.Scroll(p.id, (p.scroll - dx).coerceIn(0f, p.maxScroll))) }
             Phase.RECTANGLE -> preview = TableGesturePreview(rectangle = rectangle(c.start, point))
             Phase.DRAG -> if (c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
-                preview = TableGesturePreview(c.item?.id, point = point, delta = (-dy / 24f).roundToInt())
+                preview = TableGesturePreview(c.item?.id, point = point, delta = (-dy / valueStepDp).roundToInt())
             } else {
                 if (changed) c.destination = destination(point, c.scope)
                 preview = TableGesturePreview(c.item?.id, c.scope, point, destination = c.destination)
@@ -139,7 +145,7 @@ class TableGestureCoordinator(
             Phase.DRAG -> {
                 if (writable && c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
                     val bound = requireNotNull(c.item)
-                    val delta = (-((point.y - c.start.y) / 24f)).roundToInt()
+                    val delta = (-((point.y - c.start.y) / valueStepDp)).roundToInt()
                     // A counter row can disappear during sync. The captured semantic field still exists.
                     if (delta != 0 && (bound.value.isEmpty() || Regex("[+-]?[0-9]+").matches(bound.value)))
                         emit(TableIntent.PlayerDelta(requireNotNull(bound.owner), bound.counter, delta))

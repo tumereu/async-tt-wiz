@@ -79,13 +79,13 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
     val stack = pile.ordered && onStackIntent != null
     val entries = contentsEntries(state, pile, viewer, search)
     val callback by rememberUpdatedState(onStackIntent)
-    val coordinator = remember(pile.containerId) { TableGestureCoordinator({ intent ->
+    val coordinator = remember(pile.containerId, density) { TableGestureCoordinator({ intent ->
         if (intent is TableIntent.StackBubbles) bubbleId = intent.entryId
         else {
             if (intent is TableIntent.StackDestination) bubbleId = null
             callback?.invoke(intent)
         }
-    }) }
+    }, density = density) }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
     DisposableEffect(coordinator) { onDispose { coordinator.cancel() } }
     BoxWithConstraints(modifier.onGloballyPositioned { root = it.boundsInRoot() }) {
@@ -104,7 +104,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
             try {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    val point = TablePoint(down.position.x / density, down.position.y / density)
+                    val point = coordinator.pointFromPixels(down.position.x, down.position.y)
                     if (currentBubble?.controls?.any { it.bounds.contains(point) } != true) {
                         bubbleId = null // No scrim: outside touches continue to rows, search and scrolling.
                     } else {
@@ -114,7 +114,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
                             val change = event.changes.firstOrNull { it.id == down.id }
                             if (change == null || event.changes.count { it.pressed } > 1) coordinator.cancel()
                             else {
-                                val p = TablePoint(change.position.x / density, change.position.y / density)
+                                val p = coordinator.pointFromPixels(change.position.x, change.position.y)
                                 if (change.pressed) coordinator.move(p, change.uptimeMillis) else coordinator.up(p, change.uptimeMillis)
                             }
                             preview = coordinator.preview

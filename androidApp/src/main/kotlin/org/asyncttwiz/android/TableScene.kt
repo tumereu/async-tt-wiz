@@ -99,7 +99,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val currentRuntime by rememberUpdatedState(runtime)
     var presentation by remember(play.id, accountId) { mutableStateOf<TableScene?>(null) }
     var pressedPing by remember(play.id, accountId) { mutableStateOf<EventPingIntent?>(null) }
-    val coordinator = remember(play.id, accountId) {
+    val density = LocalDensity.current.density
+    val coordinator = remember(play.id, accountId, density) {
         lateinit var owner: TableGestureCoordinator
         var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
@@ -139,7 +140,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
             }
-        })
+        }, density = density)
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
@@ -157,11 +158,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }
     }
-    val inputDensity = LocalDensity.current.density
     BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            val point = TablePoint(down.position.x / inputDensity, down.position.y / inputDensity)
+            val point = coordinator.pointFromPixels(down.position.x, down.position.y)
             val bubble = presentation?.stackBubbles
             if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
                 toolkit?.showStackBubbles(null); localStackBubble = null
@@ -189,10 +189,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val animatedItems = frame.filter { it.alpha > 0f }.map { it.item.copy(bounds = it.bounds) }
         val baseScene = TablePresentation.clip(targetScene.copy(items = animatedItems), maxWidth.value, maxHeight.value)
         val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry ?: localStackBubble
-        LaunchedEffect(bubbleId, play.board.containers) {
-            if (bubbleId != null && bubbleId !in CombatStackRules.stack(play.board).cards) {
-                toolkit?.showStackBubbles(null); localStackBubble = null
-            }
+        LaunchedEffect(toolkit, bubbleId, play) {
+            // The rendered history/animation boundary can briefly lag the session prediction during
+            // acceptance. Validate personal focus against the session, not that older rendered board.
+            if (toolkit != null) toolkit.refreshStackBubbles()
+            else if (bubbleId != null && bubbleId !in CombatStackRules.stack(play.board).cards) localStackBubble = null
         }
         val bubbleCard = baseScene.items.find { bubbleId != null && it.cardId == bubbleId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
         val bubble = TablePresentation.stackBubbles(baseScene, play, bubbleId, maxWidth.value, maxHeight.value)
@@ -213,7 +214,6 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             coordinator.update(scene, retained, writable || (retained.mode == TableMode.PING &&
                 runtime.ping != null && runtime.controlsConnected == true))
         }
-        val density = LocalDensity.current.density
         Box(Modifier.fillMaxSize().semantics {
             contentDescription = "Shared table"
             stateDescription = "${selection.ids.size} selected, ${selection.mode.name.lowercase()} mode"
@@ -233,7 +233,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             try {
                 awaitEachGesture {
                     val first = awaitFirstDown(requireUnconsumed = false)
-                    val point = TablePoint(first.position.x / density, first.position.y / density)
+                    val point = coordinator.pointFromPixels(first.position.x, first.position.y)
                     val state = currentPlay
                     val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
                     pressedPing = presentation?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
@@ -252,14 +252,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                             val previousSpan = (a.previousPosition - b.previousPosition).getDistance()
                             val span = (a.position - b.position).getDistance()
                             val bothWereDown = a.previousPressed && b.previousPressed
-                            coordinator.transform(TablePoint(if (bothWereDown) (center.x - before.x) / density else 0f,
-                                if (bothWereDown) (center.y - before.y) / density else 0f),
+                            coordinator.transform(coordinator.pointFromPixels(if (bothWereDown) center.x - before.x else 0f,
+                                if (bothWereDown) center.y - before.y else 0f),
                                 if (bothWereDown && previousSpan > 0) span / previousSpan else 1f,
-                                TablePoint(center.x / density, center.y / density))
+                                coordinator.pointFromPixels(center.x, center.y))
                         } else if (!transformed) {
                             val p = event.changes.firstOrNull { it.id == first.id }
                             if (p == null) coordinator.cancel() else {
-                                val point = TablePoint(p.position.x / density, p.position.y / density)
+                                val point = coordinator.pointFromPixels(p.position.x, p.position.y)
                                 if (p.pressed) coordinator.move(point, p.uptimeMillis) else coordinator.up(point, p.uptimeMillis)
                             }
                         }

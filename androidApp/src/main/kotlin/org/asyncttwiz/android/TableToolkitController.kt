@@ -41,12 +41,28 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var libraryDisplayId by mutableStateOf<String?>(null); private set
     var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
     var stackBubbleEntry by mutableStateOf<String?>(null); private set
-    fun showStackBubbles(id: String?) { stackBubbleEntry = id }
+    private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String, val effect: Boolean)
+    private var pendingStackBubble: PendingStackBubble? = null
+    fun showStackBubbles(id: String?) { pendingStackBubble = null; stackBubbleEntry = id }
+    /** Follow the session's prediction as soon as it is published, without waiting for acceptance.
+     * Real card IDs and request-derived effect IDs are identical in prediction and accepted state. */
+    fun refreshStackBubbles() {
+        val play = current() ?: return
+        val stack = play.board.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
+        pendingStackBubble?.let { pending ->
+            val added = stack.firstOrNull { id -> id !in pending.before &&
+                if (pending.effect) play.board.stackEffects.any { it.id == id && it.sourceId == pending.sourceId }
+                else id == pending.sourceId }
+            if (added != null) stackBubbleEntry = stack.firstOrNull()
+            if (added != null || play.currentNodeId != pending.nodeId) pendingStackBubble = null
+        }
+        if (stackBubbleEntry !in stack) stackBubbleEntry = null
+    }
     private var inspectionSubscription: InspectionSubscription? = null
     private var inspectionLifetime: String? = null
     private var reviewContext: String? = null
     fun reviewContext(context: String) {
-        if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss(); tokens.close(); stackBubbleEntry = null }
+        if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss(); tokens.close(); showStackBubbles(null) }
         reviewContext = context
     }
 
@@ -62,11 +78,21 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
-        val before = current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
+        val play = current()
+        val source = when (action) {
+            is PlayAction.MoveCard -> action.cardId.takeIf { id -> play?.board?.containers?.any {
+                it.id == action.destination.containerId && it.zone == PlayZone.STACK && id !in it.cards } == true }
+            is PlayAction.Stack -> (action.action as? StackAction.AddEffect)?.sourceId
+            else -> null
+        }
+        val pending = if (source != null && play != null) PendingStackBubble(play.currentNodeId,
+            CombatStackRules.stack(play.board).cards.toSet(), source, action is PlayAction.Stack) else null
         return gameplay(action, invocationId).also { sent ->
             if (!sent) error = "One or more actions could not be queued. Already queued actions are retained."
-            else current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
-                .takeIf { after -> after.any { it !in before } }?.firstOrNull()?.let { stackBubbleEntry = it }
+            else {
+                if (pending != null) pendingStackBubble = pending
+                refreshStackBubbles()
+            }
         }
     }
 
@@ -122,7 +148,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openPublicPile(id: String) {
         val container = current()?.board?.containers?.singleOrNull { it.id == id &&
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
-        dismiss(); stackBubbleEntry = null; panel = "contents/${container.id}"
+        dismiss(); showStackBubbles(null); panel = "contents/${container.id}"
     }
     fun publicContents(): PileContents? {
         val id = panel?.takeIf { it.startsWith("contents/") }?.substringAfter('/') ?: return null
@@ -148,7 +174,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
-        dismiss(); tokens.close(); capture = bound; stackBubbleEntry = null
+        dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
         explicitStack = if (scope.contextId in CombatStackRules.stack(play.board).cards) {
             val context = StackContexts.context(play, scope.contextId)
             when (context.kind) {
@@ -244,7 +270,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             is TableIntent.StackDestination -> {
                 val play = current()?.takeIf { enabled() } ?: return@batch false
                 val actions = runCatching { StackQuickActions.actions(play, intent.entryId, intent.zone) }.getOrNull() ?: return@batch false
-                stackBubbleEntry = null
+                showStackBubbles(null)
                 var sent = false
                 // The shared lowering already includes move-entry defaults; do not expand the move twice.
                 for (action in actions) { if (!enqueue(action, invocation)) return@batch sent; sent = true }

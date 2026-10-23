@@ -111,7 +111,7 @@ class TableStatesScreenshotTest {
                 if (kind == "stack-preview") {
                     compose.mainClock.autoAdvance = false
                     compose.onNodeWithContentDescription("Mark text · drag up or down").performTouchInput {
-                        down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, -28f))
+                        down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, 28f))
                     }
                     compose.waitForIdle() // Flush Android pointer delivery before advancing frozen composition frames.
                     compose.mainClock.advanceTimeByFrame()

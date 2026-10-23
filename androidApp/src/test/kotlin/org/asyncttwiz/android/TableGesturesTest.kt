@@ -65,7 +65,7 @@ class TableGesturesTest {
         val gesture = TableGestureCoordinator(events::add)
         gesture.update(scene.copy(stackBubbles = bubble), TableSelection(), true)
         val start = bubble.controls.last().bounds.center
-        fun end(dx: Float = 0f, dy: Float = -56f) = TablePoint(start.x + dx, start.y + dy)
+        fun end(dx: Float = 0f, dy: Float = 56f) = TablePoint(start.x + dx, start.y + dy)
         gesture.down(start, 0); gesture.move(end(100f), 80)
         assertTrue(gesture.preview.marking); assertEquals(3, gesture.preview.markIndex)
         gesture.up(end(100f), 100)
@@ -76,9 +76,74 @@ class TableGesturesTest {
         gesture.down(start, 300); gesture.up(end(120f, 0f), 340)
         gesture.down(start, 400); gesture.move(end(), 440); gesture.cancel()
         assertTrue(events.isEmpty())
-        gesture.down(start, 500); gesture.up(end(dy = 56f), 540)
+        gesture.down(start, 500); gesture.up(end(dy = -56f), 540)
         assertEquals(org.asyncttwiz.protocol.PlayAction.Stack(org.asyncttwiz.protocol.StackAction.MarkText(entry, null)),
             events.filterIsInstance<TableIntent.Submit>().single().action)
+    }
+    @Test fun markTextDownSelectsFirstEvenWithOneOptionAndFollowsReadingOrderAtBothDensities() {
+        for (density in listOf(1f, 2.625f)) {
+            assertMarkDrag(density, null, 1, 28f * density, 0)
+            assertMarkDrag(density, null, 5, 56f * density, 1)
+            assertMarkDrag(density, 0, 5, -28f * density, null)
+            assertMarkDrag(density, null, 1, 11f * density, null)
+        }
+    }
+
+    private fun assertMarkDrag(density: Float, selected: Int?, count: Int, dyPixels: Float, expected: Int?) {
+        val f = TableStatesFixture
+        val entry = f.id("effect")
+        val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
+        val bubble = StackBubbleGeometry.create(entry, scene.items.single { it.cardId == entry }.bounds,
+            412f, 892f, selected, count)
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add, density = density)
+        gestures.update(scene.copy(stackBubbles = bubble), TableSelection(), true)
+        val start = bubble.controls.last().bounds.center
+        val down = gestures.pointFromPixels(start.x * density, start.y * density)
+        val end = gestures.pointFromPixels(start.x * density, start.y * density + dyPixels)
+        gestures.down(down, 0); gestures.move(end, 80)
+        assertTrue(gestures.preview.marking)
+        assertEquals(expected, gestures.preview.markIndex)
+        gestures.up(end, 100)
+        val requests = events.filterIsInstance<TableIntent.Submit>()
+        if (selected == expected) assertTrue(requests.isEmpty())
+        else assertEquals(org.asyncttwiz.protocol.PlayAction.Stack(org.asyncttwiz.protocol.StackAction.MarkText(entry, expected)),
+            requests.single().action)
+    }
+
+    @Test fun pointerPixelsKeepSlopDoubleTapRadiusAndValueStepInDpAtBothDensities() {
+        for (density in listOf(1f, 2.625f)) {
+            val scene = TableFixture.scene()
+            val events = mutableListOf<TableIntent>()
+            val gestures = TableGestureCoordinator(events::add, density = density)
+            gestures.update(scene, TableSelection(), true)
+            val start = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.visible.first().center
+            fun point(dxDp: Float = 0f, dyDp: Float = 0f) = gestures.pointFromPixels((start.x + dxDp) * density, (start.y + dyDp) * density)
+            gestures.down(point(), 0); gestures.move(point(7.9f), 40)
+            assertNull(gestures.preview.scope)
+            gestures.up(point(7.9f), 60); gestures.tick(340)
+            assertEquals(1, events.filterIsInstance<TableIntent.Actions>().size)
+            assertTrue(events.none { it is TableIntent.Move })
+            events.clear()
+            gestures.down(point(), 400); gestures.move(point(8.1f), 440)
+            assertNotNull(gestures.preview.scope)
+            gestures.up(point(8.1f), 460); gestures.tick(800)
+            assertEquals(1, events.filterIsInstance<TableIntent.Move>().size)
+            assertTrue(events.none { it is TableIntent.Actions || it is TableIntent.Rotate })
+            events.clear()
+            gestures.down(point(), 900); gestures.up(point(), 920)
+            gestures.down(point(dyDp = 15f), 1000); gestures.up(point(dyDp = 15f), 1020); gestures.tick(1400)
+            assertEquals(1, events.filterIsInstance<TableIntent.Rotate>().size)
+            assertTrue(events.none { it is TableIntent.Actions || it is TableIntent.Move })
+            events.clear()
+            val life = scene.items.single { it.id == "life/a" }.bounds.center
+            gestures.down(gestures.pointFromPixels(life.x * density, life.y * density), 1500)
+            val end = gestures.pointFromPixels(life.x * density, (life.y - 24f) * density)
+            gestures.move(end, 1540)
+            assertEquals(1, gestures.preview.delta)
+            gestures.up(end, 1560)
+            assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", null, 1)), events)
+        }
     }
     @Test fun bubbleHitRegionsStayDistinctOnScreenAtAllCornersInBothOrientations() {
         for ((w, h) in listOf(412f to 892f, 892f to 412f)) for (x in listOf(0f, w - 28f)) for (y in listOf(0f, h - 40f)) {

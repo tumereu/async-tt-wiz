@@ -5,6 +5,38 @@ import org.junit.Test
 import kotlin.test.*
 
 class StackInteractionsTest {
+    @Test fun laterPublishedPredictionOpensBubblesAndRequestDerivedEffectIdentitySurvivesAcceptance() {
+        val f = BasicTableFixture()
+        f.connect()
+        try {
+            assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0), true))
+            val setup = f.update(f.root, f.commands().single(), 1)
+            f.message(setup); f.message(f.result(setup))
+            val before = f.play
+            var published = before
+            val ui = TableToolkitController(f.actor, { published }, { true }, f.lobby::gameplay)
+            assertTrue(ui.addEffects(listOf(f.id(40))))
+            assertNull(ui.stackBubbleEntry) // Main-thread publication has not run yet.
+            published = f.play
+            ui.refreshStackBubbles()
+            val predicted = published.board.stackEffects.single().id
+            assertEquals(predicted, ui.stackBubbleEntry)
+            val scene = TablePresentation.scene(f.game, published, f.actor, 412f, 892f, false)
+            assertEquals(predicted, TablePresentation.stackBubbles(scene, published, ui.stackBubbleEntry, 412f, 892f)?.entryId)
+            val revision = f.update(before, f.commands().last(), 2)
+            f.message(f.result(revision)); f.message(revision)
+            published = f.play
+            ui.refreshStackBubbles()
+            assertEquals(predicted, published.board.stackEffects.single().id)
+            assertEquals(predicted, ui.stackBubbleEntry)
+            val acceptedScene = TablePresentation.scene(f.game, published, f.actor, 412f, 892f, false)
+            assertEquals(predicted, TablePresentation.stackBubbles(acceptedScene, published, ui.stackBubbleEntry, 412f, 892f)?.entryId)
+            ui.showStackBubbles(null)
+            ui.refreshStackBubbles()
+            assertNull(ui.stackBubbleEntry) // Acceptance must not reopen a dismissed overlay.
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     @Test fun realSessionAutomaticallyShowsNewEntriesAndBubblesUseOneInvocationWithOrdinaryRequests() {
         val f = BasicTableFixture()
         f.connect()

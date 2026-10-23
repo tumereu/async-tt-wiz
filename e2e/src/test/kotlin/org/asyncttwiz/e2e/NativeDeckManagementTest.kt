@@ -10,8 +10,6 @@ import org.junit.jupiter.api.Test
 import org.openqa.selenium.OutputType
 import org.openqa.selenium.ScreenOrientation
 import org.openqa.selenium.StaleElementReferenceException
-import org.openqa.selenium.WebElement
-import org.openqa.selenium.By
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.net.URI
 import java.nio.file.Files
@@ -34,29 +32,18 @@ class NativeDeckManagementTest {
             }
         val driver = AndroidDriver(URI(property("appium")).toURL(), options)
         val wait = WebDriverWait(driver, Duration.ofSeconds(45)).ignoring(StaleElementReferenceException::class.java)
+        val ui = NativeUi(driver)
         init { record("session.json", mapOf("owner" to property("owner"), "serial" to property("serial"),
             "sessionId" to driver.sessionId.toString(), "systemPort" to property("systemPort").toInt(),
             "forward" to listOf(property("serial"), "tcp:${property("systemPort")}", "tcp:6790"))) }
         fun record(name: String, value: Any) = Files.writeString(directory.resolve(name), GsonBuilder().setPrettyPrinting().create().toJson(value) + "\n")
-        fun text(value: String): WebElement = wait.until {
-            driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().text(\"$value\")")).lastOrNull { it.isDisplayed }
-        }
-        fun named(value: String): WebElement = wait.until { driver.findElement(AppiumBy.accessibilityId(value)).takeIf { it.isDisplayed } }
-        fun scroll(value: String): WebElement = wait.until {
-            driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().text(\"$value\")")).lastOrNull { it.isDisplayed }
-                ?: driver.findElement(AppiumBy.androidUIAutomator("new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().text(\"$value\"))"))
-        }
-        fun button(value: String) {
-            wait.until {
-                val label = scroll(value)
-                val target = if (label.getAttribute("clickable") == "true") label
-                    else driver.findElement(By.xpath("//*[@text='$value']/ancestor::*[@clickable='true'][1]"))
-                target.takeIf { it.isEnabled }
-            }.click()
-        }
+        fun text(value: String) = ui.text(value)
+        fun named(value: String) = ui.named(value)
+        fun scroll(value: String) = ui.scroll(value)
+        fun button(value: String) = ui.button(value)
         fun field() = driver.findElement(AppiumBy.className("android.widget.EditText"))
-        fun authField(value: String) = wait.until { driver.findElement(AppiumBy.xpath("//android.widget.EditText[.//*[@content-desc='$value']]")) }
-        fun hide() { if (driver.isKeyboardShown) driver.hideKeyboard() }
+        fun authField(value: String) = ui.field(value)
+        fun hide() = ui.hideKeyboard()
         fun capture(name: String) {
             Files.writeString(directory.resolve("$name.xml"), driver.pageSource)
             Files.write(directory.resolve("$name.png"), driver.getScreenshotAs(OutputType.BYTES))
@@ -64,19 +51,18 @@ class NativeDeckManagementTest {
         fun signIn() {
             scroll("Email"); authField("Email").clear(); authField("Email").sendKeys("management@example.test"); hide()
             scroll("Password"); authField("Password").clear(); authField("Password").sendKeys("synthetic collection password"); hide()
-            scroll("Forgot password?"); text("Sign in").click(); text("Manage decks").click()
+            button("Sign in"); button("Manage decks")
         }
         fun register() {
             button("Create account"); scroll("Username"); authField("Username").sendKeys("Collection wizard")
             scroll("Email"); authField("Email").sendKeys("management@example.test")
             scroll("Password"); authField("Password").sendKeys("synthetic collection password"); hide()
-            scroll("Sign in"); text("Create account").click(); text("Account created. Sign in."); signIn()
+            button("Create account"); text("Account created. Sign in."); signIn()
         }
         fun importDeck(name: String) {
             button("Import deck"); field().sendKeys("Deck\n4 Coppercloud Surveyor (ZPA) 1\n2 Amberglass Chorus\nSideboard\n3 Velvet Prism Engine"); hide()
             button("Retry lookup")
-            val review = wait.until { driver.findElement(AppiumBy.xpath("//android.view.View[@clickable='true'][./android.widget.TextView[@text='Review import']]" )).takeIf { it.isEnabled } }
-            review.click(); text("Mainboard · 6"); scroll("Deck name"); field().sendKeys(name); hide(); button("Save deck")
+            button("Review import"); text("Mainboard · 6"); scroll("Deck name"); field().sendKeys(name); hide(); button("Save deck")
             text(name); text("Mainboard · 6"); text("Sideboard · 3")
         }
         fun edit(action: String) { button("Edit"); button(action) }
@@ -93,24 +79,24 @@ class NativeDeckManagementTest {
         override fun close() { runCatching { capture("management-final") }; driver.quit(); record("session-closed.json", mapOf("closed" to true)) }
     }
 
-    @Test fun managesAndSynchronizesAcceptedCollectionWithoutSharingUnfinishedDialogs() =
-        management(System.getenv("ATW_MANAGEMENT_TAIL") == "true")
+    @Test fun managesAndSynchronizesAcceptedCollectionWithoutSharingUnfinishedDialogs() = management()
 
-    private fun management(retained: Boolean) {
+    private fun management() {
         val directory = Path.of(requireNotNull(System.getenv("ATW_DEVICE_RUN")))
+        val tail = System.getenv("ATW_MANAGEMENT_TAIL") == "true"
+        val finish = System.getenv("ATW_MANAGEMENT_FINISH") == "true"
+        val deleted = System.getenv("ATW_MANAGEMENT_DELETED") == "true"
+        require(tail || !finish && !deleted) { "Legacy finish/deleted requires retained tail" }
+        require(!finish || !deleted) { "Conflicting legacy management continuation flags" }
+        val phases = NativePhases(directory, "deck-management", NativePhases.requested(when {
+            deleted -> "deleted"
+            finish -> "finish"
+            tail -> "cover"
+            else -> "setup"
+        }), listOf("setup", "cover", "finish", "deleted"))
         Ui(directory).use { first ->
             Ui(Path.of(first.property("secondDirectory"))).use { second ->
-                if (System.getenv("ATW_MANAGEMENT_DELETED") == "true") {
-                    first.scroll("Refresh saved decks")
-                    second.scroll("Refresh saved decks"); second.capture("same-account-deleted-collection")
-                    assertFalse(second.driver.pageSource.contains("Renamed collection"))
-                    first.restart(); first.scroll("Refresh saved decks"); assertFalse(first.driver.pageSource.contains("Renamed collection"))
-                    first.capture("deleted-collection-after-restart")
-                    first.record("management-observation.json", mapOf("scope" to "Retained deleted-collection final assertions only",
-                        "journeys" to listOf("same-account deleted collection", "scrolling remaining collection", "process restart/reopen after deletion")))
-                    return
-                }
-                if (!retained) {
+                if (phases.includes("setup")) {
                 first.driver.rotate(ScreenOrientation.PORTRAIT); second.driver.rotate(ScreenOrientation.PORTRAIT)
                 first.text("Async Tabletop Wizards"); first.register(); first.text("No saved decks yet.")
                 first.button("Download card records"); first.text("Card records are up to date.")
@@ -128,33 +114,35 @@ class NativeDeckManagementTest {
                 // modal dialog is open. Allow one 5s refresh tick, then inspect the draft itself.
                 Thread.sleep(6_000)
                 assertTrue(second.field().text.contains("Personal unfinished draft")); second.capture("personal-draft-remote-rename")
-                second.named("Cancel and close dialog").click(); second.text("Renamed collection")
+                second.ui.dismissDialog("Cancel and close dialog", "Rename deck"); second.text("Renamed collection")
                 first.edit("Choose cover"); first.button("Amberglass Chorus"); first.capture("cover-selection-landscape")
                 first.driver.rotate(ScreenOrientation.PORTRAIT); first.text("Choose cover"); first.capture("cover-selection-portrait")
                 first.button("Use cover"); first.text("Renamed collection")
-                } else {
+                phases.completed("setup")
+                } else if (phases.start != "deleted") {
                     first.text("Renamed collection"); second.text("Renamed collection")
                     first.driver.rotate(ScreenOrientation.PORTRAIT)
-                    if (!first.driver.pageSource.contains("Mainboard · 6")) first.button("Renamed collection")
-                    first.text("Mainboard · 6")
-                    if (!second.driver.pageSource.contains("Mainboard · 6")) second.button("Renamed collection")
-                    second.text("Mainboard · 6"); second.driver.rotate(ScreenOrientation.LANDSCAPE)
+                    first.ui.reopen("Renamed collection", "Mainboard · 6", description = false)
+                    second.ui.reopen("Renamed collection", "Mainboard · 6", description = false)
+                    second.driver.rotate(ScreenOrientation.LANDSCAPE)
                 }
                 // Wait for accepted metadata before opening a new personal cover draft. An already
                 // open cover draft deliberately does not track other devices' cover choices.
-                if (System.getenv("ATW_MANAGEMENT_FINISH") != "true") {
+                if (phases.includes("cover")) {
                 second.driver.navigate().back(); second.named("Amberglass Chorus"); second.button("Renamed collection")
                 second.edit("Choose cover")
                 second.wait.until { second.driver.findElement(AppiumBy.xpath("//*[@selected='true' or @checked='true'][.//*[@text='Amberglass Chorus']]")) }
                 second.capture("same-account-cover"); second.button("Cancel")
                 // Confirmation is only local intent: X, Keep and native Back never delete.
                 first.edit("Delete saved deck"); first.text("Deletion cannot be undone."); first.capture("delete-confirmation-portrait")
-                first.named("Cancel and close dialog").click(); first.text("Renamed collection")
+                first.ui.dismissDialog("Cancel and close dialog", "Deletion cannot be undone."); first.text("Renamed collection")
                 first.edit("Delete saved deck"); first.button("Keep deck"); first.text("Renamed collection")
                 first.edit("Delete saved deck"); first.driver.navigate().back(); first.text("Renamed collection")
+                phases.completed("cover")
                 }
+                if (phases.includes("finish")) {
                 // Reopen after process death from server metadata, without re-import on instance two.
-                first.restart(); first.button("Renamed collection"); first.text("Mainboard · 6")
+                first.restart(); first.ui.reopen("Renamed collection", "Mainboard · 6", description = false)
                 first.driver.navigate().back(); first.text("6 / 3"); first.button("Import deck")
                 first.named("Exit without saving").click(); first.button("Renamed collection")
                 // Populate a genuinely scrolling collection using only normal UI imports.
@@ -163,13 +151,22 @@ class NativeDeckManagementTest {
                 }
                 first.driver.navigate().back(); first.scroll("Collection extra 6")
                 assertTrue(first.text("Import deck").isDisplayed); first.capture("long-collection-fixed-import")
-                first.scroll("Renamed collection").click(); first.edit("Delete saved deck")
+                first.button("Renamed collection"); first.edit("Delete saved deck")
                 first.driver.rotate(ScreenOrientation.LANDSCAPE); first.text("Deletion cannot be undone."); first.capture("delete-confirmation-landscape")
                 first.button("Delete saved deck"); first.scroll("Refresh saved decks")
                 second.text("This saved deck was deleted on another device."); second.capture("same-account-deletion")
                 assertFalse(second.driver.pageSource.contains("Renamed collection"))
+                phases.completed("finish")
+                }
+                first.scroll("Refresh saved decks")
+                second.scroll("Refresh saved decks"); second.capture("same-account-deleted-collection")
+                assertFalse(second.driver.pageSource.contains("Renamed collection"))
                 first.restart(); first.scroll("Refresh saved decks"); assertFalse(first.driver.pageSource.contains("Renamed collection"))
-                first.record("management-observation.json", mapOf("retainedTail" to retained, "journeys" to listOf("two actual normal APKs / same UI-created account",
+                first.capture("deleted-collection-after-restart")
+                phases.completed("deleted")
+                first.record("management-observation.json", phases.finish() + mapOf("retainedTail" to !phases.fullJourney,
+                    "scope" to if (phases.fullJourney) "Complete management invocation" else "Retained continuation only; skipped prefix is not certified",
+                    "journeyDefinition" to listOf("two actual normal APKs / same UI-created account",
                     "normal import, retained sections and collection cover/counts", "rename/cover both orientations and rotation",
                     "automatic same-account synchronization preserving personal input", "X/Keep/native Back cancel deletion",
                     "process restart metadata", "seven UI-created decks / fixed bottom Import", "confirmed deletion propagated and retained"),

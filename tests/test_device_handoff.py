@@ -12,6 +12,9 @@ import test_device_routes as route_tests
 class CombinedHandoffTest(unittest.TestCase):
     def setUp(self):
         route_tests.DeviceRoutesTest.setUp(self)
+        root_patch = patch.object(d, 'ROOT', self.root)
+        root_patch.start()
+        self.addCleanup(root_patch.stop)
         # Keep real directory/record validation in these tests, not a forged path.
         self.env['directory'] = '/tmp/opencode/atw-e2e-' + 'e' * 32
         self.route = copy.deepcopy(self.record)

@@ -20,6 +20,8 @@ import java.util.concurrent.TimeUnit
 class NativeGameStartTest {
     @Test fun twoPlayersReadyToActualInitialTableAndRecoverOriginalStart() {
         val directory = Path.of(requireNotNull(System.getenv("ATW_DEVICE_RUN")))
+        val phases = NativePhases(directory, "game-start", NativePhases.requested(
+            System.getenv("ATW_START_STAGE").orEmpty().ifEmpty { "setup" }), listOf("setup", "starter", "table", "restart"))
         val input = Properties().apply { Files.newBufferedReader(directory.resolve("runner.properties")).use(::load) }
         val peer = Path.of(Files.readString(directory.resolve("peer-run.txt")))
         fun control(operation: String): JsonObject {
@@ -31,7 +33,6 @@ class NativeGameStartTest {
         NativeLobbyCreationTest.Device(directory, directory.resolve("runner.properties")).use { first ->
             NativeLobbyCreationTest.Device(peer, peer.resolve("runner.properties")).use { second ->
                 first.driver.rotate(ScreenOrientation.PORTRAIT); second.driver.rotate(ScreenOrientation.PORTRAIT)
-                val stage = System.getenv("ATW_START_STAGE").orEmpty()
                 fun records(ui: NativeLobbyCreationTest.Device) {
                     ui.text("Manage decks").click(); ui.button("Check for updates"); ui.button("Download card records")
                     ui.text("Card records are up to date.")
@@ -39,23 +40,18 @@ class NativeGameStartTest {
                 fun import(ui: NativeLobbyCreationTest.Device, text: String, name: String) {
                     ui.button("Choose deck"); ui.button("Import deck")
                     ui.driver.findElement(AppiumBy.className("android.widget.EditText")).sendKeys(text)
-                    ui.hide(); ui.scroll("Review import")
-                    WebDriverWait(ui.driver, Duration.ofSeconds(45)).until {
-                        ui.driver.findElement(By.xpath("//android.view.View[@clickable='true'][./android.widget.TextView[@text='Review import']]" )).takeIf { it.isEnabled }
-                    }.click()
+                    ui.hide(); ui.button("Review import")
                     ui.scroll("Deck name"); ui.driver.findElement(AppiumBy.className("android.widget.EditText")).sendKeys(name)
                     ui.hide(); ui.button("Save deck"); ui.text("Use selected deck"); ui.button(name); ui.button("Use selected deck")
                 }
                 fun starter(ui: NativeLobbyCreationTest.Device, label: String) {
                     val description = "Starting player: $label"
-                    if (ui.driver.findElements(AppiumBy.accessibilityId(description)).none { it.isDisplayed })
-                        ui.driver.findElement(AppiumBy.androidUIAutomator("new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().description(\"$description\"))"))
-                    ui.named(description).click()
+                    ui.ui.scroll(description, description = true).click()
                     WebDriverWait(ui.driver, Duration.ofSeconds(45)).until {
                         ui.driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().text(\"Checking game outcome…\")")).isEmpty()
                     }
                 }
-                if (stage.isEmpty()) {
+                if (phases.includes("setup")) {
                     first.register("start-first@example.test", "Start First"); first.login("start-first@example.test", "Start First")
                     second.register("start-second@example.test", "Start Second"); second.login("start-second@example.test", "Start Second")
                     records(first); records(second)
@@ -64,8 +60,9 @@ class NativeGameStartTest {
                     first.text("Select your deck to get ready.")
                     import(first, "Deck\n4 Coppercloud Surveyor (ZPA) 1\n2 Amberglass Chorus\nSideboard\n1 Feltwing Atlas", "First prepared source")
                     first.text("Mainboard · 6"); first.text("Sideboard · 1")
+                    phases.completed("setup")
                 }
-                if (stage != "table" && stage != "restart") {
+                if (phases.includes("starter")) {
                     starter(first, "Start Second"); first.button("Ready"); first.text("Withdraw Ready")
                     control("first-ready"); first.capture("first-ready-before-acceptance")
                     first.button("Withdraw Ready"); first.text("Ready"); control("withdrawn")
@@ -92,6 +89,7 @@ class NativeGameStartTest {
                         second.capture("second-ready-not-local-start")
                         control("commit-without-ack")
                     } finally { control("resume") }
+                    phases.completed("starter")
                 }
                 val accepted = control("started")
                 val play = accepted.getAsJsonArray("plays").single().asJsonObject
@@ -108,9 +106,9 @@ class NativeGameStartTest {
                     assertFalse(ui.driver.pageSource.contains("Sideboard"))
                     assertTrue(ui.driver.findElements(AppiumBy.accessibilityId("Back")).isEmpty())
                 }
-                if (stage != "restart") {
+                if (phases.includes("table")) {
                     second.text("Native Initial Spark"); table(second)
-                    first.button("Native Initial Spark"); table(first)
+                    first.ui.reopen("Native Initial Spark", "Shared table"); table(first)
                     for (orientation in listOf(ScreenOrientation.PORTRAIT, ScreenOrientation.LANDSCAPE)) {
                         for ((index, ui) in listOf(first, second).withIndex()) {
                             ui.driver.rotate(orientation); table(ui); ui.capture("table-$index-${orientation.name.lowercase()}")
@@ -119,16 +117,19 @@ class NativeGameStartTest {
                             ui.button("Native Initial Spark"); table(ui)
                         }
                     }
+                    phases.completed("table")
                 }
-                first.restart(); first.button("Native Initial Spark"); table(first)
-                second.restart(); second.button("Native Initial Spark"); table(second)
+                first.restart(); first.ui.reopen("Native Initial Spark", "Shared table"); table(first)
+                second.restart(); second.ui.reopen("Native Initial Spark", "Shared table"); table(second)
                 second.driver.navigate().back(); second.text("Invitations"); second.button("Native Initial Spark"); table(second)
                 first.capture("server-first-process-restart"); second.capture("peer-process-restart")
                 val retained = control("final")
                 assertEquals(accepted.getAsJsonArray("plays"), retained.getAsJsonArray("plays"))
                 assertEquals(accepted.getAsJsonArray("requests"), retained.getAsJsonArray("requests"))
-                first.record("journey.json", mapOf("normalApks" to 2, "bothOrientations" to true,
-                    "scope" to "UI-created synthetic accounts/catalog/decks/invitation; explicit either-player/Random choices without prestart roll; first Ready before acceptance/withdrawal/leave; accepted no-deck guard and two truthful statuses; interrupted second-Ready acknowledgement with exact once-only accepted initial table, native Back/drawer, rotate/reopen/server-first restart. Full Cancel/list/preparation overlaps remain I12."))
+                phases.completed("restart")
+                first.record("journey.json", phases.finish() + mapOf("normalApks" to 2, "bothOrientations" to phases.includes("table"),
+                    "scope" to if (phases.fullJourney) "UI-created synthetic accounts/catalog/decks/invitation; explicit either-player/Random choices without prestart roll; first Ready before acceptance/withdrawal/leave; accepted no-deck guard and two truthful statuses; interrupted second-Ready acknowledgement with exact once-only accepted initial table, native Back/drawer, rotate/reopen/server-first restart. Full Cancel/list/preparation overlaps remain I12."
+                        else "Retained continuation from ${phases.start} only; skipped prefix and complete E2E journey are not certified."))
             }
         }
     }

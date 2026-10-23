@@ -18,6 +18,9 @@ class NormalAppControllerTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(dir='/tmp/opencode', prefix='atw-app-unit-')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        root_patch = patch.object(d, 'ROOT', self.root)
+        root_patch.start()
+        self.addCleanup(root_patch.stop)
         self.value = {'directory': str(self.root), 'owner': 'a' * 64,
                       'config': {'androidHome': str(self.root), 'linuxAdb': '/explicit/adb', 'adbPort': 15038}}
         tools = self.root / 'build-tools/36.0.0'
@@ -117,6 +120,36 @@ class NormalAppControllerTest(unittest.TestCase):
             with self.assertRaises(d.Refusal):
                 a.install(self.value, self.serial, self.apk)
             adb.assert_not_called()
+
+    def test_disk_artifacts_keep_fresh_installed_readback_and_input_hash_provenance(self):
+        def adb(value, *args, **kwargs):
+            if 'install' in args:
+                return self.reply('Success\n')
+            if 'path' in args:
+                return self.reply('package:/data/app/abc/base.apk\n')
+            return self.reply(a.COMPONENT + '\n')
+        captures = []
+        def binary(value, serial, path, *args, **kwargs):
+            captures.append(path)
+            path.write_bytes(self.apk.read_bytes())
+        with patch.object(a, 'verify_apk', return_value=self.expected), patch.object(d, 'adb', side_effect=adb), \
+                patch.object(a, 'binary_adb', side_effect=binary):
+            record = a.install(self.value, self.serial, self.apk)
+            with patch.object(d, 'infrastructure', return_value={'device': {'serial': self.serial}}), \
+                    patch.object(a, 'observe', return_value={'observed': True}):
+                for _ in range(2):
+                    a.operation(self.value, 'capture-app', 1)
+        self.assertEqual(len(captures), 3)
+        self.assertEqual(len(set(captures)), 3)  # Never substitute old bytes for a fresh readback.
+        for path in captures + [Path(record['retainedApk'])]:
+            self.assertTrue(path.is_relative_to(self.root / 'e2e/build/device-artifacts'))
+            self.assertEqual(a.sha(path), self.expected['sha256'])
+        self.assertFalse((self.root / 'normal.apk').exists())
+        self.assertEqual(a.app_record(self.value), record)
+        record['retainedApk'] = str(self.apk)
+        d.write_json(self.root / 'app-installed.json', record)
+        with self.assertRaises(d.Refusal):
+            a.app_record(self.value)
 
     def test_failed_am_launch_and_capture_remove_stale_handoff(self):
         self.record()

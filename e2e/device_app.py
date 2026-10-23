@@ -8,13 +8,14 @@ import json
 from pathlib import Path
 import re
 import secrets
+import shutil
 import sqlite3
 import struct
 import subprocess
 import time
 import xml.etree.ElementTree as ET
 
-from e2e import devices as d
+from e2e import devices as d, device_artifacts
 
 PACKAGE = 'org.asyncttwiz.android'
 ACTIVITY = PACKAGE + '.MainActivity'
@@ -26,7 +27,8 @@ TABLES = ('accepted_cursor', 'accepted_record', 'personal_state', 'public_cache'
 
 
 def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    with path.open('rb') as source:
+        return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
 def verify_apk(value, path):
@@ -95,14 +97,17 @@ def app_record(value):
     record = json.loads((Path(value['directory']) / 'app-installed.json').read_text())
     d.require(record['owner'] == value['owner'] and record['apk']['package'] == PACKAGE and
               record['apk']['activity'] == ACTIVITY, 'Foreign app installation record refused')
-    path = Path(value['directory']) / 'normal.apk'
+    # Old installations remain readable in place; no automatic migration/cleanup.
+    path = Path(record.get('retainedApk', str(Path(value['directory']) / 'normal.apk')))
+    if 'retainedApk' in record:
+        d.require(path == device_artifacts.directory(value) / 'normal.apk', 'Foreign retained APK path refused')
     d.require(path.is_file() and not path.is_symlink() and sha(path) == record['apk']['sha256'],
               'Retained verified APK changed or is missing')
     return record
 
 
 def attempt(value, stage):
-    directory = Path(value['directory']) / ('app-' + secrets.token_hex(8))
+    directory = device_artifacts.directory(value) / ('app-' + secrets.token_hex(8))
     directory.mkdir(mode=0o700)
     d.write_json(Path(value['directory']) / 'app-progress.json', {'stage': stage, 'evidenceDirectory': str(directory)})
     return directory
@@ -116,16 +121,19 @@ def install(value, serial, apk):
     source = Path(apk)
     expected = verify_apk(value, source)
     snapshot = directory / 'input.apk'
-    with snapshot.open('xb') as output:
-        output.write(source.read_bytes())
+    with source.open('rb') as original, snapshot.open('xb') as output:
+        shutil.copyfileobj(original, output)
     d.require(verify_apk(value, snapshot) == expected, 'APK changed during verification/copy')
     result = d.adb(value, '-s', serial, 'install', '-r', str(snapshot), timeout=120)
     d.require('Success' in result.stdout.splitlines(), 'Normal APK installation did not report success')
     actual = installed(value, serial, expected, directory)
     # Atomic retained artifact publication; never fall back to an older input.
-    snapshot.replace(root / 'normal.apk')
+    retained = device_artifacts.directory(value) / 'normal.apk'
+    d.require(not retained.is_symlink(), 'Unsafe retained APK target')
+    snapshot.replace(retained)
     record = {'owner': value['owner'], 'serial': serial, 'apk': actual, 'checkedAt': time.time(),
-              'evidenceDirectory': str(directory), 'scope': 'Verified normal APK install only; no startup observation'}
+              'evidenceDirectory': str(directory), 'retainedApk': str(retained),
+              'scope': 'Verified normal APK install only; no startup observation'}
     d.write_json(root / 'app-installed.json', record)
     return record
 

@@ -1,19 +1,14 @@
 package org.asyncttwiz.e2e
 
 import com.google.gson.GsonBuilder
-import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.nativekey.*
 import io.appium.java_client.android.options.UiAutomator2Options
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import org.openqa.selenium.By
 import org.openqa.selenium.OutputType
 import org.openqa.selenium.ScreenOrientation
-import org.openqa.selenium.StaleElementReferenceException
-import org.openqa.selenium.WebElement
-import org.openqa.selenium.support.ui.WebDriverWait
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
@@ -35,37 +30,24 @@ class NativeLobbyCreationTest {
                 it.setCapability("appium:autoLaunch", false); it.setCapability("appium:skipLogcatCapture", true)
             }
         val driver = AndroidDriver(URI(property("appium")).toURL(), options)
-        private val wait = WebDriverWait(driver, Duration.ofSeconds(45)).ignoring(StaleElementReferenceException::class.java)
+        val ui = NativeUi(driver)
         init { record("session.json", mapOf("owner" to property("owner"), "serial" to property("serial"), "sessionId" to driver.sessionId.toString(),
             "systemPort" to property("systemPort").toInt(), "forward" to listOf(property("serial"), "tcp:${property("systemPort")}", "tcp:6790"))) }
-        fun text(value: String): WebElement = wait.until {
-            driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().text(\"$value\")")).lastOrNull { it.isDisplayed }
-        }
-        fun named(value: String): WebElement = wait.until { driver.findElement(AppiumBy.accessibilityId(value)).takeIf { it.isDisplayed } }
-        fun field(value: String): WebElement = wait.until {
-            driver.findElement(By.xpath("//android.widget.EditText[@content-desc='$value' or .//*[@content-desc='$value']]")).takeIf { it.isDisplayed }
-        }
-        fun scroll(value: String): WebElement = wait.until {
-            driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().text(\"$value\")")).lastOrNull { it.isDisplayed }
-                ?: driver.findElement(AppiumBy.androidUIAutomator("new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().text(\"$value\"))"))
-        }
-        fun button(value: String) {
-            wait.until {
-                val label = scroll(value)
-                val target = if (label.getAttribute("clickable") == "true") label else driver.findElement(By.xpath("//*[@text='$value']/ancestor::*[@clickable='true'][1]"))
-                target.takeIf { it.isEnabled }
-            }.click()
-        }
-        fun hide() { if (driver.isKeyboardShown) driver.hideKeyboard() }
+        fun text(value: String) = ui.text(value)
+        fun named(value: String) = ui.named(value)
+        fun field(value: String) = ui.field(value)
+        fun scroll(value: String) = ui.scroll(value)
+        fun button(value: String) = ui.button(value)
+        fun hide() = ui.hideKeyboard()
         fun register(email: String, username: String) {
             button("Create account"); scroll("Username"); field("Username").sendKeys(username)
             scroll("Email"); field("Email").sendKeys(email); scroll("Password"); field("Password").sendKeys("lobby wizard password")
-            hide(); scroll("Sign in"); text("Create account").click(); text("Account created. Sign in.")
+            hide(); button("Create account"); text("Account created. Sign in.")
         }
         fun login(email: String, username: String) {
             scroll("Email"); field("Email").clear(); field("Email").sendKeys(email)
             hide(); scroll("Forgot password?"); field("Password").sendKeys("lobby wizard password"); hide()
-            scroll("Forgot password?"); text("Sign in").click(); named("Signed in as $username")
+            button("Sign in"); named("Signed in as $username")
         }
         fun destination(value: String) {
             if (driver.orientation == ScreenOrientation.PORTRAIT) named("Open navigation").click()
@@ -78,7 +60,7 @@ class NativeLobbyCreationTest {
             assertEquals(value, field("Game name").text)
             // Appium hideKeyboard uses Escape on this adapter, which deliberately dismisses a
             // native dialog. Use the field's actual IME Done action instead of cancelling it.
-            driver.executeScript("mobile: performEditorAction", mapOf("action" to "done"))
+            hide()
         }
         fun capture(name: String) {
             Files.writeString(directory.resolve("$name.xml"), driver.pageSource)
@@ -117,7 +99,7 @@ class NativeLobbyCreationTest {
                 first.replaceName("Cancelled Spark"); first.capture("naming-landscape"); first.button("Cancel")
                 first.button("Invite"); first.replaceName("Back Cancelled Spark"); first.driver.navigate().back(); first.text("Saved contacts")
                 first.button("Invite"); first.field("Game name").clear()
-                first.driver.executeScript("mobile: performEditorAction", mapOf("action" to "done"))
+                first.hide()
                 first.button("Create & invite"); first.text("Enter a game name.")
                 first.replaceName("Edited Spark"); first.replaceName("Native Azure Spark") // edited text is selected too
                 first.driver.rotate(ScreenOrientation.PORTRAIT); assertEquals("Native Azure Spark", first.field("Game name").text)
@@ -126,7 +108,8 @@ class NativeLobbyCreationTest {
                 first.driver.rotate(ScreenOrientation.LANDSCAPE); first.text("Waiting for Lobby Recipient to accept."); first.capture("waiting-landscape")
                 first.driver.navigate().back(); first.text("Invitations"); first.button("Native Azure Spark"); first.text("Waiting for Lobby Recipient to accept.")
                 first.destination("Menu"); first.text("Games").click(); first.text("Invitations"); first.capture("games-landscape")
-                first.restart(); first.text("Native Azure Spark"); first.button("Native Azure Spark"); first.text("Waiting for Lobby Recipient to accept.")
+                first.restart(); first.ui.reopen("Native Azure Spark", "Waiting for Lobby Recipient to accept.", description = false)
+                first.text("Native Azure Spark"); first.text("Waiting for Lobby Recipient to accept.")
                 second.destination("Games"); second.text("Native Azure Spark"); second.text("Accept"); second.text("Decline")
                 second.capture("recipient-invitation-portrait"); assertFalse(second.driver.pageSource.contains("lobby-inviter@example.test"))
                 second.driver.rotate(ScreenOrientation.LANDSCAPE); second.text("Native Azure Spark"); second.capture("recipient-invitation-landscape")

@@ -6,6 +6,79 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    @Test fun publicPileTapsRouteToLiveContentsWithoutViewRevealOrDismissRequests() {
+        var play = TableStatesFixture.combat()
+        val sent = mutableListOf<PlayAction>()
+        val ui = TableToolkitController(TableStatesFixture.a, { play }, { true }, { action, _ -> sent += action; true })
+        val scene = TablePresentation.scene(TableStatesFixture.game, play, ui.viewer, 412f, 892f, false)
+        val piles = scene.items.filter { it.kind == TableItemKind.PILE &&
+            it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) }
+        assertEquals(5, piles.size) // Both participants' Graveyard/Exile plus the shared Stack.
+        for (item in piles) {
+            ui.open(TableIntent.Actions(item.id, null), item, TableSelection())
+            val contents = assertNotNull(ui.publicContents())
+            assertEquals(item.id, contents.containerId)
+            val container = play.board.containers.single { it.id == item.id }
+            assertEquals(container.cards, contents.cardIds)
+            assertEquals(item.zone == PlayZone.STACK, contents.ordered)
+            assertNull(ui.library); assertNull(ui.libraryDisplayId)
+            ui.dismiss()
+            assertNull(ui.publicContents())
+        }
+        val graveyard = play.board.containers.first { it.zone == PlayZone.GRAVEYARD }
+        ui.openPublicPile(graveyard.id)
+        play = play.copy(board = play.board.copy(containers = play.board.containers.map {
+            if (it.id == graveyard.id) it.copy(cards = emptyList()) else it
+        }))
+        assertTrue(ui.publicContents()!!.cardIds.isEmpty()) // Live membership, not a fixed disclosure tray.
+        assertTrue(sent.isEmpty())
+        assertTrue(play.board.contentsDisplays.isEmpty())
+    }
+
+    @Test fun publicBrowsingAndHoldRemainLocalOfflineAndCannotBypassLibraryView() {
+        val play = TableStatesFixture.initial
+        val ui = TableToolkitController(TableStatesFixture.a, { play }, { false }, { _, _ -> error("No browsing requests") })
+        val pile = play.board.containers.first { it.zone == PlayZone.GRAVEYARD }
+        ui.openPublicPile(pile.id)
+        val route = assertNotNull(ui.publicContents())
+        ui.openPublicPile(play.board.containers.first { it.zone == PlayZone.LIBRARY }.id)
+        assertEquals(route, ui.publicContents())
+        ui.inspect(route.cardIds.first())
+        assertNotNull(ui.inspection); assertFalse(ui.inspection!!.explicit)
+        ui.closeInspection(); ui.dismiss()
+    }
+
+    @Test fun publicBrowserCardActionsBindSpecificSourceAndUseExistingMoveDestinations() {
+        for (sourceZone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+            for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+                for (bottom in if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)) {
+                    val f = BasicTableFixture(); f.connect()
+                    try {
+                        assertTrue(f.move(40, TableDestination.Container(f.container(sourceZone), sourceZone), true))
+                        val ui = toolkit(f)
+                        ui.openPublicPile(f.container(sourceZone))
+                        val contents = assertNotNull(ui.publicContents())
+                        ui.openCard(TableSelection().scope(f.id(40), contents.cardIds))
+                        val bound = assertNotNull(ui.capture)
+                        assertEquals(listOf(f.id(40)), bound.sourceIds)
+                        // Same-zone public membership is a no-op; use the other participant's pile instead.
+                        val targetId = f.container(zone, if (zone == sourceZone) f.other else f.actor)
+                        val target = if (zone == PlayZone.BATTLEFIELD) TableDestination.Grid(targetId, 0, 0)
+                            else TableDestination.Container(targetId, zone, bottom)
+                        assertTrue(ui.handle(TableIntent.Move(TableScope(bound.contextViewId, bound.sourceIds), target, bound.sources)),
+                            "$sourceZone → $zone (bottom=$bottom)")
+                        assertEquals(targetId, f.card(40).containerId)
+                        if (zone == PlayZone.LIBRARY) {
+                            val ids = f.play.board.containers.single { it.id == f.container(zone) }.cards
+                            assertEquals(f.id(40), if (bottom) ids.last() else ids.first())
+                        }
+                        assertTrue(f.actions().none { it is PlayAction.ShowContents || it is PlayAction.DismissContents })
+                    } finally { f.lobby.close(); f.worker.drain() }
+                }
+            }
+        }
+    }
+
     @Test fun staleLibraryCallbackAfterTableDisappearsDoesNotConstructOrSubmit() {
         val f = BasicTableFixture(); f.connect()
         var current: PlayState? = f.play

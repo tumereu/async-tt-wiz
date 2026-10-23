@@ -111,7 +111,22 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
     fun contents(display: ContentsDisplay) { panel = "display/${display.id}" }
-    fun stackContents() { dismiss(); panel = "stack" }
+    fun stackContents() { current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.let { openPublicPile(it.id) } }
+
+    /** Open information is a personal route, not a shared View/Reveal reference display. */
+    fun openPublicPile(id: String) {
+        val container = current()?.board?.containers?.singleOrNull { it.id == id &&
+            it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
+        dismiss(); panel = "contents/${container.id}"
+    }
+    fun publicContents(): PileContents? {
+        val id = panel?.takeIf { it.startsWith("contents/") }?.substringAfter('/') ?: return null
+        val play = current() ?: return null
+        val container = play.board.containers.singleOrNull { it.id == id } ?: return null
+        val stack = container.zone == PlayZone.STACK
+        return PileContents(container.id, container.zone.name.lowercase().replaceFirstChar { it.uppercase() },
+            if (stack) CombatStackRules.stack(play.board).cards else container.cards, ordered = stack)
+    }
 
     fun bind(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()): ToolkitCapture? {
         val play = current() ?: return null
@@ -167,7 +182,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
             item.zone == PlayZone.STACK -> stackContents()
             item.zone == PlayZone.LIBRARY -> openLibrary(item.id)
-            else -> { dismiss(); panel = "container/${item.id}" }
+            else -> openPublicPile(item.id)
         }
     }
 

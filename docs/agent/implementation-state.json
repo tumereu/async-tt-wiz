@@ -108,7 +108,8 @@
                                                              "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
                                                               "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json",
                                                                "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3.json",
-                                                               "docs/agent/implementation-runs/20261023T024324Z-aa902dde.json"
+                                                                "docs/agent/implementation-runs/20261023T024324Z-aa902dde.json",
+                                                                "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json"
    ],
   "findings": [
     {
@@ -1102,7 +1103,47 @@
         "Finish this native capability and save/exit without qualification-only children or child reviews. I11 parent later audits exact evidence. I12 owns remaining list/lobby synchronization, Cancel-versus-start/invitation/preparation overlaps and complete two-Android/isolation assertions, reusing initial-start evidence here. I13-I16 own gameplay/prediction/Canvas gestures, I18 mulligans, I28/I31 rematch, I34-I36/B8 full/final qualification and complete interface comparison. No unexecuted cross-task requirement or release gate is claimed passed."
       ]
     },
-    { "id": "I12", "batch": "B3", "status": "pending" },
+    {
+      "id": "I12",
+      "batch": "B3",
+      "status": "in-progress",
+      "dependsOn": ["I11"],
+      "children": ["I12a", "I12b"],
+      "planningRecord": "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+      "outcome": "Complete the two-player lobby capability: synchronized current games/invitations/lobby, own-only Ready clearing/withdrawal, inviter preparation before acceptance, leaving versus explicit L06 Cancel, ordered cancel-versus-start/reinvite and retained original outcomes. I12a extends the existing shared/server/session path with real round-bound cancellation and coherent lifecycle/list recovery. I12b delivers native cancellation routes/dialog and completes normal two-Android entry/import/invite/preparation/start and selected-source edit/delete isolation journeys. Parent closes by exact child-evidence reconciliation and only missing affected integration; first independent B3 review still follows I09-I12 together.",
+      "checks": [
+        "Reconcile exact I12a/I12b records, retained affected shared/PostgreSQL/socket/client/native checks and current relevant inputs. Cover cancellation/list/lobby convergence, own-only Ready and leaving persistence, invitation/preparation overlaps, ordered start/cancel and original outcomes, real two-Android initial play and selected-copy isolation. Reuse unchanged I09-I11 and child evidence, running only a missing or materially affected seam, not another clean build/device/fault/full-suite matrix.",
+        "Preserve all I12.lobby P/T/F assignments and partial cross-task accounting. Initial-lobby round fences and retained outcomes do not claim full T-581/T-582 returned-round journeys before I28/I31. I13-I26 gameplay/history/recovery, I28/I31 rematch, I32-I36 final usability/full-suite/compatibility/interface comparison and all external gates remain required. Do not supply child reviews or mark B3 reviewed through implementation."
+      ]
+    },
+    {
+      "id": "I12a",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I11"],
+      "planningRecord": "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+      "outcome": "Implement real unstarted-game cancellation and coherent lobby/list lifecycle recovery on the existing GameAction/GameService/inbox/revision/outbox and GameSession/LobbyController path. Bind cancellation to the captured persistent game/preparation round, serialize it with invitation/preparation/readiness/start, allow either admitted lobby participant without opponent consent and let inviter cancel a pending invitation with the same action. Cancel-first removes current game/invitation and prevents revival; start-first rejects late cancellation without resetting play. Preserve private original outcomes after cancellation without restoring ordinary cancelled-game access. Reconcile accepted lifecycle/list state, pending originals and personal UI separately; leaving alone preserves preparation/Ready. Native entry points/dialog and full two-Android journey are I12b, not fake controls here.",
+      "checks": [
+        "Run affected shared codec/semantic and real PostgreSQL/authenticated socket/HTTP checks for exact game/round cancellation, inviter pending-invitation cancellation and either accepted participant cancellation; no vote, presence gate or active-game deletion. Exercise cancellation versus second Ready/start, Accept, preparation and Reinvite in relevant server orders: no started-board reset, stale-round retargeting, replacement/revival, current cancelled row or pending invite. Use existing ordered processor, not a new HTTP mutation/queue or broad head-revision lock.",
+        "Prove atomic cancellation/original result/revision/outbox, same-ID pending/final recovery, changed-intent/account isolation and original create/reinvite outcomes after cancellation. Retain required tombstone/identity/outcome data while denying ordinary cancelled-lobby/preparation access. Inject one affected actual SQL rollback and recover admitted work/restart without duplicate effects; adjust schema only if needed and qualify its retained forward migration, not unchanged foundation fault matrices.",
+        "Run affected production session/controller/auth/navigation tests for monotonic Games/Invitations/lobby convergence and remote cancellation, stale HTTP/result protection, uncertain cancellation recovery with original IDs through same-process reconnect/reauthentication, and no result-as-state rewind or cancelled-context resurrection. Clear/fence appropriate local context on learned cancellation; Logout/account switch remains isolated and process restart syncs server state without an outgoing journal. Leaving/native navigation is not cancellation or Ready withdrawal. Cover own-only edit/withdrawal clearing and acceptance/Decline/Reinvite preserving inviter copies/Ready by reusing valid I10/I11 evidence and adding only missing assertions.",
+        "Retain actual affected incremental check output and current inputs; do not run a full suite or new device-certification layer. I12b completes native Cancel controls/L06 and the real two-Android combined journey. Keep full returned-round T-581/T-582 with I28/I31 and final combined/deferred assertions with I34; no independent B3 review, UI-comparison or external-gate pass."
+      ]
+    },
+    {
+      "id": "I12b",
+      "batch": "B3",
+      "status": "pending",
+      "dependsOn": ["I12a"],
+      "planningRecord": "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+      "outcome": "Deliver native setup Cancel in the lobby title-row right and inherited game-row long-press/accessibility context, plus L06 Keep game/Cancel game confirmation using I12a's existing ordered captured-round request. Back/close sends nothing; accepted cancellation returns both clients to coherent current Games/Invitations without restore or fake success on timeout. Complete the normal two-Android UI-created account/catalog/import/invite/preparation/start journey and selected-source edit/delete isolation, including inviter Ready before acceptance, Decline/exact-game Reinvite, own-only clearing/withdrawal, leaving/reopen and ordinary cancellation/start overlaps in both orientations. Extend the production app and existing tests, not an API-controlled opponent/test-only screen; preserve exact original game/copy/start identities and truthful composite evidence.",
+      "checks": [
+        "Run affected native session/controller/component/navigation tests and incremental normal APK/lint/boundary checks for captured cancellation dialog scope, Keep/X/native Back without dispatch, single confirm, connected/uncertain/error handling and remote cancellation while lobby/picker/preparation is open. Expose title-row right Cancel and game-row inherited long-press/accessibility Cancel without also opening the row; active-game Delete remains I29, not an invented fallback. Start winning a stale dialog must show existing play, never cancel/reset it or silently retarget another round.",
+        "Exercise two normal installed Android APKs against the isolated real backend/hosted synthetic catalogs, creating business state through UI entry/import/contacts/invitation/deck controls. Inviter chooses/prepares/readies before recipient acceptance; recipient Decline and exact-game Reinvite preserve inviter copy/Ready; Accept opens that same lobby without clearing Ready or starting. Own deck/partition/starter change or withdrawal clears only actor Ready; leaving/reopen/disconnect does not. Both Ready start the same production table with retained name/date/mainboard copy/definition identity and no playable Sideboard. Reuse I11's unchanged initialization/shuffle/restart evidence rather than repeating its whole journey/fault matrix.",
+        "In separate UI-created unstarted games cover inviter pending-invite cancellation and recipient accepted-lobby cancellation, Keep/Back/no-send, current list/navigation/invitation removal on both devices and reopen/reconnect convergence. Exercise an ordinary cancellation/start overlap and uncertain original cancellation recovery without duplicate success or revival, supplementing I12a's deterministic both-order tests rather than forcing an exhaustive native race matrix. Capture concrete IDs and actual outcomes, not row positions; do not label timeout a rejection/success or inject chosen server outcomes.",
+        "Use normal saved-deck controls to edit/overwrite/delete a selected source and prove retained lobby preparation/definitions and actual started copies remain isolated, including the other player's unchanged accepted view. Retain exact affected outputs/JUnit/captures/source/APK/image identities and exact owned cleanup. Save/exit once affected checks pass; no recursive qualification split or independent child review. I12 parent later audits evidence, then first B3 independent review. I28/I31 returned-round/rematch, I32-I36 full-suite/compatibility/complete UI comparison and unchanged external gates remain required/unverified."
+      ]
+    },
     { "id": "I13", "batch": "B4", "status": "pending" },
     { "id": "I14", "batch": "B4", "status": "pending" },
     { "id": "I15", "batch": "B4", "status": "pending" },

@@ -1,0 +1,70 @@
+{
+  "runId": "20261023T031700Z-19bd0df8",
+  "sessionID": "ses_e993cf741ffeRvSVSbHyTYrrFb",
+  "startCommit": "b9a092dc212deca204e039e1791f7391e51f392a",
+  "mode": "implement",
+  "target": "I12",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Planning-only split before coding: I12 is in-progress with two pending B3 children. I12a implements round-bound ordered setup cancellation, retained private original outcomes and coherent session/list/lobby lifecycle recovery; I12b delivers native title-row/context Cancel and L06 plus the complete two-Android preparation/start/cancellation/source-copy isolation journey. Existing Ready/start evidence is reused, not rerun as a qualification layer. All original I12 scope and first independent B3 review remain. No product input, UI document, coverage disposition or release gate changed; cancellation is not claimed implemented. Next is I12a.",
+  "selectionReason": "Clean master/index and exact supplied starting commit agree with D-304 authorization, reviewed B1/B2, verified B2-R01 and implemented I09-I11. No due actionable finding or complete-group review precedes I12. GameWire has Ready/start/preparation but no cancellation action; GameService ordinary authorization rejects cancelled lifecycle before duplicate/result recovery; LobbyController and WaitingLobby lack cancellation intent/dialog/entry points. Existing list filtering and lifecycle enums are foundations, not implemented cancellation. Substantial durable terminal-lifecycle/recovery work and native two-player integration warrant two bounded substantive implementation scopes, not recursive certification children. Only planning transition/selection, unchanged source/coverage obligations, exact owned paths/JSON and whitespace are affected checks here; no product/build/device/full-suite execution is justified.",
+  "checks": [
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261023T031700Z-19bd0df8-planning-check.py > docs/agent/implementation-runs/20261023T031700Z-19bd0df8-planning-check.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261023T031700Z-19bd0df8-planning-check.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261023T031700Z-19bd0df8-planning-check.py"]
+    }
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261023T031700Z-19bd0df8.json",
+    "docs/agent/implementation-runs/20261023T031700Z-19bd0df8-planning-check.py",
+    "docs/agent/implementation-runs/20261023T031700Z-19bd0df8-planning-check.txt"
+  ],
+  "planning": {
+    "children": ["I12a", "I12b"],
+    "dependencies": "I12a depends on implemented I11; I12b depends on I12a; both inherit B3. Parent stays open until both complete and exact combined evidence is reconciled, running only missing affected integration. No reviews after children; first independent B3 review still follows all I09-I12. No other task advances.",
+    "sourceIds": ["P-045", "P-072", "T-448", "T-449", "T-450", "T-451", "T-452", "T-453", "T-454", "T-455", "T-456", "T-457", "T-458", "T-459", "T-460", "T-461", "T-462", "T-463", "T-542", "T-581", "T-582", "T-636", "T-637", "T-638", "T-639", "T-669", "T-676", "F30", "F31", "F32", "F60"],
+    "sourceDisposition": "All 31 I12.lobby ledger assignments remain pending/unexecuted. I12a owns cancellation/ordering/original-result/list-session assertions; I12b owns native cancellation/lobby synchronization, both-player journeys and selected-source isolation. Existing I09-I11 evidence remains exact prior execution, not new passes. Full T-581/T-582 returned-round journeys need I28/I31, and cross-task/global qualification remains partial until its owning tasks execute.",
+    "contractPaths": [
+      "docs/design/03-contracts/accounts-decks-and-lobby.md",
+      "docs/design/03-contracts/product.md",
+      "docs/design/03-contracts/domain-model.md",
+      "docs/design/04-technical/protocol-v1.md",
+      "docs/design/04-technical/request-ordering-and-recovery.md",
+      "docs/design/04-technical/storage-mechanics.md",
+      "docs/design/05-verification/acceptance.md",
+      "docs/design/05-verification/e2e-strategy.md",
+      "docs/design/02-experience/ui/review.md",
+      "docs/design/02-experience/ui/feedback.md"
+    ],
+    "retainedObligations": [
+      "D-191/D-205-D-209/T-448-T-463: Ready is own-deck gated, not format/size/presence gated. Actor deck/partition/starter changes and withdrawal clear only actor Ready; leaving preserves accepted Ready. Inviter can prepare/ready before acceptance; acceptance/Decline/Reinvite retain exact inviter copies/Ready and acceptance is not Ready/start. Distinguish actual changes from highlighting/closing the personal picker. Two-player initial-start integration remains part of I12, with I11 model/shuffle evidence reused where inputs are unchanged.",
+      "D-259/D-275/D-287/P-072/T-669: setup Cancel is an explicit server-authoritative lifecycle request in the existing per-game ordered durable processor. Cancel-first prevents start/reinvite/revival; start-first rejects late setup cancellation and keeps accepted play. Inviter pending-invite Cancel removes both current rows; either accepted participant can cancel without a vote/response. No active-game Delete/result path, auto-expiry, trash/restore, replacement game or physical-erasure promise. Keep original create/reinvite/cancel identities and private outcomes recoverable without restoring cancelled-context access; ordinary authorization and result recovery must be deliberately distinguished.",
+      "S-02/T-581/T-582: capture persistent game and originating preparation round, not just LOBBY or broad head revision; first stale intent cannot affect another round, and retrying old committed work returns its original result without reapplication/newer-state overwrite. I12 implements/tests available cancellation fences and initial lifecycle behavior. Actual end/return/rematch and full two-device returned-round assertions remain I28/I31/I34, never claimed passed before those features exist.",
+      "F30-F32/F60/L06/P-045/T-676: normal Cancel belongs at upper-right lobby title and inherited game-row context/accessibility. Keep game/X/native Back dismisses without sending. Either player's accepted cancellation removes game/invite from both current listings and leaves the cancelled context. Unknown outcomes remain unknown pending recovery; start winning shows existing play. Both orientations retain reachable controls, readiness/status/identity and source-copy isolation. Do not edit UI documents, restore G00/H07 or implement I29 active Delete early.",
+      "D-307/D-308: two substantive children, affected incremental tests/native missing journeys then save/exit; later parent audits exact child evidence. No repeated unchanged full suite/clean build/device fault matrix, speculative gap search, qualification-only children or per-child reviews. I34 retains final full-suite/deferred HTTP-error/migration-fixture/reduced-motion and uncommon assertions, I33 measurements, I35 compatibility and I36/B8 full interface comparison/fixes/rechecks. Exact model/grants/one writer/budgets/safe save and all external release gates remain unchanged."
+    ]
+  },
+  "sourcePaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/agent/session-handoff.md",
+    "docs/agent/implementation-authorization.md",
+    "docs/agent/implementation-plan.md",
+    "docs/agent/implementation-loop.md",
+    "docs/agent/delivery-first-execution.md",
+    "docs/agent/coverage/ledger.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Lobby.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyController.kt",
+    "androidApp/src/main/kotlin/org/asyncttwiz/android/LobbyScreens.kt"
+  ]
+}

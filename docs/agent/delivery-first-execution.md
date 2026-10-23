@@ -6,18 +6,25 @@ scope, security, reviews, safe saves or release gates. The [loop contract](imple
 owns transitions/budgets; [managed orchestration](implementation-orchestrator.md) owns
 parallel dispatch. Historical setup is not required reading for implementation units.
 
-## During implementation: affected checks, then continue
+## Concurrent writing, execution and fixing — owner clarification 2026-10-23
 
-1. Deliver the next usable journey in dependency order: entry → import → invitation/
+1. Write the next usable journey in dependency order: entry → import → invitation/
    preparation → shared table → complete manual toolkit/history/lifecycle. These
    are milestones, not a smaller MVP replacing R1. Build only supporting machinery.
-2. Run affected builds/tests and ordinary journeys, including directly affected
-   recovery/security/data integrity. Fix observed failures; expand only where a
-   changed relevant input or evidenced failure identifies a wider affected area.
-3. Once green, retain output, save/push and move on. Default incremental builds;
+2. Keep as many useful feature writers active as resources permit. Implementation
+   means writing UI, app and tests, not running them. Save/push on isolated branches
+   and start the next feature before the previous is validated. Use pinned proposed
+   interfaces for dependencies; reconcile later, never pretend they are accepted.
+3. Separate executors run builds/tests/apps/UI comparisons while writers continue;
+   UI validation may lag. Separate fix writers repair reported causes concurrently
+   with next-feature implementation, not as a global feature-start gate. Expand
+   checks only for materially changed inputs or evidenced wider failures. Pending
+   execution is **UNVERIFIED** and prevents acceptance, not further code writing.
+   Retain actual results and use default incremental builds;
    no second clean/cache-disabled build, `--rerun-tasks`, device cold boot or passing
    journey/full-suite repeat just for confidence, fresh context or ancestor closure.
-4. Summarize delivered scope/check choice briefly in existing report fields. No
+4. Preserve durable execution/fix queues and this scheduling policy across compaction.
+   Summarize scope/check choice briefly in existing report fields. No
    test-selection-only session, mandatory 100-line bespoke audit or new tracking
    framework. Assigned IDs are not executed coverage. Retain pending required
    assertions with source IDs and final owner (usually I34/I36), never false passes.

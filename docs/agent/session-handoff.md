@@ -1,6 +1,6 @@
 # Session handoff — current execution context
 
-Updated 2026-10-23 for D-309 tooling/instruction integration. This is continuation context,
+Updated 2026-10-23 with the owner's concurrent-delivery clarification. This is continuation context,
 not product requirements or a live-state snapshot. Current contracts and actual
 owning-checkout state take precedence. Historical handoffs are lookup-only.
 
@@ -17,6 +17,15 @@ Further explicit owner pause still overrides continuation; no routine approval s
 
 ## Latest owner execution direction — D-309
 
+- **Do not lose on compaction:** maximize useful simultaneous feature writers.
+  Start next-feature code before previous validation; use separate branches/pinned
+  proposed interfaces. Implementation writes UI/app/tests, not builds/tests/app
+  execution. Separate executors run those and UI comparisons; UI testing may lag.
+  Separate fix writers work alongside feature implementors/integrators, never as
+  a global gate before the next feature. Refill continuously, not serial batches.
+  Pending validation stays **UNVERIFIED**; acceptance/reviews/final gates are not
+  waived. The owner explicitly rejected the 24+ hour throughput and wants elapsed
+  code delivery, not worker/report counts presented as completed work.
 - All discussed flow improvements are approved, with **net shorter instructions**:
   short root guide, compact unit prompt, canonical [loop contract](implementation-loop.md).
   Read history only when a concrete provenance question needs it.

@@ -12,11 +12,14 @@
   Supervisors resume from the [handoff](docs/agent/session-handoff.md) and use
   [orchestrator instructions](docs/agent/implementation-orchestrator.md).
   No competing old loop or live-state migration from a preparation worktree.
-- **Optimize elapsed delivery time.** Implement usable capabilities, run/fix affected
-  checks, save and move on. Reuse valid child evidence; check missing integration
-  seams, not repeated green full suites/clean builds/fault matrices. Final full-suite
-  fixes, independent capability reviews, fresh fix verification and release gates
-  remain mandatory. See [delivery-first policy](docs/agent/delivery-first-execution.md).
+- **Implementation must outrun validation.** Keep as many useful feature writers
+  working concurrently as capacity permits; start the next features on separate
+  branches before previous features pass validation. Implementation writes UI/app/
+  test code; separate executors run builds/tests/apps/UI comparisons, which may lag.
+  Fix writers work alongside feature writers, never as a global feature-start gate.
+  Pending work stays **UNVERIFIED**; acceptance, independent reviews, fresh fix
+  verification, final suites and release gates still require real evidence. Reuse
+  valid checks, not repeated green suites. See [policy](docs/agent/delivery-first-execution.md).
 - **Keep authority and safety.** Shared game/history/communication/lifecycle changes
   are server requests with provisional client prediction; only personal UI is local
   ([ownership matrix](docs/design/03-contracts/domain-model.md#state-ownership-and-request-boundary--d-259)).

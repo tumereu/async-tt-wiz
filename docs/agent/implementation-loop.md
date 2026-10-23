@@ -20,18 +20,27 @@ contradictions require the owner, technical/layout completion does not.
 ## One fresh agent per bounded unit
 
 Each implement/review/fix/verify unit uses a fresh session, exact
-**`openai/gpt-6.1-sol#high`** verified in actual metadata, and saves/exits before its
-successor. No fallback or unit-spawned agents. The existing CLI is serial;
+**`openai/gpt-6.1-sol#high`** verified in actual metadata, and saves/exits at its bounded
+handoff. Independent units overlap; this is not a global successor barrier.
+No fallback or unit-spawned agents. The existing CLI is serial;
 [D-309 managed lanes](implementation-orchestrator.md) use as many useful, isolated
 workers/reviewers as actual capacity allows, with one integration/state writer. Do not
 run the old loop alongside them. No tool/grant/model changes are implied.
 
-Selection: safe ownership/authorization/stop preflight → due verification/actionable
-fix → due complete capability review → earliest ready implementation. Honor explicit
-dependencies, inherited prerequisites and recorded independent lanes; do not evade
-due reviews/fixes by repeatedly starting features. Independent work may proceed
-around evidenced blockers. No ready work with unmet criteria means blocked, not done.
-Record a brief selection reason and owned paths/start commit before editing.
+**Owner clarification, 2026-10-23: code delivery and validation are concurrent.**
+Keep as many useful feature writers active as capacity permits. Start the next
+features before earlier ones are validated; use separate branches and pinned
+interfaces for unaccepted dependencies. Implementation writes UI, app and test code,
+but does not run builds/tests/apps/UI inspections. Separate executors do that work;
+UI testing may lag. Separate fix writers repair reported causes alongside feature
+writers, never as a global prerequisite to starting the next feature. Refill all
+three kinds of work continuously; one blocked emulator owner cannot idle writers.
+
+Selection/acceptance still preserves safe ownership, explicit dependencies, due
+fixes/reviews and original completion criteria. Dispatching speculative code neither
+evades those obligations nor asserts prerequisites passed. Pending validation stays
+**UNVERIFIED** and blocks acceptance, not independent code writing. Record concise
+selection/owned paths/source pins and durable execution/fix queues across compaction.
 
 ### Implement
 
@@ -85,8 +94,9 @@ including all current orientations/unpictured interfaces and fresh discrepancy f
 
 ### Fix and verify
 
-Fresh fix sessions reproduce/understand findings, repair coherently and run affected
-regressions; set `fixed-awaiting-check`, never self-verify/waive as polish. A separate
+Fresh fix writers understand findings and repair coherently; separate executors
+reproduce/run affected regressions. Set `fixed-awaiting-check`, never self-verify or
+waive as polish. A separate
 fresh verifier checks the attempted subset and affected behavior, then verifies,
 reopens or explicitly disposes of each; no unconstrained new full audit.
 Review/verify cannot edit product source, runtime resources or build/config inputs.

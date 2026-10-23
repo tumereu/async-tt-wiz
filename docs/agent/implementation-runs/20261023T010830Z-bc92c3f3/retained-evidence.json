@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3/retain.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "705537563bcf38b632cb63c54d02dc78503702781b1d7e7df39f55358f1b9d28",
-  "output": "PASS retained 30 final affected host JUnit cases, exact two installed native APK identities, final source/build/fixture identities, compiled APK and current server image\nPASS retained original nonzero setup command output; partial readback is diagnostic, never an installed-artifact pass\n"
-}

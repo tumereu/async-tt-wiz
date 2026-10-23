@@ -1,9 +1,0 @@
-{
-  "command": [
-    "./gradlew",
-    "--version"
-  ],
-  "exitCode": 0,
-  "outputSha256": "1053c1d2b2efdd9bca263794fa09f7aafa9f0d0a0b6ebf26b64708f856dfa51d",
-  "output": "\n------------------------------------------------------------\nGradle 9.7.0\n------------------------------------------------------------\n\nBuild time:    2026-08-06 14:07:35 UTC\nRevision:      3defbfc59d757b873d787b2261de5c7f8a00970a\n\nKotlin:        2.4.0\nGroovy:        4.0.32\nAnt:           Apache Ant(TM) version 1.10.17 compiled on April 6 2026\nLauncher JVM:  21.0.12.1 (Eclipse Adoptium 21.0.12.1+1-LTS)\nDaemon JVM:    /home/tuomas/.local/share/dev-env/tools/java-21/21.0.12+101.0.LTS-ce79869e1307 (no Daemon JVM specified, using current Java home)\nOS:            Linux 6.18.54.1-microsoft-standard-WSL2 amd64\n\n"
-}

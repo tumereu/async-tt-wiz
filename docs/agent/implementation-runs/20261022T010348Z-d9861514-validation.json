@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T010348Z-d9861514-validate.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "13a0a974362d947dd0688848ac01cf11385f4938cfdde838263959877584ffe2",
-  "output": "ACTUAL FIRST CHECKER ABSENT-PACKAGE RESULT {\"command\": [\"/home/tuomas/Android/Sdk/platform-tools/adb\", \"-H\", \"127.0.0.1\", \"-P\", \"15038\", \"-s\", \"emulator-5564\", \"shell\", \"pm\", \"path\", \"org.asyncttwiz.android\"], \"exitCode\": 1, \"output\": \"\"}\nPASS: only selected child implemented, parents/review/findings/gates/model/grants unchanged; exact owned path set, passing required retained outputs, diagnostic failures preserved, same-URL UI publication not applicable (no UI-document edits), local documentation links and whitespace valid.\n"
-}

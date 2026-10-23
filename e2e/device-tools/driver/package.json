@@ -1,6 +1,0 @@
-{
-  "private": true,
-  "devDependencies": {
-    "appium-uiautomator2-driver": "8.7.0"
-  }
-}

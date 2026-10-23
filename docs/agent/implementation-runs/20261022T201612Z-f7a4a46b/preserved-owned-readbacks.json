@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T201612Z-f7a4a46b/offload.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "948cf5f548959e9e2b008aa8ba0d94f85a2d8c38416373be9e22c51d80bdac7e",
-  "output": "{\"preservedReadbacks\": 2, \"before\": {\"total\": 12601151488, \"used\": 12419522560, \"free\": 181628928}, \"after\": {\"total\": 12601151488, \"used\": 12344418304, \"free\": 256733184}}\n"
-}

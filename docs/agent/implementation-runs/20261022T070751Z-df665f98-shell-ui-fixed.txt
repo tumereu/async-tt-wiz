@@ -1,1 +1,0 @@
-{"directory": "/tmp/opencode/atw-device-df665f9811114af58b9f3861313df8c1/runner-ad3ddbc63fd643f6b652f9133870601a", "mode": "shell", "tests": 1}

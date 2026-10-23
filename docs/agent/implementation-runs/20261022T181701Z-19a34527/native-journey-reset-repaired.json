@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py"
-  ],
-  "exitCode": 1,
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py\", line 33, in <module>\n    a.operation(value, 'launch-app', 180)\n    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 237, in operation\n    installed(value, serial, record['apk'], directory)\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 85, in installed\n    actual = verify_apk(value, path)\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/device_app.py\", line 39, in verify_apk\n    badging = d.run(value, [str(tools / 'aapt2'), 'dump', 'badging', str(path)], timeout=30).stdout\n              ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/devices.py\", line 207, in run\n    require(result.returncode == 0, 'Device/tool command failed; inspect retained command output')\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/environment.py\", line 39, in require\n    raise Refusal(message)\ne2e.environment.Refusal: Device/tool command failed; inspect retained command output\n"
-}

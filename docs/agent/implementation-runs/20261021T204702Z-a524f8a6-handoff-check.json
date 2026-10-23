@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T204702Z-a524f8a6-handoff-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "ea4084208f542bb5babc915d19d04997a608c87288d858d5b07e1467fdf3a55a",
-  "output": "PASS actual authorized baseline/priority and pure driver state/transition validation\nPASS only I01d2 implemented; I01d combined qualification next; B1 review/I01f device execution remain pending\nPASS all other tasks/findings/reviews/authorization/model/permissions/dependencies/external gates unchanged\nPASS exact owned changed-path inventory, lossless actual output/exit codes, no required red checks, JSON/Markdown/whitespace\nPASS Android instrumentation remains COMPILED NOT EXECUTED; no auth/sync/game/upgrade/release pass claimed\n"
-}

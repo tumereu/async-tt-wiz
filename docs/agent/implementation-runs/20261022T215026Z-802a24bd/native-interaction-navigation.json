@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T215026Z-802a24bd/interaction-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "ddda2cbec3cec868d5201e4cfd3c3148359ad2712868c8acd9d68a42aa80419c",
-  "output": "{\"preservedReadbacks\": 0, \"before\": {\"total\": 12601151488, \"used\": 12432756736, \"free\": 168394752}, \"after\": {\"total\": 12601151488, \"used\": 12432756736, \"free\": 168394752}}\nINSTRUMENTATION_STATUS: class=org.asyncttwiz.android.PreparationInteractionTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\norg.asyncttwiz.android.PreparationInteractionTest:\nINSTRUMENTATION_STATUS: test=nativeAccessibilityFixedFeedbackAndNonActionableRowAnimation\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.asyncttwiz.android.PreparationInteractionTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=nativeAccessibilityFixedFeedbackAndNonActionableRowAnimation\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 4.748\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n\nPASS actual Android production native accessibility, cancellation, fixed feedback and removed-row animation assertions\n"
-}

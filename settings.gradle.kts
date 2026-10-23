@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "async-tt-wiz"
-include(":core", ":protocol", ":client-storage", ":androidApp", ":server", ":e2e")
+include(":core", ":protocol", ":client-storage", ":androidApp", ":server")

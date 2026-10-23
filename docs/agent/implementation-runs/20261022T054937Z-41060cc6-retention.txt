@@ -1,5 +1,0 @@
-{
-  "output": "RETAINED actual runner runner-0871c7d862d345528f4d7df7653e810d\nRETAINED actual runner runner-3364c43682fe47caa39ce2e30d106a37\nRETAINED actual runner runner-896baf0a99614aae85a9747f0d8ddeb1\nRETAINED actual runner runner-f8c5ad451a7841e69de6165c81aee64a\nCONFIRMED exact owned cleanup device\nCONFIRMED exact owned cleanup old-environment\nCONFIRMED exact ownedPASS current normal APK matches actual passing native account journey; exact source/config/lock/image identities retained
-Initial five-test Android output remains red: four green startup/Keystore tests plus one red input oracle. Exact-input targeted recheck and saved-state test pass separately.
-The initial host unit task ran successfully before lint failed; later network assertion was checked alone. Initial host XML was replaced by the targeted run; original console/task output remains retained.
-No repeated full suite/clean build/fault matrix, independent group review, later account/game/reset outcome or release gate is claimed.

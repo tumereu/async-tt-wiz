@@ -1,3 +1,0 @@
-{
-  "output": "{\"backend\": \"http://127.0.0.1:41901\", \"checkedAtUnix\": 1792684985.571921, \"hostBackend\": \"http://127.0.0.1:41901\", \"hostSource\": \"http://127.0.0.1:41565\", \"instance\": \"atw-e2e-ad37196f000000000000000000000001\", \"scope\": \"Host infrastructure only. Call wait before setup; not a perpetual health lease or Android acceptance.\", \"source\": \"http://127.0.0.1:41565\", \"writerEpoch\": 2}\n"
-}

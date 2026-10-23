@@ -55,7 +55,6 @@ tasks.register("verifyModuleBoundaries") {
             ":client-storage" to setOf(":core"),
             ":androidApp" to setOf(":core", ":protocol", ":client-storage"),
             ":server" to setOf(":core", ":protocol"),
-            ":e2e" to emptySet(),
         )
         subprojects.forEach { project ->
             val actual = project.configurations.flatMap { configuration ->

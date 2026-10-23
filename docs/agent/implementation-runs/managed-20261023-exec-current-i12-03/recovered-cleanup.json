@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-current-i12-03/docs/agent/implementation-runs/managed-20261023-exec-current-i12-03/cleanup-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "760117d10db86e660bc4b2baccb0714811e6398baa0dea1cbcdec0c6f9cb17ec",
-  "output": "{\"success\": true, \"exactOwnedCleanupChecked\": {\"environment\": \"/tmp/opencode/atw-e2e-8c278a4167614bd49c817ac5ad65e3ba\", \"devices\": [\"/tmp/opencode/atw-device-e657d6d8954b441fba1412f2bd0bc806\", \"/tmp/opencode/atw-device-01fad8f74ae14aa2a15b675142b075cf\"], \"diskArtifacts\": \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-exec-current-i12-03/e2e/build/managed-20261023-exec-current-i12-03\"}}\n"
-}

@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.py"
-  ],
-  "exitCode": 1,
-  "output": "PASS D-304/high-model/commit/priority and only I06a implemented; next I06b, reviews/gates unchanged\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T114326Z-f8a9eff1/handoff-check.py\", line 46, in <module>\n    assert Path(support).is_file() and support in report['changedPaths']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
-}

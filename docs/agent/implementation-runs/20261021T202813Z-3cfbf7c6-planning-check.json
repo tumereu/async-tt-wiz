@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T202813Z-3cfbf7c6-planning-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "337d87a61520830a43c767f639da10e33f9096bf43dd69614a16c545c4a39a6e",
-  "output": "PASS exact baseline/master, clean index, D-304 authorization and supplied I01d priority\nPASS pure driver state/transition validation; pending same-B1 children and original parent scope retained\nPASS no I01f reverse dependency; Android driver execution remains after adapter qualification\nPASS unrelated tasks, findings, reviews, authorization, runner, permissions and external gates unchanged\nPASS simulated I01d1 -> I01d2 -> I01d qualification -> I01e; no child independent review\nPASS source references unchanged; T-662 I01 ownership and later-scenario unexecuted accounting retained\nPASS exact planning-only owned paths and whitespace; no runtime/build/UI/driver changes\nPASS planning validation only; no task completion, application/device pass, independent review or release claim\n"
-}

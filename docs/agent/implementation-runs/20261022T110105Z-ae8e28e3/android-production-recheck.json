@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3/android-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "e4b4eeaa908a37e60b1e3624c23c4fe2df46e47428f23a5562545ff04fd5fd52",
-  "output": "INSTRUMENTATION_STATUS: class=org.asyncttwiz.android.ArtworkProductionTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\norg.asyncttwiz.android.ArtworkProductionTest:\nINSTRUMENTATION_STATUS: test=actualCatalogFacesCacheDecoderAndPresentationLifecycle\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.asyncttwiz.android.ArtworkProductionTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=actualCatalogFacesCacheDecoderAndPresentationLifecycle\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 4.71\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n\n"
-}

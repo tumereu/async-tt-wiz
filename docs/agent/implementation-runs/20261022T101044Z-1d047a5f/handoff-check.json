@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T101044Z-1d047a5f/handoff-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "65adf3e19ef8b3c33659755bc6afd668be8e6ee2107e4b81be2a5bab4eeb5642",
-  "output": "PASS exact supplied high-model/D-304/master priority; only I05a implemented, next I05b; all gates/reviews retained\nPASS actual eight catalog/22 Android host cases and passing retained native tail; diagnostics remain diagnostic\nPASS actual APK/source/locks/fixture input identities and exact completed device/Compose cleanup\nPASS documentation links/fences, unchanged partial coverage ledger, exact owned paths, runner role boundary and whitespace\nNOT CLAIMED: artwork/import/saved-definition/game/history scenarios, independent B2 review, full suite/final mocks or release readiness\n"
-}

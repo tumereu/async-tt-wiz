@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T134014Z-ca978b34/retain.py"
-  ],
-  "exitCode": 0,
-  "output": "PASS retained current source/fixture/locks/APK/image identities, exact host recheck XML, six remaining UI-created decks, immutable definitions and original metadata/delete outcomes\nNative core/tail commands remain diagnostic where they failed; persisted-deletion final tail alone is a wholly green native command.\n"
-}

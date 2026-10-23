@@ -1,8 +1,0 @@
-PASS clean supplied baseline/master/authorization/earliest priority, driver state/transition and only I11b advances; next I11 parent audit
-PASS exact 30 final affected JUnit cases without skips: 8 native-start controller/scene, 10 preparation, 8 transfer-session, 4 transport/session
-PASS composite normal-APK evidence: 11 original outcomes, exact persistent game/date, single play/root, two concrete independent Library orders and Random result unchanged across lost-ack backend/app restart; no draw/reset/Sideboard
-LIMIT native setup/readiness/table assertions are retained in diagnostic stages; final passing retained tail supplies only missing restart/Back checks, not a repeated full native run
-PASS final source/build/lock/fixture and compiled APK input hashes; native installed APK distinct input supersession is explicit
-PASS actual populated-V9 reset baseline includes game_play, and exact two-device/environment cleanup records retained
-PASS exact owned changedPaths/role scope, retained lossless outputs/hashes, JSON/document links/fences and staged-safe whitespace
-NOT CLAIMED I11 parent/I12/full B3 review, gameplay/mulligan/history/rematch, final full suite/complete UI comparison/compatibility/physical measurement or any release clearance

@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T000413Z-fd60bcea-validate.py"
-  ],
-  "exitCode": 1,
-  "outputSha256": "078c5bae3fe1242ddbacd503ec1281f36748b27359cf7801f29bc8dd81599a1b",
-  "output": "PASS Python syntax: e2e/devices.py\nPASS Python syntax: scripts/e2e-devices.py\nPASS Python syntax: scripts/check-e2e-devices.py\nPASS Python syntax: tests/test_e2e_devices.py\nPASS local Markdown links: e2e/README.md\nPASS local Markdown links: e2e/devices-README.md\nPASS PowerShell AST syntax\n\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T000413Z-fd60bcea-validate.py\", line 70, in <module>\n    assert not containers, 'Initial Docker inventory was empty; inspect remaining resources'\n           ^^^^^^^^^^^^^^\nAssertionError: Initial Docker inventory was empty; inspect remaining resources\n"
-}

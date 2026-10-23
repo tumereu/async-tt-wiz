@@ -1,2 +1,0 @@
-Checking B2 review handoff, exact owned paths and documented diagnostic failure.
-PASS B2 review-only transition, one open evidenced finding, exact test/report/check paths, unchanged authorization/model/permissions/tasks/release gates. Fresh B2-R01 fix is next. No UI-document edit.

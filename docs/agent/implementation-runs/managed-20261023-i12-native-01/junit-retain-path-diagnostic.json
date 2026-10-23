@@ -1,6 +1,0 @@
-{
-  "command": "python3 scripts/implementation-evidence.py retain-junit docs/agent/implementation-runs/managed-20261023-i12-native-01/host-junit.json androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.SetupCancellationTest.xml androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.LobbyCancellationUiTest.xml androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.GameLobbyIntegrationTest.xml androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz/android.LobbyCancellationTest.xml e2e/build/test-results/test/TEST-org.asyncttwiz.e2e.NativeHelpersTest.xml",
-  "exitCode": 1,
-  "output": "Evidence check failed: [Errno 2] No such file or directory: '/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-i12-native-01/androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz/android.LobbyCancellationTest.xml'\n",
-  "scope": "Actual helper path-typo diagnostic; corrected retain-host-junit.json preserves the passing original test XML. No tests were rerun."
-}

@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T122241Z-22388f73-retain.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "bc46c289f366a637d1885db5a2cee2ad7f58e7a4d5ac58dcf32b94b75b0c074f",
-  "output": "PASS exact original command bytes preserved in whitespace-safe lossless JSON envelopes; diagnostics stay red\nPASS lossless actual XML: 7 shared protocol tests (3 new definition cases) and 5 real service/database/HTTP tests; no skipped/red required cases\nPASS retained 104 exact current source/lock/catalog-manifest/ledger/generated-jOOQ/installed-runtime/normal-APK identities\nPASS all 23 exact codegen/integration/reaper containers from this run absent; each PostgreSQL helper retains exact owned-volume cleanup\nNo Compose/device provision, image publication, external provider request, broad suite or repeated green qualification executed\n"
-}

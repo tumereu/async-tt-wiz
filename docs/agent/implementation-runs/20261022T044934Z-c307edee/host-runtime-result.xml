@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="org.asyncttwiz.e2e.HostRuntimeTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T05:10:14.021Z" hostname="DESKTOP-B2KALVM" time="0.027">
-  <properties/>
-  <testcase name="hostRunnerUsesJdk21()" classname="org.asyncttwiz.e2e.HostRuntimeTest" time="0.017"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

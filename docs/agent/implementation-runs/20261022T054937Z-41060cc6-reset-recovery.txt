@@ -1,4 +1,0 @@
-{
-  "output": "Environment refused: Readiness deadline; no ready handoff issued\n",
-  "outputSha256": "edf00b1b75b81396971d8b53209b46db75b1a1c4890b90d63de4ed9de80cdd48"
-}

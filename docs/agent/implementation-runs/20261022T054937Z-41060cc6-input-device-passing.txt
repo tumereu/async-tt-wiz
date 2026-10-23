@@ -1,4 +1,0 @@
-{
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T054937Z-41060cc6-targeted-device.py\", line 26, in <module>\n    print(json.dumps({'command': command, 'ownedSerial': ready['device']['serial']}), flush=True)\n                                                         ~~~~~^^^^^^^^^^\nKeyError: 'device'\n",
-  "outputSha256": "9743a1bbf65c67f5be6716958e010f45a7bd66cc457b730d7044411d9b2f0e8d"
-}

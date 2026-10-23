@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T215026Z-802a24bd/retain.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "5f690bf981ee28d804a52ce815d1950f3ddc1190f1d7137bdced8fc21b1402d6",
-  "output": "PASS 20 affected host cases without skips; original XML retained, not a new execution\nPASS 48 original ordered requests, one exact-copy conflict rejection, 47 accepted revisions and 48 result outbox records, no substituted/double dispatch\nPASS final 12/3 exact original preparation and immutable saved source; final normal APK/instrumentation/source/build/lock/image identities retained\n"
-}

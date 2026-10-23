@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3/android-pending-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "bb04f46c5c2bc8ce35485ea3b962663c9c3b62976f0e786fbbbf369bc83fec2e",
-  "output": "INSTRUMENTATION_STATUS: class=org.asyncttwiz.android.ArtworkProductionTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\norg.asyncttwiz.android.ArtworkProductionTest:\nINSTRUMENTATION_STATUS: test=pendingFetchRebindAndDisposeNeverPublishesOldImage\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.asyncttwiz.android.ArtworkProductionTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=pendingFetchRebindAndDisposeNeverPublishesOldImage\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 2.146\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n\n"
-}

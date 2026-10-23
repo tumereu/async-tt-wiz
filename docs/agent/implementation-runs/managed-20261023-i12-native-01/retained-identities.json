@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/managed-20261023-i12-native-01/retain.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "afef3969c19dc10337e631305dafe57cd8df8d823be8913796e0027070c45849",
-  "output": "Retained exact redacted adapter captures, migration applied=10 against reset oracle 1..9, installed APK/device identities and unchanged authoritative state\n"
-}

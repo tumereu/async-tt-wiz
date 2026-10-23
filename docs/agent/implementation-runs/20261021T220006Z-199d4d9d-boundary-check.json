@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T220006Z-199d4d9d-boundary-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "48f109cbdac585f0602d0e892bbf02ed9d79db5481154ce26c5a16910db00801",
-  "output": "PASS only selected I01e2b advances; parents/I01f/B1 review/findings/model/permissions/authorization/external gates preserved\nPASS exact owned changed-path set; UTF-8/newline/whitespace/README links; new tests match unchanged approved test-only paths\nPASS final exact runtime/fixture/checker inputs; repeated dirty/failure resets, old connections, both cleanup directions and unchanged unrelated inventory evidenced\nPASS retained command byte hashes; actual XML totals 1 isolation/34 server/6 shared with no skips; 18 controller/11 adapter/21 fixture-ledger tests and Compose regressions\nPASS implemented/verified/releasable remain distinct; parent integration/I01f/B1/full product and all external gates stay open\n"
-}

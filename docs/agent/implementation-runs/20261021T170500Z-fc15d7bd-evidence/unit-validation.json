@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T170500Z-fc15d7bd-validate.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "49a7e4c2ea59f5bab7fb4d44d095c90a05710a4d0cf2448d40847c9077ebcf6f",
-  "output": "PASS exact baseline/master, D-304, supplied priority and driver pure state/transition helpers\nPASS only I01a advanced; I01/other children, findings, review coverage and gates unchanged\nPASS exact owned changed-path set; no runner/profile/authorization/UI packet changes\nPASS all actual outputs retained losslessly with SHA256; red development attempts diagnostic only\nPASS edited Markdown local links, JSON/TOML/XML/Python syntax and owned-file whitespace\nPASS pinned wrapper checksum and executable entry points\nPASS next pending implementation would be I01b; this validator does not execute it\n"
-}

@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T223211Z-d5a50a9e-boundary-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "711761431572b85f8a21ce1f39d8e474cd8e77e80e0913082ed2ef3371e8ac4d",
-  "output": "PASS only selected parent I01e2 closes after implemented children; ancestors/I01f/B1/findings/model/permissions/authorization/external gates unchanged\nPASS exact owned path set, no staged unrelated work, test-only repair scope, unchanged reviewTestPaths, JSON/Python/UTF-8/whitespace/README links\nPASS actual command vectors, exits and lossless output hashes; every failed experiment remains diagnostic, all required checks pass\nPASS repeated post-repair integrated provision/restart/reset/failure/privacy/egress/ownership/cleanup with live separate Testcontainers; exact clean image inputs unchanged\nPASS actual lossless XML: final 37 server/6 shared + two isolation runs without skips; original failures preserved; 30 final loopback starts, deterministic readiness and 50 Python regressions\nPASS I01e2 implemented only; software verification, first group review and release readiness remain distinct; no UI-document or gate change\n"
-}

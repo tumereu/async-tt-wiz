@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py"
-  ],
-  "exitCode": 1,
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T181701Z-19a34527/native-check.py\", line 23, in <module>\n    s.close(value); d.check_windows(value, d.windows(value, 'snapshot'))\n                                           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz/e2e/devices.py\", line 141, in windows\n    raise Refusal('Windows command exited without a complete reply; inspect retained logs') from None\ne2e.environment.Refusal: Windows command exited without a complete reply; inspect retained logs\n"
-}

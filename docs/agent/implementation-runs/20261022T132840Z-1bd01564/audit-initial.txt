@@ -1,9 +1,0 @@
-Command: python3 docs/agent/implementation-runs/20261022T132840Z-1bd01564/audit.py > docs/agent/implementation-runs/20261022T132840Z-1bd01564/audit.txt
-Exit code: 1
-Stdout: empty
-Stderr:
-Traceback (most recent call last):
-  File "/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T132840Z-1bd01564/audit.py", line 98, in <module>
-    assert path in latest
-           ^^^^^^^^^^^^^^
-AssertionError

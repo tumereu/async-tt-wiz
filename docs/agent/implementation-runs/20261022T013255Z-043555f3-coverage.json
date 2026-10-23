@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "scripts/coverage-ledger.py"
-  ],
-  "exitCode": 0,
-  "output": "PASS primary source definitions/rows/hashes: {'P': 72, 'T': 715, 'F': 88} total= 875\nPASS explicit I01-I36 ownership, pending partial assertions and completion dependencies\nPASS current/superseded/conditional/phase-only/excluded dispositions and supersession provenance\nPASS no product execution/pass claim; T-610 conditional and D-278/D-285-D-289 corrections retained\n"
-}

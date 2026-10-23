@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "scripts/capture-check.py",
-    "--help"
-  ],
-  "exitCode": 1,
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/scripts/capture-check.py\", line 35, in <module>\n    main()\n    ~~~~^^\n  File \"/home/tuomas/projects/async-tt-wiz/scripts/capture-check.py\", line 16, in main\n    output, separator, *command = sys.argv[1:]\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected at least 2, got 1)\n"
-}

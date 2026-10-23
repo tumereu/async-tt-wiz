@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-check.py"
-  ],
-  "exitCode": 1,
-  "outputSha256": "6d0d48afc5f64ab08ee73e2e3aa05017fa4abc94a9cd1a651ca757e526550830",
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-i12-native-01/docs/agent/implementation-runs/managed-20261023-i12-native-01/cleanup-check.py\", line 20, in <module>\n    environment = e.load(Path(active['environment']))\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-i12-native-01/e2e/environment.py\", line 96, in load\n    require(path.is_file() and not path.is_symlink(), \"Missing or unsafe instance input\")\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/tuomas/projects/async-tt-wiz-managed-20261023T045121Z-955f22f1/managed-20261023-i12-native-01/e2e/environment.py\", line 39, in require\n    raise Refusal(message)\ne2e.environment.Refusal: Missing or unsafe instance input\n"
-}

@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/intent-checkpoint.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "68930a8811bea2d0fa2f1a9ee64ac3c91dfae37115abd1c79427bf0c8d51c6c2",
-  "output": "INSTRUMENTATION_STATUS: class=org.asyncttwiz.android.ResetIntentTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\norg.asyncttwiz.android.ResetIntentTest:\nINSTRUMENTATION_STATUS: test=warmIntentCallbackExactInputAndSavedStateKeepResetVolatile\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.asyncttwiz.android.ResetIntentTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=warmIntentCallbackExactInputAndSavedStateKeepResetVolatile\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 2.294\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n\nPASS retained real-email-link Android exact input, duplicate warm callback and saved-state checkpoint; no mutation or new scenario\n"
-}

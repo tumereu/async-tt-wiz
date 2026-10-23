@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T013255Z-043555f3-topology.py"
-  ],
-  "exitCode": 0,
-  "output": "Windows loopback HTTP measurement 0 HTTP/1.1 404 \nCache-Control: no-store\nContent-Type: text/plain;charset=UTF-8\nContent-Length: 10\nDate: Thu, 22 Oct 2026 01:35:42 GMT\nConnection: close\n\nNot found\n\n\n #< CLIXML\n<Objs Version=\"1.1.0.1\" xmlns=\"http://schemas.microsoft.com/powershell/2004/04\"><Obj S=\"progress\" RefId=\"0\"><TN RefId=\"0\"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>\nCREATE 33813\n\nDEVICE backend 0 \nCREATE 34639\n\nDEVICE source 0 \nMAPPINGS host-14 tcp:33813 tcp:33813\nhost-14 tcp:34639 tcp:34639\n\n\n"
-}

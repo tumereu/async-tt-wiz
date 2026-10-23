@@ -1,3 +1,0 @@
-{
-  "text": "PASS native one/all OnClick and full-row custom actions; immediate counts; no inspector/double dispatch; fixed feedback/list geometry visible/faded at 32/1632ms; removed row has no actionable semantics during fade; 180ms placement/fade completes; actual touch cancellation preserves preparation. Uses normal UI-created retained data, no backend business mutation.\n"
-}

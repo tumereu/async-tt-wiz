@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="org.asyncttwiz.e2e.NativeStartupTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T05:03:42.017Z" hostname="DESKTOP-B2KALVM" time="3.907">
-  <properties/>
-  <testcase name="observesNormalNativeStartupThroughOwnedUiAutomatorSession()" classname="org.asyncttwiz.e2e.NativeStartupTest" time="3.895"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

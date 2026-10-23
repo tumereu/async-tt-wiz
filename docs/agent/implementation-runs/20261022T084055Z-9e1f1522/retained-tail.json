@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py"
-  ],
-  "exitCode": 1,
-  "outputSha256": "4758f9979a2a68184b7817029eab117f17f0dd48468db4ba26ac79f3cb3747d1",
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T084055Z-9e1f1522/retained-tail.py\", line 43, in <module>\n    assert result.returncode == 0, str(runs[0])\n           ^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: /tmp/opencode/atw-device-9e1f152211114af58b9f3861313df8c1/runner-2f81ff7657d444b086408484fe70c040\n"
-}

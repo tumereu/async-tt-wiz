@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/managed-20261023-write-canonical-candidate-01/resolve-conflicts.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "9f41170b17e5bab3c16a6145b565c684384c1ec5b26011260c23934b3d26df2d",
-  "output": "Resolved 6 inspected files exactly to 0caedcbea775d9dca5128ddac1e677d9f4de6fd4; no novel source changes.\n"
-}

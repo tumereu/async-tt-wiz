@@ -1,3 +1,0 @@
-{
-  "androidApp/build/test-results/testDebugUnitTest/TEST-org.asyncttwiz.android.AuthControllerTest.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuite name=\"org.asyncttwiz.android.AuthControllerTest\" tests=\"1\" skipped=\"0\" failures=\"0\" errors=\"0\" timestamp=\"2026-10-22T06:53:10.618Z\" hostname=\"DESKTOP-B2KALVM\" time=\"0.062\">\n  <properties/>\n  <testcase name=\"failuresKeepCorrectionUsableButUnsavedTokenDoesNotEnter\" classname=\"org.asyncttwiz.android.AuthControllerTest\" time=\"0.058\"/>\n  <system-out><![CDATA[]]></system-out>\n  <system-err><![CDATA[]]></system-err>\n</testsuite>\n"
-}

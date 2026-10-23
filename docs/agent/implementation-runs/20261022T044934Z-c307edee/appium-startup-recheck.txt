@@ -1,2 +1,0 @@
-COMMAND ['python3', 'scripts/run-device-tests.py', '--directory', '/tmp/opencode/atw-device-c307edee11114af58b9f3861313df8c1', 'startup']
-{"directory": "/tmp/opencode/atw-device-c307edee11114af58b9f3861313df8c1/runner-bcfab0f045374b6fa795766155a75820", "mode": "startup", "tests": 1}

@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py", line 186, in <module>
-    {'audit': audit, 'validate': validate}[sys.argv[1]]()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-audit.py", line 176, in validate
-    assert raw.endswith('\n') and all(line == line.rstrip() for line in raw.splitlines()), path
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError: docs/agent/implementation-runs/20261022T095434Z-3f5c6c3a-validation.txt

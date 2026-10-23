@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.py"
-  ],
-  "exitCode": 1,
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T013255Z-043555f3-broker-diagnosis.py\", line 24, in <module>\n    assert process['Id'] == pid and process['ProcessName'] == 'DllHost'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
-}

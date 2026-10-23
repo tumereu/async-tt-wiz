@@ -1,5 +1,0 @@
-{
-  "normalApks": 2,
-  "bothOrientations": true,
-  "scope": "UI-created synthetic prepared game; compact tap one/all both ways, drag both controls, outside-drop/no double dispatch, missing-art inspector, normal same-account conflicting gesture capture/partial outcome, paused-service prediction, Back/reopen/server-first restart. Native accessibility and animation clocks checked separately."
-}

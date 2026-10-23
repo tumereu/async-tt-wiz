@@ -1,8 +1,0 @@
-{
-  "scope": "Retained deleted-collection final assertions only",
-  "journeys": [
-    "same-account deleted collection",
-    "scrolling remaining collection",
-    "process restart/reopen after deletion"
-  ]
-}

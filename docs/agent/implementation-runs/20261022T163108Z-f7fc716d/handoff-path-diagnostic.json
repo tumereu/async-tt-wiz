@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T163108Z-f7fc716d/finish.py"
-  ],
-  "exitCode": 1,
-  "output": "Traceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T163108Z-f7fc716d/finish.py\", line 57, in <module>\n    assert after['activeRun'] is None and after['runs'] == before['runs'] + [report_path]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
-  "diagnosis": "Python supplies an absolute __file__; report/evidence paths must be repository-relative. Corrected helper prefix, no product/state changes."
-}

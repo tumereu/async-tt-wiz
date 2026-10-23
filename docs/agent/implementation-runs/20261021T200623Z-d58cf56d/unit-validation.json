@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T200623Z-d58cf56d/unit-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "a578267eea9e394fc1f37921481eed54e7a479b3c06b6c847a814ebe4ee96cf1",
-  "output": "PASS repeated clean locked image payload/schema hashes match; OCI identity retained; two complete four-scenario image suites\nPASS 34 actual service/database regressions; no skips/errors/failures; same normal distribution\nPASS owned scope/state/report/evidence/support paths; authorization/grants/gates/review/other tasks unchanged; markdown links valid\n"
-}

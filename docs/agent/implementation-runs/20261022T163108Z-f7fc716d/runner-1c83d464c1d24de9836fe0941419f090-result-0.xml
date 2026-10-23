@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="org.asyncttwiz.e2e.NativeLobbyCreationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T17:38:08.396Z" hostname="DESKTOP-B2KALVM" time="62.072">
-  <properties/>
-  <testcase name="contactsNamedCreateWaitingLobbyAndOtherAccountInstances()" classname="org.asyncttwiz.e2e.NativeLobbyCreationTest" time="62.063"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

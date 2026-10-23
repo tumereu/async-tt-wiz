@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T122241Z-22388f73-handoff.py"
-  ],
-  "exitCode": 1,
-  "outputSha256": "5c86cafb6d5902d5f12f5a8fc9fc68dd6b1d04446b6637fb67f1ef907b91bdaf",
-  "output": "PASS D-304/high model/baseline/priority, only I06b1 implemented; next native I06b2, ancestors/reviews/gates unchanged\nPASS exact original outputs including red diagnostics; current XML 7 protocol/5 service green; ten earlier green account/foundation sibling results reused, not rerun or global red command relabeled\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261022T122241Z-22388f73-handoff.py\", line 73, in <module>\n    assert (path.parent / target.split('#')[0]).is_file(), (path, target)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^\nAssertionError: (PosixPath('server/README.md'), '#password-reset-httpmail-v1--i04a')\n"
-}

@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T151433Z-3ad15f39/handoff-check.py"
-  ],
-  "exitCode": 0,
-  "output": "PASS exact starting commit/branch/authorized high-model priority; only I07b advances; I07 parent next; B2/reviews/gates unchanged\nPASS retained actual required/diagnostic output, final source/artifact hashes, lossless XML and completed exact device/environment cleanup\nPASS docs links/fences/whitespace, report/support/changed-path role boundaries; no full suite or repeated green product check\nNOT CLAIMED: wholly green original native journey, final whole-R1/UI/compatibility, independent B2 review, I07/I08, preparation/gameplay disclosure or external release gates\n"
-}

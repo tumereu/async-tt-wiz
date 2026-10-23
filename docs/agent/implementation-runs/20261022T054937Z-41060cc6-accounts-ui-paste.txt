@@ -1,4 +1,0 @@
-{
-  "output": "{\"directory\": \"/tmp/opencode/atw-device-41060cc611114af58b9f3861313df8c1/runner-896baf0a99614aae85a9747f0d8ddeb1\", \"mode\": \"accounts\", \"tests\": 1}\n",
-  "outputSha256": "d254e72c307bf5e71930c08cbd78f952b4cfb69ee6388b27f745d881ccdc86ea"
-}

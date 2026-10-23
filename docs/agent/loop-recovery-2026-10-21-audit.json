@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/loop-recovery-2026-10-21-audit.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "d955d17ba8b46e94f2880502cb3c6f95b5e1cab37b246cf66d283364df605a84",
-  "output": "PASS exact original planning-helper rejection reproduced\nPASS corrected guard, exact transition, original evidence/hashes/helper and unchanged state\nPASS original exact-high session is succeeded/idle; next selection is I01c1\nPASS no task, review, release gate or original private journal promoted/rewritten\n1021a54aa8eb77997e2633129f8c0f0427761a8400a32db30028e639545dda75 scripts/implementation-loop.py\n06a5cb74536513648bab8f44f815bb5dff03419b86def63ad4e84f085129f7b2 docs/agent/implementation-agent.md\n14c2041d630217311ea262670028f6d920d031158a5856925b35739c383298c7 docs/agent/implementation-state.json\n6086b75639a25f0538cfe393c552a4d882bef51b654ad829b405a242a0843325 docs/agent/implementation-runs/20261021T182623Z-26bd32d9-planning-check.py\n"
-}

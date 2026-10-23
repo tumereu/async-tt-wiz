@@ -1,6 +1,0 @@
-{
-  "format": "lossless-utf8-output-v1",
-  "output": "{\n  \"tests\": [\n    \"real A/B UI registration/login\",\n    \"N01/N02 both orientations\",\n    \"drawer Close/Back\",\n    \"native screen Back\",\n    \"rotation retains destination\",\n    \"force-stop restores valid token and destination\",\n    \"same-account reauthentication restores context\",\n    \"Logout removes token immediately without server-data deletion\",\n    \"restart stays signed out\",\n    \"second account starts clean\"\n  ],\n  \"remaining\": \"No deck/contact/game data or sync exists yet; I05-I14/I26/I31 retain those journeys\"\n}\n",
-  "originalBytes": 525,
-  "originalSha256": "313e851de148502198e2c05169b5d611b011dc5144414da06662e53b8511b8c4"
-}

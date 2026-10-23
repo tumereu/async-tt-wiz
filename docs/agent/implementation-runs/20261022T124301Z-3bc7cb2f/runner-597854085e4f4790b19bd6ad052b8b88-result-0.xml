@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="org.asyncttwiz.e2e.NativeDeckSaveTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T13:19:11.778Z" hostname="DESKTOP-B2KALVM" time="54.451">
-  <properties/>
-  <testcase name="savesRetriesAndReopensRetainedDefinitions()" classname="org.asyncttwiz.e2e.NativeDeckSaveTest" time="54.441"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

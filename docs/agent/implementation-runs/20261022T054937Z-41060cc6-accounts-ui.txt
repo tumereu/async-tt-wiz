@@ -1,4 +1,0 @@
-{
-  "output": "Device runner refused: Device Gradle check failed; retained output: /tmp/opencode/atw-device-41060cc611114af58b9f3861313df8c1/runner-3364c43682fe47caa39ce2e30d106a37\n",
-  "outputSha256": "96a7ca16d7a0e65cc635bafdc6004a3b9c50e570937be7ffb8f866703f54df5d"
-}

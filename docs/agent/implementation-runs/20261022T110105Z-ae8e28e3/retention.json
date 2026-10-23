@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3/retain.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "26aa481aec0edc06d1d6ea8b0f46df654efe47a5f4684f620ef26a41e0bef943",
-  "output": "PASS retained current affected JUnit TEST-org.asyncttwiz.storage.ArtworkTest.xml 1 cases\nPASS retained current affected JUnit TEST-org.asyncttwiz.android.AccountApiTest.xml 5 cases\nPASS retained current affected JUnit TEST-org.asyncttwiz.android.AuthControllerTest.xml 11 cases\nPASS retained current affected JUnit TEST-org.asyncttwiz.android.ResetControllerTest.xml 4 cases\nPASS retained current affected JUnit TEST-org.asyncttwiz.android.B1EntryIntegrationTest.xml 2 cases\nPASS retained exact source/test/fixture/lock/APK/image identities and actual hosted provider inventory\nEarlier full ArtworkTest output remains in affected-recheck.json; current XML is the subsequent cache-only recheck, not a second full class run.\n"
-}

@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T191440Z-b4076baa/unit-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "ea6132a207f34e26907cc728e781d8f29004c9d6c74dbc6a6068fa634899a401",
-  "output": "PASS only I01c2a advanced; original outcome/checks/dependencies, ancestors, B1 review, runner/model/grants, findings and gates preserved\nPASS exact changed-path set and whitespace across tracked and new owned paths\nPASS retained diagnostic docs/agent/implementation-runs/20261021T191440Z-b4076baa/initial-tests.json exit= 1\nPASS retained diagnostic docs/agent/implementation-runs/20261021T191440Z-b4076baa/restart-diagnostic.json exit= 1\nPASS retained diagnostic docs/agent/implementation-runs/20261021T191440Z-b4076baa/restart-port-diagnostic.json exit= 1\nPASS retained diagnostic docs/agent/implementation-runs/20261021T191440Z-b4076baa/ownership-tests.json exit= 0\nPASS retained required docs/agent/implementation-runs/20261021T191440Z-b4076baa/clean-regressions.json exit= 0\nPASS retained required docs/agent/implementation-runs/20261021T191440Z-b4076baa/repeated-tests.json exit= 0\nPASS retained required docs/agent/implementation-runs/20261021T191440Z-b4076baa/server-artifacts.json exit= 0\nPASS retained required docs/agent/implementation-runs/20261021T191440Z-b4076baa/coverage-validation.json exit= 0\nPASS retained required docs/agent/implementation-runs/20261021T191440Z-b4076baa/whitespace.json exit= 0\nPASS exact resource cleanup: 64 owned database containers and 64 anonymous volumes absent; unrelated resources untouched\nPASS edited Markdown local links; no UI-document edit/publication required\nPASS I01c2a handoff only; Spring/HTTP/process, image, parent qualification, independent B1 review and all release obligations remain pending\n"
-}

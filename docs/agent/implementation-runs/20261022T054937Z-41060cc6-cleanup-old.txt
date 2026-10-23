@@ -1,4 +1,0 @@
-{
-  "output": "{\"cleaned\": true, \"instance\": \"atw-e2e-41060cc611114af58b9f3861313df8c1\"}\n",
-  "outputSha256": "6f723b806cc4b088a4b54a31cf1b06131f3bf08a8da49893b8b47629240403f6"
-}

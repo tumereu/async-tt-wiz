@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T210246Z-d1993a37-handoff-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "dfc94865a2344734a58f58a7eb7a7f2433467da675e044dda3b9c31d6220e9ee",
-  "output": "PASS actual authorized baseline/priority and driver state/transition validation\nPASS only I01d parent completed after both children; I01e next, I01f/B1/I01 remain pending\nPASS all other tasks/reviews/findings/authorization/model/permissions/dependencies/external gates unchanged\nPASS exact owned changed-path inventory, lossless actual outputs/exit codes, no required red check, JSON/Markdown links/whitespace\nPASS device instrumentation remains COMPILED NOT EXECUTED; no independent review/release/full product pass claimed\n"
-}

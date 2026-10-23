@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "-"
-  ],
-  "exitCode": 0,
-  "outputSha256": "16b4c5d2f6ce6c86e411fc1db93c12ef8cb4e18fac4f087fae4a3dafba017d56",
-  "output": "appium ['/home/tuomas/.local/share/fnm/node-versions/v24.21.0/installation/bin/node', '/home/tuomas/.local/share/fnm/node-versions/v24.21.0/installation/bin/npm', 'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund']\n\nup to date in 5s\ndriver ['/home/tuomas/.local/share/fnm/node-versions/v24.21.0/installation/bin/node', '/home/tuomas/.local/share/fnm/node-versions/v24.21.0/installation/bin/npm', 'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund']\n\nup to date in 5s\n"
-}

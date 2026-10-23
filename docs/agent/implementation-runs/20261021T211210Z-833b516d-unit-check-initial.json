@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py"
-  ],
-  "exitCode": 1,
-  "outputSha256": "79cc1f92fae3a55c899a3e2fbfe5b0ea06fac5acc8f15afced0788a98b574133",
-  "output": "PASS D-304/exact baseline/master, selected I01e1 completion and pure driver state/transition validation; I01e2 next\nPASS all unrelated tasks, parents, reviews, findings, model/permissions/authorization and external release gates unchanged\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py\", line 93, in <module>\n    main()\n    ~~~~^^\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261021T211210Z-833b516d-unit-check.py\", line 64, in main\n    assert (Path(path).parent / target.split(\"#\")[0]).is_file(), (path, target)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^\nAssertionError: ('e2e/adapters/README.md', '../../../tests/fixtures/catalogs/README.md')\n"
-}

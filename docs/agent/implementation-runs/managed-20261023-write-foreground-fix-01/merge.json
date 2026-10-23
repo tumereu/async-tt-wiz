@@ -1,6 +1,0 @@
-{
-  "command": ["git", "merge", "--no-ff", "--no-commit", "9e66023f1f7835743c1a249817779b387df915f8"],
-  "exitCode": 0,
-  "output": "Auto-merging androidApp/src/main/kotlin/org/asyncttwiz/android/TableScreen.kt\nAutomatic merge went well; stopped before committing as requested\n",
-  "retention": "Exact output retained from foreground tool invocation. No conflicts or manual source reconciliation."
-}

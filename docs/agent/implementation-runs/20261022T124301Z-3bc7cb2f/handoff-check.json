@@ -1,8 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T124301Z-3bc7cb2f/handoff-check.py"
-  ],
-  "exitCode": 0,
-  "output": "PASS authorized exact high-model/start commit/priority; only I06b2 advances; next I06b; B2/reviews/gates unchanged\nPASS truthful command exits, lossless 20 affected host tests and complete final native journey/captures\nPASS exact current source/fixture/lock/APK/image identities and completed owned cleanup\nPASS documentation links/fences/whitespace, unchanged ledger and exact owned changed paths/role boundary\nNOT CLAIMED: I06b/I06 closure, I07/I08, independent B2 review, whole P/T/F scenarios, full suite/final UI/release gates\n"
-}

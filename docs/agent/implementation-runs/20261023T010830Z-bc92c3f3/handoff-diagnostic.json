@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3/handoff.py"
-  ],
-  "exitCode": 1,
-  "outputSha256": "3321fd22add62e53eb803c1f468c9c1d6d6da6d7e3792f864de76f31675927ea",
-  "output": "PASS clean supplied baseline/master/authorization/earliest priority, driver state/transition and only I11b advances; next I11 parent audit\nPASS exact 30 final affected JUnit cases without skips: 8 native-start controller/scene, 10 preparation, 8 transfer-session, 4 transport/session\nPASS composite normal-APK evidence: 11 original outcomes, exact persistent game/date, single play/root, two concrete independent Library orders and Random result unchanged across lost-ack backend/app restart; no draw/reset/Sideboard\nLIMIT native setup/readiness/table assertions are retained in diagnostic stages; final passing retained tail supplies only missing restart/Back checks, not a repeated full native run\nPASS final source/build/lock/fixture and compiled APK input hashes; native installed APK distinct input supersession is explicit\nTraceback (most recent call last):\n  File \"/home/tuomas/projects/async-tt-wiz/docs/agent/implementation-runs/20261023T010830Z-bc92c3f3/handoff.py\", line 82, in <module>\n    assert reset['exitCode'] == 0 and 'game_play' in reset['output'] and '\"9\"' in reset['output']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
-}

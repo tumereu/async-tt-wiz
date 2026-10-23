@@ -1,9 +1,0 @@
-{
-  "command": [
-    "python3",
-    "docs/agent/implementation-runs/20261022T110105Z-ae8e28e3/handoff-check.py"
-  ],
-  "exitCode": 0,
-  "outputSha256": "7cc8f976b8700bc79133596b4dbc5760163e8eafdd23390082ffbb60fac2045b",
-  "output": "PASS supplied commit/branch/high-model/D-304/priority, only I05b implemented, next I05; reviews/gates unchanged\nPASS actual retained checks, lossless current decoder-cache/22 Android host XML and two distinct passing native scopes; no full-suite claim\nPASS exact final source/test/APK/lock/fixture identities and completed owned device/Compose cleanup\nPASS documentation links/fences/whitespace, unchanged partial coverage ledger and exact owned report/state/source paths\nNOT CLAIMED: import/inspector/table/full scenarios, first B2 review, full suite, physical scene performance, final UI or release gates\n"
-}

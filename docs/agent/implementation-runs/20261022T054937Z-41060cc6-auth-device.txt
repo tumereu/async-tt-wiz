@@ -1,4 +1,0 @@
-{
-  "output": "Device runner refused: Readiness deadline; no ready handoff issued\n",
-  "outputSha256": "4f5f1839b7b3baf003b7f62d3b281759a6b35b54206cf3c2895a18b2e79f5839"
-}

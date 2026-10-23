@@ -1,1 +1,0 @@
-PASS selected I01f-only transition, next I01 selection, exact owned paths, JSON/whitespace and retained evidence; authorization/model/review/runner/permission/release gates unchanged. No Markdown/UI document edit.

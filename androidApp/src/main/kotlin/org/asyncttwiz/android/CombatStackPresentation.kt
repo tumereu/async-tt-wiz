@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
@@ -87,11 +86,11 @@ object CombatStackPresentation {
         val ids = CombatStackRules.stack(board).cards
         val peek = cardWidth * .12f
         val visible = ids.take(3).mapIndexed { index, id ->
-            val card = requireNotNull(CombatStackRules.inspection(board, id))
+            val card = requireNotNull(CombatStackRules.inspection(board, id)).copy(tapped = false)
             val effect = board.stackEffects.find { it.id == id }
             // Same top-at-bottom-right corner peeks as Library/Graveyard, not a fan.
             OccurrenceDrawing(id, card, TableBounds((2 - index) * peek, (2 - index) * peek,
-                if (card.tapped) cardHeight else cardWidth, if (card.tapped) cardWidth else cardHeight), effect != null, effect?.frozen != null,
+                cardWidth, cardHeight), effect != null, effect?.frozen != null,
                 board.stackTextMarks[id])
         }
         return StackGeometry(maxOf(cardWidth, visible.maxOfOrNull { it.bounds.x + it.bounds.width } ?: 0f),
@@ -120,11 +119,9 @@ private fun OccurrenceCard(drawing: OccurrenceDrawing, width: Float, height: Flo
     Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)
         .semantics { contentDescription = label }.clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.requiredSize(width.dp, height.dp).graphicsLayer { rotationZ = if (drawing.card.tapped) 90f else 0f }) {
-            face(drawing.card, Modifier.fillMaxSize())
+            val owner = if (drawing.card.owner == viewer) OwnTableColor else OpponentTableColor
+            face(drawing.card, Modifier.fillMaxSize().cardFrame(drawing.card.token, owner, drawing.projection))
             Canvas(Modifier.fillMaxSize()) {
-                val owner = if (drawing.card.owner == viewer) Color(0xff287f85) else Color(0xffa84f58)
-                drawRect(owner, style = Stroke(2.dp.toPx(), pathEffect = if (drawing.projection)
-                    PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())) else null))
                 if (related) drawRect(Color(0xffbd982f), topLeft = Offset(3.dp.toPx(), 3.dp.toPx()),
                     size = size.copy(width = size.width - 6.dp.toPx(), height = size.height - 6.dp.toPx()), style = Stroke(2.dp.toPx()))
                 if (selected) drawRect(Color(0xff397ccc), style = Stroke(4.dp.toPx()))

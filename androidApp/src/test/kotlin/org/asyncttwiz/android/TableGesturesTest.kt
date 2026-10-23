@@ -239,16 +239,44 @@ class TableGesturesTest {
         f.gestures.move(dest, 250); f.gestures.up(dest, 300)
         assertEquals("a/HAND/2", f.events.filterIsInstance<TableIntent.Move>().single().scope.contextId)
     }
-    @Test fun pileTapIsImmediateContentsButDragBindsActualLibraryTopNotNextTop() {
+    @Test fun librarySingleTapOpensActionsAfterDoubleWindowAndDragBindsActualTop() {
         val f = Fixture()
         val pile = f.scene.items.single { it.id == "a/LIBRARY" }; val p = pile.visible.first().center
         f.tap(0, p)
+        assertTrue(f.events.isEmpty())
+        f.gestures.tick(300)
         assertEquals(TableIntent.Actions(pile.id, null), f.events.single())
-        f.events.clear(); f.gestures.down(p, 100)
+        f.events.clear(); f.gestures.down(p, 400)
         val dest = f.scene.fields.last().bounds.center
-        f.gestures.move(dest, 200); f.gestures.up(dest, 250)
+        f.gestures.move(dest, 500); f.gestures.up(dest, 550)
         assertEquals(listOf("a/LIBRARY/0"), f.events.filterIsInstance<TableIntent.Move>().single().scope.cardIds)
         assertTrue(f.events.filterIsInstance<TableIntent.Move>().single().sources.getValue("a/LIBRARY/0").libraryTop)
+    }
+
+    @Test fun libraryDoubleTapDrawsOnlyOwnCapturedTopAndDoesNotOpenActions() {
+        for (owner in listOf("a", "b")) for (writable in listOf(true, false)) for (mode in listOf(TableMode.NORMAL, TableMode.SELECT)) {
+            val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0"), mode), writable = writable)
+            val pile = f.scene.items.single { it.id == "$owner/LIBRARY" }
+            val p = pile.visible.first().center
+            f.tap(0, p); f.tap(100, p); f.gestures.tick(1000)
+            assertEquals(if (owner == "a" && writable)
+                listOf<TableIntent>(TableIntent.Draw("a/LIBRARY", "a/HAND", "a/LIBRARY/0")) else emptyList(), f.events)
+        }
+    }
+
+    @Test fun stackDoubleTapAndAccessibilityNeverProduceRotateIncludingMixedSelections() {
+        val scene = TableFixture.scene()
+        val card = scene.items.first { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }
+        val stackCard = card.copy(zone = PlayZone.STACK)
+        val f = Fixture(scene.copy(items = scene.items.map { if (it.id == card.id) stackCard else it }))
+        val p = stackCard.visible.first().center
+        f.tap(0, p); f.tap(100, p); f.gestures.tick(1000)
+        f.gestures.rotate(stackCard, true)
+        assertTrue(f.events.none { it is TableIntent.Rotate })
+        val other = scene.items.first { it.kind == TableItemKind.CARD && it.cardId != card.cardId }
+        f.gestures.update(f.scene, TableSelection(setOf(card.cardId!!, other.cardId!!)), true)
+        f.gestures.rotate(other, true)
+        assertEquals(listOf(other.cardId), f.events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
     }
     @Test fun accessibleAlternativesUseSameCapturedScopeAndReadOnlyGate() {
         val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1")))

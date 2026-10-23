@@ -79,6 +79,25 @@ internal class BasicTableFixture {
 }
 
 class BasicTableControllerTest {
+    @Test fun libraryDoubleTapDrawUsesNormalTopMoveAndNeverSubstitutesAStaleTop() {
+        val f = BasicTableFixture(); f.connect()
+        val draw = TableIntent.Draw(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND), f.id(40))
+        assertTrue(f.basic.handle(draw))
+        val action = (f.commands().single().action as GameAction.Play).action
+        assertEquals(PlayAction.MoveCard(f.id(40), MoveSource(draw.libraryId, edge = MoveSourceEdge.TOP),
+            MoveDestination(draw.handId, MoveInsertion.UNORDERED)), action)
+        assertFalse(f.basic.handle(draw))
+        assertEquals(1, f.commands().size)
+    }
+
+    @Test fun rotateSkipsStackMembersOfMixedSelection() {
+        val f = BasicTableFixture(); f.connect()
+        assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK)))
+        val before = f.commands().size
+        assertTrue(f.basic.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(40), f.id(41))), true)))
+        assertEquals(listOf(PlayAction.SetTapped(f.id(41), true)), f.commands().drop(before).map { (it.action as GameAction.Play).action })
+        assertFalse(f.card(40).tapped)
+    }
     @Test fun selectedCardsEnterExistingPileInSourceOrderImmediatelyWithOneInvocationAndOriginalOutcomes() {
         val f = BasicTableFixture(); f.connect()
         f.move(42, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 2, 1))

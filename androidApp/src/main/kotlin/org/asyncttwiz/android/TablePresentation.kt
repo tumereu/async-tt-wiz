@@ -45,7 +45,7 @@ data class TableItem(
     val counter: CounterColor? = null, val peekOwners: List<String> = emptyList(),
     val sourceId: String? = cardId, val projection: Boolean = false, val frozen: Boolean = false,
     val token: Boolean = false, val note: String = "", val counters: Map<CounterColor, String> = emptyMap(),
-    val typeIcon: String = "", val artwork: ArtworkReference? = null
+    val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds)
@@ -143,10 +143,11 @@ object TablePresentation {
             val hidden = !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
-            val label = "$title, owner ${name(card.owner)}, ${if (card.tapped) "tapped" else "untapped"}"
+            val tapped = zone != PlayZone.STACK && card.tapped
+            val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}"
             items += TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                 if (hidden) "" else title, card.owner, zone, kind = TableItemKind.CARD, viewport = viewport,
-                cardId = viewId, covered = hidden, tapped = card.tapped, corner = if (hidden) "" else card.corner,
+                cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else card.note, counters = if (hidden) emptyMap() else card.counters,
                 typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden))
@@ -198,6 +199,8 @@ object TablePresentation {
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = TableBounds(b.x, b.y, envelope, envelope), peekOwners = c.cards.take(3).mapNotNull { byId[it]?.owner },
+                    token = top?.token == true,
+                    drawHandId = hand.id.takeIf { ownSide && zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else face(top)?.name.orEmpty(), corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
             }

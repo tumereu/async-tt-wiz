@@ -5,6 +5,24 @@ import org.junit.Test
 import kotlin.test.*
 
 class CombatStackPresentationTest {
+    @Test fun stackDrawingsIgnoreTappedRealLiveAndFrozenCardsWithoutChangingCombatProjections() {
+        val f = TableStatesFixture
+        val original = f.combat()
+        val actual = CombatStackRules.stack(original.board).cards.first { id -> original.board.cards.any { it.id == id } }
+        val frozen = original.board.cards.first().copy(tapped = true, token = true)
+        val state = original.copy(board = original.board.copy(cards = original.board.cards.map {
+            if (it.id == actual) it.copy(tapped = true) else it
+        }, stackEffects = original.board.stackEffects + StackEffect(f.id("frozen"), frozen.id, frozen),
+            containers = original.board.containers.map { if (it.zone == PlayZone.STACK)
+                it.copy(cards = it.cards + f.id("frozen")) else it }))
+        val drawings = CombatStackPresentation.stack(state.board, 28f, 40f).visible
+        assertEquals(3, drawings.size)
+        assertTrue(drawings.all { !it.card.tapped && it.bounds.width == 28f && it.bounds.height == 40f })
+        val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
+        assertTrue(scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }.all { !it.tapped })
+        assertTrue(scene.items.single { it.cardId == f.id("attacker2") }.tapped)
+        assertTrue(state.board.cards.single { it.id == actual }.tapped) // Presentation does not mutate the source.
+    }
     private fun populated(): PlayState {
         val commands = CombatCommands()
         val state = combatState()

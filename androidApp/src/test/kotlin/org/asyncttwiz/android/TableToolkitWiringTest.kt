@@ -6,6 +6,18 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    @Test fun stackRotateDoesNotResolveToItsLiveSourceButCombatRotateStillDoes() {
+        val f = TableStatesFixture
+        val play = f.combat()
+        val sent = mutableListOf<PlayAction>()
+        val ui = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
+        val stackIds = CombatStackRules.stack(play.board).cards
+        for (id in stackIds) assertFalse(ui.handle(TableIntent.Rotate(TableScope(id, listOf(id)), true)))
+        assertTrue(sent.isEmpty())
+        val combat = f.id("attacker1")
+        assertTrue(ui.handle(TableIntent.Rotate(TableScope(combat, stackIds + combat), true)))
+        assertEquals(listOf<PlayAction>(PlayAction.SetTapped(f.source(f.a, "1/3").id, true)), sent)
+    }
     @Test fun publicPileTapsRouteToLiveContentsWithoutViewRevealOrDismissRequests() {
         var play = TableStatesFixture.combat()
         val sent = mutableListOf<PlayAction>()

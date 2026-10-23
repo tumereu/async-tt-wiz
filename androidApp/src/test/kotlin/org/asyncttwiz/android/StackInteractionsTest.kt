@@ -51,6 +51,7 @@ class StackInteractionsTest {
         val text = historyText(change.mutation!!, before, f.actor, mapOf(f.actor to "bob"))
         assertTrue(text.description.startsWith("bob marked")); assertTrue(text.description.endsWith("2 — Second paragraph"))
         toolkit.inspect(entry)
+        assertEquals(entry, toolkit.inspection!!.cardId)
         assertEquals(entry, toolkit.inspection!!.stackEntryId)
         toolkit.inspect(id)
         assertNull(toolkit.inspection!!.stackEntryId)

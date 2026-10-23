@@ -152,6 +152,8 @@ object GameplayRules {
             }
             is PlayAction.SetTapped -> {
                 val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")
+                if (board.containers.any { it.id == card.containerId && it.zone == PlayZone.STACK })
+                    return reject("inapplicable")
                 if (card.tapped == action.tapped) return GameplayChange(state)
                 next = board.copy(cards = board.cards.map { if (it.id == card.id) it.copy(tapped = action.tapped) else it })
                 transition = GameplayTransition(listOf(GameplayFieldChange(card.id, GameplayField.TAPPED,
@@ -333,6 +335,7 @@ object GameplayRules {
         val faceDown = !hiddenZone && (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD &&
             target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
         val moved = card.copy(containerId = target.id, placement = placement,
+            tapped = if (source.zone == PlayZone.STACK || target.zone == PlayZone.STACK) false else card.tapped,
             covered = if (coverRulesVersion == 1) card.covered else hiddenZone || faceDown,
             explicitlyCovered = if (coverRulesVersion == 1) card.explicitlyCovered else faceDown)
         val next = canonicalBoard(board.copy(cards = board.cards.map { if (it.id == card.id) moved else it },
@@ -346,6 +349,7 @@ object GameplayRules {
         if (from == to && card == moved) return GameplayChange(state)
         val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
         val fields = listOf(
+            GameplayFieldChange(card.id, GameplayField.TAPPED, card.tapped.toString(), moved.tapped.toString()),
             GameplayFieldChange(card.id, GameplayField.COVERED, card.covered.toString(), moved.covered.toString()),
             GameplayFieldChange(card.id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), moved.explicitlyCovered.toString())
         ).filter { it.from != it.to }

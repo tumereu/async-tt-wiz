@@ -38,7 +38,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
                     Row {
                         ManualActionSquare("Inspect", "", enabled = true, onClick = { inspect(card.id) })
                         ManualActionSquare("Select / deselect", "", enabled = true, selected = card.id in selection.ids, onClick = { select(card.id) })
-                        if (selection.mode == TableMode.SELECT) {
+                        if (selection.mode == TableMode.SELECT && item.zone != PlayZone.STACK) {
                             ManualActionSquare("Tap selected scope", "", enabled, onClick = { if (request(TableIntent.Rotate(scope, true))) dismiss() })
                             ManualActionSquare("Untap selected scope", "", enabled, onClick = { if (request(TableIntent.Rotate(scope, false))) dismiss() })
                         }

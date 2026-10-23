@@ -35,10 +35,12 @@ fun CombatActions(state: PlayState, actor: String, targets: List<CombatStackTarg
         MenuButton("Declare + tap", enabled = connected && battlefield, onClick = {
             onPlan(CombatStackController.declare(state, actor, targets, true, command))
         })
-        for (tapped in listOf(true, false)) MenuButton(if (tapped) "Tap" else "Untap", enabled = connected && sources.any { source ->
+        val orientationTargets = targets.filter { it.viewId !in CombatStackRules.stack(state.board).cards }
+        for (tapped in listOf(true, false)) MenuButton(if (tapped) "Tap" else "Untap", enabled = connected && orientationTargets.any { target ->
+            val source = target.sourceId
             state.board.cards.any { it.id == source }
         }, onClick = {
-            onPlan(CombatStackController.sourceActions(state, actor, targets, command) { PlayAction.SetTapped(it, tapped) })
+            onPlan(CombatStackController.sourceActions(state, actor, orientationTargets, command) { PlayAction.SetTapped(it, tapped) })
         })
         val occurrences = targets.filter { target -> CombatStackRules.occurrences(state.board.combat).any { it.id == target.viewId } }
         MenuButton("Remove from combat", enabled = connected && occurrences.isNotEmpty(), onClick = {

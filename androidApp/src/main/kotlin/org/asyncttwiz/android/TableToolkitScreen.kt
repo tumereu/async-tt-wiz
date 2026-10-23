@@ -26,7 +26,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             Row(Modifier.horizontalScroll(rememberScrollState())) {
                 ManualActionSquare("Select / deselect", "", true, selected = bound.contextViewId in selection.ids,
                     onClick = { select(bound.contextViewId) })
-                if (selection.mode == TableMode.SELECT) for (tapped in listOf(true, false))
+                if (selection.mode == TableMode.SELECT && bound.contextViewId !in CombatStackRules.stack(play.board).cards) for (tapped in listOf(true, false))
                     ManualActionSquare(if (tapped) "Tap selected scope" else "Untap selected scope", "", enabled,
                         onClick = { if (toolkit.handle(TableIntent.Rotate(TableScope(bound.contextViewId, bound.viewIds), tapped, bound.sources))) toolkit.dismiss() })
                 if (toolkit.tokens.scope != null) ManualActionSquare("Clone", "", enabled && bound.sourceIds.isNotEmpty(), onClick = {
@@ -59,7 +59,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 if (toolkit.place(bound, it)) toolkit.dismiss()
             }
         }
-    }, submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools) { action -> toolkit.submit(action) }
+    }, submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools,
+        previewViewId = bound?.contextViewId) { action -> toolkit.submit(action) }
 
     when (val panel = toolkit.panel) {
         "table" -> {
@@ -109,7 +110,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 ContentsScreen(play, pile, toolkit.viewer, modifier = Modifier.height(if (landscape) 220.dp else 480.dp),
                     onActions = { if (selection.mode == TableMode.SELECT) select(it) else toolkit.openCard(selection.scope(it, pile.cardIds)) },
                     onInspect = toolkit::inspect,
-                    onRotate = if (selection.mode != TableMode.NORMAL) null else { id ->
+                    onRotate = if (selection.mode != TableMode.NORMAL || pile.containerId == CombatStackRules.stack(play.board).id) null else { id ->
                         val card = CombatStackRules.liveSource(play.board, id)
                         if (card != null) {
                             toolkit.selectionState.value = selection.orientation(id)

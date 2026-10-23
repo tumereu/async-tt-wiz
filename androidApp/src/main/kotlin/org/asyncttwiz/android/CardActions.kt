@@ -34,7 +34,8 @@ internal fun counterColor(color: CounterColor): Color = when (color) {
 @Composable
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
     enabled: Boolean, landscape: Boolean, names: Map<String, String>, extras: @Composable () -> Unit = {},
-    submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), submit: (PlayAction) -> Boolean) {
+    submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), previewViewId: String? = null,
+    submit: (PlayAction) -> Boolean) {
     val card = TablePresentation.cardForActions(state, scope.contextId)
     fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
     fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
@@ -58,7 +59,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     val general: @Composable () -> Unit = {
         Column(Modifier.horizontalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names)
+                ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     for (row in controls.take(12).chunked(6)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         for (control in row) control.Square()
@@ -128,16 +129,20 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
 }
 
 @Composable
-internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String, count: Int, names: Map<String, String> = emptyMap()) {
+internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String, count: Int, names: Map<String, String> = emptyMap(),
+    viewId: String? = null) {
     val card = state.board.cards.singleOrNull { it.id == cardId } ?: return
     val faces = ManualDisclosure.permittedFaces(state, card, viewer, inspecting = false)
     val face = faces.singleOrNull()
     val owner = if (card.owner == viewer) Color(0xff287f85) else Color(0xffa84f58)
-    Column(Modifier.width(48.dp).height(100.dp).border(2.dp, owner, MaterialTheme.shapes.extraSmall).padding(3.dp)
-        .semantics { contentDescription = "${face?.name ?: "Covered card"}, owner ${names[card.owner] ?: "Player"}, ${if (card.tapped) "tapped" else "untapped"}, $count captured targets" }) {
+    val tapped = card.tapped && viewId !in CombatStackRules.stack(state.board).cards &&
+        state.board.containers.none { it.id == card.containerId && it.zone == PlayZone.STACK }
+    Column(Modifier.width(48.dp).height(100.dp).cardFrame(card.token, owner, viewId in CombatStackRules.projectionIds(state.board))
+        .padding(horizontal = if (card.token) 8.dp else 3.dp, vertical = 4.dp)
+        .semantics { contentDescription = "${face?.name ?: "Covered card"}, owner ${names[card.owner] ?: "Player"}, ${if (tapped) "tapped" else "untapped"}, $count captured targets" }) {
         Text(face?.name ?: if (card.covered) "Covered" else "Unavailable", maxLines = 1,
             overflow = TextOverflow.Ellipsis, fontSize = 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold)
-        Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer { rotationZ = if (card.tapped) 90f else 0f }) {
+        Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer { rotationZ = if (tapped) 90f else 0f }) {
             if (face != null) {
                 val definition = state.definitions.single { it.digest == card.definition }.definition
                 val inspected = InspectedCard.retained(card.definition, definition)

@@ -1,0 +1,86 @@
+{
+  "runId": "managed-20261023-write-fhost-android-replica-01",
+  "sessionID": "ses_e97907599ffeB6raw4NzTno2Wj",
+  "startCommit": "f0df419b6fbb4a5c25d7099c0dec897181aadef9",
+  "mode": "integration",
+  "target": "FHOST-G05,FHOST-G11",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "verificationStatus": "UNVERIFIED",
+  "summary": "Repaired the existing G05 fixture's card/Library identity collision and G11's obsolete delivery ordering. Production code and all later merge assertions are unchanged. Static checks only; affected execution remains with the separate executor.",
+  "selectionReason": "Explicit source-writing-only lease for three actual failed Android cases, with one owner for potential GameSession overlap; no speculative work or canonical closure.",
+  "checks": [
+    {
+      "kind": "required",
+      "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/preflight.json#command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/preflight.json",
+      "scope": "Starting Git/lease/source pins only; not product verification."
+    },
+    {
+      "kind": "required",
+      "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/retain-evidence.json#command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/retain-evidence.json",
+      "scope": "Retained exact supplied failing XML bytes/hash/provenance; not a rerun."
+    },
+    {
+      "kind": "required",
+      "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/static.json#command",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/static.json",
+      "scope": "git diff --check only; no build/test execution."
+    }
+  ],
+  "inheritedDiagnosticEvidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/supplied-failures.json",
+  "mergeDetails": "No merge needed; started at sole pinned dependency f0df419. Assigned inputs matched tested 0caedcbe before edits. Runtime and authoritative state unchanged.",
+  "failureGroups": [
+    {
+      "id": "FHOST-G05-android-merged-fixture",
+      "failures": ["FHOST-JVM-004", "FHOST-JVM-005"],
+      "failingTests": [
+        "org.asyncttwiz.android.GameplayMergeVerificationTest.dependentStackOriginalsAndManualEditSurviveLastResultFirstWithoutRewindOrDoubleApplication",
+        "org.asyncttwiz.android.GameplayMergeVerificationTest.failedTopDoesNotCancelLaterGuardedOriginalAndLateResultDoesNotRewindAcceptedManualState"
+      ],
+      "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/supplied-failures.json#originalCommand",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/supplied-failures.json#suites",
+      "likelyOwningTasks": ["I14", "I21", "I34"],
+      "classification": "Local malformed fixture at the shared structural-validation boundary; patch UNVERIFIED.",
+      "sourcePaths": ["androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMergeVerificationTest.kt", "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CombatAndStack.kt"],
+      "causeAndPatch": "Card 10 collides with Library container 10; shared closeInvariants rejects duplicate entityIds as invalidStructure (CombatAndStack.kt:262-264; domain-model D-002). Give this fixture's Library distinct ID 24 and rebind cards/moves/location assertion. Keep cards 9..11 and face 11: no speculative face/card restriction. Preserve Stack guards and all later result-before-state/no-rewind/no-double/withdrawn-original assertions.",
+      "constraints": "Shared GameplayFixture and production unchanged; no overlap runtime edits.",
+      "remainingOwner": "Separate fresh execution-queue agent runs both existing GameplayMergeVerificationTest methods once at the integrated candidate pin. Any newly exposed failure returns to a fresh assigned writer; this writer does not self-certify.",
+      "narrowRerun": "--tests org.asyncttwiz.android.GameplayMergeVerificationTest"
+    },
+    {
+      "id": "FHOST-G11-preparation-replica-high-water",
+      "failures": ["FHOST-JVM-006"],
+      "failingTests": ["org.asyncttwiz.android.LobbyStartTest.httpSummaryHighWaterCannotRetireReadinessBeforeItsAcceptedReplicaArrives"],
+      "commandRef": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/supplied-failures.json#originalCommand",
+      "evidence": "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/supplied-failures.json#suites",
+      "likelyOwningTasks": ["I11", "I14", "I34"],
+      "classification": "Local obsolete test sequencing, not a production summary-as-replica defect; patch UNVERIFIED.",
+      "sourcePaths": ["androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyStartTest.kt", "androidApp/src/main/kotlin/org/asyncttwiz/android/GameSession.kt"],
+      "causeAndPatch": "Test incorrectly expects accepted revision 1 over replica 0 to be ignored behind HTTP summary 2. GameSession.install/retireSelections correctly use actual accepted revision. Deliver result before revision; keep old-accepted/Ready-predicted/pending assertions there. Then deliver revision 1 and assert accepted/display catch-up, pending retirement, summary still 2; retain final head-2 reconciliation. No production fence or sequence-hole guarantee restored.",
+      "constraints": "Only the existing failed method changes. No new test cases, runtime changes, canonical state transitions or native/integration qualification claims.",
+      "remainingOwner": "Separate fresh execution-queue agent runs the existing failed method once with G05 at the integrated candidate pin; independent qualification/review remains supervisor-owned.",
+      "narrowRerun": "--tests org.asyncttwiz.android.LobbyStartTest.httpSummaryHighWaterCannotRetireReadinessBeforeItsAcceptedReplicaArrives"
+    }
+  ],
+  "pendingExecution": {
+    "owner": "Supervisor execution queue",
+    "command": "./scripts/gradle.sh --no-daemon --max-workers=2 :androidApp:testDebugUnitTest --tests org.asyncttwiz.android.GameplayMergeVerificationTest --tests org.asyncttwiz.android.LobbyStartTest.httpSummaryHighWaterCannotRetireReadinessBeforeItsAcceptedReplicaArrives",
+    "status": "NOT RUN; combine these three changed cases with other affected selectors in one safe executor pass. No build, test, device, review or application validation was performed by this writer."
+  },
+  "changedPaths": [
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/GameplayMergeVerificationTest.kt",
+    "androidApp/src/test/kotlin/org/asyncttwiz/android/LobbyStartTest.kt",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/preflight.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/retain-evidence.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/supplied-failures.json",
+    "docs/agent/implementation-runs/managed-20261023-write-fhost-android-replica-01/static.json"
+  ]
+}

@@ -59,12 +59,58 @@ class HistoryTextTest {
         val move = PlayAction.MoveCard(id(9), MoveSource(id(20)), MoveDestination(id(22), MoveInsertion.EMPTY))
         assertEquals("alice moved Velvet Prism Engine from hand to battlefield", format(move, before = before).description)
         assertEquals(HistoryText("alice tapped Velvet Prism Engine", "Tap"), format(PlayAction.SetTapped(id(9), true), before = before))
-        val covered = before.copy(board = before.board.copy(cards = before.board.cards.map { it.copy(covered = true) }))
+        val covered = before.copy(board = before.board.copy(cards = before.board.cards.map {
+            it.copy(containerId = id(22), covered = true, explicitlyCovered = true)
+        }))
         assertEquals("alice tapped a card", format(PlayAction.SetTapped(id(9), true), before = covered).description)
         // Metadata owner is alice, but the card is in bob's hand. It must not grant visibility.
         val opponent = before.copy(board = before.board.copy(cards = before.board.cards.map { it.copy(containerId = id(21)) }))
         assertEquals("alice tapped a card", format(PlayAction.SetTapped(id(9), true), before = opponent).description)
         assertEquals("alice inspected a card face", format(PlayAction.InspectFace(id(9), id(11), id(21)), before = opponent).description)
+    }
+
+    @Test fun publicZonesUseTheSameFaceUpRulesAsTheTableIncludingLegacyCoveredFlags() {
+        for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) {
+            for (holder in listOf(f.a, f.b)) {
+                val before = state.copy(board = state.board.copy(
+                    containers = state.board.containers + PlayContainer(id(80), zone, holder),
+                    cards = state.board.cards.map { it.copy(containerId = id(80), covered = true, explicitlyCovered = false) }))
+                assertEquals("bob tapped Velvet Prism Engine", format(PlayAction.SetTapped(id(9), true),
+                    before = before, author = f.b).description, "$zone / $holder")
+                val hidden = before.copy(board = before.board.copy(cards = before.board.cards.map { it.copy(explicitlyCovered = true) }))
+                assertEquals("bob tapped a card", format(PlayAction.SetTapped(id(9), true),
+                    before = hidden, author = f.b).description, "$zone face down")
+            }
+        }
+        // Default covered flags in one's own hand do not hide a face that the table displays.
+        val ownHand = state.copy(board = state.board.copy(cards = state.board.cards.map { it.copy(containerId = id(20)) }))
+        assertEquals("alice tapped Velvet Prism Engine", format(PlayAction.SetTapped(id(9), true), before = ownHand).description)
+        for (container in listOf(id(10), id(13), id(21))) {
+            val hidden = state.copy(board = state.board.copy(cards = state.board.cards.map {
+                it.copy(containerId = container, covered = false, explicitlyCovered = false)
+            }))
+            assertEquals("bob tapped a card", format(PlayAction.SetTapped(id(9), true), before = hidden, author = f.b).description)
+        }
+    }
+
+    @Test fun namesUseVisibilityBeforeOrAfterTheMutationButNotAHiddenFace() {
+        val hidden = state.copy(board = state.board.copy(cards = state.board.cards.map { it.copy(containerId = id(21)) }))
+        val move = PlayAction.MoveCard(id(9), MoveSource(id(21)), MoveDestination(id(23), MoveInsertion.EMPTY))
+        val movement = GameplayTransition(movement = GameplayMoveChange(id(9), CardLocation(id(21)), CardLocation(id(23))))
+        assertEquals("bob moved Velvet Prism Engine from hand to battlefield", format(move, movement, hidden, f.b).description)
+        val faceDown = movement.copy(fields = listOf(GameplayFieldChange(id(9), GameplayField.EXPLICITLY_COVERED, "false", "true")))
+        assertEquals("bob moved a card from hand to battlefield", format(move, faceDown, hidden, f.b).description)
+
+        val public = hidden.copy(board = hidden.board.copy(cards = hidden.board.cards.map { it.copy(containerId = id(23)) }))
+        val cover = GameplayTransition(fields = listOf(GameplayFieldChange(id(9), GameplayField.EXPLICITLY_COVERED, "false", "true")))
+        assertEquals("bob turned Velvet Prism Engine face down", format(PlayAction.SetCovered(id(9), true), cover, public, f.b).description)
+        val covered = public.copy(board = public.board.copy(cards = public.board.cards.map { it.copy(explicitlyCovered = true) }))
+        val uncover = GameplayTransition(fields = listOf(GameplayFieldChange(id(9), GameplayField.EXPLICITLY_COVERED, "true", "false")))
+        assertEquals("bob turned Velvet Prism Engine face up", format(PlayAction.SetCovered(id(9), false), uncover, covered, f.b).description)
+        val toHand = PlayAction.MoveCard(id(9), MoveSource(id(23)), MoveDestination(id(21), MoveInsertion.UNORDERED))
+        val returning = GameplayTransition(movement = GameplayMoveChange(id(9), CardLocation(id(23)), CardLocation(id(21))))
+        assertEquals("bob moved Velvet Prism Engine from battlefield to hand", format(toHand, returning, public, f.b).description)
+        assertEquals("bob moved a card from battlefield to hand", format(toHand, returning, covered, f.b).description)
     }
 
     @Test fun historicalTextUsesEventTimeBoardAndSurvivesLaterRevealsAndForks() {

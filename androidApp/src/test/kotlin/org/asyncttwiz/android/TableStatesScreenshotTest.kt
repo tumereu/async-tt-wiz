@@ -30,18 +30,23 @@ class TableStatesScreenshotTest {
     @OptIn(ExperimentalRoborazziApi::class)
     private fun render(kind: String, landscape: Boolean): List<PlayAction> {
         val tree = f.history()
-        val playback = f.playback(tree)
+        val sent = mutableListOf<PlayAction>()
+        val activations = mutableListOf<GameAction>()
+        val history = TableHistoryController(Executor { it.run() }, { it() }, { node, complete ->
+            val cursor = node ?: tree.currentNodeId
+            complete(DownloadedHistoryState(1L, cursor, state = tree.stateAt(cursor))); true
+        }, { action, _, _ -> sent += action; true }, { activations += it; true })
+        history.update(tree, "fixture", f.game, f.a)
+        val playback = history.playback!!
         val path = playback.tree.path(tree.currentNodeId)
         val review = kind.startsWith("history") || kind in listOf("continue", "continue-confirmation", "tree-viewer")
-        playback.scrub(when (kind) { "history-start" -> path.first(); "history-end" -> path.last(); else -> path[3] })
+        if (review) history.select(when (kind) { "history-start" -> path.first(); "history-end" -> path.last(); else -> path[3] })
+        history.displayPosition()
         if (kind == "history-playing") playback.play()
-        var armed by mutableStateOf(false)
-        var confirmation by mutableStateOf(false)
-        val sent = mutableListOf<PlayAction>()
         val current = { if (review) requireNotNull(tree.stateAt(playback.position.cursorId)) else f.combat() }
-        val toolkit = TableToolkitController(f.a, current, { !review || armed }, { action, _ -> sent += action; true })
+        val toolkit = TableToolkitController(f.a, current, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
+            { action, _ -> sent += action; true })
         if (kind == "combat") toolkit.selectionState.value = TableSelection(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), mode = TableMode.SELECT)
-        val activations = mutableListOf<GameAction>()
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, action -> activations += action; true })
         explorer.update(tree, openingNodeId = tree.nodes.values.first { it.requestId == f.id("request5") }.id)
         compose.setContent {
@@ -49,15 +54,23 @@ class TableStatesScreenshotTest {
                 if (kind in listOf("placeholder", "unavailable")) TableUnavailable(f.game.gameName, landscape,
                     loading = kind == "placeholder", navigation = {}, retry = {})
                 else {
-                    TableSurface(f.game, current(), f.a, landscape, Modifier.fillMaxSize(), connected = !review || armed,
-                        onIntent = toolkit::handle, toolkit = toolkit,
-                        runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}, tree = {}, undo = { true }, redo = { true },
-                            controlsConnected = true, reviewing = review && !armed,
-                            continueHere = if (review && !armed) ({ playback.pause(); confirmation = true }) else null,
-                            returnCurrent = if (review) ({ playback.play() }) else null,
-                            reviewPanel = if (review && !armed) ({ HistoryPlaybackPanel(playback, tree.currentNodeId, f.a, true, 60_000L,
-                                { confirmation = true }, overlay = true, landscape = landscape) }) else null))
-                    if (confirmation) HistoryContinueConfirmation(true, { confirmation = false }, { armed = true; confirmation = false })
+                    val reviewing = review && playback.position.mode == HistoryMode.PLAYBACK && history.armed == null
+                    LaunchedEffect(playback.position) { history.displayPosition() }
+                    Box(Modifier.fillMaxSize()) {
+                        TableSurface(f.game, current(), f.a, landscape, Modifier.fillMaxSize(), connected = !reviewing,
+                            onIntent = toolkit::handle, toolkit = toolkit,
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = { history.select(playback.position.cursorId) },
+                                tree = {}, undo = { true }, redo = { true },
+                                controlsConnected = true, reviewing = reviewing, continuationArmed = history.armed != null,
+                                continueHere = if (reviewing) ({ history.requestContinuation(playback.position.cursorId) }) else null,
+                                returnCurrent = if (review) history::current else null,
+                                reviewPanel = if (reviewing) ({ HistoryPlaybackPanel(playback, tree.currentNodeId, f.a, true, 60_000L,
+                                    { history.requestContinuation(it) }, overlay = true, landscape = landscape) }) else null))
+                        history.armed?.let { boundary -> HistoryArmedIndicator(playback.tree.texts.getValue(boundary).label,
+                            landscape, history::cancelContinuation) }
+                    }
+                    if (history.continuationTarget != null) HistoryContinueConfirmation(true,
+                        history::dismissContinuation, { history.confirmContinuation() })
                     if (kind == "tree-viewer") HistoryExplorer(explorer, true, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
                         false, {}, {}, { playback.scrub(it.currentNodeId) }, texts = playback.tree.texts)
                 }
@@ -71,6 +84,9 @@ class TableStatesScreenshotTest {
                     compose.onNodeWithText("Continue", substring = false).performClick()
                     compose.onNodeWithContentDescription("Interaction mode").assertExists()
                     compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+                    compose.onNodeWithContentDescription("History · continuation armed").assertIsDisplayed()
+                    compose.onNodeWithText("Continuing from Life · next action starts a new path").assertIsDisplayed()
+                    compose.onNodeWithText("Cancel", substring = false).assertIsDisplayed()
                 }
             }
             "stack-contents" -> {
@@ -106,6 +122,8 @@ class TableStatesScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun historyEndLandscape() { render("history-end", true) }
     @Test fun continuePortrait() { render("continue", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun continueLandscape() { render("continue", true) }
+    @Test fun cancelContinuationReturnsToLiveWithoutMutationPortrait() { cancelContinuation(false) }
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cancelContinuationReturnsToLiveWithoutMutationLandscape() { cancelContinuation(true) }
     @Test fun confirmationPortrait() { render("continue-confirmation", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun confirmationLandscape() { render("continue-confirmation", true) }
     @Test fun treePortrait() { render("tree-viewer", false) }
@@ -114,6 +132,22 @@ class TableStatesScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun loadingLandscape() { render("placeholder", true) }
     @Test fun unavailablePortrait() { render("unavailable", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun unavailableLandscape() { render("unavailable", true) }
+
+    private fun cancelContinuation(landscape: Boolean) {
+        val sent = render("continue", landscape)
+        compose.onNodeWithText("Cancel", substring = false).performClick()
+        compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("History · continuation armed").assertDoesNotExist()
+        compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Play", substring = false).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
+        // The latest live position has a hand card moved onto the battlefield, unlike the armed boundary.
+        val tree = f.history()
+        val live = tree.stateAt(tree.currentNodeId)!!
+        val battlefield = live.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == f.a }
+        compose.onNodeWithContentDescription("Alice Battlefield, ${battlefield.cards.size} cards").assertExists()
+        compose.runOnIdle { assertTrue(sent.isEmpty()) }
+    }
 
     @Test fun blankOpponentCounterOpensPlayerActionsWithoutMutation() {
         render("combat", false)

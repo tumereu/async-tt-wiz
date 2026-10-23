@@ -77,6 +77,27 @@ class TableHistoryControllerTest {
         }
     }
 
+    @Test fun cancellingArmedContinuationReturnsToLiveWithoutSendingRequests() {
+        for (viaReturnCurrent in listOf(false, true)) Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            val player = h.history.playback!!
+            val root = tree.initial.root.id
+            h.history.select(root); h.history.displayPosition()
+            h.reviews.removeFirst()(DownloadedHistoryState(1L, root, state = tree.initial))
+            assertTrue(h.history.requestContinuation(root))
+            assertTrue(h.history.confirmContinuation())
+            if (viaReturnCurrent) h.history.current() else h.history.cancelContinuation()
+            assertNull(h.history.armed)
+            assertNull(h.history.continuationTarget)
+            assertFalse(h.history.provisional)
+            assertEquals(tree.currentNodeId, player.position.cursorId)
+            assertEquals(HistoryMode.LIVE, player.position.mode)
+            assertFalse(player.position.playing)
+            assertEquals(1, player.tree.nodes.size)
+        }
+    }
+
     @Test fun publishedTimelineResolvesAuthorNamesWithoutExposingCoveredCards() {
         Harness().use { h ->
             val tree = f.tap(f.root())

@@ -251,6 +251,54 @@ class NormalAppControllerTest(unittest.TestCase):
         self.assertEqual(observed['apk'], self.expected)
         self.assertTrue(observed['storage']['readOnly'])
 
+    def test_unavailable_null_root_retains_errors_then_requires_fresh_valid_snapshot(self):
+        self.record()
+        remotes = []
+        missing = []
+        xml = ET.tostring(self.tree())
+
+        def command(args, **kwargs):
+            if 'uiautomator' in args:
+                remotes.append(args[-1])
+                return self.reply('ERROR: null root node returned by UiTestAutomationBridge.\n'
+                                  if len(remotes) == 1 else 'UI hierarchy dumped to: ' + args[-1] + '\n')
+            if 'cat' in args:
+                self.assertEqual(args[-1], remotes[-1])
+                if len(remotes) == 1:
+                    missing.append(('cat: ' + args[-1] + ': No such file or directory\n').encode())
+                kwargs['stdout'].write(missing[0] if len(remotes) == 1 else xml)
+                return subprocess.CompletedProcess(args, 0, stderr=b'')
+            if 'screencap' in args:
+                kwargs['stdout'].write(b'\x89PNG\r\n\x1a\n' + b'\0' * 4 + b'IHDR' +
+                                       struct.pack('>II', 720, 1280) + b'\0' * 100)
+                return subprocess.CompletedProcess(args, 0, stderr=b'')
+            self.assertEqual(args[-3:], ['rm', '-f', remotes[-1]])
+            return self.reply('')
+
+        with patch.object(d.socket, 'create_connection'), patch.object(a.subprocess, 'run', side_effect=command), \
+                patch.object(a, 'foreground', return_value=(True, {'pid': '123'})) as foreground, \
+                patch.object(a, 'storage', return_value={'readOnly': True}), \
+                patch.object(a.time, 'monotonic', side_effect=[0, 0, .1, .2, .3, .4]), patch.object(a.time, 'sleep'):
+            observed = a.observe(self.value, self.serial, self.root, 1)
+        self.assertEqual(len(remotes), 2)
+        self.assertNotEqual(*remotes)
+        self.assertEqual(foreground.call_count, 3)  # Both attempts and post-screenshot guard.
+        failed, fresh = self.root / 'hierarchy-1.xml', self.root / 'hierarchy-2.xml'
+        self.assertEqual(failed.read_bytes(), missing[0])
+        self.assertEqual(fresh.read_bytes(), xml)
+        self.assertEqual(observed['hierarchy'], {'path': str(fresh), 'sha256': a.sha(fresh)})
+        self.assertEqual(observed, json.loads((self.root / 'app-ready.json').read_text()))
+        commands = [json.loads(line) for line in (self.root / 'commands.jsonl').read_text().splitlines()]
+        self.assertEqual(commands[0]['output'], 'ERROR: null root node returned by UiTestAutomationBridge.\n')
+        self.assertEqual(commands[0]['exitCode'], 0)
+        self.assertEqual(commands[0]['command'][-3:], ['uiautomator', 'dump', remotes[0]])
+        self.assertEqual(commands[1]['command'][-3:], ['exec-out', 'cat', remotes[0]])
+        self.assertEqual(commands[1]['artifact'], str(failed))
+        self.assertEqual(commands[1]['bytes'], len(missing[0]))
+        self.assertEqual(commands[1]['sha256'], a.sha(failed))
+        self.assertEqual(commands[1]['exitCode'], 0)
+        self.assertEqual([entry['command'][-1] for entry in commands if 'rm' in entry['command']], remotes)
+
     def test_bad_screenshot_or_lost_foreground_never_publishes_ready(self):
         self.record()
         path = self.root / 'hierarchy.xml'

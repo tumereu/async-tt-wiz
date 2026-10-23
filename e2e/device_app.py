@@ -183,10 +183,18 @@ def hierarchy(value, serial, directory, index):
     remote = '/data/local/tmp/atw-' + secrets.token_hex(16) + '.xml'
     local = directory / ('hierarchy-' + str(index) + '.xml')
     try:
-        d.adb(value, '-s', serial, 'shell', 'uiautomator', 'dump', remote, timeout=30)
+        dump = d.adb(value, '-s', serial, 'shell', 'uiautomator', 'dump', remote, timeout=30)
         binary_adb(value, serial, local, 'exec-out', 'cat', remote)
+        data = local.read_bytes()
+        # API29 can report both failures with exit 0. Only this exact absent-file
+        # response paired with null-root output means no snapshot was produced.
+        # Keep the dump command/output and raw cat artifact, never synthesize XML
+        # or treat malformed bytes from an actual dump as transient unavailability.
+        if (dump.stdout.strip() == 'ERROR: null root node returned by UiTestAutomationBridge.' and
+                data == ('cat: ' + remote + ': No such file or directory\n').encode()):
+            return local, None
         try:
-            return local, ET.fromstring(local.read_bytes())
+            return local, ET.fromstring(data)
         except ET.ParseError:
             raise d.Refusal('Malformed native hierarchy; evidence retained') from None
     finally:
@@ -230,8 +238,15 @@ def observe(value, serial, directory, timeout):
         index += 1
         path, tree = hierarchy(value, serial, directory, index)
         is_foreground, activity = foreground(value, serial)
-        d.write_json(directory / 'observation.json', {'attempt': index, 'foreground': activity, 'visibleReady': visible(tree)})
-        if is_foreground and visible(tree):
+        is_visible = tree is not None and visible(tree)
+        d.write_json(directory / 'observation.json', {'attempt': index, 'foreground': activity,
+                     'hierarchyAvailable': tree is not None, 'visibleReady': is_visible})
+        # A missing root is not evidence of a product crash, but do not retry it
+        # if the normal app is no longer alive/resumed. Never relaunch to hide it.
+        d.require(tree is not None or is_foreground, 'Native UI root unavailable and production app not in foreground; evidence retained')
+        if time.monotonic() >= until:
+            break
+        if is_foreground and is_visible:
             image = directory / 'screen.png'
             binary_adb(value, serial, image, 'exec-out', 'screencap', '-p')
             data = image.read_bytes()
@@ -247,6 +262,7 @@ def observe(value, serial, directory, timeout):
                       'screenshot': {'path': str(image), 'sha256': sha(image), 'width': width, 'height': height},
                       'storage': storage(value, serial, directory),
                       'scope': 'Visible normal scaffold startup only; no backend, account, Appium scenario or instrumentation acceptance'}
+            d.require(time.monotonic() < until, 'Normal-app capture exceeded startup observation deadline; evidence retained')
             d.write_json(directory / 'observed.json', result)
             d.write_json(Path(value['directory']) / 'app-ready.json', result)
             return result

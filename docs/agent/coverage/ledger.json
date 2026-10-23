@@ -79,7 +79,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 115,
+        "line": 70,
         "sha256": "12bd5bdf76a0f4ca80eacf2696c6e3822968faee9b15e6cdc02c45323293ef5c",
         "outcome": "Establish reproducible Gradle modules, version locks and JVM21/API29→SDK36 builds; shared semantic/protocol boundaries, Spring image/config/health and PostgreSQL/Flyway/jOOQ generation; minimal SQLDelight storage/migration path. Add task-to-requirement/test coverage ledger and stable synthetic datasets/art. Provide exact commands, isolated Compose/Testcontainers ownership and a working measured one-device normal-APK/WSL/Windows/Appium path with affected storage tests and safe readiness/reset/evidence/cleanup. Reuse valid child qualification; no repeated broad clean builds or unchanged platform fault matrices for ancestor closure. D-307 moves pending I01f3 three-instance/cold-boot scaffold qualification to B8 before I34; full reproducibility/global checks remain final obligations, not prerequisites to account entry. Use/qualify configured test-only review paths; reviewers/verifiers cannot edit runtime/build inputs. D-305 permits evidenced driver/prompt repairs, not self-expanded grants. No production orchestration or alternate test app."
       }
@@ -96,7 +96,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 116,
+        "line": 71,
         "sha256": "6a4a2d0f45a17a9b98ff519c5541cb4a3d1bafa89eb2f562717dca6f726d7d3f",
         "outcome": "Implement register/login, persistent revocable tokens/Keystore, ordinary authorization and server account privacy; native A01/A02 forms/errors with consistent whitespace/Unicode passwords. Actual requests/storage, not a fake login or hard-coded user."
       }
@@ -112,7 +112,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 117,
+        "line": 72,
         "sha256": "9405fc52f0533f681863ac7fd83b0dc730bfb0f767ed008fd24e0b06eeee37b2",
         "outcome": "Implement N01/N02 authenticated shell and Menu/Games navigation, fixed Logout, portrait drawer/landscape persistent navigation and native Back/fullscreen/rotation behavior. Restore valid login/context; Logout clears local private work/downloads immediately and fences old-account callbacks. Account-owned data synchronizes, unfinished UI stays personal."
       }
@@ -128,7 +128,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 118,
+        "line": 73,
         "sha256": "0cc0269e2378b865beab13d9d1537ceebe498aed05edee83f8626abed0923fa8",
         "outcome": "Complete A03/A04 email reset/deep-link handling and synthetic mailbox adapter; successful reset revokes old sessions for **new** requests, invalid/expired links do not. Run normal-app registration/login/reset/logout/resume journeys through Kotlin/JUnit/Appium, including restart and a second account/device. No special ordering against already-authorized gameplay."
       }
@@ -145,7 +145,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 143,
+        "line": 96,
         "sha256": "f540a98d25bba201ca6f055af2605e2be007b29f2480692201d9b1fd063de8b7",
         "outcome": "Normal client catalog downloader, MTGJSON-compatible synthetic source, staged local records/cache and bounded nonblocking startup metadata check. Lazy printing/face art with text fallback and safe bounded downloads; provider adapters/configuration, not licensed bundled data or a mandatory backend art proxy."
       }
@@ -161,7 +161,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 144,
+        "line": 97,
         "sha256": "a194be619bda20a0dc9f880dd834495594541a1d5beec44df53f7098602bedb7",
         "outcome": "Common quantity/name/printing and mainboard/sideboard import parsing/resolution; preserved text and actionable line errors; D03/D04/D04b resolved preview and atomic named save. Unknown/ambiguous input cannot silently substitute/drop cards or overwrite a good deck."
       }
@@ -177,7 +177,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 145,
+        "line": 98,
         "sha256": "fddca89ce4ecf789c107f243fb93f771065eaa8d4d66b0ba7a727a3b090d664e",
         "outcome": "D01/D02/D05/D06/D08 collection/details/rename/in-deck cover/delete/full-art inspection, same-account synchronization, keyboard/long-list/rotation handling. No individual card-count deck editor, export, trash or invented cover upload."
       }
@@ -194,7 +194,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 146,
+        "line": 99,
         "sha256": "1cdf9932c5b675a43eca9926d83da5720a7c42f1b0a3a71d361140ae81572213",
         "outcome": "D07 contextual Overwrite(default)/additive Merge and ordinary complete-definition HTTP POST; immutable account-private content identities/validation and atomic attachment. Retry cannot double-Merge; conflicting claimed external names/IDs cannot rewrite another saved/game definition. Preserve these snapshots for later lobby copies and stale opponents."
       }
@@ -210,7 +210,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 162,
+        "line": 115,
         "sha256": "9547e6a7d5ed9d11676c2dce5aa58e9d06580a2f16f19ef0ffc9d8f6046c812f",
         "outcome": "P01/P02/P05 contacts/search/add and atomic named create+first invitation, generated name/reroll/select-all dialog, server creation date and retained game identity. Establish the real shared per-game ordering/durable request/outcome path here, reused and extended in I13, not temporary unguarded lifecycle writes. Recipient Accept/Decline and inviter Reinvite target the exact game; no mutual contact approval/presence gate."
       }
@@ -227,7 +227,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 163,
+        "line": 116,
         "sha256": "55277507ab2678300f4d9fc1bc4fafcd608ea9401f8357d3c7048199f5739f4b",
         "outcome": "L01–L04/L04b saved-deck picker with personal border draft/one bottom confirmation; immutable prepared copies and lobby-only sideboard. One/all tap+drag transfers, captured IDs, immediate requests, no double dispatch; fixed fading feedback and short disappearing-row transition, accessible alternatives. Establish accepted/predicted/UI separation for preparation, extended in I14 rather than a second authoritative local model."
       }
@@ -244,7 +244,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 164,
+        "line": 117,
         "sha256": "aa4d075f98681b7836e4d3bc245b984953bc16a6a28b4f12eab819bd506aeec7",
         "outcome": "Shared initial model/definitions/containers, starter/readiness/preparation-round and incarnation boundaries; both Ready start once with independently recorded shuffles, 20 life, turn-1 Untap and no opening draw. Render that real initial state on the production table surface, extended in I15/I16, not retired G00/a test-only screen. Implement shared seeded randomness/canonical ordering plus independent golden vectors, preserving normal later-game interfaces."
       }
@@ -260,7 +260,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 165,
+        "line": 118,
         "sha256": "5a09fab0857f35ff8229e6379da7a3f827f9b10f22bf4f808878fc537632508c",
         "outcome": "Complete lobby/list synchronization, own-only Ready clearing/withdrawal, acceptance after inviter preparation, leaving versus L06 Cancel, cancellation versus start and retained original outcomes. Produce real two-Android UI entry/import/invite/preparation/start journeys and selected-source edit/delete isolation."
       }
@@ -278,7 +278,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 181,
+        "line": 134,
         "sha256": "baaf990c0c2d809215cdcd8b32e473abeb51d6f35f8110f5b9396572e02a3735",
         "outcome": "Extend the shared initial model and durable request path with deterministic gameplay command/state/replay types and individual mutation records, relevant-state/unchanged-field definitions and server-created grouping foundation. Extend per-game durable admission/FIFO processing, dedup/outcomes/transactions/outbox and limited move/Stack guards. Start with ordinary moves/orientation/life and extend the same processor, not separate client/server implementations."
       }
@@ -295,7 +295,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 182,
+        "line": 135,
         "sha256": "c859a6ee871bd7f9b3aa6d7e0de5efe5114f262d503bb5d601ceac05bbf06a39",
         "outcome": "Extend preparation's accepted replica + volatile prediction + UI-only separation to gameplay; ordered multiple-in-flight requests, stable UUID references, original-outcome recovery, stream fencing, incremental updates and coherent complete current-tree baseline infrastructure. Server-first crash restart/no outgoing journal, late acceptance and difference-only rebase; low-level deterministic conflict/fault tests. No sequence-hole gates, offline gameplay or speculative-disclosure side channel."
       }
@@ -311,7 +311,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 183,
+        "line": 136,
         "sha256": "bb6fba0fdd9e631ebde57f2c9b9a825429a364250e9ecc816e183bb2d0d46a62",
         "outcome": "Production Canvas scene/layout with shared draw/hit/accessibility geometry: equal card/pile footprints and uniform zoom, owner borders, portrait/landscape docks/hands and compact overflow. One gesture coordinator for single-tap Actions/double-tap rotation/hold inspection, drag/selection/pan/pinch/cancel. Qualify actual normal-app Canvas targeting early, including animated bounds; focused component tests may supplement, not replace, UI acceptance."
       }
@@ -327,7 +327,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 184,
+        "line": 137,
         "sha256": "e566fde962a419f8a3c225d25781d1268ed6b5b7fbf6c2bfc8dae3bdf80d90c4",
         "outcome": "Wire G01/G03/G10/U01 basic table, ordinary piles and Library→Hand/board/special-zone moves, life actions, correct captured selection and connected/read-only behavior. Run both UIs with delayed acknowledgements, independent/same-card moves, disconnect/reconnect and process restart. Verify no old-ack rewind, double application, fake offline mutation or animation-gated sending."
       }
@@ -344,7 +344,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 204,
+        "line": 157,
         "sha256": "3a5261d7a26f20e69eb9afcc1e98391b70d1d167c71a0b18edefd7ca92db301a",
         "outcome": "G04/G06/G07/G13 direct packed card/player actions: corner strings/arithmetic/Set/Reset, all six counters, life, notes, owner, face/cover and permitted inspection. Retained current-state preview/menu lifetimes, absent-player blank versus zero/card-counter dash, input/keyboard, disclosure and assigned-hold-versus-name-tooltip arbitration."
       }
@@ -361,7 +361,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 205,
+        "line": 158,
         "sha256": "517e85ac141643afa60686553fc9b5abdc840c8aec2a83f6c6dd35f63cc69597",
         "outcome": "Complete ordered Library/contents controls: top/bottom/subsets, Draw N, View/Reveal fixed accepted references, shuffle and both captured-hand mulligan compositions. Retained face defaults, destination resets, ordinary partial outcomes and deterministic recorded random results; no refilling trays, target substitution or extra guessed exposure records."
       }
@@ -378,7 +378,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 206,
+        "line": 159,
         "sha256": "fc74446bde7ff1632a110ac42f772735be9409abea4c3895d8981bac0e59f42d",
         "outcome": "Catalog/Blank token creation, Clone-as-token, token disappearance and explicit token-only removal; persistent generic Link to card/player endpoints (including selection-to-endpoint), unique undirected pairs/repeated-Link no-op, Links-list removal and endpoint cleanup. Add native-UI/server/recovery/history tests for those links, separately from real-source relationships and event-scoped numbered Ping/Unping. Distinguish source identity/relationship highlight from actual selection/occurrence scope and preserve target binding across reflow/sync. No real-card Remove action."
       }
@@ -395,7 +395,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 207,
+        "line": 160,
         "sha256": "5daf85a3a36905b6f5bb4f5dbc38f980e412d37c875d0d90115953321684ef40",
         "outcome": "G08/G08b/G11/G12 turn/phase/step picker, life/player delta drags, standalone Table actions/die/coin and full quick-action catalog. Three contextual positions plus tap-Next/hold-End, panning overflow, ending-player fill and explicit alternatives. Release-only relative edits; no hold+tap dispatch, implicit untap/draw, priority, extra first-strike step or rules inference."
       }
@@ -412,7 +412,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 208,
+        "line": 161,
         "sha256": "0d3185a3751b4576877c35ddd09210feeb3e022cc86fd8e1b9dcdf99aae106a8",
         "outcome": "G02 combat paired slots/insertions/cleanup and real/effect Stack entries: live write-through, owner/source relationship, multiple independent effects, disappeared-token last-live snapshots, contextual destinations/removal and declared combined actions. Compact divider-only geometry at common card scale, complete contents/count badges and full non-quick constituent paths."
       }
@@ -430,7 +430,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 228,
+        "line": 181,
         "sha256": "eaf431e37849bd05a14d0547c7cd83bf78e7d7663d62fc0e2bb94e0e981f1e59",
         "outcome": "Complete automatic category/prefix grouping with all implemented tools, event-comment requests/composer/retained references, pings and deterministic representative-icon fixtures. H01/H02/H04/H05 exact-event centered timeline, group Previous/Next/play/pause and live/background catch-up. Net endpoint animation/retargeting, not waypoint queues; continuing sync and stable paused cursor."
       }
@@ -448,7 +448,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 229,
+        "line": 182,
         "sha256": "b6b78999008be6dcb1496162441fee5e88a2e9e8d609911776f81b655a91a9f7",
         "outcome": "Server-owned selective latest-own Undo and last-undone-first Redo, exact relevant transition and retained-successor checks/N, one mutation per press, shared same-account stacks and correct clearing. G03 explicit route and tap-Undo/hold-Redo arbitration; no skipped/revealing/fork-crossing targets or duplicate retries."
       }
@@ -465,7 +465,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 230,
+        "line": 183,
         "sha256": "5a2f470edc590fa1ba2558bc02dcd1002c730d945f8e53634b6e63c10156b8d7",
         "outcome": "H03 explicit historical intent, first-successful-mutation fork, retained alternatives and ordinary late acceptance. H06 compact pannable **group** tree, real fork junctions/internal current, local selection distinct from Make current and captured exact target stable through growth/reranking. Preserve exact-event access; representative icon is never the activation target."
       }
@@ -481,7 +481,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 231,
+        "line": 184,
         "sha256": "061a3af49ff4ab7b2cbf2d07fb440e414bcc617b6aec481be530ce0b2a866866",
         "outcome": "Existing hidden-path rules plus contract-defined branch archive/restore/return and metadata recovery through compact contextual/advanced routes, without restoring retired H07 or cluttering normal switching. Switching alone archives/deletes nothing; apply deliberate-switch Redo resets and no-op/retry distinctions. Resolve unpictured presentation from current patterns; a genuine behavior contradiction is a blocker, not license to remove the feature."
       }
@@ -498,7 +498,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 232,
+        "line": 185,
         "sha256": "54566f24a306c8703661a3c350e9756fa6b5090615a687bcb032291d69d5f6fe",
         "outcome": "Complete branched-tree automatic full download/coherent staging and incremental recovery, retained parent metadata/deleted-cursor ancestor fallback, rebuildable checkpoints and offline downloaded read-only review. Exercise a fresh third instance, paused review during edits, changed active path, service restart and pruned-delta full recovery. No lazy missing branches, history age expiry or finished-session archive."
       }
@@ -514,7 +514,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 252,
+        "line": 205,
         "sha256": "d6ce83818dcf0a8bf304b007fd89eff8e75439ca87c701bb63fef0ff0e91026f",
         "outcome": "G09 direct chat/composer/unread presentation and ordinary account/incarnation binding, clearly separated from I22's event-comment route. Game-wide chat is separate from selected history, viewing stays personal and offscreen messages are not read merely by opening. No sent-message editing/deletion/Undo/read receipts/presence. Integrate communication with B6's comment retention/Undo/grouping tests."
       }
@@ -530,7 +530,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 253,
+        "line": 206,
         "sha256": "d65bf679e62f1731f15e5577f814480342d26bf41d9c7e6e74e3706bc9d7a777",
         "outcome": "Table-action win/loss/draw suggestion and explicit other-player acceptance, strict singleton ending groups and final-board-before-dialog playback. Restore last prepared lobby copies, clear both Ready and start a fresh incarnation only after both ready again. Add necessary unpictured states using the established UI patterns, not a score archive or End-turn-as-end-game."
       }
@@ -546,7 +546,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 254,
+        "line": 207,
         "sha256": "301de979f1e1273d5b9ba0b749ab7f3880fd99714728c1cb065d42446ee4bdfe",
         "outcome": "P03/P04 active shared-game Delete with extra actor confirmation warning that the shared game is removed for both; no opponent consent/deletion vote. Retain captured incarnation and actual outcome/retry handling, distinct from setup cancellation and cooperative result acceptance. Either participant can delete; both lose shared access/listing. Test deletion while the opponent is absent as well as stale-confirmation/retry boundaries; no personal hide/trash or promise of instant physical erasure."
       }
@@ -563,7 +563,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 255,
+        "line": 208,
         "sha256": "30b25d613e29a61754b34257360705531e88e44d88f0e86bad1e136dc0aec581",
         "outcome": "Invitations/Game activity channels, synthetic notification deliveries, per-game coalescing, registered-installation routing and local foreground suppression. Working non-GMS best-effort polling and optional FCM adapter/configuration; OS permission/channel behavior and notification navigation. Sync works when neither notification route ran. No new settings/mutes/provider dependency."
       }
@@ -578,7 +578,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 256,
+        "line": 209,
         "sha256": "5796205433adaddd3ef2f378af28e1160b2ba4017f7d0fcd46d7e2beff8e06d5",
         "outcome": "Full integrated two-player/three-instance journeys across chat, end/start, list navigation, restart/relogin and notification/background return. Exercise ordinary overlapping lifecycle requests without retargeting or duplicate effects; finish previously pending cross-batch recovery/UI assertions for delivered B1–B7 capabilities. No production credentials or API-controlled opponent."
       }
@@ -594,7 +594,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 276,
+        "line": 229,
         "sha256": "1bcdb561651204256388e07abbbf408c5b339cf703ad62418a47da0b1586c662",
         "outcome": "Whole-game usability pass against F01–F88 and completed packet: both orientations, long lists/hands/Stack, keyboard/large text/cutouts, native Back, reachability/accessibility, tooltip/gesture arbitration and text/art failure. Finish unpictured zone menus, inspectors, result/error states from existing rules. Improve demonstrable real-use friction; no arbitrary decorative redesign or demand for mockup pixel identity."
       }
@@ -610,7 +610,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 277,
+        "line": 230,
         "sha256": "91c9040d1ed77b1256a179bd509536919d49312fec72fecacae249305b528d78",
         "outcome": "Measure realistic scene/core/server/sync workloads against the runtime profile: gesture recognition versus provisional response, frames/retargeting, image loading, large retained histories, bounded replay/backpressure and memory. Fix observed stalls/OOM/race effects. Keep emulator tooling timings separate from physical-phone frame evidence; do not silently relax budgets or add gameplay caps."
       }
@@ -628,7 +628,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 278,
+        "line": 231,
         "sha256": "3230424c0177797fe642fa39ac7238604a1570a938bc1c3c96c8d6cb203d9b59",
         "outcome": "Final full-suite qualification after functionality: complete requirement/test coverage and full-stack synthetic journeys, model/property/golden, real-PostgreSQL migrations/concurrency/fault, component/Canvas, normal-APK two-player/three-device, coherent full recovery and suite reset/isolation. Include deferred repeated foundation/reproducibility assertions and I01f3 (moved to B8 immediately before this task, with its original obligations retained). Run the full suite, preserve/fix actual failures and rerun affected tests. No automatic second full run after each fix or \"to be sure\"; broaden rechecks only when the repair credibly affects that scope. No skipped required checks, fake backend/action injection or unexplained unmapped current requirement; report the full run and subsequent affected rechecks accurately."
       }
@@ -645,7 +645,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 279,
+        "line": 232,
         "sha256": "4ce474c5c60f230faa6077dee3c9898040486548d68b9bb13cc65e35600632bd",
         "outcome": "Supported Android/API29/current/tablet/non-GMS and compatible mixed-version/upgrade qualification; stable test/release signing interfaces and versioned APK/hash/protocol metadata. Validate container/config/health/migration/shutdown/restart and amd64/arm64 application image interfaces, not production Compose/backups or a Pi-capacity promise. Keys remain external; install upgrades normally without wiping supported data."
       }
@@ -662,7 +662,7 @@
       "execution": "pending",
       "source": {
         "path": "docs/agent/implementation-plan.md",
-        "line": 280,
+        "line": 233,
         "sha256": "cfa7542415b09665837124c42bf1d35af810e708e80a15568d3d08b8367229a9",
         "outcome": "Reconcile final delivered scope, evidence, retained-data/erasure interfaces and documented limitations; prepare installation/test/operator-interface notes and release-readiness checklist. Prepare the complete final interface-to-mock comparison inventory and normal-app capture/journey evidence below for the independent B8 review. Record provider/art rights/attribution, release signing/host and unavailable reference-hardware checks as explicit external gates, never fabricated clearance. All actionable final-review issues get fix/targeted verification runs before completion."
       }

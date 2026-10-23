@@ -1,27 +1,12 @@
 # Implementation task plan
 
-Prepared 2026-10-21 under D-300/D-301, **after** the isolated environment tests and
-the UI agent's completed batch. **Implementation authorized under D-304:** see the
-[owner authorization record](implementation-authorization.md) and active state.
-The owner asked to treat the finished UI as good enough to implement, not perfect
-or frozen. D-304 supplies that implementation approval; it does not certify every defect absent,
-approve extra features or claim required app/device/release checks have passed.
-The later D-303 owner follow-up adds the explicit final interface-to-mock review
-and correction gate under B8.
-
-**D-307 — delivery-first scheduling/testing (2026-10-22):** follow the
-[execution policy and paused application procedure](delivery-first-execution.md).
-Minimize real time to complete R1: run/fix affected tests while implementing real
-user journeys; run the full suite at the end and fix its failures with affected
-rechecks. No repeated green clean builds/full suites/fault matrices at task or
-ancestor boundaries. Parent closure audits reusable child evidence and tests only
-uncovered affected integration. Older broad repetition wording in task/check
-records is superseded as an upfront/per-boundary gate, not deleted as a final
-obligation. See the [paused state migration/application record](delivery-first-application-2026-10-22.md).
-
-Read the [loop/review contract](implementation-loop.md),
-[progress record](implementation-state.json), [delivery gates](delivery-workflow.md)
-and [environment evidence](e2e-environment-smoke-2026-10-21.md) with this plan.
+Prepared 2026-10-21 after environment/UI preparation. **D-304 authorizes the entire
+R1**, not extra behavior or presumed verification. This plan owns task outcomes;
+the [canonical loop contract](implementation-loop.md) owns execution and reviews,
+[delivery-first policy](delivery-first-execution.md) owns affected-check/final-suite
+scheduling, and [state](implementation-state.json) owns current progress. D-309
+[managed orchestration](implementation-orchestrator.md) does not make the serial CLI
+a parallel runner. Historical evidence is lookup-only, not mandatory per-unit reading.
 
 ## Baseline and intended result
 
@@ -50,60 +35,30 @@ and [environment evidence](e2e-environment-smoke-2026-10-21.md) with this plan.
   correct mistakes, review/continue history and return to their prepared lobby.
   Android only, both orientations, no competitive/rules-referee machinery.
 
-Do not postpone all testing, usability or recovery until the final batch. Every
-task carries its own relevant tests and usable presentation. Later batches add
-capabilities; their explicit pending status is not a defect in an earlier batch.
-Once a capability is delivered, its ordinary failure/recovery behavior is part of
-that delivery, not permission to leave a crash/data-loss hole until final hardening.
-Use affected checks for that behavior, not exhaustive recertification of all
-previous capabilities. Broad compatibility, repeated clean/cold-boot matrices and
-global regression qualification belong to the final B8 phase. Speculative concerns
-without a credible harmful failure path are not new implementation blockers.
+Every task includes usable presentation and affected tests/recovery, not postponed
+crash/data-loss holes. Explicitly pending later capabilities are not earlier defects.
+Broad compatibility, clean/cold-boot matrices and global qualification belong to B8.
 
 ## Work-unit and dependency rules
 
-The IDs below are bounded implementation selections, not promises that each will
-fit a particular token budget. Follow listed order within a batch and finish its
-review/fixes before starting the next batch by default. Dependencies are the
-earlier listed tasks plus earlier reviewed batches, unless a safe independent
-lane is explicitly recorded when blocked.
+IDs are bounded outcomes, not token-budget promises. Default dependencies are earlier
+tasks/reviewed batches; explicit safe independent lanes may proceed when ready under
+the canonical selection/lease rules. Preserve due review/fix priorities.
 
-A fresh agent may split a task that is too large into stable child IDs such as
-`I14a/I14b`, with concrete outcomes, checks and dependencies, **before coding it**.
-Use a planning-only split unit first, leaving the parent in progress and children
-pending for subsequent fresh units; do not spend most of the wall-time budget
-coding an oversized task before deciding to split it.
-Keep the parent open until every child passes; inherit the same review batch and
-do not add reviews after each child. Splitting is technical planning, not a request
-for routine owner approval or permission to broaden scope. Do not call a whole
-multi-session feature complete because one internal layer was committed.
+Split only for useful bounded work: stable same-batch children with concrete outcome,
+checks and explicit dependencies; all children precede parent completion. Qualified
+D-309 allows decomposition plus ready first-child completion through ordered
+`implementationUnits`, and explicit evidenced `ancestorClosures` for true completed
+ancestry. Until supported, retain legacy planning-only splits/selected-parent closure.
+No qualification-only recursion or per-child independent reviews. Full group review
+coverage can span fresh bounded units; targeted verification cannot replace it.
 
-Under D-307, do not add recursive splits just to create qualification layers.
-Existing parents still have selected fresh closure units, but those units audit
-exact child evidence/current inputs and cover a missing integration seam only.
-An unchanged integrated path already exercised by children is not run again.
-
-Independent group reviews can likewise span bounded fresh units. Their state
-records retain the full original capability obligation, any planning-only review
-splits, completed leaf scopes with exact reviewed code commits, remaining scopes
-and evidenced blockers. A targeted fix/verification cannot replace missing first
-group review. Keep group boundaries; do not add independent review after each
-implementation child. See the [bounded review schema](implementation-agent.md#bounded-group-review-checkpoints).
-Implementation boundaries must complete an outcome, save a D-305 evidence-backed
-troubleshooting checkpoint, record an evidenced blocker or
-perform a planning-only split with concrete child `outcome`, `checks` and explicit
-`dependsOn`; repeated `in-progress` metadata updates are not saved work units.
-
-Each task starts by recording its exact P-/T-/F-IDs, contract sections and checks.
-The seeds below aid selection, not an exhaustive substitute for the primary
-contracts. I01 establishes complete coverage accounting for **P-001–P-072,
-T-001–T-715 and applicable F01–F88**, including explicit superseded/conditional/
-excluded dispositions. A test inherits its feature's scope; obsolete examples
-cannot reintroduce excluded authoring, offline actions or stronger reset races.
-Later findings extend coverage inside approved behavior, not invent new policy.
-Where a scenario spans several capabilities, record the completed assertions and
-remaining task dependencies separately; do not claim the full scenario passed
-until it actually runs end to end. Seed IDs do not pull later features forward.
+Record exact source P/T/F IDs, contract sections and actual checks. I01 owns coverage
+accounting for **P-001–P-072, T-001–T-715 and applicable F01–F88**, including explicit
+superseded/conditional/excluded dispositions. Assigned IDs are not executed assertions;
+cross-capability scenarios retain completed assertions and remaining owners separately
+until actual end-to-end execution. Seeds aid selection, not exhaustive scope or new
+policy; obsolete examples cannot restore excluded features/stronger reset races.
 
 ## B1 — Install, enter and resume the normal app
 
@@ -119,12 +74,10 @@ real containerized backend for ordinary account entry/navigation/recovery.
 
 **Sources:** accounts/decks/lobby, Android experience, auth, runtime/test architecture.
 
-**D-307 foundation handoff:** the [paused state migration](delivery-first-application-2026-10-22.md)
-is applied. Keep I01f2's actual one-device Appium/storage checks, then close
-ancestors through evidence reconciliation and proceed to I02. Set up further
-devices when a real delivered feature needs them (second-device account/reset at
-I04, two players at I12, third-instance recovery at I26/I31), rather than requiring
-repeated three-device scaffold runs first.
+**Foundation scheduling:** [D-307 migration](delivery-first-application-2026-10-22.md)
+is applied; do not replay it. Use actual state, evidence-reconciliation closures and
+additional devices when needed: I04 second-device reset, I12 two players, I26/I31
+third-instance recovery; I01f3 remains final B8, not repeated upfront qualification.
 
 **Seeds:** P-001/P-043/P-047/P-059/P-065/P-066; T-396/T-397/T-419–T-422,
 T-543/T-572/T-573/T-621/T-656/T-657/T-666/T-676/T-677.
@@ -353,29 +306,11 @@ production data, deploy, or work in the separate operations repository. Distingu
 implemented software, verified software and externally releasable software in the
 final report; do not label the whole project done with concealed remaining gates.
 
-Execution prerequisites and remaining qualification:
-
-- **Owner authorization is now recorded — D-304.** Proceed with stage-4 work
-  against this plan; do not request routine per-task or repeated implementation
-  approval. Earlier stage-prohibition wording is superseded by the owner record.
-- Use the separately authorized [thin driver](implementation-runner.md) and inspect
-  its qualification/per-session permissions within approved boundaries. D-302
-  pins `openai/gpt-6.1-sol#high`; supply explicit session-count/wall-time budgets.
-  Tooling approval alone would not authorize I01; D-304 now separately does.
-- Recheck toolchain/device preflight from the measured topology; qualify the
-  **normal app/backend** in B1/B4 instead of claiming the browser fixture passed it.
-- Inventory physical-phone/current-Android/tablet/non-GMS access, upgrade signing
-  and amd64/arm64 test capacity now. Record unavailable resources and independent
-  work, not a fabricated pass or a surprise late-B8 prerequisite. Exercise intended
-  bootstrap/build/test/device adapter commands under the actual per-session
-  permissions; do not infer permission-profile qualification from a separate smoke.
-- Current activation/stage wording follows D-304's explicit authorization. The
-  runner's `complete` additionally requires the recorded external release gates;
-  if software is implemented but required verification or external readiness is
-  blocked, report those dimensions separately and stop honestly, without waiving
-  hardware/rights/signing/operator prerequisites or self-authorizing new resources.
-- Establish the per-task run/evidence records and concrete commands in I01. Exact
-  build commands cannot truthfully be reported as existing before builds exist.
-
-Implementation approval now comes from D-304, not from the plan's existence or
-environment smokes. It does not waive checks, broaden scope or claim perfection.
+Execution uses the [serial operations](implementation-runner.md) or qualified
+[managed lanes](implementation-orchestrator.md), not both. Qualify actual normal-app/
+backend/device commands under existing grants; fixture smokes do not qualify product
+acceptance. Inventory physical phone/current Android/tablet/non-GMS, upgrade signing
+and amd64/arm64 capacity early; retain unavailable checks and continue independent
+work. Per-task reports record actual commands/results, not presumed passes. The loop's
+`complete` additionally requires recorded external gates; no self-authorized resources
+or routine repeat implementation-approval questions.

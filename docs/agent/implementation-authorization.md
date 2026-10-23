@@ -74,6 +74,9 @@ Explicit owner stop requests and chosen session/time budgets still govern execut
 
 ## Supervised unattended execution — D-306
 
+Historical invocation size/timeout below are superseded by D-308/D-309; the original
+total ceiling and continuation/safety assignment remain.
+
 The owner explicitly requests repair of the planning-validation halt, then repeated
 blocking driver invocations with **3,000 sessions and 1,209,600 seconds per session**
 (two weeks), with no shell-tool timeout. When an invocation exits, the supervising
@@ -115,3 +118,28 @@ The owner subsequently confirmed implementation stopped and requested applying
 the change. See the [paused application/recovery record](delivery-first-application-2026-10-22.md):
 newer saved implementation is preserved, pending qualification is rescheduled,
 affected harness oracles are corrected and the stop flag remains set for owner resume.
+
+## Managed flow improvements and shorter instructions — D-309
+
+Recorded 2026-10-23 from the owner's requests in the current conversation, relayed
+in this documentation subagent's task: all discussed implementation-flow improvements,
+including parallelization instructions, are authorized; active agent instructions
+must be **net shorter**, removing redundancy. This is process authority, not new
+product behavior or a claim of implemented/active parallel tooling.
+
+The owner permits orchestrator-managed two isolated implement workers plus an
+independent review lane, separate branches/worktrees, explicit file/contract/resource
+leases and dependency-aware readiness, with one integration/authoritative-state
+writer. The [orchestrator guide](implementation-orchestrator.md) and canonical
+[loop contract](implementation-loop.md) replace duplicated execution prose. D-309
+also permits qualified same-session decomposition/first-child completion and explicit
+evidenced ancestor closure; no unrelated advancement, role/gate bypass or archived
+report rewrite. Shared evidence tooling is planned, not supplied by these docs.
+
+Preserve exact high model/no fallback, original remaining 3,000-session budget across
+all roles, at most five launches before idle supervision assessment, 86,400 seconds
+maximum per session, stop drain/preserved work, scoped grants, safe saves, independent
+reviews/fresh fix verification, integrated seam tests and final acceptance/release
+gates. No old parallel loop, autonomous parallel daemon or live-state migration from
+preparation is authorized. Adopt only after owning controllers/workers pause and
+dispatch/validator changes qualify; otherwise use the existing serial CLI.

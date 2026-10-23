@@ -1,380 +1,215 @@
 # Fresh-session implementation loop and behavioral review contract
 
-Owner direction D-300/D-303/D-304; prepared under D-301 and executable driver work D-302.
-**Product implementation is authorized by [D-304](implementation-authorization.md).** Read
-the [task plan](implementation-plan.md), [state record](implementation-state.json)
-and [delivery authorization gates](delivery-workflow.md) before any execution.
-
-**Delivery-first execution — D-307:** [current testing/scheduling policy](delivery-first-execution.md).
-Minimize elapsed time to deliver R1: implement real capabilities, run/fix affected
-checks, save and continue. Full-suite qualification is at the end, not an automatic
-per-session/parent/review ritual. Reuse valid child evidence; ancestor closure runs
-an evidence audit and only missing affected integration checks. This supersedes
-older broad repetition wording. Keep independent capability reviews, fresh targeted
-fix verification, security/data integrity, truthful evidence and release gates.
+Canonical execution contract, D-300–D-309. D-304 authorizes the entire agreed R1;
+[authorization](implementation-authorization.md) and [decisions](decisions.md) retain
+provenance. Product behavior belongs to the [design contracts](../README.md), task
+outcomes to the [plan](implementation-plan.md), current progress to
+[state](implementation-state.json). Read only relevant sources per unit, not history.
 
 ## Operating brief for every session
 
-> A casual, cooperative game simulator—not a mission-critical service or a
-> competitive game. Optimize for usable, responsive and reliable actual play.
-> Implement the agreed behavior simply. Do not invent machinery for speculative
-> guarantees, inferred card rules, competitive secrecy or arbitrary event mixtures.
-
-Preserve baseline account security/privacy, server authority and accepted-state
-integrity. The casual framing is **not** permission to ignore agreed outcomes,
-silently drop work, weaken tests, hide failures or omit difficult in-scope tools.
-Apply existing simplifications: server-first restart can lose unadmitted local
-work; ordinary FIFO/arrival order; revealing predictions reconcile normally;
-authorized in-flight work can finish after reset/Logout; complete definition
-metadata uses ordinary HTTP. Do not resurrect superseded guarantees as findings.
-
-The UI packet is an initial practical baseline, not perfect/frozen art. Fix clear
-reachability/readability/gesture problems within agreed constraints. Unpictured
-states use the established patterns and actual contracts. Product-policy changes
-or genuine contradictory outcomes still need the owner; ordinary technical/layout
-completion does not need a new approval checkpoint. UI-document edits continue to
-require cumulative feedback and full same-URL publication under AGENTS.md.
+Deliver a usable, responsive casual cooperative simulator, not a competitive or
+mission-critical service. Preserve agreed outcomes, account security/privacy,
+server authority and accepted-state integrity. Do not invent card rules, speculative
+hardening, style blockers or superseded reset/message-order guarantees. Ordinary
+FIFO, server-first restart losing unadmitted local work, normal prediction rebase,
+authorized in-flight work finishing after reset/Logout and ordinary definition HTTP
+remain accepted. UI is a practical baseline, not frozen art; genuine product-policy
+contradictions require the owner, technical/layout completion does not.
 
 ## One fresh agent per bounded unit
 
-The outer runner is a small process, not an AI manager or a parallel-agent swarm.
-It starts one fresh session, waits for its outcome, verifies the handoff/save
-boundary and starts the next. Each session independently reads Git, the plan,
-authorization, task/evidence state and current findings, then selects **one** mode:
+Each implement/review/fix/verify unit uses a fresh session, exact
+**`openai/gpt-6.1-sol#high`** verified in actual metadata, and saves/exits before its
+successor. No fallback or unit-spawned agents. The existing CLI is serial;
+[D-309 managed lanes](implementation-orchestrator.md) permit two isolated implement
+workers plus an independent review lane, with one integration/state writer. Do not
+run the old loop alongside them. No tool/grant/model changes are implied.
 
-| Priority | Selection |
-| --- | --- |
-| 0 | No explicit implementation authorization, stop requested, unrelated dirty/index state or unsafe workspace? Do not code. Reconcile safe known interrupted owned work only from its recorded provenance; never reset/discard it. |
-| 1 | A due fix-verification or actionable review issue has its dependencies available? Verify/fix a bounded related set before new scope. A fix must be verified against the actual finding and relevant regression checks. |
-| 2 | A batch's tasks/children and relevant tests are complete and its scoped review is due (first review or an explicitly reopened affected capability)? Review that integrated batch now. |
-| 3 | Otherwise select the earliest ready pending implementation task/child. Complete it and its checks; no independent review after every task. |
-| 4 | If blocked, record evidence and select safe independent approved work where it exists. No runnable work but unmet criteria means blocked, **not complete**. Completion requires the plan's actual completion criteria. |
-
-D-307 prioritizes common delivered user journeys over speculative fault/tooling
-work inside those selections. Rare required assertions deferred to final
-qualification keep explicit ownership; they do not become false passes. Apply
-the policy's scheduling corrections outside an active unit. The
-[one-time paused application](delivery-first-application-2026-10-22.md) retains
-I01f3 as final B8 work; do not restore it as a gate to account implementation.
-
-Every selection records why it outranks the alternatives. Initially follow the
-listed batch/task order; do not repeatedly implement new features to avoid a due
-review or fix. A new genuine critical defect may interrupt a batch immediately;
-this is not a routine per-task review policy.
-
-Do not split merely to add more qualification layers. For already split tasks,
-the selected parent reconciles exact child evidence and the integrated outcome;
-it does not automatically rerun the children's clean builds or failure matrices.
-Use a real, small run-owned audit as its required check, with affected integration
-tests only where evidence or changed relevant inputs show a gap. Do not advance
-unselected ancestors or copy old check output as a new execution.
-
-`reviewedCommit` anchors what was checked; **do not compare it with every new HEAD
-and automatically rereview**. A report-only commit or an unrelated later task does
-not invalidate a completed batch review. Relevant behavior/integration changes
-record the affected scope and targeted rechecks; only a materially changed
-capability reopens that scoped review. Verified fixes can close the findings/batch
-without another full audit.
-
-Before mutating anything, identify the exact starting commit, owned paths, task/
-batch/mode, scope/tests and any child split. Fresh sessions inherit repository
-records, not assumptions from a previous context window. There is one writer;
-do not start another implementation/reviewer session until the previous one exits.
+Selection: safe ownership/authorization/stop preflight → due verification/actionable
+fix → due complete capability review → earliest ready implementation. Honor explicit
+dependencies, inherited prerequisites and recorded independent lanes; do not evade
+due reviews/fixes by repeatedly starting features. Independent work may proceed
+around evidenced blockers. No ready work with unmet criteria means blocked, not done.
+Record a brief selection reason and owned paths/start commit before editing.
 
 ### Implement
 
-Read current contracts and the task's exact P/T/F IDs, complete necessary technical
-details, implement and write/run relevant executable tests in that unit. Record
-code/test traceability, limitations and the next state. The full regression suite
-is reserved for final qualification, not routine tasks or batch closure. Focused
-affected tests/builds are mandatory; a cross-cutting change expands that scope only
-where its impact warrants it. Run the delivered journey and affected integration
-checks, fix actual failures and continue once green. No extra clean/cache-disabled
-build or passing journey repeat just for confidence or because a fresh agent starts.
-Do not defer all verification to reviewers or mark unexecuted checks passing.
+Complete a bounded real outcome with its affected tests and source P/T/F IDs. Record
+executed assertions separately from assigned/deferred requirements. Delivery-first
+[test policy](delivery-first-execution.md) governs scope: incremental affected checks,
+not repeated green broad qualification. Carry deferred assertions to a named final
+owner. A boundary needs an implemented outcome, evidenced blocker, concrete split
+or evidence-backed troubleshooting advance; note churn is not progress.
+
+New children have stable IDs, one parent, the same batch, concrete `outcome`, nonempty
+`checks` and explicit `dependsOn`; preserve existing children/obligations. Planning-only
+splits remain supported. **Qualified D-309 extension:** `implementationUnits` is an
+ordered list beginning with the selected parent, then only its direct/new descendant
+task IDs. A planning child can advance only when listed and ready at that step, with
+its own source/test evidence. This permits decomposition plus first-child completion
+without an empty extra session, not unrelated task completion or self-review.
+
+`ancestorClosures: [{"id": "parent", "reason": "integration outcome", "evidence": "run-owned check"}]`
+may close only true ancestors of implemented work, all children done, with a passing
+**current-run required check for each parent's scoped outcome**. Reuse exact child
+records/input identities; test missing seams, not full recertification. Status alone
+is not proof and old output is not a new run. These extensions require qualified
+validator support before use; otherwise retain selected-parent-only legacy closure.
 
 ### Review a group
 
-Use fresh review sessions after a coherent B1–B8 group, not after each file/task/
-commit or arbitrary count of commits. A group may have bounded review checkpoints
-with retained scope/commit anchors; it need not fit one invocation. The reviewer may run tests, inspect code,
-exercise UI and add focused regression evidence. Do not let the same session
-implement the batch and then declare its own independent review complete.
+Independently review each complete B1–B8 capability and its integrated journeys, not
+each task/file/commit. Prioritize normal play, then credible crashes, data loss or
+duplication, broken recovery, responsiveness, unreachable/confusing UI and harmful
+races. Each actionable finding needs stable ID/batch/code anchor, current expected
+behavior, reproducible or precise code/test evidence, credible trigger/player harm
+and a checkable correction/regression. Label un-reproduced evidenced risks honestly.
+No quotas, speculative enterprise/anti-cheat guarantees or purely decorative blockers.
 
-Review the **delivered scope and its integration**, acknowledging explicitly
-pending later features. Inspect normal workflows first, then credible risks that
-would disrupt them: crashes, accepted-state loss/duplication, broken recovery,
-responsiveness/performance, confusing/unreachable UI and harmful concurrent edits.
-Source inspection supports behavioral evidence, not a style scorecard.
+Dispositions: `actionable`, `nonblocking-polish`, `not-a-defect`, `duplicate`,
+`blocked-owner/environment`; retain sources and rationale. Required behavior is not
+optional polish. Noncritical findings may have an explicit final I34/I36 or owner-
+review destination; do not hide them or turn unexecuted assertions into passes.
 
-Every actionable finding needs:
-
-1. Stable ID, batch and exact reviewed commit/range.
-2. Current requirement/expected behavior, not an obsolete proposal.
-3. Reproduction or precise code/test evidence and a credible trigger.
-4. Observable consequence for a player and why it merits fixing now.
-5. A checkable correction outcome and relevant regression test.
-
-Clearly label evidence-backed, not-yet-reproduced risks as such. An unlikely crash
-or destructive race can matter; frequency alone does not dismiss severity. But
-mere possibility of a different ordering is not a bug without a harmful outcome
-contrary to current requirements. Do not require reproduction of every theoretical
-interleaving or add protocol guarantees merely because they could be imagined.
-
-**Do not file blockers for:** arbitrary style/naming preferences, speculative
-abstractions or new decorative preferences (distinct from D-303's explicit final
-interface-to-mock discrepancies), enterprise availability guarantees,
-competitive anti-cheat/secrecy, or contrived message/reset combinations already
-allowed by D-289. Example: an authorized message finishing after successful reset
-is allowed; a new request using a revoked credential, a cross-account disclosure
-or a duplicated accepted move is a real defect.
-
-Disposition is `actionable`, `nonblocking-polish`, `not-a-defect`, `duplicate`, or
-`blocked-owner/environment`, with rationale. Nonblocking polish must still have a
-real user benefit; it is not a compulsory new backlog or permission to leave an
-approved functional requirement broken. No review quota/minimum finding count.
-A clean review may close the batch without inventing another round of questions.
-
-Each batch's `review.units` retains the complete capability obligation. A review
-planning unit may split a pending obligation into bounded children without removing
-or narrowing its original scope. Subsequent fresh review units add checked leaf IDs
-to `review.completed`, anchored individually to the actual starting commit, and
-retain the remaining scopes. This is one coherent group review across fresh units,
-not independent review after every implementation child. Checks/findings stay in
-the corresponding reports. Blocked review scopes retain evidence separately; they
-are not completion, and other ready review scopes/independent batches may continue.
-
-Only complete independent coverage can close the group. An implementation-time
-critical finding and its targeted fix/verification **never replace the first group
-review**, even if all implementation tasks are now done. A material behavior change
-records explicit affected-scope invalidation/rechecks; report-only/unrelated commits
-do not erase completed coverage. See the [unit record schema](implementation-agent.md#bounded-group-review-checkpoints).
-
-The final B8 review additionally performs the task plan's
-[complete interface-to-mock comparison](implementation-plan.md#final-interface-to-mock-review--required-b8-completion-gate):
-all current mocked states/orientations and implemented unpictured interfaces, not
-just a representative usability sample. Record discrepancies for repair and fresh
-targeted visual/interaction verification. The comparison inventory and all required
-corrections must be complete before B8 closes; I32's earlier pass does not replace it.
+`review.units` retains the complete capability scope; a planning-only review may add
+bounded children without narrowing/removing it. Fresh reviewers add checked leaf IDs
+to `review.completed` at this run's `startCommit`, reported in `reviewedUnitIds`.
+`blockedReviewUnitIds` records unavailable scopes in `review.blocked[id]` with reason
+and current check evidence; blocked scopes remain incomplete. Complete independent
+coverage plus resolved findings is required for `reviewed`; targeted verification
+never substitutes for missing first review. Only material behavior/integration
+changes invalidate affected coverage—not unrelated/report commits or HEAD movement.
+Final B8 performs the plan's [complete interface-to-mock gate](implementation-plan.md#final-interface-to-mock-review--required-b8-completion-gate),
+including all current orientations/unpictured interfaces and fresh discrepancy fixes.
 
 ### Fix and verify
 
-The fixing session reproduces/understands a finding, makes the smallest coherent
-repair, adds a regression and runs relevant checks. Record `fixed-awaiting-check`,
-not silently `verified`. A subsequent fresh verification session checks that
-bounded finding set and affected behavior, then closes it or records remaining
-evidence. It does **not** restart a full unconstrained audit after every fix.
+Fresh fix sessions reproduce/understand findings, repair coherently and run affected
+regressions; set `fixed-awaiting-check`, never self-verify/waive as polish. A separate
+fresh verifier checks the attempted subset and affected behavior, then verifies,
+reopens or explicitly disposes of each; no unconstrained new full audit.
+Review/verify cannot edit product source, runtime resources or build/config inputs.
+Only current report/checks, serial state and approved test-only paths may change;
+managed review proposes state updates instead. Check-only helpers use exact
+`supportPaths` in the run namespace. Shell/scripts must not bypass role boundaries.
+Failed fixes return to fresh fix sessions. Even suspected false findings use an
+evidence-only fix handoff, then independent verifier disposition. Retain rejected
+findings; reopen only on new evidence/material change.
 
-A review/verification session must not change product source, runtime resources or
-build/configuration inputs and certify that change itself. Its edit permissions
-are narrowed to state/current report outputs and approved test-only paths, and its
-actual committed diff is checked. Failed fixes return to a fixing unit; focused
-regression tests may be added without product repairs. Shell/script execution is
-not an OS sandbox and must not bypass this boundary.
-A fix can be combined with closely related fixes in one run.
-Preserve rejected/withdrawn/duplicate findings and their sources so later sessions
-do not resurrect them. Reopen only on new evidence or a relevant behavior change.
-No arbitrary number of rounds can waive a real defect; repeated no-progress
-rounds stop/escalate instead of creating an endless review/fix carousel.
+Only attempted fixes consume attempts; counts survive awaiting-check/reopening.
+After two unsuccessful fixes under one diagnosis, stop for diagnosis/repair; the
+second fix receives fresh verification first. A genuinely new diagnosis needs
+`diagnosisEvidence` referencing actual retained check output, not cosmetic edits.
+This guard never waives a defect; troubleshooting checkpoints do not spend attempts.
 
-## Durable records
+## Durable records and transitions
 
-`implementation-state.json` is the small status/selection record; the task plan
-owns task scope, and product contracts own behavior. It initially started in `draft`;
-D-304 now records `mode: active`, `authorization: authorized` and the owner record.
-All application tasks remain pending until actual implementation units run.
+Use the [compact report](implementation-agent.md#report): supplied identity/selection,
+summary/reason, actual commands/exits/evidence and exact `changedPaths`. Retain reports
+and diagnostics byte-for-byte in Git under `docs/agent/implementation-runs/<runId>/...`
+or `<runId>-...`; no rewriting archived reports, ignored-output substitutes or secrets.
+Small truthful reports suffice; no bespoke audit-size requirement. Prefer the shared
+capture helper; use future evidence tooling only after its CLI is qualified.
 
-During authorized execution, each run adds a durable report under the
-`docs/agent/implementation-runs/` directory and references it from state. Record:
+Tasks: `pending → in-progress → implemented` or evidenced `blocked` (`blocker` and
+`blockerEvidence`). Implemented means scoped outcome/affected checks, not global
+qualification. Findings: `open → fixed-awaiting-check → verified`, or explicit
+withdrawn/duplicate/blocked with rationale. New findings start unfixed. `findingIds`
+lists only attempted supplied fix/verify IDs or the review's findings;
+`newFindingIds` declares other new discoveries, including critical implementation bugs.
 
-- Run ID/session ID, mode, task/child or batch, starting commit and owned paths.
-- Source requirement/test IDs and concrete expected outcome.
-- Commands run, actual exit/results and retained evidence locations; skipped/
-  unavailable checks with reasons are distinct from passes.
-- New/updated findings and their dispositions, or an explicit no-findings result.
-- Changed paths, next status and remaining dependencies/blockers.
+Batch state is derived: awaiting-check issue → `fixes-awaiting-check`; other unresolved
+actionable/owner-environment issues → `changes-requested`; otherwise incomplete work
+→ `pending`; implemented with incomplete review → `ready-for-review`; only complete
+independent coverage/resolved issues → `reviewed`. Anchor `reviewedCommit` to actual
+review/verification starting code. A verified early critical fix cannot skip review.
 
-Tasks use `pending → in-progress → implemented` (or `blocked`); `implemented`
-means the current scoped task outcome and affected checks passed, not independently
-reviewed or globally qualified. D-307 deferrals retain their final owning tasks;
-unperformed required assertions are not silently included in an implemented claim.
-A batch uses
-`pending → ready-for-review → changes-requested/fixes-awaiting-check → reviewed`.
-Issue records retain `open → fixed-awaiting-check → verified`, plus explicit
-withdrawal/duplicate/blocked dispositions. The state may add child IDs before
-execution; the same approved parent/batch/coverage obligations remain.
+Optional explained arrays contain unique `{id, reason}` unless specified:
 
-The driver checks **transitions**, not just status names. Implementation cannot
-review its own batch; a fix cannot verify or waive its own finding. Splitting is
-a planning-only unit leaving the parent in progress and new same-batch children
-pending for fresh units. A completed parent requires all its children implemented.
-Only attempted finding subsets may change during fix/verify. Necessary independent-
-lane/blocker bookkeeping and material review/finding reopenings use the explicit
-explained arrays in [the unit report contract](implementation-agent.md), never
-unreported advancement of unrelated tasks or reviews. A critical finding discovered
-inside an implementation unit is explicitly reported and prioritized normally.
-An early critical fix's clean verification returns an incomplete batch to pending;
-a complete batch with missing review coverage becomes ready-for-review, not reviewed.
-Each implementation boundary needs a completed outcome, D-305 evidence-backed
-troubleshooting checkpoint, evidenced blocker or real
-planning-only child split; changing notes on an in-progress task is not progress.
-A blocked selection may save explained planning/unblocking that makes independent
-approved work runnable, but must exit before that work starts in a fresh unit.
-Final clean review/verification anchors the starting code
-commit that the fresh reviewer/verifier actually inspected.
+- `taskAdjustments`: bounded dependency/independent-lane or block/unblock bookkeeping;
+  no unrelated completion, removed children or reassigned batches.
+- `reopenedBatches`: material affected review reopening; preserve old code anchor.
+- `reopenedFindings`: new evidence reopening retained closed/blocked IDs as `open`.
+- `reviewInvalidations`: `{id: batch, unitIds: [checked leaf IDs], reason}` removes
+  exactly affected completed coverage; previously reviewed batches also reopen.
+- `reviewUnblocks`: same shape plus current availability-check `evidence`; removes
+  exactly those blocked IDs, not marking them checked.
 
-The report/state changes are saved with the unit. A commit cannot truthfully
-contain its own hash: the runner records the resulting commit and push confirmation
-in its external run journal after save, and the next session can reconcile them
-with Git/report paths. Before the next launch verify that report/state is in the
-resulting commit, the working tree/index is safe and the configured upstream
-contains that commit. A final assistant sentence/zero process exit alone is not
-evidence of completion or a successful push.
-Every report/check-output reference must exist byte-for-byte in that commit;
-local ignored build output is not a durable check record.
-Review/verification/planning check outputs belong to that run's report prefix;
-runtime files or older reports cannot masquerade as newly owned check output.
-The required external release-gate inventory is retained: operator gates cannot
-be waived by an active agent. Only an explicitly task-owned gate may be passed by
-its exact completed owning task with retained passing evidence and a gate-update
-report. Every resolved gate retains its authority/evidence record.
+Serial units append exactly this report to `runs`, leave `activeRun` null and preserve
+authorization/owner record/runner/permission controls. Only selected role/target may
+advance, except explicit validated D-309 work/closures and explained bookkeeping.
+Blocked mode is planning/unblocking only: save/exit before newly runnable product
+work. Managed workers leave authoritative state untouched; the integrator validates
+proposals against current state, never replaces it with a worker snapshot.
+
+`progress` needs real state/work/evidence advance; a scoped blocker with independent
+work remaining is progress. `blocked` means no safe runnable work; `failed` is an
+unresolved unsafe handoff. `complete` requires every task/review/finding/applicable
+check/release gate satisfied. Budget exhaustion or a successful CLI exit is not done.
 
 ## Runner lifecycle and stop rules
 
-**Current invocation policy — D-308:** the owner has explicitly resumed under D-307.
-Use five-session invocations with a 24-hour (86,400-second) per-session ceiling and
-no blocking shell-tool timeout. Inspect delivered journeys/diffs and drift at every
-idle batch boundary, refocus if needed, then continue without owner checkpoints.
-Noncritical findings go to explicit final-qualification/owner-review records rather
-than lengthy early detail loops; no required outcome/final check/review/release gate
-is waived. This supersedes D-306's invocation size and per-unit time below, not the
-original total session ceiling or autonomous safe repair/continuation assignment.
-See the [supervision record](supervised-batches-2026-10-22.md).
+The supervisor retains the original **3,000-session total remaining budget across
+all roles**, no reset on restart/worktree/context loss. At most **five fresh launches
+before an idle supervision assessment**, each at most **86,400 seconds**; drain active
+lanes before that assessment. Use blocking dependent shell calls without tool timeout.
+Inspect actual delivered journeys/diffs/checks for drift and refocus before continuing
+through overnight/context compaction; no routine owner checkpoint. Stop only on actual
+completion, explicit pause, exhausted budget/quota or a genuinely unavoidable boundary.
 
-**Current supervised run — D-306:** the owner selected 3,000 sessions and a
-two-week (1,209,600-second) per-session ceiling, invoked with no shell-tool timeout
-as a blocking call. A controller validation failure is a boundary to diagnose and
-repair, not the end of the supervising agent's assignment. After each exit,
-inspect actual completion, repair/validate/save/push any recoverable problem,
-reconcile the retained owned run and restart. Do not bypass validation or blindly
-replay implementation. Continue feasible independent work around evidenced external/
-forbidden steps with documented plan/dependency adjustments and retained obligations.
-See [authorization](implementation-authorization.md#supervised-unattended-execution--d-306).
+Stop drains active units to safe saved boundaries and prevents launches; interruption
+does not authorize discard. Keep session/branch/worktree/state provenance and resource
+leases. One integration writer; no old competing loop or sibling-worktree recovery.
+Serialize shared emulator/ADB/Appium/Docker/ports/build caches when not isolated.
+No claimed hard dollar cap or new paid-resource authority.
 
-The [Python driver](../../scripts/implementation-loop.py) implements this contract;
-see [operations/qualification](implementation-runner.md). OpenCode V2.1.1 CLI help
-and the V2 API were checked: create a fresh top-level session, then attach the
-headless invocation only to that newly created ID. Never assume a conversational
-ending or zero CLI exit alone is the required durable outcome. D-302 authorizes
-this tooling; D-304 separately authorizes the product task plan.
-
-Required behavior for that wrapper:
-
-1. Hold one repository-writer lock and require a safe starting tree/index.
-2. Check explicit authorization and a user stop/pause control **between** runs.
-   Requesting a stop should let the active unit reach a safe boundary by default;
-   interruption is not permission to discard its files.
-3. Start a fresh session with the operating brief and record/report paths, explicit
-   per-session permissions and operator-selected run-count/wall-time budgets.
-   D-302 selects **openai/gpt-6.1-sol#high for every role**; pin and verify its actual
-   metadata, with no fallback/model-panel/parallel expansion. These budgets do not
-   promise a hard dollar cap or authorize acquiring paid resources.
-4. Require exactly one bounded unit and a structured `progress`, `complete`,
-   `blocked`, or `failed` result referencing durable evidence. `progress` records
-   its selected implement/review/fix/verify mode. Validate it against state/Git.
-   A task-scoped blocker with safe independent approved work remaining is recorded
-   as progress with that task blocked; reserve `blocked` for no runnable work.
-5. Each completed unit runs applicable checks, then uses
-   `./scripts/save.sh <only owned paths...>` to commit/push, and exits. Reviews
-   save reports; no empty commits are needed for a no-change verification, but
-   its meaningful report normally changes. A failed check/save cannot produce a
-   success handoff. Preserve diagnostic work; no force push/hook bypass/reset.
-6. Confirm save/push before another agent. A failed push may be retried as the
-   **same save operation** without repeating implementation; unresolved failure
-   stops the runner. Do not launch another agent to blindly redo failed work.
-7. Continue after validated progress. D-305 below requires autonomous repair and
-   best-effort implementation inside external constraints, not halting at the first
-   permission/resource/build/save problem. Stop on completed work, explicit stop or
-   operator budgets. A genuinely unsafe/unresolved handoff cannot be accepted as
-   progress: preserve it for recovery rather than bypassing checks. Missing external
-   qualification must never prevent remaining feasible implementation work.
-
-The driver uses one active agent and no automatic failed-unit reruns; stop if a supposedly
-successful run advances no task/finding/evidence; stop if the same finding remains
-unresolved after two fix attempts without a new diagnosis. These are engineering
-safeguards, not a defect waiver or extra per-slice owner checkpoints. Only reported
-attempted findings consume attempts; counts survive awaiting-check and failed
-verification. A second proposed repair gets its fresh verification before the
-unresolved-cycle guard fires. Verified/explicitly disposed findings clear counts;
-a genuinely new diagnosis needs a retained check-evidence reference, not cosmetic
-record changes. Counts and the resulting commit/push confirmation are retained even
-when the guard stops the run. Positive
-session-count and wall-time budgets are required on the run command; there is no
-unlimited default or billing-cap claim. Keep logs local and redact credentials/private data.
-Normal red/green development and repairing a failed check inside the selected
-unit are expected; the stop rule applies when the agent exits with the failure
-unresolved, not to the first failing test while developing its fix.
+Before accepting a unit validate exact model/succeeded-idle session, report identity,
+role/target/transitions, changed-path lease, committed report/check bytes, whitespace,
+branch/ancestry, clean tree/index and actual remote containing the commit. Required
+checks must pass; failed diagnostic reproductions stay explicit. Final prose/CLI exit
+alone is insufficient. The resulting commit/push lives in the external journal—a
+report cannot contain its own commit hash. Reject unsafe handoffs; preserve for repair.
 
 ### Autonomous infrastructure troubleshooting — D-305
 
-The owner's unattended-implementation objective takes precedence over historical
-"report any save failure and exit" wording. Make a serious autonomous effort to
-repair recoverable build, dependency, local test infrastructure, staging/save and
-orchestration defects. Spending a whole session or several fresh sessions on a
-credible repair is preferable to returning the problem to the owner at the first
-red command. Follow the specified product vision; no speculative product expansion.
+Repair recoverable build/dependency/test-tool/save/orchestration failures autonomously,
+including further fresh sessions. Use distinct experiments/results, not repeated
+notes/green checks. Implement/fix checkpoints add `troubleshooting` with `issue`,
+`diagnosis`, `progress`, `nextSteps` and current run-owned `evidence`; store the same
+object plus report `record` on the unfinished selected task (`in-progress`) or fixing
+finding (`open`). Do not combine checkpoint and split. Passing checkpoint checks do
+not satisfy still-pending feature assertions; start preserving before timeout.
 
-An implement/fix session may save a bounded `troubleshooting` checkpoint using the
-[unit schema](implementation-agent.md#autonomous-troubleshooting-and-orchestration-repairs--d-305).
-Keep unfinished tasks/findings unfinished; retain distinct experiments/repairs,
-fresh output, current diagnosis and concrete next steps. Passing checkpoint checks
-do not satisfy still-failing/pending whole-feature checks. The next fresh session
-continues the same work within the operator budgets. Identical replayed evidence
-and note-only churn are rejected; infrastructure checkpoints do not consume the
-two-attempt product-fix guard. Planning-only splits remain a separate mechanism.
+Necessary implement/fix driver/prompt repairs add `orchestrationRepair` with reason,
+exact changed `paths` and passing required `evidence`; add focused regressions and run
+`python3 scripts/test-implementation-loop.py`. The controller independently reruns
+that suite before acceptance. No self-expanded permissions/authorization/model or
+weakened checks. Replace the idle controller with remaining budgets, never another
+parallel old driver. Reviewers/verifiers request fresh fixes, not self-certification.
 
-Necessary driver/prompt repairs are allowed in implement/fix roles with explicit
-`orchestrationRepair` provenance, passing regression evidence and an independently
-executed runner fixture suite. Permission grants, authorization and the model remain
-unchanged. A saved driver repair replaces the idle controller process with the
-remaining budgets instead of starting a parallel driver. Reviewers/verifiers still
-cannot repair runtime/build/controller changes and certify those changes themselves.
+Repair/retry the **same** save after ordinary Git/script failures. Never force push,
+bypass hooks, reset/discard work or accept dirty/unpushed success. Retain genuine
+external blockers; complete real configurable adapters and available local/synthetic
+checks without crossing rights/credentials/production/paid/hardware boundaries.
+Unavailable release exercises block only those claims, not independent feasible work.
 
-Repair and retry the **same save** after ordinary Git/script/line-ending failures;
-this does not repeat implementation or bypass a check. Do not erase fences or accept
-dirty/unpushed handoffs to simulate progress. Diagnose and repair before escalating;
-checkpoint before timeout. Explicit stop requests and operator budgets still apply.
+## External release gates and completion
 
-Existing development/testing/tooling grants cover routine work. New paid resources,
-credentials, unrelated private data or production operations are not implied grants.
-If a feature encounters those boundaries, implement it as fully as possible within
-them: real adapters, configuration/secret inputs, synthetic local integration tests
-and clear external prerequisites, not a fake implementation or silent omission.
-Missing rights, signing keys, production access or reference hardware is not a
-reason to abandon that feature or halt other work. Defer only the genuinely external
-exercise/qualification, retain it visibly unverified, and continue all available
-coding/tests/reviews. The objective is to finish all feasible implementation work,
-not to stop merely because release readiness cannot yet be demonstrated. No claim
-that an unperformed check passed, or that unavailable prerequisites were satisfied.
+Preserve `externalReleaseGates` inventory/order/authority. Operator-owned gates change
+only outside active units with recorded authority. A task-owned measurement gate
+passes only in its exact completed owning parent unit with
+`gateUpdates: [{id, evidence}]`, passing required output and that report as gate
+`record`; retain all other fields. Children/evidence reuse do not waive the actual
+measurement. No agent `not-applicable` waiver. Required final suite, complete approved
+coverage, independent reviews and B8 mock discrepancy fixes remain obligations.
+Distinguish implemented, verified and externally releasable software truthfully.
 
 ## Autonomy and boundaries
 
-The runner continuing across stopped agents implements D-256's **project-level**
-autonomy; it does not require one giant session or routine owner “continue?” after
-each task. Derive technical details and repair ambiguous documentation within
-approved constraints. Escalate only demonstrated product choices, unavailable
-required resources or genuine blockers, and continue independent approved work.
-
-Tooling qualification exercises dispatch/one-unit exit, grouped-review priority,
-fix verification, save/push failure, stop control and interrupted-work recovery in
-isolated non-product fixtures; see the operations record for actual evidence.
-Do not start coding merely because state files exist or a headless session can
-be launched. Product execution now has explicit D-304 authorization; operator
-budgets and actual build/device permission qualification remain required. This
-authorization-recording change does not itself start the driver.
-The safe default after interruption is to stop and preserve dirty work. Any
-explicit resume must reconcile the recorded unit/owned paths first; qualification
-must prove unrelated work is never discarded or blindly staged.
-The shared active-run fence records the owning worktree, branch and state path.
-Recovery must run in that exact ownership context; a clean sibling worktree cannot
-acknowledge the original checkout's unfinished work.
+No production/public deployment, paid resources, secrets/unrelated private data or
+operations-repository work is implied. Permissions are scoped safeguards, not an OS
+sandbox. Respect explicit stop, preserve unrelated work and redact logs. Follow
+[serial operations](implementation-runner.md) or the managed orchestrator—not both.
+[Pre-D-309 contract/history](https://github.com/tumereu/async-tt-wiz/blob/b9a092dc212deca204e039e1791f7391e51f392a/docs/agent/implementation-loop.md)
+is provenance only; current rules above supersede its duplicate execution wording.

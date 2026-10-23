@@ -32,6 +32,34 @@ internal object TableFixture {
 }
 
 class TablePresentationTest {
+    @Test fun bothFieldsAndOwnHandRemainUsableAtMockAndCompactViewportsIncludingReview() {
+        for ((w, h, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
+            Triple(360f, 640f, false), Triple(640f, 360f, true))) for (reviewing in listOf(false, true)) {
+            val scene = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", w, h, landscape, reviewing = reviewing)
+            val hand = scene.items.single { it.id == "a/HAND" }
+            for (field in scene.fields) {
+                assertTrue(field.bounds.height > 0)
+                assertNull(field.bounds.intersection(hand.bounds))
+                assertTrue(scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/2" }.visible.isNotEmpty())
+            }
+            scene.items.filter { it.cardId != null && it.viewport == "a/HAND" }.forEach {
+                assertFalse(it.covered); assertTrue(it.value.isNotEmpty())
+            }
+            scene.items.filter { it.cardId != null && it.viewport == "b/HAND" }.forEach {
+                assertTrue(it.covered); assertEquals("", it.value); assertNull(it.artwork)
+            }
+        }
+    }
+
+    @Test fun hidingCounterRailDuringAnimationDropsObsoleteSemanticFragments() {
+        val play = TableFixture.play().let { it.copy(board = it.board.copy(players = listOf(
+            PlayPlayer("a", counters = mapOf(CounterColor.BLUE to "1")), PlayPlayer("b")))) }
+        val before = TableFixture.scene(play)
+        val after = TableFixture.scene(TableFixture.play())
+        val frame = after.copy(items = after.items + before.items.filter { it.kind == TableItemKind.COUNTER })
+        assertTrue(TablePresentation.clip(frame, 412f, 820f).items.filter { it.kind == TableItemKind.COUNTER }.all { it.visible.isEmpty() })
+    }
+
     @Test fun commonScaleAndEqualFootprintsAcrossOrientationOwnerRotationAndPiles() {
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) {
             val p = TableFixture.play(board = 3, hand = 3)
@@ -42,10 +70,10 @@ class TablePresentationTest {
             val cards = scene.items.filter { it.kind == TableItemKind.CARD }
             assertTrue(cards.isNotEmpty())
             cards.forEach { c ->
-                assertEquals(48 * zoom, minOf(c.bounds.width, c.bounds.height), .001f)
-                assertEquals(68 * zoom, maxOf(c.bounds.width, c.bounds.height), .001f)
+                assertEquals(28 * zoom, minOf(c.bounds.width, c.bounds.height), .001f)
+                assertEquals(40 * zoom, maxOf(c.bounds.width, c.bounds.height), .001f)
                 if (c.zone == PlayZone.BATTLEFIELD) {
-                    assertEquals(84 * zoom, c.footprint.width, .001f)
+                    assertEquals(TablePresentation.GRID * zoom, c.footprint.width, .001f)
                     assertTrue(c.bounds.x >= c.footprint.x && c.bounds.right <= c.footprint.right)
                     assertTrue(c.bounds.y >= c.footprint.y && c.bounds.bottom <= c.footprint.bottom)
                 }
@@ -62,10 +90,14 @@ class TablePresentationTest {
         val scene = TableFixture.scene(changed)
         val moved = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }
         assertEquals("b", moved.owner); assertTrue(moved.label.contains("owner Bob"))
-        scene.items.filter { it.zone == PlayZone.HAND && it.cardId != null }.forEach {
+        scene.items.filter { it.zone == PlayZone.HAND && it.cardId != null && it.owner == "b" }.forEach {
             assertEquals("", it.value); assertEquals("", it.corner)
             assertFalse(it.label.contains("Secret")); assertTrue(it.label.startsWith("Covered card"))
         }
+        val ownHand = scene.items.single { it.cardId == "a/HAND/0" }
+        assertEquals("Secret face", ownHand.value)
+        assertFalse(ownHand.covered)
+        assertTrue(changed.board.cards.single { it.id == "a/HAND/0" }.covered)
     }
 
     @Test fun bothHandsCenterWhenFittingAndReachBothEndsWithoutChangingOrderOrScale() {

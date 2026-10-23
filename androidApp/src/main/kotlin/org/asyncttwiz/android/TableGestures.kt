@@ -148,10 +148,11 @@ class TableGestureCoordinator(
             return
         }
         val old = scene.camera
+        if (scene.fields.none { it.bounds.contains(centroid) }) return
         val zoom = (old.zoom * scale).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)
         val field = scene.fields.firstOrNull { it.bounds.contains(centroid) } ?: scene.fields.lastOrNull()
-        val anchorX = centroid.x - (field?.bounds?.x ?: 0f)
-        val anchorY = if (field == scene.fields.lastOrNull()) (field?.bounds?.bottom ?: 0f) - centroid.y else centroid.y - (field?.bounds?.y ?: 0f)
+        val anchorX = centroid.x - (field?.gridBounds?.x ?: 0f)
+        val anchorY = if (field == scene.fields.lastOrNull()) (field?.gridBounds?.bottom ?: 0f) - centroid.y else centroid.y - (field?.gridBounds?.y ?: 0f)
         val next = TableCamera(old.x + anchorX / old.zoom - anchorX / zoom - pan.x / zoom,
             old.y + anchorY / old.zoom - anchorY / zoom + (if (field == scene.fields.lastOrNull()) pan.y else -pan.y) / zoom, zoom)
         scene = scene.copy(camera = next) // coalesce rapid pointer frames without losing personal navigation deltas
@@ -199,6 +200,9 @@ class TableGestureCoordinator(
         scene.combatDrops.asReversed().firstOrNull { it.bounds.contains(p) }?.let { return TableDestination.Combat(it.destination) }
         val hit = scene.items.asReversed().firstOrNull { i -> i.cardId !in (scope?.cardIds ?: emptyList()) && i.visible.any { it.contains(p) } }
         if (hit != null) {
+            // A face inside a Hand is still a drop onto that Hand, not an ordinary battlefield pile.
+            if (hit.kind == TableItemKind.CARD && hit.zone == PlayZone.HAND)
+                return TableDestination.Container(hit.viewport, PlayZone.HAND)
             if (hit.kind == TableItemKind.PILE || hit.kind == TableItemKind.HAND)
                 return hit.zone?.let { TableDestination.Container(hit.id, it) }
             if (hit.kind == TableItemKind.CARD && hit.zone == PlayZone.BATTLEFIELD && !hit.projection) {
@@ -210,9 +214,9 @@ class TableGestureCoordinator(
         }
         val f = scene.fields.firstOrNull { it.bounds.contains(p) } ?: return null
         val c = scene.camera
-        val x = (p.x - f.bounds.x) / c.zoom + c.x
-        val y = (if (f == scene.fields.last()) f.bounds.bottom - p.y else p.y - f.bounds.y) / c.zoom + c.y
-        return TableDestination.Grid(f.containerId, floor(x / 84f).toInt().coerceAtLeast(0), floor(y / 84f).toInt().coerceAtLeast(0))
+        val x = (p.x - f.gridBounds.x) / c.zoom + c.x
+        val y = (if (f == scene.fields.last()) f.gridBounds.bottom - p.y else p.y - f.gridBounds.y) / c.zoom + c.y
+        return TableDestination.Grid(f.containerId, floor(x / TablePresentation.GRID).toInt().coerceAtLeast(0), floor(y / TablePresentation.GRID).toInt().coerceAtLeast(0))
     }
     private fun distance(a: TablePoint, b: TablePoint) = hypot(a.x - b.x, a.y - b.y)
     private fun rectangle(a: TablePoint, b: TablePoint) = TableBounds(minOf(a.x, b.x), minOf(a.y, b.y), abs(a.x - b.x), abs(a.y - b.y))

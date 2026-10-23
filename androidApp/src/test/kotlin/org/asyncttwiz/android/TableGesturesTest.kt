@@ -5,6 +5,45 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun handDragTargetsViewerBattlefieldAtRealDeviceViewportsAndDoubleTapRotates() {
+        for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
+            Triple(360f, 640f, false), Triple(640f, 360f, true))) {
+            val play = LiveTableFixture.play()
+            val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", width, height, landscape)
+            val field = scene.fields.single { it.owner == "a" }
+            assertTrue(field.bounds.height > 0)
+            val hand = scene.items.single { it.cardId == "a/HAND/2" }
+            assertFalse(hand.covered)
+            val start = hand.visible.first().center
+            val destination = TablePoint(field.bounds.right - 24f, field.bounds.center.y)
+            val events = mutableListOf<TableIntent>()
+            val coordinator = TableGestureCoordinator(events::add)
+            coordinator.update(scene, TableSelection(), true)
+            coordinator.down(start, 0); coordinator.move(destination, 80); coordinator.up(destination, 100)
+            val move = events.filterIsInstance<TableIntent.Move>().single()
+            assertEquals("a/BATTLEFIELD", (move.destination as TableDestination.Grid).containerId)
+            assertEquals(listOf("a/HAND/2"), move.scope.cardIds)
+            assertEquals("a/HAND", move.sources.getValue("a/HAND/2").containerId)
+            assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
+            events.clear()
+            val card = scene.items.single { it.cardId == "a/BATTLEFIELD/2" }.visible.first().center
+            coordinator.down(card, 200); coordinator.up(card, 220)
+            coordinator.down(card, 300); coordinator.up(card, 320); coordinator.tick(1000)
+            assertEquals(listOf("a/BATTLEFIELD/2"), events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
+            assertTrue(events.none { it is TableIntent.Move || it is TableIntent.Actions })
+        }
+    }
+    @Test fun battlefieldDragOntoHandFaceTargetsHandContainer() {
+        val scene = TableFixture.scene(TableFixture.play(board = 1, hand = 2))
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        gestures.update(scene, TableSelection(), true)
+        val start = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.visible.first().center
+        val end = scene.items.single { it.cardId == "a/HAND/1" }.visible.first().center
+        gestures.down(start, 0); gestures.move(end, 80); gestures.up(end, 100)
+        assertEquals(TableDestination.Container("a/HAND", PlayZone.HAND), events.filterIsInstance<TableIntent.Move>().single().destination)
+        assertTrue(events.none { it is TableIntent.Actions || it is TableIntent.Rotate })
+    }
     private class Fixture(val scene: TableScene = TableFixture.scene(), initial: TableSelection = TableSelection(), writable: Boolean = true) {
         val events = mutableListOf<TableIntent>()
         var selection = initial

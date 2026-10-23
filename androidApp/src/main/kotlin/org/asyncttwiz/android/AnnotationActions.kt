@@ -13,8 +13,8 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
 
     fun location(point: TablePoint): PingTarget? {
         val field = scene.fields.firstOrNull { it.bounds.contains(point) } ?: return null
-        val x = cell(point.x - field.bounds.x + scene.camera.x * scene.camera.zoom)
-        val y = cell((if (field == scene.fields.last()) field.bounds.bottom - point.y else point.y - field.bounds.y) +
+        val x = cell(point.x - field.gridBounds.x + scene.camera.x * scene.camera.zoom)
+        val y = cell((if (field == scene.fields.last()) field.gridBounds.bottom - point.y else point.y - field.gridBounds.y) +
             scene.camera.y * scene.camera.zoom)
         return PingTarget(PingTargetKind.LOCATION, position = BoardPosition(x, y * 2 + if (field.owner == firstPlayer) 0 else 1))
     }
@@ -29,17 +29,17 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
         val position = target.position ?: return null
         val side = Math.floorMod(position.y, 2)
         val field = scene.fields.singleOrNull { (if (it.owner == firstPlayer) 0 else 1) == side } ?: return null
-        val x = field.bounds.x + (position.x + .5f) * scene.footprint - scene.camera.x * scene.camera.zoom
+        val x = field.gridBounds.x + (position.x + .5f) * scene.footprint - scene.camera.x * scene.camera.zoom
         val y = (Math.floorDiv(position.y, 2) + .5f) * scene.footprint - scene.camera.y * scene.camera.zoom
-        val point = TablePoint(x, if (field == scene.fields.last()) field.bounds.bottom - y else field.bounds.y + y)
+        val point = TablePoint(x, if (field == scene.fields.last()) field.gridBounds.bottom - y else field.gridBounds.y + y)
         return point.takeIf { field.bounds.contains(it) }
     }
 
     fun locations(field: TableField): List<Pair<PingTarget, TablePoint>> {
         val left = cell(scene.camera.x * scene.camera.zoom)
-        val top = cell(scene.camera.y * scene.camera.zoom)
+        val top = cell(field.gridBounds.height - field.bounds.height + scene.camera.y * scene.camera.zoom)
         val right = cell(field.bounds.width + scene.camera.x * scene.camera.zoom)
-        val bottom = cell(field.bounds.height + scene.camera.y * scene.camera.zoom)
+        val bottom = cell(field.gridBounds.height + scene.camera.y * scene.camera.zoom)
         return (top..bottom).flatMap { row -> (left..right).mapNotNull { column ->
             val target = PingTarget(PingTargetKind.LOCATION,
                 position = BoardPosition(column, row * 2 + if (field.owner == firstPlayer) 0 else 1))

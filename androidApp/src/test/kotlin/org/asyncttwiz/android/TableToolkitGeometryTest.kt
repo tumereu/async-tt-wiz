@@ -26,9 +26,9 @@ class TableToolkitGeometryTest {
                 if (landscape) 700f else 1000f, landscape)
             val real = scene.items.single { it.cardId == f.id(40) && !it.projection }
             val combat = scene.items.single { it.cardId == f.id(301) }
-            assertEquals(68f, real.bounds.width); assertEquals(48f, real.bounds.height)
+            assertEquals(40f, real.bounds.width); assertEquals(28f, real.bounds.height)
             assertEquals(real.bounds.width, combat.bounds.width); assertEquals(real.bounds.height, combat.bounds.height)
-            assertEquals(84f, scene.footprint)
+            assertEquals(TablePresentation.GRID, scene.footprint)
             assertTrue(combat.projection); assertEquals(real.sourceId, combat.sourceId)
             assertEquals(combat, scene.hit(combat.visible.first().center))
             assertEquals(setOf(combat.cardId), scene.rectangle(combat.visible.first()))

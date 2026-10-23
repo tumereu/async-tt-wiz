@@ -198,9 +198,9 @@ class LobbyStartTest {
                     assertEquals(scene.footprint, pile.footprint.width)
                     assertEquals(scene.footprint, pile.footprint.height)
                     assertEquals(pile.bounds, pile.bounds.intersection(pile.footprint))
-                    val peek = if (pile.zone == PlayZone.LIBRARY) 8f else 0f
-                    assertEquals(scene.cardWidth + peek, pile.bounds.width)
-                    assertEquals(scene.cardHeight + peek, pile.bounds.height)
+                    // Bounds include the total badge and peeks, not just the top card's face.
+                    assertEquals(if (pile.zone == PlayZone.STACK) scene.footprint else scene.cardWidth + 12f, pile.bounds.width)
+                    assertEquals(if (pile.zone == PlayZone.STACK) scene.footprint else scene.cardHeight + 12f, pile.bounds.height)
                 }
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),

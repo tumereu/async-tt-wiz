@@ -10,6 +10,7 @@ import java.nio.charset.CodingErrorAction
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.ServiceRuntime.UnavailabilityBoundary
 import org.asyncttwiz.server.accounts.AccountService
 
 /** Socket upgrade and ordinary authorized reads, never a second existing-game write ingress. */
@@ -30,12 +31,18 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             response.status = status; response.contentType = "application/json;charset=UTF-8"
             response.writer.write(json.encodeToString(LobbyError(code)))
         }
+        var boundary = UnavailabilityBoundary.GAME_HTTP_READY
         try {
-            if (!runtime.ready()) { error(503, "unavailable"); return true }
+            if (!runtime.ready()) {
+                runtime.recordUnavailability(boundary, null)
+                error(503, "unavailable"); return true
+            }
+            boundary = UnavailabilityBoundary.GAME_HTTP_AUTHENTICATION
             val token = request.getHeaders("Authorization").toList().singleOrNull()?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)
             if (principal == null) { error(401, "authentication_required"); return true }
             if (socket) {
+                boundary = UnavailabilityBoundary.GAME_HTTP_SOCKET
                 if (request.method != "GET" || request.queryString != null) { error(400, "invalid_request"); return true }
                 val container = request.servletContext.getAttribute("jakarta.websocket.server.ServerContainer") as ServerContainer
                 val config = ServerEndpointConfig.Builder.create(Endpoint::class.java, "/v1/socket")
@@ -46,6 +53,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                 return true
             }
             if (baselineRead) {
+                boundary = UnavailabilityBoundary.GAME_HTTP_BASELINE
                 val manifest = parts.size == 5 && parts[4] == "manifest"
                 val chunk = parts.size == 6 && parts[4] == "chunks"
                 if (!(manifest || chunk)) { error(404, "not_found"); return true }
@@ -67,6 +75,12 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             val history = parts.size == 7 && parts[4] == "plays" && parts[6] == "mutations"
             if (!(lookup || revisions || result || baseline || history)) { error(404, "not_found"); return true }
             if (request.method != if (lookup || baseline) "POST" else "GET") { error(405, "method_not_allowed"); return true }
+            boundary = when {
+                history -> UnavailabilityBoundary.GAME_HTTP_HISTORY
+                revisions -> UnavailabilityBoundary.GAME_HTTP_REVISIONS
+                baseline -> UnavailabilityBoundary.GAME_HTTP_BASELINE
+                else -> UnavailabilityBoundary.GAME_HTTP_RESULTS
+            }
             val body = when {
                 history -> json.encodeToString(hub.games.history(principal, parts[3], parts[5], request.getParameter("after") ?: "0"))
                 revisions -> json.encodeToString(hub.games.revisions(principal, parts[3], request.getParameter("after") ?: "0"))
@@ -84,12 +98,16 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                     else json.encodeToString(hub.games.results(principal, parts[3], input.requestIds))
                 }
             }
+            boundary = UnavailabilityBoundary.GAME_HTTP_WRITE
             response.status = 200; response.contentType = "application/json;charset=UTF-8"; response.writer.write(body)
         } catch (failure: GameProtocolFailure) {
             error(if (failure.code == "accessDenied") 404 else if (failure.code == "baselineExpired") 410 else if (failure.code == "requestIdentityMismatch") 409 else 400, failure.code)
         } catch (_: IllegalArgumentException) { error(400, "invalid_request")
         } catch (_: java.nio.charset.CharacterCodingException) { error(400, "invalid_request")
-        } catch (_: Exception) { error(503, "unavailable") }
+        } catch (failure: Exception) {
+            runtime.recordUnavailability(boundary, failure)
+            error(503, "unavailable")
+        }
         return true
     }
 }

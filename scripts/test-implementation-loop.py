@@ -412,9 +412,10 @@ class EfficiencyTests(unittest.TestCase):
              "outcome": "First useful outcome", "checks": ["affected check"], "implementationRecord": "report.json"},
             {"id": "F1b", "batch": "B1", "status": "pending", "dependsOn": ["F1a"],
              "outcome": "Second useful outcome", "checks": ["affected check"]}]
-        report = {"mode": "implement", "outcome": "progress", "startCommit": "start",
-                  "checks": [{"kind": "required", "exitCode": 0, "evidence": "check.json"}],
-                  "implementationUnits": [{"id": "F1a", "sourceIds": ["T-fixture"], "evidence": "check.json"}]}
+        output = loop.REPORTS + "/fresh/check.json"
+        report = {"runId": "fresh", "mode": "implement", "outcome": "progress", "startCommit": "start",
+                  "checks": [{"kind": "required", "exitCode": 0, "evidence": output}],
+                  "implementationUnits": [{"id": "F1a", "sourceIds": ["T-fixture"], "evidence": output}]}
         return before, after, loop.selection(before), report
 
     def test_split_and_first_implementation_share_one_unit(self):
@@ -427,7 +428,7 @@ class EfficiencyTests(unittest.TestCase):
         before, after, choice, report = self.split_fixture()
         after["tasks"][-1].update(status="implemented", implementationRecord="report.json")
         after["tasks"][0]["status"] = "implemented"
-        report["implementationUnits"].append({"id": "F1b", "sourceIds": ["T-second"], "evidence": "check.json"})
+        report["implementationUnits"].append({"id": "F1b", "sourceIds": ["T-second"], "evidence": report["checks"][0]["evidence"]})
         loop.validate_state(after)
         loop.validate_transition(before, after, choice, report)
         self.assertEqual(loop.selection(after)["target"], "F2")
@@ -453,8 +454,9 @@ class EfficiencyTests(unittest.TestCase):
         after["runs"] = ["report.json"]
         after["tasks"][0].update(status="implemented", implementationRecord="report.json")
         after["tasks"][-1]["status"] = "implemented"
-        report = {"startCommit": "start", "checks": [{"kind": "required", "exitCode": 0, "evidence": "audit.json"}],
-                  "ancestorClosures": [{"id": "F1", "reason": "Child evidence covers integrated parent scope", "evidence": "audit.json"}]}
+        output = loop.REPORTS + "/fresh/audit.json"
+        report = {"runId": "fresh", "startCommit": "start", "checks": [{"kind": "required", "exitCode": 0, "evidence": output}],
+                  "ancestorClosures": [{"id": "F1", "reason": "Child evidence covers integrated parent scope", "evidence": output}]}
         return before, after, loop.selection(before), report
 
     def test_last_child_can_reconcile_its_parent(self):
@@ -462,6 +464,22 @@ class EfficiencyTests(unittest.TestCase):
         loop.validate_state(after)
         loop.validate_transition(before, after, choice, report)
         self.assertEqual(loop.selection(after)["target"], "F2")
+
+    def test_both_completion_arrays_reject_old_run_check_references(self):
+        for fixture, key in ((self.split_fixture, "implementationUnits"), (self.closure_fixture, "ancestorClosures")):
+            for path in ("audit.json", loop.REPORTS + "/older/check.json"):
+                before, after, choice, report = fixture()
+                report["checks"][0]["evidence"] = path
+                report[key][0]["evidence"] = path
+                with self.subTest(key=key, path=path), self.assertRaisesRegex(loop.Halt, "current-run"):
+                    loop.validate_transition(before, after, choice, report)
+
+    def test_completion_output_must_actually_change_in_this_run(self):
+        for fixture in (self.split_fixture, self.closure_fixture):
+            _, _, _, report = fixture()
+            with self.assertRaisesRegex(loop.Halt, "changed output"):
+                loop.current_completion_outputs(report, {"report.json"})
+            loop.current_completion_outputs(report, {report["checks"][0]["evidence"]})
 
     def test_ancestor_closure_cannot_skip_work_or_erase_scope(self):
         for fault in ("unrelated", "unfinished", "no-evidence", "unreported", "scope", "wrong-record", "unfinished-target"):

@@ -34,6 +34,12 @@ and canonical state path, after the old session is inactive and the handoff is
 clean/pushed/valid. Use only if a retained run exists. `clear-stop` is an explicit
 resume action, not routine cleanup. Ctrl+C interrupts the owned server session;
 hard kills may leave retained work. Never delete a fence or discard files to recover.
+Both legacy `run` and `recover` also reject retained
+`resources/integration-writer.json`, even when its OS lock is free. Only that resource's
+matching owner can acknowledge exact captured cleanup through
+`implementation-resources.py recover --owner OWNER --resource integration-writer
+--cleanup-evidence docs/agent/implementation-runs/OWNER-cleanup.json`.
+This does not recover a serial run or clear STOP; inspect/reconcile each boundary.
 
 Exit 0 means complete **or paused**; 2 is a saved global blocker, 1 a failed boundary,
 130 interruption. Read actual state/result. A timeout interrupts only the owned
@@ -117,8 +123,10 @@ and the [enforced resource plan](test-resource-plan.md), not concurrent CLI inst
 
 | Command arguments | Result |
 | --- | --- |
-| `report CONTEXT.json DETAILS.json` | Generate supplied identity/exact changed paths; details supply actual result/checks. Controller context is at `THIS RUN.contextPath`; state is edited separately. |
+| `report CONTEXT.json DETAILS.json` | Generate supplied identity/exact changed paths; details supply actual result/checks. Controller context is at `THIS RUN.contextPath`. Only serial units edit state separately; managed workers include `proposal` instead. |
 | `validate REPORT.json [--pending-evidence PATH]` | Check the current unsaved state/report/ownership; not product correctness or final pushed acceptance. |
+| `validate-proposal REPORT.json [--saved]` | Managed worker: validate proposal, exact paths/check bytes and role against its immutable base, with authoritative state unchanged. `--saved` checks committed paths and actual upstream. No serial selection claim. |
+| `validate-acceptance REPORT.json --before SNAPSHOT --after STATE_PATH` | Sole supervisor: separate latest-HEAD before/current-after snapshots; validate due selection, original inherited prerequisites, bounded proposed outcomes and independent code anchors. Code candidate must already be saved. |
 | `retain-junit OUTPUT.json XML...` | Preserve exact XML bytes/hash/attributes, including failures. |
 | `reconcile OUTPUT.json [TASK=]REPORT@COMMIT...` | Reuse exact committed child evidence in chronological order and identify changed inputs; no implicit parent pass. `TASK=` selects a child delivered in its parent's split unit. |
 
@@ -128,6 +136,66 @@ For validation's own foreground capture declare the required check in DETAILS, g
 REPORT, then capture `implementation-evidence.py validate REPORT --pending-evidence OUTPUT`.
 Only that explicitly run-owned output may be pending until capture returns. Never use
 `report` or `validate` as a substitute for running the delivered journey/affected tests.
+
+### Managed handoff example
+
+Worker CONTEXT uses the supplied immutable `startCommit`, session/run ID, report,
+state path and leased `selection`. DETAILS contains the normal report plus the
+[proposal schema](implementation-agent.md#managed-proposal-additional-report-field).
+Keep the authoritative state unchanged, including `runs` and `activeRun`:
+
+```sh
+python3 scripts/capture-check.py docs/agent/implementation-runs/worker/check.json -- ACTUAL_AFFECTED_CHECK
+python3 scripts/implementation-evidence.py report /tmp/opencode/worker-context.json /tmp/opencode/worker-details.json
+python3 scripts/implementation-evidence.py validate-proposal docs/agent/implementation-runs/worker.json
+./scripts/save.sh ONLY_LEASED_CHANGED_PATHS
+python3 scripts/implementation-evidence.py validate-proposal docs/agent/implementation-runs/worker.json --saved
+```
+
+Placeholders above are replaced by actual commands/paths, not executed literally.
+Unlike serial validation's optional self-capture, managed validation requires every
+declared output to exist already. Do not declare a pending validation capture. Save
+the actual affected-check output, not a report-generation command masquerading as one.
+
+The supervisor records actual saved branch/commit/upstream plus succeeded/inactive
+session metadata, exact model `openai/gpt-6.1-sol#high` and worktree from the server,
+matching its durable lease. The helper cannot infer actual model from a worker assertion.
+Validate a saved proposal **in its owning checkout**; do not use `--saved` on an
+integration branch whose HEAD has advanced. Acceptance reads the supplied worker
+commit directly and preserves report/check bytes even after unrelated integration.
+
+Fresh integration subagents prepare/repair/test saved candidate **code**, without state
+edits. The supervisor alone promotes/reconciles it and snapshots latest state:
+
+```sh
+git show HEAD:docs/agent/implementation-state.json > /tmp/opencode/accept-before.json
+```
+
+It creates a **new** normal acceptance report in its own run namespace with
+`workerProposal: {"report": "docs/agent/implementation-runs/worker.json", "commit": "ACTUAL_SAVED_WORKER_COMMIT"}`.
+`startCommit` is current saved candidate HEAD; `inspectedCommit` is that HEAD for
+implement/fix, but the original worker `startCommit` for independent review/verify.
+Apply bounded changes to **latest** state manually, append only the acceptance report
+to `runs`, and use that report in new implementation records. Preserve the worker's
+finding/review/completion scope and proposed outcomes; don't copy its state. Retain
+fresh run-owned reconciliation/affected seam output in acceptance `checks`; unchanged
+worker/child output remains referenced input, not a new execution. For
+`implementationUnits`/`ancestorClosures`, point `evidence` to this acceptance run's
+actual passing reconciliation, not the worker's old check. Then:
+
+```sh
+python3 scripts/implementation-evidence.py report /tmp/opencode/accept-context.json /tmp/opencode/accept-details.json
+python3 scripts/implementation-evidence.py validate-acceptance docs/agent/implementation-runs/accept.json --before /tmp/opencode/accept-before.json --after docs/agent/implementation-state.json
+./scripts/save.sh ONLY_ACCEPTANCE_STATE_REPORT_AND_EVIDENCE_PATHS
+```
+
+If latest selection, selected task contract, prerequisites or review validity changed,
+retain/reconcile the proposal; no guard override or old snapshot replacement. The
+supervisor also inspects material source changes since an independent review anchor,
+invalidates affected coverage and dispatches fresh review/repair where required.
+After save, confirm exact report/state/evidence blobs, clean tree, actual configured
+remote HEAD, candidate/worker commits and lease/session metadata before journaling
+accepted progress. Pre-save helper success alone is not acceptance or R1 completion.
 
 ## Historical qualification (lookup only)
 

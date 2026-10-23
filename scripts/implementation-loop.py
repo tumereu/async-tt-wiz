@@ -97,9 +97,24 @@ def pending_review(batch):
     return review_nodes(batch)[1] - record["completed"].keys() - record.get("blocked", {}).keys()
 
 
-def check_reference(report, evidence, *, passing=False):
+def run_owned(report, path):
+    prefix = f"{REPORTS}/{report.get('runId', '')}"
+    return bool(report.get("runId")) and isinstance(path, str) and (
+        path.startswith(prefix + "-") or path.startswith(prefix + "/")) and ".." not in path.split("/")
+
+
+def check_reference(report, evidence, *, passing=False, current=False):
+    if current and not run_owned(report, evidence):
+        return False
     return any(c.get("evidence") == evidence and (not passing or
                c.get("kind") == "required" and c.get("exitCode") == 0) for c in report.get("checks", []))
+
+
+def current_completion_outputs(report, actual):
+    evidence = {u.get("evidence") for key in ("implementationUnits", "ancestorClosures")
+                for u in report.get(key, [])}
+    require(evidence <= actual and all(run_owned(report, p) for p in evidence),
+            "Completion evidence must be changed output owned by this current run")
 
 
 def troubleshooting(report):
@@ -256,7 +271,7 @@ def needs_attention(finding):
         "disposition") in {"actionable", "blocked-owner/environment"}
 
 
-def validate_transition(before, after, choice, report):
+def validate_transition(before, after, choice, report, *, speculative=False):
     """Enforce one role/unit, allowing explicitly explained invalidation and planning."""
     mode, target = choice["mode"], choice["target"]
     checkpoint = troubleshooting(report)
@@ -310,9 +325,9 @@ def validate_transition(before, after, choice, report):
     require(isinstance(units, list) and all(isinstance(u, dict) and u.get("id") in new_ids and
             isinstance(u.get("sourceIds"), list) and u["sourceIds"] and
             all(isinstance(s, str) and s for s in u["sourceIds"]) and
-            check_reference(report, u.get("evidence"), passing=True) for u in units) and
+            check_reference(report, u.get("evidence"), passing=True, current=True) for u in units) and
             len({u["id"] for u in units}) == len(units),
-            "Implementation units need unique new child IDs, source IDs and passing evidence")
+            "Implementation units need unique new child IDs, source IDs and current-run passing evidence")
     completed_children = {u["id"] for u in units}
     require(new_ids <= descendants and all(new_tasks[i]["status"] ==
             ("implemented" if i in completed_children else "pending") for i in new_ids),
@@ -342,8 +357,8 @@ def validate_transition(before, after, choice, report):
         selected.update(children=new_tasks[target]["children"], status="in-progress")
         for unit in units:
             child = next(t for t in staged["tasks"] if t["id"] == unit["id"])
-            require(not child.get("children") and selection(staged) ==
-                    {"mode": "implement", "target": child["id"], "findingIds": []},
+            require(not child.get("children") and (speculative or selection(staged) ==
+                    {"mode": "implement", "target": child["id"], "findingIds": []}),
                     "Child implementation bypassed dependency/selection order")
             require(new_tasks[child["id"]].get("implementationRecord") == after["runs"][-1],
                     "Completed child needs this run's implementation record")
@@ -352,9 +367,9 @@ def validate_transition(before, after, choice, report):
     closures = report.get("ancestorClosures", [])
     require(isinstance(closures, list) and all(isinstance(c, dict) and c.get("id") in old_tasks and
             isinstance(c.get("reason"), str) and c["reason"].strip() and
-            check_reference(report, c.get("evidence"), passing=True) for c in closures) and
+            check_reference(report, c.get("evidence"), passing=True, current=True) for c in closures) and
             len({c["id"] for c in closures}) == len(closures),
-            "Ancestor closures need unique IDs, a reason and passing evidence")
+            "Ancestor closures need unique IDs, a reason and current-run passing evidence")
     ancestors = set()
     parents = {child: task["id"] for task in before["tasks"] for child in task.get("children", [])}
     ancestor = parents.get(target)
@@ -702,10 +717,10 @@ class Runner:
         require(entries in ([f"100644 blob {blob}"], [f"100755 blob {blob}"]),
                 f"Check evidence is not committed byte-for-byte: {relative}")
 
-    def role_paths(self, state, choice, report, actual, report_relative):
+    def role_paths(self, state, choice, report, actual, report_relative, after=None):
         """Default-deny runtime/build changes outside implement/fix roles."""
         planning = choice["mode"] == "blocked" or not troubleshooting(report) and not report.get("implementationUnits") and choice["mode"] == "implement" and next(
-            t for t in load(self.state_path)["tasks"] if t["id"] == choice["target"])["status"] == "in-progress"
+            t for t in (after if after is not None else load(self.state_path))["tasks"] if t["id"] == choice["target"])["status"] == "in-progress"
         splitting_review = choice["mode"] == "review" and not report.get("reviewedUnitIds") and not report.get("blockedReviewUnitIds")
         if choice["mode"] in {"implement", "fix"} and not planning:
             return
@@ -894,6 +909,7 @@ class Runner:
             finish = self.git("rev-parse", "HEAD")
             require(finish != start, "No committed report/state changes")
             actual = set(self.git("diff", "--no-renames", "--name-only", "-z", start, finish).split("\0")) - {""}
+            current_completion_outputs(report, actual)
             claimed = report.get("changedPaths", [])
             require(len(claimed) == len(set(claimed)) and set(claimed) == actual,
                     "Committed changed paths differ from the owned-path report")
@@ -930,6 +946,11 @@ class Runner:
             atomic_json(active_path, record)
             raise
 
+    def managed_writer_fence(self):
+        require(not (self.journal / "resources/integration-writer.json").exists(),
+                "Retained managed integration-writer fence: its owner must inspect, clean up and use "
+                "implementation-resources.py recover; legacy run/recover cannot acknowledge it")
+
     def run(self, maximum, seconds):
         require(maximum > 0 and seconds > 0, "Positive session count and wall-time budgets required")
         with (self.journal / "writer.lock").open("a") as lock:
@@ -937,6 +958,7 @@ class Runner:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise Halt("Another loop writer holds the repository lock")
+            self.managed_writer_fence()
             require(not (self.journal / "active.json").exists(),
                     "Interrupted/failed run retained: inspect it and use recover; do not blindly restart")
             driver = self.root / "scripts/implementation-loop.py"
@@ -968,6 +990,7 @@ class Runner:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise Halt("Cannot recover while the loop writer is running")
+            self.managed_writer_fence()
             active = self.journal / "active.json"
             require(active.exists(), "No retained interrupted/failed run")
             record = load(active)

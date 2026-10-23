@@ -37,7 +37,9 @@ class NonGameplayScreenshotTest(private val screen: String) {
 
     companion object {
         @JvmStatic @Parameters(name = "{0}") fun screens() = listOf(
-            "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open")
+            "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open",
+            "play", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
+            "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting")
     }
 
     @Test fun portrait() = capture(false)
@@ -52,25 +54,39 @@ class NonGameplayScreenshotTest(private val screen: String) {
         if (screen == "reset-email") fixtures.reset.seed(ResetState(ResetPage.REQUEST, email = "alex@example.test",
             message = "If this email has an account, a reset link is on its way."))
         if (screen == "new-password") fixtures.reset.seed(ResetState(ResetPage.PASSWORD, password = "password123"))
+        fixtures.configure(screen)
+        val accountScreen = screen in listOf("sign-in", "register", "register-scrolled", "reset-email", "new-password")
+        if (!accountScreen) fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
+        if (screen == "prepare-deck") compose.mainClock.autoAdvance = false
         compose.setContent {
             ScreenTheme {
                 Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
-                    if (screen in listOf("sign-in", "register", "register-scrolled", "reset-email", "new-password")) {
+                    if (accountScreen) {
                         AccountEntry(fixtures.auth, fixtures.reset)
                     } else {
-                        fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
                         Row(Modifier.fillMaxSize()) {
                             if (landscape || screen == "navigation-open") Surface(Modifier.width(if (landscape) 220.dp else 280.dp).fillMaxHeight(),
                                 color = Color.White) { Navigation(fixtures.auth, !landscape, fixtures.lobby) }
                             Box(Modifier.weight(1f)) {
-                                ShellContent(ShellDestination.MENU, !landscape, {}, {}, null, null, null, fixtures.lobby, "a")
+                                when (screen) {
+                                    "waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby" ->
+                                        WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
+                                    else -> ShellContent(when (screen) {
+                                        "play", "game-context", "delete-game" -> ShellDestination.GAMES
+                                        "contacts", "create-game" -> ShellDestination.CONTACTS
+                                        else -> ShellDestination.MENU
+                                    }, !landscape, {}, {}, null, null, null, fixtures.lobby, "a")
+                                }
                             }
                         }
+                        SetupCancellationDialogs(fixtures.lobby)
+                        GameDeletionDialogs(fixtures.lobby)
                     }
                 }
             }
         }
         compose.waitForIdle()
+        if (screen == "prepare-deck") { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         if (screen == "register-scrolled") compose.onNodeWithText("Sign in").performScrollTo()
         val output = File("build/outputs/roborazzi/non-gameplay/$screen-${if (landscape) "landscape" else "portrait"}.png")
         output.parentFile!!.mkdirs()
@@ -107,6 +123,37 @@ internal class ScreenFixtures {
     val auth = AuthController(unused<Accounts>(), unused<SessionStore>(), worker, post = { it() })
     val reset = ResetController(unused<PasswordResets>(), "https://example.test", worker, {}, { it() })
     val lobby = LobbyController(unused<Lobbies>(), { "fixture" }, worker, { it() }, accountId = { "a" })
+    val definitions = listOf("Meadow Sentinel", "Aegis Ward", "Training Land", "Ember Adept", "Quiet Grove").mapIndexed { n, name ->
+        CardDefinition(name, listOf(DefinitionFace("face-$n", name, typeLine = "Creature", corner = "1/3"))).let { SubmittedDefinition(DeckJson.digest(it), it) }
+    }
+    val decks = listOf("Training deck", "Woodland practice", "Starter list").mapIndexed { n, name ->
+        DeckSummary("deck-$n", name, "1", "2026-10-20T12:00:00Z", 60, 15)
+    }
+    fun configure(screen: String) {
+        val game = lobby.state.games.last().copy(invitationState = if (screen == "waiting-invite") InvitationState.DECLINED else InvitationState.ACCEPTED)
+        val prepared = PreparedDeck("prepared", "deck-0", "1", "Training deck", null, "00000000-0000-4000-8000-000000000001", listOf(
+            PreparedEntry(definitions[0].digest, SavedDeckSection.MAINBOARD, "0", 3),
+            PreparedEntry(definitions[1].digest, SavedDeckSection.MAINBOARD, "3", 4),
+            PreparedEntry(definitions[2].digest, SavedDeckSection.MAINBOARD, "7", 52),
+            PreparedEntry(definitions[0].digest, SavedDeckSection.SIDEBOARD, "59", 1),
+            PreparedEntry(definitions[3].digest, SavedDeckSection.SIDEBOARD, "60", 3),
+            PreparedEntry(definitions[4].digest, SavedDeckSection.SIDEBOARD, "63", 12)))
+        val prep = LobbyPreparation(game.id, game.preparationRound, listOf(
+            PlayerPreparation("a", ready = screen == "ready-waiting", deck = prepared.takeUnless { screen == "lobby-select-deck" }),
+            PlayerPreparation("b", ready = screen == "lobby-select-deck")), definitions, StarterChoice())
+        val inLobby = screen in listOf("waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby")
+        lobby.seed(lobby.state.copy(contacts = listOf(riley, AccountIdentity("c", "morgan")), query = "sam", searched = true,
+            results = listOf(AccountIdentity("d", "sam")), connectedGames = setOf("g1", "g2", "g3"),
+            invitations = listOf(game.copy(id = "g3", inviter = riley, recipient = alex, invitationState = InvitationState.PENDING)),
+            selected = if (inLobby) game.id else null, detail = if (inLobby) game else null,
+            preparation = if (inLobby) prep else null, preparing = screen.startsWith("prepare-deck"),
+            transferFeedback = if (screen == "prepare-deck") TransferFeedback(1, "1× Meadow Sentinel → Sideboard") else null,
+            picker = if (screen == "choose-lobby-deck") DeckPickerState(game, decks, decks.first(), loading = false) else null,
+            draft = if (screen == "create-game") GameNameDraft(riley, "Crackling Mist") else null))
+        if (screen == "game-context") lobby.gameContext(lobby.state.games.first())
+        if (screen == "delete-game") lobby.requestGameDeletion(lobby.state.games.first())
+        if (screen == "cancel-lobby") lobby.requestCancelSetup(game)
+    }
     init {
         lobby.seed(LobbyState(loaded = true, games = listOf(
             GameSummary("g1", "Azure Spark", "2026-10-21T12:00:00Z", alex, riley, "round", "invite1",

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -66,9 +68,25 @@ internal fun ScreenOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modi
 internal fun ScreenIconButton(description: String, kind: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, danger: Boolean = false) {
     OutlinedIconButton(onClick, modifier.size(48.dp), enabled, shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, if (danger) Color(0xffe1b7b7) else MaterialTheme.colorScheme.outline),
         colors = IconButtonDefaults.outlinedIconButtonColors(contentColor =
             if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)) {
         EntryIcon(description, kind)
+    }
+}
+
+@Composable
+internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, name: String,
+    width: Dp = 28.dp, height: Dp = 40.dp) {
+    Surface(Modifier.size(width, height), color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(2.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
+        if (reference?.printing != null || reference?.customUrl != null) {
+            CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.labelSmall) {
+                CardArtwork(reference, name, width.value.toInt(), height.value.toInt(), Modifier.fillMaxSize())
+            }
+        } else Box(contentAlignment = Alignment.Center) {
+            Icon(screenIcon("cover"), name, Modifier.size(minOf(width, 20.dp)), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

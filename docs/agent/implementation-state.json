@@ -107,7 +107,8 @@
                                                             "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json",
                                                              "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
                                                               "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json",
-                                                              "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3.json"
+                                                               "docs/agent/implementation-runs/20261023T010830Z-bc92c3f3.json",
+                                                               "docs/agent/implementation-runs/20261023T024324Z-aa902dde.json"
    ],
   "findings": [
     {
@@ -1057,7 +1058,9 @@
     {
       "id": "I11",
       "batch": "B3",
-      "status": "in-progress",
+      "status": "implemented",
+      "implementationRecord": "docs/agent/implementation-runs/20261023T024324Z-aa902dde.json",
+      "qualification": "D-307 parent audit reconciles I11a at aa0d133bc4b62eee96a54b998130c5685959536d and I11b at 9fcdb54a5da2812828814d401e542344cf36130d: exact reports/committed output hashes, composite shared golden/model and real PostgreSQL/socket checks, final affected host rechecks, native both-orientation captures and current source/build/lock/fixture/JAR/APK identities. Earlier APK supersession and final client replica-correlation correction are explicit, with targeted host checks/compile; no claim of a new final-APK native run. Shared pure rules, ordered durable initialization and accepted-replica-only production table form one path. Retained native snapshots bind eleven original accepted requests to exactly one play/root, prepared mainboard UUID/definition/owner identity, two independent recorded Library orders and Random result unchanged across lost-ack/backend/app restart, 20 life, turn-1 Beginning/Untap and no opening draw or play Sideboard. Saved diagnostics remain diagnostic; passing retained tails do not become complete green journeys. Actual populated V9 reset and owned cleanup retained. No missing affected seam warrants another product/build/device/full-suite run. Only I11 closes; I12 is next, B3 awaits it and first independent review. I13-I26 gameplay/history, I28/I31 rematch, I32/I34 reduced-motion/large-text/full suite/deferred migration-fixture and recovered HTTP-error fixes, I33/I35/I36/B8 measurements/compatibility/complete UI comparison and every external release gate remain required/unverified.",
       "dependsOn": ["I10"],
       "children": ["I11a", "I11b"],
       "planningRecord": "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",

@@ -17,6 +17,13 @@ android {
         it.useJUnitPlatform()
         it.systemProperty("storage.fixture", file("src/main/sqldelight/databases/1.db").absolutePath)
         it.systemProperty("catalog.fixtures", rootProject.file("tests/fixtures/catalogs").absolutePath)
+        val realCatalog = providers.systemProperty("atw.realCatalog")
+            .orElse(providers.environmentVariable("atw.realCatalog"))
+        if (realCatalog.isPresent) {
+            it.systemProperty("atw.realCatalog", realCatalog.get())
+            it.maxHeapSize = "256m"
+            it.testLogging.showStandardStreams = true
+        }
     }
 }
 

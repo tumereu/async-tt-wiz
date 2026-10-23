@@ -31,13 +31,14 @@ class DeckImportTest {
                 addProperty("scryfallOracleId", UUID.nameUUIDFromBytes(oracle.toByteArray()).toString())
             })
         }
-    private fun install(vararg sets: Triple<String, String?, List<JsonObject>>): CatalogRepository {
+    private fun install(vararg sets: Triple<String, String?, List<JsonObject>>, tokens: List<JsonObject> = emptyList()): CatalogRepository {
         val root = JsonObject().apply {
             add("meta", JsonObject().apply { addProperty("date", "2026-10-23"); addProperty("version", "5.2.2") })
             add("data", JsonObject().apply {
                 sets.forEach { (code, date, cards) -> add(code, JsonObject().apply {
                     // Dates intentionally follow cards, as in the fixture and real sorted-key data.
                     add("cards", JsonArray().apply { cards.forEach { add(it) } })
+                    add("tokens", JsonArray().apply { tokens.forEach { add(it) } })
                     date?.let { addProperty("releaseDate", it) }
                 }) }
             })
@@ -222,6 +223,31 @@ class DeckImportTest {
         val different = card(1002, oracle = "different").apply { addProperty("uuid", "ffffffff-ffff-4fff-8fff-ffffffffffff") }
         val ambiguous = install(Triple("SET", "2026-01-01", cards + different))
         assertTrue(DeckImportResolver(ambiguous).resolve("1 Default Card").issues.single().message.contains("ambiguous"))
+    }
+
+    @Test fun playableFullAndFrontNamesOutrankTokenArtAndUnrelatedBackFaceAliases() {
+        fun faces(id: Int, name: String, oracle: String): List<JsonObject> {
+            val pair = listOf(card(id, "$id", oracle, name), card(id + 1, "$id", oracle, name))
+            pair.forEachIndexed { index, raw ->
+                raw.addProperty("faceName", name.split(" // ")[index])
+                raw.addProperty("side", if (index == 0) "a" else "b")
+                raw.add("otherFaceIds", JsonArray().apply { add(pair[1 - index].get("uuid")) })
+            }
+            return pair
+        }
+        val bolt = card(1, name = "Lightning Bolt", oracle = "bolt")
+        val island = card(2, name = "Island", oracle = "island")
+        val spell = faces(3, "Emeritus of Conflict // Lightning Bolt", "emeritus")
+        val reversible = faces(5, "Island // Island", "island")
+        val art = faces(7, "Island // Island", "art-island") + faces(9, "Lightning Bolt // Lightning Bolt", "art-bolt")
+        val repository = install(Triple("SET", "2026-01-01", listOf(bolt, island) + spell + reversible), tokens = art)
+        val result = DeckImportResolver(repository).resolve("4 Lightning Bolt\n4 Island\n1 Emeritus of Conflict")
+        assertTrue(result.resolved, result.issues.toString())
+        assertEquals(listOf(bolt.get("uuid").asString, island.get("uuid").asString, spell.first().get("uuid").asString),
+            result.entries.map { it.printing.id })
+        assertTrue(result.entries.flatMap { it.faces }.none { it.token })
+        val exactBack = DeckImportResolver(repository).resolve("1 Lightning Bolt (SET) 3")
+        assertEquals(spell.map { it.get("uuid").asString }, exactBack.entries.single().faces.map { it.id })
     }
 
     @Test fun oldPublicIndexStaysReadableAndRequestsRefreshForReleaseDates() {

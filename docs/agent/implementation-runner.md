@@ -105,15 +105,29 @@ Run once for changed driver/prompt inputs, not a fresh live cycle or product ful
 suite for prose. Live execution, device qualification and release readiness are
 separate claims. See the [environment record](e2e-environment-smoke-2026-10-21.md).
 
-**D-309 adoption boundary:** the docs specify approved driver improvements; this
-documentation branch does not implement them. Before using `implementationUnits` or
-`ancestorClosures`, integrate the owner's driver repair and passing regressions for
-ordered ready descendants, per-parent run-owned checks, rejection of unrelated work
-and preserved role/gate protections. Graph cycle validation should be iterative
-O(V+E), not repeated recursive traversal. Existing serial guards remain until qualified.
-The shared `scripts/implementation-evidence.py` is planned (`report`, `validate`,
-`retain-junit`, `reconcile`); use its qualified help when delivered, not guessed flags.
-Current capture syntax: `python3 scripts/capture-check.py OUTPUT.json -- COMMAND ...`.
+The [D-309 qualification record](flow-improvements-2026-10-23.md) covers iterative
+O(V+E) cycle validation, split-plus-delivery, evidenced ancestor closures and shared
+tooling. These preserve independent review, role, committed-byte and release guards.
+The CLI remains serial; new supervisors use [managed lanes](implementation-orchestrator.md)
+and the [enforced resource plan](test-resource-plan.md), not concurrent CLI instances.
+
+## Shared evidence commands
+
+`python3 scripts/implementation-evidence.py --help` lists the exact CLI:
+
+| Command arguments | Result |
+| --- | --- |
+| `report CONTEXT.json DETAILS.json` | Generate supplied identity/exact changed paths; details supply actual result/checks. Controller context is at `THIS RUN.contextPath`; state is edited separately. |
+| `validate REPORT.json [--pending-evidence PATH]` | Check the current unsaved state/report/ownership; not product correctness or final pushed acceptance. |
+| `retain-junit OUTPUT.json XML...` | Preserve exact XML bytes/hash/attributes, including failures. |
+| `reconcile OUTPUT.json [TASK=]REPORT@COMMIT...` | Reuse exact committed child evidence in chronological order and identify changed inputs; no implicit parent pass. `TASK=` selects a child delivered in its parent's split unit. |
+
+Capture actual commands with `python3 scripts/capture-check.py OUTPUT.json -- COMMAND ...`;
+it creates parent directories and retains binary output/nonzero exits without sanitizing.
+For validation's own foreground capture declare the required check in DETAILS, generate
+REPORT, then capture `implementation-evidence.py validate REPORT --pending-evidence OUTPUT`.
+Only that explicitly run-owned output may be pending until capture returns. Never use
+`report` or `validate` as a substitute for running the delivered journey/affected tests.
 
 ## Historical qualification (lookup only)
 

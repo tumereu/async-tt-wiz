@@ -44,18 +44,18 @@ or evidence-backed troubleshooting advance; note churn is not progress.
 
 New children have stable IDs, one parent, the same batch, concrete `outcome`, nonempty
 `checks` and explicit `dependsOn`; preserve existing children/obligations. Planning-only
-splits remain supported. **Qualified D-309 extension:** `implementationUnits` is an
-ordered list beginning with the selected parent, then only its direct/new descendant
-task IDs. A planning child can advance only when listed and ready at that step, with
-its own source/test evidence. This permits decomposition plus first-child completion
-without an empty extra session, not unrelated task completion or self-review.
+splits remain supported. `implementationUnits` lists completed **new leaf descendants**
+in ready-selection order: `[{"id":"child","sourceIds":["actual ID"],"evidence":"passing check"}]`.
+Each names this run's `implementationRecord`; unlisted new children stay pending.
+The selected parent remains the report target and can complete only when all children
+are done. This permits decomposition plus first-child delivery, not unrelated completion.
 
 `ancestorClosures: [{"id": "parent", "reason": "integration outcome", "evidence": "run-owned check"}]`
 may close only true ancestors of implemented work, all children done, with a passing
 **current-run required check for each parent's scoped outcome**. Reuse exact child
 records/input identities; test missing seams, not full recertification. Status alone
-is not proof and old output is not a new run. These extensions require qualified
-validator support before use; otherwise retain selected-parent-only legacy closure.
+is not proof and old output is not a new run. The [qualified tooling](flow-improvements-2026-10-23.md)
+enforces these transitions; original independent review/gate protections remain.
 
 ### Review a group
 
@@ -109,8 +109,8 @@ Use the [compact report](implementation-agent.md#report): supplied identity/sele
 summary/reason, actual commands/exits/evidence and exact `changedPaths`. Retain reports
 and diagnostics byte-for-byte in Git under `docs/agent/implementation-runs/<runId>/...`
 or `<runId>-...`; no rewriting archived reports, ignored-output substitutes or secrets.
-Small truthful reports suffice; no bespoke audit-size requirement. Prefer the shared
-capture helper; use future evidence tooling only after its CLI is qualified.
+Small truthful reports suffice; no bespoke audit-size requirement. Use the shared
+[evidence commands](implementation-runner.md#shared-evidence-commands), not new report/audit scripts.
 
 Tasks: `pending → in-progress → implemented` or evidenced `blocked` (`blocker` and
 `blockerEvidence`). Implemented means scoped outcome/affected checks, not global
@@ -161,7 +161,7 @@ completion, explicit pause, exhausted budget/quota or a genuinely unavoidable bo
 Stop drains active units to safe saved boundaries and prevents launches; interruption
 does not authorize discard. Keep session/branch/worktree/state provenance and resource
 leases. One integration writer; no old competing loop or sibling-worktree recovery.
-Serialize shared emulator/ADB/Appium/Docker/ports/build caches when not isolated.
+Follow the [exclusive-resource plan](test-resource-plan.md); isolated host checks may overlap.
 No claimed hard dollar cap or new paid-resource authority.
 
 Before accepting a unit validate exact model/succeeded-idle session, report identity,

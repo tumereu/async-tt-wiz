@@ -49,7 +49,7 @@ Split only for useful bounded work: stable same-batch children with concrete out
 checks and explicit dependencies; all children precede parent completion. Qualified
 D-309 allows decomposition plus ready first-child completion through ordered
 `implementationUnits`, and explicit evidenced `ancestorClosures` for true completed
-ancestry. Until supported, retain legacy planning-only splits/selected-parent closure.
+ancestry, using the now-qualified validators rather than separate metadata-only units.
 No qualification-only recursion or per-child independent reviews. Full group review
 coverage can span fresh bounded units; targeted verification cannot replace it.
 

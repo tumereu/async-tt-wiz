@@ -10,9 +10,9 @@ copies or alter its shared lock/state to simulate parallelism. The
 1. Drain/pause the old controller and workers, reconcile any retained owned run in
    its exact checkout and confirm clean/pushed handoff. Preparation branches never
    migrate live state. Check explicit owner STOP before dispatch.
-2. Integrate qualified driver/prompt changes and affected runner regressions; retain
-   all product/review/release obligations. Until managed dispatch/report/state gates
-   can be enforced, use the serial CLI. No permission widening or lock bypass.
+2. Integrate qualified driver/prompt changes; retain product/review/release obligations.
+   Enforce dispatch/report/state gates below. If a lane cannot meet them, hold and
+   repair it; **do not silently restart the old serial workflow**. No lock bypass.
 3. Designate one integration branch/worktree and **sole integration/state writer**.
    Record the remaining original session budget and ownership/stop controls. Only
    this writer selects accepted transitions in `implementation-state.json`.
@@ -61,11 +61,11 @@ Review/verify receives the exact accepted code anchor in an isolated checkout, n
 an evolving worker tree. A reviewer cannot implement its reviewed scope; a verifier
 cannot certify its own repair. New failures return to fresh leased fixing sessions.
 
-Serialize shared Windows emulator/ADB/Appium, Docker names/volumes/ports, mutable
-Gradle/build caches and device install/reset/cleanup unless proven separately owned.
-Reserve resources before commands; preserve exact ownership and cleanup evidence.
-Read-only/source-only parallel work can continue while one lane owns devices. Never
-kill unrelated services or widen grants to keep lanes busy.
+Use the [resource matrix and enforced leases](test-resource-plan.md): one native
+device/routing lifecycle at a time, isolated host/build/service work where proven.
+Hold `integration-writer` around the orchestrator process; it also excludes the old
+serial controller. Reserve bundles before commands, retain failed-owner fences and
+recover only with exact cleanup evidence. Keep other ready host/source work moving.
 
 ## Accept and integrate (one writer)
 
@@ -91,8 +91,8 @@ kill unrelated services or widen grants to keep lanes busy.
    get fresh verification; parallel review of one capability never waives a due review
    or missing integrated seam in another. Only materially affected coverage reopens.
 
-Use the planned shared evidence helper only after qualification; current
-`capture-check.py OUTPUT.json -- COMMAND ...` retains actual output/exit status.
+Use the [qualified evidence commands](implementation-runner.md#shared-evidence-commands)
+for reports, captures, pre-save validation, JUnit and child reuse.
 Small truthful reports suffice. Assigned requirements are not executed assertions.
 
 ## Drain, assess and resume

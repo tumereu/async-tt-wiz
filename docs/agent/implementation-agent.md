@@ -13,8 +13,8 @@ No subagents, new loop, deployment or paid resources from a unit.
 2. Deliver one bounded usable outcome. Implement affected tests alongside code;
    split only when useful. Qualified D-309 `implementationUnits` allows decomposition
    plus a ready first child in this session; explicit `ancestorClosures` can reconcile
-   completed ancestry. Use neither extension until the running validator supports it.
-   Otherwise keep the legacy planning-only split. No unrelated advancement.
+    completed ancestry. Follow the exact report schemas in the contract; no unrelated
+    advancement or extra closure-only session when evidence already covers the parent.
 3. Run/fix affected checks using incremental builds; stop once green unless evidence
    identifies another affected input/assertion. No confidence full-suite/clean-build
    reruns or bespoke 100-line audits. Final qualification/reviews remain required.
@@ -22,7 +22,7 @@ No subagents, new loop, deployment or paid resources from a unit.
    while a background check still owns the handoff/resources.
 4. Retain actual output, including failed diagnostics, under this run's namespace.
    Prefer `python3 scripts/capture-check.py <run-directory>/check.json -- <command> ...`;
-   create that directory first. Small truthful summaries suffice. Assigned requirement
+    small truthful summaries suffice. Assigned requirement
    IDs are not executed coverage. Record deferred assertions and their final owner.
 5. Write the report, apply only permitted state transitions (serial unit), validate,
    save/push owned paths and exit. A managed worker instead proposes transitions in
@@ -53,9 +53,9 @@ Keep all referenced output committed byte-for-byte; redact secrets/private data.
 Helpers/fixtures need exact check `supportPaths` under this run's `-...` or `/...`
 namespace, included in `changedPaths`; never runtime/build inputs or older reports.
 Optional report/state fields and role transitions live in the contract, not history.
-The planned shared `implementation-evidence.py` helper (`report`, `validate`,
-`retain-junit`, `reconcile`) is not available until implemented/qualified; do not
-guess its CLI or substitute fabricated evidence.
+Use the [shared report/validation/JUnit/reuse commands](implementation-runner.md#shared-evidence-commands).
+For native work reserve the [complete resource bundle](test-resource-plan.md) first;
+a green phase continuation is not a full journey. Do not invent a new audit framework.
 
 ### Autonomous troubleshooting and orchestration repairs — D-305
 

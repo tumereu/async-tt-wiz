@@ -2,17 +2,20 @@ package org.asyncttwiz.storage
 
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
+import com.google.gson.JsonParser
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 import java.util.UUID
 
-data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0)
+internal const val CATALOG_INDEX_VERSION = 1
+data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
+    val indexVersion: Int = CATALOG_INDEX_VERSION)
 
 /** Raw provider JSON retains exact display strings, optional defaults and explicit face identities. */
 data class CatalogPrinting(val id: String, val name: String, val set: String, val number: String,
     val language: String, val side: String, val scryfallId: String?, val token: Boolean,
-    val otherFaces: List<String>, val json: String)
+    val otherFaces: List<String>, val json: String, val releaseDate: String = "")
 
 /** A page retains every exact face on one installed generation; no later per-face lookup is needed. */
 data class CatalogToken(val printing: CatalogPrinting, val faces: List<CatalogPrinting>)
@@ -122,7 +125,12 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE INDEX name_lookup ON printing(normalized, set_code, number)")
         sql("CREATE TABLE face (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(source, target))")
         sql("CREATE INDEX face_target ON face(target, source)")
+        sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL)")
+        createImportNames()
+        sql("PRAGMA user_version=$CATALOG_INDEX_VERSION")
     }
+
+    internal fun addSet(code: String, releaseDate: String) = sql("INSERT INTO catalog_set VALUES (?, ?)", listOf(code, releaseDate))
 
     fun addBatch(records: List<CatalogPrinting>) = transaction {
         records.forEach { record ->
@@ -130,6 +138,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
                 record.name.lowercase(Locale.ROOT), record.set, record.number, record.language, record.side,
                 record.scryfallId, if (record.token) "1" else "0", record.json))
             record.otherFaces.forEach { target -> sql("INSERT INTO face VALUES (?, ?)", listOf(record.id, target)) }
+            addImportNames(record)
         }
     }
 
@@ -148,16 +157,52 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     fun metadata(): CatalogMetadata = driver.executeQuery(null, "SELECT date, version, checksum, records FROM metadata", { cursor ->
         check(cursor.next().value)
         QueryResult.Value(CatalogMetadata(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!, cursor.getLong(3)!!))
-    }, 0).value
+    }, 0).value.copy(indexVersion = long("PRAGMA user_version").toInt())
 
     fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
-    fun find(name: String, set: String?, number: String?, limit: Int): List<CatalogPrinting> {
+    fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting> {
         require(limit in 1..1000)
+        prepareImportNames()
         val args = mutableListOf(name.lowercase(Locale.ROOT))
-        var where = "normalized=?"
-        if (set != null) { where += " AND set_code=?"; args += set }
-        if (number != null) { where += " AND number=?"; args += number }
-        return rows("SELECT * FROM printing WHERE $where ORDER BY id LIMIT $limit", args)
+        var where = "n.normalized=?"
+        if (set != null) { where += " AND p.set_code=?"; args += set }
+        if (number != null) { where += " AND p.number=?"; args += number }
+        if (afterId != null) { where += " AND p.id>?"; args += afterId }
+        return rows("SELECT p.* FROM import_name n JOIN printing p ON p.id=n.printing_id WHERE $where ORDER BY p.id LIMIT $limit", args)
+    }
+
+    private fun createImportNames() = sql("CREATE TABLE import_name (normalized TEXT NOT NULL, printing_id TEXT NOT NULL, PRIMARY KEY(normalized, printing_id))")
+
+    private fun addImportNames(record: CatalogPrinting) {
+        val faceName = JsonParser.parseString(record.json).asJsonObject.get("faceName")?.asString
+        listOfNotNull(record.name, faceName?.takeIf { it.isNotEmpty() }).map { it.lowercase(Locale.ROOT) }.distinct().forEach {
+            sql("INSERT INTO import_name VALUES (?, ?)", listOf(it, record.id))
+        }
+    }
+
+    /** Old generations retain every record; aliases can be backfilled without the original download. */
+    private fun prepareImportNames() {
+        if (long("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='import_name'") != 0L) return
+        transaction {
+            createImportNames()
+            var after = ""
+            while (true) {
+                check(!Thread.currentThread().isInterrupted)
+                val batch = rows("SELECT * FROM printing WHERE id>? ORDER BY id LIMIT 256", listOf(after))
+                if (batch.isEmpty()) break
+                batch.forEach(::addImportNames)
+                after = batch.last().id
+            }
+        }
+    }
+
+    private val releaseDates: Map<String, String> by lazy {
+        if (long("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='catalog_set'") == 0L) emptyMap()
+        else driver.executeQuery(null, "SELECT code, release_date FROM catalog_set", { cursor ->
+            val dates = mutableMapOf<String, String>()
+            while (cursor.next().value) dates[cursor.getString(0)!!] = cursor.getString(1)!!
+            QueryResult.Value(dates)
+        }, 0).value
     }
 
     /** Only the separate public generation is extended. A crash rolls back both postings and ready marker.
@@ -220,7 +265,8 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
         QueryResult.Value(rows)
     }, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }.value.map { record ->
-        record.copy(otherFaces = texts("SELECT target FROM face WHERE source=? ORDER BY target", listOf(record.id)))
+        record.copy(otherFaces = texts("SELECT target FROM face WHERE source=? ORDER BY target", listOf(record.id)),
+            releaseDate = releaseDates[record.set].orEmpty())
     }
 
     private fun sql(query: String, args: List<String?> = emptyList()) {

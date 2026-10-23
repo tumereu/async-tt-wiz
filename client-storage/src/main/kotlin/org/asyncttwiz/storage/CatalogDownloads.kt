@@ -16,7 +16,8 @@ interface CatalogSource {
 
 object CatalogUpdatePolicy {
     fun changed(installed: CatalogMetadata?, available: CatalogMetadata?): Boolean = available != null &&
-        (installed == null || installed.date != available.date || installed.version != available.version)
+        (installed == null || installed.date != available.date || installed.version != available.version ||
+            installed.indexVersion != available.indexVersion)
     fun download(installed: CatalogMetadata?, available: CatalogMetadata?, metered: Boolean, consent: Boolean): Boolean =
         changed(installed, available) && (consent || (installed != null && !metered))
 }

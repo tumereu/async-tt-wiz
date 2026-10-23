@@ -10,6 +10,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +24,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -134,18 +138,21 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     }
     val timeline: @Composable () -> Unit = {
         var options by remember { mutableStateOf(false) }
-        Box(Modifier.fillMaxWidth().height(12.dp)) {
-            Text(if (position.playing) "Playing" else if (position.mode == HistoryMode.LIVE) "Live" else "Paused",
+        val index = events.indexOfFirst { it.id == position.cursorId }
+        Row(Modifier.fillMaxWidth().height(16.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${if (position.playing) "Playing groups" else "Paused"} · ${if (index == events.lastIndex) "Last" else index + 1} · ${events[index].label}",
                 Modifier.clickable { options = true }.semantics { contentDescription = "History options" },
                 style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.weight(1f))
+            Text(if (endpoint == playback.tree.sharedHeadId) "current path" else "retained path", style = MaterialTheme.typography.labelSmall)
             if (menuContent != null) DropdownMenu(options, { options = false }) { menuContent() }
         }
         HistoryTimeline(events, position.cursorId, viewer, playback::pause, playback::scrub,
-            Modifier.height(if (landscape) 40.dp else 48.dp))
+            Modifier.height(if (landscape) 36.dp else 44.dp))
     }
     val transport: @Composable () -> Unit = {
         HistoryTransport(position, position.cursorId != playback.tree.rootId,
-            position.cursorId != playback.tree.sharedHeadId || position.mode != HistoryMode.LIVE, connected && continuationReady,
+            position.cursorId != playback.tree.sharedHeadId, connected && continuationReady,
             playback::previous, { playback.next() }, playback::play, playback::pause, { captured ->
                 if (connected && playback.canContinue(captured)) continuation(captured)
              })
@@ -164,8 +171,43 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
  * known-type data must take compatibility/recovery handling, not silently become a generic dot. */
 @Composable
 fun HistoryEventIcon(icon: String) {
-    val glyph = historyIconGlyph(icon)
-    Text(glyph, color = LocalContentColor.current, style = MaterialTheme.typography.labelLarge)
+    if (icon == "swords") {
+        Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp)); return
+    }
+    val vector = when (icon) {
+        "flag" -> Icons.Outlined.Flag
+        "rotate_90_degrees_cw" -> Icons.Outlined.Rotate90DegreesCw
+        "favorite" -> Icons.Outlined.FavoriteBorder
+        "open_with" -> Icons.Outlined.OpenWith
+        "chat_bubble" -> Icons.AutoMirrored.Outlined.Chat
+        "ads_click" -> Icons.Outlined.AdsClick
+        "download" -> Icons.Outlined.Download
+        "layers" -> Icons.Outlined.Layers
+        "visibility" -> Icons.Outlined.Visibility
+        "add_box" -> Icons.Outlined.AddBox
+        "control_point_duplicate" -> Icons.Outlined.ControlPointDuplicate
+        "exposure_plus_1" -> Icons.Outlined.ExposurePlus1
+        "switch_account" -> Icons.Outlined.SwitchAccount
+        "layers_clear" -> Icons.Outlined.LayersClear
+        "casino" -> Icons.Outlined.Casino
+        "outlined_flag" -> Icons.Outlined.OutlinedFlag
+        "emoji_events" -> Icons.Outlined.EmojiEvents
+        "sticky_note_2" -> Icons.AutoMirrored.Outlined.StickyNote2
+        "delete" -> Icons.Outlined.DeleteOutline
+        "shuffle" -> Icons.Outlined.Shuffle
+        "pageview" -> Icons.Outlined.Pageview
+        "close" -> Icons.Outlined.Close
+        "monetization_on" -> Icons.Outlined.MonetizationOn
+        "settings_backup_restore" -> Icons.Outlined.SettingsBackupRestore
+        "flip_camera_android" -> Icons.Outlined.FlipCameraAndroid
+        "flip" -> Icons.Outlined.Flip
+        "flip_to_front" -> Icons.Outlined.FlipToFront
+        "link" -> Icons.Outlined.Link
+        "link_off" -> Icons.Outlined.LinkOff
+        "remove_circle_outline" -> Icons.Outlined.RemoveCircleOutline
+        else -> error("Unsupported history icon: $icon")
+    }
+    Icon(vector, null, Modifier.size(20.dp))
 }
 internal fun historyIconGlyph(icon: String): String = when (icon) {
     "flag" -> "⚑"; "rotate_90_degrees_cw" -> "↻"; "favorite" -> "♥"; "open_with" -> "↔";

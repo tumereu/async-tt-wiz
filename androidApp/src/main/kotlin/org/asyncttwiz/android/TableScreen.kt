@@ -7,10 +7,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -143,16 +139,12 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
     SideEffect { toolkit.reviewContext("${target?.boundaryNodeId}/${if (reviewing) position?.cursorId else "live"}") }
     Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
-        if (play == null) TableHeader(game, play, accountId, hamburger,
-            chatUnread = state.chat.unread, openChat = controller::openChat)
         if (play == null) {
-            Column(Modifier.weight(1f).padding(16.dp)) {
-                Text(if (waitingActivity) "Loading authorized history boundary…" else "Loading accepted table…")
-                history.error?.let { Text(it) }
-                if (waitingActivity) TextButton(onClick = controller::leaveActivityReview) { Text("Return to current") }
-                state.connectionMessage?.let { Text(it) }
-                TextButton(onClick = controller::reconnect) { Text("Reconnect") }
-            }
+            TableUnavailable(game.gameName, landscape, Modifier.weight(1f), hamburger,
+                message = history.error ?: state.connectionMessage,
+                loading = game.id in state.connectedGames && history.error == null,
+                retry = controller::reconnect,
+                returnCurrent = if (waitingActivity) controller::leaveActivityReview else null)
         } else {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val menuAnnotations = TableMenuAnnotations(EventReference(play.id, play.currentNodeId,
@@ -176,7 +168,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         history = playback?.let { player -> { history.select(player.position.cursorId) } },
                         tree = { explorerOpen = true },
                         continueHere = if (reviewing && history.armed == null && game.id in state.connectedGames &&
-                            history.foreground && history.canArm(position.cursorId)) ({ history.arm(position.cursorId) }) else null,
+                            history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                         returnCurrent = if (reviewing || history.armed != null) history::current else null,
                         menuContent = {
                             if (history.armed != null) DropdownMenuItem(text = { Text("Cancel continuation") }, onClick = history::cancel)
@@ -185,7 +177,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                             if (reviewing) HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
                         }, reviewPanel = if (playback != null && reviewing && history.armed == null) ({
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
-                                game.id in state.connectedGames, 240L, { history.arm(it) },
+                                game.id in state.connectedGames, 240L, { history.requestContinuation(it) },
                                 continuationReady = position?.cursorId?.let(history::canArm) == true,
                                 overlay = true, landscape = landscape, menuContent = {
                                     HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
@@ -202,6 +194,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                 style = MaterialTheme.typography.bodySmall)
             else state.connectionMessage?.let { Text(it, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.bodySmall) }
         }
+    }
+    history.continuationTarget?.let { target ->
+        HistoryContinueConfirmation(game.id in state.connectedGames && history.foreground && history.canArm(target),
+            history::dismissContinuation, { history.confirmContinuation() })
     }
     if (explorerOpen && tree != null) HistoryExplorer(explorer, game.id in state.connectedGames,
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
@@ -234,23 +230,6 @@ internal fun tablePingTarget(play: PlayState, item: TableItem?): PingTarget? = w
     item.owner != null && item.kind in setOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> PingTarget(PingTargetKind.PLAYER, item.owner)
     play.board.containers.any { it.id == item.id } -> PingTarget(PingTargetKind.AREA, item.id)
     else -> null
-}
-
-@Composable
-private fun TableHeader(game: GameSummary, play: PlayState?, accountId: String, hamburger: (() -> Unit)?, modifier: Modifier = Modifier,
-    chatUnread: Int, openChat: () -> Unit) {
-    Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (hamburger != null) IconButton(onClick = hamburger) { EntryIcon("Open navigation", "menu") }
-        Column(Modifier.weight(1f)) {
-            Text(game.gameName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
-            Text(gameDate(game), style = MaterialTheme.typography.labelSmall)
-        }
-        BadgedBox(badge = { if (chatUnread > 0) Badge { Text(chatUnread.toString()) } }) {
-            TextButton(onClick = openChat, modifier = Modifier.semantics {
-                contentDescription = "Chat, $chatUnread unread messages"
-            }) { Text("Chat") }
-        }
-    }
 }
 
 internal val OwnTableColor = Color(0xff237d68)

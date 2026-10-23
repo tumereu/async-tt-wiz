@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -9,6 +10,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import org.asyncttwiz.protocol.*
+
+@Composable internal fun HistoryContinueConfirmation(enabled: Boolean, dismiss: () -> Unit, confirm: () -> Unit) {
+    TableMenuPanel(dismiss, title = "Continue playing from here?") {
+        Text("Your next successful action will start a new path. The existing future will be kept.", Modifier.padding(vertical = 8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(dismiss, Modifier.weight(1f).height(48.dp), shape = MaterialTheme.shapes.extraSmall,
+                border = BorderStroke(1.dp, MenuBorder), colors = ButtonDefaults.outlinedButtonColors(contentColor = MenuInk)) {
+                TableChromeIcon("close"); Spacer(Modifier.width(6.dp)); Text("Cancel")
+            }
+            Button(confirm, Modifier.weight(1f).height(48.dp), enabled = enabled, shape = MaterialTheme.shapes.extraSmall,
+                colors = ButtonDefaults.buttonColors(containerColor = OwnTableColor)) {
+                TableChromeIcon("fork"); Spacer(Modifier.width(6.dp)); Text("Continue")
+            }
+        }
+    }
+}
 
 /** Exact-event detail stays separate from game-wide chat and group representative glyphs. */
 @Composable internal fun HistoryEventActions(history: TableHistoryController, play: PlayState,

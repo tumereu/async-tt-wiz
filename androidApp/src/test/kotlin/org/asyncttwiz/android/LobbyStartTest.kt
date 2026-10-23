@@ -175,8 +175,8 @@ class LobbyStartTest {
                 assertEquals(2, scene.fields.size)
                 assertEquals(11, scene.items.count { it.kind != TableItemKind.COUNTER })
                 val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
-                assertEquals(if (landscape) 12 else 0, counters.size)
-                if (landscape) for (player in listOf(owner, other)) {
+                assertEquals(12, counters.size)
+                for (player in listOf(owner, other)) {
                     assertEquals(CounterColor.entries.toSet(), counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
                 }
                 for (item in scene.items) {

@@ -81,6 +81,9 @@ class HistoryUiSpineTest {
             h.history.settled(original, GameResult(original.requestId, original.scope, "rejected", ingressOrdinal = "1"))
             assertEquals(root, h.history.armed); assertFalse(h.history.provisional)
             h.history.current(); assertNull(h.history.armed)
+            assertEquals(root, h.history.playback!!.position.cursorId)
+            assertTrue(h.history.playback!!.position.playing)
+            h.history.playback!!.next(automatic = true)
             assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
         }
     }

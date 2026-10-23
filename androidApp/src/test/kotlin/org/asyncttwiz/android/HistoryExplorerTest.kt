@@ -59,8 +59,28 @@ class HistoryExplorerTest {
         assertEquals(setOf(third.currentNodeId, branch.currentNodeId), suffixes.map { it.targetId }.toSet())
         assertNotEquals(suffixes[0].position.y, suffixes[1].position.y)
         assertNotEquals(graph.positions[second.currentNodeId], graph.positions[third.currentNodeId])
+        val suffix = graph.ranges.single { second.currentNodeId in it.nodeIds }
+        val parent = graph.ranges.single { it.id == suffix.parentRangeId }
+        val interior = graph.positions.getValue(second.currentNodeId)
+        assertEquals((parent.position.x + suffix.position.x) / 2, interior.x)
+        assertEquals((parent.position.y + suffix.position.y) / 2, interior.y)
         assertEquals(setOf(root().root.id, first.currentNodeId, second.currentNodeId), graph.activeNodeIds)
         assertEquals(internal.nodes.size + 1, graph.ranges.sumOf { it.nodeIds.size })
+    }
+
+    @Test fun renderedFixtureHasTenEventsThreeActiveGroupsAndARealRetainedRevealFork() {
+        val fixture = TableStatesFixture
+        val tree = fixture.history()
+        val playback = fixture.playback(tree)
+        val events = HistoryTimelineLayout.events(playback.tree, tree.currentNodeId)
+        assertEquals(10, tree.nodes.size)
+        assertEquals(1, tree.branches.size)
+        assertEquals(3, events.drop(1).map { it.groupId }.distinct().size)
+        assertEquals(1, events.sumOf { it.alternatives })
+        val graph = HistoryGraphLayout.build(tree)
+        val reveal = graph.ranges.single { it.glyph == HistoryGlyph.INSPECT }
+        assertEquals(PlayAction.EventComment::class, tree.nodes.getValue(reveal.targetId).action::class)
+        assertTrue(tree.stateAt(reveal.targetId)!!.board.contentsDisplays.isNotEmpty())
     }
 
     @Test fun groupingUsesSharedProcessorAndLiteralRepresentativeNotActionTarget() {

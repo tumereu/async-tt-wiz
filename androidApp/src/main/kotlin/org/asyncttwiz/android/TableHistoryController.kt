@@ -13,6 +13,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     var playback by mutableStateOf<HistoryPlayback?>(null); private set
     var view by mutableStateOf<DownloadedHistoryState?>(null); private set
     var armed by mutableStateOf<String?>(null); private set
+    var continuationTarget by mutableStateOf<String?>(null); private set
     var provisional by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
     var gate by mutableStateOf<ResultPlaybackGate?>(null); private set
@@ -85,13 +86,31 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         val playback = playback ?: return false
         return playback.canContinue(node) && view?.cursor == node && view?.state != null && viewVersion == playback.tree.liveVersion
     }
+    fun canRequestContinuation(node: String): Boolean {
+        val player = playback ?: return false
+        return foreground && player.position.mode == HistoryMode.PLAYBACK && player.position.cursorId == node &&
+            player.tree.contains(node) && view?.cursor == node && view?.state != null && viewVersion == player.tree.liveVersion
+    }
+    /** Both the corner button and paused Play hold capture the original exact boundary. No mutation. */
+    fun requestContinuation(node: String): Boolean {
+        if (!canRequestContinuation(node)) return false
+        playback?.pause()
+        continuationTarget = node
+        return true
+    }
+    fun dismissContinuation() { continuationTarget = null }
+    fun confirmContinuation(): Boolean {
+        val target = continuationTarget ?: return false
+        continuationTarget = null
+        return foreground && arm(target)
+    }
     fun arm(node: String): Boolean {
         if (!canArm(node)) return false
         armed = node; provisional = false; firstRequest = null; gate = null
         return true
     }
-    fun cancel() { armed = null; provisional = false; firstRequest = null; gate = null }
-    fun current() { cancel(); playback?.let { it.scrub(it.tree.sharedHeadId); it.continuationApplied() } }
+    fun cancel() { armed = null; continuationTarget = null; provisional = false; firstRequest = null; gate = null }
+    fun current() { cancel(); playback?.play() }
     fun updateForeground(value: Boolean) {
         foreground = value
         if (value) playback?.foreground() else playback?.background()

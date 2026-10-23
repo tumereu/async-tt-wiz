@@ -105,9 +105,11 @@ object HistoryGraphLayout {
             if (segment.id == root) positions[root] = point else {
                 val parent = segments.getValue(segment.parent!!)
                 val parentX = 28f + depth.getValue(parent.id) * 88f
-                val elbow = (parentX + point.x) / 2
+                val parentY = 28f + lanes.getValue(parent.id) * 60f
                 segment.nodes.forEachIndexed { index, id ->
-                    positions[id] = HistoryPoint(elbow + (point.x - elbow) * (index + 1) / segment.nodes.size, point.y)
+                    val fraction = (index + 1).toFloat() / segment.nodes.size
+                    positions[id] = HistoryPoint(parentX + (point.x - parentX) * fraction,
+                        parentY + (point.y - parentY) * fraction)
                 }
             }
             range

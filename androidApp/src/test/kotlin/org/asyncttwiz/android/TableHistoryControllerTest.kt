@@ -23,6 +23,60 @@ class TableHistoryControllerTest {
     private fun view(tree: GameplayTree) = DownloadedHistoryState(1L, tree.currentNodeId,
         state = tree.stateAt(tree.currentNodeId))
 
+    @Test fun continuationRequestPausesButOnlyConfirmationArmsTheCapturedBoundary() {
+        Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            val player = h.history.playback!!
+            val root = tree.initial.root.id
+            h.history.select(root)
+            h.history.displayPosition()
+            h.reviews.removeFirst()(DownloadedHistoryState(1L, root, state = tree.initial))
+            player.play()
+            assertTrue(h.history.canRequestContinuation(root))
+            assertTrue(h.history.requestContinuation(root))
+            assertFalse(player.position.playing)
+            assertNull(h.history.armed)
+            assertEquals(root, h.history.continuationTarget)
+            h.history.dismissContinuation()
+            assertNull(h.history.armed)
+            assertTrue(h.history.requestContinuation(root))
+            assertTrue(h.history.confirmContinuation())
+            assertEquals(root, h.history.armed)
+            assertEquals(tree.currentNodeId, player.tree.sharedHeadId)
+            assertEquals(1, player.tree.nodes.size)
+        }
+    }
+
+    @Test fun changedCursorOrBackgroundCannotConfirmAnOldContinuation() {
+        for (background in listOf(false, true)) Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            val root = tree.initial.root.id
+            h.history.select(root); h.history.displayPosition()
+            h.reviews.removeFirst()(DownloadedHistoryState(1L, root, state = tree.initial))
+            assertTrue(h.history.requestContinuation(root))
+            if (background) h.history.updateForeground(false) else h.history.playback!!.scrub(tree.currentNodeId)
+            assertFalse(h.history.confirmContinuation())
+            assertNull(h.history.armed)
+            assertNull(h.history.continuationTarget)
+        }
+    }
+
+    @Test fun returnCurrentStartsCatchupRatherThanJumpingTheReviewCursor() {
+        Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            h.history.select(tree.initial.root.id)
+            h.history.current()
+            assertEquals(tree.initial.root.id, h.history.playback!!.position.cursorId)
+            assertTrue(h.history.playback!!.position.playing)
+            h.history.playback!!.next(automatic = true)
+            assertEquals(tree.currentNodeId, h.history.playback!!.position.cursorId)
+            assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
+        }
+    }
+
     @Test fun publishedTimelineResolvesAuthorNamesWithoutExposingCoveredCards() {
         Harness().use { h ->
             val tree = f.tap(f.root())

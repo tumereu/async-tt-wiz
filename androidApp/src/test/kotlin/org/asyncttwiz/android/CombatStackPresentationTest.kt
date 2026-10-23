@@ -62,7 +62,7 @@ class CombatStackPresentationTest {
         assertEquals(27, scene.orderedIds.distinct().size)
         assertEquals(scene.orderedIds.take(3), scene.visible.map { it.viewId })
         assertTrue(scene.visible.all { it.bounds.width == 48f && it.bounds.height == 68f && it.projection })
-        assertTrue(scene.visible.zipWithNext().all { (a, b) -> a.bounds.x < b.bounds.x && a.bounds.y < b.bounds.y })
+        assertTrue(scene.visible.zipWithNext().all { (a, b) -> a.bounds.x > b.bounds.x && a.bounds.y > b.bounds.y })
     }
 
     @Test fun contextualDestinationsAreExplicitTypedMetadataNotRulesInference() {

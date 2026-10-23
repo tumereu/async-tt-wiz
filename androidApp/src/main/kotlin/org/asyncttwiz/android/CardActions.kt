@@ -35,7 +35,7 @@ internal fun counterColor(color: CounterColor): Color = when (color) {
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
     enabled: Boolean, landscape: Boolean, names: Map<String, String>, extras: @Composable () -> Unit = {},
     submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), submit: (PlayAction) -> Boolean) {
-    val card = state.board.cards.single { it.id == scope.contextId }
+    val card = TablePresentation.cardForActions(state, scope.contextId)
     fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
     fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
     val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()

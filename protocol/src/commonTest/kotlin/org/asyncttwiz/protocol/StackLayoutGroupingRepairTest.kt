@@ -49,7 +49,8 @@ class StackLayoutGroupingRepairTest {
             assertEquals(GameplayRules.stackDigest(before), movement.stackFrom)
             assertEquals(GameplayRules.stackDigest(state), movement.stackTo)
             assertNotEquals(movement.stackFrom, movement.stackTo)
-            assertEquals(original.copy(containerId = target.id, placement = null), state.board.cards.single { it.id == original.id })
+            assertEquals(original.copy(containerId = target.id, placement = null, covered = to == PlayZone.HAND),
+                state.board.cards.single { it.id == original.id })
             assertEquals(before.board.cards.filterNot { it.id == original.id }, state.board.cards.filterNot { it.id == original.id })
             assertEquals(order, container(PlayZone.STACK).cards)
             return mutation

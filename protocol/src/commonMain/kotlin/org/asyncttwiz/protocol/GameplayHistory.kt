@@ -4,13 +4,15 @@ import kotlinx.serialization.Serializable
 
 /** Exact relevant (from,to) tuples; fields absent from these effects are unchanged. No whole-card snapshots. */
 @Serializable enum class GameplayField { TAPPED, LIFE, CORNER, COUNTER, PLAYER_COUNTER, NOTE, OWNER, FACE, COVERED, CONTAINER,
-    PHASE, STEP, TURN_PLAYER, TURN_NUMBER }
+    PHASE, STEP, TURN_PLAYER, TURN_NUMBER, EXPLICITLY_COVERED }
 @Serializable data class GameplayFieldChange(val targetId: String, val field: GameplayField,
     val from: String?, val to: String?, val color: CounterColor? = null)
 @Serializable data class CardLocation(val containerId: String, val placement: PlayPlacement? = null,
     val afterId: String? = null, val beforeId: String? = null)
 @Serializable data class GameplayMoveChange(val cardId: String, val from: CardLocation, val to: CardLocation,
-    val destinationSize: Int? = null, val stackFrom: String? = null, val stackTo: String? = null)
+    val destinationSize: Int? = null, val stackFrom: String? = null, val stackTo: String? = null,
+    /** Version 1 retained the old covered flag on all moves. Keep old retained trees replayable. */
+    val coverRulesVersion: Int = 1)
 @Serializable data class GameplayRead(val targetId: String, val field: GameplayField, val value: String)
 /** Accepted information exposure, not a whole-card snapshot or a local inspection permission. */
 @Serializable data class GameplayDisclosure(val cardId: String, val faceId: String, val containerId: String,
@@ -60,8 +62,11 @@ object GameplayHistory {
         val command = GameCommand(mutation.requestId, GameScope(state.gameId, playId = state.id),
             GameAction.Play(mutation.action), state.id, "0", invocationId = mutation.invocationId)
         val execution = state.copy(currentBranchId = mutation.branchId)
-        val candidate = if (mutation.action is PlayAction.Manual) ManualEditRules.replay(execution, mutation, command)
-            else GameplayRules.change(execution, mutation.author, command, references)
+        val candidate = when (mutation.action) {
+            is PlayAction.Manual -> ManualEditRules.replay(execution, mutation, command)
+            is PlayAction.MoveCard -> GameplayRules.replayMove(execution, mutation, command)
+            else -> GameplayRules.change(execution, mutation.author, command, references)
+        }
         return if (mutation.schemaVersion == 1 && candidate.mutation?.transition == mutation.transition &&
             (mutation.grouping == null || candidate.mutation.grouping == mutation.grouping)) {
             // Tree edits change topology, not logical identities/recorded choices or authorship.
@@ -83,6 +88,7 @@ object GameplayHistory {
             val value = when (read.field) {
                 GameplayField.FACE -> card.faceId
                 GameplayField.COVERED -> card.covered.toString()
+                GameplayField.EXPLICITLY_COVERED -> card.explicitlyCovered.toString()
                 GameplayField.CONTAINER -> card.containerId
                 else -> return null
             }
@@ -113,6 +119,7 @@ object GameplayHistory {
                         GameplayField.OWNER -> card.owner
                         GameplayField.FACE -> card.faceId
                         GameplayField.COVERED -> card.covered.toString()
+                        GameplayField.EXPLICITLY_COVERED -> card.explicitlyCovered.toString()
                         else -> return null
                     }
                     if (current != field.to) return null
@@ -125,6 +132,7 @@ object GameplayHistory {
                         GameplayField.OWNER -> card.copy(owner = field.from ?: return null)
                         GameplayField.FACE -> card.copy(faceId = field.from ?: return null)
                         GameplayField.COVERED -> card.copy(covered = field.from?.toBooleanStrictOrNull() ?: return null)
+                        GameplayField.EXPLICITLY_COVERED -> card.copy(explicitlyCovered = field.from?.toBooleanStrictOrNull() ?: return null)
                         else -> return null
                     }
                     board = board.copy(cards = board.cards.map { if (it == card) next else it })

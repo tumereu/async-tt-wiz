@@ -137,9 +137,7 @@ object TablePresentation {
         }
         fun card(card: PlayCard, b: TableBounds, footprint: TableBounds, region: String?, zone: PlayZone, viewport: String,
             viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false) {
-            // Covered Hand cards are private to their holder, not hidden from that holder.
-            // Ownership is deliberately not used for this disclosure decision.
-            val hidden = card.covered && !(zone == PlayZone.HAND && region == viewer)
+            val hidden = !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
             val label = "$title, owner ${name(card.owner)}, ${if (card.tapped) "tapped" else "untapped"}"
@@ -192,7 +190,7 @@ object TablePresentation {
             for ((n, zone) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).withIndex()) {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
-                val hidden = zone == PlayZone.LIBRARY || top?.covered != false
+                val hidden = top == null || !CardVisibility.isVisibleFaceUp(top, zone, player.accountId, viewer)
                 val b = TableBounds(76f + n * spacing - dp.scroll, rowY + 4f, cw + 12f * zoom, ch + 12f * zoom)
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
@@ -272,10 +270,18 @@ object TablePresentation {
             card.id to TablePlacement(p.position.x, p.position.y, members.indexOf(card.id), p.pileId)
         }
     }.toMap()
+    /** Menu toggles must not mistake a legacy default cover for an explicit public face-down edit. */
+    fun cardForActions(play: PlayState, cardId: String): PlayCard {
+        val card = play.board.cards.single { it.id == cardId }
+        val zone = play.board.containers.single { it.id == card.containerId }.zone
+        return if (zone == PlayZone.LIBRARY || zone == PlayZone.HAND) card else card.copy(covered = card.isFaceDown)
+    }
+
     fun inspection(play: PlayState, viewer: String, cardId: String): CardDefinition? {
         val card = play.board.cards.firstOrNull { it.id == cardId } ?: return null
         val region = play.board.containers.firstOrNull { it.id == card.containerId }?.accountId
-        if (card.covered && region != viewer) return CardDefinition("Covered card", listOf(DefinitionFace("covered", "Covered card")))
+        if (region != viewer && !CardVisibility.isVisibleFaceUp(play.board, card, viewer))
+            return CardDefinition("Covered card", listOf(DefinitionFace("covered", "Covered card")))
         val definition = play.definitions.firstOrNull { it.digest == card.definition }?.definition
             ?: return CardDefinition("Card unavailable", listOf(DefinitionFace("unavailable", "Downloaded definition unavailable")))
         if (region == viewer) return definition

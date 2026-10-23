@@ -70,18 +70,20 @@ class HistoryRuntimeIntegrationTest {
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)
                 val library = f.root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a.account.accountId }
-                val hand = f.root.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a.account.accountId }
                 val card = library.cards.first()
                 f.owner.execute(f.owner.command(PlayAction.SetLife(f.a.account.accountId, "21")))
+                // Use a nonrevealing reorder: drawing now correctly blocks selective Undo.
                 val move = f.owner.execute(f.owner.command(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
-                    MoveDestination(hand.id, MoveInsertion.UNORDERED))))
+                    MoveDestination(library.id, MoveInsertion.BOTTOM))))
                 f.recipient.execute(f.recipient.command(PlayAction.SetTapped(card, true)))
                 val withMove = tree(db, f)
+                assertEquals(card, withMove.stateAt(withMove.currentNodeId)!!.board.containers.single { it.id == library.id }.cards.last())
                 assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Undo)).outcome)
                 val removed = tree(db, f)
                 assertEquals(withMove.currentNodeId, removed.currentNodeId)
                 assertTrue(removed.stateAt(removed.currentNodeId)!!.board.cards.single { it.id == card }.tapped)
                 assertEquals(library.id, removed.stateAt(removed.currentNodeId)!!.board.cards.single { it.id == card }.containerId)
+                assertEquals(card, removed.stateAt(removed.currentNodeId)!!.board.containers.single { it.id == library.id }.cards.first())
                 assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Redo)).outcome)
                 val retained = tree(db, f)
                 val reference = EventReference(f.root.id, move.mutation!!.id, retained.contextVersion(move.mutation!!.id))
@@ -187,11 +189,12 @@ class HistoryRuntimeIntegrationTest {
                 val card = library.cards.first()
                 step(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
                     MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))))
+                assertEquals("noOp", f.owner.execute(f.owner.command(PlayAction.SetCovered(card, false))).outcome)
                 listOf<PlayAction>(PlayAction.SetTapped(card, true), PlayAction.SetNote(card, "retained"),
                     PlayAction.SetCorner(card, "9/9"), PlayAction.ResetCorner(card),
                     PlayAction.SetCounter(CounterTarget.CARD, card, CounterColor.RED, "2"),
                     PlayAction.ClearCardCounter(card, CounterColor.RED), PlayAction.SetOwner(card, f.b.account.accountId),
-                    PlayAction.SetCovered(card, false), PlayAction.SetCovered(card, true),
+                    PlayAction.SetCovered(card, true),
                     PlayAction.InspectFace(card, state().board.cards.single { it.id == card }.faceId, field.id),
                     PlayAction.SetCovered(card, false), PlayAction.AdjustLife(actor, "3"),
                     PlayAction.SetPlayerCounter(actor, CounterColor.BLUE, "1"), PlayAction.NextStep,

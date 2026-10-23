@@ -16,7 +16,7 @@ class GameplayMergeVerificationTest {
             MoveDestination(state.board.containers[1].id, MoveInsertion.UNORDERED)), 200).state!!
         val beforeEntry = state
         val move = PlayAction.MoveCard(card.id, MoveSource(state.board.containers[1].id),
-            MoveDestination(state.board.containers[3].id, MoveInsertion.UNORDERED))
+            MoveDestination(state.board.containers[3].id, MoveInsertion.UNORDERED), faceDown = true)
         assertEquals(listOf(move, PlayAction.ClearCardCounter(card.id, CounterColor.RED),
             PlayAction.ResetCorner(card.id)), GameplayRules.moveActions(state, move))
         val sequence = listOf(move, PlayAction.ClearCardCounter(card.id, CounterColor.RED),
@@ -32,7 +32,7 @@ class GameplayMergeVerificationTest {
             }
         }
         val moved = changes[0].state!!.board.cards.first()
-        assertEquals(beforeEntry.board.cards.first().copy(containerId = move.destination.containerId), moved)
+        assertEquals(beforeEntry.board.cards.first().copy(containerId = move.destination.containerId, explicitlyCovered = true), moved)
         val reset = changes[3]
         assertEquals(listOf(GameplayRead(card.id, GameplayField.FACE, face)), reset.mutation!!.transition.reads)
         assertEquals(GameplayFieldChange(card.id, GameplayField.CORNER, "custom", "7/9"), reset.mutation.transition.fields.single())
@@ -60,7 +60,7 @@ class GameplayMergeVerificationTest {
             live.mutation!!.transition.fields.single())
         assertEquals("replayBlocked", GameplayHistory.replay(remote, captured.mutation!!).reason)
         val addition = PlayAction.MoveCard(card.id, MoveSource(card.containerId),
-            MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(root))
+            MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(root), faceDown = true)
         val added = gameplayChange(live.state!!, addition, 223)
         assertEquals("accepted", added.outcome) // Manual edits did not change semantic Stack contents.
         assertEquals("9", added.state!!.board.cards.first().counters[CounterColor.RED])

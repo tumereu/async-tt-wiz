@@ -10,7 +10,7 @@ internal fun manualState(): PlayState {
         DefinitionFace(manualId(12), "Secret back", listOf(manualId(11)))))
     return PlayState(manualId(1), manualId(2), manualId(3), manualId(4), PlayRoot(manualId(5), manualId(6)), manualId(5),
         BoardState(listOf(PlayPlayer(manualId(7)), PlayPlayer(manualId(8))),
-            listOf(PlayCard(manualId(9), "definition", manualId(8), manualId(10), manualId(11), corner = "2/3"),
+            listOf(PlayCard(manualId(9), "definition", manualId(8), manualId(10), manualId(11), corner = "2/3", explicitlyCovered = true),
                 PlayCard(manualId(13), "definition", manualId(7), manualId(10), manualId(11), corner = "flying"),
                 PlayCard(manualId(14), "definition", manualId(7), manualId(10), manualId(11), corner = "4")),
             listOf(PlayContainer(manualId(10), PlayZone.BATTLEFIELD, manualId(7), listOf(manualId(9), manualId(13), manualId(14)))),

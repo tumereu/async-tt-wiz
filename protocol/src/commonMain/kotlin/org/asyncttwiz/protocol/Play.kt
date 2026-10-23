@@ -11,10 +11,31 @@ import kotlinx.serialization.Serializable
 @Serializable data class PlayCard(val id: String, val definition: String, val owner: String,
     val containerId: String, val faceId: String, val covered: Boolean = true, val tapped: Boolean = false,
     val corner: String = "", val counters: Map<CounterColor, String> = emptyMap(), val note: String = "",
-    val token: Boolean = false, val placement: PlayPlacement? = null)
+    val token: Boolean = false, val placement: PlayPlacement? = null,
+    /** Old snapshots used covered=true for hidden-zone defaults, even after entering public zones. */
+    val explicitlyCovered: Boolean = false) {
+    val isFaceDown: Boolean get() = covered && explicitlyCovered
+}
 /** Library order is top first. Other empty zones already have stable identities for later commands. */
 @Serializable data class PlayContainer(val id: String, val zone: PlayZone, val accountId: String? = null,
     val cards: List<String> = emptyList())
+
+/** Ordinary presentation only; explicit logged inspections/contents displays are separate grants. */
+object CardVisibility {
+    fun isVisibleFaceUp(card: PlayCard, zone: PlayZone, holder: String?, viewer: String): Boolean = when (zone) {
+        PlayZone.LIBRARY -> false
+        PlayZone.HAND -> holder == viewer
+        else -> !card.isFaceDown
+    }
+
+    fun isVisibleFaceUp(board: BoardState, card: PlayCard, viewer: String): Boolean {
+        val container = board.containers.singleOrNull { it.id == card.containerId } ?: return false
+        return isVisibleFaceUp(card, container.zone, container.accountId, viewer)
+    }
+
+    fun viewers(board: BoardState, card: PlayCard): List<String> = board.players.map { it.accountId }
+        .filter { isVisibleFaceUp(board, card, it) }.sorted()
+}
 @Serializable data class TurnState(val accountId: String, val number: String = "1",
     val phase: String = "BEGINNING", val step: String = "UNTAP")
 @Serializable data class BoardState(val players: List<PlayPlayer>, val cards: List<PlayCard>,

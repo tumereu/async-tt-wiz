@@ -189,7 +189,62 @@ class TablePresentationTest {
         assertEquals("Covered card", hidden.name); assertEquals("", hidden.faces.single().rulesText)
         assertFalse(hidden.toString().contains("Secret")); assertNull(TablePresentation.inspection(changed, "a", "gone"))
         val uncovered = changed.copy(board = changed.board.copy(cards = changed.board.cards.map { it.copy(covered = false) }))
-        assertEquals(listOf(TableFixture.definition.faces.single()), TablePresentation.inspection(uncovered, "a", "b/HAND/0")!!.faces)
+        assertEquals("Covered card", TablePresentation.inspection(uncovered, "a", "b/HAND/0")!!.name)
+    }
+
+    @Test fun handStripMenuPreviewAndInspectionAgreeForHolderAndOpponentRegardlessOfCoverFlag() {
+        for (covered in listOf(false, true)) {
+            val p = TableFixture.play(hand = 1).let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
+                card.copy(covered = covered, owner = if (card.owner == "a") "b" else "a")
+            })) }
+            val card = p.board.cards.single { it.id == "a/HAND/0" }
+            for (viewer in listOf("a", "b")) {
+                val scene = TablePresentation.scene(TableFixture.game, p, viewer, 412f, 820f, false)
+                val item = scene.items.single { it.cardId == card.id }
+                val preview = ManualDisclosure.permittedFaces(p, card, viewer, inspecting = false)
+                if (viewer == "a") {
+                    assertFalse(item.covered)
+                    assertEquals("Secret face", item.value)
+                    assertEquals(listOf("Secret face"), preview.map { it.name })
+                    assertEquals(TableFixture.definition, TablePresentation.inspection(p, viewer, card.id))
+                } else {
+                    assertTrue(item.covered)
+                    assertFalse(item.label.contains("Secret"))
+                    assertTrue(preview.isEmpty())
+                    assertEquals("Covered card", TablePresentation.inspection(p, viewer, card.id)!!.name)
+                }
+            }
+        }
+    }
+
+    @Test fun legacyDefaultCoveredPublicCardsAreVisibleButExplicitFaceDownCardsStayHidden() {
+        for (explicit in listOf(false, true)) {
+            val p = TableFixture.play(board = 1).let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
+                card.copy(covered = true, explicitlyCovered = explicit)
+            })) }
+            for (viewer in listOf("a", "b")) {
+                val scene = TablePresentation.scene(TableFixture.game, p, viewer, 412f, 820f, false)
+                val card = p.board.cards.single { it.id == "a/BATTLEFIELD/0" }
+                assertEquals(explicit, scene.items.single { it.cardId == card.id }.covered)
+                assertEquals(explicit, TablePresentation.cardForActions(p, card.id).covered)
+                assertEquals(explicit, ManualDisclosure.permittedFaces(p, card, viewer, inspecting = false).isEmpty())
+                assertEquals(if (explicit && viewer != "a") "Covered card" else "Secret face",
+                    TablePresentation.inspection(p, viewer, card.id)!!.faces.single().name)
+            }
+        }
+    }
+
+    @Test fun libraryIsHiddenInOrdinaryPresentationForBothPlayersEvenWhenUncovered() {
+        val p = TableFixture.play(library = 1).let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
+            card.copy(covered = false)
+        })) }
+        val card = p.board.cards.single { it.id == "a/LIBRARY/0" }
+        for (viewer in listOf("a", "b")) {
+            val scene = TablePresentation.scene(TableFixture.game, p, viewer, 412f, 820f, false)
+            assertTrue(scene.items.single { it.id == "a/LIBRARY" }.covered)
+            assertTrue(ManualDisclosure.permittedFaces(p, card, viewer, inspecting = false).isEmpty())
+            if (viewer != "a") assertEquals("Covered card", TablePresentation.inspection(p, viewer, card.id)!!.name)
+        }
     }
 
     @Test fun compactLandscapeSidebarCanReachLastCounterWithoutOverlappingStackOrHands() {

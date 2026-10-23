@@ -4,6 +4,118 @@ import kotlin.test.*
 
 class SelectiveUndoTest {
     private val f = UndoFixture
+
+    @Test fun revealingOpponentHandMoveIsStillBlockedAndCannotBeSkipped() {
+        val root = gameplayFixture()
+        val hand = f.play(GameplayTree(root), f.a, PlayAction.MoveCard(gameplayId(10),
+            MoveSource(gameplayId(20), edge = MoveSourceEdge.TOP),
+            MoveDestination(gameplayId(21), MoveInsertion.UNORDERED)), 100)
+        val move = PlayAction.MoveCard(gameplayId(10), MoveSource(gameplayId(21)),
+            MoveDestination(gameplayId(22), MoveInsertion.EMPTY, BoardPosition(0, 0)))
+        val opponent = f.play(hand, f.b, move, 101)
+        val blocked = f.undo(opponent, f.b)
+        assertEquals("revealingTarget", blocked.reason)
+        assertEquals(opponent.currentNodeId, blocked.targetId)
+        assertNull(blocked.tree)
+        // The same physical move by the Hand's holder reveals nothing new to that actor.
+        val own = f.play(hand, f.a, move, 102)
+        val removed = assertNotNull(f.undo(own).tree)
+        assertEquals(hand.stateAt(hand.currentNodeId), removed.stateAt(removed.currentNodeId))
+        assertEquals(own.nodes.getValue(own.currentNodeId), removed.redoByAccount[f.a]!!.single().mutation)
+        assertEquals("revealingTarget", f.undo(removed).reason)
+    }
+
+    @Test fun realDeckMulliganThenMoveTapUndoUndoRedo() {
+        val definition = CardDefinition("Synthetic", listOf(DefinitionFace(f.id(40), "Front", corner = "2/3")))
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        val cards = listOf(f.a, f.b).flatMapIndexed { player, actor ->
+            List(60) { index -> PlayCard(f.id(1000 + player * 60 + index), submitted.digest, actor,
+                f.id(20 + player * 3), f.id(40), corner = "2/3") }
+        }
+        val containers = listOf(f.a, f.b).flatMapIndexed { player, actor ->
+            listOf(PlayZone.LIBRARY, PlayZone.HAND, PlayZone.BATTLEFIELD).mapIndexed { zone, kind ->
+                PlayContainer(f.id(20 + player * 3 + zone), kind, actor,
+                    if (kind == PlayZone.LIBRARY) cards.filter { it.owner == actor }.map { it.id } else emptyList())
+            }
+        }
+        val root = f.root().copy(board = BoardState(listOf(PlayPlayer(f.a), PlayPlayer(f.b)), cards, containers,
+            TurnState(f.a)), definitions = listOf(submitted))
+        var tree = GameplayTree(root)
+        var request = 100
+        fun play(action: PlayAction) { tree = f.play(tree, f.a, action, request++) }
+        fun current() = assertNotNull(tree.stateAt(tree.currentNodeId))
+        // Exercise both an empty starting hand and a genuine Return Hand prefix.
+        repeat(2) {
+            val plan = LibraryActions.mulligan(current().board, f.id(20), f.id(21),
+                current().board.containers.single { it.id == f.id(21) }.cards, RandomV1.encodeSeed(ByteArray(32)))
+            plan.prefix().forEach(::play)
+            LibraryActions.draw(current().board, f.id(20), f.id(21), plan.drawCount).forEach(::play)
+        }
+        val drawn = tree
+        val cardId = current().board.containers.single { it.id == f.id(21) }.cards.first()
+        play(PlayAction.MoveCard(cardId, MoveSource(f.id(21)),
+            MoveDestination(f.id(22), MoveInsertion.EMPTY, BoardPosition(1024, 0))))
+        val moved = tree
+        play(PlayAction.SetTapped(cardId, true))
+        val tapped = tree
+        // SQL/transfer decoding loses disposable materializations: eligibility must also work cold.
+        val undoTap = f.undo(tree.copy())
+        assertEquals(tapped.currentNodeId, undoTap.targetId, undoTap.reason)
+        tree = assertNotNull(undoTap.tree, undoTap.reason)
+        assertEquals(moved.stateAt(moved.currentNodeId)?.board, current().board)
+        val undoMove = f.undo(tree.copy())
+        assertEquals(moved.currentNodeId, undoMove.targetId, undoMove.reason)
+        tree = assertNotNull(undoMove.tree, undoMove.reason)
+        assertEquals(drawn.stateAt(drawn.currentNodeId)?.board, current().board)
+        assertEquals("revealingTarget", f.undo(tree).reason) // Never skip the last draw.
+        val redoMove = f.redo(tree.copy())
+        assertEquals(moved.currentNodeId, redoMove.targetId, redoMove.reason)
+        tree = assertNotNull(redoMove.tree, redoMove.reason)
+        assertEquals(moved.stateAt(moved.currentNodeId)?.board, current().board)
+        tree = assertNotNull(f.redo(tree.copy()).tree)
+        assertEquals(tapped.stateAt(tapped.currentNodeId)?.board, current().board)
+    }
+
+    @Test fun mulliganWithRealSizedDecksThenMoveTapUndoUndoRedo() {
+        val definition = CardDefinition("Synthetic card", listOf(DefinitionFace(f.id(11), "Face", corner = "3/5")))
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        val cards = (0 until 120).map { index -> PlayCard(f.id(1000 + index), submitted.digest,
+            if (index < 60) f.a else f.b, f.id(if (index < 60) 20 else 21), f.id(11), covered = true) }
+        val root = f.root().copy(board = BoardState(listOf(PlayPlayer(f.a), PlayPlayer(f.b)), cards,
+            listOf(PlayContainer(f.id(20), PlayZone.LIBRARY, f.a, cards.take(60).map { it.id }),
+                PlayContainer(f.id(21), PlayZone.LIBRARY, f.b, cards.drop(60).map { it.id }),
+                PlayContainer(f.id(22), PlayZone.HAND, f.a), PlayContainer(f.id(23), PlayZone.BATTLEFIELD, f.a)),
+            TurnState(f.a)), definitions = listOf(submitted))
+        var tree = GameplayTree(root)
+        var request = 2000
+        fun play(action: PlayAction) {
+            val change = HistoryContinuation.change(tree, f.a, f.command(GameAction.Play(action), request++))
+            tree = assertNotNull(change.tree, change.reason)
+        }
+        val plan = LibraryActions.mulligan(root.board, f.id(20), f.id(22), emptyList(),
+            RandomV1.encodeSeed(ByteArray(32)), count = 7)
+        plan.prefix().forEach(::play)
+        LibraryActions.draw(tree.stateAt(tree.currentNodeId)!!.board, plan.libraryId, plan.handId, plan.drawCount).forEach(::play)
+        val drawn = tree
+        val card = tree.stateAt(tree.currentNodeId)!!.board.containers.single { it.id == f.id(22) }.cards.first()
+        play(PlayAction.MoveCard(card, MoveSource(f.id(22)), MoveDestination(f.id(23), MoveInsertion.EMPTY, BoardPosition(0, 0))))
+        val moved = tree
+        play(PlayAction.SetTapped(card, true))
+        val tapped = tree.currentNodeId
+        fun control(action: GameAction): GameplayTreeChange {
+            val change = HistoryContinuation.change(tree, f.a, f.command(action, request++))
+            tree = assertNotNull(change.tree, change.reason)
+            return change
+        }
+        assertEquals(tapped, control(GameAction.Undo).targetId)
+        assertEquals(moved.stateAt(moved.currentNodeId), tree.stateAt(tree.currentNodeId))
+        assertEquals(moved.currentNodeId, control(GameAction.Undo).targetId)
+        assertEquals(drawn.stateAt(drawn.currentNodeId), tree.stateAt(tree.currentNodeId))
+        assertEquals(moved.currentNodeId, control(GameAction.Redo).targetId)
+        assertEquals(moved.stateAt(moved.currentNodeId), tree.stateAt(tree.currentNodeId))
+        assertEquals("revealingTarget", HistoryContinuation.change(drawn, f.a, f.command(GameAction.Undo, request++)).reason)
+    }
+
     @Test fun latestOwnAcrossDeviceStreamsAndStrictLastUndoneFirst() {
         val first = f.tap(GameplayTree(f.root()))
         val second = f.tap(first, card = 12, n = 101)
@@ -47,6 +159,39 @@ class SelectiveUndoTest {
         assertEquals("revealingTarget", f.undo(revealing).reason)
         assertEquals(node.id, f.undo(revealing).targetId)
         assertEquals("noCandidate", f.undo(older, f.b).reason)
+    }
+
+    @Test fun ownHandPlayExceptionDoesNotPermitRevealingAnOpponentsHand() {
+        val root = f.root().let { it.copy(board = it.board.copy(containers = listOf(
+            it.board.containers.single().copy(zone = PlayZone.HAND),
+            PlayContainer(f.id(14), PlayZone.BATTLEFIELD, f.a)))) }
+        val action = PlayAction.MoveCard(f.id(9), MoveSource(f.id(10)),
+            MoveDestination(f.id(14), MoveInsertion.EMPTY, BoardPosition(0, 0)))
+        val own = f.play(GameplayTree(root), f.a, action, 100)
+        val mutation = own.nodes.getValue(own.currentNodeId)
+        assertTrue(mutation.revealsInformation)
+        assertEquals(listOf(f.b), mutation.transition.disclosures.single().viewers)
+        val undone = assertNotNull(f.undo(own).tree)
+        assertEquals(mutation, undone.redoByAccount[f.a]!!.single().mutation)
+        assertEquals(own.nodes, assertNotNull(f.redo(undone).tree).nodes)
+        val opponent = f.play(GameplayTree(root), f.b, action, 101)
+        assertEquals("revealingTarget", f.undo(opponent, f.b).reason)
+        assertEquals(opponent.currentNodeId, f.undo(opponent, f.b).targetId)
+    }
+
+    @Test fun payloadSizeIsPerValueButTotalReconstructionWorkRemainsBounded() {
+        assertNotNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
+            repeat(100) { work.value(GameplayTransition.serializer(), GameplayTransition()) }
+            true
+        })
+        assertNull(boundedHistory(SelectiveUndoLimits(workUnits = 100)) { work ->
+            repeat(100) { work.value(GameplayTransition.serializer(), GameplayTransition()) }
+            true
+        })
+        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
+            work.value(GameplayFieldChange.serializer(), GameplayFieldChange(f.a, GameplayField.NOTE, "", "x".repeat(1000)))
+            true
+        })
     }
 
     @Test fun redoRequiresExactTargetInputEvenWithEmptySuffixAndKeepsBlockedEntry() {

@@ -276,6 +276,9 @@ internal fun <T> boundedHistory(limits: SelectiveUndoLimits, block: (HistoryWork
     try { block(HistoryWork(limits)) } catch (_: HistoryLimit) { null }
 
 /** Streaming serialization visitor: counts without allocating encoded payloads or full snapshot copies.
+ * Payload size bounds each value, while work units bound ALL visits across reconstruction/replay.
+ * Repeatedly reading the same board is CPU work, not a growing retained/request payload: accumulating
+ * its bytes made even a latest-head tap exceed 2 MiB after drawing seven from ordinary 60-card decks.
  * String UTF-8 cost is conservatively <= three bytes per UTF-16 unit plus quoting/escaping allowance.
  * Element visits bound nested collections/mandatory payloads even with empty strings/zero suffix.
  */
@@ -290,7 +293,10 @@ internal class HistoryWork(private val limits: SelectiveUndoLimits) : AbstractEn
     fun loadNode() { if (++loads > limits.loadNodes) throw HistoryLimit() }
     fun metadata(count: Long) { metadata += count; if (metadata > limits.metadataEntries) throw HistoryLimit() }
     fun effects(count: Long) { effects += count; if (effects > limits.effectUnits) throw HistoryLimit() }
-    fun <T> value(serializer: SerializationStrategy<T>, value: T) = encodeSerializableValue(serializer, value)
+    fun <T> value(serializer: SerializationStrategy<T>, value: T) {
+        bytes = 0
+        encodeSerializableValue(serializer, value)
+    }
     private fun charge(count: Long = 16) {
         bytes += count; units++
         if (bytes > limits.payloadBytes || units > limits.workUnits) throw HistoryLimit()

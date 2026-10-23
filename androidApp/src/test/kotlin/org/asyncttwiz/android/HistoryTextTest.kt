@@ -76,8 +76,9 @@ class HistoryTextTest {
         append(200, PlayAction.MoveCard(id(12), MoveSource(id(13), edge = MoveSourceEdge.TOP),
             MoveDestination(id(21), MoveInsertion.UNORDERED)))
         val draw = tree.currentNodeId
+        // Keep it face down until the explicit later reveal; normal Hand play is already face up.
         append(201, PlayAction.MoveCard(id(12), MoveSource(id(21)),
-            MoveDestination(id(23), MoveInsertion.EMPTY, position = BoardPosition(0, 0))))
+            MoveDestination(id(23), MoveInsertion.EMPTY, position = BoardPosition(0, 0)), faceDown = true))
         append(202, PlayAction.SetCovered(id(12), false))
         append(203, PlayAction.SetTapped(id(12), true))
         val tap = tree.currentNodeId

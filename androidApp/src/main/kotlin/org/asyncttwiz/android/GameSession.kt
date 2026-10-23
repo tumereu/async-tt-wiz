@@ -520,6 +520,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (message.code == "unauthorized") { val rejected = token; unavailable(); rejected?.let(authenticationRequired) }
                 else if (message.retryable || message.code == "streamFenced") unavailable()
                 else {
+                    val original = message.requestId?.let(pending::get)
                     if (message.code == "accessDenied") message.gameId?.let(::unavailable)
                     message.requestId?.let { id -> inspections.remove(id)?.let { observer ->
                         presentInspection(observer, InspectionEvent.NotAccepted(observer.subscription.request, admissionError = message)) } }
@@ -527,7 +528,8 @@ class GameSession(private val connection: GameConnection, private val credential
                         chatSubmissions[id]?.let { chatSubmissions[id] = it.copy(failure = "Not sent. This request could not be used.") }
                         pending.remove(id)?.let { plays[it.scope.gameId]?.retire(id) }; selections.remove(id); transfers.remove(id); readiness.remove(id); resultIntents.remove(id); sent.remove(id)
                     }
-                    error = "This game changed or the request could not be used. Refresh and try again."
+                    error = historyControlFailure(original?.action, message.code)
+                        ?: "This game changed or the request could not be used. Refresh and try again."
                 }
             }
             is GameUpgradeRequired -> { unavailable(); error = "Update the app to connect to this game service." }
@@ -610,7 +612,7 @@ class GameSession(private val connection: GameConnection, private val credential
             else resultIntents.remove(result.requestId)
             retireSelections(original.scope.gameId)
         }
-        error = if (result.outcome in setOf("accepted", "noOp")) null else when (result.reason) {
+        error = if (result.outcome in setOf("accepted", "noOp")) null else historyControlFailure(original.action, result.reason) ?: when (result.reason) {
             "sourceChanged" -> "This saved deck changed. Choose it again to use the current version."
             "sourceUnavailable" -> "This saved deck is no longer available. Choose another deck."
             "deckRequired" -> "Select your deck to get ready."
@@ -621,6 +623,24 @@ class GameSession(private val connection: GameConnection, private val credential
             presentInspection(observer, InspectionEvent.NotAccepted(observer.subscription.request, result = result)) }
         notifyInspections()
         settled(original, result)
+    }
+
+    private fun historyControlFailure(action: GameAction?, reason: String?): String? {
+        val verb = when (action) { GameAction.Undo -> "undo"; GameAction.Redo -> "redo"; else -> return null }
+        val explanation = when (reason) {
+            "revealingTarget" -> "that action revealed hidden information. Use History to review it, or keep playing."
+            "noCandidate" -> "there is no action to $verb. Keep playing."
+            "forkBoundary" -> "that would change an existing branch. Use History to choose a continuation."
+            "suffixUnavailable", "workLimit" -> "that history is too large or branched to check safely. Use History to review it, or keep playing."
+            "referenceBlocked" -> "a later event refers to that action. Use History to review it, or keep playing."
+            "replayBlocked", "targetTransitionBlocked" -> "that would change another recorded transition. Use History to review it, or keep playing."
+            "missingAnchor" -> "the original place for that action is no longer available. Keep playing or open History."
+            "lifecycleEnded", "inapplicable" -> "the original play is no longer active. Return to the games list."
+            "accessDenied" -> "this game is no longer available to this account. Return to the games list."
+            "historyUnavailable", "missingReference" -> "the required history is unavailable. Reconnect to synchronize it."
+            else -> "the request could not be used. Keep playing or open History."
+        }
+        return "Can't $verb: $explanation"
     }
 
     private fun currentInspection(observer: InspectionObserver): Boolean {

@@ -66,6 +66,117 @@ class GameplayTest {
         override fun close() { socket.abort() }
     }
 
+    @Test fun `real decks mulligan move tap undo undo redo through authenticated sockets and durable Postgres`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
+                InetAddress.getByName("127.0.0.1"), port())
+            SpringService(settings).use { service ->
+                service.start()
+                gameplayAwait { client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
+                    HttpResponse.BodyHandlers.ofString()).statusCode() == 200 }
+                val a = account(settings, "UndoAlice"); val b = account(settings, "UndoBob")
+                assertEquals(200, post(settings, "/v1/contacts", AddContact(gameplayId(), b.account.accountId), a.token).statusCode())
+                val game = json.decodeFromString<GameSummary>(post(settings, "/v1/invitations",
+                    CreateInvitation(gameplayId(), b.account.accountId, "Undo regression"), a.token).body())
+                fun deck(actor: SessionCreated): SavedDeck {
+                    val definition = CardDefinition("Undo synthetic", listOf(DefinitionFace(gameplayId(), "Face", corner = "2/3")))
+                    val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+                    assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(gameplayId(), listOf(submitted)), actor.token).statusCode())
+                    return json.decodeFromString(post(settings, "/v1/decks", CreateDeck(gameplayId(), "Sixty cards",
+                        listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 60))), actor.token).body())
+                }
+                val ad = deck(a); val bd = deck(b)
+                Socket(settings, a.token).use { alice -> Socket(settings, b.token).use { bob ->
+                    val ast = alice.open(game); val bst = bob.open(game)
+                    fun setup(socket: Socket, stream: GameStreamReady, action: GameAction): GameRevision {
+                        val command = GameCommand(gameplayId(), GameScope(game.id, game.preparationRound,
+                            if (action == GameAction.AcceptInvitation) game.invitationId else null), action, stream.streamId, stream.generation)
+                        socket.send(command)
+                        val result = socket.result(command.requestId)
+                        assertEquals("accepted", result.outcome, result.reason)
+                        return socket.revision(command.requestId)
+                    }
+                    setup(bob, bst, GameAction.AcceptInvitation)
+                    setup(alice, ast, GameAction.SelectDeck(ad.deck.id, ad.deck.revision))
+                    setup(bob, bst, GameAction.SelectDeck(bd.deck.id, bd.deck.revision))
+                    setup(bob, bst, GameAction.SetStarter(StarterChoice(b.account.accountId)))
+                    setup(alice, ast, GameAction.Ready)
+                    val started = setup(bob, bst, GameAction.Ready)
+                    val root = started.play!!
+                    assertEquals(120, root.board.cards.size)
+                    assertEquals(b.account.accountId, root.board.turn.accountId)
+                    val library = root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == b.account.accountId }
+                    val hand = root.board.containers.single { it.zone == PlayZone.HAND && it.accountId == b.account.accountId }
+                    val field = root.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == b.account.accountId }
+                    var predicted = root
+                    val originals = mutableListOf<Pair<GameCommand, PlayState>>()
+                    fun send(action: PlayAction) {
+                        val command = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
+                            GameAction.Play(action), bst.streamId, bst.generation)
+                        predicted = requireNotNull(GameplayRules.change(predicted, b.account.accountId, command).state)
+                        originals.add(command to predicted)
+                        bob.send(command)
+                    }
+                    // No per-action acknowledgement barrier, including the Return Hand constituents.
+                    repeat(2) {
+                        val plan = LibraryActions.mulligan(predicted.board, library.id, hand.id,
+                            predicted.board.containers.single { it.id == hand.id }.cards, RandomV1.encodeSeed(ByteArray(32) { it.toByte() }))
+                        plan.prefix().forEach(::send)
+                        LibraryActions.draw(predicted.board, library.id, hand.id, plan.drawCount).forEach(::send)
+                    }
+                    val drawn = predicted
+                    val card = drawn.board.containers.single { it.id == hand.id }.cards.first()
+                    send(PlayAction.MoveCard(card, MoveSource(hand.id), MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(1024, 0))))
+                    val moved = predicted
+                    send(PlayAction.SetTapped(card, true))
+                    val tapped = predicted
+                    fun control(action: GameAction): GameCommand = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
+                        action, bst.streamId, bst.generation).also(bob::send)
+                    val undoTap = control(GameAction.Undo)
+                    val undoMove = control(GameAction.Undo)
+                    val redoMove = control(GameAction.Redo)
+                    var accepted = TreeSync.generation(GameplayTree(root))
+                    fun apply(command: GameCommand): PlayState {
+                        val update = alice.revision(command.requestId)
+                        assertEquals(update, bob.revision(command.requestId))
+                        accepted = TreeSync.apply(accepted, update.treeDelta!!)
+                        return requireNotNull(accepted.tree.stateAt(accepted.tree.currentNodeId))
+                    }
+                    for ((command, state) in originals) {
+                        val result = bob.result(command.requestId)
+                        assertEquals("accepted", result.outcome, result.reason)
+                        assertEquals(state, apply(command))
+                    }
+                    fun verify(command: GameCommand, target: String, expected: PlayState) {
+                        val result = bob.result(command.requestId)
+                        assertEquals("accepted", result.outcome, result.reason)
+                        assertEquals(target, result.targetNodeId)
+                        assertEquals(expected, apply(command))
+                        val recovered = json.decodeFromString<GameRequestStatus>(request(settings, "GET",
+                            "/v1/games/${game.id}/results/${command.requestId}", b.token).body()).result
+                        assertEquals(result, recovered)
+                    }
+                    verify(undoTap, tapped.currentNodeId, moved)
+                    verify(undoMove, moved.currentNodeId, drawn)
+                    assertEquals(listOf(tapped.currentNodeId, moved.currentNodeId),
+                        accepted.tree.redoByAccount[b.account.accountId]!!.map { it.mutation.id })
+                    verify(redoMove, moved.currentNodeId, moved)
+                    assertEquals(listOf(tapped.currentNodeId), accepted.tree.redoByAccount[b.account.accountId]!!.map { it.mutation.id })
+                    val beforeRetry = accepted.tree
+                    bob.send(undoTap)
+                    assertEquals(tapped.currentNodeId, bob.result(undoTap.requestId).targetNodeId)
+                    val redoTap = control(GameAction.Redo)
+                    verify(redoTap, tapped.currentNodeId, tapped)
+                    assertTrue(accepted.tree.redoByAccount.isEmpty())
+                    val undoAgain = control(GameAction.Undo)
+                    verify(undoAgain, tapped.currentNodeId, moved)
+                    assertEquals(beforeRetry.nodes, accepted.tree.nodes)
+                } }
+            }
+        }
+    }
+
     @Test fun `authenticated two socket gameplay predicts same reducer and HTTP retains concrete mutations and guarded Stack outcomes`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -48,6 +48,17 @@ class StackInteractionsTest {
         assertEquals(id, toolkit.stackBubbleEntry)
         assertTrue(toolkit.handle(TableIntent.StackDestination(id, PlayZone.BATTLEFIELD)))
         assertEquals(BoardPosition(0, 1), f.card(40).placement!!.position)
+        for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
+            Triple(640f, 360f, true))) for (combat in listOf(false, true)) {
+            val play = if (combat) f.play.copy(board = f.play.board.copy(combat = CombatArea("combat"))) else f.play
+            val scene = TablePresentation.scene(f.game, play, f.actor, width, height, landscape)
+            val field = scene.fields.single { it.owner == f.actor }
+            val lands = field.landsBounds(atBottom = true)
+            val placed = scene.items.single { it.cardId == id }
+            assertTrue(placed.visible.isNotEmpty())
+            assertTrue(placed.bounds.center.y < lands.y)
+            assertTrue(placed.bounds.center.y >= lands.y - field.rowHeight)
+        }
         assertNull(toolkit.stackBubbleEntry)
         assertTrue(toolkit.addEffects(listOf(id)))
         val effect = f.play.board.stackEffects.single()

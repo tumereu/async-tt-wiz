@@ -5,6 +5,57 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun transformedLandsBandsStillTargetRowZero() {
+        for (zoom in listOf(.65f, 1f, 2f)) for (pan in listOf(-12f, 0f, 12f)) {
+            val scene = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 892f, 412f, true,
+                TableLayoutState(TableCamera(y = pan, zoom = zoom)))
+            val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
+            for (field in scene.fields) {
+                val band = assertNotNull(field.landsBounds(field.owner == "a", scene.camera).intersection(field.bounds))
+                val end = TablePoint(field.bounds.right - 24, band.center.y)
+                val events = mutableListOf<TableIntent>()
+                val gesture = TableGestureCoordinator(events::add)
+                gesture.update(scene, TableSelection(), true)
+                gesture.down(start, 0); gesture.move(end, 80); gesture.up(end, 100)
+                val destination = assertIs<TableDestination.Grid>(events.filterIsInstance<TableIntent.Move>().single().destination)
+                assertEquals(0, destination.row)
+                val geometry = TableAnnotationGeometry(scene, "a")
+                assertEquals(0, Math.floorDiv(geometry.location(end)!!.position!!.y, 2))
+            }
+        }
+    }
+
+    @Test fun landsBandsAndAdjacentMainRowsUseTheDrawnGridForDropsAndLocationPings() {
+        for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
+            Triple(640f, 360f, true), Triple(892f, 364f, true))) {
+            for (reviewing in listOf(false, true)) for (combat in listOf(false, true)) {
+                val initial = LiveTableFixture.play()
+                val play = if (combat) initial.copy(board = initial.board.copy(combat = org.asyncttwiz.protocol.CombatArea("combat"))) else initial
+                val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", width, height, landscape, reviewing = reviewing)
+                val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
+                val geometry = TableAnnotationGeometry(scene, "a")
+                for (field in scene.fields) for (row in 0..1) for (fraction in listOf(.1f, .5f, .9f)) {
+                    val distance = (row + fraction) * field.rowHeight
+                    val end = TablePoint(field.bounds.right - 24,
+                        if (field.owner == "a") field.gridBounds.bottom - distance else field.gridBounds.y + distance)
+                    val events = mutableListOf<TableIntent>()
+                    val gesture = TableGestureCoordinator(events::add)
+                    gesture.update(scene, TableSelection(), true)
+                    gesture.down(start, 0); gesture.move(end, 80); gesture.up(end, 100)
+                    val destination = assertIs<TableDestination.Grid>(events.filterIsInstance<TableIntent.Move>().single().destination,
+                        "$width x $height, reviewing=$reviewing, combat=$combat, ${field.owner} row $row at $end")
+                    assertEquals(field.containerId, destination.containerId)
+                    assertEquals(row, destination.row)
+                    val target = assertNotNull(geometry.location(end))
+                    assertEquals(row, Math.floorDiv(target.position!!.y, 2))
+                    val marker = assertNotNull(geometry.endpoint(target))
+                    assertEquals(target, geometry.location(marker))
+                    assertEquals(row == 0, field.landsBounds(field.owner == "a").contains(marker))
+                }
+            }
+        }
+    }
+
     @Test fun combatInsertionDragBindsOnlyTheRequestedOccurrenceAndCancellingDoesNotCreatePairs() {
         val f = TableStatesFixture
         val play = f.combat()

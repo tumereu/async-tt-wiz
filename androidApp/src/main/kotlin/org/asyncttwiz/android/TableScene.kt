@@ -570,8 +570,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         clipRect(viewport.x * density, viewport.y * density, viewport.right * density, viewport.bottom * density) {
         val color = if (f.owner == viewer) Color(0xffe2efe6) else Color(0xfff4e8ea)
         drawRect(color, xy(b.x, b.y), size(b.width, b.height))
-        val outerY = if (f.owner == viewer) b.bottom - b.height / 3 else b.y
-        drawRect(if (f.owner == viewer) Color(0xffc4dcd0) else Color(0xffe9d1d3), xy(b.x, outerY), size(b.width, b.height / 3))
+        val lands = f.landsBounds(f.owner == viewer, scene.camera)
+        drawRect(if (f.owner == viewer) Color(0xffc4dcd0) else Color(0xffe9d1d3),
+            xy(lands.x, lands.y), size(lands.width, lands.height))
         }
     }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {

@@ -48,7 +48,12 @@ data class TableItem(
     val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
-    val gridBounds: TableBounds = bounds)
+    val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID) {
+    fun landsBounds(atBottom: Boolean, camera: TableCamera = TableCamera()) = gridBounds.copy(
+        y = if (atBottom) gridBounds.bottom + (camera.y - rowHeight) * camera.zoom
+            else gridBounds.y - camera.y * camera.zoom,
+        height = rowHeight * camera.zoom)
+}
 data class TableViewport(val id: String, val bounds: TableBounds, val contentWidth: Float, val scroll: Float,
     val hand: Boolean = false, val contentHeight: Float = bounds.height, val scrollY: Float = 0f) {
     val maxScroll get() = (contentWidth - bounds.width).coerceAtLeast(0f)
@@ -141,10 +146,10 @@ object TablePresentation {
                 else if (index == 0) HEADER + railHeight + 6f else dockTop + dockHeight
             val h = if (landscape) (fieldBottom - boardTop - combat.height) / 2 else fieldHeight
             val bounds = TableBounds(sidebar + 6f, y, width - sidebar - 12f, h.coerceAtLeast(1f))
-            // Short viewports crop the outer edge rather than shrinking the three logical rows.
-            val gridHeight = max(3 * GRID, bounds.height)
-            val grid = bounds.copy(y = if (index == 0) bounds.bottom - gridHeight else bounds.y, height = gridHeight)
-            TableField(bounds, player.accountId, container(player.accountId, PlayZone.BATTLEFIELD).id, grid)
+            // Keep all three rows, including lands, inside the visible field even when
+            // combat/review consumes height. This changes row spacing, not card scale.
+            TableField(bounds, player.accountId, container(player.accountId, PlayZone.BATTLEFIELD).id,
+                rowHeight = bounds.height / 3)
         }
         val sidebarBounds = TableBounds(0f, boardTop, sidebar, (boardBottom - boardTop).coerceAtLeast(0f))
         val sidebarRow = dockRow + counterHeight
@@ -194,10 +199,14 @@ object TablePresentation {
                 .forEach { id -> byId[id]?.let { c ->
                     val p = positions[id] ?: TablePlacement(battlefield.cards.indexOf(id), 0)
                     val x = field.gridBounds.x + (p.column * GRID - camera.x) * zoom + 16f * zoom
-                    val dy = (p.row * GRID - camera.y) * zoom
-                    val y = if (ownSide) field.gridBounds.bottom - envelope - dy else field.gridBounds.y + dy
+                    val rowHeight = field.rowHeight * zoom
+                    val dy = (p.row * field.rowHeight - camera.y) * zoom
+                    val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy
+                    val y = rowY + (rowHeight - envelope) / 2
                     val peek = p.pileIndex.coerceIn(0, 2) * 4f * zoom
-                    val b = TableBounds(x + peek, y + peek + 4f * zoom, if (c.tapped) ch else cw, if (c.tapped) cw else ch)
+                    val cardHeight = if (c.tapped) cw else ch
+                    val b = TableBounds(x + peek, y + peek + (envelope - cardHeight) / 2 - 2f * zoom,
+                        if (c.tapped) ch else cw, cardHeight)
                     card(c, b, TableBounds(x, y, envelope, envelope), player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
                 } }
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * GRID

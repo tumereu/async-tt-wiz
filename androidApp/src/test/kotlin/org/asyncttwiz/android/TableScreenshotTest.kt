@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.geometry.Offset
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.captureScreenRoboImage
@@ -26,6 +27,7 @@ import org.asyncttwiz.protocol.*
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /** Native Compose/Canvas screenshots at the mock's logical viewport (one pixel per dp). */
@@ -62,6 +64,7 @@ class TableScreenshotTest {
             compose.onNodeWithContentDescription("Interaction mode").assertDoesNotExist()
             compose.onNodeWithContentDescription("Continue playing from here").assertExists()
         } else {
+            compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed().assertIsEnabled()
             for (label in listOf("Play", "Previous", "Next", "Continue playing from here", "Return to current"))
                 compose.onNodeWithContentDescription(label).assertDoesNotExist()
             for (label in listOf("Live", "Download history", "Event details")) compose.onNodeWithText(label).assertDoesNotExist()
@@ -82,6 +85,8 @@ class TableScreenshotTest {
         } else {
             assertEquals(if (landscape) 892 else 412, image.width)
             assertEquals(if (landscape) 412 else 892, image.height)
+            if (!controls) assertRenderedLandsBands(image, TablePresentation.scene(LiveTableFixture.game, play, "a",
+                image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused), "a")
         }
     }
 
@@ -308,6 +313,25 @@ class TableScreenshotTest {
         compose.onNodeWithContentDescription("Move to Stack").performScrollTo().performClick()
         assertEquals(null, toolkit.manual.scope)
         assertTrue(sent.any { it is PlayAction.MoveCard && it.destination.containerId == "stack" })
+    }
+}
+
+/** Sample an unobstructed column through both fields, including the band/main boundary. */
+internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene: TableScene, viewer: String) {
+    for (field in scene.fields) {
+        val lands = field.landsBounds(field.owner == viewer)
+        assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
+        val x = (field.bounds.right - 8).toInt()
+        for (y in kotlin.math.ceil(field.bounds.y.toDouble()).toInt() until field.bounds.bottom.toInt()) {
+            // Avoid fractional, anti-aliased Canvas edges.
+            if (y - field.bounds.y < 1 || field.bounds.bottom - y <= 1) continue
+            if (kotlin.math.abs(y - lands.y) < 1 || kotlin.math.abs(y - lands.bottom) < 1) continue
+            val inBand = lands.contains(TablePoint(x.toFloat(), y.toFloat()))
+            val expected = if (field.owner == viewer) {
+                if (inBand) 0xffc4dcd0.toInt() else 0xffe2efe6.toInt()
+            } else if (inBand) 0xffe9d1d3.toInt() else 0xfff4e8ea.toInt()
+            assertEquals(expected, image.getRGB(x, y), "${field.owner} battlefield at ($x, $y)")
+        }
     }
 }
 

@@ -32,6 +32,27 @@ internal object TableFixture {
 }
 
 class TablePresentationTest {
+    @Test fun landscapeKeepsBothOuterLandsRowsSeparateFromCombatAndReview() {
+        for ((w, h) in listOf(892f to 412f, 640f to 360f, 892f to 364f)) {
+            for (reviewing in listOf(false, true)) for (combat in listOf(false, true)) {
+                val initial = LiveTableFixture.play()
+                val play = if (combat) initial.copy(board = initial.board.copy(combat = CombatArea("combat"))) else initial
+                val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", w, h, true, reviewing = reviewing)
+                val lane = scene.viewports.single { it.id == "combat" }.bounds
+                for (field in scene.fields) {
+                    val lands = field.landsBounds(field.owner == "a")
+                    assertEquals(field.bounds.height / 3, lands.height, .001f)
+                    assertEquals(lands, lands.intersection(field.bounds))
+                    assertNull(lands.intersection(lane))
+                    assertNull(field.bounds.intersection(lane))
+                    val land = scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/0" }
+                    assertTrue(land.visible.any { it.intersection(lands) != null })
+                    assertTrue(scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/2" }.visible.isNotEmpty())
+                }
+            }
+        }
+    }
+
     @Test fun bothFieldsAndOwnHandRemainUsableAtMockAndCompactViewportsIncludingReview() {
         for ((w, h, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(360f, 640f, false), Triple(640f, 360f, true))) for (reviewing in listOf(false, true)) {

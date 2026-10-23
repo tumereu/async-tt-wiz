@@ -163,6 +163,11 @@ class TableStatesScreenshotTest {
         val image = ImageIO.read(file)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
+        if (kind == "combat") {
+            compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed().assertIsEnabled()
+            assertRenderedLandsBands(image, TablePresentation.scene(f.game, current(), f.a,
+                image.width.toFloat(), image.height.toFloat(), landscape), f.a)
+        }
         if (kind == "stack-preview") {
             compose.onRoot().performTouchInput { cancel() }
             compose.mainClock.autoAdvance = true

@@ -262,7 +262,7 @@ class TableGestureCoordinator(
         val c = scene.camera
         val x = (p.x - f.gridBounds.x) / c.zoom + c.x
         val y = (if (f == scene.fields.last()) f.gridBounds.bottom - p.y else p.y - f.gridBounds.y) / c.zoom + c.y
-        return TableDestination.Grid(f.containerId, floor(x / TablePresentation.GRID).toInt().coerceAtLeast(0), floor(y / TablePresentation.GRID).toInt().coerceAtLeast(0))
+        return TableDestination.Grid(f.containerId, floor(x / TablePresentation.GRID).toInt().coerceAtLeast(0), floor(y / f.rowHeight).toInt().coerceAtLeast(0))
     }
     private fun distance(a: TablePoint, b: TablePoint) = hypot(a.x - b.x, a.y - b.y)
     private fun rectangle(a: TablePoint, b: TablePoint) = TableBounds(minOf(a.x, b.x), minOf(a.y, b.y), abs(a.x - b.x), abs(a.y - b.y))

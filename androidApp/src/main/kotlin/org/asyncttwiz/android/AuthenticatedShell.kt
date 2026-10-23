@@ -190,7 +190,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                                  Box(Modifier.size(if (hamburger) 44.dp else 36.dp), contentAlignment = Alignment.Center) { EntryIcon(null, item.icon()) }
                              }
                              Spacer(Modifier.width(16.dp))
-                            Text(item.title, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                             Text(item.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                              EntryIcon(null, "chevron")
                         }
                         Spacer(Modifier.height(12.dp))

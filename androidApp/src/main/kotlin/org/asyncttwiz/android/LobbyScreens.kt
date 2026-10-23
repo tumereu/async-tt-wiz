@@ -208,24 +208,15 @@ internal fun GameDeletionDialogs(controller: LobbyController) {
 }
 
 @Composable
-private fun DeleteGameIcon() {
-    val color = LocalContentColor.current
-    androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
-        val w = size.width
-        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(w / 12)
-        drawRect(color, androidx.compose.ui.geometry.Offset(w * .25f, w * .3f), androidx.compose.ui.geometry.Size(w * .5f, w * .55f), style = stroke)
-        drawLine(color, androidx.compose.ui.geometry.Offset(w * .15f, w * .25f), androidx.compose.ui.geometry.Offset(w * .85f, w * .25f), w / 12)
-        drawLine(color, androidx.compose.ui.geometry.Offset(w * .4f, w * .12f), androidx.compose.ui.geometry.Offset(w * .6f, w * .12f), w / 12)
-    }
-}
-
-@Composable
 internal fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean = false,
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
     if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
-        TableScreen(controller, accountId, hamburger, landscape); return
+        TableScreen(controller, accountId, hamburger, landscape)
+        if (state.detail.id !in state.connectedGames && state.play != null && !state.chatOpen)
+            ReconnectingDialog(controller::back)
+        return
     }
     if (state.picker != null) { LobbyDeckPicker(controller, importDeck, hamburger); return }
     if (state.preparing && state.detail?.lifecycle == GameLifecycle.LOBBY) {

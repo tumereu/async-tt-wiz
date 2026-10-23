@@ -29,15 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 private val Teal = Color(0xff107e7a)
-private val Ink = Color(0xff202d3d)
-private val Backdrop = Color(0xfff6f7f8)
 
 @Composable
 fun AccountEntry(controller: AuthController, reset: ResetController, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
     val state = controller.state
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
-    val tabletop = state.account != null && state.destination == ShellDestination.GAMES &&
+    val tabletop = state.account != null && state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby?.state?.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
     val theme: @Composable (@Composable () -> Unit) -> Unit = { content ->
         if (tabletop) MaterialTheme(content = content) else ScreenTheme(content)
@@ -47,7 +45,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
         BackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
             controller.page(AuthPage.LOGIN)
         }
-        Box(Modifier.fillMaxSize().background(Backdrop).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+        Box(Modifier.fillMaxSize().background(ScreenBackground).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             when {
                 reset.state != null -> ResetEntry(reset)
                 state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby)
@@ -192,8 +190,6 @@ private fun ResetEntry(controller: ResetController) {
                     if (state.checking && !state.checkFailed) {
                         Text("Checking reset link…"); CircularProgressIndicator(Modifier.size(24.dp))
                     }
-                    state.message?.let { Text(it, Modifier.testTag("reset-message"),
-                        color = if (state.error) MaterialTheme.colorScheme.error else Teal) }
                     when {
                         state.checkFailed -> TextButton(onClick = controller::checkLink, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                             Text("Retry")
@@ -204,6 +200,16 @@ private fun ResetEntry(controller: ResetController) {
                             modifier = Modifier.fillMaxWidth()) {
                             EntryIcon(null, if (state.page == ResetPage.REQUEST) "email" else "key"); Spacer(Modifier.width(8.dp))
                             Text(if (state.busy) "Please wait…" else if (state.page == ResetPage.REQUEST) "Send reset link" else "Change password")
+                        }
+                    }
+                    state.message?.let {
+                        Surface(color = if (state.error) Color(0xfffff3f3) else Color(0xfff1f5f9), shape = RoundedCornerShape(6.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ScreenBorder)) {
+                            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(screenIcon(if (state.error) "error" else "ready"), null, Modifier.size(18.dp), tint = if (state.error) MaterialTheme.colorScheme.error else Teal)
+                                Text(it, Modifier.testTag("reset-message"), style = MaterialTheme.typography.bodySmall,
+                                    color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                            }
                         }
                     }
                     HorizontalDivider()

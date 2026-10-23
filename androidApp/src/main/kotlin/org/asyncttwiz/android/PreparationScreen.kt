@@ -98,7 +98,7 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
             section(SavedDeckSection.SIDEBOARD, Modifier.fillMaxWidth())
         }
     }
-    CardInspection(controller.inspection)
+    DeckCardInspection(controller.inspection)
 }
 
 private fun SavedDeckSection.label() = if (this == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"

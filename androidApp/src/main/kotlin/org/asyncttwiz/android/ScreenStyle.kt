@@ -16,7 +16,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
@@ -28,6 +31,19 @@ import androidx.compose.ui.window.DialogProperties
 
 internal val ScreenBackground = Color(0xfff7f8f9)
 internal val ScreenBorder = Color(0xffcdd3dc)
+
+// The extended Material set predates Symbols' crossed-swords glyph. Keep the same game motif,
+// rather than substituting a video-game controller, alongside the standard outlined icons.
+private val GameSwords by lazy {
+    ImageVector.Builder("Games", 24.dp, 24.dp, 24f, 24f).apply {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.8f, strokeLineCap = StrokeCap.Round) {
+            moveTo(3f, 3f); lineTo(7f, 4f); lineTo(19f, 17f); lineTo(17f, 19f); lineTo(4f, 7f); close()
+            moveTo(21f, 3f); lineTo(17f, 4f); lineTo(5f, 17f); lineTo(7f, 19f); lineTo(20f, 7f); close()
+            moveTo(3f, 15f); lineTo(9f, 21f); moveTo(15f, 21f); lineTo(21f, 15f)
+            moveTo(3f, 21f); lineTo(6f, 18f); moveTo(18f, 18f); lineTo(21f, 21f)
+        }
+    }.build()
+}
 
 /** Non-table chrome deliberately has its own density; table controls keep their own theme. */
 @Composable
@@ -64,14 +80,18 @@ internal fun ScreenOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modi
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp), content = content)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ScreenIconButton(description: String, kind: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, danger: Boolean = false) {
-    OutlinedIconButton(onClick, modifier.size(48.dp), enabled, shape = RoundedCornerShape(6.dp),
+    TooltipBox(modifier = modifier, positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) {
+    OutlinedIconButton(onClick, Modifier.size(48.dp), enabled, shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, if (danger) Color(0xffe1b7b7) else MaterialTheme.colorScheme.outline),
         colors = IconButtonDefaults.outlinedIconButtonColors(contentColor =
             if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)) {
         EntryIcon(description, kind)
+    }
     }
 }
 
@@ -81,8 +101,9 @@ internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, 
     Surface(Modifier.size(width, height), color = MaterialTheme.colorScheme.primaryContainer,
         shape = RoundedCornerShape(2.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
         if (reference?.printing != null || reference?.customUrl != null) {
-            CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.labelSmall) {
-                CardArtwork(reference, name, width.value.toInt(), height.value.toInt(), Modifier.fillMaxSize())
+            Box(contentAlignment = Alignment.Center) {
+                Icon(screenIcon("cover"), name, Modifier.size(minOf(width, 20.dp)), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                CardArtwork(reference, "", width.value.toInt(), height.value.toInt(), Modifier.fillMaxSize())
             }
         } else Box(contentAlignment = Alignment.Center) {
             Icon(screenIcon("cover"), name, Modifier.size(minOf(width, 20.dp)), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -104,15 +125,20 @@ internal fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, actio
 @Composable
 internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, singleLine: Boolean = true, keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    visualTransformation: VisualTransformation = VisualTransformation.None, trailingIcon: (@Composable () -> Unit)? = null) {
+    visualTransformation: VisualTransformation = VisualTransformation.None, trailingIcon: (@Composable () -> Unit)? = null,
+    placeholder: String? = null, maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge) {
     BasicTextField(value, onValueChange, modifier.heightIn(min = 48.dp), enabled = enabled, singleLine = singleLine,
         keyboardOptions = keyboardOptions, visualTransformation = visualTransformation,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+        maxLines = maxLines, textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
         decorationBox = { field ->
             Surface(shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, ScreenBorder), color = Color.White) {
                 Row(Modifier.heightIn(min = 48.dp).padding(start = 12.dp, end = if (trailingIcon == null) 12.dp else 0.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f).padding(vertical = 10.dp)) { field() }
+                    verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top) {
+                    Box(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                        if (value.isEmpty() && placeholder != null) Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        field()
+                    }
                     trailingIcon?.invoke()
                 }
             }
@@ -138,7 +164,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "cancel" -> Icons.Outlined.Cancel
     "decks" -> Icons.Outlined.Style
     "contacts" -> Icons.Outlined.PeopleOutline
-    "games" -> Icons.Outlined.SportsEsports
+    "games" -> GameSwords
     "search" -> Icons.Outlined.Search
     "refresh" -> Icons.Outlined.Refresh
     "shuffle" -> Icons.Outlined.Shuffle

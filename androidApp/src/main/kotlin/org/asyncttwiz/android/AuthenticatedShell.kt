@@ -37,9 +37,6 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         if (state.destination != ShellDestination.GAMES) lobby?.closePicker()
         lobby?.refresh()
     }
-    LaunchedEffect(state.account?.accountId) {
-        while (true) { kotlinx.coroutines.delay(5_000); lobby?.sync() }
-    }
     LaunchedEffect(state.destination, deckImport?.state?.active) {
         if (state.destination == ShellDestination.DECKS && deckImport?.state?.active != true) {
             while (true) { kotlinx.coroutines.delay(5_000); decks?.sync() }

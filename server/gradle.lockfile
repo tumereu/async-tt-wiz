@@ -11,6 +11,7 @@ com.github.docker-java:docker-java-transport-zerodep:3.7.1=schemaToolsCompileCla
 com.github.docker-java:docker-java-transport:3.7.1=schemaToolsCompileClasspath,schemaToolsRuntimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.google.errorprone:error_prone_annotations:2.38.0=compileClasspath,testCompileClasspath
 com.ibm.icu:icu4j:74.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.zaxxer:HikariCP:7.0.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 commons-codec:commons-codec:1.19.0=schemaToolsCompileClasspath,schemaToolsRuntimeClasspath
 commons-codec:commons-codec:1.21.0=testCompileClasspath,testRuntimeClasspath
 commons-io:commons-io:2.20.0=schemaToolsCompileClasspath,schemaToolsRuntimeClasspath,testCompileClasspath,testRuntimeClasspath

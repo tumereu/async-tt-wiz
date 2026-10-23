@@ -56,7 +56,15 @@ class ServiceProcessTest {
                 catch (_: Exception) { null }
             })
         secrets.forEach { assertFalse(output.contains(it), "Service/migration log exposed configuration input") }
-        assertFalse(output.contains("Exception"), "Raw exception/stack trace in service output")
+        val withoutDiagnosticTypes = output.lineSequence().joinToString("\n") { line ->
+            if (line.contains(" Writer availability:") || line.contains(" Runtime availability:")) {
+                java.time.Instant.parse(line.substringBefore(' '))
+                // Class names are now intentional structured evidence, not raw Throwable output.
+                line.replace(Regex("class=[A-Za-z0-9_.$]+"), "class=[type]")
+            } else line
+        }
+        assertFalse(withoutDiagnosticTypes.contains("Exception"), "Raw exception/stack trace in service output")
+        assertFalse(Regex("(?m)^\\s+at [A-Za-z0-9_.$]+\\(").containsMatchIn(output), "Raw stack trace in service output")
         println("RETAINED process output (pid/configuration/secret independent):\n$output")
     }
 
@@ -159,7 +167,7 @@ class ServiceProcessTest {
 
     private fun assertNoServiceConnections(db: OwnedPostgres) {
         await("closed service database sessions") {
-            number(db, "SELECT count(*) FROM pg_stat_activity WHERE application_name = 'async-tt-wiz-ownership'") == 0L
+            number(db, "SELECT count(*) FROM pg_stat_activity WHERE application_name IN ('async-tt-wiz-ownership', 'async-tt-wiz-work')") == 0L
         }
         assertEquals(0L, number(db, "SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND classid=1096045655::oid"))
         println("CLEANUP no ownership sessions/advisory locks remain")

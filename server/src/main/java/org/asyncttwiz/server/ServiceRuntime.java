@@ -8,6 +8,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.asyncttwiz.server.database.DatabaseSettings;
 import org.asyncttwiz.server.database.OwnershipFailure;
 import org.asyncttwiz.server.database.WriterOwnership;
+import org.asyncttwiz.server.database.AvailabilityDiagnostic;
 
 /** All future command handlers must use this admission/fenced transaction boundary. */
 public final class ServiceRuntime implements AutoCloseable {
@@ -39,10 +40,10 @@ public final class ServiceRuntime implements AutoCloseable {
 
     /** Private operational evidence only; no request inputs or raw/suppressed exceptions. */
     public void recordUnavailability(UnavailabilityBoundary boundary, Throwable failure) {
-        System.err.println("Runtime availability: owner=" + ownership.diagnosticId()
+        System.err.println(java.time.Instant.now() + " Runtime availability: owner=" + ownership.diagnosticId()
                 + " thread=" + Thread.currentThread().threadId() + " recoveredEpoch=" + recoveredEpoch
                 + " stopping=" + stopping.get() + " boundary=" + boundary.name()
-                + " category=" + WriterOwnership.failureCategory(failure));
+                + " category=" + WriterOwnership.failureCategory(failure) + AvailabilityDiagnostic.detail(failure));
     }
 
     public void start() {

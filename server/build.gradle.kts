@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.postgresql)
     implementation(libs.jooq) { version { strictly(libs.versions.jooq.get()) } }
     implementation(platform(libs.spring.boot.bom))
+    implementation("com.zaxxer:HikariCP")
     implementation(libs.spring.boot)
     implementation(libs.spring.boot.tomcat)
     implementation(libs.spring.security.web)

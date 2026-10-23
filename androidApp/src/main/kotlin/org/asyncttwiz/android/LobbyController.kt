@@ -333,6 +333,12 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }
     }
     fun reconnect() { session?.tick(); refresh() }
+    fun foreground() {
+        session?.tick()
+        // A recreated Activity already has a live accepted table. Do not refresh/reinstall
+        // its streams just because a new UI attached; retained maintenance handles reads.
+        if (!state.loaded) refresh()
+    }
     fun prepareDeck() {
         if (state.detail?.lifecycle == GameLifecycle.LOBBY && state.preparation?.players?.any { it.accountId == accountId() && it.deck != null } == true)
             state = state.copy(preparing = true, transferFeedback = null)

@@ -62,6 +62,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 throw failure
             }
         }, treeCache = local::treeCache)
+    private val gameMaintenance = GameConnectionMaintenance({ controller.state.account != null }, lobby::sync, main)
     init {
         activity.authenticationRequired = ::authenticationRequired
         deckImport.connectSave(saveApi, controller::sessionToken, saved = { if (!lobby.importedForPicker()) decks.open(it.deck.id) })
@@ -73,6 +74,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         succeeded = controller::passwordResetCompleted, post = { action -> main.post { action() } })
 
     override fun onCleared() {
+        gameMaintenance.close()
         activity.authenticationRequired = null
         controller.close()
         deckImport.close()

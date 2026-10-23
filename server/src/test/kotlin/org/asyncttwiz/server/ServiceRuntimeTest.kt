@@ -76,6 +76,11 @@ class ServiceRuntimeTest {
                         repeat(2) {
                             limitConnections(0)
                             try {
+                                // Existing pooled sessions remain valid under a role limit. Kill
+                                // only work sessions to exercise rejection of replacement opens.
+                                db.connection().use { connection -> connection.createStatement().use {
+                                    it.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'runtime_writer' AND application_name = 'async-tt-wiz-work'")
+                                } }
                                 assertThrows(OwnershipFailure::class.java) { runtime.transaction { fail<Unit>("New connection admitted") } }
                                 // Cross at least one recovery tick while game/activity workers also fail.
                                 val blockedUntil = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(600)

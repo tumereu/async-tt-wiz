@@ -30,7 +30,8 @@ public final class WriterOwnership implements AutoCloseable {
 
     @FunctionalInterface
     public interface Transaction<T> {
-        /** Local database work only; do not commit/rollback, change autocommit or retain connection. */
+        /** Local database work only; may run twice after connection loss before commit. No external
+         * side effects, commit/rollback, autocommit changes or retained connection. */
         T execute(Connection connection) throws SQLException;
     }
 
@@ -111,40 +112,56 @@ public final class WriterOwnership implements AutoCloseable {
 
     /** Shared epoch lock lasts through callback and commit; independent transactions stay concurrent. */
     public <T> T transaction(Token token, Transaction<T> work) {
-        synchronized (this) {
-            // A database restart can leave the same stored epoch but destroy the lock session.
-            // Do not admit using only an in-memory token, even before a periodic probe runs.
-            if (closed || token == null || token != current || !probe()) {
-                throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
-            }
-        }
-        String phase = "open";
-        try (var connection = database.open()) {
-            phase = "begin";
-            connection.setAutoCommit(false);
-            try {
-                phase = "fence";
-                lockEpoch(connection, token.epoch);
-                synchronized (this) {
-                    if (closed || current != token) throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
+        for (int attempt = 0; ; attempt++) {
+            synchronized (this) {
+                // A database restart can leave the same stored epoch but destroy the lock session.
+                // Do not admit using only an in-memory token, even before a periodic probe runs.
+                if (closed || token == null || token != current || !probe()) {
+                    throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
                 }
-                phase = "callback";
-                T result = work.execute(connection);
-                phase = "commit";
-                connection.commit();
-                phase = "close";
-                return result;
-            } catch (Exception failure) {
-                try { connection.rollback(); } catch (SQLException ignored) { }
-                throw failure;
             }
-        } catch (Exception failure) {
-            recheckOwnership(token);
-            diagnostic(phase, failure, token.epoch);
-            // Even a driver/callback/close error's suppressed exceptions must not leak inputs.
-            if (failure instanceof OwnershipFailure safe) throw new OwnershipFailure(safe.reason());
-            throw new OwnershipFailure(OwnershipFailure.Reason.TRANSACTION_FAILED);
+            String phase = "open";
+            try (var connection = database.openWork()) {
+                phase = "begin";
+                connection.setAutoCommit(false);
+                try {
+                    phase = "fence";
+                    lockEpoch(connection, token.epoch);
+                    synchronized (this) {
+                        if (closed || current != token) throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
+                    }
+                    phase = "callback";
+                    T result = work.execute(connection);
+                    phase = "commit";
+                    connection.commit();
+                    phase = "close";
+                    return result;
+                } catch (Exception failure) {
+                    try { connection.rollback(); } catch (SQLException ignored) { }
+                    // Never return a failed session to the pool, including wrapped jOOQ failures.
+                    if (connectionFailure(failure)) database.discard(connection);
+                    throw failure;
+                }
+            } catch (Exception failure) {
+                recheckOwnership(token);
+                diagnostic(phase, failure, token.epoch);
+                // No COMMIT was sent in these phases. PostgreSQL rolls back a lost session;
+                // replaying DB-only work is safe even if rollback failed. A commit/close
+                // failure has an uncertain or successful outcome: NEVER replay it.
+                if (attempt == 0 && connectionFailure(failure) && !phase.equals("commit") && !phase.equals("close")) continue;
+                // Even a driver/callback/close error's suppressed exceptions must not leak inputs.
+                if (failure instanceof OwnershipFailure safe) throw new OwnershipFailure(safe.reason());
+                throw new OwnershipFailure(OwnershipFailure.Reason.TRANSACTION_FAILED);
+            }
         }
+    }
+
+    static boolean connectionFailure(Throwable failure) {
+        for (int depth = 0; failure != null && depth < 8; depth++, failure = failure.getCause()) {
+            if (failure instanceof SQLException sql && sql.getSQLState() != null &&
+                    (sql.getSQLState().startsWith("08") || sql.getSQLState().equals("57P01") || sql.getSQLState().equals("57P02"))) return true;
+        }
+        return false;
     }
 
     /** Internal transaction entry, also exercised directly to prove the fence after a delayed probe. */
@@ -182,6 +199,7 @@ public final class WriterOwnership implements AutoCloseable {
                     case "40P01" -> "SQL_DEADLOCK";
                     case "55P03" -> "SQL_LOCK_UNAVAILABLE";
                     case "57014" -> "SQL_CANCELLED";
+                    case "57P01", "57P02" -> "SQL_CONNECTION";
                     default -> state.startsWith("08") ? "SQL_CONNECTION" : "SQL_OTHER";
                 };
             }
@@ -196,8 +214,9 @@ public final class WriterOwnership implements AutoCloseable {
 
     private void diagnostic(String phase, Throwable failure, long epoch) {
         // Dedicated secret-free stderr event: service root/library logging deliberately stays off.
-        System.err.println("Writer availability: owner=" + diagnosticId + " thread=" + Thread.currentThread().threadId()
-                + " epoch=" + epoch + " phase=" + phase + " category=" + failureCategory(failure));
+        System.err.println(java.time.Instant.now() + " Writer availability: owner=" + diagnosticId + " thread=" + Thread.currentThread().threadId()
+                + " epoch=" + epoch + " phase=" + phase + " category=" + failureCategory(failure)
+                + AvailabilityDiagnostic.detail(failure));
     }
 
     private void release() {
@@ -213,6 +232,7 @@ public final class WriterOwnership implements AutoCloseable {
     @Override public synchronized void close() {
         closed = true;
         release();
+        database.close();
     }
 
     @Override public String toString() { return "WriterOwnership[redacted]"; }

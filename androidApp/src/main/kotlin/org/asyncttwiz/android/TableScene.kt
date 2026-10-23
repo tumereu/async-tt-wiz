@@ -404,8 +404,9 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
             ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
         } else {
             ActionSquare(if (runtime.continuationArmed) "History · continuation armed" else "History", "", runtime.history != null,
-                Modifier.width(buttonWidth.dp).then(if (runtime.continuationArmed) Modifier.border(2.dp, OwnTableColor) else Modifier),
-                fill = if (runtime.continuationArmed) Color(0xffedf3ef) else Color.White,
+                Modifier.width(buttonWidth.dp).then(if (runtime.continuationArmed) Modifier.border(2.dp, OwnTableColor) else Modifier.background(Color.White)),
+                // Transparent fill keeps the default dark ink; an opaque fill would switch the icon to white.
+                fill = if (runtime.continuationArmed) Color(0xffedf3ef) else Color.Transparent,
                 ink = if (runtime.continuationArmed) OwnTableColor else null,
                 icon = { TableChromeIcon(if (runtime.continuationArmed) "fork" else "history") }, onClick = { runtime.history?.invoke() })
             ActionSquare("History tree", "", runtime.tree != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("tree") }, onClick = { runtime.tree?.invoke() })

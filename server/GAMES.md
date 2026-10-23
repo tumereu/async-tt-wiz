@@ -1,7 +1,8 @@
-# Ordered game service — invitations and preparation
+# Ordered game service — invitations, preparation and initial play
 
 The running Spring service now implements recipient **Accept/Decline** and inviter
-**Reinvite**, plus **Select deck** and individual **prepared-card transfers**, through `GET /v1/socket` WebSocket upgrade. Use the normal bearer
+**Reinvite**, **Select deck**, individual **prepared-card transfers**, **Set starter**,
+**Ready** and **Withdraw Ready**, through `GET /v1/socket` WebSocket upgrade. Use the normal bearer
 Authorization header, never a URL credential; TLS is supplied by the normal HTTPS
 boundary (`wss` outside isolated local tests). There is no HTTP game-write route.
 Initial create+first-invite remains the [account HTTP exception](LOBBY.md).
@@ -150,6 +151,75 @@ clears them and fences callbacks. Restart reads accepted server state, never a
 durable outgoing journal. Native one/all tap/drag/accessibility, inspection and
 feedback/row transitions remain I10b2, not a native pass from these host interfaces.
 
+## Initial play and readiness — I11a
+
+The same command envelope accepts these round-bound actions with **null
+invitation/play scope**:
+
+- `{"type":"setStarter","choice":{"accountId":"participant UUID"}}` selects either
+  participant. `{"type":"setStarter","choice":{"accountId":null}}` explicitly
+  selects Random; it does not roll. Inviter and accepted recipient use this shared
+  choice. An actual change clears only the actor's Ready; selecting the same option
+  preserves it.
+- `{"type":"ready"}` requires the actor's selected deck, without format, size or
+  opponent-presence checks. The current server representation has **no implicit
+  starter default**: an unset choice is distinct from Random and returns
+  `starterRequired` until a participant explicitly chooses. This completes the
+  explicit-choice path, not an assertion that the illustrative mock approved a
+  universal default or cross-game option-retention policy.
+- `{"type":"withdrawReady"}` clears only the actor's Ready. Leaving/disconnecting
+  does not withdraw it. The inviter can prepare/choose/ready before acceptance;
+  acceptance alone never readies the recipient or starts play.
+
+The second applicable accepted Ready starts once in its existing execution
+transaction. Earlier deck/transfer/starter changes clear their actor before the
+readiness check; late lobby work rejects `lifecycleEnded`. Explicit **V9** adds the
+nullable lobby choice/current-play pointer and `game_play`, uniquely bound to the
+preparation round and original start request. It preserves V8 copies/definitions,
+Ready and pending outcomes without auto-starting or choosing a starter at migration.
+
+`StartRules.initialize` is pure shared Kotlin. Only `PlayStore` obtains independent
+32-byte `SecureRandom` inputs for both Libraries and, when selected, Random starter.
+`RandomV1` implements canonical strict base64url, unsigned UUID ordering,
+domain-separated SHA-256 counter streams, unbiased uint32 rejection sampling and
+Fisher–Yates. Accepted input/algorithm/concrete orders/starter are retained. Reads,
+duplicate requests, reconnect and worker/service restart never invoke initialization
+again. A failed uncommitted transaction publishes no random result.
+
+`PlayState` contains versioned players/cards/retained definitions/containers, the
+initial root/branch/current-node identity, turn tracking and recorded setup outcomes.
+Concrete mainboard UUIDs and owner/definition identity are preserved; prepared
+Sideboard stays stored for later return but is absent from playable containers and
+active `head.preparation`. Initial Libraries are covered/top-first, other zones are
+empty, life is 20 and tracking is turn 1 Beginning/Untap with no opening draw.
+`GameSummary.playId` identifies the new incarnation; socket heads/start revisions
+carry its separate `play` payload. The result contains play/root IDs and correlation,
+not a snapshot to overwrite a newer accepted board. No host Start or HTTP start route
+exists.
+
+Native starter/Ready/withdrawal and initial production-table presentation remain
+**I11b**; these server/socket tests are not normal-APK start acceptance. I12 retains
+cancel/list/full two-Android lifecycle overlaps; I13–I16 extend this same model and
+processor for gameplay/prediction/Canvas. I18, I22–I26 and I28/I31 retain mulligans,
+history/replay and restored preparation/fresh rematch. No cross-game option retention,
+in-game Sideboard or gameplay Undo of lobby choices is implemented here.
+
+Focused checks (incremental; do not repeat unchanged green suites at parent closure):
+
+```sh
+./scripts/gradle.sh :protocol:jvmTest :server:test \
+  --tests '*GameStartTest' --tests '*PreparedDeckTest' \
+  --tests '*GameDurabilityTest' --tests '*GameSocketTest'
+```
+
+Literal shared fixtures are generated independently by Python standard-library
+`hashlib`/integer/UUID arithmetic in `tests/fixtures/random-v1.py`, pinned against
+the pre-existing specification's blocks/seven-card orders. Tests consume committed
+literal words/orders for all three seeds and 0/1/2/7/60/257 members, both domains,
+counter crossing and sampler boundary rejection; Kotlin does not generate its own
+expected answers. JVM21 execution and Android compilation are scoped evidence;
+remaining supported-target/upgrade qualification belongs to I34/I35.
+
 ## Persistence and workers
 
 Explicit migration `V7__ordered_game_requests.sql` retains V6 games/attempts and adds
@@ -202,5 +272,6 @@ actor-only Ready fixtures and actual socket preparation/privacy checks. I10a2 st
 owns its saved native picker/accepted-predicted-UI evidence; I10b1 adds per-copy
 transfer semantics, durable socket execution and multi-in-flight session/controller
 prediction/recovery; I10b2 owns native transfer controls and presentation,
-I11/I12 Ready/start/cancel, and I13/I14 gameplay/complete replica extensions on this
+I11a adds the shared/server initial-start path above; I11b/I12 retain native
+Ready/start/cancel, and I13/I14 gameplay/complete replica extensions on this
 same domain. I34–I36 retain full-suite, compatibility and final UI/release obligations.

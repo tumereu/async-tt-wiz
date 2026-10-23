@@ -18,7 +18,8 @@ import kotlinx.serialization.Serializable
 }
 @Serializable data class PlayerPreparation(val accountId: String, val ready: Boolean = false, val deck: PreparedDeck? = null)
 @Serializable data class LobbyPreparation(val gameId: String, val roundId: String,
-    val players: List<PlayerPreparation>, val definitions: List<SubmittedDefinition> = emptyList())
+    val players: List<PlayerPreparation>, val definitions: List<SubmittedDefinition> = emptyList(),
+    val starter: StarterChoice? = null)
 
 /** Personal captured gesture intent; compact even for large rows. Never a bulk server command. */
 data class PreparedTransfer(val gameId: String, val roundId: String, val deckId: String,

@@ -314,6 +314,87 @@ class GameSocketTest {
         }
     }
 
+    @Test fun `authenticated Ready sockets publish one actual initial board and restart resume retains root orders and original result`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            lateinit var a: SessionCreated; lateinit var b: SessionCreated; lateinit var game: GameSummary
+            lateinit var start: GameCommand; lateinit var hello: GameHello; lateinit var accepted: GameHead; lateinit var original: GameResult
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                a = account(settings, "InitialSocketA"); b = account(settings, "InitialSocketB"); game = create(settings, a, b).second
+                fun source(actor: SessionCreated): SavedDeck {
+                    val definition = CardDefinition("Start text fallback", listOf(DefinitionFace(id(), "Start face", corner = "4/6")), sourceVersion = "synthetic-start")
+                    val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+                    assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(submitted)), actor.token).statusCode())
+                    val response = post(settings, "/v1/decks", CreateDeck(id(), "Start source", listOf(
+                        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 7), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 1))), actor.token)
+                    assertEquals(201, response.statusCode()); return json.decodeFromString(response.body())
+                }
+                val aSource = source(a); val bSource = source(b)
+                Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->
+                    owner.negotiate(); recipient.negotiate(); val aStream = owner.open(game); val bStream = recipient.open(game)
+                    owner.subscribe(game); recipient.subscribe(game)
+                    fun setup(socket: Socket, stream: GameStreamReady, action: GameAction): GameRevision {
+                        val input = GameCommand(id(), GameScope(game.id, game.preparationRound), action, stream.streamId, stream.generation)
+                        socket.send(input); socket.receipt(input.requestId); assertEquals("accepted", socket.result(input.requestId).outcome)
+                        return socket.revision(input.requestId)
+                    }
+                    setup(owner, aStream, GameAction.SelectDeck(aSource.deck.id, aSource.deck.revision))
+                    setup(owner, aStream, GameAction.SetStarter(StarterChoice()))
+                    val waiting = setup(owner, aStream, GameAction.Ready)
+                    assertNull(waiting.play); assertTrue(waiting.preparation!!.players[0].ready)
+                    val accept = command(game, bStream, GameAction.AcceptInvitation)
+                    recipient.send(accept); assertEquals("accepted", recipient.result(accept.requestId).outcome)
+                    val afterAccept = recipient.revision(accept.requestId)
+                    assertEquals(GameLifecycle.LOBBY, afterAccept.summary.lifecycle); assertNull(afterAccept.play)
+                    assertTrue(afterAccept.preparation!!.players[0].ready); assertFalse(afterAccept.preparation!!.players[1].ready)
+                    val prepared = setup(recipient, bStream, GameAction.SelectDeck(bSource.deck.id, bSource.deck.revision)).preparation!!
+                    owner.close() // The first Ready survives absence; no extra confirmation/presence required.
+                    start = GameCommand(id(), GameScope(game.id, game.preparationRound), GameAction.Ready, bStream.streamId, bStream.generation)
+                    hello = recipient.hello
+                    recipient.send(start); recipient.receipt(start.requestId); original = recipient.result(start.requestId)
+                    assertEquals("accepted", original.outcome)
+                    val revision = recipient.revision(start.requestId); val state = revision.play!!
+                    assertEquals(GameLifecycle.ACTIVE, revision.summary.lifecycle); assertNull(revision.preparation)
+                    assertEquals(state.id, revision.summary.playId); assertEquals(listOf(state.id, state.root.id), original.createdIds)
+                    assertEquals(14, state.board.cards.size); assertEquals(listOf("20", "20"), state.board.players.map { it.life })
+                    assertEquals(TurnState(state.starter.accountId), state.board.turn)
+                    assertTrue(state.board.containers.filter { it.zone != PlayZone.LIBRARY }.all { it.cards.isEmpty() })
+                    for (player in prepared.players) {
+                        val deck = player.deck!!; val members = deck.entries.filter { it.section == SavedDeckSection.MAINBOARD }.flatMap { entry ->
+                            List(entry.quantity) { deck.card(entry, it).id } }.toSet()
+                        assertEquals(members, state.shuffles.single { it.accountId == player.accountId }.order.toSet())
+                    }
+                    recipient.send(SubscribeGame(game.id, revision.resultRevision)); accepted = recipient.next()
+                    assertEquals(state, accepted.play); assertNull(accepted.preparation)
+                    recipient.send(start); assertEquals(original, recipient.result(start.requestId))
+                    val late = start.copy(requestId = id(), action = GameAction.WithdrawReady)
+                    recipient.send(late); assertEquals("lifecycleEnded", recipient.result(late.requestId).reason)
+                    assertEquals(404, post(settings, "/v1/games/${game.id}/ready", LookupGameResults(emptyList()), b.token).statusCode())
+                } }
+                Socket(settings, a.token).use { returning ->
+                    returning.negotiate(); returning.send(SubscribeGame(game.id, accepted.revision))
+                    assertEquals(accepted, returning.next<GameHead>())
+                }
+            }
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                Socket(settings, b.token, hello).use { resumed ->
+                    resumed.negotiate(); resumed.send(ResumeGameStream(game.id, start.streamId, listOf(start.requestId)))
+                    val ready = resumed.next<GameStreamReady>(); assertEquals(original, ready.statuses.single().result)
+                    resumed.send(start.copy(generation = ready.generation)); assertEquals(original, resumed.result(start.requestId))
+                    resumed.send(SubscribeGame(game.id, accepted.revision)); assertEquals(accepted, resumed.next<GameHead>())
+                }
+                assertEquals(accepted.summary, json.decodeFromString<GameSummary>(request(settings, "GET", "/v1/games/${game.id}/head", a.token).body()))
+                assertEquals(accepted.play, json.decodeFromString<GameRevisions>(request(settings, "GET", "/v1/games/${game.id}/revisions?after=${accepted.revision.toLong()-1}", a.token).body()).revisions.single().play)
+            }
+            db.connection().use { c -> c.createStatement().executeQuery("SELECT (SELECT count(*) FROM game_play), (SELECT count(*) FROM game_inbox WHERE result IS NULL)").use {
+                assertTrue(it.next()); assertEquals(1, it.getInt(1)); assertEquals(0, it.getInt(2))
+            } }
+            println("PASS actual authenticated HTTP definitions/decks and ordered two-socket starter/Ready/acceptance/start; first Ready survives disconnected owner, accepted mainboard IDs/retained definitions/no Sideboard/20 life/turn1 Untap/empty other areas published coherently; owner return and full Spring restart/resume recover identical root/play/seeds/orders/original result, one durable initialization and no HTTP start endpoint")
+        }
+    }
+
     private fun Socket.resultFromRead(settings: ServiceSettings, token: String, gameId: String, requestId: String) =
         json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/$gameId/results/$requestId", token).body()).result!!
 }

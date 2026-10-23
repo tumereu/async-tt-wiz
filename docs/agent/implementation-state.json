@@ -105,7 +105,8 @@
                                                           "docs/agent/implementation-runs/20261022T215026Z-802a24bd.json",
                                                            "docs/agent/implementation-runs/20261022T230001Z-668e6673.json",
                                                             "docs/agent/implementation-runs/20261022T231932Z-f547eed7.json",
-                                                            "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json"
+                                                             "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
+                                                             "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json"
    ],
   "findings": [
     {
@@ -1068,8 +1069,10 @@
     {
       "id": "I11a",
       "batch": "B3",
-      "status": "pending",
+      "status": "implemented",
       "dependsOn": ["I10"],
+      "implementationRecord": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json",
+      "qualification": "Delivered shared versioned initial board/player/card/retained-definition/container/root and round-bound starter/Ready/withdrawal on the existing ordered durable path. Explicit participant or Random choice is distinct from unset (no inferred universal Random default); unset returns starterRequired until explicit selection. Actual changes/withdrawal clear only actor Ready, own selected deck has no size/legality/presence gate, inviter can ready before acceptance, and acceptance alone never starts. Second accepted Ready atomically retains distinct play/root, two independent SecureRandom Library inputs/concrete orders and optional independently seeded resolved Random starter, 20 life, turn-1 Beginning/Untap and no opening draw. Stable prepared mainboard IDs/defaults/owner/definitions survive source edits/deletion; Sideboard remains in stored preparation for future return but not active play containers/head. Explicit V8-to-V9 migration retains copies/Ready/definitions/pending originals without implicit start. Actual authenticated sockets, FIFO edit-before-start, late-lobby refusal, pending/final dedup/privacy/stream renewal, SQL rollback and production GameHub/Spring restart recovery pass without reinitializing. Composite evidence covers 31 shared, 19 real PostgreSQL/socket and 24 Android host cases, with the one incorrect definition-count assertion repaired and its exact test rechecked; normal APK and boundaries pass. Initial missing jOOQ allowlist compile diagnostic retained and repaired. Final unused palette correction has targeted shared model/Android/server compilation evidence, and sampler rejection expected values are literal independent fixtures. Initial red outputs remain diagnostics, not a green full-suite claim. Only I11a closes; I11b native Ready/production table, I11 parent audit, I12 two-Android/cancel/list overlaps and first B3 review remain pending. I13-I26 gameplay/history, I28/I31 rematch, I34-I36 final full suite/compatibility/UI comparison and all external gates remain required/unverified.",
       "planningRecord": "docs/agent/implementation-runs/20261022T233436Z-cd34094d.json",
       "outcome": "Implement shared versioned initial board/player/card/definition/container and play-root types plus deterministic canonical randomness, and integrate real starter/Ready/withdrawal/once-only start into the existing ordered GameAction/GameService/inbox/outcome/revision/outbox path. Reuse immutable prepared concrete copies and retained definitions; keep lobby-only Sideboard out of playable state while preserving preparation for later return. Bind lobby requests to the originating preparation round, create a distinct play incarnation/root and initialize both Libraries with independent server SecureRandom inputs, retained concrete orders and selected/resolved starter, 20 life, turn 1 Beginning/Untap, empty other areas and no draw. Shared processing never acquires entropy and recovery never reinitializes. This is substantive shared/server start implementation; I11b delivers native controls/table, not a separate engine or queue.",
       "checks": [

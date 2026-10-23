@@ -6,6 +6,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
 import org.asyncttwiz.server.generated.tables.GameDefinition.GAME_DEFINITION
 import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
+import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.jooq.DSLContext
 
 /** Adapter only: pure rules own selection; the existing game transaction owns all writes. */
@@ -23,10 +24,20 @@ internal object PreparationStore {
             .fetch().associateBy { it.accountId.toString() }
         val digests = sql.select(GAME_DEFINITION.DIGEST).from(GAME_DEFINITION)
             .where(GAME_DEFINITION.GAME_ID.eq(game)).fetchSet(GAME_DEFINITION.DIGEST)
+        val starter = sql.select(GAME.STARTER_CHOICE).from(GAME).where(GAME.ID.eq(game)).fetchSingle(GAME.STARTER_CHOICE)
         return PreparationRules.empty(summary).let { empty -> empty.copy(players = empty.players.map { player ->
             val row = rows[player.accountId]
             player.copy(ready = row?.ready ?: false, deck = row?.deck?.let { json.decodeFromString<PreparedDeck>(it) })
-        }, definitions = definitions(sql, digests)) }
+        }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) }) }
+    }
+
+    fun saveReadiness(sql: DSLContext, actor: UUID, state: LobbyPreparation) {
+        val game = UUID.fromString(state.gameId)
+        sql.update(GAME).set(GAME.STARTER_CHOICE, state.starter?.let { json.encodeToString(it) }).where(GAME.ID.eq(game)).execute()
+        val ready = state.players.single { it.accountId == actor.toString() }.ready
+        sql.insertInto(PLAYER_PREPARATION).set(PLAYER_PREPARATION.GAME_ID, game).set(PLAYER_PREPARATION.ACCOUNT_ID, actor)
+            .set(PLAYER_PREPARATION.READY, ready).onConflict(PLAYER_PREPARATION.GAME_ID, PLAYER_PREPARATION.ACCOUNT_ID)
+            .doUpdate().set(PLAYER_PREPARATION.READY, ready).execute()
     }
 
     fun saveSelection(sql: DSLContext, actor: UUID, state: LobbyPreparation) {

@@ -127,8 +127,10 @@ class GameService(private val runtime: ServiceRuntime) {
     fun head(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
         locked(sql, uuid(gameId), actor(principal))
         val summary = lobby.summary(sql, uuid(gameId))
+        val play = PlayStore.read(sql, uuid(gameId))
         GameHead(gameId, summary.revision, summary, preparation =
-            if (canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null)
+            if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
+            play = play)
     }
     fun revisions(principal: AccountService.Principal, gameId: String, after: String): GameRevisions {
         val base = GameWire.ordinal(after)
@@ -161,6 +163,7 @@ class GameService(private val runtime: ServiceRuntime) {
         val rejection = when (command.action) {
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
+            is GameAction.SetStarter, GameAction.Ready, GameAction.WithdrawReady -> applyReadiness(sql, game, inbox.accountId!!, command)
             else -> applyInvitation(sql, game, inbox.accountId!!, command)
         }
         val revision = if (rejection == null) Math.addExact(before, 1) else null
@@ -168,13 +171,16 @@ class GameService(private val runtime: ServiceRuntime) {
         if (revision != null) {
             sql.update(GAME).set(GAME.REVISION, revision).where(GAME.ID.eq(game.id)).execute()
             val summary = lobby.summary(sql, game.id!!)
+            val play = PlayStore.read(sql, game.id!!)
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
-                inbox.accountId.toString(), command.scope, summary, PreparationStore.read(sql, summary))
+                inbox.accountId.toString(), command.scope, summary,
+                if (play == null) PreparationStore.read(sql, summary) else null, play)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, GameWire.encode(update)).execute()
         }
         val created = when {
             revision == null -> emptyList()
+            update!!.play?.startRequestId == command.requestId -> listOf(update.play!!.id, update.play!!.root.id)
             command.action == GameAction.Reinvite -> listOf(update!!.summary.invitationId)
             command.action is GameAction.SelectDeck -> update!!.preparation!!.players.single {
                 it.accountId == inbox.accountId.toString() }.deck!!.let { listOf(it.id) }
@@ -233,9 +239,19 @@ class GameService(private val runtime: ServiceRuntime) {
                 sql.insertInto(INVITATION).set(INVITATION.ID, next).set(INVITATION.GAME_ID, game.id).execute()
                 sql.update(GAME).set(GAME.CURRENT_INVITATION, next).where(GAME.ID.eq(game.id)).execute()
             }
-            is GameAction.SelectDeck, is GameAction.TransferPreparedCard -> error("Preparation uses the shared preparation processor")
+            else -> error("Preparation uses the shared preparation processor")
         }
         return null
+    }
+
+    private fun applyReadiness(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
+        val summary = lobby.summary(sql, game.id!!)
+        val change = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
+        change.state?.let { preparation ->
+            PreparationStore.saveReadiness(sql, account, preparation)
+            if (StartRules.canStart(summary, preparation)) PlayStore.start(sql, summary, preparation, command.requestId)
+        }
+        return change.reason
     }
 
     /** Recovery validates the newly implemented durable worker inputs, not forgotten client queues. */

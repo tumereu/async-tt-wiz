@@ -194,12 +194,12 @@ class GameDurabilityTest {
                 INSERT INTO invitation VALUES ('$invite','$game','PENDING');
                 INSERT INTO request_identity VALUES ('$request','$a','createInvitation','account','${"0".repeat(64)}');
                 INSERT INTO account_request VALUES ('$request',201,'retained-original-create');""")
-            assertEquals(2, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(3, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             assertEquals(1, number(db, "SELECT count(*) FROM game WHERE current_invitation='$invite' AND preparation_round='$preparation' AND revision=0 AND next_ingress=1 AND game_name='Retained Spark'"))
             assertEquals(1, number(db, "SELECT count(*) FROM saved_deck WHERE revision=9"))
             assertEquals(1, number(db, "SELECT count(*) FROM account_request WHERE response='retained-original-create'"))
             assertEquals(0, number(db, "SELECT count(*) FROM game_inbox"))
-            println("PASS explicit V6-to-V8 forward migration retains original game/preparation/attempt/name/date/accounts/deck revision/account outcome; new queues/preparation empty and original attempt pointer initialized")
+            println("PASS explicit V6-to-V9 forward migration retains original game/preparation/attempt/name/date/accounts/deck revision/account outcome; new queues/preparation empty and original attempt pointer initialized")
         }
     }
 }

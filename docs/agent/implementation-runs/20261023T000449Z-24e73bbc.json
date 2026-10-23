@@ -1,0 +1,122 @@
+{
+  "runId": "20261023T000449Z-24e73bbc",
+  "sessionID": "ses_e99ece997ffeNcZFn2b5fveOF6",
+  "startCommit": "caf8facf96f4e01c9a62fdf37dc20bc9bce2d7eb",
+  "mode": "implement",
+  "target": "I11a",
+  "findingIds": [],
+  "newFindingIds": [],
+  "reviewedUnitIds": [],
+  "outcome": "progress",
+  "summary": "Implemented I11a: shared versioned initial board/player/card/definition/container/play-root types, canonical random v1 and real starter/Ready/withdrawal/once-only start on the existing ordered durable processor. Second accepted Ready atomically retains the new play/root, two independently acquired Library seeds/concrete orders and optionally independently seeded Random starter, 20 life, turn-1 Beginning/Untap and no opening draw. Prepared concrete mainboard identity/defaults/owner/definitions survive saved-source edits/deletion; Sideboard remains stored for future return but is absent from active play containers/head. Explicit starter choice is distinct from unset (starterRequired until explicit selection), with no inferred universal Random default or cross-game retention. Composite checks cover 31 shared, 19 PostgreSQL/socket and 24 Android host cases, plus normal APK/boundaries and targeted final model/literal-boundary rechecks. Initial missing jOOQ table allowlist and incorrect test definition-count failures are repaired; original red outputs remain diagnostic. No native Ready/table journey or full-suite claim. Only I11a closes; I11b is next, I11/B3 and all later qualification/release obligations remain open.",
+  "selectionReason": "Clean supplied master/startCommit, active D-304 authorization, reviewed B1/B2, verified B2-R01 and implemented I10 match the driver's earliest-ready I11a selection. No due issue or complete-group review precedes it. This is the substantive shared/server child of the saved I11 split, not a new qualification layer. Affected scope is deterministic initialization/randomness, actual preparation/readiness-to-play ordering/persistence/privacy/recovery and compatibility of the additive shared protocol with existing Android preparation sessions. Execute those shared/game/PostgreSQL/socket checks and affected host/build integration only; retain I11b native controls/production table and I12 full two-Android/cancellation/list overlaps. No subagents, another loop, deployment, paid resources or scheduling/grant/model changes.",
+  "sourceIds": ["P-011", "P-045", "P-046", "P-050", "P-051", "P-052", "P-053", "P-054", "P-061", "T-400", "T-401", "T-402", "T-403", "T-404", "T-405", "T-406", "T-433", "T-434", "T-435", "T-436", "T-437", "T-438", "T-439", "T-446", "T-447", "T-634", "T-635", "T-655", "T-696", "F33", "F60"],
+  "sourceDisposition": "Partial I11.start assertions under accounts-decks-and-lobby D-108/D-191/D-199-D-205/D-208/D-213/D-221/D-271/D-274, shared authority/model D-259/D-261, ordered recovery D-275/D-278/D-289 and runtime random v1. The unchanged source-pinned ledger retains whole-scenario/native/cross-task pending accounting; assignment is not an executed pass. Initial placement/start/model/random and lower-layer/socket outcomes are evidenced here, not F33/F60 native visual acceptance, all T-400-T-406 end-to-end assertions, later mulligan/history/rematch or final supported-target compatibility.",
+  "implementationDetails": [
+    "RandomV1 strictly round-trips canonical 32-byte unpadded base64url input, uses unsigned canonical UUID byte-equivalent ordering, SHA-256 counter blocks with big-endian unsigned words, unbiased rejection and Fisher-Yates; starter uses its separate domain and sorted two-participant order. Shared code acquires no entropy. Literal Python hashlib/struct/UUID fixtures independently pin all-zero/incrementing/all-ff seeds, blocks/words/counter crossing, 0/1/2/7/60/257 outputs, permuted membership and starter results; literal boundary cases cover 1/2/3/7/2^31-1. Existing specification seven-card/UUID/hash vectors are preserved and checked.",
+    "StartRules.change and initialize extend the same shared semantic boundary as PreparationRules; GameAction adds setStarter/ready/withdrawReady with original preparation scope, null invitation/play scope and normal identity validation. Either accessible participant can explicitly select either participant or Random; actual changes clear only actor Ready. No pre-start roll or host Start. An unset choice is represented separately from Random; current explicit-choice path returns starterRequired rather than silently inventing a default. UI default/retention policy is not claimed selected by an illustrative mock.",
+    "GameService executes on the existing epoch-fenced/game-locked durable inbox. V9 retains V8 data and adds lobby choice/current-play pointer plus uniquely round/start-request-bound game_play. Both accepted Ready initializes through PlayStore only at the actual transition; two Library SecureRandom inputs and optional Random starter seed are independently acquired and concrete outcomes retained atomically with Ready/lifecycle/revision/result/outbox. Stable UUIDv5 play/root/branch/container identities are separate from the persistent game and preparation round. Repeated/final/pending original requests recover without another initialization; late lobby changes reject.",
+    "PlayState supplies versioned players/cards/containers/retained definitions/root/current boundary/tracking/outcomes for the normal subsequent engine/rendering work. Mainboard copies retain prepared UUIDs and definition/owner identity; first-face resolved corner defaults, covered untapped Libraries, empty other areas, 20 life and turn-1 Beginning/Untap are actual data. No opening-draw mutation exists. Play has no Sideboard container or active preparation payload, while stored preparation/definition retention remains available for later I28 return. Source overwrite/delete never cascades into it.",
+    "Actual authenticated two-socket start uses ordinary definition/deck HTTP and ordered game requests, not native-journey business-state injection. First Ready survives owner disconnection, acceptance alone does not start, and second Ready publishes coherent initial state. Real Spring restart/stream renewal, production GameHub recovery of an admitted start, SQL failure after result/revision/root writes, private original-result recovery, same-ID/changed-intent/late-lobby/stale-round behavior and V8 retained migration are exercised. These are shared/server integration checks, not the still-pending I11b normal-APK start journey."
+  ],
+  "diagnoses": [
+    "Initial build generated V9 columns but the generator's explicit table include list omitted game_play, so PlayStore could not import the generated binding. Added exactly that table to the existing code-generation allowlist; the affected build regenerated actual PostgreSQL/jOOQ successfully. No hand-written generated stubs or bypass.",
+    "The initial affected run passed 31 shared and 18/19 server cases, including the real start/restart socket journey. Its remaining failure expected four game definitions although the recipient deliberately selected a sideboard-only source containing one definition, so the correct retained set has three. Changed the assertion to compare the actual captured preparation's definition count, added real own-Ready withdrawal/starter-clearing assertions to that still-red test, and reran only that exact server case. It passes; source membership/identity/content isolation checks remain intact.",
+    "Final source inspection corrected the not-yet-populated CounterColor enum to the contract's red/blue/green/yellow/purple/gray palette. Initial counters are empty in all retained start assertions; their behavior is unchanged. The final PlayTest checks the actual palette and initial state, with server classes and normal Android APK recompiled. Sampler boundary expected answers were then made fully literal from the independent specification, with an exact RandomV1Test rerun. These scoped input supersessions are explicit; earlier output is not relabeled a new final-binary execution."
+  ],
+  "remainingObligations": [
+    "I11b: native starter/Ready/withdrawal/readiness presentation, accepted/predicted/session/navigation extension and actual production initial-table rendering, normal installed-APK preparation/start/reconnect/rotate/restart in both orientations. Explicit selection is available server-side; no universal starter default or future rematch option-retention policy is inferred here. No native F33/F60 visual pass is claimed.",
+    "I11 parent: reuse exact child reports/identities and audit only missing integration after I11b. I12: full two-Android/list/lobby/cancel/start/acceptance/preparation overlaps and selected-source isolation, preserving original outcomes. First independent B3 capability review still follows I09-I12, not each child.",
+    "I13-I16 extend the same model/processor/replica for gameplay, prediction and Canvas interactions; I18 owns later shuffles/mulligans; I22-I26 own history/replay/Undo/Redo/full tree. I28/I31 retain restored prepared lobby and fresh rematch/incarnation integration; distinct new games here prove fresh invocation inputs, not a completed rematch journey.",
+    "I32/I34 retain reduced-motion/large-text and previously deferred migration-fixture/recovered HTTP-error repairs. I34 owns final full suite, full P/T/F coverage and deferred rare/multi-device/reproducibility assertions; older migration-count fixtures were already deferred and are not claimed qualified here. I33 physical measurements, I35 supported-target/upgrade/architecture compatibility, I36/B8 complete both-orientation interface-to-mock comparison/fixes/rechecks and every unchanged external release gate remain required/unverified. No clean-build/full-suite/device-fault-matrix repetition was performed."
+  ],
+  "checks": [
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest :server:compileTestKotlin",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-initial-build.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "./scripts/gradle.sh :protocol:jvmTest :server:test --tests 'org.asyncttwiz.server.game.GameStartTest' --tests 'org.asyncttwiz.server.game.PreparedDeckTest' --tests 'org.asyncttwiz.server.game.GameDurabilityTest' --tests 'org.asyncttwiz.server.game.GameSocketTest'",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-affected-tests.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :server:test --tests 'org.asyncttwiz.server.game.GameStartTest.inviter readies before acceptance edits clear only own and second accepted Ready starts exactly once' :androidApp:testDebugUnitTest --tests 'org.asyncttwiz.android.GameSessionTest' --tests 'org.asyncttwiz.android.GameLobbyIntegrationTest' --tests 'org.asyncttwiz.android.LobbyPreparationTest' --tests 'org.asyncttwiz.android.PreparationTransferSessionTest' :androidApp:assembleDebug verifyModuleBoundaries",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-targeted-recheck.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests 'org.asyncttwiz.protocol.PlayTest' :server:classes :androidApp:assembleDebug",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-final-model-check.json"
+    },
+    {
+      "kind": "required",
+      "command": "./scripts/gradle.sh :protocol:jvmTest --tests 'org.asyncttwiz.protocol.RandomV1Test'",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-literal-boundaries.json"
+    },
+    {
+      "kind": "diagnostic",
+      "command": "python3 docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff.py",
+      "exitCode": 1,
+      "evidence": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff-diagnostic.json"
+    },
+    {
+      "kind": "required",
+      "command": "python3 docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff.py > docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff.txt 2>&1",
+      "exitCode": 0,
+      "evidence": "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff.txt",
+      "supportPaths": ["docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff.py"]
+    }
+  ],
+  "outputRetention": "Gradle commands initially redirected merged stdout/stderr to run-owned temporary .txt files. Their exact UTF-8 bytes, including jOOQ banner trailing spaces, are retained losslessly as each JSON evidence envelope's stdout plus SHA-256/exit code; no output was trimmed or failure hidden. The first handoff check rejected those raw log spaces, so its exact output is retained as diagnostic too. Enveloping fixes safe-save whitespace without rerunning unchanged product tests; the final handoff validates every original-output hash and evidence bytes.",
+  "junitEvidence": [
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-initial-junit.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-final-junit.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-model-junit.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-random-junit.json"
+  ],
+  "changedPaths": [
+    "docs/agent/implementation-state.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-affected-tests.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-final-junit.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-final-model-check.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff-diagnostic.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff.py",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-handoff.txt",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-initial-build.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-initial-junit.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-literal-boundaries.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-model-junit.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-random-junit.json",
+    "docs/agent/implementation-runs/20261023T000449Z-24e73bbc-targeted-recheck.json",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/GameWire.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Lobby.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Play.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/Preparation.kt",
+    "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/RandomV1.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/PlayTest.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/RandomGolden.kt",
+    "protocol/src/commonTest/kotlin/org/asyncttwiz/protocol/RandomV1Test.kt",
+    "server/GAMES.md",
+    "server/README.md",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/GameService.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/PlayStore.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/game/PreparationStore.kt",
+    "server/src/main/kotlin/org/asyncttwiz/server/lobby/LobbyService.kt",
+    "server/src/main/resources/db/migration/V9__initial_play.sql",
+    "server/src/schemaTools/java/org/asyncttwiz/server/tools/GenerateJooq.java",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameDurabilityTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameSocketTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/GameStartTest.kt",
+    "server/src/test/kotlin/org/asyncttwiz/server/game/PreparedDeckTest.kt",
+    "tests/fixtures/random-v1.py"
+  ]
+}

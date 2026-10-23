@@ -17,8 +17,10 @@ I09a adds [contacts, named atomic first invitation, private game listings and wa
 I09b1 adds [ordered socket invitation decisions, durable game requests and live workers](GAMES.md).
 I09b2 delivered native invitation decisions/recovery. I10a1 adds shared pure
 prepared-deck selection, immutable game-local copies/definitions and explicit V8
-persistence on that same ordered path. Native picker/transfers and Ready/start
-remain I10a2/I10b/I11–I12; see [the preparation handoff](GAMES.md#prepared-deck-selection--i10a1).
+persistence on that same ordered path. I10a2/I10b delivered the native picker and
+preparation transfers. I11a adds [shared deterministic initial play and durable
+starter/Ready/start](GAMES.md#initial-play-and-readiness--i11a) with explicit V9;
+native Ready/initial table and remaining lifecycle integration stay I11b/I12.
 
 ## Build and test
 

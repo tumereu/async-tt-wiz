@@ -35,6 +35,7 @@ import kotlinx.serialization.Serializable
     @Serializable @SerialName("remove") data class Remove(val areaId: String, val occurrenceId: String) : CombatAction
 }
 @Serializable sealed interface StackAction {
+    @Serializable @SerialName("markText") data class MarkText(val entryId: String, val optionIndex: Int?) : StackAction
     @Serializable @SerialName("addEffect") data class AddEffect(val sourceId: String, val expectedStackDigest: String) : StackAction
     @Serializable @SerialName("removeEffect") data class RemoveEffect(val occurrenceId: String) : StackAction
     @Serializable @SerialName("reorderEffect") data class ReorderEffect(val occurrenceId: String,
@@ -51,12 +52,14 @@ import kotlinx.serialization.Serializable
 @Serializable data class StackEffectChange(val id: String, val from: StackEffect?, val to: StackEffect?)
 @Serializable data class StackOrderChange(val id: String, val from: IdentityGap?, val to: IdentityGap?)
 @Serializable data class StackGuardChange(val from: String, val to: String)
+@Serializable data class StackTextMarkChange(val entryId: String, val from: Int?, val to: Int?)
 /** Exact relevant tuples: no unrelated card fields, full board, or surviving pair contents. */
 @Serializable data class CombatStackTransition(val area: CombatAreaChange? = null,
     val occurrences: List<CombatOccurrenceChange> = emptyList(), val pairs: List<CombatPairChange> = emptyList(),
     val effects: List<StackEffectChange> = emptyList(), val order: List<StackOrderChange> = emptyList(),
     val removedLinks: List<ProjectionLink> = emptyList(), val stackGuard: StackGuardChange? = null,
-    val addedLinks: List<ProjectionLink> = emptyList())
+    val addedLinks: List<ProjectionLink> = emptyList(),
+    val textMarks: List<StackTextMarkChange> = emptyList())
 
 @Serializable data class StackIdentity(val kind: String, val id: String, val sourceId: String)
 @Serializable private data class StackProjection(val playId: String, val entries: List<StackIdentity>)
@@ -114,6 +117,7 @@ object CombatStackRules {
         }
     }
     fun valid(action: StackAction): Boolean = when (action) {
+        is StackAction.MarkText -> DeckValidation.uuid(action.entryId) && (action.optionIndex == null || action.optionIndex >= 0)
         is StackAction.AddEffect -> DeckValidation.uuid(action.sourceId) && DeckValidation.digest(action.expectedStackDigest)
         is StackAction.RemoveEffect -> DeckValidation.uuid(action.occurrenceId)
         is StackAction.ReorderEffect -> DeckValidation.uuid(action.occurrenceId) && valid(action.expected) && valid(action.destination)
@@ -185,6 +189,13 @@ object CombatStackRules {
                 }
             }
             is PlayAction.Stack -> when (val action = playAction.action) {
+                is StackAction.MarkText -> {
+                    if (action.entryId !in stack(board).cards) return reject("missingReference")
+                    if (action.optionIndex != null && action.optionIndex !in StackText.options(state, action.entryId).indices)
+                        return reject("invalidInput")
+                    board.copy(stackTextMarks = if (action.optionIndex == null) board.stackTextMarks - action.entryId
+                        else board.stackTextMarks + (action.entryId to action.optionIndex))
+                }
                 is StackAction.AddEffect -> {
                     if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
                     val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
@@ -273,7 +284,8 @@ object CombatStackRules {
             return null
         val allIds = entityIds + candidate.players.map { it.accountId } + candidate.links.map { it.id } + links.map { it.id }
         if (allIds.distinct().size != allIds.size) return null
-        return candidate.copy(combat = combat, stackEffects = effects, projectionLinks = links)
+        return candidate.copy(combat = combat, stackEffects = effects, projectionLinks = links,
+            stackTextMarks = candidate.stackTextMarks.filterKeys { it in stack?.cards.orEmpty() })
     }
 
     internal fun transition(state: PlayState, next: BoardState, action: PlayAction): CombatStackTransition? {
@@ -308,12 +320,16 @@ object CombatStackRules {
             .filter { it.from != it.to }
         val links = before.projectionLinks.filter { it !in next.projectionLinks }
         val addedLinks = next.projectionLinks.filter { it !in before.projectionLinks }
+        val marks = (before.stackTextMarks.keys + next.stackTextMarks.keys).sorted().mapNotNull { id ->
+            val from = before.stackTextMarks[id]; val to = next.stackTextMarks[id]
+            if (from == to) null else StackTextMarkChange(id, from, to)
+        }
         val area = if (before.combat?.id == next.combat?.id) null else CombatAreaChange(before.combat?.id, next.combat?.id)
         val guard = if ((action as? PlayAction.Stack)?.action is StackAction.AddEffect)
             StackGuardChange(stackDigest(state), stackDigest(state.id, next)) else null
         return if (area == null && occurrenceChanges.isEmpty() && pairChanges.isEmpty() && effectChanges.isEmpty() &&
-            orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && guard == null) null else
+            orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && guard == null) null else
             CombatStackTransition(area, occurrenceChanges, pairChanges, effectChanges, orderChanges, links.sortedBy { it.id }, guard,
-                addedLinks.sortedBy { it.id })
+                addedLinks.sortedBy { it.id }, marks)
     }
 }

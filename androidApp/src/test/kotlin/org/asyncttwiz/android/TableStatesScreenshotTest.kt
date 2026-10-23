@@ -43,11 +43,23 @@ class TableStatesScreenshotTest {
         if (review) history.select(when (kind) { "history-start" -> path.first(); "history-end" -> path.last(); else -> path[3] })
         history.displayPosition()
         if (kind == "history-playing") playback.play()
-        val current = { if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
+        val stackSample = f.combat().let { play ->
+            val card = CombatStackRules.inspection(play.board, f.id("effect"))!!
+            val old = play.definitions.single { it.digest == card.definition }
+            val definition = old.definition.copy(faces = old.definition.faces.map { it.copy(
+                rulesText = "Draw a card, then discard a card.\nReturn target permanent to its owner's hand.\nA literal third paragraph.") })
+            val replacement = SubmittedDefinition(DeckJson.digest(definition), definition)
+            play.copy(definitions = play.definitions.map { if (it == old) replacement else it }, board = play.board.copy(
+                cards = play.board.cards.map { if (it.definition == old.digest) it.copy(definition = replacement.digest) else it },
+                stackTextMarks = mapOf(f.id("effect") to 1)))
+        }
+        val current = { if (kind in listOf("stack-bubbles", "stack-preview")) stackSample
+            else if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
             else if (kind == "graveyard-contents") f.initial else f.combat() }
         val toolkit = TableToolkitController(f.a, current, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
             { action, _ -> sent += action; true })
         if (kind == "combat") toolkit.selectionState.value = TableSelection(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), mode = TableMode.SELECT)
+        if (kind in listOf("stack-bubbles", "stack-preview")) toolkit.showStackBubbles(f.id("effect"))
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, action -> activations += action; true })
         explorer.update(tree, openingNodeId = tree.nodes.values.first { it.requestId == f.id("request5") }.id)
         compose.setContent {
@@ -79,6 +91,20 @@ class TableStatesScreenshotTest {
         }
         compose.waitForIdle()
         when (kind) {
+            "stack-bubbles", "stack-preview" -> {
+                compose.onNodeWithContentDescription("Put to battlefield").assertIsDisplayed()
+                compose.onNodeWithContentDescription("Put to graveyard").assertIsDisplayed()
+                compose.onNodeWithContentDescription("Stack text mark 2").assertIsDisplayed()
+                if (kind == "stack-preview") {
+                    compose.mainClock.autoAdvance = false
+                    compose.onNodeWithContentDescription("Mark text · drag up or down").performTouchInput {
+                        down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, -28f))
+                    }
+                    compose.waitForIdle() // Flush Android pointer delivery before advancing frozen composition frames.
+                    compose.mainClock.advanceTimeByFrame()
+                    compose.mainClock.advanceTimeByFrame()
+                }
+            }
             "continue", "continue-confirmation" -> {
                 compose.onNodeWithContentDescription("Continue playing from here").performClick()
                 if (kind == "continue") {
@@ -92,6 +118,7 @@ class TableStatesScreenshotTest {
             }
             "stack-contents" -> {
                 compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
+                compose.runOnIdle { assertEquals("contents/${f.id("stack")}", toolkit.panel) }
                 compose.onNodeWithText("Stack · 2 entries").assertExists()
             }
             "graveyard-contents" -> {
@@ -109,14 +136,38 @@ class TableStatesScreenshotTest {
         val file = File("build/outputs/roborazzi/gameplay-$kind-${if (landscape) "landscape" else "portrait"}.png")
         file.parentFile!!.mkdirs()
         captureScreenRoboImage(file.path)
+        if (kind == "stack-preview") {
+            compose.onNodeWithContentDescription("Stack text drag preview").assertIsDisplayed()
+            compose.onNodeWithText("A literal third paragraph.").assertIsDisplayed()
+        }
         val image = ImageIO.read(file)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
+        if (kind == "stack-preview") {
+            compose.onRoot().performTouchInput { cancel() }
+            compose.mainClock.autoAdvance = true
+        }
         explorer.close()
         return sent
     }
 
     @Test fun combatPortrait() { render("combat", false) }
+    @Test fun stackBubblesPortrait() { render("stack-bubbles", false) }
+    @Test fun stackHoldHighlightsTheMarkedParagraphWithoutSubmittingAnything() {
+        val sent = render("stack-bubbles", false)
+        val play = f.combat()
+        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val card = scene.items.single { it.cardId == f.id("effect") }
+        compose.onRoot().performTouchInput {
+            longClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
+        }
+        compose.onNodeWithText("Return target permanent to its owner's hand.").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasStateDescription("Stack text mark 2")).assertExists()
+        assertTrue(sent.isEmpty())
+    }
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackBubblesLandscape() { render("stack-bubbles", true) }
+    @Test fun stackPreviewPortrait() { render("stack-preview", false) }
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackPreviewLandscape() { render("stack-preview", true) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }

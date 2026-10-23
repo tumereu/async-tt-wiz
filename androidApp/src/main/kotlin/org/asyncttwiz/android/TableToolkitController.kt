@@ -40,11 +40,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var explicitStack by mutableStateOf<ExplicitStackTarget?>(null); private set
     var libraryDisplayId by mutableStateOf<String?>(null); private set
     var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
+    var stackBubbleEntry by mutableStateOf<String?>(null); private set
+    fun showStackBubbles(id: String?) { stackBubbleEntry = id }
     private var inspectionSubscription: InspectionSubscription? = null
     private var inspectionLifetime: String? = null
     private var reviewContext: String? = null
     fun reviewContext(context: String) {
-        if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss(); tokens.close() }
+        if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss(); tokens.close(); stackBubbleEntry = null }
         reviewContext = context
     }
 
@@ -60,8 +62,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
+        val before = current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
         return gameplay(action, invocationId).also { sent ->
             if (!sent) error = "One or more actions could not be queued. Already queued actions are retained."
+            else current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty().firstOrNull { it !in before }
+                ?.let { stackBubbleEntry = it }
         }
     }
 
@@ -143,7 +148,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
-        dismiss(); tokens.close(); capture = bound
+        dismiss(); tokens.close(); capture = bound; stackBubbleEntry = null
         explicitStack = if (scope.contextId in CombatStackRules.stack(play.board).cards) {
             val context = StackContexts.context(play, scope.contextId)
             when (context.kind) {
@@ -219,7 +224,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val live = CombatStackRules.liveSource(play.board, viewId)
         val faces = ManualDisclosure.permittedFaces(play, card, viewer, inspecting = true)
         closeInspection()
-        inspection = ManualInspection(play.gameId, play.id, card.id, faces.map { it.faceId }, snapshot = if (live == null) card else null)
+        inspection = ManualInspection(play.gameId, play.id, card.id, faces.map { it.faceId }, snapshot = if (live == null) card else null,
+            stackEntryId = viewId.takeIf { it in CombatStackRules.stack(play.board).cards })
     }
     fun inspect(context: LibraryInspection) {
         val play = current()?.takeIf { it.id == context.playId } ?: return
@@ -234,6 +240,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     fun handle(intent: TableIntent): Boolean = batch {
         when (intent) {
+            is TableIntent.StackBubbles -> { showStackBubbles(intent.entryId); true }
+            is TableIntent.StackDestination -> {
+                val play = current()?.takeIf { enabled() } ?: return@batch false
+                val actions = runCatching { StackQuickActions.actions(play, intent.entryId, intent.zone) }.getOrNull() ?: return@batch false
+                stackBubbleEntry = null
+                var sent = false
+                // The shared lowering already includes move-entry defaults; do not expand the move twice.
+                for (action in actions) { if (!enqueue(action, invocation)) return@batch sent; sent = true }
+                sent
+            }
             is TableIntent.Move -> {
                 val bound = bind(intent.scope, intent.sources) ?: return@batch false
                 if (intent.destination is TableDestination.Combat) place(bound, intent.destination.destination)

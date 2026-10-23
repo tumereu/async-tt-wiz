@@ -62,7 +62,7 @@ class ManualActions {
 
 data class ManualInspection(val gameId: String, val playId: String, val cardId: String,
     val faceIds: List<String>, val explicit: Boolean = false, val snapshot: PlayCard? = null,
-    val provisional: Boolean = false)
+    val provisional: Boolean = false, val stackEntryId: String? = null)
 
 data class ManualScope(val gameId: String, val playId: String, val contextId: String,
     val targetIds: List<String>, val player: Boolean = false) {

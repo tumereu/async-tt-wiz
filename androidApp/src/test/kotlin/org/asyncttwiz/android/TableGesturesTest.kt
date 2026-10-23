@@ -30,7 +30,7 @@ class TableGesturesTest {
         }
     }
 
-    @Test fun stackTopAndBadgeOpenContentsWhileDraggingPileNeverMovesItsSource() {
+    @Test fun stackSingleTapOpensBubblesDoubleTapActionsHoldInspectsAndBadgeOpensContents() {
         val f = TableStatesFixture
         val play = f.combat()
         val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
@@ -38,14 +38,56 @@ class TableGesturesTest {
         val gesture = TableGestureCoordinator(events::add)
         gesture.update(scene, TableSelection(), true)
         val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
-        val top = scene.items.first { it.id.startsWith("stackDrawing/") && it.visible.isNotEmpty() }
-        for (point in listOf(TablePoint(stack.bounds.x + 10, stack.bounds.y + 10), top.visible.first().center)) {
-            events.clear(); gesture.down(point, 0); gesture.up(point, 20)
-            assertEquals(listOf<TableIntent>(TableIntent.Actions(stack.id, null)), events)
-        }
-        events.clear(); val point = stack.bounds.center
-        gesture.down(point, 100); gesture.move(scene.fields.last().bounds.center, 180); gesture.up(scene.fields.last().bounds.center, 200)
+        val top = scene.items.last { it.id.startsWith("stackDrawing/") && it.visible.isNotEmpty() }
+        val badge = TablePoint(stack.bounds.x + 10, stack.bounds.y + 10)
+        gesture.down(badge, 0); gesture.up(badge, 20)
+        assertEquals(listOf<TableIntent>(TableIntent.Actions(stack.id, null)), events)
+        events.clear()
+        val point = TablePoint(top.bounds.center.x, top.bounds.bottom - 8)
+        gesture.down(point, 100); gesture.up(point, 120); gesture.tick(500)
+        assertEquals(listOf<TableIntent>(TableIntent.StackBubbles(top.cardId)), events)
+        events.clear()
+        gesture.down(point, 600); gesture.up(point, 620); gesture.down(point, 700); gesture.up(point, 720); gesture.tick(1100)
+        assertEquals(top.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
+        assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.StackBubbles })
+        events.clear()
+        gesture.down(point, 1200); gesture.tick(1750); gesture.up(point, 1800)
+        assertEquals(listOf<TableIntent>(TableIntent.Inspect(top.cardId!!)), events)
+    }
+    @Test fun stackMarkerDragUsesOnlyVerticalDistanceAndNoRequestOnReturningOrCancelling() {
+        val f = TableStatesFixture
+        val play = f.combat()
+        val entry = f.id("effect")
+        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val anchor = scene.items.single { it.cardId == entry }.bounds
+        val bubble = StackBubbleGeometry.create(entry, anchor, 412f, 892f, 1, 5)
+        val events = mutableListOf<TableIntent>()
+        val gesture = TableGestureCoordinator(events::add)
+        gesture.update(scene.copy(stackBubbles = bubble), TableSelection(), true)
+        val start = bubble.controls.last().bounds.center
+        fun end(dx: Float = 0f, dy: Float = -56f) = TablePoint(start.x + dx, start.y + dy)
+        gesture.down(start, 0); gesture.move(end(100f), 80)
+        assertTrue(gesture.preview.marking); assertEquals(3, gesture.preview.markIndex)
+        gesture.up(end(100f), 100)
+        assertEquals(org.asyncttwiz.protocol.PlayAction.Stack(org.asyncttwiz.protocol.StackAction.MarkText(entry, 3)),
+            events.filterIsInstance<TableIntent.Submit>().single().action)
+        events.clear()
+        gesture.down(start, 200); gesture.move(end(), 240); gesture.up(start, 280)
+        gesture.down(start, 300); gesture.up(end(120f, 0f), 340)
+        gesture.down(start, 400); gesture.move(end(), 440); gesture.cancel()
         assertTrue(events.isEmpty())
+        gesture.down(start, 500); gesture.up(end(dy = 56f), 540)
+        assertEquals(org.asyncttwiz.protocol.PlayAction.Stack(org.asyncttwiz.protocol.StackAction.MarkText(entry, null)),
+            events.filterIsInstance<TableIntent.Submit>().single().action)
+    }
+    @Test fun bubbleHitRegionsStayDistinctOnScreenAtAllCornersInBothOrientations() {
+        for ((w, h) in listOf(412f to 892f, 892f to 412f)) for (x in listOf(0f, w - 28f)) for (y in listOf(0f, h - 40f)) {
+            val bubble = StackBubbleGeometry.create("entry", TableBounds(x, y, 28f, 40f), w, h, null, 4)
+            for (control in bubble.controls) {
+                assertTrue(control.bounds.x >= 0 && control.bounds.right <= w && control.bounds.y >= 0 && control.bounds.bottom <= h)
+                assertTrue(bubble.controls.filter { it != control }.none { it.bounds.intersection(control.bounds) != null })
+            }
+        }
     }
     @Test fun handDragTargetsViewerBattlefieldAtRealDeviceViewportsAndDoubleTapRotates() {
         for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),

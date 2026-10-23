@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
@@ -86,6 +87,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var layout by layoutState
     var selection by selectionState
     var actions by remember(play.id, accountId) { mutableStateOf<TableIntent.Actions?>(null) }
+    var localStackBubble by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     var modeMenu by remember(play.id, accountId) { mutableStateOf(false) }
     val inspector = remember(play.id, accountId) { CardInspectionController() }
     val currentPlay by rememberUpdatedState(play)
@@ -101,6 +103,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
             when (intent) {
+                is TableIntent.StackBubbles -> if (toolkit != null) toolkit.showStackBubbles(intent.entryId) else localStackBubble = intent.entryId
                 is TableIntent.Camera -> layout = layout.copy(camera = intent.camera)
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
@@ -127,6 +130,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         currentRuntime.ping?.invoke(captured)
                 }
                 else -> {
+                    if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
                     val sent = currentWritable && callback?.invoke(intent) == true
                     if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
@@ -149,7 +153,17 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }
     }
-    BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xfff5f8f7))) {
+    val inputDensity = LocalDensity.current.density
+    BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xfff5f8f7)).pointerInput(coordinator) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val point = TablePoint(down.position.x / inputDensity, down.position.y / inputDensity)
+            val bubble = presentation?.stackBubbles
+            if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
+                toolkit?.showStackBubbles(null); localStackBubble = null
+            }
+        }
+    }) {
         val compactHeader = maxWidth < 400.dp
         val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
         val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing) {
@@ -169,7 +183,17 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
         val frame = animation.frame(progress.value)
         val animatedItems = frame.filter { it.alpha > 0f }.map { it.item.copy(bounds = it.bounds) }
-        val scene = TablePresentation.clip(targetScene.copy(items = animatedItems), maxWidth.value, maxHeight.value)
+        val baseScene = TablePresentation.clip(targetScene.copy(items = animatedItems), maxWidth.value, maxHeight.value)
+        val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry ?: localStackBubble
+        LaunchedEffect(bubbleId, play.board.containers) {
+            if (bubbleId != null && bubbleId !in CombatStackRules.stack(play.board).cards) {
+                toolkit?.showStackBubbles(null); localStackBubble = null
+            }
+        }
+        val bubbleCard = baseScene.items.find { bubbleId != null && it.cardId == bubbleId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
+        val bubble = bubbleCard?.let { StackBubbleGeometry.create(requireNotNull(bubbleId), it.bounds, maxWidth.value,
+            maxHeight.value, play.board.stackTextMarks[bubbleId], StackText.options(play, bubbleId).size) }
+        val scene = baseScene.copy(stackBubbles = bubble)
         val annotations = TableAnnotationGeometry(scene, game.inviter.accountId)
         val artwork = tableArtwork(scene)
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
@@ -272,9 +296,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             // Semantics-only children do NOT install a second pointer detector or expanded hit targets.
             // Each exposed fragment has exactly the geometry used to draw/hit-test that fragment.
             for (item in scene.items) {
-                if (item.id.startsWith("stackDrawing/")) continue
                 if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
-                val b = item.visible.maxByOrNull { it.width * it.height } ?: continue
+                val b = if (item.zone == PlayZone.STACK && item.kind == TableItemKind.PILE)
+                    TableBounds(item.bounds.x, item.bounds.y, 20f, 20f)
+                    else item.visible.maxByOrNull { it.width * it.height } ?: continue
                 key(item.id) {
                     Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).semantics {
                         contentDescription = item.label
@@ -314,6 +339,17 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                          customActions = commands
                     })
                 }
+            }
+            for (item in scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }) {
+                play.board.stackTextMarks[item.cardId]?.let { index ->
+                    StackMarkChip(index, Modifier.offset((item.bounds.right - 17).dp, item.bounds.y.dp)
+                        .semantics { contentDescription = "Stack text mark ${index + 1}" })
+                }
+            }
+            if (bubble != null) StackBubbleOverlay(bubble, StackText.options(play, bubble.entryId),
+                if (bubbleCard?.owner == accountId) OwnTableColor else OpponentTableColor, preview, writable) { intent ->
+                if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
+                callback?.invoke(intent)
             }
         }
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)

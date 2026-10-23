@@ -43,7 +43,9 @@ object CardVisibility {
     val contentsDisplays: List<ContentsDisplay> = emptyList(), val links: List<PlayLink> = emptyList(),
     val combat: CombatArea? = null, val stackEffects: List<StackEffect> = emptyList(),
     val projectionLinks: List<ProjectionLink> = emptyList(),
-    val resultSuggestion: ResultSuggestion? = null)
+    val resultSuggestion: ResultSuggestion? = null,
+    /** Entry metadata keyed by Stack card/occurrence ID, never a field on its real source. */
+    val stackTextMarks: Map<String, Int> = emptyMap())
 @Serializable data class InitialShuffle(val accountId: String, val seed: String, val order: List<String>,
     val algorithm: String = "shuffle-v1")
 @Serializable data class InitialStarter(val choice: StarterChoice, val accountId: String,

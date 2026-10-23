@@ -58,10 +58,12 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val viewports: List<TableViewport> = emptyList(), val cardWidth: Float = 28f, val cardHeight: Float = 40f,
     val footprint: Float = 56f, val camera: TableCamera = TableCamera(),
     val sources: Map<String, TableMoveSource> = emptyMap(), val combatDrops: List<CombatDropRegion> = emptyList(),
-    val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList()) {
-    fun hit(point: TablePoint): TableItem? = items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } }?.let {
-        if (it.id.startsWith("stackDrawing/")) items.first { pile -> pile.id == it.viewport } else it
-    }
+    val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
+    val stackBubbles: StackBubbleGeometry? = null) {
+    fun hit(point: TablePoint): TableItem? = stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }
+        ?: items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
+            TableBounds(it.bounds.x, it.bounds.y, 20f, 20f).contains(point) && it.visible.isNotEmpty() }
+        ?: items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } }
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
     fun viewport(point: TablePoint) = viewports.firstOrNull { it.bounds.contains(point) }

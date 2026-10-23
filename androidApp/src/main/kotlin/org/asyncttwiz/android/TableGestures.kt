@@ -8,18 +8,19 @@ import kotlin.math.roundToInt
 
 data class TableGesturePreview(val pressedId: String? = null, val scope: TableScope? = null,
     val point: TablePoint? = null, val rectangle: TableBounds? = null,
-    val destination: TableDestination? = null, val delta: Int? = null)
+    val destination: TableDestination? = null, val delta: Int? = null,
+    val marking: Boolean = false, val markIndex: Int? = null)
 
 /** The ONLY pointer arbiter on the table, including docks/hands. Pure clock-driven logic is host testable. */
 class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
     private val slop: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = 500
 ) {
-    private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM }
+    private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM, MARK }
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
-        var destination: TableDestination? = null)
+        var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null)
     private data class Tap(val capture: Capture, val deadline: Long)
     private var capture: Capture? = null
     private var pending: Tap? = null
@@ -44,12 +45,15 @@ class TableGestureCoordinator(
         if (capture != null) cancel()
         tick(time)
         val item = scene.hit(point)
+        if (scene.stackBubbles != null && item?.id?.startsWith("stackBubble/") != true)
+            emit(TableIntent.StackBubbles(null))
         val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE && item.zone != PlayZone.STACK) {
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
         } else null
         val scope = id?.let { selection.scope(it, order()) }
         val next = Capture(item, point, time, selection, scope, scene.viewport(point),
-            sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() })
+            sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }, bubble = scene.stackBubbles,
+            phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS)
         val old = pending
         if (old != null) {
             if (item?.kind == TableItemKind.CARD && item.id == old.capture.item?.id &&
@@ -61,6 +65,7 @@ class TableGestureCoordinator(
             } else { pending = null; single(old.capture); capture = next }
         } else capture = next
         preview = TableGesturePreview(pressedId = item?.id)
+        if (next.phase == Phase.MARK) preview = preview.copy(marking = true, markIndex = next.bubble?.selected)
     }
     fun tick(time: Long) {
         val p = pending
@@ -91,6 +96,11 @@ class TableGestureCoordinator(
             }
         }
         when (c.phase) {
+            Phase.MARK -> {
+                val bubble = c.bubble ?: return
+                val index = ((bubble.selected ?: -1) + (-dy / 28f).roundToInt()).coerceIn(-1, bubble.optionCount - 1)
+                preview = TableGesturePreview(c.item?.id, point = point, marking = true, markIndex = index.takeIf { it >= 0 })
+            }
             Phase.SCROLL -> c.viewport?.let { p -> emit(TableIntent.Scroll(p.id, (p.scroll - dx).coerceIn(0f, p.maxScroll))) }
             Phase.RECTANGLE -> preview = TableGesturePreview(rectangle = rectangle(c.start, point))
             Phase.DRAG -> if (c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
@@ -108,13 +118,19 @@ class TableGestureCoordinator(
         capture = null
         when (c.phase) {
             Phase.PRESS -> if (c.double && c.item?.kind == TableItemKind.CARD) {
-                if (writable && c.scope != null && targetsExist(c.scope)) {
+                if (c.item.zone == PlayZone.STACK) single(c, explicit = true)
+                else if (writable && c.scope != null && targetsExist(c.scope)) {
                     emit(TableIntent.Selection(c.selection.orientation(c.scope.contextId)))
                     emit(TableIntent.Rotate(c.scope, !c.item.tapped, c.sources))
                 }
             } else if (c.selection.mode == TableMode.NORMAL && c.item?.kind == TableItemKind.CARD) {
                 pending = Tap(c, time + doubleMillis)
             } else single(c)
+            Phase.MARK -> if (writable && c.bubble != null && preview.markIndex != c.bubble.selected &&
+                c.bubble.entryId in scene.items.flatMap { it.cards + listOfNotNull(it.cardId) }) {
+                emit(TableIntent.Submit(org.asyncttwiz.protocol.PlayAction.Stack(
+                    org.asyncttwiz.protocol.StackAction.MarkText(c.bubble.entryId, preview.markIndex)), null))
+            }
             Phase.DRAG -> {
                 if (writable && c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
                     val bound = requireNotNull(c.item)
@@ -180,11 +196,20 @@ class TableGestureCoordinator(
     private fun targetsExist(scope: TableScope) = scope.cardIds.all { id -> scene.items.any { it.cardId == id || id in it.cards } }
     private fun single(c: Capture, explicit: Boolean = false) {
         val item = c.item
+        if (item?.id?.startsWith("stackBubble/") == true) {
+            if (writable && c.bubble != null) when (item.id) {
+                "stackBubble/battlefield" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.BATTLEFIELD))
+                "stackBubble/graveyard" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.GRAVEYARD))
+            }
+            return
+        }
         if (item != null && scene.items.none { it.id == item.id }) return
         if (!explicit && c.selection.mode == TableMode.PING) {
             if (writable) emit(TableIntent.Ping(item?.id, c.start))
         } else if (!explicit && c.selection.mode == TableMode.SELECT && item?.cardId != null) {
             emit(TableIntent.Selection(c.selection.toggle(item.cardId)))
+        } else if (!explicit && item?.kind == TableItemKind.CARD && item.zone == PlayZone.STACK) {
+            emit(TableIntent.StackBubbles(item.cardId))
         } else if (item == null || item.kind == TableItemKind.HAND) {
             emit(TableIntent.Selection(c.selection.copy(ids = emptySet())))
         } else if (c.scope == null || targetsExist(c.scope)) {

@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
 data class OccurrenceDrawing(val viewId: String, val card: PlayCard, val bounds: TableBounds,
-    val projection: Boolean, val frozen: Boolean = false)
+    val projection: Boolean, val frozen: Boolean = false, val textMark: Int? = null)
 data class CombatDropRegion(val label: String, val bounds: TableBounds, val destination: CombatDestination)
 data class CombatGeometry(val width: Float, val height: Float, val cards: List<OccurrenceDrawing>,
     val dividers: List<Float>, val destinations: List<CombatDropRegion>)
@@ -91,7 +91,8 @@ object CombatStackPresentation {
             val effect = board.stackEffects.find { it.id == id }
             // Same top-at-bottom-right corner peeks as Library/Graveyard, not a fan.
             OccurrenceDrawing(id, card, TableBounds((2 - index) * peek, (2 - index) * peek,
-                if (card.tapped) cardHeight else cardWidth, if (card.tapped) cardWidth else cardHeight), effect != null, effect?.frozen != null)
+                if (card.tapped) cardHeight else cardWidth, if (card.tapped) cardWidth else cardHeight), effect != null, effect?.frozen != null,
+                board.stackTextMarks[id])
         }
         return StackGeometry(maxOf(cardWidth, visible.maxOfOrNull { it.bounds.x + it.bounds.width } ?: 0f),
             maxOf(cardHeight, visible.maxOfOrNull { it.bounds.y + it.bounds.height } ?: 0f), ids.size, visible, ids.toList())
@@ -129,6 +130,7 @@ private fun OccurrenceCard(drawing: OccurrenceDrawing, width: Float, height: Flo
                 if (selected) drawRect(Color(0xff397ccc), style = Stroke(4.dp.toPx()))
             }
         }
+        drawing.textMark?.let { StackMarkChip(it, Modifier.align(Alignment.TopEnd)) }
     }
 }
 
@@ -195,6 +197,7 @@ fun StackContents(state: PlayState, onEntry: (CombatStackTarget) -> Unit, modifi
                 CompositionLocalProvider(LocalContentColor provides MenuInk) {
                     TableChromeIcon(if (effect != null) "stack" else "card")
                 }
+                state.board.stackTextMarks[id]?.let { StackMarkChip(it) }
                 Column(Modifier.weight(1f)) {
                     Text(CombatStackPresentation.label(state, drawing), color = MenuInk)
                     Text(if (drawing.frozen) "Remove this effect only" else if (drawing.projection) "Source actions / remove effect" else "Card actions",

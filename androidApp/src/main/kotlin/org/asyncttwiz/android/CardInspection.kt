@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -21,7 +24,8 @@ import org.asyncttwiz.protocol.*
 
 /** Text remains available regardless of artwork/network state. No gameplay permission policy here. */
 @Composable
-internal fun CardInspection(controller: CardInspectionController, annotation: String? = null) {
+internal fun CardInspection(controller: CardInspectionController, annotation: String? = null,
+    markedOption: Pair<Int, StackTextOption>? = null) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
@@ -65,10 +69,22 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                     val text: @Composable () -> Unit = {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             annotation?.let { Text(it) }
-                            Text(face.name, style = MaterialTheme.typography.titleLarge)
+                            val marked = markedOption?.takeIf { it.second.faceId == face.faceId }
+                            @Composable fun markedText(value: String, paragraph: Int?, title: Boolean = false) {
+                                val selected = marked?.takeIf { it.second.paragraph == paragraph }
+                                Row(if (selected != null) Modifier.fillMaxWidth().background(stackMarkColor(selected.first).copy(alpha = .16f),
+                                    RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (selected != null) StackMarkChip(selected.first)
+                                    Text(value, style = if (title) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge)
+                                }
+                            }
+                            markedText(face.name, null, title = true)
                             if (face.manaCost.isNotEmpty()) Text(face.manaCost)
                             if (face.typeLine.isNotEmpty()) Text(face.typeLine)
-                            if (face.rulesText.isNotEmpty()) Text(face.rulesText)
+                            face.rulesText.lines().map(String::trim).filter(String::isNotEmpty).forEachIndexed { index, paragraph ->
+                                markedText(paragraph, index)
+                            }
                             if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) Text("Power / Toughness: ${face.power} / ${face.toughness}")
                             if (face.loyalty.isNotEmpty()) Text("Loyalty: ${face.loyalty}")
                             if (face.defense.isNotEmpty()) Text("Defense: ${face.defense}")
@@ -113,12 +129,18 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         val full = remember(card.definition, definition) { InspectedCard.retained(card.definition, definition) }
         val permitted = remember(full, filtered) { InspectedCard(filtered,
             faces.map { face -> full.artwork[definition.faces.indexOf(face)] }) }
-        val controller = remember(inspection) { CardInspectionController().apply { open(permitted) } }
+        val mark = inspection.stackEntryId?.let { entry -> state.board.stackTextMarks[entry]?.let { index ->
+            StackText.options(state, entry).getOrNull(index)?.let { index to it }
+        } }
+        val controller = remember(inspection) { CardInspectionController().apply {
+            open(permitted)
+            mark?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
+        } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted) }
         if (controller.state != null) CardInspection(controller,
             (if (inspection.provisional) "Provisional inspection · awaiting shared result\n" else "") +
                 "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}\n${card.corner}\n" +
-                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}")
+                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}", mark)
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
     }

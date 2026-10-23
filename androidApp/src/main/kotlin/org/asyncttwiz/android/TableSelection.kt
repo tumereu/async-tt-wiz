@@ -25,6 +25,8 @@ sealed interface TableDestination {
 
 /** Semantic UI intent, not a shared mutation. I16 routes gameplay through normal requests/prediction. */
 sealed interface TableIntent {
+    data class StackBubbles(val entryId: String?) : TableIntent
+    data class StackDestination(val entryId: String, val zone: org.asyncttwiz.protocol.PlayZone) : TableIntent
     data class Actions(val itemId: String, val scope: TableScope?,
         val sources: Map<String, TableMoveSource> = emptyMap(), val topId: String? = null) : TableIntent
     data class Inspect(val cardId: String) : TableIntent

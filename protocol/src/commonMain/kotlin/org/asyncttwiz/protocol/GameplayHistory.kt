@@ -40,7 +40,7 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
     tokens.size + links.size + listOfNotNull(movement, libraryOrder, contents, random, annotation, cloneRead, tokenMoveRead).size +
     (libraryOrder?.from?.size ?: 0) + (libraryOrder?.to?.size ?: 0) +
     (contents?.from?.cardIds?.size ?: 0) + (contents?.to?.cardIds?.size ?: 0) +
-    (combatStack?.let { it.occurrences.size + it.pairs.size + it.effects.size + it.order.size +
+    (combatStack?.let { it.occurrences.size + it.pairs.size + it.effects.size + it.order.size + it.textMarks.size +
         listOfNotNull(it.area, it.stackGuard).size } ?: 0) + GameplayHistory.projectionLinkWorkUnits(this)
 /** Compact prefix context, not a recursive history or client-assigned group. */
 @Serializable data class GameplayGroup(val id: String, val author: String, val firstNodeId: String,

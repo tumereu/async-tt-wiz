@@ -83,6 +83,7 @@ object HistoryGrouping {
                 else HistorySignificance.COMBAT_LAYOUT, "open_with")
         }
         is PlayAction.Stack -> when (action.action) {
+            is StackAction.MarkText -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "format_ink_highlighter")
             is StackAction.AddEffect -> HistorySemantic(HistorySignificance.STACK_ENTRY, "layers")
             is StackAction.RemoveEffect -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers_clear")
             is StackAction.ReorderEffect -> HistorySemantic(HistorySignificance.STACK_LAYOUT, "open_with")

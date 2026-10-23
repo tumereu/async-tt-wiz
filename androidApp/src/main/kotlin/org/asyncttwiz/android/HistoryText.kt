@@ -124,6 +124,14 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             is CombatAction.Remove -> text("removed ${card(combat.occurrenceId)} from combat", "Remove combat")
         }
         is PlayAction.Stack -> when (val stack = action.action) {
+            is StackAction.MarkText -> {
+                val index = stack.optionIndex
+                val source = before?.let { CombatStackRules.inspection(it.board, stack.entryId) }
+                val option = if (source != null && visible(source)) before?.let { StackText.options(it, stack.entryId) }
+                    ?.getOrNull(stack.optionIndex ?: -1)?.text?.take(40) else null
+                text(if (index == null) "cleared the text mark on ${card(stack.entryId)}"
+                    else "marked ${card(stack.entryId)}: ${index + 1}${option?.let { " — $it" }.orEmpty()}", "Mark text")
+            }
             is StackAction.AddEffect -> text("added an effect from ${card(stack.sourceId)} to the stack", "Add effect")
             is StackAction.RemoveEffect -> text("removed an effect from the stack", "Remove effect")
             is StackAction.ReorderEffect -> text("reordered an effect on the stack", "Reorder effect")

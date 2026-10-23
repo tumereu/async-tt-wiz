@@ -85,6 +85,8 @@ instructions to undo newer state or rerun qualification.
 ## Qualification
 
 [Actual tooling/native checks and instruction reduction](flow-improvements-2026-10-23.md).
+[F1–F3 independent verification](flow-verification-2026-10-23.md): all three findings
+verified after fresh fixing, with 109 runner/29 evidence/10 resource tests passing.
 I01–I36 outcomes and complete final UI gate remain unchanged. Preparation did not
 run product full-suite/device acceptance or clear release gates. The requested fresh
 supervisor is a separate exact-high session, not a continuation of repair reasoning.

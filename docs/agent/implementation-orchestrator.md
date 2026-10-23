@@ -64,11 +64,17 @@ Do not fork/resume prior implementation reasoning. If using `opencode run`, atta
 only to that newly created ID and explicitly pin the model as the qualified adapter
 does; CLI exit/final prose alone is never acceptance. No global config changes.
 
-Units cannot spawn further agents. Launch independent ready work concurrently only
-after leases are durable; wait for actual completed/idle metadata and saved outcomes.
+Units cannot spawn further agents. Launch useful leased work concurrently after leases
+are durable; wait for actual completed/idle metadata and saved outcomes.
 Review/verify receives the exact accepted code anchor in an isolated checkout, never
 an evolving worker tree. A reviewer cannot implement its reviewed scope; a verifier
 cannot certify its own repair. New failures return to fresh leased fixing sessions.
+
+Create API-backed workers in their actual leased directory; a harness spawn without
+directory control must move/verify that session before edits. Keep the headless
+supervisor active: foreground-wait for completions (V2 provides
+`POST /api/experimental/session/{sessionID}/wait`), integrate/refill and continue.
+Never end the supervising turn merely to wait for a background callback or batch.
 
 Use the [resource matrix and enforced leases](test-resource-plan.md): one native
 device/routing lifecycle at a time, isolated host/build/service work where proven.
@@ -86,6 +92,10 @@ state. Only the supervisor accepts/promotes one candidate at a time, rechecking 
 base against latest HEAD. Stale candidates get rebased/reconciled and affected seam
 checks before promotion. Integration subagents cannot independently certify their
 own runtime repairs or waive review; charge their sessions to the same total budget.
+Merge-only agents return candidate base/HEAD, worker commits, exact changed paths,
+conflict repairs and real affected-check evidence—not application-state transitions.
+The supervisor accepts original worker proposals separately against the candidate;
+do not force a merge-only report through serial or application-proposal validation.
 
 1. Confirm actual exact-high succeeded/idle session and budget/lease identity; inspect
    every diff, path ownership, source/test traceability, diagnostics and actual check

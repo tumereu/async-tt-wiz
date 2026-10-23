@@ -75,10 +75,9 @@ STOP request. Its dirty I12 planning unit was not edited, migrated or discarded.
   nonzero/interrupted commands retain fences. These cooperative locks do not claim
   exclusive ownership over unrelated repositories or host applications.
 - Documentation worker `ses_e991d44acffeoOI7E0XbHrBl6T`, commit `19e62db`, compacted
-  the active guides and retained immutable historical links/anchors. Integrated core
-  guide/prompt/contract: **7,555 → 2,634 words (65.1% shorter)**. Full policy bundle,
-  including new orchestrator/resource instructions: **39,698 → 11,330 words (71.5%
-  shorter)**. Historical records are lookup-only, not default unit reading.
+  the active guides and retained immutable historical links/anchors. The initial
+  compaction reduced core instructions by 65%; final sizes after the reviewed managed
+  proposal protocol are recorded below. History is lookup-only, not default unit reading.
 - Changed Markdown relative links/fences pass; all 36 original task-outcome table
   rows remain byte-identical. No UI document or cumulative feedback was edited.
 
@@ -87,3 +86,19 @@ The owner stopped the old supervisor and explicitly requests a fresh exact-high
 parallel supervisor after safe integration, with original budget/stop/review/release
 obligations retained. The [handoff](session-handoff.md) records actual paused progress
 and conservative budget reservations; no old serial restart is intended.
+
+## Independent review and final repair acceptance
+
+[Review](flow-review-2026-10-23.md) found three evidenced P2 seams; a fresh
+[fixing session](flow-fixes-2026-10-23.md) corrected them and a separate fresh
+[verifier](flow-verification-2026-10-23.md) verified all three at `bca5fc6`:
+retained managed fences block legacy run/recovery, completion arrays require fresh
+run-owned output, and read-only worker proposals have separate latest-state acceptance.
+**109 runner, 29 evidence and 10 resource tests pass independently**, including overlap
+acceptance and tampered-evidence rejection. This is tooling qualification, not a live
+parallel-product execution claim. Per-session model metadata was checked as exact high.
+Final core guide/prompt/contract: **7,555 → 2,824 words (62.6% shorter)**. Full active
+policy bundle including orchestrator/resource plan: **39,698 → 12,496 words (68.5%
+shorter)**. All 36 original task rows and the saved `4ffaf58` application-state bytes
+are preserved. Later lifecycle/merge-only prose clarifies the existing protocol; it
+does not change qualified code or claim another test execution.

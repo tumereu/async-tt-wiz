@@ -19,7 +19,7 @@ internal fun gameplayAwait(check: () -> Boolean) {
     val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
     while (!check()) { assertTrue(System.nanoTime() < end, "Timed out"); Thread.sleep(20) }
 }
-internal class GameplayFixture(val runtime: ServiceRuntime) {
+internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 5, rulesText: String = "") {
     val games = GameService(runtime)
     private fun account(name: String): AccountService.Principal {
         val accounts = AccountService(runtime)
@@ -37,12 +37,13 @@ internal class GameplayFixture(val runtime: ServiceRuntime) {
         game = GameWire.json.decodeFromString(lobby.create(a, CreateInvitation(gameplayId(), b.account.accountId, "Gameplay Spark")).body)
         owner = Stream(a); recipient = Stream(b)
         fun deck(actor: AccountService.Principal): SavedDeck {
-            val definition = CardDefinition("Synthetic retained", listOf(DefinitionFace(gameplayId(), "Face", corner = "3/5")))
+            val definition = CardDefinition("Synthetic retained", listOf(DefinitionFace(gameplayId(), "Face", corner = "3/5",
+                rulesText = rulesText)))
             val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
             val decks = DeckService(runtime)
             assertEquals(200, decks.submit(actor, SubmitDefinitions(gameplayId(), listOf(submitted))).status)
             return GameWire.json.decodeFromString(decks.create(actor, CreateDeck(gameplayId(), "Source", listOf(
-                SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 5)))).body)
+                SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, deckSize)))).body)
         }
         val ad = deck(a); val bd = deck(b)
         owner.execute(owner.lobby(GameAction.SelectDeck(ad.deck.id, ad.deck.revision)))

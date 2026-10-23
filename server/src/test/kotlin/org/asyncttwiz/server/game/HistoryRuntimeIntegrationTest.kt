@@ -32,6 +32,83 @@ class HistoryRuntimeIntegrationTest {
         return manifest to tree
     }
 
+    @Test fun `real decks retain undo for Stack quick actions and text after deliberate branch switch`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime, deckSize = 60, rulesText = "First paragraph\n\nSecond paragraph")
+                val actor = f.a.account.accountId
+                fun state() = f.games.head(f.a, f.game.id).play!!
+                fun zone(kind: PlayZone, owner: String = actor) = state().board.containers.single {
+                    it.zone == kind && (kind == PlayZone.STACK || it.accountId == owner) }
+                fun play(action: PlayAction, stream: GameplayFixture.Stream = f.owner): GameResult =
+                    stream.execute(stream.command(action)).also { assertNull(it.reason, "$action: ${it.reason}") }
+                fun reversible(action: PlayAction) {
+                    val before = tree(db, f)
+                    val result = play(action)
+                    if (result.outcome == "noOp") { assertEquals(before, tree(db, f)); return }
+                    val after = tree(db, f)
+                    val undo = control(f.owner, GameAction.Undo)
+                    val undone = f.owner.execute(undo)
+                    assertEquals("accepted", undone.outcome, "$action: ${undone.reason}")
+                    assertEquals(result.mutation!!.id, undone.targetNodeId)
+                    val removed = tree(db, f)
+                    assertEquals(before.nodes, removed.nodes)
+                    assertEquals(before.stateAt(before.currentNodeId)!!.board, state().board)
+                    assertEquals(removed, download(f.games, f).second)
+                    assertEquals(undone, f.owner.admit(undo)) // Original result, not a second removal.
+                    val redo = f.owner.execute(control(f.owner, GameAction.Redo))
+                    assertEquals("accepted", redo.outcome, redo.reason)
+                    assertEquals(after, tree(db, f))
+                }
+                val bob = f.b.account.accountId
+                val bobLibrary = zone(PlayZone.LIBRARY, bob)
+                val bobCard = bobLibrary.cards.first()
+                play(PlayAction.MoveCard(bobCard, MoveSource(bobLibrary.id, edge = MoveSourceEdge.TOP),
+                    MoveDestination(zone(PlayZone.HAND, bob).id, MoveInsertion.UNORDERED)), f.recipient)
+                play(PlayAction.MoveCard(bobCard, MoveSource(zone(PlayZone.HAND, bob).id),
+                    MoveDestination(zone(PlayZone.STACK).id, MoveInsertion.TOP), GameplayRules.stackDigest(state())), f.recipient)
+                val library = zone(PlayZone.LIBRARY)
+                val card = library.cards.first()
+                play(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
+                    MoveDestination(zone(PlayZone.BATTLEFIELD).id, MoveInsertion.EMPTY, BoardPosition(3, 2))))
+                val retained = tree(db, f)
+                play(PlayAction.Ping(EventReference(f.root.id, retained.currentNodeId,
+                    retained.contextVersion(retained.currentNodeId)), PingTarget(PingTargetKind.CARD, card)))
+                repeat(32) { play(PlayAction.AdjustLife(actor, if (it % 2 == 0) "1" else "-1")) }
+                for (branched in listOf(false, true)) {
+                    if (branched) {
+                        val displaced = state().currentNodeId
+                        val fork = f.owner.command(PlayAction.AdjustLife(actor, "1"))
+                            .copy(continuation = Continuation(f.root.root.id, true))
+                        assertEquals("accepted", f.owner.execute(fork).outcome)
+                        assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.MakeCurrent(displaced))).outcome)
+                        assertEquals(2, tree(db, f).branchHeads.size)
+                    }
+                    for (projection in listOf(false, true)) {
+                        val source = state().board.cards.single { it.id == card }
+                        reversible(if (projection) PlayAction.Stack(StackAction.AddEffect(card, GameplayRules.stackDigest(state())))
+                            else PlayAction.MoveCard(card, MoveSource(source.containerId, source.placement),
+                                MoveDestination(zone(PlayZone.STACK).id, MoveInsertion.TOP), GameplayRules.stackDigest(state())))
+                        val entry = CombatStackRules.stack(state().board).cards.first()
+                        reversible(PlayAction.Stack(StackAction.MarkText(entry, 0)))
+                        reversible(PlayAction.Stack(StackAction.MarkText(entry, null)))
+                        // Both projection removal + source move are separate Undo boundaries.
+                        val actions = StackQuickActions.actions(state(), entry, PlayZone.GRAVEYARD)
+                        actions.forEach(::reversible)
+                        repeat(if (projection) 2 else 1) {
+                            assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Undo)).outcome)
+                        }
+                        StackQuickActions.actions(state(), entry, PlayZone.BATTLEFIELD).forEach(::reversible)
+                    }
+                }
+                // Alice can also resolve Bob's real Stack card, then Undo her own latest mutation.
+                StackQuickActions.actions(state(), bobCard, PlayZone.GRAVEYARD).forEach(::reversible)
+            }
+        }
+    }
+
     @Test fun `historical failure and noop preserve both account queues first effective fork clears both atomically`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -49,8 +49,8 @@ class WriterOwnershipTest {
                 assertEquals(42, epoch(db))
             }
             assertEquals(checksum, FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum)
-            // Sixteen supported migrations through V18 (no V10/V12).
-            assertEquals(16, FoundationMigrations.flyway(db.settings).info().applied().size)
+            // Seventeen supported migrations through V19 (no V10/V12).
+            assertEquals(17, FoundationMigrations.flyway(db.settings).info().applied().size)
             println("PASS supported retained schema validated without migration; epoch 41 -> 42 and foundation reload")
         }
     }

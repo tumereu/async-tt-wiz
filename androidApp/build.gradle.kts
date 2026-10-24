@@ -17,6 +17,8 @@ require(allocatedCodes.isNotEmpty() && allocatedCodes.all { it in 1..2100000000 
     allocatedCodes.zipWithNext().all { (previous, next) -> next > previous }) { "Version allocations must increase; never reuse an installed versionCode" }
 val allocatedVersion = allocatedVersions.last()
 val allocatedVersionName = allocatedVersion["versionName"] as String
+val gitCommit = providers.exec { commandLine("git", "rev-parse", "--short=12", "HEAD"); isIgnoreExitValue = true }
+    .standardOutput.asText.map { it.trim().takeIf { value -> value.matches(Regex("[0-9a-f]{7,40}")) } ?: "unknown" }.get()
 require(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?").matches(allocatedVersionName))
 
 // Only external file references/alias are configuration inputs, never secret values in Git or command lines.
@@ -87,6 +89,7 @@ android {
     }
     defaultConfig {
         applicationId = "org.asyncttwiz.android"
+        buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         manifestPlaceholders["fcmEnabled"] = fcmEnabled.toString()
         minSdk = 29
         targetSdk = 36

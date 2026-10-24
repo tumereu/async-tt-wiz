@@ -61,7 +61,7 @@ public final class GenerateJooq {
                     }
                     resolved.put(migration.getVersion().toString(), migration.getChecksum());
                 }
-                if (!resolved.keySet().equals(java.util.Set.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "18"))) {
+                if (!resolved.keySet().equals(java.util.Set.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "18", "19"))) {
                     throw new IllegalStateException("Unexpected resolved migration inventory");
                 }
                 int migrated = migrations.migrate().migrationsExecuted;
@@ -83,7 +83,7 @@ public final class GenerateJooq {
                                                 .withTableClass(new MatcherRule().withExpression("LegacyGamePlayMutation"))
                                                 .withRecordClass(new MatcherRule().withExpression("LegacyGamePlayMutationRecord")))))
                                 .withDatabase(new Database().withName("org.jooq.meta.postgres.PostgresDatabase")
-                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry|contact|game|invitation|game_stream|game_inbox|game_revision|game_outbox|player_preparation|game_definition|game_play|gameplay_group|gameplay_mutation|gameplay_tree_control|game_play_mutation|game_chat|activity_cursor|account_activity|activity_summary|activity_installation|activity_push"))
+                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry|contact|game|invitation|game_stream|game_inbox|game_revision|game_outbox|player_preparation|game_definition|game_play|gameplay_group|gameplay_mutation|gameplay_tree_control|game_play_mutation|game_chat|activity_cursor|account_activity|activity_summary|activity_installation|activity_push|debug_crash_report|debug_crash_daily_count"))
                                 .withGenerate(new Generate().withGeneratedAnnotation(false).withComments(false)
                                         .withJavadoc(false).withPojos(false).withDaos(false))
                                 .withTarget(new Target().withPackageName("org.asyncttwiz.server.generated")

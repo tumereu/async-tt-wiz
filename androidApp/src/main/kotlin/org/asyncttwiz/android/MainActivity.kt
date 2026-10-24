@@ -102,6 +102,7 @@ class MainActivity : ComponentActivity() {
                 val token = auth.controller.sessionToken()
                 SideEffect {
                     if (!state.restoring && !state.busy) {
+                        if (state.account != null) DebugCrashes.authenticated(token)
                         if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()
                     }
                     val displayed = ActivityDisplay.game(state.destination == ShellDestination.GAMES,

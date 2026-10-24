@@ -28,6 +28,7 @@ import org.asyncttwiz.server.game.GameHub;
 import org.asyncttwiz.server.game.GameHttp;
 import org.asyncttwiz.server.activity.ActivityDelivery;
 import org.asyncttwiz.server.activity.ActivityHttp;
+import org.asyncttwiz.server.diagnostics.CrashReportHttp;
 import org.asyncttwiz.server.activity.ActivityPushAdapter;
 
 /** Explicit Spring Boot servlet contexts; no auto-configured database, migrations, Actuator or APIs. */
@@ -126,6 +127,7 @@ public final class SpringService implements AutoCloseable {
         private final LobbyHttp lobby;
         private final GameHttp games;
         private final ActivityHttp activity;
+        private final CrashReportHttp crashReports;
         Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings, GameHub hub) {
             this.runtime = runtime;
             this.health = health;
@@ -134,6 +136,7 @@ public final class SpringService implements AutoCloseable {
             lobby = health ? null : new LobbyHttp(runtime);
             games = health ? null : new GameHttp(runtime, hub);
             activity = health ? null : new ActivityHttp(runtime);
+            crashReports = health ? null : new CrashReportHttp(runtime, java.time.Clock.systemUTC());
         }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -142,6 +145,7 @@ public final class SpringService implements AutoCloseable {
             if (!health && games.handle(request, response)) return;
             if (!health && lobby.handle(request, response)) return;
             if (!health && activity.handle(request, response)) return;
+            if (!health && crashReports.handle(request, response)) return;
             int status = 404;
             String body = "Not found\n";
             if (health && (request.getMethod().equals("GET") || request.getMethod().equals("HEAD"))) {

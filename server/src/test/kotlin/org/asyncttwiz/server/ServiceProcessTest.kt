@@ -228,9 +228,9 @@ class ServiceProcessTest {
             migrate(inputs)
             val checksum = number(db, "SELECT checksum FROM flyway_schema_history WHERE version='1'")
             for (corruption in listOf("checksum", "future")) {
-                // Sixteen supported migrations through V18 (no V10/V12); the future row follows them.
+                // Seventeen supported migrations through V19 (no V10/V12); the future row follows them.
                 if (corruption == "checksum") sql(db, "UPDATE flyway_schema_history SET checksum=123 WHERE version='1'")
-                else sql(db, "INSERT INTO flyway_schema_history VALUES (17,'999','future','SQL','V999__future.sql',42,current_user,now(),0,true)")
+                else sql(db, "INSERT INTO flyway_schema_history VALUES (18,'999','future','SQL','V999__future.sql',42,current_user,now(),0,true)")
                 Service(environment(db)).use { service ->
                     service.awaitStatus("/health/live", 200)
                     service.awaitStatus("/health/ready", 503)

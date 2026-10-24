@@ -495,7 +495,7 @@ class DeckHttpTest {
                     INSERT INTO account_request VALUES ('$request',201,'retained original');
                 """.trimIndent())
             }
-            assertEquals(12, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(13, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             db.connection().use { c -> c.createStatement().executeQuery("SELECT name,revision,cover_digest FROM saved_deck").use {
                 assertTrue(it.next()); assertEquals("Retained deck", it.getString(1)); assertEquals(9, it.getLong(2)); assertNull(it.getString(3))
             } }

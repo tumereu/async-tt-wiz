@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,10 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -26,6 +24,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 private val Teal = Color(0xff107e7a)
@@ -244,19 +243,9 @@ private fun EntryField(label: String, value: String, enabled: Boolean, tag: Stri
 @Composable
 internal fun WizardLogo(modifier: Modifier = Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Canvas(Modifier.size(112.dp, 86.dp).semantics { contentDescription = "Wizard hat" }) {
-            val hat = Path().apply { moveTo(size.width * .25f, size.height * .85f); lineTo(size.width * .55f, 0f)
-                lineTo(size.width * .76f, size.height * .85f); close() }
-            drawPath(hat, Color(0xff365f53))
-            drawOval(Color(0xffd7bb6d), Offset(size.width * .24f, size.height * .7f), Size(size.width * .54f, size.height * .12f))
-            drawOval(Color(0xff365f53), Offset(0f, size.height * .77f), Size(size.width, size.height * .23f))
-            val star = Path().apply { moveTo(size.width * .52f, size.height * .34f); lineTo(size.width * .56f, size.height * .46f)
-                lineTo(size.width * .64f, size.height * .49f); lineTo(size.width * .56f, size.height * .53f)
-                lineTo(size.width * .52f, size.height * .64f); lineTo(size.width * .48f, size.height * .53f)
-                lineTo(size.width * .4f, size.height * .49f); lineTo(size.width * .48f, size.height * .46f); close() }
-            drawPath(star, Color(0xffead99d))
-        }
-        Text("ATW", fontWeight = FontWeight.Bold, color = Color(0xff244c46), style = MaterialTheme.typography.titleLarge)
+        Image(painterResource(R.drawable.atw_logo), "Wizard hat", Modifier.size(112.dp, 86.dp))
+        Text("ATW", fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp,
+            color = Color(0xff244c46), style = MaterialTheme.typography.titleLarge)
     }
 }
 

@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
 import kotlin.math.abs
 
 /** Change just this flag for icon-only bubbles. Accessible names and hold tooltips remain. */
@@ -239,13 +238,10 @@ private fun RingPress(control: MenuControl, modifier: Modifier, color: Color, sh
         shape = shape, color = if (paint) Color.White else Color.Transparent,
         border = if (paint) BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = .65f)) else null,
         shadowElevation = if (paint) 3.dp else 0.dp) {
-        Box(contentAlignment = Alignment.Center) { content() }
-    }
-    if (tooltip) Popup(alignment = Alignment.TopCenter, onDismissRequest = { tooltip = false }) {
-        Surface(Modifier.widthIn(max = 280.dp).combinedClickable(onClick = { tooltip = false }), color = MenuInk,
-            contentColor = Color.White, shape = RoundedCornerShape(8.dp), shadowElevation = 4.dp) {
-            Text(control.name, Modifier.padding(10.dp), style = MaterialTheme.typography.labelMedium)
+        Box(contentAlignment = Alignment.Center) {
+            content()
+            if (tooltip) HoldTooltip(control.name)
         }
-        LaunchedEffect(control.name) { kotlinx.coroutines.delay(2000); tooltip = false }
     }
+    if (tooltip) LaunchedEffect(control.name) { kotlinx.coroutines.delay(2000); tooltip = false }
 }

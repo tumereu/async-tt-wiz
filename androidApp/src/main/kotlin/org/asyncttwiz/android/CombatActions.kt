@@ -8,7 +8,7 @@ import org.asyncttwiz.protocol.*
 object CombatOfferings {
     fun declare(turn: TurnState, multiselection: Boolean) =
         turn.phase == "COMBAT" && turn.step == "DECLARE_ATTACKERS" && multiselection
-    fun advanceAndClose(turn: TurnState) = turn.phase == "COMBAT" && turn.step == "END_OF_COMBAT"
+    fun advanceAndClose(turn: TurnState) = TurnPosition.of(turn) == TurnPosition.END_COMBAT
 }
 
 /** Full targeted paths. Quick visibility never gates these individual tools by phase or turn player. */

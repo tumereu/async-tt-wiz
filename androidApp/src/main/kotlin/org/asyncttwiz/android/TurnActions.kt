@@ -202,11 +202,7 @@ fun PlayerDeltaControl(target: PlayerValueTarget, value: String?, color: Color, 
             onLongPress = { if (currentEnabled && press.hold() == PressAction.TOOLTIP) tooltip = true })
     }, contentAlignment = Alignment.Center) {
         Text(value.orEmpty(), color = color, modifier = Modifier.clearAndSetSemantics {})
-        if (preview != 0L) androidx.compose.ui.window.Popup(alignment = Alignment.TopCenter) {
-            Surface { Text(if (preview > 0) "+$preview" else "−${preview.toString().removePrefix("-")}", Modifier.padding(4.dp)) }
-        }
-        if (tooltip) androidx.compose.ui.window.Popup(alignment = Alignment.TopCenter) {
-            Surface { Text(label, Modifier.padding(6.dp)) }
-        }
+        if (preview != 0L) HoldTooltip(if (preview > 0) "+$preview" else "−${preview.toString().removePrefix("-")}")
+        if (tooltip) HoldTooltip(label)
     }
 }

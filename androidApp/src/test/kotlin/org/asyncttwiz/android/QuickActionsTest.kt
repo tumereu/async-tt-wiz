@@ -38,27 +38,32 @@ class QuickActionsTest {
     private fun catalog(position: TurnPosition, number: String = "1", context: QuickContext = QuickContext()): List<QuickAction> {
         val play = TableToolFixture.play(position, number)
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
-        return QuickActions.contextual(play, context, controller)
+        return QuickActions.contextual(play, context.copy(viewer = play.board.turn.accountId), controller)
     }
 
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
         val expected = mapOf(
-            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Return Hand → Shuffle → Draw N", "Return Hand → Shuffle → Draw previous Hand size −1"),
+            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Start turn", "Return Hand → Shuffle → Draw N", "Return Hand → Shuffle → Draw previous Hand size −1"),
+            TurnPosition.UPKEEP to listOf("Draw + go to main"),
             TurnPosition.DRAW to listOf("Draw one", "Draw one + next"),
-            TurnPosition.END_COMBAT to listOf("Advance + close combat"))
+            TurnPosition.PRECOMBAT_MAIN to listOf("Go to attacks", "Skip combat"),
+            TurnPosition.DECLARE_ATTACKERS to listOf("Select attackers", "No attack"),
+            TurnPosition.END_COMBAT to listOf("Advance + close combat"),
+            TurnPosition.POSTCOMBAT_MAIN to listOf("End turn"),
+            TurnPosition.END_STEP to listOf("End turn"))
         for (position in TurnPosition.entries) {
             assertEquals(expected[position] ?: emptyList(), catalog(position).map { it.name }, position.name)
             assertTrue(catalog(position, context = QuickContext(playable = false)).isEmpty())
         }
         assertEquals(3, QuickActions.contextualPositions)
-        assertEquals(4, catalog(TurnPosition.UNTAP).size) // overflow, not dropped/clipped to three
-        assertEquals(2, catalog(TurnPosition.UNTAP, "2").size)
-        assertEquals(2, catalog(TurnPosition.UNTAP, "3").size) // not each player's first Untap
-        assertEquals(7, (catalog(TurnPosition.UNTAP)[2].intent as TableActionIntent.Library).defaultCount)
-        assertEquals(1, (catalog(TurnPosition.UNTAP)[3].intent as TableActionIntent.Library).defaultCount)
+        assertEquals(5, catalog(TurnPosition.UNTAP).size) // overflow, not dropped/clipped to three
+        assertEquals(3, catalog(TurnPosition.UNTAP, "2").size)
+        assertEquals(3, catalog(TurnPosition.UNTAP, "3").size) // not each player's first Untap
+        assertEquals(7, (catalog(TurnPosition.UNTAP)[3].intent as TableActionIntent.Library).defaultCount)
+        assertEquals(1, (catalog(TurnPosition.UNTAP)[4].intent as TableActionIntent.Library).defaultCount)
     }
 
-    @Test fun declarationsRequireSelectAndCapturedSelectionOnlyAtDeclareAttackers() {
+    @Test fun declarationsRequireCapturedSelectionOnlyAtDeclareAttackers() {
         val selection = listOf(TableToolFixture.id(20), TableToolFixture.id(21), TableToolFixture.id(20))
         val context = QuickContext(selectMode = true, selectedSourceIds = selection)
         for (position in TurnPosition.entries) {
@@ -67,9 +72,10 @@ class QuickActionsTest {
             assertEquals(if (position == TurnPosition.DECLARE_ATTACKERS) 2 else 0, declarations.size)
             for (action in declarations) assertEquals(selection.distinct(), (action.intent as TableActionIntent.Combat).sourceIds)
         }
-        assertTrue(catalog(TurnPosition.DECLARE_ATTACKERS).isEmpty())
-        assertTrue(catalog(TurnPosition.DECLARE_ATTACKERS, context = context.copy(selectMode = false)).isEmpty())
-        assertTrue(catalog(TurnPosition.DECLARE_ATTACKERS, context = context.copy(selectedSourceIds = emptyList())).isEmpty())
+        assertEquals(listOf("Select attackers", "No attack"), catalog(TurnPosition.DECLARE_ATTACKERS).map { it.name })
+        assertEquals(2, catalog(TurnPosition.DECLARE_ATTACKERS, context = context.copy(selectMode = false)).size)
+        assertEquals(listOf("Select attackers", "No attack"), catalog(TurnPosition.DECLARE_ATTACKERS,
+            context = context.copy(selectedSourceIds = emptyList())).map { it.name })
     }
 
     @Test fun everyExplicitStackKindAppendsAfterPhaseActionsAtEveryPosition() {
@@ -80,8 +86,37 @@ class QuickActionsTest {
             assertEquals(plain, actions.dropLast(1))
             assertEquals(TableActionIntent.Stack(TableActionScope(TableToolFixture.id(1), TableToolFixture.id(2)), target), actions.last().intent)
         }
-        assertEquals(5, catalog(TurnPosition.UNTAP, context = QuickContext(stackTarget =
+        assertEquals(6, catalog(TurnPosition.UNTAP, context = QuickContext(stackTarget =
             ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT))).size)
+    }
+
+    @Test fun stepActionsAreOnlyOfferedToTheirPlayerButExplicitStackActionsRemainAvailable() {
+        for (position in TurnPosition.entries) {
+            val play = TableToolFixture.play(position)
+            val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
+            val defender = QuickContext(viewer = TableToolFixture.id(8))
+            val actions = QuickActions.contextual(play, defender, controller)
+            assertEquals(if (position == TurnPosition.DECLARE_BLOCKERS) listOf("No blocks + next") else emptyList(), actions.map { it.name })
+            assertTrue(QuickActions.contextual(play, QuickContext(), controller).isEmpty())
+            val target = ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT)
+            assertIs<TableActionIntent.Stack>(QuickActions.contextual(play, defender.copy(stackTarget = target), controller).last().intent)
+        }
+    }
+
+    @Test fun startTurnAndDrawToMainUseOrderedCapturedConstituents() {
+        for ((position, name) in listOf(TurnPosition.UNTAP to "Start turn", TurnPosition.UPKEEP to "Draw + go to main")) {
+            val play = TableToolFixture.play(position)
+            val sent = mutableListOf<PlayAction>()
+            val controller = TableActionController({ play }, { true }, { sent += it; true }, RecordingRoutes())
+            val action = QuickActions.contextual(play, QuickContext(viewer = play.board.turn.accountId), controller).single { it.name == name }
+            assertTrue(controller.perform(action.intent))
+            if (position == TurnPosition.UNTAP) assertEquals(listOf(TableToolFixture.id(21), TableToolFixture.id(20)),
+                sent.filterIsInstance<PlayAction.SetTapped>().map { it.cardId })
+            assertEquals(TableToolFixture.id(22), sent.filterIsInstance<PlayAction.MoveCard>().single().cardId)
+            assertEquals(PlayAction.ChooseStep(TurnPosition.PRECOMBAT_MAIN), sent.last())
+            assertTrue(sent.none { it == PlayAction.NextStep })
+        }
+        assertTrue(CombatOfferings.advanceAndClose(TableToolFixture.play(TurnPosition.END_COMBAT).board.turn))
     }
 
     @Test fun allUnderlyingRoutesRemainOutsideTheirQuickWindows() {

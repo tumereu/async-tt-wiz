@@ -44,9 +44,10 @@ object HistoryContinuation {
             // Undo of an actual branch head records its surviving parent. Reinsertion at that same
             // still-terminal boundary restores the head; it must not leave catalog/head behind the
             // current board or overwrite a newer opponent continuation.
-            val entry = tree.redoByAccount[actor]?.lastOrNull()
-            if (entry != null && entry.successorId == null && heads[entry.mutation.branchId] == entry.mutation.parentId)
-                heads[entry.mutation.branchId] = entry.mutation.id
+            for (entry in tree.redoByAccount[actor].orEmpty().asReversed().takeWhile { it.mutation.id in next.nodes }) {
+                if (entry.successorId == null && heads[entry.mutation.branchId] == entry.mutation.parentId)
+                    heads[entry.mutation.branchId] = entry.mutation.id
+            }
         }
         val switched = command.action is GameAction.MakeCurrent ||
             (command.action is GameAction.BranchArchive &&

@@ -13,7 +13,37 @@ object SelectiveUndo {
         if (actor !in tree.initial.board.players.map { it.accountId }) return GameplayTreeChange(reason = "accessDenied")
         return boundedHistory(limits) { work ->
             tree.checkMetadata(work)
-            if (command.action == GameAction.Undo) undo(tree, actor, limits, work) else redo(tree, actor, limits, work)
+            if (command.action == GameAction.Undo) {
+                val path = tree.path(tree.currentNodeId, work) ?: return@boundedHistory GameplayTreeChange(reason = "missingReference")
+                val target = path.lastOrNull { it.author == actor }
+                    ?: return@boundedHistory GameplayTreeChange(reason = "noCandidate")
+                val members = if (target.invocationId == null) listOf(target) else
+                    path.takeWhile { it.id != target.id }.asReversed()
+                        .takeWhile { it.author == actor && it.invocationId == target.invocationId && it.branchId == target.branchId }
+                        .let { listOf(target) + it }
+                var candidate = tree
+                // Each constituent keeps the same replay/disclosure/fork checks. Failure publishes
+                // none of the candidate edits, rather than undoing only the tail of a user action.
+                repeat(members.size) {
+                    val change = undo(candidate, actor, limits, work)
+                    if (change.reason != null) return@boundedHistory change
+                    candidate = change.tree ?: return@boundedHistory change
+                }
+                GameplayTreeChange(candidate, targetId = target.id)
+            } else {
+                val queue = tree.redoByAccount[actor].orEmpty()
+                val target = queue.lastOrNull()?.mutation
+                    ?: return@boundedHistory GameplayTreeChange(reason = "noCandidate")
+                val members = if (target.invocationId == null) 1 else queue.asReversed()
+                    .takeWhile { it.mutation.invocationId == target.invocationId && it.mutation.branchId == target.branchId }.size
+                var candidate = tree
+                repeat(members) {
+                    val change = redo(candidate, actor, limits, work)
+                    if (change.reason != null) return@boundedHistory change
+                    candidate = change.tree ?: return@boundedHistory change
+                }
+                GameplayTreeChange(candidate, targetId = target.id)
+            }
         } ?: GameplayTreeChange(reason = "workLimit")
     }
 

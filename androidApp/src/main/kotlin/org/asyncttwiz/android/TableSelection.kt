@@ -1,16 +1,31 @@
 package org.asyncttwiz.android
 
-enum class TableMode { NORMAL, SELECT, PING }
+enum class TableMode { NORMAL, SELECT, PING;
+    fun next(pingAvailable: Boolean) = when (this) {
+        NORMAL -> SELECT
+        SELECT -> if (pingAvailable) PING else NORMAL
+        PING -> NORMAL
+    }
+}
 data class TableScope(val contextId: String, val cardIds: List<String>)
 data class TableMoveSource(val containerId: String, val placement: TablePlacement? = null, val libraryTop: Boolean = false,
     val sourceId: String? = null, val bottomSlice: List<String> = emptyList())
 
 /** Personal selection. Scope capture deliberately copies IDs, never indexes or a live selection view. */
-data class TableSelection(val ids: Set<String> = emptySet(), val mode: TableMode = TableMode.NORMAL) {
+data class TableSelection(val ids: Set<String> = emptySet(), val mode: TableMode = TableMode.NORMAL,
+    val attackSelection: Boolean = false) {
     fun scope(id: String, visualOrder: List<String> = ids.toList()): TableScope = TableScope(id,
         if (id in ids) (visualOrder.filter { it in ids } + ids.filter { it !in visualOrder }).distinct() else listOf(id))
     fun toggle(id: String) = copy(ids = if (id in ids) ids - id else ids + id)
     fun orientation(id: String) = if (id in ids) this else copy(ids = emptySet())
+    fun afterDoubleTap(id: String) = if (mode != TableMode.SELECT) orientation(id)
+        else if (id in ids) copy(ids = emptySet(), mode = TableMode.NORMAL, attackSelection = false) else this
+    fun cycleMode(pingAvailable: Boolean) = copy(mode = mode.next(pingAvailable), attackSelection = false)
+    fun selectAttackers() = copy(mode = TableMode.SELECT, attackSelection = attackSelection || mode != TableMode.SELECT)
+    fun afterDeclare() = copy(ids = emptySet(), mode = TableMode.NORMAL, attackSelection = false)
+    fun atStep(position: org.asyncttwiz.protocol.TurnPosition?) =
+        if (attackSelection && position != org.asyncttwiz.protocol.TurnPosition.DECLARE_ATTACKERS)
+            copy(mode = TableMode.NORMAL, attackSelection = false) else this
     fun afterMove(id: String) = if (id in ids) this else copy(ids = emptySet())
     fun retain(existing: Set<String>) = copy(ids = ids.intersect(existing))
 }

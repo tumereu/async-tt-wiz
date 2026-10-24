@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.*
@@ -22,7 +24,7 @@ import org.asyncttwiz.protocol.*
 
 data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: List<String> = emptyList(),
     val combatAreaId: String? = null, val stackTarget: ExplicitStackTarget? = null,
-    val playable: Boolean = true)
+    val playable: Boolean = true, val viewer: String? = null)
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null)
 
 /** Complete G11/G12 catalog. Phase offerings precede an explicit Stack target; never guess top. */
@@ -35,30 +37,48 @@ object QuickActions {
         fun add(name: String, glyph: String, intent: TableActionIntent?, badge: String? = null) {
             if (intent != null) result += QuickAction(name, glyph, intent, badge)
         }
-        when (TurnPosition.of(play.board.turn)) {
+        fun bundle(vararg actions: TableActionIntent?) = if (actions.any { it == null }) null
+            else TableActionIntent.Bundle(scope, actions.filterNotNull())
+        fun choose(position: TurnPosition) = TableActionIntent.Choose(scope, position)
+        val turnPlayer = context.viewer == play.board.turn.accountId
+        if (turnPlayer) when (TurnPosition.of(play.board.turn)) {
             TurnPosition.UNTAP -> {
                 add("Untap all", "↶", controller.untap(play, false))
                 add("Untap all + next", "↶", controller.untap(play, true), "↦")
+                add("Start turn", "", bundle(controller.untap(play, false), controller.draw(play, false),
+                    choose(TurnPosition.PRECOMBAT_MAIN)))
                 if (play.board.turn.number == "1") {
                     add("Return Hand → Shuffle → Draw N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N), "↓")
                     add("Return Hand → Shuffle → Draw previous Hand size −1", "⇄",
                         controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE), "−1")
                 }
             }
+            TurnPosition.UPKEEP -> add("Draw + go to main", "", bundle(controller.draw(play, false), choose(TurnPosition.PRECOMBAT_MAIN)))
             TurnPosition.DRAW -> {
                 add("Draw one", "↓", controller.draw(play, false))
                 add("Draw one + next", "↓", controller.draw(play, true), "↦")
             }
-            TurnPosition.DECLARE_ATTACKERS -> if (context.selectMode && context.selectedSourceIds.isNotEmpty()) {
+            TurnPosition.PRECOMBAT_MAIN -> {
+                add("Go to attacks", "", TableActionIntent.SelectAttackers(scope, advance = true))
+                add("Skip combat", "", choose(TurnPosition.END_STEP))
+            }
+            TurnPosition.DECLARE_ATTACKERS -> if (context.selectedSourceIds.isNotEmpty()) {
                 add("Declare + tap", "⚔", TableActionIntent.Combat(scope, CombatTool.DECLARE_AND_TAP,
                     context.combatAreaId, context.selectedSourceIds.distinct()), "↷")
                 add("Declare without tapping", "⚔", TableActionIntent.Combat(scope, CombatTool.DECLARE,
                     context.combatAreaId, context.selectedSourceIds.distinct()))
+            } else {
+                add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = false))
+                add("No attack", "", TableActionIntent.Combat(scope, CombatTool.NO_ATTACK, context.combatAreaId))
             }
             TurnPosition.END_COMBAT -> add("Advance + close combat", "▱",
                 TableActionIntent.Combat(scope, CombatTool.ADVANCE_AND_CLOSE, context.combatAreaId), "↦")
+            TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))
             else -> Unit
         }
+        if (!turnPlayer && play.board.players.any { it.accountId == context.viewer } &&
+            TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_BLOCKERS)
+            add("No blocks + next", "", TableActionIntent.Next(scope))
         context.stackTarget?.let { target ->
             val (label, glyph) = when (target.kind) {
                 StackTargetKind.INSTANT_OR_SORCERY -> "Move to Graveyard" to "▣"
@@ -100,11 +120,12 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         // Only the contextual rail scrolls; overflow never displaces the fourth square.
         Row(Modifier.width(144.dp).horizontalScroll(rememberScrollState())) {
+            repeat((QuickActions.contextualPositions - actions.size).coerceAtLeast(0)) { Spacer(Modifier.size(48.dp)) }
             for (action in actions) key(action.intent) {
-                ActionSquare(action.name, action.glyph, controller.enabled(scope), badge = action.badge,
+                ActionSquare(action.name, action.glyph, controller.enabled(scope),
+                    Modifier.background(Color.White).border(1.dp, MenuBorder), badge = action.badge,
                     onClick = { perform(action.intent) })
             }
-            repeat((QuickActions.contextualPositions - actions.size).coerceAtLeast(0)) { Spacer(Modifier.size(48.dp)) }
         }
         ActionSquare("Next step", "↦", controller.enabled(scope), Modifier.background(Color.White).border(1.dp, endingPlayerColor),
             ink = endingPlayerColor,
@@ -126,8 +147,14 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
     val performHold: (() -> Unit)? = onHold?.let { action -> { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); action() } }
     val currentPerformHold by rememberUpdatedState(performHold)
     var tooltip by remember(name) { mutableStateOf(false) }
+    var pressed by remember(name) { mutableStateOf(false) }
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
-    Box(modifier.size(48.dp).background(fill).onKeyEvent { event ->
+    Box(modifier.size(48.dp).graphicsLayer {
+        scaleX = if (pressed) .92f else 1f; scaleY = scaleX
+    }.background(fill).drawWithContent {
+        drawContent()
+        if (pressed) drawRect(foreground.copy(alpha = .16f))
+    }.onKeyEvent { event ->
         if (enabled && event.key in listOf(Key.Enter, Key.Spacebar, Key.DirectionCenter)) {
             if (event.type == KeyEventType.KeyUp) click()
             true
@@ -156,8 +183,9 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
             onPress = {
                 capturedClick = click; capturedHold = currentPerformHold
                 press = ActionPress(capturedHold != null)
-                if (!tryAwaitRelease()) press.cancel()
-                tooltip = false
+                pressed = enabled
+                try { if (!tryAwaitRelease()) press.cancel() }
+                finally { tooltip = false; pressed = false }
             },
             onTap = { if (enabled && press.release() == PressAction.TAP) capturedClick?.invoke() },
             onLongPress = {
@@ -172,8 +200,6 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
         else MenuIcon(name, tint = foreground)
         if (badge != null) Icon(menuIcon(if (badge == "↷") "Tap" else if (badge == "↓") "Draw one" else "Next step"),
             null, Modifier.align(Alignment.BottomEnd).padding(2.dp).size(12.dp), tint = foreground)
-        if (tooltip) androidx.compose.ui.window.Popup(alignment = Alignment.TopCenter) {
-            Surface(shadowElevation = 4.dp) { Text(name, Modifier.padding(6.dp)) }
-        }
+        if (tooltip) HoldTooltip(name)
     }
 }

@@ -18,7 +18,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.window.Popup
 import org.asyncttwiz.protocol.*
 
 internal fun counterColor(color: CounterColor): Color = when (color) {
@@ -243,11 +242,7 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
         }
         }
         }
-        if (tooltip) Popup(alignment = Alignment.TopCenter, offset = androidx.compose.ui.unit.IntOffset(0, -32)) {
-            Surface(color = MenuInk, contentColor = Color.White, shadowElevation = 4.dp, shape = MaterialTheme.shapes.extraSmall) {
-                Text(tooltipName, Modifier.widthIn(max = 240.dp).padding(8.dp), style = MaterialTheme.typography.labelMedium)
-            }
-        }
+        if (tooltip) HoldTooltip(tooltipName)
     }
 }
 

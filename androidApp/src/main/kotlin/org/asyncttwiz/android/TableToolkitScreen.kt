@@ -18,7 +18,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
-    val context = toolkitQuickContext(play, selection, toolkit.explicitStack)
+    val context = toolkitQuickContext(play, selection, toolkit.explicitStack, toolkit.viewer)
     val bound = toolkit.capture
     val tools = if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
         cardExtraTools(toolkit, play, bound, selection, select, names, enabled) else emptyList()
@@ -112,11 +112,11 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     if (toolkit.manual.scope?.usable(play) == false) LaunchedEffect(toolkit.manual.scope) { toolkit.manual.close() }
 }
 
-internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, explicit: ExplicitStackTarget?): QuickContext = QuickContext(
+internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, explicit: ExplicitStackTarget?, viewer: String? = null): QuickContext = QuickContext(
     selectMode = selection.mode == TableMode.SELECT,
     selectedSourceIds = selection.ids.mapNotNull { CombatStackRules.liveSource(play.board, it)?.id }.distinct(),
     combatAreaId = play.board.combat?.id,
-    stackTarget = explicit?.takeIf { it.id in CombatStackRules.stack(play.board).cards })
+    stackTarget = explicit?.takeIf { it.id in CombatStackRules.stack(play.board).cards }, viewer = viewer)
 
 @Composable
 private fun ToolkitDialog(dismiss: () -> Unit, title: String? = null, content: @Composable ColumnScope.() -> Unit) {

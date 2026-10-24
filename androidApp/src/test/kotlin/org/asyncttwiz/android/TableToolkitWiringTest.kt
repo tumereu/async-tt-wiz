@@ -6,6 +6,120 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    private fun quick(ui: TableToolkitController, name: String): Boolean {
+        val play = ui.current()!!
+        return ui.perform(QuickActions.contextual(play,
+            toolkitQuickContext(play, ui.selectionState.value, null, ui.viewer), ui.table).single { it.name == name }.intent)
+    }
+
+    @Test fun turnShortcutsShareOneInvocationAndPreserveDisclosureUndoProtection() {
+        for ((position, name) in listOf(TurnPosition.UNTAP to "Start turn", TurnPosition.UPKEEP to "Draw + go to main")) {
+            val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+            try {
+                assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0), true))
+                assertTrue(ui.submit(PlayAction.SetTapped(f.id(40), true)))
+                assertTrue(ui.submit(PlayAction.ChooseStep(position)))
+                val count = f.commands().size
+                assertTrue(quick(ui, name))
+                val commands = f.commands().drop(count)
+                assertEquals(1, commands.map { it.invocationId }.distinct().size)
+                assertNotNull(commands.first().invocationId)
+                assertEquals(TurnPosition.PRECOMBAT_MAIN, TurnPosition.of(f.play.board.turn))
+                assertEquals(f.container(PlayZone.HAND), f.card(41).containerId)
+                assertEquals(position != TurnPosition.UNTAP, f.card(40).tapped)
+                val after = f.play.board
+                assertTrue(f.lobby.historyControl(GameAction.Undo))
+                assertEquals(after, f.play.board) // Drawing reveals information: do not undo only the final step.
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
+
+    @Test fun attackShortcutsOwnOnlyAutomaticModeAndDeclarationsClearSelectionInOneInvocation() {
+        for (tap in listOf(false, true)) {
+            val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+            try {
+                for (id in 40..41) assertTrue(f.move(id, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), id - 40, 0), true))
+                val scope = ui.table.scope()!!
+                assertTrue(ui.perform(TableActionIntent.Choose(scope, TurnPosition.PRECOMBAT_MAIN)))
+                assertTrue(quick(ui, "Go to attacks"))
+                assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(f.play.board.turn))
+                assertEquals(TableMode.SELECT, ui.selectionState.value.mode)
+                assertTrue(ui.selectionState.value.attackSelection)
+                assertTrue(ui.perform(TableActionIntent.Next(scope)))
+                assertEquals(TableMode.NORMAL, ui.selectionState.value.mode)
+                assertTrue(ui.perform(TableActionIntent.Choose(scope, TurnPosition.DECLARE_ATTACKERS)))
+                assertTrue(quick(ui, "Select attackers"))
+                ui.selectionState.value = ui.selectionState.value.copy(ids = setOf(f.id(40), f.id(41)))
+                val before = f.play.board
+                val count = f.commands().size
+                assertTrue(quick(ui, if (tap) "Declare + tap" else "Declare without tapping"))
+                assertEquals(TableSelection(), ui.selectionState.value)
+                assertEquals(2, CombatStackRules.occurrences(f.play.board.combat).size)
+                assertEquals(tap, f.card(40).tapped)
+                assertEquals(1, f.commands().drop(count).map { it.invocationId }.distinct().size)
+                assertTrue(f.lobby.historyControl(GameAction.Undo))
+                assertEquals(before, f.play.board)
+
+                // A manually chosen Select survives a shortcut and subsequent step change.
+                ui.selectionState.value = TableSelection(mode = TableMode.SELECT)
+                assertTrue(quick(ui, "Select attackers"))
+                assertFalse(ui.selectionState.value.attackSelection)
+                assertTrue(ui.perform(TableActionIntent.Next(scope)))
+                assertEquals(TableMode.SELECT, ui.selectionState.value.mode)
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
+
+    @Test fun noAttackClosesOnlyEmptyCombatAndGroupsWithProgression() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        try {
+            val scope = ui.table.scope()!!
+            assertTrue(ui.submit(PlayAction.ChooseStep(TurnPosition.DECLARE_ATTACKERS)))
+            assertTrue(ui.submit(PlayAction.Combat(CombatAction.Open)))
+            assertTrue(quick(ui, "Select attackers"))
+            val before = f.play.board
+            val count = f.commands().size
+            assertTrue(quick(ui, "No attack"))
+            assertEquals(TurnPosition.POSTCOMBAT_MAIN, TurnPosition.of(f.play.board.turn))
+            assertNull(f.play.board.combat)
+            assertEquals(TableMode.NORMAL, ui.selectionState.value.mode)
+            assertEquals(1, f.commands().drop(count).map { it.invocationId }.distinct().size)
+            assertTrue(f.lobby.historyControl(GameAction.Undo))
+            assertEquals(before, f.play.board)
+            ui.selectionState.value = TableSelection(mode = TableMode.SELECT, attackSelection = true)
+            assertTrue(ui.submit(PlayAction.NextStep)) // Sync/other controls, rather than a quick action.
+            ui.refreshAttackSelection()
+            assertEquals(TableMode.NORMAL, ui.selectionState.value.mode)
+            assertTrue(ui.perform(TableActionIntent.Choose(scope, TurnPosition.PRECOMBAT_MAIN)))
+            assertTrue(quick(ui, "Skip combat"))
+            assertEquals(TurnPosition.END_STEP, TurnPosition.of(f.play.board.turn))
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
+    @Test fun selectedDoubleTapUsesOneInvocationAndOneUndoThroughProductionAdapter() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        try {
+            for (id in 40..41) assertTrue(f.move(id, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), id - 40, 0), true))
+            val before = f.play.board
+            val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
+            val selected = TableSelection(setOf(f.id(40), f.id(41)), TableMode.SELECT)
+            val gestures = TableGestureCoordinator({ intent ->
+                if (intent is TableIntent.Selection) ui.selectionState.value = intent.selection else ui.handle(intent)
+            })
+            gestures.update(scene, selected, true)
+            val point = scene.items.single { it.cardId == f.id(40) }.visible.first().center
+            val count = f.commands().size
+            gestures.down(point, 0); gestures.up(point, 20)
+            gestures.update(scene, ui.selectionState.value, true)
+            gestures.down(point, 100); gestures.up(point, 120)
+            assertEquals(TableSelection(), ui.selectionState.value)
+            assertTrue(f.card(40).tapped); assertTrue(f.card(41).tapped)
+            assertEquals(1, f.commands().drop(count).map { it.invocationId }.distinct().size)
+            assertTrue(f.lobby.historyControl(GameAction.Undo))
+            assertEquals(before, f.play.board)
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     @Test fun multiDragKeepsThePressedCardAsItsGridAnchorAndMatchesLandingOutlines() {
         val f = BasicTableFixture(); f.connect()
         try {

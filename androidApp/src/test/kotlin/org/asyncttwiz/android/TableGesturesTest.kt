@@ -40,7 +40,11 @@ class TableGesturesTest {
         val end = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.bounds.center
         f.gestures.down(start, 0); f.gestures.move(end, 80)
         assertNotNull(f.gestures.preview.rectangle)
+        val previewIds = scene.rectangle(f.gestures.preview.rectangle!!)
+        assertTrue("a/BATTLEFIELD/0" in previewIds)
+        assertTrue(f.events.none { it is TableIntent.Selection })
         f.gestures.up(end, 100)
+        assertEquals(previewIds, f.events.filterIsInstance<TableIntent.Selection>().single().selection.ids)
         assertTrue("a/BATTLEFIELD/0" in f.events.filterIsInstance<TableIntent.Selection>().single().selection.ids)
         assertTrue(f.events.none { it is TableIntent.Camera })
         f.events.clear()
@@ -458,14 +462,45 @@ class TableGesturesTest {
         assertTrue(f.selection.ids.isEmpty())
         assertEquals(listOf("a/BATTLEFIELD/0"), f.events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
     }
-    @Test fun selectAndPingHaveIndependentImmediateTapsWithoutDoubleRecognizer() {
-        for (mode in listOf(TableMode.SELECT, TableMode.PING)) {
-            val f = Fixture(initial = TableSelection(mode = mode))
-            f.tap(0); f.refresh(); f.tap(100); f.refresh(); f.gestures.tick(1000)
-            assertEquals(2, f.events.size)
-            assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate })
-            if (mode == TableMode.SELECT) assertTrue(f.selection.ids.isEmpty()) else assertEquals(2, f.events.filterIsInstance<TableIntent.Ping>().size)
+    @Test fun pingTapsRemainIndependentWithoutDoubleRecognizer() {
+        val f = Fixture(initial = TableSelection(mode = TableMode.PING))
+        f.tap(0); f.refresh(); f.tap(100); f.refresh(); f.gestures.tick(1000)
+        assertEquals(2, f.events.filterIsInstance<TableIntent.Ping>().size)
+        assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate })
+    }
+    @Test fun selectDoubleTapTogglesCapturedGroupInTriggerDirectionAndReturnsToNormal() {
+        for (tapped in listOf(false, true)) {
+            val scene = TableFixture.scene().let { scene -> scene.copy(items = scene.items.map {
+                if (it.cardId == "a/BATTLEFIELD/0") it.copy(tapped = tapped) else it
+            }) }
+            val f = Fixture(scene, TableSelection(setOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1"), TableMode.SELECT))
+            f.tap(0); f.refresh(); f.tap(100); f.gestures.tick(1000)
+            val rotate = f.events.filterIsInstance<TableIntent.Rotate>().single()
+            assertEquals(listOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1"), rotate.scope.cardIds)
+            assertEquals(!tapped, rotate.tapped)
+            assertEquals(TableSelection(), f.selection)
+            assertTrue(f.events.none { it is TableIntent.Actions })
         }
+    }
+    @Test fun selectDoubleTapUnselectedTogglesOnlyItAndRestoresOriginalSelection() {
+        val initial = TableSelection(setOf("a/BATTLEFIELD/1"), TableMode.SELECT)
+        val f = Fixture(initial = initial)
+        f.tap(0); f.refresh(); f.tap(100)
+        assertEquals(initial, f.selection)
+        assertEquals(listOf("a/BATTLEFIELD/0"), f.events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
+    }
+    @Test fun selectDoubleTapNeverTapsStackEntriesEvenInMixedScope() {
+        val scene = TableFixture.scene().let { scene -> scene.copy(items = scene.items.map {
+            if (it.cardId == "a/BATTLEFIELD/1") it.copy(zone = PlayZone.STACK) else it
+        }) }
+        val stack = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.STACK }
+        val selected = setOf("a/BATTLEFIELD/0", stack.cardId!!)
+        val f = Fixture(scene, TableSelection(selected, TableMode.SELECT))
+        f.tap(0); f.refresh(); f.tap(100)
+        assertEquals(listOf("a/BATTLEFIELD/0"), f.events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
+        val g = Fixture(scene, TableSelection(selected, TableMode.SELECT))
+        g.tap(0, stack.visible.first().center); g.refresh(); g.tap(100, stack.visible.first().center)
+        assertTrue(g.events.none { it is TableIntent.Rotate })
     }
     @Test fun holdConsumesTapAndCannotTurnIntoDragOrExposePile() {
         val f = Fixture(); val p = f.point()

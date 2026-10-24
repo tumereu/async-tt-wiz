@@ -6,6 +6,40 @@ import kotlin.test.*
 class SelectiveUndoTest {
     private val f = UndoFixture
 
+    @Test fun consecutiveInvocationConstituentsUndoAndRedoTogetherWithoutChangingNodeGranularity() {
+        val initial = GameplayTree(f.root())
+        val invocation = f.id(800)
+        fun play(tree: GameplayTree, card: Int, n: Int) = assertNotNull(HistoryContinuation.change(tree, f.a,
+            f.command(GameAction.Play(PlayAction.SetTapped(f.id(card), true)), n).copy(invocationId = invocation)).tree)
+        val first = play(initial, 9, 100)
+        val second = play(first, 12, 101)
+        assertEquals(2, second.nodes.size)
+        val undone = assertNotNull(HistoryContinuation.change(second, f.a, f.command(GameAction.Undo, 900)).tree)
+        assertEquals(initial.initial.board, undone.stateAt(undone.currentNodeId)!!.board)
+        assertEquals(2, undone.redoByAccount[f.a]!!.size)
+        val redone = assertNotNull(HistoryContinuation.change(undone, f.a, f.command(GameAction.Redo, 901)).tree)
+        assertEquals(second.nodes, redone.nodes)
+        assertEquals(second.currentNodeId, redone.currentNodeId)
+        assertEquals(second.branchHeads, redone.branchHeads)
+    }
+
+    @Test fun blockedInvocationPublishesNoPartialUndoAndDifferentInvocationsRemainSeparate() {
+        val initial = GameplayTree(f.root())
+        val invocation = f.id(800)
+        val first = assertNotNull(HistoryContinuation.change(initial, f.a,
+            f.command(GameAction.Play(PlayAction.SetTapped(f.id(9), true)), 100).copy(invocationId = invocation)).tree)
+        val second = assertNotNull(HistoryContinuation.change(first, f.a,
+            f.command(GameAction.Play(PlayAction.SetTapped(f.id(12), true)), 101).copy(invocationId = invocation)).tree)
+        val revealing = second.copy(nodes = second.nodes + (first.currentNodeId to
+            second.nodes.getValue(first.currentNodeId).copy(revealsInformation = true)))
+        val blocked = f.undo(revealing)
+        assertEquals("revealingTarget", blocked.reason)
+        assertNull(blocked.tree)
+        assertEquals(2, revealing.nodes.size)
+        val separate = f.play(second, f.a, PlayAction.AdjustLife(f.a, "1"), 102)
+        assertEquals(second.nodes, assertNotNull(f.undo(separate).tree).nodes)
+    }
+
     @Test fun revealingOpponentHandMoveIsStillBlockedAndCannotBeSkipped() {
         val root = gameplayFixture()
         val hand = f.play(GameplayTree(root), f.a, PlayAction.MoveCard(gameplayId(10),

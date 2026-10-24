@@ -6,7 +6,7 @@ import java.security.SecureRandom
 data class TableActionScope(val gameId: String, val playId: String)
 data class TurnPlayerTargets(val accountId: String, val battlefieldId: String, val libraryId: String, val handId: String)
 enum class LibraryTool { CONTENTS, DRAW_N, VIEW, REVEAL, SHUFFLE, MULLIGAN_N, MULLIGAN_MINUS_ONE }
-enum class CombatTool { CREATE, CLOSE, DECLARE, DECLARE_AND_TAP, ADVANCE_AND_CLOSE }
+enum class CombatTool { CREATE, CLOSE, DECLARE, DECLARE_AND_TAP, ADVANCE_AND_CLOSE, NO_ATTACK }
 enum class EndingTool { SUGGEST_WIN, SUGGEST_LOSS, SUGGEST_DRAW, ACCEPT }
 enum class StackTargetKind { INSTANT_OR_SORCERY, PERMANENT, EFFECT }
 data class ExplicitStackTarget(val id: String, val kind: StackTargetKind)
@@ -21,6 +21,7 @@ interface TableActionRoutes {
     fun ending(intent: TableActionIntent.Ending)
     fun stack(intent: TableActionIntent.Stack)
     fun player(intent: TableActionIntent.Player)
+    fun selectAttackers(intent: TableActionIntent.SelectAttackers) {}
 }
 
 sealed interface TableActionIntent {
@@ -28,6 +29,8 @@ sealed interface TableActionIntent {
     data class Next(override val scope: TableActionScope) : TableActionIntent
     data class End(override val scope: TableActionScope) : TableActionIntent
     data class Choose(override val scope: TableActionScope, val position: TurnPosition) : TableActionIntent
+    data class Bundle(override val scope: TableActionScope, val actions: List<TableActionIntent>) : TableActionIntent
+    data class SelectAttackers(override val scope: TableActionScope, val advance: Boolean) : TableActionIntent
     data class Orient(override val scope: TableActionScope, val cardIds: List<String>, val tapped: Boolean) : TableActionIntent
     data class Untap(override val scope: TableActionScope, val targets: TurnPlayerTargets,
         val cardIds: List<String>, val advance: Boolean) : TableActionIntent
@@ -98,6 +101,12 @@ class TableActionController(private val state: () -> PlayState?, private val can
             return sent
         }
         when (intent) {
+            is TableActionIntent.Bundle -> {
+                var sent = false
+                for (action in intent.actions) if (action.scope == intent.scope) sent = perform(action) || sent
+                return sent
+            }
+            is TableActionIntent.SelectAttackers -> routes.selectAttackers(intent)
             is TableActionIntent.Next -> return submit(PlayAction.NextStep)
             is TableActionIntent.End -> return submit(PlayAction.EndTurn)
             is TableActionIntent.Choose -> return submit(PlayAction.ChooseStep(intent.position))

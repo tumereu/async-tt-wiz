@@ -220,6 +220,8 @@ class GameService(private val runtime: ServiceRuntime) {
         val inbox = sql.selectFrom(GAME_INBOX).where(GAME_INBOX.GAME_ID.eq(game.id)).and(GAME_INBOX.RESULT.isNull)
             .orderBy(GAME_INBOX.INGRESS_ORDINAL).limit(1).fetchSingle()
         val command = GameWire.decodeClient(inbox.command!!) as GameCommand
+        val processingStarted = System.nanoTime()
+        try {
         val before = game.revision!!
         val isGameplay = command.action is GameAction.Play || command.action is GameAction.MakeCurrent ||
             command.action is GameAction.BranchArchive || command.action == GameAction.Undo || command.action == GameAction.Redo
@@ -298,6 +300,11 @@ class GameService(private val runtime: ServiceRuntime) {
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result))
             .set(GAME_OUTBOX.REVISION, update?.let(GameWire::encode)).execute()
         true
+        } finally {
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info(
+                "Gameplay command game={} action={} processingMs={}", command.scope.gameId,
+                command.action.latencyType(), (System.nanoTime() - processingStarted) / 1_000_000.0)
+        }
     }
 
     private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {

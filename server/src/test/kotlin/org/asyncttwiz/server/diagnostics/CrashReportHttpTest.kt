@@ -12,6 +12,8 @@ import java.time.Instant
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CrashReport
+import org.asyncttwiz.protocol.ActionLatency
+import org.asyncttwiz.protocol.LatencyBatch
 import org.asyncttwiz.server.activity.ActivityFixture
 import org.asyncttwiz.server.activity.ActivityClock
 import org.junit.jupiter.api.Assertions.*
@@ -35,8 +37,8 @@ class CrashReportHttpTest {
             server.start()
             try {
                 val client = HttpClient.newHttpClient()
-                fun post(body: String = "trace", token: String? = f.tokenA, method: String = "POST"): Int {
-                    val input = CrashReport(now.minusSeconds(10).toString(), "1.0 debug commit abc", "Model; Android 15", body)
+                fun post(body: String = "trace", token: String? = f.tokenA, method: String = "POST", kind: String = "crash"): Int {
+                    val input = CrashReport(now.minusSeconds(10).toString(), "1.0 debug commit abc", "Model; Android 15", body, kind)
                     val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${server.port}/debug/crash-reports"))
                         .header("Content-Type", "application/json")
                         .method(method, HttpRequest.BodyPublishers.ofString(AccountJson.format.encodeToString(input)))
@@ -53,20 +55,30 @@ class CrashReportHttpTest {
                     WHERE account_id='${f.a.account.accountId}' AND reported_at='${now.minusSeconds(10)}'
                     AND app_version='1.0 debug commit abc' AND device='Model; Android 15'"""))
 
+                val batch = LatencyBatch(listOf(
+                    ActionLatency(now.toString(), "game", "Play.MoveCard", 321, true, 22.5, 35.0),
+                    ActionLatency(now.toString(), "game", "Undo", 321, false, serverResultMs = 99.0)))
+                val body = AccountJson.format.encodeToString(batch)
+                assertEquals(204, post(body, kind = "latency"))
+                assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report WHERE kind='latency' AND body='$body'"))
+                assertEquals(400, post("{}", kind = "latency"))
+                assertEquals(400, post(body, kind = "other"))
+                assertEquals(413, post(" ".repeat(65_537), kind = "latency"))
+
                 // Seed historical reports without consuming today's quota.
-                f.sql("""INSERT INTO debug_crash_report
+                f.sql("""INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind)
                     SELECT md5('old-' || i)::uuid, '${f.b.account.accountId}'::uuid,
-                        '${now}'::timestamptz - interval '31 days', '${now}'::timestamptz, 'old', 'old', 'old'
+                        '${now}'::timestamptz - interval '31 days', '${now}'::timestamptz, 'old', 'old', 'old', 'latency'
                     FROM generate_series(1,3) i""")
-                f.sql("""INSERT INTO debug_crash_report
+                f.sql("""INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind)
                     SELECT md5('retained-' || i)::uuid, '${f.b.account.accountId}'::uuid,
-                        '${now}'::timestamptz - interval '1 day' - i * interval '1 second', '${now}'::timestamptz, 'old', 'old', 'retained'
+                        '${now}'::timestamptz - interval '1 day' - i * interval '1 second', '${now}'::timestamptz, 'old', 'old', 'retained', 'latency'
                     FROM generate_series(1,510) i""")
                 assertEquals(204, post())
                 assertEquals(500L, f.number("SELECT count(*) FROM debug_crash_report"))
                 assertEquals(0L, f.number("SELECT count(*) FROM debug_crash_report WHERE body='old'"))
                 assertEquals(0L, f.number("SELECT count(*) FROM debug_crash_report WHERE id=md5('retained-510')::uuid"))
-                repeat(18) { assertEquals(204, post()) }
+                repeat(17) { assertEquals(204, post()) }
                 assertEquals(429, post())
                 assertEquals(204, post(token = f.tokenB))
                 // Even body eviction cannot reset the daily counter.

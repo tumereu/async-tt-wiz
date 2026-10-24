@@ -90,6 +90,7 @@ class DeckImportControllerTest {
         assertEquals("\n1 Exact  Text\n", controller.state.text)
         assertTrue(controller.state.result!!.issues.single().message.contains("retry"))
         controller.review(); assertFalse(controller.state.preview)
-        controller.back(); assertFalse(controller.state.active)
+        controller.back(); assertTrue(controller.state.discard); assertTrue(controller.state.active)
+        controller.exit(); assertFalse(controller.state.active)
     }
 }

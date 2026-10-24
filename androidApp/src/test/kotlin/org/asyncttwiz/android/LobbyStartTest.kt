@@ -86,11 +86,26 @@ class LobbyStartTest {
         assertEquals(changed, f.lobby.state.acceptedPreparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
     }
 
-    @Test fun noDeckOrUnsetStarterCannotReadyAndDisconnectedCannotSubmit() {
-        for (base in listOf(PreparationRules.empty(game), prepared().copy(starter = null))) Fixture(base).use { f ->
+    @Test fun noDeckCannotReadyAndDisconnectedCannotSubmit() {
+        for (base in listOf(PreparationRules.empty(game))) Fixture(base).use { f ->
             assertNotNull(readyReason(base, owner.accountId)); f.lobby.ready(); assertTrue(f.commands().isEmpty())
             f.wire.listener.disconnected(false); f.lobby.starter(StarterChoice(owner.accountId)); f.lobby.ready()
             assertTrue(f.commands().isEmpty())
+        }
+    }
+
+    @Test fun randomDefaultSurvivesAccountResetReopenAndLegacyNullRoundTripAndReselectNeverClears() {
+        val base = prepared().copy(starter = null)
+        Fixture(base).use { f ->
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            assertNull(readyReason(base, owner.accountId))
+            f.lobby.starter(StarterChoice())
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            f.head(game.copy(revision = "1"), base.copy(starter = StarterChoice()))
+            f.lobby.clear(); f.lobby.open(game.id); f.connect(generation = "2")
+            f.head(game.copy(revision = "1"), base)
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            assertEquals(StarterChoice(), PreparationRules.empty(game).starter)
         }
     }
 

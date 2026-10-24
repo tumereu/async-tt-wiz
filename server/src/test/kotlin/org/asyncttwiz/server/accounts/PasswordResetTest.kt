@@ -54,7 +54,7 @@ class PasswordResetTest {
                     }
             }
             // V3 through V16, excluding the nonexistent V10/V12 migrations.
-            assertEquals(12, FoundationMigrations.migrate(db.settings))
+            assertEquals(13, FoundationMigrations.migrate(db.settings))
             assertEquals("1", sql(db, "SELECT count(*) FROM account"))
             SyntheticMailbox(directory.resolve("mail")).use { box ->
                 ServiceRuntime(db.settings).use { runtime ->

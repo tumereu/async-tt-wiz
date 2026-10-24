@@ -45,7 +45,7 @@ class AttentionPresentationTest {
         })
         assertTrue(toolkit.perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id),
             CombatTool.ADVANCE_AND_CLOSE, null)))
-        assertEquals(listOf(PlayAction.NextStep), sent)
+        assertEquals(listOf<PlayAction>(PlayAction.NextStep), sent)
         assertEquals(TurnPosition.POSTCOMBAT_MAIN, TurnPosition.of(play.board.turn))
         assertEquals(d.actor, play.board.effectiveAttentionHolder)
     }

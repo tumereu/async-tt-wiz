@@ -43,7 +43,7 @@ class AttentionHeaderTest {
             val pill = compose.onNodeWithContentDescription("Your move")
             pill.assertIsDisplayed().assertIsEnabled()
             val bounds = pill.fetchSemanticsNode().boundsInRoot
-            val phase = compose.onNodeWithContentDescription("Turn 1, BEGINNING, UNTAP. Choose phase/step").fetchSemanticsNode().boundsInRoot
+            val phase = compose.onNodeWithContentDescription("Turn 1, Alice's turn, Beginning · Untap. Choose phase/step").fetchSemanticsNode().boundsInRoot
             val menu = compose.onNodeWithContentDescription("Open navigation").fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.left >= menu.right)
             assertTrue(bounds.right <= phase.left)
@@ -52,13 +52,13 @@ class AttentionHeaderTest {
             pill.performTouchInput { longClick() }
             compose.runOnIdle { assertTrue(sent.isEmpty()) }
             pill.performTouchInput { click() }
-            compose.runOnIdle { assertEquals(listOf(PlayAction.PassAttention), sent); sent.clear() }
+            compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.PassAttention), sent); sent.clear() }
             compose.runOnIdle { reviewing.value = true }
             pill.assertIsNotEnabled().performTouchInput { click() }
             compose.runOnIdle { assertTrue(sent.isEmpty()) }
         }
         compose.runOnIdle { play.value = initial.copy(board = initial.board.copy(attentionHolder = "b")); reviewing.value = false }
         compose.onNodeWithContentDescription("Bob's move").assertIsDisplayed().performTouchInput { click() }
-        compose.runOnIdle { assertEquals(listOf(PlayAction.PassAttention), sent) }
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.PassAttention), sent) }
     }
 }

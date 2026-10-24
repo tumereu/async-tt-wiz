@@ -4,6 +4,17 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 import kotlin.math.max
 
+/** An accepted prediction must not briefly fall back to an older asynchronous history view. */
+internal class TableEndpointPresentation {
+    private var presented: PlayState? = null
+    fun live(live: PlayState?, indexed: PlayState?, awaitingIndex: Boolean): PlayState? {
+        val matchesPresented = live != null && live.id == presented?.id &&
+            (live.board == presented?.board || live.currentNodeId == presented?.currentNodeId)
+        return if (awaitingIndex && !matchesPresented) indexed else live
+    }
+    fun presented(state: PlayState?) { if (state != null) presented = state }
+}
+
 /** All coordinates are dp. Personal navigation never changes shared placement or container order. */
 data class TablePoint(val x: Float, val y: Float)
 data class TableBounds(val x: Float, val y: Float, val width: Float, val height: Float) {
@@ -45,7 +56,8 @@ data class TableItem(
     val counter: CounterColor? = null, val peekOwners: List<String> = emptyList(),
     val sourceId: String? = cardId, val projection: Boolean = false, val frozen: Boolean = false,
     val token: Boolean = false, val note: String = "", val counters: Map<CounterColor, String> = emptyMap(),
-    val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null
+    val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
+    val inTransit: Boolean = false
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID) {
@@ -64,7 +76,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val footprint: Float = 56f, val camera: TableCamera = TableCamera(),
     val sources: Map<String, TableMoveSource> = emptyMap(), val combatDrops: List<CombatDropRegion> = emptyList(),
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
-    val stackBubbles: StackBubbleGeometry? = null) {
+    val stackBubbles: StackBubbleGeometry? = null, val stackRegion: TableBounds? = null) {
     fun hit(point: TablePoint): TableItem? {
         stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         val stack = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
@@ -133,8 +145,9 @@ object TablePresentation {
         val controlsHeight = if (landscape) 0f else if (reviewing) 116f else 56f
         val dockRow = max(68f, ch + 16f)
         val counterHeight = 48f
-        // Absent values still have six accessible blank controls, in both orientations.
-        val dockHeight = 2 * (dockRow + counterHeight) + combat.height
+        val counterHeights = players.map { if (landscape || it.counters.values.any(::nonzero)) counterHeight else 0f }
+        val middleHeight = max(combat.height, envelope + 8f)
+        val dockHeight = 2 * dockRow + counterHeights.sum() + middleHeight
         val fieldHeight = ((height - HEADER - 2 * railHeight - controlsHeight - dockHeight - 6f) / 2).coerceAtLeast(32f)
         val boardTop = HEADER + 4f
         val boardBottom = height - railHeight - if (landscape) 8f else 4f
@@ -153,7 +166,7 @@ object TablePresentation {
         }
         val sidebarBounds = TableBounds(0f, boardTop, sidebar, (boardBottom - boardTop).coerceAtLeast(0f))
         val sidebarRow = dockRow + counterHeight
-        val sidebarContent = max(2 * sidebarRow + envelope, sidebarBounds.height)
+        val sidebarContent = max(2 * sidebarRow + middleHeight, sidebarBounds.height)
         val sidebarScroll = if (landscape) (ui.scrollY["sidebar"] ?: 0f).coerceIn(0f, (sidebarContent - sidebarBounds.height).coerceAtLeast(0f)) else 0f
         val items = mutableListOf<TableItem>()
         val ports = mutableListOf<TableViewport>()
@@ -212,8 +225,8 @@ object TablePresentation {
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * GRID
             port(battlefield.id, field.bounds, logicalWidth * zoom)
             val rowY = if (landscape) boardTop + (if (index == 0) 0f else sidebarContent - sidebarRow) - sidebarScroll
-                else dockTop + index * (dockRow + counterHeight + combat.height)
-            val dock = TableBounds(0f, rowY, if (landscape) sidebar else width * .8f, dockRow)
+                else dockTop + if (index == 0) 0f else dockRow + counterHeights[0] + middleHeight
+            val dock = TableBounds(0f, rowY, if (landscape) sidebar else width - max(width * .2f, envelope + 12f), dockRow)
             val spacing = max(envelope, (dock.width - 64f) / 3)
             val dp = port("dock/${player.accountId}", dock, 76f + 2 * spacing + envelope)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
@@ -231,7 +244,7 @@ object TablePresentation {
                     note = if (hidden) "" else face(top)?.name.orEmpty(), corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
             }
-            run {
+            if (counterHeights[index] > 0f) {
                 val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, if (landscape) sidebar else width, counterHeight),
                     max(if (landscape) sidebar else width, 288f))
                 for ((n, color) in CounterColor.entries.withIndex()) {
@@ -244,9 +257,11 @@ object TablePresentation {
         }
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, cw, ch)
-        val sb = TableBounds(if (landscape) (sidebar - envelope) / 2 else width * .83f,
-            if (landscape) boardTop + sidebarRow + (sidebarContent - 2 * sidebarRow - envelope) / 2 - sidebarScroll else dockTop + 4f,
-            envelope, envelope)
+        val stackWidth = if (landscape) sidebar else max(width * .2f, envelope + 12f)
+        val stackRegion = if (landscape) TableBounds(6f, boardTop + sidebarRow - sidebarScroll,
+            sidebar - 6f, sidebarContent - 2 * sidebarRow)
+            else TableBounds(width - stackWidth, dockTop + dockRow + counterHeights[0], stackWidth, middleHeight)
+        val sb = TableBounds(stackRegion.center.x - envelope / 2, stackRegion.center.y - envelope / 2, envelope, envelope)
         val sp = port(stack.id, sb, envelope)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.map { it.card.owner })
@@ -255,8 +270,8 @@ object TablePresentation {
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
             items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards)
         }
-        val combatY = if (landscape) middle - combat.height / 2 else dockTop + dockRow + counterHeight
-        val combatBounds = TableBounds(sidebar, combatY, width - sidebar, combat.height)
+        val combatY = if (landscape) middle - combat.height / 2 else stackRegion.center.y - combat.height / 2
+        val combatBounds = TableBounds(sidebar, combatY, if (landscape) width - sidebar else width - stackWidth, combat.height)
         val cp = port("combat", combatBounds, combat.width)
         fun translated(b: TableBounds) = b.copy(x = b.x + sidebar - cp.scroll, y = b.y + combatY)
         for (drawing in combat.cards) card(drawing.card, translated(drawing.bounds), translated(drawing.bounds), null,
@@ -271,7 +286,8 @@ object TablePresentation {
             play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.LIBRARY && it.cards.firstOrNull() == c.id }) }
         val sources = realSources + items.filter { it.projection && it.sourceId != null }.associate { item ->
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
-        return clip(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers), width, height)
+        return clip(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
+            stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */
@@ -279,7 +295,7 @@ object TablePresentation {
         val screen = TableBounds(0f, 0f, width, height)
         val clipped = scene.items.map { i ->
             val viewport = scene.viewports.firstOrNull { it.id == i.viewport }
-            i.copy(visible = listOfNotNull(viewport?.bounds?.let(i.bounds::intersection)?.intersection(screen)))
+            i.copy(visible = listOfNotNull((if (i.inTransit) screen else viewport?.bounds)?.let(i.bounds::intersection)?.intersection(screen)))
         }
         val visible = clipped.mapIndexed { n, i ->
             val portions = if (i.kind == TableItemKind.HAND) i.visible else clipped.drop(n + 1)

@@ -5,7 +5,8 @@ internal sealed interface CardTextPart {
     data class Symbol(val token: String) : CardTextPart
 }
 
-private val cardTextToken = Regex("\\{([^{}]*)}")
+// Android's ICU regex engine requires both literal braces escaped (the host JVM is lenient).
+private val cardTextToken = Regex("\\{([^{}]*)\\}")
 private val manaColors = setOf("W", "U", "B", "R", "G")
 private val simpleSymbols = manaColors + setOf("C", "X", "Y", "Z", "T", "Q", "S", "E") + (0..20).map(Int::toString)
 

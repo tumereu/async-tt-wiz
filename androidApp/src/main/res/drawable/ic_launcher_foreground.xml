@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Same 96 x 80 mark as atw_logo, centered inside the 66dp safe zone. -->
+    <group android:scaleX="0.65" android:scaleY="0.65"
+        android:translateX="22.8" android:translateY="24">
+        <path android:fillColor="#244C46"
+            android:pathData="M24,58 C14,58 8,61 5,64 C0,69 8,73 20,75 C43,80 73,77 88,71 C95,68 94,65 88,62 C84,60 79,59 73,58 Z" />
+        <path android:fillColor="#365F53"
+            android:pathData="M23,61 C29,46 30,30 40,18 C48,8 60,7 74,12 C62,12 55,18 57,25 C60,35 66,44 74,61 C58,68 39,68 23,61 Z" />
+        <path android:fillColor="#244C46"
+            android:pathData="M74,12 C62,12 55,18 57,25 C60,35 66,44 74,61 L61,63 C59,46 47,32 51,23 C54,17 63,13 74,12 Z" />
+        <path android:fillColor="#D7BB6D"
+            android:pathData="M27,50 C40,55 55,56 68,50 L73,60 C58,67 39,67 23,61 Z" />
+        <path android:fillColor="#EAD99D"
+            android:pathData="M43,27 L46,34 L53,37 L46,40 L43,47 L40,40 L33,37 L40,34 Z" />
+        <path android:fillColor="#365F53"
+            android:pathData="M8,65 C26,72 65,75 88,64 C79,73 49,79 20,73 C11,71 7,68 8,65 Z" />
+    </group>
+</vector>

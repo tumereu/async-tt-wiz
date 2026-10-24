@@ -7,8 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun ReconnectingDialog(backToGames: () -> Unit) {
-    ScreenDialog(backToGames) {
+internal fun ReconnectingDialog(backToGames: () -> Unit, dismiss: () -> Unit = backToGames) {
+    ScreenDialog(dismiss) {
         Text("Reconnecting…", style = MaterialTheme.typography.titleMedium)
         Text("Game actions unavailable.", style = MaterialTheme.typography.bodySmall)
         ScreenButton(onClick = backToGames, Modifier.fillMaxWidth()) {

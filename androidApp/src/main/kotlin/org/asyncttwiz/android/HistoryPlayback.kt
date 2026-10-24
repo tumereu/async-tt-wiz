@@ -126,9 +126,25 @@ class HistoryPlayback(initial: HistoryTree) {
 
 data class HistoryAnimatedItem(val item: TableItem, val bounds: TableBounds, val alpha: Float)
 
+/** Upright face dimensions never depend on the rotating footprint. */
+data class TableCardTransform(val width: Float, val height: Float, val rotation: Float) {
+    fun bounds(center: TablePoint): TableBounds {
+        val radians = Math.toRadians(rotation.toDouble())
+        val c = kotlin.math.abs(kotlin.math.cos(radians)).toFloat()
+        val s = kotlin.math.abs(kotlin.math.sin(radians)).toFloat()
+        val w = width * c + height * s
+        val h = height * c + width * s
+        return TableBounds(center.x - w / 2, center.y - h / 2, w, h)
+    }
+}
+
+internal fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTransform ?: TableCardTransform(
+    if (tapped) bounds.height else bounds.width, if (tapped) bounds.width else bounds.height,
+    if (tapped) 90f else 0f)
+
 /** Receipts, count labels, ownership and disclosure metadata are not motion targets. */
 internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
-internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to it.bounds }
+internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to (it.bounds to it.tapped) }
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
@@ -146,9 +162,19 @@ class HistorySceneAnimation(initial: TableScene) {
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
             fun mix(x: Float, y: Float) = x + (y - x) * t
             val item = latest[id] ?: b.item
-            HistoryAnimatedItem(item.copy(inTransit = item.kind == TableItemKind.CARD && t < 1f && a.bounds != b.bounds),
-                TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
-                 mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height)), mix(a.alpha, b.alpha))
+            val face = if (item.kind == TableItemKind.CARD) {
+                val from = a.item.faceTransform(a.bounds); val to = b.item.faceTransform(b.bounds)
+                TableCardTransform(mix(from.width, to.width), mix(from.height, to.height), mix(from.rotation, to.rotation))
+            } else null
+            val bounds = when {
+                t == 0f -> a.bounds
+                t == 1f -> b.bounds
+                face != null -> face.bounds(TablePoint(mix(a.bounds.center.x, b.bounds.center.x), mix(a.bounds.center.y, b.bounds.center.y)))
+                else -> TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
+                    mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height))
+            }
+            HistoryAnimatedItem(item.copy(cardTransform = face, inTransit = item.kind == TableItemKind.CARD && t < 1f &&
+                (a.bounds != b.bounds || a.item.faceTransform(a.bounds) != b.item.faceTransform(b.bounds))), bounds, mix(a.alpha, b.alpha))
         }.sortedBy { it.item.inTransit }
     }
     /** False means confirmation/metadata only: the caller must leave the running clock alone. */

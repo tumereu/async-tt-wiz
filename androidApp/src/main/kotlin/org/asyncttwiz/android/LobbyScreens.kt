@@ -224,9 +224,11 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     val state = controller.state
     BackHandler { controller.back() }
     if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
+        val reconnecting = state.detail.id in state.reconnectingGames
+        var dismissedReconnect by remember(state.detail.id, reconnecting) { mutableStateOf(false) }
         TableScreen(controller, accountId, hamburger, landscape)
-        if (state.detail.id in state.reconnectingGames && state.play != null)
-            ReconnectingDialog(controller::back)
+        if (reconnecting && state.play != null && !dismissedReconnect)
+            ReconnectingDialog(controller::back, dismiss = { dismissedReconnect = true })
         return
     }
     if (state.picker != null) { LobbyDeckPicker(controller, importDeck, hamburger); return }

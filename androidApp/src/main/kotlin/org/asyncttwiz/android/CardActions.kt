@@ -88,7 +88,12 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         })
         entries += RingEntry("counter/${color.name}", color.name.lowercase(), MenuControl("Set ${color.name.lowercase()} counter", enabled,
             color = counterOutline(color)) { actions.edit(ManualValue(ManualValueKind.COUNTER, color), state, viewer) },
-            RingCompound(ManualText.cardCounterText(card.counters[color]), adjust(-1), adjust(1)), counterColor(color))
+            RingCompound(ManualText.cardCounterText(card.counters[color]), adjust(-1), adjust(1), drag = { delta ->
+                if (enabled) emit(scope.cardActions(state) {
+                    if (ManualText.add(it.counters[color] ?: "0", delta) != null)
+                        PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
+                })
+            }, dragValue = card.counters[color]?.takeIf { it.isNotEmpty() } ?: "0"), counterColor(color))
     }
     for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
     val view = previewViewId ?: card.id
@@ -136,7 +141,7 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
 
 @Composable
 internal fun CounterControls(values: Map<CounterColor, String>, player: Boolean, enabled: Boolean,
-    set: (CounterColor) -> Unit, applicable: (CounterColor, Int) -> Boolean, adjust: (CounterColor, Int) -> Unit) {
+    set: (CounterColor) -> Unit, applicable: (CounterColor, Int) -> Boolean, adjust: (CounterColor, Long) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val columns = if (maxWidth >= 296.dp) 2 else 1
         val horizontalOverflow = maxWidth < 144.dp
@@ -150,9 +155,10 @@ internal fun CounterControls(values: Map<CounterColor, String>, player: Boolean,
                     val value = values[color]
                     ManualActionSquare("Set $name counter, ${value?.takeIf { it.isNotEmpty() } ?: "no value"}",
                         if (player) ManualText.playerCounterText(value) else ManualText.cardCounterText(value), enabled,
-                        fill = counterColor(color), circle = true, tooltipName = "Set $name counter", iconTint = counterOutline(color), onClick = { set(color) })
+                        fill = counterColor(color), circle = true, tooltipName = "Set $name counter", iconTint = counterOutline(color),
+                        dragValue = value ?: "0", onDelta = { adjust(color, it) }, onClick = { set(color) })
                     for (delta in listOf(1, -1)) ManualActionSquare("${if (delta > 0) "Increase" else "Decrease"} $name counter",
-                        if (delta > 0) "+" else "−", enabled && applicable(color, delta), onClick = { adjust(color, delta) })
+                        if (delta > 0) "+" else "−", enabled && applicable(color, delta), onClick = { adjust(color, delta.toLong()) })
                 }
             }
         }
@@ -164,12 +170,17 @@ internal fun CounterControls(values: Map<CounterColor, String>, player: Boolean,
 internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean = true, fill: Color? = null,
     selected: Boolean = false, circle: Boolean = false, tooltipName: String = name,
     assignedHold: (() -> Unit)? = null, holdName: String? = null, iconTint: Color? = null,
-    bordered: Boolean = true, modifier: Modifier = Modifier, labelled: Boolean = false, onClick: () -> Unit) {
+    bordered: Boolean = true, modifier: Modifier = Modifier, labelled: Boolean = false,
+    dragValue: String? = null, onDelta: ((Long) -> Unit)? = null, onClick: () -> Unit) {
     val currentClick by rememberUpdatedState(onClick)
     val currentHold by rememberUpdatedState(assignedHold)
     var tooltip by remember { mutableStateOf(false) }
+    var delta by remember { mutableStateOf<Long?>(null) }
     val background = fill ?: Color.White
-    Box(modifier.then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp)).semantics(mergeDescendants = true) {
+    val dragModifier = if (onDelta != null) Modifier.valueDragGestures(enabled && TableActions.numeric(dragValue ?: "0"),
+        preview = { delta = it }, commit = onDelta) else Modifier
+    Box(modifier.then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp))
+        .pressFeedback(enabled).then(dragModifier).semantics(mergeDescendants = true) {
         contentDescription = name
         role = Role.Button
         this.selected = selected
@@ -243,6 +254,7 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
         }
         }
         if (tooltip) HoldTooltip(tooltipName)
+        delta?.let { HoldTooltip(valueDragLabel(dragValue, it)) }
     }
 }
 

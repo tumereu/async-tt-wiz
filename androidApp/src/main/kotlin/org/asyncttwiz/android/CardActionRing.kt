@@ -31,23 +31,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
+import org.asyncttwiz.protocol.TableActions
 
 /** Change just this flag for icon-only bubbles. Accessible names and hold tooltips remain. */
 internal const val CardRingLabels = true
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
-private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?) -> Unit> { { _, _ -> } }
+private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?, Boolean) -> Unit> { { _, _, _ -> } }
 
-private fun Modifier.ringInputTarget(): Modifier = composed {
+private fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = composed {
     val register = LocalRingInputTargets.current
     val key = remember { Any() }
-    DisposableEffect(register, key) { onDispose { register(key, null) } }
+    DisposableEffect(register, key) { onDispose { register(key, null, draggable) } }
     onGloballyPositioned {
         val windowOrigin = it.localToScreen(Offset.Zero) - it.localToWindow(Offset.Zero)
         val bounds = it.boundsInWindow()
-        register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height))
+        register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height), draggable)
     }
 }
-internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl)
+internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl,
+    val drag: ((Long) -> Unit)? = null, val dragValue: String = value)
 internal data class RingEntry(val id: String, val label: String, val control: MenuControl,
     val compound: RingCompound? = null, val fill: Color? = null)
 
@@ -79,8 +81,11 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
     val inputTargets = remember { mutableMapOf<Any, TableBounds>() }
-    val registerTarget = remember { { key: Any, bounds: TableBounds? ->
+    val dragTargets = remember { mutableMapOf<Any, TableBounds>() }
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    val registerTarget = remember { { key: Any, bounds: TableBounds?, draggable: Boolean ->
         if (bounds == null) inputTargets.remove(key) else inputTargets.put(key, bounds)
+        if (bounds != null && draggable) dragTargets[key] = bounds else dragTargets.remove(key)
         Unit
     } }
     val currentDismiss by rememberUpdatedState(dismiss)
@@ -93,7 +98,8 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     }
     BackHandler(onBack = dismiss)
     CompositionLocalProvider(LocalRingInputTargets provides registerTarget) {
-    BoxWithConstraints(Modifier.fillMaxSize().semantics { contentDescription = "Card action ring"; paneTitle = "Card actions" }
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }
+        .semantics { contentDescription = "Card action ring"; paneTitle = "Card actions" }
         .pointerInput(guard) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -101,6 +107,8 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                 if (!down.isConsumed) {
                     val point = TablePoint(down.position.x / density, down.position.y / density)
                     val blocked = targets.any { it.contains(point) } && !guard.accepts(down.uptimeMillis)
+                    val screen = origin + down.position
+                    val valueDrag = dragTargets.values.any { it.contains(TablePoint(screen.x, screen.y)) }
                     var swipe = false
                     var delta = androidx.compose.ui.geometry.Offset.Zero
                     if (blocked) down.consume()
@@ -110,7 +118,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                         if (change != null) {
                             delta = change.position - down.position
                             // Vertical drags in a fallback grid scroll its rows, not its pages.
-                            if (delta.getDistance() > 32.dp.toPx() && (!gridMode || abs(delta.x) > abs(delta.y) * 1.5f)) swipe = true
+                            if (!valueDrag && delta.getDistance() > 32.dp.toPx() && (!gridMode || abs(delta.x) > abs(delta.y) * 1.5f)) swipe = true
                         }
                         if (blocked || swipe) event.changes.forEach { it.consume() }
                     } while (event.changes.any { it.pressed })
@@ -216,11 +224,16 @@ private fun RingBubble(entry: RingEntry, owner: Color, modifier: Modifier) {
         border = BorderStroke(1.dp, entry.control.color ?: owner.copy(alpha = .5f)), shadowElevation = 3.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             RingPress(compound.minus, Modifier.width(48.dp).fillMaxHeight(), owner, CircleShape, paint = false) { Text("−", fontSize = 22.sp, color = MenuInk.copy(alpha = if (compound.minus.enabled) 1f else .3f)) }
-            RingPress(entry.control, Modifier.weight(1f).fillMaxHeight(), owner, CircleShape, paint = false) {
+            var delta by remember(entry.id) { mutableStateOf<Long?>(null) }
+            val dragModifier = if (compound.drag != null) Modifier.ringInputTarget(draggable = true)
+                .valueDragGestures(entry.control.enabled && TableActions.numeric(compound.dragValue),
+                    preview = { delta = it }, commit = compound.drag) else Modifier
+            RingPress(entry.control, Modifier.weight(1f).fillMaxHeight().then(dragModifier), owner, CircleShape, paint = false) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(compound.value, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MenuInk)
                     if (CardRingLabels) Text(entry.label, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, color = MenuInk)
                 }
+                delta?.let { HoldTooltip(valueDragLabel(compound.dragValue, it)) }
             }
             RingPress(compound.plus, Modifier.width(48.dp).fillMaxHeight(), owner, CircleShape, paint = false) { Text("+", fontSize = 22.sp, color = MenuInk.copy(alpha = if (compound.plus.enabled) 1f else .3f)) }
         }
@@ -232,7 +245,7 @@ private fun RingBubble(entry: RingEntry, owner: Color, modifier: Modifier) {
 private fun RingPress(control: MenuControl, modifier: Modifier, color: Color, shape: androidx.compose.ui.graphics.Shape,
     paint: Boolean = true, content: @Composable () -> Unit) {
     var tooltip by remember { mutableStateOf(false) }
-    Surface(modifier.ringInputTarget().semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
+    Surface(modifier.pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
         .combinedClickable(enabled = control.enabled, role = Role.Button, hapticFeedbackEnabled = false,
             onLongClick = { tooltip = true }, onClick = control.click),
         shape = shape, color = if (paint) Color.White else Color.Transparent,

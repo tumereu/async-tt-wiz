@@ -142,6 +142,23 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
     }
 
+    @Test fun counterDragShowsRelativeResultAndDoesNotSwipePagesOrOpenEditor() {
+        val toolkit = render()
+        compose.ringPage(2)
+        compose.mainClock.advanceTimeBy(600)
+        val value = compose.onNodeWithContentDescription("Set blue counter")
+        value.performTouchInput { down(center); moveBy(Offset(40f, 0f)) }
+        val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
+        compose.onNodeWithText(valueDragLabel(initial, 4)).assertExists()
+        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
+        value.performTouchInput { up() }
+        compose.runOnIdle {
+            assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "4")), sent)
+            assertNull(toolkit.manual.editor)
+        }
+        value.assertExists()
+    }
+
     @Test fun counterPillKeepsAllThreeControlsOnThePage() {
         val toolkit = render()
         compose.ringPage(2)

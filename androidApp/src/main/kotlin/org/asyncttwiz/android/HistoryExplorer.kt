@@ -145,7 +145,7 @@ fun HistoryExplorer(controller: HistoryExplorerController, connected: Boolean,
                 val actionable = connected && !state.busy && state.error == null && state.selectedNodeId != null && !state.archivedSelection
                 val enabled by rememberUpdatedState(actionable)
                 var activation by remember { mutableStateOf<HistoryActivation?>(null) }
-                Surface(Modifier.fillMaxWidth().height(48.dp).border(1.dp, MenuBorder, MaterialTheme.shapes.extraSmall).semantics {
+                Surface(Modifier.fillMaxWidth().height(48.dp).pressFeedback(actionable).border(1.dp, MenuBorder, MaterialTheme.shapes.extraSmall).semantics {
                     role = Role.Button; contentDescription = "Make current"
                     if (!actionable) disabled()
                     onClick { if (actionable) controller.makeCurrent() else false }

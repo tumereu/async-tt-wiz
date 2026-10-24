@@ -137,8 +137,7 @@ class StackProjectionJourneyTest {
             val bound = ui.capture!!
             val tools = basicMoveTools(f.play, mapOf(f.actor to "A", f.other to "B"), true,
                 TableScope(bound.contextViewId, bound.viewIds), bound.sources, ui::handle, ui::dismiss)
-            val suffix = if (zone == PlayZone.LIBRARY) "library top" else zone.name.lowercase()
-            tools.single { it.name == "Move to A $suffix" }.click()
+            tools.single { it.name == moveZoneLabel(zone) }.click()
         }
         fun drag(ids: List<String>, zone: PlayZone = PlayZone.STACK): TableDestination? {
             val current = scene()

@@ -51,9 +51,9 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     add("resetCorner", "Reset P/T", MenuControl("Reset corner", enabled) { send { PlayAction.ResetCorner(it.id) } })
     add("note", "Note", MenuControl("Edit card note", enabled) { actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer) })
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
-    add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", enabled, color = ownerColor) {
+    if (card.token) add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", enabled, color = ownerColor) {
         val next = state.board.players.firstOrNull { it.accountId != card.owner }
-        if (next != null) send { PlayAction.SetOwner(it.id, next.accountId) }
+        if (next != null) send { if (it.token) PlayAction.SetOwner(it.id, next.accountId) else null }
     })
     for ((index, face) in faces.withIndex()) if (faces.size > 1) {
         add("face/$index", "Face ${index + 1}", MenuControl("Switch printed face ${index + 1}", enabled,
@@ -73,7 +73,12 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     }
     fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, enabled && requests.isNotEmpty()) { emit(requests) }
     entries += RingEntry("corner", "P/T", MenuControl("Set corner", enabled) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
-        RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1))))
+        RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
+            if (enabled) emit(scope.cardActions(state) { target ->
+                cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
+            })
+        }, dragValue = card.corner, corner = true))
+    entries += entries.last().copy(id = "corner/counters")
     if (scope.cardActions(state) { if ('/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
         for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+/•"), Triple(CornerPart.RIGHT, 1, "•/+"),
             Triple(CornerPart.LEFT, -1, "−/•"), Triple(CornerPart.RIGHT, -1, "•/−"))) {

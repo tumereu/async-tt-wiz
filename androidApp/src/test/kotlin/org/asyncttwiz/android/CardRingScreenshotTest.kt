@@ -81,16 +81,17 @@ class CardRingScreenshotTest {
                 assertEquals(square.width, square.height)
                 if (page == 0) for (name in listOf("Inspect", "Set corner", "Clone", "Ping / Unping"))
                     compose.onNodeWithContentDescription(name).assertIsDisplayed()
-                if (page == 1) for (color in CounterColor.entries.dropLast(1)) for (prefix in listOf("Set", "Decrease", "Increase"))
+                if (page == 1) for (color in CounterColor.entries) for (prefix in listOf("Set", "Decrease", "Increase"))
                     compose.onNodeWithContentDescription("$prefix ${color.name.lowercase()} counter").assertIsDisplayed()
-                if (page == 2) for (prefix in listOf("Set", "Increase"))
-                    compose.onNodeWithContentDescription("$prefix gray counter").assertIsDisplayed()
+                if (page == 1) compose.onNodeWithContentDescription("Set corner").assertIsDisplayed()
                 val card = actualAnchor!!
                 val buttons = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasContentDescription("Card action ring")) and
                     SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).fetchSemanticsNodes()
                 for (button in buttons) {
                     val b = button.boundsInRoot
-                    assertTrue(b.width >= 47.9f && b.height >= 47.9f, "48dp target: ${button.config} $b")
+                    val name = button.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].first()
+                    val edge = name.startsWith("Increase ") || name.startsWith("Decrease ")
+                    assertTrue(b.width >= (if (edge) 23.9f else 47.9f) && b.height >= 47.9f, "Widget target: ${button.config} $b")
                     assertNull(TableBounds(b.left, b.top, b.width, b.height).intersection(card), "Cell covers card: $b $card")
                 }
                 val file = File("build/outputs/roborazzi/ring-$name-${listOf("middle", "hand", "opponent")[at]}-page${page + 1}.png")

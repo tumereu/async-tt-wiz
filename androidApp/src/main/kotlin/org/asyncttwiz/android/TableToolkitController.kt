@@ -124,7 +124,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         }
         if (action is PlayAction.InspectFace && acceptedInspection != null) return loggedInspection(action)
         val group = invocationId ?: UUID.randomUUID().toString()
-        val actions = if (action is PlayAction.MoveCard) GameplayRules.moveActions(play, action) else listOf(action)
+        val actions = if (action is PlayAction.MoveCard) GameplayRules.moveActions(play,
+            action.copy(destination = ownerMoveDestination(play.board, action.cardId, action.destination))) else listOf(action)
         if (!enqueue(actions.first(), group)) return false
         actions.drop(1).forEach { if (enabled()) enqueue(it, group) }
         // This is ordinary provisional disclosure, NOT an accepted result inferred from Boolean receipt.
@@ -415,16 +416,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     override fun stack(intent: TableActionIntent.Stack) {
         if (intent.target.kind == StackTargetKind.EFFECT) submit(PlayAction.Stack(StackAction.RemoveEffect(intent.target.id)))
         else {
-            // No owner/viewer-derived automatic destination policy: require the configured destination.
             openCard(TableScope(intent.target.id, listOf(intent.target.id)))
             val play = current() ?: return
+            val owner = CombatStackRules.liveSource(play.board, intent.target.id)?.owner ?: return
             val zone = if (intent.target.kind == StackTargetKind.PERMANENT) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD
-            stackChoices = play.board.containers.filter { it.zone == zone }.map { container ->
+            stackChoices = play.board.containers.filter { it.zone == zone && it.accountId == owner }.map { container ->
                 val occupied = play.board.cards.filter { it.containerId == container.id }.mapNotNull { it.placement?.position }.toSet()
                 val destination = if (zone == PlayZone.BATTLEFIELD) MoveDestination(container.id, MoveInsertion.EMPTY,
                     BoardPosition(generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }, 0))
                     else MoveDestination(container.id, MoveInsertion.UNORDERED)
-                StackMoveChoice(container.accountId.orEmpty(), zone, destination)
+                StackMoveChoice(moveZoneLabel(zone), zone, destination)
             }
             manual.close(); panel = "stackDestination"
         }

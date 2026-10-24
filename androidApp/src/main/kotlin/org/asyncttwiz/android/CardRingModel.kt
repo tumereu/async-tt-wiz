@@ -4,11 +4,12 @@ import android.content.Context
 
 /** Personal layout data; action identifiers are independent of their short visual labels. */
 internal data class CardRingPage(val name: String, val actions: List<String>)
+internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 internal object CardRingPages {
     const val capacity = 16
     val defaults = listOf(
-        CardRingPage("Everyday", listOf("inspect", "Declare + tap", "Declare without tapping", "owner", "note", "corner/minus", "corner", "corner/plus", "Clone", "Ping / Unping")),
-        CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.flatMap { listOf("counter/${it.name}/minus", "counter/${it.name}", "counter/${it.name}/plus") }),
+        CardRingPage("Everyday", listOf("inspect", "Declare + tap", "Declare without tapping", "owner", "note", "corner", "Clone", "Ping / Unping")),
+        CardRingPage("Counters", listOf("corner/counters") + org.asyncttwiz.protocol.CounterColor.entries.map { "counter/${it.name}" }),
         CardRingPage("More", listOf("flip", "otherSide", "Link", "Unlink", "resetCorner",
             "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1", "Add Stack effect")),
         CardRingPage("Move", emptyList()))
@@ -21,8 +22,21 @@ internal object CardRingPages {
         }
     }
 
-    private fun isMove(id: String) = id.startsWith("Move ") ||
-        listOf("Library top · ", "Library bottom · ", "Graveyard · ", "Exile · ").any(id::startsWith)
+    private fun isMove(id: String) = id.startsWith("Move ") || id in
+        listOf("Hand", "Battlefield", "Library top", "Library bottom", "Graveyard", "Exile")
+
+    fun span(id: String) = if (id == "corner" || id == "corner/counters" ||
+        org.asyncttwiz.protocol.CounterColor.entries.any { id == "counter/${it.name}" }) 2 else 1
+
+    /** Row-end padding belongs to the layout, never to an action or half of a widget. */
+    fun layout(actions: List<String>): List<CardRingSlot> {
+        var cell = 0
+        return actions.map { id ->
+            val span = span(id)
+            if (cell % 4 + span > 4) cell += 4 - cell % 4
+            CardRingSlot(id, cell, span).also { cell += span }
+        }
+    }
 
     fun resolve(available: List<String>, pages: List<CardRingPage> = defaultLayout(available)): List<CardRingPage> {
         val remaining = available.toMutableSet()
@@ -33,7 +47,7 @@ internal object CardRingPages {
         for ((index, actions) in assigned.withIndex()) for (action in actions) {
             // Spill forward, wrapping to unused cells on Everyday after Move.
             val destination = result.indices.map { (index + it) % result.size }
-                .firstOrNull { result[it].actions.size < capacity }
+                .firstOrNull { layout(result[it].actions + action).last().let { it.cell + it.span <= capacity } }
             if (destination != null) result[destination] = result[destination].copy(actions = result[destination].actions + action)
             else {
                 // Unbounded player-created piles must not make their move actions unreachable.

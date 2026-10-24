@@ -3,12 +3,20 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.PlayZone
 
 data class TableDragLanding(val outlines: List<TableBounds> = emptyList(),
-    val hand: TableBounds? = null, val insertionX: Float? = null)
+    val hand: TableBounds? = null, val insertionX: Float? = null,
+    val additionalHands: List<Pair<TableBounds, Float?>> = emptyList())
 
 /** Uses the same snapped destination and captured relative positions as the move adapter. */
 fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDragLanding {
     val scope = preview.scope ?: return TableDragLanding()
     val destination = preview.destination ?: return TableDragLanding()
+    val destinations = scope.cardIds.groupBy { scene.ownerMoveDestination(it, destination) }
+    if (destinations.size > 1 || destinations.keys.singleOrNull()?.let { it != destination } == true) {
+        val landings = destinations.map { (target, ids) -> tableDragLanding(scene, preview.copy(
+            scope = TableScope(scope.contextId.takeIf { it in ids } ?: ids.first(), ids), destination = target)) }
+        val hands = landings.flatMap { landing -> listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands }
+        return TableDragLanding(landings.flatMap { it.outlines }, hands.firstOrNull()?.first, hands.firstOrNull()?.second, hands.drop(1))
+    }
     val zoom = scene.camera.zoom
     val ids = scope.cardIds
     fun outline(id: String, x: Float, y: Float): TableBounds {

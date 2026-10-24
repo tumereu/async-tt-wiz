@@ -134,7 +134,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     val stackBubbles: StackBubbleGeometry? = null, val stackRegion: TableBounds? = null,
     val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
-    val combatBubbles: StackBubbleGeometry? = null) {
+    val combatBubbles: StackBubbleGeometry? = null, val cardOwners: Map<String, String> = emptyMap()) {
     fun worldInput(point: TablePoint) = world?.viewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
     fun hit(point: TablePoint): TableItem? {
@@ -384,7 +384,8 @@ object TablePresentation {
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
         return clip(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
             stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world,
-            stackProjections = stackProjections), width, height)
+            stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
+                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */

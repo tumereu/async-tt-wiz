@@ -435,15 +435,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                                     commands += CustomAccessibilityAction("Tap selected scope") { coordinator.rotate(item, true); true }
                                     commands += CustomAccessibilityAction("Untap selected scope") { coordinator.rotate(item, false); true }
                                 }
-                                for (f in scene.fields) commands += CustomAccessibilityAction("Move to ${if (f.owner == accountId) "your" else "opponent"} battlefield") {
-                                    coordinator.accessibleMove(item, TableDestination.Grid(f.containerId, 0, 0)); true
-                                }
-                                for (dest in play.board.containers.filter { it.zone in listOf(PlayZone.LIBRARY, PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) }) {
-                                    if (dest.zone == PlayZone.STACK && CombatStackRules.liveSource(play.board, item.cardId)?.let {
-                                            CombatStackRules.canProject(play.board, it) } != true) continue
-                                    commands += CustomAccessibilityAction("Move to ${if (dest.accountId == accountId) "your" else if (dest.accountId == null) "shared" else "opponent"} ${dest.zone.name.lowercase()}") {
-                                        coordinator.accessibleMove(item, TableDestination.Container(dest.id, dest.zone)); true
-                                    }
+                                for ((label, destination) in libraryDestinations(play.board, sourceIds = listOf(item.cardId))) {
+                                    val zone = play.board.containers.single { it.id == destination.containerId }.zone
+                                    val bound = destination.position?.let { TableDestination.Grid(destination.containerId, it.x, it.y, ownerOnly = true) }
+                                        ?: TableDestination.Container(destination.containerId, zone, destination.insertion == MoveInsertion.BOTTOM)
+                                    commands += CustomAccessibilityAction(label) { coordinator.accessibleMove(item, bound); true }
                                 }
                             }
                         }
@@ -999,9 +995,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         drawRect(OwnTableColor, xy(b.x, b.y), size(b.width, b.height), style = Stroke(density))
     }
     val landing = tableDragLanding(scene, preview)
-    landing.hand?.let { b ->
+    for ((b, insertionX) in listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands) {
         drawRect(OwnTableColor.copy(alpha = .18f), xy(b.x, b.y), size(b.width, b.height))
-        landing.insertionX?.let { x -> drawLine(OwnTableColor, xy(x, b.y + 3), xy(x, b.bottom - 3), 2 * density) }
+        insertionX?.let { x -> drawLine(OwnTableColor, xy(x, b.y + 3), xy(x, b.bottom - 3), 2 * density) }
     }
     for (b in landing.outlines) {
         drawRoundRect(OwnTableColor.copy(alpha = .08f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(2 * density))

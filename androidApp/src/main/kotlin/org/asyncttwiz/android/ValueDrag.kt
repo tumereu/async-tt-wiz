@@ -23,6 +23,18 @@ internal fun valueDragLabel(value: String?, delta: Long): String {
     return if (result != null) "$change -> $result" else change
 }
 
+internal fun cornerDragLabel(value: String, delta: Long): String {
+    val change = if (delta >= 0) "+$delta" else "$delta"
+    val result = cornerDragValue(value, delta)
+    return if (result != null) "$change -> $result" else change
+}
+
+internal fun cornerDragValue(value: String, delta: Long): String? {
+    val parts = value.trim().split('/')
+    if (parts.size !in 1..2 || parts.any { it != it.trim() }) return null
+    return parts.map { ManualText.add(it, delta) ?: return null }.joinToString("/")
+}
+
 /** Captures callbacks on down; counts from down (including touch slop), commits only on release. */
 internal fun Modifier.valueDragGestures(enabled: Boolean, preview: (Long?) -> Unit,
     start: () -> Boolean = { true }, commit: (Long) -> Unit): Modifier = composed {

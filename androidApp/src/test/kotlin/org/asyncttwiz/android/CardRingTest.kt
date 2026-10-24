@@ -5,17 +5,28 @@ import org.junit.Test
 import kotlin.test.*
 
 class CardRingTest {
+    @Test fun ownerEntryIsAssignedToEverydayOnlyWhenAvailableForAToken() {
+        for (token in listOf(false, true)) {
+            val ids = CardRingPages.defaults.flatMap { it.actions }.filter { it != "owner" || token }
+            val pages = CardRingPages.resolve(ids)
+            assertEquals(if (token) listOf("Everyday") else emptyList(), pages.filter { "owner" in it.actions }.map { it.name })
+            assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
+            assertEquals(ids.size, pages.sumOf { it.actions.size })
+        }
+    }
+
     @Test fun pagesAreDataAndEveryAvailableActionIsOnExactlyOnePage() {
         val ids = CardRingPages.defaults.take(2).flatMap { it.actions } +
-            listOf("flip", "otherSide", "face/0", "face/1", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token", "Library top · Alice", "Graveyard · Alice")
+            listOf("flip", "otherSide", "face/0", "face/1", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token", "Library top", "Graveyard")
         val pages = CardRingPages.resolve(ids)
         assertEquals(listOf("Everyday", "Counters", "More", "Move"), pages.map { it.name })
         assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
         assertEquals(ids.size, pages.flatMap { it.actions }.size)
         assertEquals(CardRingPages.defaults[0], pages[0])
-        assertEquals(16, pages[1].actions.size)
-        assertTrue(pages.all { it.actions.size <= 16 })
-        assertTrue(pages[3].actions.containsAll(listOf("Move to Stack", "Library top · Alice", "Graveyard · Alice")))
+        assertEquals(7, pages[1].actions.size)
+        assertEquals(14, CardRingPages.layout(pages[1].actions).sumOf { it.span })
+        assertTrue(pages.all { CardRingPages.layout(it.actions).all { slot -> slot.cell + slot.span <= 16 } })
+        assertTrue(pages[3].actions.containsAll(listOf("Move to Stack", "Library top", "Graveyard")))
         assertTrue(pages[2].actions.indexOf("face/0") < pages[2].actions.indexOf("Link"))
         val custom = CardRingPages.defaults.toMutableList().apply { this[0] = this[0].copy(actions = listOf("Clone", "inspect")) }
         assertEquals(listOf("Clone", "inspect"), CardRingPages.resolve(ids, custom)[0].actions)
@@ -39,17 +50,26 @@ class CardRingTest {
         assertTrue(pages.all { it.actions.size <= 16 })
     }
 
-    @Test fun compoundCellsKeepOriginalCallbacksAndDisabledState() {
+    @Test fun widgetsSkipRowEndCellsAndSpillAsAWhole() {
+        val actions = List(15) { "extra/$it" } + "corner"
+        val custom = CardRingPages.defaults.mapIndexed { index, page -> page.copy(actions = if (index == 0) actions else emptyList()) }
+        val pages = CardRingPages.resolve(actions, custom)
+        assertEquals(actions.take(15), pages[0].actions)
+        assertEquals(listOf("corner"), pages[1].actions)
+        val slots = CardRingPages.layout(listOf("a", "b", "c", "corner", "counter/RED"))
+        assertEquals(listOf(0, 1, 2, 4, 6), slots.map { it.cell })
+        assertTrue(slots.all { it.cell % 4 + it.span <= 4 })
+    }
+
+    @Test fun compoundWidgetKeepsOriginalCallbacksAndDisabledState() {
         var calls = 0
         val entry = RingEntry("corner", "P/T", MenuControl("Set corner") { calls += 10 },
             RingCompound("2/3", MenuControl("Decrease corner", false) { calls-- }, MenuControl("Increase corner") { calls++ }))
-        val cells = ringCells(listOf(entry))
-        assertEquals(listOf("corner/minus", "corner", "corner/plus"), cells.map { it.id })
-        assertFalse(cells[0].control.enabled)
-        assertEquals("P/T 2/3", cells[1].label)
-        cells[1].control.click(); cells[2].control.click()
+        assertEquals(2, CardRingPages.span(entry.id))
+        assertFalse(entry.compound!!.minus.enabled)
+        assertEquals("2/3", entry.compound.value)
+        entry.control.click(); entry.compound.plus.click()
         assertEquals(11, calls)
-        assertTrue(cells.all { it.compound == null })
     }
 
     @Test fun onlyTheValueCellKeepsTheCounterDragCallbackAndRawValue() {
@@ -57,12 +77,9 @@ class CardRingTest {
         val entry = RingEntry("counter/BLUE", "blue", MenuControl("Set blue counter") {},
             RingCompound("—", MenuControl("Decrease blue counter") {}, MenuControl("Increase blue counter") {},
                 drag = { delta = it }, dragValue = "0"))
-        val cells = ringCells(listOf(entry))
-        assertEquals(listOf("counter/BLUE/minus", "counter/BLUE", "counter/BLUE/plus"), cells.map { it.id })
-        assertNull(cells[0].drag)
-        assertNull(cells[2].drag)
-        assertEquals("0", cells[1].dragValue)
-        assertNotNull(cells[1].drag).invoke(4)
+        assertEquals(2, CardRingPages.span(entry.id))
+        assertEquals("0", entry.compound!!.dragValue)
+        assertNotNull(entry.compound.drag).invoke(4)
         assertEquals(4L, delta)
     }
 
@@ -74,6 +91,14 @@ class CardRingTest {
         val startedDuringGuard = guard.accepts(1279)
         assertFalse(startedDuringGuard) // still false when this press eventually releases
         assertTrue(guard.accepts(1280))
+    }
+
+    @Test fun cornerDragSupportsIntegersPairsNegativeStepsAndCheckedOverflow() {
+        assertEquals("-2/3", cornerDragValue("2/7", -4))
+        assertEquals("15", cornerDragValue("12", 3))
+        assertNull(cornerDragValue("*/3", 1))
+        assertNull(cornerDragValue("${Long.MAX_VALUE}/3", 1))
+        assertEquals("-4 -> -2/3", cornerDragLabel("2/7", -4))
     }
 
     @Test fun squareFitsWithoutCoveringTheCardAtEdgesAndCorners() {

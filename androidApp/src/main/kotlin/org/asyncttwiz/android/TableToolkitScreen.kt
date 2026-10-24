@@ -68,7 +68,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                         val placement = capturedSource.placement?.let { p -> p.pileId?.let { PlayPlacement(BoardPosition(p.column.toInt(), p.row.toInt()), it) } }
                         if (toolkit.submit(PlayAction.MoveCard(source.id, MoveSource(capturedSource.containerId, placement), choice.destination))) toolkit.dismiss()
                     }
-                }) { Text("Move to ${names[choice.label]} ${choice.zone.name.lowercase()}") }
+                }) { Text(choice.label) }
             }
         }
         else -> if (panel?.startsWith("contents/") == true) {
@@ -130,21 +130,8 @@ private fun ToolkitDialog(dismiss: () -> Unit, title: String? = null, content: @
 private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
     names: Map<String, String>, enabled: Boolean, annotations: TableMenuAnnotations?): List<MenuControl> {
     val card = play.board.cards.singleOrNull { it.id == toolkit.manual.scope?.contextId } ?: return emptyList()
-    val moves = listOf(PlayZone.LIBRARY to false, PlayZone.LIBRARY to true, PlayZone.GRAVEYARD to false, PlayZone.EXILE to false)
-        .mapNotNull { (zone, bottom) ->
-            val target = play.board.containers.singleOrNull { it.accountId == card.owner && it.zone == zone } ?: return@mapNotNull null
-            val name = when (zone) {
-                PlayZone.LIBRARY -> if (bottom) "Library bottom" else "Library top"
-                PlayZone.GRAVEYARD -> "Graveyard"
-                else -> "Exile"
-            } + " · ${names[card.owner] ?: "Player"}"
-            MenuControl(name, enabled) {
-                if (toolkit.handle(TableIntent.Move(TableScope(bound.sourceIds.first(), bound.sourceIds),
-                        TableDestination.Container(target.id, zone, bottom), bound.sources))) toolkit.dismiss()
-            }
-        }
     val battlefield = play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
-    return moves + listOf(
+    return listOf(
         MenuControl("Clone", enabled && toolkit.tokens.scope != null) {
             toolkit.batch { toolkit.tokens.clone() }; if (toolkit.tokens.error == null) toolkit.dismiss()
         },

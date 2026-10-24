@@ -15,7 +15,9 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                 val library = state.board.containers.singleOrNull { it.id == intent.libraryId && it.zone == PlayZone.LIBRARY }
                 val hand = state.board.containers.singleOrNull { it.id == intent.handId && it.zone == PlayZone.HAND }
                 if (library == null || hand == null || library.accountId != hand.accountId || library.cards.firstOrNull() != intent.topId) false
-                else LibraryActions.draw(state.board, library.id, hand.id, 1).any { submit(it, invocation) }
+                else LibraryActions.draw(state.board, library.id, hand.id, 1).any {
+                    submit(it.copy(destination = ownerMoveDestination(state.board, it.cardId, it.destination)), invocation)
+                }
             }
             is TableIntent.Rotate -> {
                 var sent = false
@@ -40,6 +42,24 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
     }
 
     private fun move(state: PlayState, intent: TableIntent.Move, invocation: String, stackEntryId: String? = null): Boolean {
+        val destinations = intent.scope.cardIds.groupBy { ownerMoveDestination(state.board, it, intent.destination) }
+        if (destinations.size > 1 || destinations.keys.singleOrNull()?.let { it != intent.destination } == true) {
+            // Splitting by owner must not repair stale captures or bypass the single Stack-entry rule.
+            if (intent.scope.cardIds.size > 1 && intent.scope.cardIds.any { it in CombatStackRules.stack(state.board).cards }) return false
+            for (id in intent.scope.cardIds) {
+                val card = CombatStackRules.liveSource(state.board, id) ?: return false
+                val captured = intent.sources[id] ?: return false
+                val source = captured.source() ?: return false
+                if (captured.sourceId != null && captured.sourceId != card.id || source.containerId != card.containerId || source.placement != card.placement) return false
+            }
+            var sent = false
+            for ((destination, ids) in destinations) {
+                val predecessor = play()?.takeIf { connected() && it.id == state.id } ?: break
+                sent = move(predecessor, intent.copy(scope = TableScope(intent.scope.contextId.takeIf { it in ids } ?: ids.first(), ids),
+                    destination = destination, sources = intent.sources.filterKeys { it in ids }), invocation, stackEntryId) || sent
+            }
+            return sent
+        }
         val stack = CombatStackRules.stack(state.board)
         if (intent.scope.cardIds.any { it in stack.cards }) {
             val entry = intent.scope.cardIds.singleOrNull() ?: return false

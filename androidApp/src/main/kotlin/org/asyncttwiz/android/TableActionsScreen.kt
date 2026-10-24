@@ -77,33 +77,28 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
 @Composable
 internal fun BasicMoveControls(play: PlayState, names: Map<String, String>, enabled: Boolean, scope: TableScope,
     sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false) {
-    val controls = remember(scope, sources, enabled) { basicMoveTools(play, names, enabled, scope, sources, request, dismiss, topCard) }
-    for ((index, player) in play.board.players.withIndex()) {
-        Text(names[player.accountId].orEmpty(), style = MaterialTheme.typography.labelSmall)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (control in controls.drop(index * 6).take(6)) control.Square()
-        }
+    val controls = basicMoveTools(play, names, enabled, scope, sources, request, dismiss, topCard)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (control in controls.take(6)) control.Square()
     }
-    for (control in controls.drop(play.board.players.size * 6)) control.Square()
+    for (control in controls.drop(6)) control.Square()
 }
 
 internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled: Boolean, scope: TableScope,
     sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false): List<MenuControl> = buildList {
-    for (player in play.board.players) {
-        for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
-            val target = play.board.containers.single { it.accountId == player.accountId && it.zone == zone }
-            val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
-            for (bottom in choices) {
-                val label = "Move ${if (topCard) "top card " else ""}to ${names[player.accountId]} ${zone.name.lowercase()}" +
-                    if (zone == PlayZone.LIBRARY) if (bottom) " bottom" else " top" else ""
-                // The destination cell is captured by this rendered control, not recomputed in a later callback.
-                val destination = if (zone == PlayZone.BATTLEFIELD) {
-                    val occupied = play.board.cards.filter { it.containerId == target.id }.mapNotNull { it.placement?.position }.toSet()
-                    val column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }
-                    TableDestination.Grid(target.id, column, 0)
-                } else TableDestination.Container(target.id, zone, bottom)
-                add(MenuControl(label, enabled) { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
-            }
+    val owner = CombatStackRules.liveSource(play.board, scope.contextId)?.owner ?: return@buildList
+    for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+        val target = play.board.containers.single { it.accountId == owner && it.zone == zone }
+        val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
+        for (bottom in choices) {
+            val label = moveZoneLabel(zone, bottom)
+            // The destination cell is captured by this rendered control, not recomputed in a later callback.
+            val destination = if (zone == PlayZone.BATTLEFIELD) {
+                val occupied = play.board.cards.filter { it.containerId == target.id }.mapNotNull { it.placement?.position }.toSet()
+                val column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }
+                TableDestination.Grid(target.id, column, 0, ownerOnly = true)
+            } else TableDestination.Container(target.id, zone, bottom)
+            add(MenuControl(label, enabled) { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
         }
     }
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }
@@ -116,15 +111,16 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
     for (destination in piles) {
         val source = requireNotNull(destination.source)
         val position = requireNotNull(source.placement)
-        val owner = play.board.containers.singleOrNull { it.id == source.containerId }?.accountId
-        add(MenuControl("Move to ${names[owner] ?: "Player"} pile (${position.column.toInt()}, ${position.row.toInt()})", enabled) {
+        add(MenuControl("Move to pile (${position.column.toInt()}, ${position.row.toInt()})", enabled) {
             if (request(TableIntent.Move(scope, destination, sources))) dismiss()
         })
     }
 }
 
 internal fun basicPileDestinations(play: PlayState, scope: TableScope): List<TableDestination.CardPile> =
-    play.board.cards.filter { it.placement != null && it.id !in scope.cardIds }
+    play.board.cards.filter { card -> card.placement != null && card.id !in scope.cardIds &&
+        scope.cardIds.all { id -> CombatStackRules.liveSource(play.board, id)?.owner ==
+            play.board.containers.singleOrNull { it.id == card.containerId }?.accountId } }
         .distinctBy { it.containerId to it.placement }.filter { card ->
             val members = play.board.cards.filter { it.containerId == card.containerId && it.placement == card.placement }.map { it.id }
             (members + scope.cardIds).distinct().size <= 3

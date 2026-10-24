@@ -29,7 +29,12 @@ class LibraryController(
     fun available() = connected() && current() != null
     private fun send(actions: List<PlayAction>, invocation: String = UUID.randomUUID().toString()): LibrarySubmission {
         var sent = 0; var refused = 0
-        for (action in actions) if (available() && (request?.invoke(action, invocation) ?: submit(action))) sent++ else refused++
+        for (action in actions) {
+            val routed = if (action is PlayAction.MoveCard) current()?.let {
+                action.copy(destination = ownerMoveDestination(it.board, action.cardId, action.destination))
+            } ?: action else action
+            if (available() && (request?.invoke(routed, invocation) ?: submit(routed))) sent++ else refused++
+        }
         return LibrarySubmission(sent, refused)
     }
     fun draw(count: Int = 1): LibrarySubmission {
@@ -55,15 +60,24 @@ class LibraryController(
             }
             return moveAcross(current, ids, sources, destination)
         }
-        return send(SharedLibraryActions.moveSlice(current.board, libraryId, selection, count, destination))
+        val ids = LibraryRules.slice(current.board.containers.single { it.id == libraryId }.cards, selection, count)
+        val moves = ownerMoves(current.board, ids, destination).map { action -> action.copy(source = action.source.copy(
+            edge = if (selection == ContentsSelection.TOP) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER,
+            bottomSlice = if (selection == ContentsSelection.BOTTOM) ids.drop(ids.indexOf(action.cardId)) else emptyList())) }
+        // Keep source slice order across owners (TOP/BOTTOM guards refer to that original slice).
+        return send(moves.sortedBy { ids.indexOf(it.cardId) })
     }
     fun moveCards(capturedIds: List<String>, destination: MoveDestination): LibrarySubmission {
         val current = current()?.takeIf { available() } ?: return LibrarySubmission(0, 1)
         if (capturedIds.any { id -> current.board.cards.none { it.id == id } }) return LibrarySubmission(0, 1)
         if (current.board.containers.any { it.id == destination.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) })
             return moveAcross(current, capturedIds, BasicTableController.sources(current, capturedIds), destination)
-        return send(SharedLibraryActions.moveCaptured(current.board, capturedIds, destination))
+        return send(ownerMoves(current.board, capturedIds, destination))
     }
+    private fun ownerMoves(board: BoardState, ids: List<String>, destination: MoveDestination): List<PlayAction.MoveCard> =
+        ids.groupBy { ownerMoveDestination(board, it, destination) }.flatMap { (target, members) ->
+            SharedLibraryActions.moveCaptured(board, members, target)
+        }
     private fun moveAcross(current: PlayState, ids: List<String>, sources: Map<String, TableMoveSource>, destination: MoveDestination): LibrarySubmission {
         if (ids.isEmpty()) return LibrarySubmission(0, 0)
         val target = current.board.containers.single { it.id == destination.containerId }
@@ -71,7 +85,7 @@ class LibraryController(
             if (ids.any { id -> current.board.cards.singleOrNull { it.id == id }?.let {
                     CombatStackRules.canProject(current.board, it) } != true }) return LibrarySubmission(0, ids.size)
             TableDestination.Container(target.id, target.zone)
-        } else destination.position?.let { TableDestination.Grid(target.id, it.x, it.y) } ?: return LibrarySubmission(0, ids.size)
+        } else destination.position?.let { TableDestination.Grid(target.id, it.x, it.y, ownerOnly = true) } ?: return LibrarySubmission(0, ids.size)
         return moveRequest?.invoke(TableIntent.Move(TableScope(ids.first(), ids), bound, sources, UUID.randomUUID().toString()))
             ?: LibrarySubmission(0, ids.size)
     }
@@ -83,7 +97,8 @@ class LibraryController(
             return LibrarySubmission(0, 1) // Stale presentation is not permission to return another Hand.
         val captured = SharedLibraryActions.mulligan(initial.board, libraryId, handId, displayedHand, seed(), count, minusOne)
         val invocation = UUID.randomUUID().toString()
-        val prefix = send(captured.prefix(), invocation)
+        val prefix = send(ownerMoves(initial.board, displayedHand, MoveDestination(libraryId, MoveInsertion.TOP)) +
+            PlayAction.ShuffleLibrary(libraryId, captured.seed), invocation)
         // submit synchronously updates the existing session's provisional board, not an accepted result/ack.
         // No await, extra engine, retry loop, local authoritative state or substitution of in-flight draws.
         val predicted = current()?.takeIf { available() } ?: return prefix

@@ -74,12 +74,11 @@ object StartRules {
                 if (action.choice.accountId != null && action.choice.accountId !in current.players.map { it.accountId })
                     reject("inapplicable")
                 else PreparationChange(current.copy(starter = action.choice, players = current.players.map {
-                    if (it.accountId == actor && current.starter != action.choice) it.copy(ready = false) else it
+                    if (it.accountId == actor && current.startingChoice != action.choice) it.copy(ready = false) else it
                 }))
             }
             GameAction.Ready -> when {
                 player.deck == null -> reject("deckRequired")
-                current.starter == null -> reject("starterRequired")
                 else -> PreparationChange(current.copy(players = current.players.map {
                     if (it.accountId == actor) it.copy(ready = true) else it
                 }))
@@ -91,7 +90,7 @@ object StartRules {
         }
     }
     fun canStart(game: GameSummary, preparation: LobbyPreparation) = game.lifecycle == GameLifecycle.LOBBY &&
-        game.invitationState == InvitationState.ACCEPTED && preparation.starter != null &&
+        game.invitationState == InvitationState.ACCEPTED &&
         preparation.players.size == 2 && preparation.players.all { it.ready && it.deck != null }
 
     /** Inputs are acquired independently by the server only after the readiness transition applies. */
@@ -100,7 +99,7 @@ object StartRules {
         require(canStart(game, preparation) && preparation.gameId == game.id && preparation.roundId == game.preparationRound)
         val players = preparation.players.sortedBy { it.accountId }
         require(librarySeeds.keys == players.map { it.accountId }.toSet())
-        val choice = preparation.starter!!
+        val choice = preparation.startingChoice
         val starter = if (choice.accountId == null) InitialStarter(choice,
             RandomV1.starter(players.map { it.accountId }, requireNotNull(starterSeed)), starterSeed, "starter-v1")
         else {

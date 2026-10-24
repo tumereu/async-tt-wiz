@@ -72,14 +72,18 @@ class TablePresentationTest {
         }
     }
 
-    @Test fun absentCountersKeepTheirRailAndBlankAccessibleControls() {
+    @Test fun portraitHidesEmptyCounterRailsAndReclaimsTheirHeight() {
         val play = TableFixture.play().let { it.copy(board = it.board.copy(players = listOf(
             PlayPlayer("a", counters = mapOf(CounterColor.BLUE to "1")), PlayPlayer("b")))) }
         val before = TableFixture.scene(play)
         val after = TableFixture.scene(TableFixture.play())
-        assertEquals(12, after.items.count { it.kind == TableItemKind.COUNTER })
-        assertTrue(after.items.filter { it.kind == TableItemKind.COUNTER }.all { it.value.isEmpty() && it.visible.isNotEmpty() })
-        assertEquals(before.fields.map { it.bounds }, after.fields.map { it.bounds })
+        assertEquals(0, after.items.count { it.kind == TableItemKind.COUNTER })
+        assertEquals(6, before.items.count { it.kind == TableItemKind.COUNTER })
+        assertTrue(after.viewports.none { it.id.startsWith("counters/") })
+        assertTrue(after.fields.first().bounds.height > before.fields.first().bounds.height)
+        val landscape = TableFixture.scene(TableFixture.play(), true)
+        assertEquals(12, landscape.items.count { it.kind == TableItemKind.COUNTER })
+        assertTrue(landscape.items.filter { it.kind == TableItemKind.COUNTER }.all { it.value.isEmpty() })
     }
 
     @Test fun commonScaleAndEqualFootprintsAcrossOrientationOwnerRotationAndPiles() {
@@ -195,12 +199,105 @@ class TablePresentationTest {
         val p = TableFixture.play().let { it.copy(board = it.board.copy(players = listOf(
             PlayPlayer("a", counters = mapOf(CounterColor.RED to "0")), PlayPlayer("b", counters = mapOf(CounterColor.BLUE to "-1"))))) }
         val portrait = TableFixture.scene(p)
-        assertEquals("0", portrait.items.single { it.kind == TableItemKind.COUNTER && it.owner == "a" && it.counter == CounterColor.RED }.value)
+        assertTrue(portrait.items.none { it.kind == TableItemKind.COUNTER && it.owner == "a" })
         val shown = portrait.items.filter { it.kind == TableItemKind.COUNTER && it.owner == "b" }
         assertEquals(6, shown.size); assertEquals("", shown.first { it.counter == CounterColor.RED }.value)
         assertTrue(shown.first { it.counter == CounterColor.RED }.label.contains("no value"))
         assertEquals(12, TableFixture.scene(p, true).items.count { it.kind == TableItemKind.COUNTER })
         assertEquals("0", p.board.players.first().counters[CounterColor.RED])
+    }
+
+    @Test fun portraitCounterVisibilityIncludesTextAndSignedNonzeroValuesPerPlayer() {
+        for (value in listOf("", " ", "0", "-000", "+0", "1", "-2", "poisoned")) {
+            val initial = TableFixture.play()
+            val play = initial.copy(board = initial.board.copy(players = initial.board.players.map {
+                if (it.accountId == "a") it.copy(counters = mapOf(CounterColor.GREEN to value, CounterColor.RED to "0")) else it
+            }))
+            val counters = TableFixture.scene(play).items.filter { it.kind == TableItemKind.COUNTER }
+            assertEquals(if (TablePresentation.nonzero(value)) 6 else 0, counters.size, value)
+            assertTrue(counters.all { it.owner == "a" })
+            if (counters.isNotEmpty()) assertEquals("0", counters.single { it.counter == CounterColor.RED }.value)
+        }
+    }
+
+    @Test fun stackStaysBetweenPlayerDocksWithoutCounterOrFieldOverlap() {
+        for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) {
+            val scene = TableFixture.scene(LiveTableFixture.play(), landscape, TableLayoutState(TableCamera(zoom = zoom)))
+            val stack = scene.items.single { it.zone == PlayZone.STACK }
+            val opponent = scene.items.single { it.id == "life/b" }
+            val own = scene.items.single { it.id == "life/a" }
+            assertTrue(stack.bounds.center.y > opponent.bounds.center.y)
+            assertTrue(stack.bounds.center.y < own.bounds.center.y)
+            assertNotNull(scene.stackRegion)
+            assertTrue(scene.fields.none { it.bounds.intersection(scene.stackRegion!!) != null })
+            assertTrue(scene.items.filter { it.kind == TableItemKind.COUNTER }.none { it.bounds.intersection(stack.bounds) != null })
+        }
+    }
+
+    @Test fun portraitStackStraddlesExactPlayerBoundaryWithoutAddingAnyVerticalBand() {
+        for (counterOwners in listOf(emptySet(), setOf("a"), setOf("b"), setOf("a", "b"))) {
+            val initial = TableFixture.play(hand = 2)
+            val empty = initial.copy(board = initial.board.copy(players = initial.board.players.map {
+                it.copy(counters = if (it.accountId in counterOwners) mapOf(CounterColor.BLUE to "3") else emptyMap())
+            }))
+            val stackIds = empty.board.cards.filter { it.containerId.endsWith("HAND") }.map { it.id }
+            val populated = empty.copy(board = empty.board.copy(
+                cards = empty.board.cards.map { if (it.id in stackIds) it.copy(containerId = "stack", covered = false) else it },
+                containers = empty.board.containers.map { it.copy(cards = if (it.id == "stack") stackIds else it.cards - stackIds.toSet()) }))
+            for (width in listOf(320f, 360f, 412f)) for (zoom in listOf(.65f, 1f, 2f)) for (reviewing in listOf(false, true)) {
+                var emptyFields: List<TableField>? = null
+                for (play in listOf(empty, populated)) for (scroll in listOf(0f, Float.MAX_VALUE)) {
+                    val scene = TablePresentation.scene(TableFixture.game, play, "a", width, 892f, false,
+                        TableLayoutState(TableCamera(zoom = zoom), mapOf("dock/a" to scroll, "dock/b" to scroll,
+                            "counters/a" to scroll, "counters/b" to scroll)), reviewing = reviewing)
+                    val topDock = scene.viewports.single { it.id == "dock/b" }.bounds
+                    val bottomDock = scene.viewports.single { it.id == "dock/a" }.bounds
+                    val topCounters = scene.viewports.singleOrNull { it.id == "counters/b" }?.bounds
+                    val boundary = topCounters?.bottom ?: topDock.bottom
+                    val stack = scene.items.single { it.id == "stack" }
+                    val region = assertNotNull(scene.stackRegion)
+                    assertEquals(boundary, bottomDock.y, .001f)
+                    assertEquals(boundary, stack.bounds.center.y, .001f)
+                    assertEquals(boundary, region.center.y, .001f)
+                    assertEquals(stack.bounds.width + 8f, region.width, .001f)
+                    assertEquals(stack.bounds.height + 8f, region.height, .001f)
+                    assertEquals(2 * topDock.height + 48f * counterOwners.size,
+                        scene.fields.last().bounds.y - scene.fields.first().bounds.bottom, .001f)
+                    assertEquals(scene.fields.first().bounds.bottom, topDock.y, .001f)
+                    assertEquals(scene.fields.last().bounds.y,
+                        scene.viewports.singleOrNull { it.id == "counters/a" }?.bounds?.bottom ?: bottomDock.bottom, .001f)
+                    assertTrue(scene.fields.none { it.bounds.intersection(region) != null })
+                    for (port in scene.viewports.filter { it.id.startsWith("dock/") || it.id.startsWith("counters/") }) {
+                        assertTrue(port.bounds.right <= region.x)
+                    }
+                    for (item in scene.items.filter { it.kind == TableItemKind.COUNTER || it.kind == TableItemKind.LIFE ||
+                        it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }) {
+                        assertTrue(item.visible.all { it.right <= region.x }, item.id)
+                    }
+                    assertEquals(stack.id, scene.hit(stack.stackBadge.center)?.id)
+                    assertEquals("Stack, ${stack.cards.size} entries", stack.label)
+                    if (play == empty) emptyFields = scene.fields else {
+                        assertEquals(emptyFields, scene.fields)
+                        val top = scene.items.last { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }
+                        // At minimum zoom the fixed-size badge covers the card center.
+                        assertEquals(top.id, scene.hit(TablePoint(top.bounds.right - zoom, top.bounds.bottom - zoom))?.id)
+                        assertEquals(stack.bounds, TablePresentation.stackBubbles(scene, play, top.cardId, width, 892f)?.anchor)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun portraitOnlyReservesMiddleHeightForAnOpenCombatLane() {
+        val initial = TableFixture.play()
+        val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
+        val scene = TableFixture.scene(play)
+        val lane = scene.viewports.single { it.id == "combat" }.bounds
+        assertEquals(CombatStackPresentation.combat(play.board, scene.cardWidth, scene.cardHeight).height, lane.height)
+        assertEquals(scene.viewports.single { it.id == "dock/b" }.bounds.bottom, lane.y)
+        assertEquals(scene.viewports.single { it.id == "dock/a" }.bounds.y, lane.bottom)
+        assertEquals(lane.center.y, scene.stackRegion!!.center.y)
+        assertTrue(lane.right <= scene.stackRegion.x)
     }
 
     @Test fun portraitBattlefieldsGrowToTheHandWithoutAnUnusedHeightCap() {

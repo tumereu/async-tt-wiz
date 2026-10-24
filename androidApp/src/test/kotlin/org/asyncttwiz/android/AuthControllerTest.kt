@@ -42,6 +42,19 @@ class AuthControllerTest {
         assertNull(importer.state.result); assertEquals("", importer.state.text)
         worker.drain(); auth.close(); importer.close()
     }
+    @Test fun savedLoginNetworkFailureIsQuietAndForegroundRetriesWithoutErasingCredential() {
+        val api = Api(); val worker = Worker(); val store = Store()
+        store.value = StoredSession.Present("A".repeat(43)); api.failure = AccountFailure("network")
+        val controller = AuthController(api, store, worker) { it() }
+        try {
+            worker.drain()
+            assertTrue(controller.state.restoring)
+            assertFalse(controller.state.error)
+            assertEquals("A".repeat(43), assertIs<StoredSession.Present>(store.value).token)
+            api.failure = null; controller.foreground(); worker.drain()
+            assertEquals(api.identity, controller.state.account)
+        } finally { controller.close(); worker.drain() }
+    }
     @Test fun successfulResetReturnsToSignInAndFencesEarlierLoginWithoutDeletingSameAccountContext() {
         val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
         val posts = ArrayDeque<() -> Unit>()

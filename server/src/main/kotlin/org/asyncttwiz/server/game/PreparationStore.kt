@@ -28,12 +28,12 @@ internal object PreparationStore {
         return PreparationRules.empty(summary).let { empty -> empty.copy(players = empty.players.map { player ->
             val row = rows[player.accountId]
             player.copy(ready = row?.ready ?: false, deck = row?.deck?.let { json.decodeFromString<PreparedDeck>(it) })
-        }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) }) }
+        }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) } ?: StarterChoice()) }
     }
 
     fun saveReadiness(sql: DSLContext, actor: UUID, state: LobbyPreparation) {
         val game = UUID.fromString(state.gameId)
-        sql.update(GAME).set(GAME.STARTER_CHOICE, state.starter?.let { json.encodeToString(it) }).where(GAME.ID.eq(game)).execute()
+        sql.update(GAME).set(GAME.STARTER_CHOICE, json.encodeToString(state.startingChoice)).where(GAME.ID.eq(game)).execute()
         val ready = state.players.single { it.accountId == actor.toString() }.ready
         sql.insertInto(PLAYER_PREPARATION).set(PLAYER_PREPARATION.GAME_ID, game).set(PLAYER_PREPARATION.ACCOUNT_ID, actor)
             .set(PLAYER_PREPARATION.READY, ready).onConflict(PLAYER_PREPARATION.GAME_ID, PLAYER_PREPARATION.ACCOUNT_ID)

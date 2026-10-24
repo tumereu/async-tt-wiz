@@ -27,7 +27,7 @@ import org.asyncttwiz.storage.ArtworkReference
 
 @Composable
 internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?,
-    importDeck: ((DeckSummary) -> Unit)? = null) {
+    importDeck: ((DeckDetail) -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
     if (state.dialog == DeckDialog.COVER && state.detail != null) {
@@ -35,9 +35,9 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
     }
     ScreenBusyOverlay(if (state.mutating) "Saving deck…" else if (state.busy) "Loading saved deck…" else null) {
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(state.detail?.saved?.deck?.name ?: "Saved deck", openNavigation) {
-            ScreenOutlinedButton(onClick = { if (state.dialog == DeckDialog.EDIT) controller.dismiss() else controller.edit(DeckDialog.EDIT) },
-                enabled = state.detail != null && !state.mutating) {
+        ScreenHeader("Saved deck", openNavigation) {
+            ScreenOutlinedButton(onClick = { state.detail?.let { importDeck?.invoke(it) } },
+                enabled = state.detail != null && !state.mutating && importDeck != null) {
                 EntryIcon(null, "edit"); Spacer(Modifier.width(6.dp)); Text("Edit")
             }
             ScreenIconButton("Exit without saving", "close", controller::back)
@@ -47,6 +47,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
             TextButton(onClick = controller::retry) { Text("Retry saved deck") }
         }
         state.detail?.let { detail ->
+            DeckMetadataHeader(detail.saved.deck.name, detail.saved.deck.cover)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedCard(Modifier.fillMaxWidth()) {
@@ -67,36 +68,18 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                 for (entry in detail.saved.entries.filter { it.section == state.section }) {
                     val definition = detail.definitions.getValue(entry.definition)
                     Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Inspect ${definition.name}") { controller.inspect(entry.definition) }
-                        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                         .heightIn(min = 48.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(entry.quantity.toString(), Modifier.widthIn(min = 24.dp))
-                         Box(Modifier.size(48.dp).clickable(onClickLabel = "Inspect ${definition.name} artwork") {
-                            controller.inspect(entry.definition)
-                         }.semantics { contentDescription = "Inspect artwork for ${definition.name}" }, contentAlignment = Alignment.Center) { DefinitionThumbnail(entry.definition, definition) }
+                          Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) { DefinitionThumbnail(entry.definition, definition) }
                         Text(definition.name, Modifier.weight(1f))
                     }
                     HorizontalDivider()
                 }
             }
             }
-            if (state.dialog == DeckDialog.EDIT) OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Edit deck", style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ScreenOutlinedButton(onClick = { controller.edit(DeckDialog.RENAME) }, Modifier.weight(1f)) { EntryIcon(null, "edit"); Spacer(Modifier.width(8.dp)); Text("Rename") }
-                        ScreenOutlinedButton(onClick = { controller.edit(DeckDialog.COVER) }, Modifier.weight(1f)) { EntryIcon(null, "cover"); Spacer(Modifier.width(8.dp)); Text("Choose cover") }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ScreenOutlinedButton(onClick = { detail.saved.deck.let { importDeck?.invoke(it) } }, Modifier.weight(1f), enabled = importDeck != null) {
-                            EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Import decklist")
-                        }
-                        ScreenOutlinedButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                            EntryIcon(null, "delete"); Spacer(Modifier.width(8.dp)); Text("Delete saved deck")
-                        }
-                    }
-                }
-            }
+             TextButton(onClick = { controller.edit(DeckDialog.DELETE) },
+                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete saved deck") }
             }
         }
     }

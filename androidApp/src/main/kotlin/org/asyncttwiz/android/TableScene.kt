@@ -203,12 +203,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
-        LaunchedEffect(targetScene) {
-            animation.retarget(targetScene, progress.value)
-            progress.snapTo(0f)
-            if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(180))
+        SideEffect { animation.updateMetadata(targetScene) }
+        LaunchedEffect(animation, targetScene.animationTargets) {
+            if (animation.retarget(targetScene, progress.value)) {
+                progress.snapTo(0f)
+                if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(180))
+            }
         }
-        val frame = animation.frame(progress.value)
+        val frame = animation.frame(progress.value, targetScene)
         val animatedItems = frame.filter { it.alpha > 0f }.map { it.item.copy(bounds = it.bounds) }
         val baseScene = TablePresentation.clip(targetScene.copy(items = animatedItems), maxWidth.value, maxHeight.value)
         val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry ?: localStackBubble
@@ -391,8 +393,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
             TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
                 tokenCatalog = runtime.tokenCatalog)
-            toolkit.error?.let { Text(it, Modifier.align(Alignment.BottomCenter).background(Color.White), color = MaterialTheme.colorScheme.error) }
         }
+        FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
+            { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
         // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
         if (!runtime.reviewing) Box(Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 4.dp)) {
             ActionSquare("Interaction mode", "", true,
@@ -563,6 +567,55 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
         text(label, if (right) x - paint.measureText(label) / density else x, y, label.length)
     }
+    fun centeredText(value: String, bounds: TableBounds, maxSize: Float) {
+        paint.textSize = maxSize * density
+        val available = (bounds.width - 8f).coerceAtLeast(1f) * density
+        val measured = paint.measureText(value)
+        if (measured > available) paint.textSize *= available / measured
+        val metrics = paint.fontMetrics
+        val x = bounds.center.x * density - paint.measureText(value) / 2
+        val baseline = bounds.center.y * density - (metrics.ascent + metrics.descent) / 2
+        drawContext.canvas.nativeCanvas.drawText(value, x, baseline, paint)
+    }
+    fun emptySlot(i: TableItem, color: Color) {
+        val z = scene.camera.zoom
+        val x = i.bounds.x + 8f * z; val y = i.bounds.y + 8f * z
+        val w = scene.cardWidth; val h = scene.cardHeight
+        val ink = if (i.zone == PlayZone.STACK) Color(0xff795497) else color.copy(alpha = .7f)
+        drawRoundRect(ink, xy(x, y), size(w, h), CornerRadius(2 * density), style = Stroke(density))
+        val cx = x + w / 2; val cy = y + h / 2
+        fun line(a: Float, b: Float, c: Float, d: Float) = drawLine(ink,
+            xy(cx + a * z, cy + b * z), xy(cx + c * z, cy + d * z), 1.4f * density * z)
+        when (i.zone) {
+            PlayZone.GRAVEYARD -> {
+                val stone = androidx.compose.ui.graphics.Path().apply {
+                    moveTo((cx - 7 * z) * density, (cy + 8 * z) * density)
+                    lineTo((cx - 7 * z) * density, (cy - 3 * z) * density)
+                    quadraticTo(cx * density, (cy - 13 * z) * density, (cx + 7 * z) * density, (cy - 3 * z) * density)
+                    lineTo((cx + 7 * z) * density, (cy + 8 * z) * density); close()
+                }
+                drawPath(stone, ink, style = Stroke(1.4f * density * z))
+                line(0f, -3f, 0f, 5f); line(-3f, 0f, 3f, 0f); line(-10f, 8f, 10f, 8f)
+            }
+            PlayZone.EXILE -> {
+                drawOval(ink, xy(cx - 7 * z, cy - 10 * z), size(14 * z, 20 * z), style = Stroke(1.4f * density * z))
+                drawOval(ink, xy(cx - 3 * z, cy - 6 * z), size(6 * z, 12 * z), style = Stroke(density * z))
+                line(-10f, -6f, -7f, -4f); line(7f, 4f, 10f, 6f)
+            }
+            PlayZone.STACK -> {
+                for (dy in listOf(-4f, 2f)) {
+                    line(-9f, dy, 0f, dy - 5f); line(0f, dy - 5f, 9f, dy)
+                    line(9f, dy, 0f, dy + 5f); line(0f, dy + 5f, -9f, dy)
+                }
+            }
+            PlayZone.LIBRARY -> {
+                line(-7f, -8f, 5f, -8f); line(-7f, -8f, -7f, 7f)
+                line(-7f, 7f, 5f, 7f); line(5f, -8f, 5f, 7f)
+                line(-3f, 10f, 8f, 10f); line(8f, -5f, 8f, 10f)
+            }
+            else -> Unit
+        }
+    }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
         val z = scene.camera.zoom
         val outline = cardSilhouette(scene.cardWidth * density, scene.cardHeight * density, i.token, x * density, y * density, 2 * density)
@@ -588,6 +641,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
         drawRect(Color.White, xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height))
         drawRect(Color(0xffb9cbc5), xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height), style = Stroke(density * .7f))
+    }
+    scene.stackRegion?.let { b ->
+        drawRect(Color(0xffeee3f5), xy(b.x, b.y), size(b.width, b.height))
     }
     for (f in scene.fields) {
         val b = f.gridBounds
@@ -640,25 +696,24 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
             TableItemKind.LIFE -> {
                 drawRect(color, xy(b.x, b.y), size(b.width, b.height))
                 paint.color = android.graphics.Color.WHITE; paint.textSize = 24 * density; paint.isFakeBoldText = true
-                fittedText(i.value, b.right - 5, b.y + 32, b.width - 10, right = true)
+                centeredText(i.value, b, 24f)
                 paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
             TableItemKind.COUNTER -> {
                 val marker = when (i.counter) {
-                    CounterColor.RED -> Color(0xffb44b51); CounterColor.BLUE -> Color(0xff497ca7)
-                    CounterColor.GREEN -> Color(0xff46845d); CounterColor.YELLOW -> Color(0xffc7ab3d)
-                    CounterColor.PURPLE -> Color(0xff8c639d); else -> Color.Gray
+                    CounterColor.RED -> Color(0xffb44b51); CounterColor.BLUE -> Color(0xff426f97)
+                    CounterColor.GREEN -> Color(0xff3c744f); CounterColor.YELLOW -> Color(0xffc7ab3d)
+                    CounterColor.PURPLE -> Color(0xff8c639d); else -> Color(0xff626b6e)
                 }
-                drawCircle(marker, 13 * density, xy(b.center.x, b.center.y), style = Stroke(density * .7f))
+                drawCircle(marker, 14 * density, xy(b.center.x, b.center.y))
                 paint.isFakeBoldText = true
-                text(i.value, b.center.x - paint.measureText(i.value) / density / 2, b.center.y + 4)
-                paint.isFakeBoldText = false
+                paint.color = if (i.counter == CounterColor.YELLOW) android.graphics.Color.rgb(32, 42, 46) else android.graphics.Color.WHITE
+                centeredText(i.value, TableBounds(b.center.x - 14f, b.center.y - 14f, 28f, 28f), 11f)
+                paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
             TableItemKind.PILE -> {
                 if (i.cards.isEmpty()) {
-                    paint.textSize = 24 * density; paint.color = android.graphics.Color.rgb(126, 148, 149)
-                    text(if (i.zone == PlayZone.STACK) "▱" else "⊘", b.x + 10, b.y + 36, 1)
-                    paint.textSize = 11 * density; paint.color = android.graphics.Color.DKGRAY
+                    if (i.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) emptySlot(i, color)
                 } else if (i.zone != PlayZone.STACK) {
                     for (peek in minOf(2, i.cards.size - 1) downTo 0) {
                         val d = peek * 4 * scene.camera.zoom

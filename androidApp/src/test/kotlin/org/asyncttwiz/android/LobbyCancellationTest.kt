@@ -111,7 +111,7 @@ class LobbyCancellationTest {
         assertNull(f.lobby.state.selected); assertTrue(f.lobby.state.games.isEmpty()); assertNull(f.lobby.state.preparation)
         assertEquals(listOf(other), f.lobby.state.contacts)
         f.createFails = false; val opens = f.opens; f.lobby.create(); f.drain()
-        assertEquals(listOf(f.creates[0], f.creates[0]), f.creates); assertEquals(opens, f.opens)
+        assertEquals(List(4) { f.creates[0] }, f.creates); assertEquals(opens, f.opens)
         assertNull(f.lobby.state.selected); assertTrue(f.lobby.state.games.isEmpty())
     }
     @Test fun leavingAndReopeningDoesNotCancelOrWithdrawAcceptedReady() = Fixture().use { f ->

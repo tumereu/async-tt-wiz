@@ -34,7 +34,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val tree: (() -> Unit)? = null, val continueHere: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
     val menuContent: (@Composable () -> Unit)? = null, val reviewPanel: (@Composable () -> Unit)? = null,
-    val continuationArmed: Boolean = false)
+    val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -43,6 +43,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     runtime: TableRuntimeHooks = TableRuntimeHooks()) {
     val state = controller.state
     val game = state.detail ?: return
+    val interactive = game.id !in state.reconnectingGames
     val live = state.play
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
     val tree = controller.retainedTree()
@@ -58,7 +59,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     var advanced by remember(game.id, live?.id) { mutableStateOf(false) }
     var showHidden by remember(game.id, live?.id) { mutableStateOf(false) }
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
-    val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }, { game.id in controller.state.connectedGames }, { scope, action ->
+    val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }, { game.id !in controller.state.reconnectingGames }, { scope, action ->
         controller.state.detail?.playId == scope.playId && controller.historyControl(action)
     }) }
     DisposableEffect(explorer) { onDispose { explorer.close(); graphWorker.shutdown() } }
@@ -70,7 +71,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val waitingActivity = target?.destination == ActivityDestination.GROUP && target != appliedActivity
     val awaitingIndex = tree != null && live?.currentNodeId == state.acceptedPlay?.currentNodeId &&
         playback?.tree?.sharedHeadId != tree.currentNodeId
-    val play = if (waitingActivity) null else if (reviewing || awaitingIndex) history.view?.state else live
+    val endpoint = remember(history) { TableEndpointPresentation() }
+    val play = if (waitingActivity) null else if (reviewing) history.view?.state
+        else endpoint.live(live, history.view?.state, awaitingIndex)
+    SideEffect { endpoint.presented(play) }
     LaunchedEffect(target, tree) {
         if (target?.destination == ActivityDestination.GROUP && target != appliedActivity && target.playId != null && target.boundaryNodeId != null) {
             val captured = CapturedHistoryTarget(accountId, target.gameId, requireNotNull(target.playId), target.groupId, requireNotNull(target.boundaryNodeId))
@@ -124,7 +128,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             val personal = controller.history
             (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.state.play)
                 ?.takeIf { it.id == playId && it.gameId == game.id }
-        }, { history.foreground && game.id in controller.state.connectedGames && (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
+        }, { history.foreground && game.id !in controller.state.reconnectingGames && (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
             controller::gameplay, ending = { intent ->
                 val target = controller.captureResult()
                 if (target == null) false else when (intent.tool) {
@@ -134,7 +138,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     EndingTool.ACCEPT -> intent.suggestionId?.takeIf { history.gate?.suggestionId == it }
                         ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
                 }
-            }, acceptedInspection = controller::inspectFace) }
+            }, acceptedInspection = controller::inspectFace,
+                waitingForConnection = { game.id !in controller.state.connectedGames }) }
         retained?.obtain(controller, listOf(game.id, playId.orEmpty(), accountId), create) ?: create()
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
@@ -152,7 +157,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     history.view?.takeIf { it.cursor == play.currentNodeId }?.contextVersion)) { intent ->
                     if (!history.foreground || controller.state.detail?.id != game.id ||
                         controller.state.detail?.playId != play.id || intent.reference.playId != play.id ||
-                        game.id !in controller.state.connectedGames) false else {
+                        game.id in controller.state.reconnectingGames) false else {
                         var sent = false
                         intent.actions().forEach { action ->
                             sent = (if (history.armed != null) controller.gameplay(action) else controller.annotate(action)) || sent
@@ -162,33 +167,34 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                 }
                 CompositionLocalProvider(LocalTableMenuAnnotations provides menuAnnotations) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(),
-                    connected = game.id in state.connectedGames && editable, onIntent = onIntent ?: toolkit::handle, placements = placements,
+                    connected = interactive && editable, onIntent = onIntent ?: toolkit::handle, placements = placements,
                     toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
                     runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
+                        errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
                         navigation = hamburger, chatUnread = state.chat.unread,
                         history = playback?.let { player -> { history.select(player.position.cursorId) } },
                         tree = { explorerOpen = true },
-                        continueHere = if (reviewing && history.armed == null && game.id in state.connectedGames &&
+                         continueHere = if (reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                         returnCurrent = if (reviewing || history.armed != null) history::current else null,
                         menuContent = {
                             if (history.armed != null) DropdownMenuItem(text = { Text("Cancel continuation") }, onClick = history::cancelContinuation)
                             DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
-                                enabled = game.id in state.connectedGames)
-                            if (reviewing) HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
+                                enabled = interactive)
+                             if (reviewing) HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
                         }, reviewPanel = if (playback != null && reviewing && history.armed == null) ({
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
-                                game.id in state.connectedGames, 240L, { history.requestContinuation(it) },
+                                 interactive, 240L, { history.requestContinuation(it) },
                                 continuationReady = position?.cursorId?.let(history::canArm) == true,
                                 overlay = true, landscape = landscape, menuContent = {
-                                    HistoryEventActions(history, play, toolkit, game.id in state.connectedGames, controller::annotate)
+                                     HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
                                     DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
-                                        enabled = game.id in state.connectedGames)
+                                         enabled = interactive)
                                 })
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         continuationArmed = history.armed != null,
-                        controlsConnected = game.id in state.connectedGames && history.foreground,
+                         controlsConnected = interactive && history.foreground,
                         pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))
                 if (!history.provisional) history.armed?.let { boundary ->
                     HistoryArmedIndicator(playback?.tree?.texts?.get(boundary)?.label ?: "selected event",
@@ -196,24 +202,21 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                 }
                 }
             }
-            if (game.id !in state.connectedGames) Text("Disconnected · read-only", Modifier.padding(horizontal = 12.dp),
-                style = MaterialTheme.typography.bodySmall)
-            else state.connectionMessage?.let { Text(it, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.bodySmall) }
         }
     }
     history.continuationTarget?.let { target ->
-        HistoryContinueConfirmation(game.id in state.connectedGames && history.foreground && history.canArm(target),
+        HistoryContinueConfirmation(interactive && history.foreground && history.canArm(target),
             history::dismissContinuation, { history.confirmContinuation() })
     }
-    if (explorerOpen && tree != null) HistoryExplorer(explorer, game.id in state.connectedGames,
+    if (explorerOpen && tree != null) HistoryExplorer(explorer, interactive,
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
             game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),
         showHidden, { showHidden = it }, { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
         onAdvanced = { advanced = true }, texts = playback?.tree?.texts.orEmpty())
     if (advanced && tree != null) HistoryAdvanced(history, tree, position?.cursorId ?: tree.currentNodeId,
-        game, accountId, landscape, game.id in state.connectedGames, { advanced = false })
+        game, accountId, landscape, interactive, { advanced = false })
     if (history.gate?.suggestionId != dismissedResult) ResultAcceptanceDialog(game, state.acceptedPlay, accountId,
-        history.gate, game.id in state.connectedGames,
+        history.gate, interactive,
         dismiss = { dismissedResult = history.gate?.suggestionId }, accept = { controller.acceptResult(it) })
     if (state.chatOpen) {
         // A modal panel owns focus/IME/Back; the drawer cannot obscure viewed rows.

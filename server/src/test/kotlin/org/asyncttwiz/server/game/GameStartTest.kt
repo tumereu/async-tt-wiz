@@ -162,7 +162,9 @@ class GameStartTest {
                 val states = mutableListOf<PlayState>()
                 repeat(2) {
                     val game = game(runtime, a, b); val owner = Stream(games, a, game); val recipient = Stream(games, b, game)
-                    owner.execute(owner.select(aSource)); owner.execute(GameAction.SetStarter(StarterChoice()))
+                    assertEquals(StarterChoice(), games.head(a, game.id).preparation!!.starter)
+                    assertEquals(1, number(db, """SELECT count(*) FROM game WHERE id='${game.id}' AND starter_choice='{"accountId":null}'"""))
+                    owner.execute(owner.select(aSource)) // Random is already selected, no SetStarter required.
                     assertEquals(0, number(db, "SELECT count(*) FROM game_play WHERE game_id='${game.id}'")) // No roll on selecting Random.
                     recipient.execute(GameAction.AcceptInvitation); recipient.execute(recipient.select(bSource)); owner.execute(GameAction.Ready)
                     var preparation = games.head(a, game.id).preparation!!
@@ -282,7 +284,7 @@ class GameStartTest {
                 val games = GameService(runtime); runtime.attachWorker(games::validatePending) { true }; runtime.start(); ready(runtime)
                 val principal = AccountService.Principal(UUID.randomUUID(), AccountIdentity(a, "A"))
                 val head = games.head(principal, game)
-                assertNull(head.play); assertNull(head.preparation!!.starter)
+                assertNull(head.play); assertEquals(StarterChoice(), head.preparation!!.starter)
                 assertEquals(deck, head.preparation!!.players[0].deck); assertTrue(head.preparation!!.players[0].ready)
                 assertEquals(listOf(submitted), head.preparation!!.definitions)
                 assertTrue(games.executeOne()); assertFalse(games.executeOne())
@@ -291,7 +293,7 @@ class GameStartTest {
             }
             assertEquals(0, number(db, "SELECT count(*) FROM game_play"))
             assertEquals(1, number(db, "SELECT count(*) FROM game_inbox WHERE result IS NOT NULL"))
-            println("PASS explicit non-destructive V8-to-V9 retained concrete 60/15 prepared copy/definition/Ready/round/game metadata and pending original; no auto-start/implicit starter; existing inbox executes once after migration")
+            println("PASS non-destructive migration retains prepared snapshots and pending requests, defaults legacy unset starter to Random without rolling or starting")
         }
     }
 }

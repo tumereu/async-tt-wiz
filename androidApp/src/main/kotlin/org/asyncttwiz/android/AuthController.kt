@@ -49,6 +49,15 @@ class AuthController(
     private val ownerLock = Any()
     private var reauthenticationContext: AuthState? = null
     private var logoutRevokeAttempted = false // Auth worker only; cleanup retries must still forget the token.
+    @Volatile private var retrySavedLogin = false
+    private var nextRestore = 0L
+    fun foreground() {
+        val now = System.nanoTime() / 1_000_000
+        if (retrySavedLogin && state.restoring && state.restoreFailed && !state.busy && now >= nextRestore) {
+            nextRestore = now + 5_000
+            restore()
+        }
+    }
 
     private fun bestEffortRevoke(value: String) { runCatching { revoke(value) } }
 
@@ -126,6 +135,7 @@ class AuthController(
         if (closed || state.busy) return
         val epoch = generation.get()
         state = AuthState(busy = true, restoring = true)
+        retrySavedLogin = false
         work {
             local.resumeLogout(store)
             restoreSaved(epoch)
@@ -140,7 +150,7 @@ class AuthController(
                     AuthState(restoring = false, message = "Saved login is unavailable. Please sign in again.", error = true)
                 }
                 is StoredSession.Present -> try {
-                    val identity = accounts.identity(saved.token)
+                    val identity = serviceRetry(current = { generation.get() == epoch }) { accounts.identity(saved.token) }
                     if (generation.get() != epoch) return null
                     if (accountSwitcher) {
                         val email = store.remembered().firstOrNull { it.token == saved.token }?.account?.email.orEmpty()
@@ -155,8 +165,12 @@ class AuthController(
                         store.clear()
                         AuthState(restoring = false, email = email,
                             message = "Your session is no longer valid. Please sign in again.", error = true)
-                    } else AuthState(restoring = true, restoreFailed = true,
-                        message = "Could not check your saved login. Check your connection and retry.", error = true)
+                    } else {
+                        retrySavedLogin = transientServiceFailure(failure)
+                        AuthState(restoring = true, restoreFailed = true,
+                            message = if (retrySavedLogin) "Checking saved login…" else "Could not check your saved login. Retry.",
+                            error = !retrySavedLogin)
+                    }
                 }
             }
 

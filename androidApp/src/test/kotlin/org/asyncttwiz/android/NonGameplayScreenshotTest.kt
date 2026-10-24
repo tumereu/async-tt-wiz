@@ -57,7 +57,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
             "play", "games-loading", "catalog-startup", "catalog-update", "catalog-checking", "records-downloading", "records-downloading-unknown", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting",
-            "decks", "deck-detail", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
+             "decks", "deck-detail", "deck-edit", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
             "import-save", "import-save-scrolled", "reconnecting", "gameplay-chat")
     }
 
@@ -125,7 +125,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
                                     "deck-detail", "deck-art", "choose-cover", "delete-deck" ->
                                         SavedDeckScreen(fixtures.library, if (landscape) null else ({}), importDeck = {})
-                                    "import-edit", "import-errors", "import-save", "import-save-scrolled" ->
+                                     "deck-edit", "deck-edit-cover", "import-edit", "import-errors", "import-save", "import-save-scrolled" ->
                                         DeckImportScreen(fixtures.importer, landscape, if (landscape) null else ({}), null)
                                     else -> ShellContent(when (screen) {
                                         "play", "games-loading", "game-context", "delete-game" -> ShellDestination.GAMES
@@ -193,7 +193,23 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "play" -> paired("Accept", "Decline")
             "choose-lobby-deck" -> paired("Import deck", "Use selected deck")
             "choose-cover" -> paired("Use cover", "Cancel")
-            "import-save", "import-save-scrolled" -> paired("Save deck", "Edit pasted list")
+             "import-save", "import-save-scrolled" -> paired("Save deck", "Edit pasted list")
+             "deck-detail" -> {
+                 compose.onNodeWithText("Edit").assertIsDisplayed()
+                 compose.onNodeWithText("Save").assertDoesNotExist()
+                 val row = compose.onNodeWithText("Meadow Sentinel").fetchSemanticsNode().boundsInRoot
+                 assertTrue(row.height <= 48f)
+             }
+             "deck-edit" -> {
+                 compose.onNodeWithText("Save").assertIsDisplayed()
+                 compose.onNodeWithText("Edit").assertDoesNotExist()
+                 compose.onNodeWithTag("deck-list").assertIsDisplayed()
+                 compose.onNodeWithContentDescription("Choose deck cover").assertIsDisplayed()
+             }
+             "deck-edit-cover" -> {
+                 compose.onNodeWithText("Choose cover").assertIsDisplayed()
+                 compose.onNodeWithText("Meadow Sentinel").assertIsDisplayed()
+             }
             "create-game" -> paired("Cancel", "Create & invite")
             "delete-game" -> paired("Keep game", "Delete game")
             "cancel-lobby" -> paired("Keep game", "Cancel game")
@@ -282,7 +298,7 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
             SavedDeckEntry(SavedDeckSection.SIDEBOARD, definitions[4].digest, 15))
         library.seed(DeckLibraryState(decks = decks, selected = decks.first().id, loaded = true,
             detail = DeckDetail(SavedDeck(decks.first(), entries), definitions.associate { it.digest to it.definition }),
-            dialog = when (screen) { "deck-detail" -> DeckDialog.EDIT; "choose-cover" -> DeckDialog.COVER; "delete-deck" -> DeckDialog.DELETE; else -> null },
+             dialog = when (screen) { "choose-cover" -> DeckDialog.COVER; "delete-deck" -> DeckDialog.DELETE; else -> null },
             draftCover = definitions.first().digest))
         if (screen == "deck-art") library.inspect(definitions.first().digest)
         val text = "Deck\n4 Meadow Sentinel\n4 Ember Adept\n4 Aegis Ward\n48 Training Land\nSideboard\n15 Quiet Grove"
@@ -293,8 +309,14 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
                 entry.quantity, listOf(printing), listOf(1))
         }, if (screen == "import-errors") listOf(ImportIssue(3, "Unknown Card could not be resolved.")) else emptyList(),
             CatalogMetadata("2026-10-20", "fixture", "fixture"))
-        importer.seed(DeckImportState(active = true, text = text, name = "Training deck", result = result,
-            preview = screen.startsWith("import-save"), target = if (screen == "import-edit") decks.first().id else null))
+         importer.seed(DeckImportState(active = true, text = text, name = "Training deck", result = result,
+             preview = screen.startsWith("import-save"), target = if (screen == "import-edit") decks.first().id else null))
+         if (screen.startsWith("deck-edit")) {
+             importer.openEditor(library.state.detail!!)
+             val resolved = DeckEditorSource(library.state.detail!!).resolve(importer.state.text) { error("No new cards") }
+             importer.seed(importer.state.copy(result = resolved, busy = false))
+             if (screen == "deck-edit-cover") importer.chooseCover()
+         }
         if (screen == "gameplay-chat") {
             val active = LiveTableFixture.game
             lobby.seed(lobby.state.copy(selected = active.id, detail = active, chatOpen = true, connectedGames = setOf(active.id),

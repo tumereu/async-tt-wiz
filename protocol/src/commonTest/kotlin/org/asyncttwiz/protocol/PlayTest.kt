@@ -32,8 +32,9 @@ class PlayTest {
         val sideOnly = state.players[0].deck!!.copy(entries = state.players[0].deck!!.entries.filter { it.section == SavedDeckSection.SIDEBOARD })
         assertTrue(change(state.copy(players = listOf(state.players[0].copy(deck = sideOnly), state.players[1])),
             a.accountId, GameAction.Ready, pending).state!!.players[0].ready)
-        assertNull(lobby().copy(starter = null).starter) // No invented Random default or pre-start roll.
-        assertEquals("starterRequired", change(lobby().copy(starter = null), a.accountId, GameAction.Ready).reason)
+        assertEquals(StarterChoice(), PreparationRules.empty(game).startingChoice)
+        assertEquals(StarterChoice(), lobby().copy(starter = null).startingChoice)
+        assertTrue(change(lobby().copy(starter = null), a.accountId, GameAction.Ready).state!!.players[0].ready)
     }
 
     @Test fun actualStarterChangeAndWithdrawalClearOnlyActorAndCannotReopenPlay() {

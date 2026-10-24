@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,7 +49,6 @@ internal fun gameStatus(game: GameSummary): String = if (game.lifecycle == GameL
 internal fun GameSummary.opponent(accountId: String) = if (inviter.accountId == accountId) recipient else inviter
 internal fun readyReason(preparation: LobbyPreparation?, accountId: String): String? = when {
     preparation?.players?.find { it.accountId == accountId }?.deck == null -> "Select your deck to get ready."
-    preparation.starter == null -> "Choose the starting player to get ready."
     else -> null
 }
 
@@ -223,7 +224,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     BackHandler { controller.back() }
     if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
         TableScreen(controller, accountId, hamburger, landscape)
-        if (state.detail.id !in state.connectedGames && state.play != null && !state.chatOpen)
+        if (state.detail.id in state.reconnectingGames && state.play != null)
             ReconnectingDialog(controller::back)
         return
     }
@@ -277,22 +278,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                     } }
                 }
                 val starter: @Composable () -> Unit = {
-                OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Starting player", style = MaterialTheme.typography.titleSmall)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for ((label, choice) in listOf(game.inviter.username to StarterChoice(game.inviter.accountId),
-                        game.recipient.username to StarterChoice(game.recipient.accountId), "Random" to StarterChoice())) {
-                        ScreenOutlinedButton(onClick = { controller.starter(choice) },
-                            enabled = game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
-                            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (state.preparation?.starter == choice)
-                                MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
-                            modifier = Modifier.weight(1f).semantics { contentDescription = "Starting player: $label" }) {
-                            if (choice.accountId == null) { Icon(screenIcon("shuffle"), null, Modifier.size(14.dp)); Spacer(Modifier.width(4.dp)) }
-                            Text(label, fontWeight = if (state.preparation?.starter == choice) FontWeight.Bold else FontWeight.Normal)
-                        }
-                    }
-                }
-                } }
+                 StartingPlayerControl(game, state.preparation?.startingChoice ?: StarterChoice(),
+                     enabled = game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
+                     choose = controller::starter)
                 }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     own(Modifier.weight(1f))
@@ -319,6 +307,29 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                     own != null && (own.ready || reason == null), modifier = Modifier.fillMaxWidth(), content = readyContent)
         }
     }
+    }
+}
+
+@Composable
+internal fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, enabled: Boolean,
+    choose: (StarterChoice) -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Starting player", style = MaterialTheme.typography.titleSmall)
+            Column(Modifier.fillMaxWidth().selectableGroup()) {
+                for ((label, choice) in listOf("Random" to StarterChoice(),
+                    game.inviter.username to StarterChoice(game.inviter.accountId),
+                    game.recipient.username to StarterChoice(game.recipient.accountId))) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected == choice,
+                        enabled = enabled, role = Role.RadioButton, onClick = { choose(choice) })
+                        .semantics { contentDescription = "Starting player: $label" },
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RadioButton(selected == choice, onClick = null, enabled = enabled)
+                        Text(label, fontWeight = if (selected == choice) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+        }
     }
 }
 

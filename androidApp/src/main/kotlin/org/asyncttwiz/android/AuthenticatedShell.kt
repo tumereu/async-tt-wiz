@@ -61,7 +61,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
                 } else if (state.destination == ShellDestination.DECKS && decks?.state?.selected != null) {
                     SavedDeckScreen(decks, if (!landscape) ({ controller.drawer(true) }) else null,
-                        importDeck = deckImport?.let { importer -> { summary -> decks.dismiss(); importer.openExisting(summary) } })
+                        importDeck = deckImport?.let { importer -> { detail -> decks.dismiss(); importer.openEditor(detail) } })
                 } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, { destination ->
                     if (destination == ShellDestination.GAMES) lobby?.back()
                     controller.navigate(destination)

@@ -86,11 +86,26 @@ class LobbyStartTest {
         assertEquals(changed, f.lobby.state.acceptedPreparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
     }
 
-    @Test fun noDeckOrUnsetStarterCannotReadyAndDisconnectedCannotSubmit() {
-        for (base in listOf(PreparationRules.empty(game), prepared().copy(starter = null))) Fixture(base).use { f ->
+    @Test fun noDeckCannotReadyAndDisconnectedCannotSubmit() {
+        for (base in listOf(PreparationRules.empty(game))) Fixture(base).use { f ->
             assertNotNull(readyReason(base, owner.accountId)); f.lobby.ready(); assertTrue(f.commands().isEmpty())
             f.wire.listener.disconnected(false); f.lobby.starter(StarterChoice(owner.accountId)); f.lobby.ready()
             assertTrue(f.commands().isEmpty())
+        }
+    }
+
+    @Test fun randomDefaultSurvivesAccountResetReopenAndLegacyNullRoundTripAndReselectNeverClears() {
+        val base = prepared().copy(starter = null)
+        Fixture(base).use { f ->
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            assertNull(readyReason(base, owner.accountId))
+            f.lobby.starter(StarterChoice())
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            f.head(game.copy(revision = "1"), base.copy(starter = StarterChoice()))
+            f.lobby.clear(); f.lobby.open(game.id); f.connect(generation = "2")
+            f.head(game.copy(revision = "1"), base)
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            assertEquals(StarterChoice(), PreparationRules.empty(game).starter)
         }
     }
 
@@ -175,9 +190,10 @@ class LobbyStartTest {
                 assertEquals(2, scene.fields.size)
                 assertEquals(11, scene.items.count { it.kind != TableItemKind.COUNTER })
                 val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
-                assertEquals(12, counters.size)
+                assertEquals(if (landscape) 12 else 0, counters.size)
                 for (player in listOf(owner, other)) {
-                    assertEquals(CounterColor.entries.toSet(), counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
+                    assertEquals(if (landscape) CounterColor.entries.toSet() else emptySet(),
+                        counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
                 }
                 for (item in scene.items) {
                     // Scrollable docks may extend offscreen; only clipped drawings are exposed.

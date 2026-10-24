@@ -1,10 +1,13 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.CombatInsertion
+import org.asyncttwiz.protocol.CombatRole
 
 data class TableDragLanding(val outlines: List<TableBounds> = emptyList(),
     val hand: TableBounds? = null, val insertionX: Float? = null,
-    val additionalHands: List<Pair<TableBounds, Float?>> = emptyList())
+    val additionalHands: List<Pair<TableBounds, Float?>> = emptyList(),
+    val combatInsertion: Pair<TablePoint, TablePoint>? = null)
 
 /** Uses the same snapped destination and captured relative positions as the move adapter. */
 fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDragLanding {
@@ -73,38 +76,54 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
             })
         }
         is TableDestination.Combat -> {
-            val region = scene.combatDrops.firstOrNull { it.destination == destination.destination } ?: return TableDragLanding()
-            val margin = scene.cardWidth * .04f
+            val target = destination.destination
+            val region = scene.combatDrops.firstOrNull { it.destination == target } ?: scene.combatDrops.firstOrNull {
+                it.destination.pairId == target.pairId && it.destination.role == target.role &&
+                    (target.pairId == null && it.destination.pairGap == target.pairGap ||
+                        target.pairId != null && it.destination.insertion == CombatInsertion.APPEND)
+            } ?: scene.combatDrops.firstOrNull { it.destination.role == target.role } ?: return TableDragLanding()
+            val margin = CombatStackPresentation.cardGap(scene.cardWidth)
             val sources = ids.map { scene.sources[it]?.sourceId ?: it }.toSet()
             val rows = scene.combatDrops.filter { it.destination.pairId != null &&
-                it.destination.insertion == org.asyncttwiz.protocol.CombatInsertion.APPEND }
+                it.destination.insertion == CombatInsertion.APPEND }
             val groups = rows.groupBy { it.destination.pairId }
             fun remaining(row: CombatDropRegion) = scene.items.filter { it.viewport == "combat" &&
                 it.sourceId !in sources && row.bounds.contains(it.bounds.center) }.sortedBy { it.bounds.x }
-            fun width(rows: List<CombatDropRegion>): Float {
-                val count = rows.maxOf { remaining(it).size }
-                return if (count == 0) 0f else count * (scene.cardWidth + margin) + margin
-            }
-            val target = destination.destination
+            val moved = ids.distinctBy { scene.sources[it]?.sourceId ?: it }
             val pairIds = groups.keys.toList()
-            val index = target.pairId?.let(pairIds::indexOf) ?: target.pairGap.beforeId?.let(pairIds::indexOf) ?: pairIds.size
-            // Repack after removing the dragged sources, including groups that disappear entirely.
-            val start = rows.firstOrNull()?.bounds?.x ?: (region.landing.x - margin)
-            var x = start + groups.values.take(index.coerceAtLeast(0)).sumOf { width(it).toDouble() }.toFloat() + margin
-            if (target.pairId != null) {
-                val row = rows.first { it.destination.pairId == target.pairId && it.destination.role == target.role }
-                val cards = remaining(row)
-                val before = target.cardGap.beforeId?.let { id -> cards.indexOfFirst { it.cardId == id }.takeIf { it >= 0 } }
-                val count = if (target.insertion == org.asyncttwiz.protocol.CombatInsertion.APPEND) cards.size else before ?: cards.size
-                x += count * (scene.cardWidth + margin)
+            val order = pairIds.toMutableList().apply { if (target.pairId == null) {
+                val index = target.pairGap.beforeId?.let(::indexOf)?.takeIf { it >= 0 } ?: size
+                add(index, null)
+            } }
+            fun cards(pair: String?, role: CombatRole) = groups[pair]?.firstOrNull { it.destination.role == role }
+                ?.let(::remaining).orEmpty()
+            fun count(pair: String?, role: CombatRole) = cards(pair, role).size +
+                if (pair == target.pairId && role == target.role) moved.size else 0
+            fun width(pair: String?): Float {
+                val blockers = count(pair, CombatRole.BLOCKER); val attackers = count(pair, CombatRole.ATTACKER)
+                return if (blockers + attackers == 0) 0f else CombatStackPresentation.slotWidth(blockers, attackers, scene.cardWidth)
             }
-            val slots = ids.distinctBy { scene.sources[it]?.sourceId ?: it }.map {
+            // Recenter the final group after removing the dragged sources and inserting their new row.
+            val center = if (rows.isEmpty()) region.landing.x else
+                (rows.minOf { it.bounds.x } + rows.maxOf { it.bounds.right }) / 2
+            val total = order.sumOf { width(it).toDouble() }.toFloat()
+            val start = center - total / 2 + order.takeWhile { it != target.pairId }.sumOf { width(it).toDouble() }.toFloat()
+            val remaining = cards(target.pairId, target.role)
+            val index = if (target.insertion == CombatInsertion.APPEND) remaining.size else
+                target.cardGap.beforeId?.let { id -> remaining.indexOfFirst { it.cardId == id }.takeIf { it >= 0 } } ?: remaining.size
+            var x = start + (width(target.pairId) - CombatStackPresentation.rowWidth(count(target.pairId, target.role), scene.cardWidth)) / 2 +
+                index * (scene.cardWidth + margin)
+            val firstX = x
+            val slots = moved.map {
                 val b = TableBounds(x, region.landing.y - scene.cardHeight / 2, scene.cardWidth, scene.cardHeight)
                 x += b.width + margin
                 b
             }
             val port = scene.world?.viewport
-            TableDragLanding(slots.mapNotNull { if (port == null) it else it.intersection(port) })
+            val indicatorX = firstX - if (target.pairId == null) CombatStackPresentation.slotMargin(scene.cardWidth) else margin / 2
+            val indicator = TablePoint(indicatorX, region.landing.y - scene.cardHeight * .3f) to
+                TablePoint(indicatorX, region.landing.y + scene.cardHeight * .3f)
+            TableDragLanding(slots.mapNotNull { if (port == null) it else it.intersection(port) }, combatInsertion = indicator)
         }
     }
 }

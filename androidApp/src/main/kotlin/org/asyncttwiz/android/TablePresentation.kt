@@ -235,8 +235,9 @@ object TablePresentation {
         val bandY = worldViewport.height / 2 - bandHeight / 2
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
-        val worldLeft = minOf(0f, logicalLeft * GRID)
-        val worldRight = maxOf(worldViewport.width, logicalRight * GRID + 32f, combat.width)
+        val combatX = (worldViewport.width - combat.width) / 2
+        val worldLeft = minOf(0f, logicalLeft * GRID, combatX)
+        val worldRight = maxOf(worldViewport.width, logicalRight * GRID + 32f, combatX + combat.width)
         val contentBounds = TableBounds(worldLeft, logicalFields.first().y,
             worldRight - worldLeft,
             logicalFields.last().bottom - logicalFields.first().y)
@@ -369,9 +370,9 @@ object TablePresentation {
                 projection = true, frozen = effect.frozen != null, draw = false).copy(id = "stackDrawing/${effect.id}")
         }
         val combatY = worldViewport.height / 2 - combat.height / 2
-        val combatBounds = world.screen(TableBounds(0f, maxOf(combatY, bandY), world.bounds.width, minOf(combat.height, bandHeight)), camera)
+        val combatBounds = world.screen(TableBounds(world.bounds.x, maxOf(combatY, bandY), world.bounds.width, minOf(combat.height, bandHeight)), camera)
         val cp = port("combat", combatBounds.intersection(worldViewport) ?: combatBounds.copy(height = 0f), combat.width * zoom)
-        fun translated(b: TableBounds) = world.screen(b.copy(y = b.y + combatY), camera)
+        fun translated(b: TableBounds) = world.screen(b.copy(x = b.x + combatX, y = b.y + combatY), camera)
         for (drawing in combat.cards) card(drawing.card, translated(drawing.bounds), translated(drawing.bounds), null,
             PlayZone.BATTLEFIELD, cp.id, drawing.viewId, projection = true)
         val drops = combat.destinations.map { region ->
@@ -379,12 +380,16 @@ object TablePresentation {
             val top = world.screen(TablePoint(0f, bandY), camera).y
             val half = bandHeight * zoom / 2
             val row = bounds.copy(y = top + if (region.destination.role == CombatRole.BLOCKER) 0f else half, height = half)
-            // Divider tolerance is screen dp, independent of personal zoom. End regions remain unbounded.
+            // Screen-dp tolerance, capped just short of neighboring slot midpoints at small zoom.
+            val neighbors = listOfNotNull(region.destination.pairGap.afterId, region.destination.pairGap.beforeId)
+            val tolerance = minOf(12f, combat.destinations.filter { it.destination.pairId in neighbors &&
+                it.destination.insertion == CombatInsertion.APPEND }.minOfOrNull { it.bounds.width * zoom / 2 - .01f } ?: 12f)
             region.copy(bounds = if (region.destination.pairId == null && !region.extendLeft && !region.extendRight)
-                row.copy(x = row.center.x - 12f, width = 24f) else row,
-                landing = world.screen(TablePoint(region.landing.x, region.landing.y + combatY), camera))
+                row.copy(x = row.center.x - tolerance, width = 2 * tolerance) else row,
+                landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
         }
-        val dividers = combat.dividers.map { x -> world.screen(TablePoint(x, combatY), camera) to world.screen(TablePoint(x, combatY + combat.height), camera) }
+        val dividers = combat.dividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
+            world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
         val clippedPorts = if (landscape) ports.map { p ->
             if (p.id.startsWith("dock/") || p.id.startsWith("counters/") || p.id == stack.id)
                 p.copy(bounds = p.bounds.intersection(sidebarBounds) ?: p.bounds.copy(height = 0f)) else p

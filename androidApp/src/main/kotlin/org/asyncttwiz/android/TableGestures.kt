@@ -363,7 +363,7 @@ class TableGestureCoordinator(
                     scene.items.any { item -> item.id == source && item.zone == PlayZone.LIBRARY } } }) return null
             return TableDestination.Container(it.id, PlayZone.STACK)
         }
-        if (scene.worldInput(p)) scene.combatDrops.asReversed().firstOrNull { it.contains(p) }?.let { return TableDestination.Combat(it.destination) }
+        if (scene.worldInput(p)) scene.combatDestination(p, scope)?.let { return TableDestination.Combat(it) }
         val hit = scene.items.asReversed().firstOrNull { i -> i.cardId !in (scope?.cardIds ?: emptyList()) && i.visible.any { it.contains(p) } }
         if (hit != null) {
             // A face inside a Hand is still a drop onto that Hand, not an ordinary battlefield pile.

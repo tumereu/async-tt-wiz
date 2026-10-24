@@ -52,6 +52,20 @@ class CardRingTest {
         assertTrue(cells.all { it.compound == null })
     }
 
+    @Test fun onlyTheValueCellKeepsTheCounterDragCallbackAndRawValue() {
+        var delta = 0L
+        val entry = RingEntry("counter/BLUE", "blue", MenuControl("Set blue counter") {},
+            RingCompound("—", MenuControl("Decrease blue counter") {}, MenuControl("Increase blue counter") {},
+                drag = { delta = it }, dragValue = "0"))
+        val cells = ringCells(listOf(entry))
+        assertEquals(listOf("counter/BLUE/minus", "counter/BLUE", "counter/BLUE/plus"), cells.map { it.id })
+        assertNull(cells[0].drag)
+        assertNull(cells[2].drag)
+        assertEquals("0", cells[1].dragValue)
+        assertNotNull(cells[1].drag).invoke(4)
+        assertEquals(4L, delta)
+    }
+
     @Test fun inputGuardUsesPressStartNotReleaseAndIncludesTheWholeDoubleTapWindow() {
         val guard = CardRingInputGuard(1000)
         assertFalse(guard.accepts(999))

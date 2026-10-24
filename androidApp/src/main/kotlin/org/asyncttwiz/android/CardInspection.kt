@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.activity.compose.BackHandler
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -134,6 +136,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
 internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit,
     names: Map<String, String> = emptyMap(), peek: Boolean = false, peekScroll: ScrollState? = null) {
     if (inspection.gameId != state.gameId || inspection.playId != state.id) return
+    BackHandler(enabled = peek, onBack = close)
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
     val allowed = if (inspection.explicit) inspection.faceIds else

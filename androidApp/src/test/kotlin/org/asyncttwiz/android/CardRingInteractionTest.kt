@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -147,6 +148,24 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
     }
 
+    @Test fun counterDragShowsRelativeResultAndDoesNotSwipePagesOrOpenEditor() {
+        val toolkit = render()
+        compose.ringPage(2)
+        compose.mainClock.advanceTimeBy(600)
+        val value = compose.onNodeWithContentDescription("Set blue counter")
+        value.performTouchInput { down(center); moveBy(Offset(40f, 0f)) }
+        val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
+        compose.onNodeWithText(valueDragLabel(initial, 4)).assertExists()
+        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
+        value.performTouchInput { up() }
+        compose.runOnIdle {
+            assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "4")), sent)
+            assertNull(toolkit.manual.editor)
+        }
+        value.assertExists()
+        compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()
+    }
+
     @Test fun counterCellsKeepSetAndAdjustmentCallbacks() {
         val toolkit = render()
         compose.ringPage(2)
@@ -156,6 +175,29 @@ class CardRingInteractionTest {
             PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "1")), sent)
         compose.onNodeWithContentDescription("Set blue counter").performClick()
         compose.runOnIdle { assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor?.field) }
+    }
+
+    @Test fun counterValueDragDuringOpeningGuardUsesDominantAxisAndCommitsOnlyOnRelease() {
+        CardRingPageStore(ApplicationProvider.getApplicationContext(), f.a, f.game.id).write(1)
+        compose.mainClock.autoAdvance = false
+        val toolkit = render()
+        // Settle the table anchor/layout without advancing past the 280ms opening guard.
+        compose.mainClock.advanceTimeBy(64)
+        val value = compose.onNodeWithContentDescription("Set blue counter")
+        value.performTouchInput { down(center); moveBy(Offset(20f, -40f)) }
+        compose.mainClock.advanceTimeBy(32)
+        val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
+        compose.onNodeWithText(valueDragLabel(initial, 4)).assertExists()
+        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
+        value.performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(32)
+        compose.runOnIdle {
+            assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "4")), sent)
+            assertNull(toolkit.manual.editor)
+        }
+        compose.onNodeWithText(valueDragLabel(initial, 4)).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()
+        compose.mainClock.autoAdvance = true
     }
 
     @Test fun swipeChangesPageAndAnotherCardRemembersItAfterClosingTheRing() {

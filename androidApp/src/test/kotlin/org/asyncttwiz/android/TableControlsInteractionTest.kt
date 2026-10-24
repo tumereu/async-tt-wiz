@@ -34,6 +34,24 @@ import kotlin.test.*
 class TableControlsInteractionTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun playerValueDragCountsHorizontalDistanceFromDownAndCancelsWithoutSending() {
+        val play = TableToolFixture.play()
+        val sent = mutableListOf<PlayAction>()
+        val controller = TableActionController({ play }, { true }, { sent += it; true }, RecordingRoutes())
+        val target = PlayerValueTarget(controller.scope()!!, play.board.players.first().accountId)
+        compose.setContent { MaterialTheme {
+            PlayerDeltaControl(target, "20", OwnTableColor, true, controller, Modifier.padding(top = 60.dp))
+        } }
+        val value = compose.onNodeWithContentDescription("Life, 20")
+        value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(30f, 0f)) }
+        compose.onNodeWithText("+3 -> 23").assertExists()
+        compose.runOnIdle { assertTrue(sent.isEmpty()) }
+        value.performTouchInput { up() }
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(target.accountId, "3")), sent) }
+        value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, 30f)); cancel() }
+        compose.runOnIdle { assertEquals(1, sent.size) }
+    }
+
     @Test fun undoShowsPressFeedbackOnDownAndTapsOnReleaseWithoutWaitingForRedoHold() {
         var undo = 0
         var redo = 0

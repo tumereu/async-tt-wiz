@@ -26,30 +26,34 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
+import org.asyncttwiz.protocol.TableActions
 
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
-private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?) -> Unit> { { _, _ -> } }
+private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?, Boolean) -> Unit> { { _, _, _ -> } }
 
-private fun Modifier.ringInputTarget(): Modifier = composed {
+private fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = composed {
     val register = LocalRingInputTargets.current
     val key = remember { Any() }
-    DisposableEffect(register, key) { onDispose { register(key, null) } }
+    DisposableEffect(register, key) { onDispose { register(key, null, draggable) } }
     onGloballyPositioned {
         val windowOrigin = it.localToScreen(Offset.Zero) - it.localToWindow(Offset.Zero)
         val bounds = it.boundsInWindow()
-        register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height))
+        register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height), draggable)
     }
 }
-internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl)
+internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl,
+    val drag: ((Long) -> Unit)? = null, val dragValue: String = value)
 internal data class RingEntry(val id: String, val label: String, val control: MenuControl,
-    val compound: RingCompound? = null, val fill: Color? = null)
+    val compound: RingCompound? = null, val fill: Color? = null,
+    val drag: ((Long) -> Unit)? = null, val dragValue: String = "0")
 
 /** Wide pills become three independent cells without changing their gameplay callbacks. */
 internal fun ringCells(entries: List<RingEntry>): List<RingEntry> = entries.flatMap { entry ->
     val compound = entry.compound
     if (compound == null) listOf(entry) else listOf(
         RingEntry("${entry.id}/minus", "− ${entry.label}", compound.minus, fill = entry.fill),
-        entry.copy(label = "${entry.label} ${compound.value}", compound = null),
+        entry.copy(label = "${entry.label} ${compound.value}", compound = null,
+            drag = compound.drag, dragValue = compound.dragValue),
         RingEntry("${entry.id}/plus", "+ ${entry.label}", compound.plus, fill = entry.fill))
 }
 
@@ -82,8 +86,11 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
     val inputTargets = remember { mutableMapOf<Any, TableBounds>() }
-    val registerTarget = remember { { key: Any, bounds: TableBounds? ->
+    val dragTargets = remember { mutableMapOf<Any, TableBounds>() }
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    val registerTarget = remember { { key: Any, bounds: TableBounds?, draggable: Boolean ->
         if (bounds == null) inputTargets.remove(key) else inputTargets.put(key, bounds)
+        if (bounds != null && draggable) dragTargets[key] = bounds else dragTargets.remove(key)
         Unit
     } }
     val currentDismiss by rememberUpdatedState(dismiss)
@@ -108,13 +115,16 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
         // Standalone fallback; the stable table host relays outside presses before they reach here.
         Box(Modifier.fillMaxSize().pointerInput(dismiss) { detectTapGestures(onTap = { dismiss() }) })
         Surface(Modifier.offset(square.x.dp, square.y.dp).size(square.width.dp, square.height.dp)
+            .onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }
             .ringInputTarget().semantics { contentDescription = "Card action grid" }
             .pointerInput(guard) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                 // The relay alone can replace the first tap with the table's double-tap action.
                 if (!down.isConsumed) {
-                    val blocked = !guard.accepts(down.uptimeMillis)
+                    val screen = origin + down.position
+                    val valueDrag = dragTargets.values.any { it.contains(TablePoint(screen.x, screen.y)) }
+                    val blocked = !valueDrag && !guard.accepts(down.uptimeMillis)
                     var swipe = false
                     var delta = Offset.Zero
                     if (blocked) down.consume()
@@ -123,7 +133,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                         val change = event.changes.firstOrNull { it.id == down.id }
                         if (change != null) {
                             delta = change.position - down.position
-                            if (abs(delta.x) > 32.dp.toPx() && abs(delta.x) > abs(delta.y) * 1.5f) swipe = true
+                            if (!valueDrag && abs(delta.x) > 32.dp.toPx() && abs(delta.x) > abs(delta.y) * 1.5f) swipe = true
                         }
                         if (blocked || swipe) event.changes.forEach { it.consume() }
                     } while (event.changes.any { it.pressed })
@@ -166,13 +176,18 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
 
 @Composable
 private fun RingCell(entry: RingEntry, owner: Color, modifier: Modifier) {
-    RingPress(entry.control, modifier, entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
+    var delta by remember(entry.id) { mutableStateOf<Long?>(null) }
+    val dragModifier = if (entry.drag != null) Modifier.ringInputTarget(draggable = true)
+        .valueDragGestures(entry.control.enabled && TableActions.numeric(entry.dragValue),
+            preview = { delta = it }, commit = entry.drag) else Modifier
+    RingPress(entry.control, modifier.then(dragModifier), entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             MenuIcon(entry.control.name, tint = (entry.control.color ?: owner).copy(alpha = if (entry.control.enabled) 1f else .35f))
             Text(entry.label.replace('\n', ' '), Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {},
                 fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 letterSpacing = 0.sp, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .38f), fontWeight = FontWeight.Medium)
         }
+        delta?.let { HoldTooltip(valueDragLabel(entry.dragValue, it)) }
     }
 }
 
@@ -181,7 +196,7 @@ private fun RingCell(entry: RingEntry, owner: Color, modifier: Modifier) {
 private fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
     fill: Color = Color.White, role: Role = Role.Button, content: @Composable () -> Unit) {
     var tooltip by remember { mutableStateOf(false) }
-    Surface(modifier.semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
+    Surface(modifier.pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
         .combinedClickable(enabled = control.enabled, role = role, hapticFeedbackEnabled = false,
             onLongClick = { tooltip = true }, onClick = control.click),
         shape = RoundedCornerShape(3.dp), color = if (control.enabled) fill else fill.copy(alpha = .4f),

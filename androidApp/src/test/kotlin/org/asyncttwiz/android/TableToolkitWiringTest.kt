@@ -485,7 +485,7 @@ class TableToolkitWiringTest {
         assertTrue(f.commands().isEmpty())
         gesture.update(scene.copy(items = scene.items.map { it.copy(bounds = it.bounds.copy(x = it.bounds.x + 20)) }), TableSelection(), true)
         gesture.up(life.bounds.center.copy(y = life.bounds.center.y - 48), 30)
-        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(f.actor, "2")), f.actions())
+        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(f.actor, "4")), f.actions())
         val press = ActionPress(true)
         assertEquals(PressAction.HOLD, press.hold()); assertNull(press.release())
         val tooltip = ActionPress(false)

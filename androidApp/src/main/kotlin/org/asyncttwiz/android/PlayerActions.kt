@@ -17,6 +17,7 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { MenuIcon("Life") }
                 ManualActionSquare("Set life", player.life, enabled,
+                    dragValue = player.life, onDelta = { submit(PlayAction.AdjustLife(player.accountId, it.toString())) },
                     onClick = { actions.edit(ManualValue(ManualValueKind.LIFE), state, player.accountId) })
                 for (delta in listOf(1, -1)) ManualActionSquare("${if (delta > 0) "Increase" else "Decrease"} life",
                     if (delta > 0) "+" else "−", enabled && ManualText.add(player.life, delta.toLong()) != null,

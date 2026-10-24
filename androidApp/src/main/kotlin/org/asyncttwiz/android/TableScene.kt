@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import android.graphics.Paint
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
@@ -96,6 +97,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var inspectedCard by remember(play.id, accountId) { mutableStateOf<PlayCard?>(null) }
     var peek by remember(play.id, accountId) { mutableStateOf<ManualInspection?>(null) }
     val peekScroll = rememberScrollState()
+    BackHandler(enabled = actions != null || localStackBubble != null || inspectedCard != null && inspector.state != null || peek != null) {
+        when {
+            inspector.state != null -> { inspector.close(); inspectedCard = null }
+            peek != null -> peek = null
+            actions != null -> actions = null
+            else -> localStackBubble = null
+        }
+    }
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
     val currentPlay by rememberUpdatedState(play)
     val callback by rememberUpdatedState(onIntent)
@@ -234,7 +243,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         LaunchedEffect(animation, targetScene.animationTargets) {
             if (animation.retarget(targetScene, progress.value)) {
                 progress.snapTo(0f)
-                if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(180))
+                if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(180, easing = androidx.compose.animation.core.LinearEasing))
             }
         }
         val frame = animation.frame(progress.value, targetScene)
@@ -328,6 +337,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             Canvas(Modifier.fillMaxSize()) { drawTable(scene, accountId, selection, preview, play.board.links,
                 frame.associate { it.item.id to it.alpha }, activePings,
                 play.board.projectionLinks, annotations, artwork) }
+            preview.delta?.let { delta ->
+                scene.items.firstOrNull { it.id == preview.pressedId }?.let { item ->
+                    val anchor = item.visible.maxByOrNull { it.width * it.height } ?: item.bounds
+                    Box(Modifier.offset(anchor.x.dp, anchor.y.dp).size(anchor.width.dp, anchor.height.dp)) {
+                        HoldTooltip(valueDragLabel(item.value, delta.toLong()))
+                    }
+                }
+            }
             for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
                 .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
                     val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
@@ -669,7 +686,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
     }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
-        val z = if (i.kind == TableItemKind.CARD) (if (i.tapped) i.bounds.height else i.bounds.width) / 28f else 1f
+        val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else 1f
         val cardWidth = 28f * z; val cardHeight = 40f * z
         val outline = cardSilhouette(cardWidth * density, cardHeight * density, i.token, x * density, y * density, 2 * density * z)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
@@ -792,9 +809,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                 }
             }
              TableItemKind.CARD -> {
-                 val z = (if (i.tapped) b.height else b.width) / 28f
-                 val cardWidth = 28 * z; val cardHeight = 40 * z
-                 rotate(if (i.tapped) 90f else 0f, xy(b.center.x, b.center.y)) {
+                  val transform = i.faceTransform()
+                  val z = transform.width / 28f
+                  val cardWidth = transform.width; val cardHeight = transform.height
+                  rotate(transform.rotation, xy(b.center.x, b.center.y)) {
                      val x = b.center.x - cardWidth / 2; val y = b.center.y - cardHeight / 2
                     cardFace(i, x, y, color, i.value)
                      paint.textSize = 7 * z * density
@@ -852,6 +870,5 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                 xy(p.x - scene.cardWidth / 2, p.y - scene.cardHeight / 2), size(scene.cardWidth, scene.cardHeight), CornerRadius(3 * density))
             text("${preview.scope.cardIds.size}", p.x, p.y)
         }
-        preview.delta?.let { text(if (it >= 0) "+$it" else "$it", p.x, p.y) }
     }
 }

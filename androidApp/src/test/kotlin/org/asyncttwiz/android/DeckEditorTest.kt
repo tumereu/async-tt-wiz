@@ -133,7 +133,8 @@ class DeckEditorTest {
             }
             override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
                 assertEquals(accepted.deck.id, id); updates += value
-                if (updates.size == 1) throw DeckFailure("network")
+                // Fail the original attempt and both silent service retries.
+                if (updates.size <= 3) throw DeckFailure("network")
                 accepted = accepted.copy(deck = accepted.deck.copy(cover = DeckCover(value.cover!!, "New card")))
                 return accepted
             }
@@ -147,7 +148,8 @@ class DeckEditorTest {
         editor.cover(digest); editor.review(); editor.save(); worker.drain()
         assertTrue(editor.state.active); assertEquals(digest, editor.state.cover)
         editor.save(); worker.drain()
-        assertEquals(2, creates.size); assertEquals(creates[0], creates[1]); assertEquals(updates[0], updates[1])
+        // Each attempt replays the whole plan (create, then cover update) with the same request identities.
+        assertEquals(4, creates.size); assertEquals(1, creates.distinct().size); assertEquals(1, updates.distinct().size)
         assertEquals(digest, saved!!.deck.cover!!.definition)
     }
 }

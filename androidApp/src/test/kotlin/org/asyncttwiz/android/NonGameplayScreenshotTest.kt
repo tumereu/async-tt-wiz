@@ -47,7 +47,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
     companion object {
         @JvmStatic @Parameters(name = "{0}") fun screens() = listOf(
             "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
-            "play", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
+            "play", "games-loading", "catalog-startup", "catalog-update", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting",
             "decks", "deck-detail", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
             "import-save", "import-save-scrolled", "reconnecting", "gameplay-chat")
@@ -95,7 +95,9 @@ class NonGameplayScreenshotTest(private val screen: String) {
                         Row(Modifier.fillMaxSize()) {
                             if (landscape) Surface(Modifier.width(220.dp).fillMaxHeight(),
                                 color = Color.White) { Navigation(fixtures.auth, !landscape, fixtures.lobby) }
-                            Box(Modifier.weight(1f)) {
+                            val progress = if (screen == "records-indexing") CatalogProgress(CatalogPhase.INDEXING,
+                                160_000_000, 450_000_000, 45_123) else null
+                            ScreenBusyOverlay(progress?.label(), progress, Modifier.weight(1f).fillMaxHeight()) {
                                 when (screen) {
                                     "waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby" ->
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
@@ -104,7 +106,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                     "import-edit", "import-errors", "import-save", "import-save-scrolled" ->
                                         DeckImportScreen(fixtures.importer, landscape, if (landscape) null else ({}), null)
                                     else -> ShellContent(when (screen) {
-                                        "play", "game-context", "delete-game" -> ShellDestination.GAMES
+                                        "play", "games-loading", "game-context", "delete-game" -> ShellDestination.GAMES
                                         "contacts", "create-game" -> ShellDestination.CONTACTS
                                         "decks" -> ShellDestination.DECKS
                                         else -> ShellDestination.MENU
@@ -114,6 +116,9 @@ class NonGameplayScreenshotTest(private val screen: String) {
                         }
                         SetupCancellationDialogs(fixtures.lobby)
                         GameDeletionDialogs(fixtures.lobby)
+                        if (screen.startsWith("catalog-")) CatalogStartupDialog(CatalogUiState(
+                            installed = if (screen == "catalog-update") CatalogMetadata("2026-10-20", "5.2.2") else null,
+                            available = CatalogMetadata("2026-10-24", "5.2.2"), size = 450_000_000, metered = true), {}, {})
                     }
                 }
             }
@@ -130,6 +135,16 @@ class NonGameplayScreenshotTest(private val screen: String) {
             assertEquals(a.top, b.top, .5f, "Paired actions must not stack")
         }
         when (screen) {
+            "games-loading" -> {
+                compose.onNodeWithText("Loading games…").assertIsDisplayed()
+                val pill = compose.onNodeWithTag("floating-busy-pill").fetchSemanticsNode().boundsInRoot
+                assertTrue(pill.bottom <= (if (landscape) 412 else 892) - 15f)
+                assertTrue(pill.top >= (if (landscape) 412 else 892) / 2f)
+            }
+            "catalog-startup", "catalog-update" -> {
+                compose.onNodeWithText("Download size: 450 MB.").assertIsDisplayed()
+                compose.onNodeWithText("Download").assertIsDisplayed()
+            }
             "navigation-accounts" -> {
                 compose.onNodeWithText("Add account").performScrollTo().assertIsDisplayed()
                 compose.onNodeWithText("Switch account").assertIsDisplayed()
@@ -215,7 +230,7 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
             PlayerPreparation("a", ready = screen == "ready-waiting", deck = prepared.takeUnless { screen == "lobby-select-deck" }),
             PlayerPreparation("b", ready = screen == "lobby-select-deck")), definitions, StarterChoice())
         val inLobby = screen in listOf("waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby")
-        lobby.seed(lobby.state.copy(contacts = listOf(riley, AccountIdentity("c", "morgan")), query = "sam", searched = true,
+        lobby.seed(lobby.state.copy(busy = screen == "games-loading", contacts = listOf(riley, AccountIdentity("c", "morgan")), query = "sam", searched = true,
             results = listOf(AccountIdentity("d", "sam")), connectedGames = setOf("g1", "g2", "g3"),
             invitations = listOf(game.copy(id = "g3", inviter = riley, recipient = alex, invitationState = InvitationState.PENDING)),
             selected = if (inLobby) game.id else null, detail = if (inLobby) game else null,

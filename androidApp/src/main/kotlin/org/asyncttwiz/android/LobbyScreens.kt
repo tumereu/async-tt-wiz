@@ -54,6 +54,7 @@ internal fun readyReason(preparation: LobbyPreparation?, accountId: String): Str
 @Composable
 internal fun ContactsContent(controller: LobbyController) {
     val state = controller.state
+    ScreenBusyOverlay(lobbyBusyMessage(state, "Loading contacts…")) {
     BoxWithConstraints(Modifier.fillMaxSize().padding(16.dp)) {
         val search: @Composable () -> Unit = {
             OutlinedCard(Modifier.fillMaxWidth()) {
@@ -67,9 +68,8 @@ internal fun ContactsContent(controller: LobbyController) {
                         }
                     }
                     Text("Search results", style = MaterialTheme.typography.labelMedium)
-                    if (state.searching) Text("Searching…")
                     state.searchError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    if (state.searched && !state.searching && state.searchError == null && state.results.isEmpty()) Text("No players found.")
+                    if (state.searched && state.searchError == null && state.results.isEmpty()) Text("No players found.")
                     for (contact in state.results) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(contact.username, Modifier.weight(1f))
                         if (state.contacts.any { it.accountId == contact.accountId }) Text("Added")
@@ -106,18 +106,25 @@ internal fun ContactsContent(controller: LobbyController) {
             search(); LobbyFeedback(controller); saved()
         }
     }
+    }
     GameNameDialog(controller)
+}
+
+private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when {
+    state.searching -> "Searching players…"
+    state.mutating -> if (state.draft != null) "Creating game…" else "Saving changes…"
+    state.pendingGames.isNotEmpty() -> "Checking game outcome…"
+    state.busy -> loading
+    else -> null
 }
 
 @Composable
 private fun LobbyFeedback(controller: LobbyController) {
     val state = controller.state
-    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
     state.connectionMessage?.let { message ->
         Text(message, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = controller::reconnect) { Text("Reconnect") }
     }
-    if (state.pendingGames.isNotEmpty()) Text("Checking game outcome…", style = MaterialTheme.typography.bodySmall)
     if (state.draft == null) state.error?.let {
         Text(it, color = MaterialTheme.colorScheme.error)
         TextButton(onClick = { controller.refresh() }) { Text("Retry") }
@@ -127,8 +134,9 @@ private fun LobbyFeedback(controller: LobbyController) {
 @Composable
 internal fun GamesContent(controller: LobbyController, accountId: String) {
     val state = controller.state
+    ScreenBusyOverlay(lobbyBusyMessage(state, "Loading games…")) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        if (state.busy || state.error != null || state.connectionMessage != null) item { LobbyFeedback(controller) }
+        if (state.error != null || state.connectionMessage != null) item { LobbyFeedback(controller) }
         item {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -173,6 +181,7 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
                 }
             }
         }
+    }
     }
 }
 
@@ -222,6 +231,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     if (state.preparing && state.detail?.lifecycle == GameLifecycle.LOBBY) {
         PreparationScreen(controller, accountId, landscape, hamburger); return
     }
+    ScreenBusyOverlay(lobbyBusyMessage(state, "Loading game…")) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(state.detail?.gameName ?: "Loading game…", hamburger) {
             state.detail?.takeIf(controller::offersSetupCancellation)?.let { game ->
@@ -293,7 +303,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         val own = state.preparation?.players?.find { it.accountId == accountId }
         val reason = readyReason(state.preparation, accountId)
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
+            Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
+                if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
+            }
             val enabled = state.detail?.id in state.connectedGames && state.detail?.id !in state.pendingGames &&
                 own != null && (own.ready || reason == null)
             val readyContent: @Composable RowScope.() -> Unit = {
@@ -306,6 +318,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 enabled = state.detail?.id in state.connectedGames && state.detail?.id !in state.pendingGames &&
                     own != null && (own.ready || reason == null), modifier = Modifier.fillMaxWidth(), content = readyContent)
         }
+    }
     }
 }
 
@@ -347,14 +360,13 @@ internal fun SetupCancellationDialogs(controller: LobbyController) {
     cancellation.confirmation?.let { game ->
         val connected = game.id in controller.state.connectedGames
         val pending = game.id in controller.state.pendingGames
-        SetupCancellationDialog(cancellation::dismiss) {
+        ScreenDialog(cancellation::dismiss, busyMessage = if (pending) "Checking game outcome…" else null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Cancel ${game.gameName}?", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                 ScreenIconButton("Close cancellation", "close", cancellation::dismiss)
             }
             Text("Removes this unstarted game and its pending invitation.")
             if (!connected) Text("Disconnected. Reconnect to check the game.", style = MaterialTheme.typography.bodySmall)
-            if (pending) Text("Checking game outcome…", style = MaterialTheme.typography.bodySmall)
             cancellation.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ScreenOutlinedButton(onClick = cancellation::dismiss, modifier = Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Keep game") }
@@ -407,15 +419,17 @@ private fun PreparedSummary(preparation: LobbyPreparation?, accountId: String) {
 @Composable
 private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit)?, hamburger: (() -> Unit)?) {
     val picker = controller.state.picker ?: return
+    ScreenBusyOverlay(when { picker.confirming -> "Loading deck…"; picker.loading -> "Loading saved decks…"; else -> null }) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Choose deck", hamburger) {
             ScreenIconButton("Close deck picker", "close", controller::closePicker)
         }
-        if (picker.loading || picker.confirming) LinearProgressIndicator(Modifier.fillMaxWidth())
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 picker.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (!picker.loading && picker.decks.isEmpty()) Text("No saved decks yet.")
+                if (picker.decks.isEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
+                    if (!picker.loading) Text("No saved decks yet.")
+                }
             }
             items(picker.decks, key = { it.id }) { deck ->
                 val chosen = picker.draft?.id == deck.id
@@ -440,9 +454,10 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
             }
             ScreenButton(onClick = controller::confirmDeck, enabled = picker.draft != null && !picker.loading && !picker.confirming &&
                 picker.game.id in controller.state.connectedGames && picker.game.id !in controller.state.pendingGames, modifier = Modifier.weight(1f)) {
-                EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text(if (picker.confirming) "Loading deck…" else "Use selected deck")
+                EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Use selected deck")
             }
         }
+    }
     }
 }
 
@@ -452,7 +467,7 @@ private fun GameNameDialog(controller: LobbyController) {
     val draft = state.draft ?: return
     var value by remember(draft.recipient.accountId) { mutableStateOf(TextFieldValue(draft.name, TextRange(0, draft.name.length))) }
     LaunchedEffect(draft.name) { if (value.text != draft.name) value = TextFieldValue(draft.name, TextRange(0, draft.name.length)) }
-    ScreenDialog(controller::dismiss) {
+    ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) "Creating game…" else null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("New game", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     ScreenIconButton("Cancel game creation", "close", controller::dismiss, enabled = !state.mutating)
@@ -481,11 +496,13 @@ private fun GameNameDialog(controller: LobbyController) {
                     ScreenIconButton("Suggest another game name", "shuffle", controller::reroll, enabled = !state.mutating && !state.uncertain)
                 }
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall)
+                Box(Modifier.heightIn(min = 40.dp)) {
+                    if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ScreenOutlinedButton(onClick = controller::dismiss, enabled = !state.mutating, modifier = Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Cancel") }
                     ScreenButton(onClick = controller::create, enabled = !state.mutating, modifier = Modifier.weight(1f)) {
-                        EntryIcon(null, "send"); Spacer(Modifier.width(4.dp)); Text(if (state.mutating) "Creating…" else "Create & invite")
+                        EntryIcon(null, "send"); Spacer(Modifier.width(4.dp)); Text("Create & invite")
                     }
                 }
     }

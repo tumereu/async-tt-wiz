@@ -17,10 +17,25 @@ import java.util.concurrent.Executors
 
 data class CatalogUiState(val installed: CatalogMetadata? = null, val available: CatalogMetadata? = null,
     val size: Long? = null, val metered: Boolean = true, val busy: Boolean = false,
-    val status: String? = null, val error: Boolean = false)
+    val status: String? = null, val error: Boolean = false, val progress: CatalogProgress? = null)
+
+/** Volatile, process-wide consent deferral, deliberately not preferences or saved instance state. */
+internal class CatalogPromptPolicy {
+    private var dismissed by mutableStateOf(emptySet<String>())
+    private fun key(state: CatalogUiState): String? {
+        val available = state.available ?: return null // Wait for actionable metadata, never offer a dead Download action.
+        if (!CatalogUpdatePolicy.changed(state.installed, available)) return null
+        return if (state.installed == null) "missing" else "${available.date}/${available.version}/${available.indexVersion}"
+    }
+    fun shouldPrompt(state: CatalogUiState): Boolean = !state.busy && key(state)?.let { it !in dismissed } == true
+    fun dismiss(state: CatalogUiState) { key(state)?.let { dismissed = dismissed + it } }
+}
+
+private val processCatalogPrompt = CatalogPromptPolicy()
 
 /** Public downloads are independent of login; no account tokens, callbacks or private data enter this worker. */
 class CatalogViewModel(application: Application) : AndroidViewModel(application) {
+    internal val promptPolicy get() = processCatalogPrompt
     var state by mutableStateOf(CatalogUiState())
         private set
     private val main = Handler(Looper.getMainLooper())
@@ -46,18 +61,21 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         if (cleared || working) return
         working = true
         val metered = connectivity.isActiveNetworkMetered
-        state = state.copy(busy = true, metered = metered, status = "Checking card records…", error = false)
+        state = state.copy(busy = true, metered = metered, status = "Checking card records…", error = false, progress = null)
         worker.execute {
             var installed: CatalogMetadata? = null
+            var available: CatalogMetadata? = null
+            var size: Long? = null
             try {
                 installed = repository.metadata()
-                var available = preferences.getString("date", null)?.let { date ->
+                available = preferences.getString("date", null)?.let { date ->
                     CatalogMetadata(date, preferences.getString("version", "")!!)
                 }
-                var size = preferences.getLong("size", -1).takeIf { it > 0 }
+                size = preferences.getLong("size", -1).takeIf { it > 0 }
                 if (force || cadence.due(System.currentTimeMillis())) {
                     try {
                         available = source.metadata()
+                        size = null // Never associate the previous edition's byte size with new metadata.
                         // HEAD is small metadata, not consent to a bulk download.
                         size = if (CatalogUpdatePolicy.changed(installed, available)) source.size() else null
                         check(preferences.edit().putString("date", available.date).putString("version", available.version)
@@ -72,7 +90,10 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 } else publish(CatalogUiState(installed, changed, size, metered, status =
                     if (changed == null && installed != null) "Card records are up to date." else null))
             } catch (_: Exception) {
-                publish(CatalogUiState(installed = installed, metered = metered, error = true,
+                // Failed automatic installation still leaves an actionable update/consent offer.
+                publish(CatalogUiState(installed = installed,
+                    available = available?.takeIf { CatalogUpdatePolicy.changed(installed, it) }, size = size,
+                    metered = metered, error = true,
                     status = "Card records could not be updated. ${if (installed != null) "Your installed records are still available." else "Check your connection and free storage, then retry."}"))
             }
         }
@@ -85,7 +106,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         if (working || cleared) return
         if (!CatalogUpdatePolicy.download(current.installed, available, current.metered, consent = true)) return
         working = true
-        state = current.copy(busy = true, error = false, status = "Downloading card records…")
+        val progress = CatalogProgress(CatalogPhase.DOWNLOADING, 0, current.size)
+        state = current.copy(busy = true, error = false, status = progress.label(), progress = progress)
         worker.execute {
             try { publish(CatalogUiState(installed = install(available, current.size), metered = current.metered,
                 status = "Card records are up to date.")) }
@@ -96,11 +118,13 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 
     private fun install(meta: CatalogMetadata, size: Long?): CatalogMetadata {
         var last = 0L
-        return CatalogInstaller(directory, repository, source).install(meta, size) { status ->
+        var phase: CatalogPhase? = null
+        return CatalogInstaller(directory, repository, source).install(meta, size) { progress ->
             val now = System.nanoTime()
-            if (now - last >= 250_000_000) {
+            if (phase != progress.phase || now - last >= 250_000_000 || progress.done == progress.total) {
                 last = now
-                main.post { if (!cleared) state = state.copy(status = status) }
+                phase = progress.phase
+                main.post { if (!cleared) state = state.copy(progress = progress, status = progress.label()) }
             }
         }
     }

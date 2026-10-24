@@ -7,6 +7,45 @@ import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 
 class DeckImportControllerTest {
+    @Test fun installationDisablesRetryAndNewMetadataRelooksUpOnlyAnUnresolvedDraft() {
+        val worker = Worker()
+        var calls = 0
+        val controller = DeckImportController({ calls++; result(it) }, worker) { it() }
+        val installed = CatalogMetadata("2026-10-24", "5.2.2")
+        controller.open(); controller.edit("1 Unknown"); controller.lookup(); worker.drain()
+        assertEquals(1, calls)
+        val issues = controller.state.result
+        controller.catalogChanged(null, installing = true)
+        controller.lookup(); worker.drain()
+        assertEquals(1, calls); assertEquals(issues, controller.state.result)
+        controller.catalogChanged(installed, installing = false)
+        assertTrue(controller.state.busy)
+        assertEquals(issues, controller.state.result, "Keep correction feedback in place during retry")
+        worker.drain(); assertEquals(2, calls)
+        controller.catalogChanged(installed, installing = false); worker.drain(); assertEquals(2, calls)
+        controller.exit(); controller.catalogChanged(installed.copy(date = "2026-10-25"), false)
+        worker.drain(); assertEquals(2, calls)
+    }
+
+    @Test fun metadataArrivingDuringLookupRetriesAfterAnUnresolvedResultButNotAfterSuccess() {
+        val worker = Worker()
+        var calls = 0
+        var resolved = false
+        val controller = DeckImportController({ text -> calls++
+            if (resolved) DeckImportResult(text, emptyList(), emptyList(), CatalogMetadata("2026-10-24", "5.2.2"))
+            else result(text)
+        }, worker) { it() }
+        val installed = CatalogMetadata("2026-10-24", "5.2.2")
+        controller.open(); controller.edit("1 Unknown"); controller.lookup()
+        controller.catalogChanged(installed, false); worker.drain()
+        assertEquals(2, calls)
+        resolved = true
+        controller.lookup(); controller.catalogChanged(installed.copy(version = "5.2.3"), false); worker.drain()
+        assertEquals(3, calls)
+        controller.catalogChanged(installed.copy(date = "2026-10-25"), false); worker.drain()
+        assertEquals(3, calls)
+    }
+
     @Test fun recreationLookupCannotInvalidateRetainedPreviewOrName() {
         val worker = Worker()
         val printing = CatalogPrinting("id", "Name", "SET", "1", "English", "", null, false, emptyList(), "{}")

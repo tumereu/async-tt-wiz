@@ -1,6 +1,11 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,8 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +24,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
@@ -86,13 +94,57 @@ internal fun ScreenIconButton(description: String, kind: String, onClick: () -> 
     modifier: Modifier = Modifier, enabled: Boolean = true, danger: Boolean = false) {
     TooltipBox(modifier = modifier, positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) {
-    OutlinedIconButton(onClick, Modifier.size(48.dp), enabled, shape = RoundedCornerShape(6.dp),
+    if (kind == "close") IconButton(onClick, Modifier.size(48.dp), enabled) { EntryIcon(description, kind) }
+    else OutlinedIconButton(onClick, Modifier.size(48.dp), enabled, shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, if (danger) Color(0xffe1b7b7) else MaterialTheme.colorScheme.outline),
         colors = IconButtonDefaults.outlinedIconButtonColors(contentColor =
             if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)) {
         EntryIcon(description, kind)
     }
     }
+}
+
+// A shell-wide catalog task takes precedence over a screen's shorter-lived busy indicator.
+internal val LocalBusySuppressed = compositionLocalOf { false }
+
+/** Busy feedback is always an overlay: showing it never remeasures or moves screen content. */
+@Composable
+internal fun ScreenBusyOverlay(message: String?, progress: org.asyncttwiz.storage.CatalogProgress? = null,
+    modifier: Modifier = Modifier.fillMaxSize(), content: @Composable BoxScope.() -> Unit) {
+    val suppressed = LocalBusySuppressed.current
+    Box(modifier) {
+        content()
+        FloatingBusyPill(message?.takeUnless { suppressed }, progress, Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
+internal fun FloatingBusyPill(message: String?, progress: org.asyncttwiz.storage.CatalogProgress? = null,
+    modifier: Modifier = Modifier) {
+    var lastMessage by remember { mutableStateOf(message.orEmpty()) }
+    var lastProgress by remember { mutableStateOf(progress) }
+    if (message != null) SideEffect { lastMessage = message; lastProgress = progress }
+    AnimatedVisibility(message != null, modifier.padding(16.dp).widthIn(max = 540.dp),
+        enter = fadeIn(tween(250, easing = FastOutSlowInEasing)), exit = fadeOut(tween(250))) {
+        Surface(shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp,
+            color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+            modifier = Modifier.testTag("floating-busy-pill").semantics { liveRegion = LiveRegionMode.Polite }) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.inversePrimary, strokeWidth = 2.dp)
+                    Text(lastMessage, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
+                }
+                lastProgress?.let { value -> CatalogProgressBar(value, Modifier.fillMaxWidth()) }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun CatalogProgressBar(progress: org.asyncttwiz.storage.CatalogProgress, modifier: Modifier = Modifier) {
+    val total = progress.total?.takeIf { it > 0 }
+    if (total == null) LinearProgressIndicator(modifier)
+    else LinearProgressIndicator(progress = { (progress.done.toFloat() / total).coerceIn(0f, 1f) }, modifier = modifier)
 }
 
 @Composable
@@ -146,13 +198,19 @@ internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, mod
 }
 
 @Composable
-internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
+    content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         ScreenTheme {
             Surface(modifier.padding(16.dp).widthIn(max = 380.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                 border = BorderStroke(1.dp, ScreenBorder)) {
-                Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+                Box {
+                    Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+                    Box(Modifier.matchParentSize(), contentAlignment = Alignment.BottomCenter) {
+                        FloatingBusyPill(busyMessage)
+                    }
+                }
             }
         }
     }

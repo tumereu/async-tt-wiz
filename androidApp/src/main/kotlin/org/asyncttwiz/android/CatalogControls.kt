@@ -5,8 +5,40 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
+import org.asyncttwiz.storage.CatalogProgress
+import org.asyncttwiz.storage.CatalogPhase
+import java.util.Locale
 
-/** Download controls within Manage decks, not a separate catalog browser or mandatory startup gate. */
+internal fun catalogMb(bytes: Long): String = String.format(Locale.US, "%.0f", bytes / 1_000_000.0)
+internal fun CatalogProgress.label(): String {
+    val bytes = catalogMb(done) + (total?.let { " / ${catalogMb(it)}" } ?: "") + " MB"
+    return if (phase == CatalogPhase.DOWNLOADING) "Downloading card records: $bytes"
+    else "Indexing card records: $bytes processed · ${String.format(Locale.US, "%,d", records)} cards"
+}
+
+@Composable
+internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, dismiss: () -> Unit) {
+    ScreenDialog(dismiss) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (state.installed == null) "Download card records?" else "Update card records?",
+                Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            ScreenIconButton("Not now", "close", dismiss)
+        }
+        Text("Card records are needed to import decks. Artwork downloads separately, only when needed.")
+        Text(state.size?.let { "Download size: ${catalogMb(it)} MB." } ?: "Download size unavailable (up to 4 GB).")
+        Text(if (state.metered) "You’re on a metered connection. This download may incur data charges."
+            else "A metered connection may incur data charges. You’re currently using an unmetered connection.",
+            style = MaterialTheme.typography.bodyMedium)
+        Text("Indexed records may use up to 4 GB of storage.", style = MaterialTheme.typography.bodySmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ScreenOutlinedButton(dismiss, Modifier.weight(1f)) { Text("Not now") }
+            ScreenButton(download, Modifier.weight(1f)) { Text("Download") }
+        }
+    }
+}
+
+/** The persistent opt-in entry point remains available after dismissing startup consent. */
 @Composable
 internal fun CatalogControls(controller: CatalogViewModel) {
     val state = controller.state
@@ -14,16 +46,20 @@ internal fun CatalogControls(controller: CatalogViewModel) {
         Text("Card records", style = MaterialTheme.typography.titleMedium)
         state.installed?.let { Text("Installed: ${it.date} · ${it.records} records") }
             ?: Text("Download card records before importing a new deck. Artwork loads only when needed.")
-        state.status?.let { Text(it, color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) }
-        if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        else if (state.available != null) {
-            val size = state.size?.let { "${(it + 1023) / 1024} KiB" } ?: "up to 4 GiB (size unavailable)"
+        Box(Modifier.fillMaxWidth().heightIn(min = 96.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.status?.let { Text(it, color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) }
+                state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
+            }
+        }
+        if (state.available != null) {
+            val size = state.size?.let { "${catalogMb(it)} MB" } ?: "up to 4 GiB (size unavailable)"
             Text("${state.available.date} · Download $size. ${if (state.metered) "This connection may charge for data." else "Using an unmetered connection."} Indexed records may use up to 4 GiB of storage.")
-            ScreenButton(onClick = controller::consent, Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            ScreenButton(onClick = controller::consent, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !state.busy) {
                 EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text(if (state.error) "Retry download" else "Download card records")
             }
         }
-        if (!state.busy) TextButton(onClick = { controller.foreground(force = true) }, Modifier.heightIn(min = 48.dp)) {
+        TextButton(onClick = { controller.foreground(force = true) }, Modifier.heightIn(min = 48.dp), enabled = !state.busy) {
             EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text(if (state.error && state.available == null) "Retry" else "Check for updates")
         }
     }

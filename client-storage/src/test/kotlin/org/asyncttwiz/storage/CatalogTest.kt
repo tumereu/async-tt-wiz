@@ -34,6 +34,47 @@ class CatalogTest {
         GZIPOutputStream(this).use { it.write(text.toByteArray()) }
     }.toByteArray()
 
+    @Test fun installerReportsCompressedBytesDuringDownloadAndIndexingWithOrWithoutKnownTotal() {
+        val source = FilesSource(File(fixtures, "prism/v1"))
+        val root = JsonParser.parseString(File(source.edition, "AllPrintings.json").readText()).asJsonObject
+        val cards = root.getAsJsonObject("data").getAsJsonObject("ZPA").getAsJsonArray("cards")
+        val original = cards.first().asJsonObject
+        val random = java.util.Random(42)
+        repeat(1200) { n -> cards.add(original.deepCopy().apply {
+            addProperty("uuid", java.util.UUID(42, n.toLong()).toString())
+            remove("otherFaceIds"); remove("side")
+            addProperty("text", CharArray(1024) { ('a'.code + random.nextInt(26)).toChar() }.concatToString())
+        }) }
+        source.payload = gzip(root.toString())
+        val bytes = source.size()
+        assertTrue(bytes > 64 * 1024, "Exercise more than one gzip input buffer")
+        for (total in listOf(bytes, null)) {
+            val events = mutableListOf<CatalogProgress>()
+            val installed = CatalogInstaller(directory, repo(), source, { Long.MAX_VALUE })
+                .install(source.metadata(), total, events::add)
+            val downloading = events.filter { it.phase == CatalogPhase.DOWNLOADING }
+            val indexing = events.filter { it.phase == CatalogPhase.INDEXING }
+            assertEquals(0, downloading.first().done)
+            assertEquals(bytes, downloading.last().done)
+            assertEquals(0, indexing.first().done)
+            assertEquals(bytes, indexing.last().done, "Count compressed input, not decoded JSON bytes")
+            assertTrue(indexing.any { it.done in 1 until bytes && it.records > 0 })
+            assertTrue(indexing.last().records >= installed.records)
+            assertTrue(indexing.zipWithNext().all { (a, b) -> a.done <= b.done && a.records <= b.records })
+            assertTrue(events.all { it.total == total && it.done in 0..bytes })
+        }
+    }
+
+    @Test fun countingInputCountsSingleBulkAndSkippedBytesExactlyOnce() {
+        CountingInput(ByteArrayInputStream(ByteArray(100))).use { input ->
+            input.read(); assertEquals(1, input.count)
+            assertEquals(10, input.read(ByteArray(10))); assertEquals(11, input.count)
+            assertEquals(5, input.read(ByteArray(10), 2, 5)); assertEquals(16, input.count)
+            assertEquals(84, input.skip(100)); assertEquals(100, input.count)
+            assertEquals(-1, input.read()); assertEquals(100, input.count)
+        }
+    }
+
     @Test fun bothFamiliesVersionsExactRecordsFacesAndReopen() {
         for (family in listOf("prism", "quilt")) {
             val repository = repo()

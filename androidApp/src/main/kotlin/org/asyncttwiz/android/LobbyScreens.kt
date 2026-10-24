@@ -102,10 +102,10 @@ internal fun ContactsContent(controller: LobbyController) {
         if (maxWidth >= 600.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { search() }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LobbyFeedback(controller); saved()
+                saved()
             }
         } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            search(); LobbyFeedback(controller); saved()
+            search(); saved()
         }
     }
     }
@@ -121,41 +121,17 @@ private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when
 }
 
 @Composable
-private fun LobbyFeedback(controller: LobbyController) {
-    val state = controller.state
-    state.connectionMessage?.let { message ->
-        Text(message, style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = controller::reconnect) { Text("Reconnect") }
-    }
-    if (state.draft == null) state.error?.let {
-        Text(it, color = MaterialTheme.colorScheme.error)
-        TextButton(onClick = { controller.refresh() }) { Text("Retry") }
-    }
-}
-
-@Composable
 internal fun GamesContent(controller: LobbyController, accountId: String) {
     val state = controller.state
     ScreenBusyOverlay(lobbyBusyMessage(state, "Loading games…")) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        if (state.error != null || state.connectionMessage != null) item { LobbyFeedback(controller) }
         item {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row { Text("GAMES", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge); Text(state.games.size.toString(), style = MaterialTheme.typography.bodySmall) }
                     HorizontalDivider()
                     if (state.loaded && state.games.isEmpty()) Text("No games yet.")
-                    for (game in state.games) Surface(Modifier.fillMaxWidth().gameRowActions(controller, game) { controller.open(game.id) },
-                        color = ScreenBackground, border = BorderStroke(1.dp, ScreenBorder), shape = MaterialTheme.shapes.medium) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(game.gameName, fontWeight = FontWeight.SemiBold)
-                                Text(game.opponent(accountId).username, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("${gameStatus(game)} · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            EntryIcon("Open ${game.gameName}", "chevron")
-                        }
-                    }
+                    GameRows(state.games, controller, accountId, Modifier.fillMaxWidth())
                 }
             }
         }
@@ -244,7 +220,6 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            LobbyFeedback(controller)
             state.detail?.let { game ->
                 val ownPlayer = state.preparation?.players?.find { it.accountId == accountId }
                 val status = if (ownPlayer?.ready == true && game.invitationState == InvitationState.ACCEPTED)

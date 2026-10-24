@@ -48,7 +48,8 @@ class MenusPolishTest {
         compose.setContent { ScreenTheme {
             ShellContent(ShellDestination.MENU, true, {}, {}, null, null, null, fixtures.lobby, "a")
         } }
-        compose.onNodeWithTag("quick-continue-${game.id}").assert(hasText(game.opponent("a").username))
+        compose.onNodeWithTag("quick-continue-${game.id}").assert(hasText(game.gameName))
+            .assert(hasText("vs ${game.opponent("a").username} · In play · ${gameLastActivity(game)}"))
             .assert(hasText("Your move")).performClick()
         assertEquals(game.id, fixtures.lobby.state.selected)
     }

@@ -37,6 +37,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     var state by mutableStateOf(LobbyState())
         private set
     @Volatile private var epoch = 0L
+    @Volatile private var refreshVersion = 0L
+    @Volatile private var lifecycleVersion = 0L
+    @Volatile private var inForeground = true
+    private var refreshError: String? = null
     private var closed = false
     private var searchVersion = 0L
     private var pendingCreate: CreateInvitation? = null
@@ -65,7 +69,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
-    fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -338,7 +342,20 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }
     }
     fun reconnect() { session?.tick(); refresh() }
+    fun background() {
+        inForeground = false
+        lifecycleVersion++
+        state = state.copy(backgroundLoading = state.busy)
+    }
     fun foreground() {
+        if (closed) return
+        inForeground = true
+        // Like GameSession.foreground's action-grace reset, an old interrupted read must not
+        // present a reconnect error or prevent the silent resume attempt from starting.
+        refreshVersion++
+        state = state.copy(busy = false, backgroundLoading = false,
+            error = state.error.takeUnless { it == refreshError })
+        refreshError = null
         session?.foreground()
         // Refresh account lists silently, retaining the table and existing stream generations.
         refresh(background = true)
@@ -491,37 +508,39 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         else if (state.chatOpen) closeChat() else if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
         else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { resetHistory(); routeVersion++; state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, transferFeedback = null, error = null); refresh() } }
     fun tick() { session?.tick() }
-    fun sync() { tick(); if (!state.busy && !state.mutating) refresh(background = true) }
+    fun sync() { tick(); if (inForeground && !state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) {
-        if (closed || state.busy || state.mutating) return
+        if (closed || !inForeground || state.busy || state.mutating) return
         val token = credential() ?: return
         val generation = epoch; val selected = state.selected
+        val version = ++refreshVersion; val lifecycle = lifecycleVersion
+        fun current() = generation == epoch && version == refreshVersion && inForeground
         val atStart = latest.toMap()
         state = state.copy(busy = true, backgroundLoading = background,
             error = if (background || state.draft != null) state.error else null)
         worker.execute {
-            if (generation != epoch) return@execute
+            if (!current()) return@execute
             val result = runCatching { runBlocking {
                 val contacts = mutableListOf<AccountIdentity>(); val games = mutableListOf<GameSummary>(); val invites = mutableListOf<GameSummary>()
                 suspend fun pages(read: suspend (String?) -> String?): Boolean {
                     var after: String? = null; val seen = mutableSetOf<String>()
                     do {
-                        if (generation != epoch) return false
+                        if (!current()) return false
                         after = read(after); check(after == null || seen.add(after!!))
                     } while (after != null)
-                    return generation == epoch
+                    return current()
                 }
-                if (!pages { cursor -> serviceRetry(current = { generation == epoch }) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
-                if (!pages { cursor -> serviceRetry(current = { generation == epoch }) { api.games(token, false, cursor) }.let { games.addAll(it.games); it.next } }) return@runBlocking null
-                if (!pages { cursor -> serviceRetry(current = { generation == epoch }) { api.games(token, true, cursor) }.let { invites.addAll(it.games); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current) { api.games(token, false, cursor) }.let { games.addAll(it.games); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current) { api.games(token, true, cursor) }.let { invites.addAll(it.games); it.next } }) return@runBlocking null
                 val detail = selected?.let {
-                    try { serviceRetry(current = { generation == epoch }) { api.head(token, it) } } catch (failure: LobbyFailure) {
+                    try { serviceRetry(current = ::current) { api.head(token, it) } } catch (failure: LobbyFailure) {
                         if (failure.code == "not_found") null else throw failure
                     }
                 }
                 LobbyState(contacts = contacts, games = games, invitations = invites, detail = detail)
             } }
-            post { if (!closed && generation == epoch) {
+            post { if (!closed && generation == epoch && version == refreshVersion) {
                 val data = result.getOrNull()
                 if (data != null) {
                     // Omission removes an old row. Only a revision learned since this read began
@@ -532,7 +551,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                         .map { game -> latest[game.id]?.takeIf { GameSession.newerOrEqual(it.revision, game.revision) } ?: game }
                     val present = games.map { it.id }.toSet()
                     for (id in atStart.keys - present) session?.unavailable(id)
-                    state = state.copy(contacts = data.contacts, games = emptyList(), invitations = emptyList(), busy = false, loaded = true)
+                    state = state.copy(contacts = data.contacts, games = emptyList(), invitations = emptyList(), busy = false,
+                        backgroundLoading = false, loaded = true, error = state.error.takeUnless { it == refreshError })
+                    refreshError = null
                     if (selected != null && state.selected == selected && data.detail == null && latest[selected] == atStart[selected]) {
                         session?.unavailable(selected); leaveUnavailable()
                     }
@@ -542,7 +563,13 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                         session.watch(games); connectionState()
                     }
                 } else {
-                    state = state.copy(busy = false, error = lobbyError(result.exceptionOrNull()!!))
+                    val failure = result.exceptionOrNull()
+                    val silent = failure == null || lobbyLifecycleInterruption(failure,
+                        interrupted = lifecycle != lifecycleVersion || !inForeground)
+                    val previousError = refreshError
+                    refreshError = if (silent) null else lobbyError(failure!!)
+                    state = state.copy(busy = false, backgroundLoading = false,
+                        error = refreshError ?: state.error.takeUnless { it == previousError })
                 }
                 // A user may choose another row while a list refresh is in flight.
                 if (state.selected != selected) refresh()
@@ -554,6 +581,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
 
 internal fun gameNameSuggestion(): String = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering").random() +
     " " + listOf("Spark", "Mist", "Wand", "Grove", "Rune", "Prism", "Dragon", "Lantern").random()
+internal fun lobbyLifecycleInterruption(failure: Throwable, interrupted: Boolean): Boolean = interrupted &&
+    (failure is kotlinx.coroutines.CancellationException || transientServiceFailure(failure))
+
 internal fun lobbyError(failure: Throwable): String = when ((failure as? LobbyFailure)?.code) {
     "invalid_search" -> "Use 1–64 username characters without control characters."
     "invalid_name" -> "Enter a game name."

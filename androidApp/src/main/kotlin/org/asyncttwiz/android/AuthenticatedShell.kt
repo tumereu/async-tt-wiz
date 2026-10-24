@@ -94,6 +94,9 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                 BackHandler(enabled = state.drawerOpen) { controller.drawer(false) }
             }
         }
+        if (!tabletop && lobby != null) FloatingTransientError(
+            lobby.state.error?.takeIf { lobby.state.draft == null } ?: lobby.state.connectionMessage,
+            lobby::dismissSessionError, Modifier.align(Alignment.BottomCenter))
     }
     // Own the single dialog host here, outside route/orientation branches, not in MainActivity.
     // This also keeps dialogs available when the authenticated shell is composed on its own.
@@ -226,16 +229,9 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                              Text(item.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                              EntryIcon(null, "chevron")
                         }
-                        if (item == ShellDestination.GAMES && lobby != null) {
-                            for (game in quickContinueGames(lobby.state.games, accountId)) {
-                                TextButton(onClick = { lobby.open(game.id) },
-                                    modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth().testTag("quick-continue-${game.id}")) {
-                                    Text(game.opponent(accountId).username, Modifier.weight(1f))
-                                    Text(quickContinueMove(game, accountId), style = MaterialTheme.typography.labelMedium)
-                                    EntryIcon(null, "chevron")
-                                }
-                            }
-                            lobby.state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                         if (item == ShellDestination.GAMES && lobby != null) {
+                             GameRows(quickContinueGames(lobby.state.games, accountId), lobby, accountId,
+                                 Modifier.widthIn(max = 540.dp).fillMaxWidth().padding(start = 12.dp, top = 4.dp))
                         }
                         Spacer(Modifier.height(12.dp))
                     }

@@ -146,7 +146,9 @@ object TablePresentation {
         val dockRow = max(68f, ch + 16f)
         val counterHeight = 48f
         val counterHeights = players.map { if (landscape || it.counters.values.any(::nonzero)) counterHeight else 0f }
-        val middleHeight = max(combat.height, envelope + 8f)
+        // Portrait Stack shares the docks' right gutter, never a row of its own.
+        val middleHeight = if (landscape) max(combat.height, envelope + 8f) else combat.height
+        val stackWidth = if (landscape) sidebar else max(width * .2f, envelope + 12f)
         val dockHeight = 2 * dockRow + counterHeights.sum() + middleHeight
         val fieldHeight = ((height - HEADER - 2 * railHeight - controlsHeight - dockHeight - 6f) / 2).coerceAtLeast(32f)
         val boardTop = HEADER + 4f
@@ -226,7 +228,7 @@ object TablePresentation {
             port(battlefield.id, field.bounds, logicalWidth * zoom)
             val rowY = if (landscape) boardTop + (if (index == 0) 0f else sidebarContent - sidebarRow) - sidebarScroll
                 else dockTop + if (index == 0) 0f else dockRow + counterHeights[0] + middleHeight
-            val dock = TableBounds(0f, rowY, if (landscape) sidebar else width - max(width * .2f, envelope + 12f), dockRow)
+            val dock = TableBounds(0f, rowY, if (landscape) sidebar else width - stackWidth, dockRow)
             val spacing = max(envelope, (dock.width - 64f) / 3)
             val dp = port("dock/${player.accountId}", dock, 76f + 2 * spacing + envelope)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
@@ -245,8 +247,8 @@ object TablePresentation {
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
             }
             if (counterHeights[index] > 0f) {
-                val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, if (landscape) sidebar else width, counterHeight),
-                    max(if (landscape) sidebar else width, 288f))
+                val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),
+                    max(dock.width, 288f))
                 for ((n, color) in CounterColor.entries.withIndex()) {
                     val v = player.counters[color].orEmpty()
                     val b = TableBounds(n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
@@ -257,10 +259,14 @@ object TablePresentation {
         }
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, cw, ch)
-        val stackWidth = if (landscape) sidebar else max(width * .2f, envelope + 12f)
+        // Optional counter rails belong to their player: unequal rail heights
+        // must not pull Stack toward the combined docks' center.
+        val playerBoundary = dockTop + dockRow + counterHeights[0] + middleHeight / 2
+        val stackPadding = 4f
         val stackRegion = if (landscape) TableBounds(6f, boardTop + sidebarRow - sidebarScroll,
             sidebar - 6f, sidebarContent - 2 * sidebarRow)
-            else TableBounds(width - stackWidth, dockTop + dockRow + counterHeights[0], stackWidth, middleHeight)
+            else TableBounds(width - stackWidth / 2 - envelope / 2 - stackPadding,
+                playerBoundary - envelope / 2 - stackPadding, envelope + 2 * stackPadding, envelope + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - envelope / 2, stackRegion.center.y - envelope / 2, envelope, envelope)
         val sp = port(stack.id, sb, envelope)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,

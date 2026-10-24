@@ -63,6 +63,7 @@ class GameplayDeltaTest {
             it.faces.single().copy(otherFaceIds = listOf(alternateFace)), DefinitionFace(alternateFace, "Back", otherFaceIds = listOf(gameplayId(30))))) }
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val twoFaces = field.copy(definitions = listOf(submitted), board = field.board.copy(cards = field.board.cards.map { it.copy(definition = submitted.digest) }))
+        check(twoFaces, PlayAction.InspectFace(card, alternateFace, gameplayId(22)))
         check(twoFaces, PlayAction.SetFace(card, alternateFace))
         val token = check(field, PlayAction.CreateToken(TokenCatalog.blank))
         check(token, PlayAction.RemoveToken(token.board.cards.single { it.token }.id))
@@ -151,9 +152,29 @@ class GameplayDeltaTest {
         return List(9) { val start = TimeSource.Monotonic.markNow(); block(); start.elapsedNow().inWholeNanoseconds / 1_000_000.0 }.sorted()[4]
     }
 
+    @Test fun retainedMetadataDoesNotInvalidateRecordedEffectsButEffectCorruptionDoes() {
+        val root = gameplayFixture()
+        val action = PlayAction.SetTapped(root.board.cards.first().id, true)
+        val event = assertNotNull(GameplayRules.change(root, a, command(root, GameAction.Play(action))).mutation)
+        val retained = event.copy(branchId = gameplayId(90000), grouping = null)
+        val cold = GameplayTree(root, mapOf(retained.id to retained), retained.id)
+        val state = assertNotNull(cold.stateAt(retained.id))
+        assertTrue(state.board.cards.first().tapped)
+        assertEquals(retained.branchId, state.currentBranchId)
+        assertEquals(root, cold.stateAt(root.root.id), "inverse traversal restores the original context")
+        val wire = TreeSync.decode(TreeSync.records(TreeSync.generation(cold)), root.gameId, root.id).tree
+        assertEquals(state, wire.stateAt(retained.id))
+        val replayed = assertNotNull(GameplayHistory.replay(root, retained).mutation)
+        assertEquals(root, GameplayHistory.unapply(state, replayed))
+        assertNull(GameplayHistory.apply(root, event.copy(transition = event.transition.copy(fields = emptyList()))))
+        assertNull(GameplayHistory.apply(root, event.copy(action = PlayAction.SetTapped(action.cardId, false))))
+    }
+
     @Test fun warmLongGameUndoAndCursorBenchmarksAndThe50EventBoundary() {
         val tree = longGame()
         val head = tree.nodes.getValue(tree.currentNodeId)
+        val before = assertNotNull(tree.stateAt(head.parentId))
+        assertTrue(medianMillis { assertNotNull(GameplayHistory.apply(before, head)) } < 20.0)
         val undo = command(tree.initial, GameAction.Undo)
         assertTrue(medianMillis { assertNotNull(HistoryContinuation.change(tree, head.author, undo).tree) } < 20.0)
         var selective = assertNotNull(tree.play(a, command(tree.initial, GameAction.Play(PlayAction.SetNote(gameplayId(1000), "target")))).tree)

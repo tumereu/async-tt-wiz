@@ -83,6 +83,9 @@ object GameplayHistory {
 
     private fun readsMatch(state: PlayState, mutation: GameplayMutation): Boolean {
         val board = state.board
+        if (mutation.grouping != null && mutation.grouping != runCatching {
+            HistoryGrouping.classify(mutation.action, board.containers, mutation.transition)
+        }.getOrNull()) return false
         for (field in mutation.transition.fields) {
             val card = board.cards.singleOrNull { it.id == field.targetId }
             val player = board.players.singleOrNull { it.accountId == field.targetId }
@@ -131,6 +134,14 @@ object GameplayHistory {
             if (board.containers.singleOrNull { it.id == read.destinationId }?.zone != read.destinationZone) return false
         }
         for (disclosure in mutation.transition.disclosures) {
+            if (mutation.action is PlayAction.InspectFace) {
+                // Inspection can expose any retained face, without changing the active face.
+                // Its region dependency is checked by the recorded CONTAINER read above.
+                val card = board.cards.singleOrNull { it.id == disclosure.cardId } ?: return false
+                if (state.definitions.none { it.digest == card.definition &&
+                    it.definition.faces.any { face -> face.faceId == disclosure.faceId } }) return false
+                continue
+            }
             val face = mutation.transition.fields.lastOrNull { it.targetId == disclosure.cardId && it.field == GameplayField.FACE }?.to
                 ?: board.cards.singleOrNull { it.id == disclosure.cardId }?.faceId
             if (face != disclosure.faceId) return false

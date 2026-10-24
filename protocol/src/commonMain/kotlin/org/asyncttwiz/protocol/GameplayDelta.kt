@@ -30,11 +30,11 @@ internal object GameplayDeltas {
 
     fun seal(mutation: GameplayMutation): String = DeckJson.intent("gameplay-event-v2", buildJsonObject {
         put("requestId", mutation.requestId)
-        put("branchId", mutation.branchId)
         put("invocationId", mutation.invocationId?.let(::JsonPrimitive) ?: JsonNull)
         put("author", mutation.author)
         put("action", json.encodeToJsonElement(PlayAction.serializer(), mutation.action))
-        put("grouping", mutation.grouping?.let { json.encodeToJsonElement(HistorySemantic.serializer(), it) } ?: JsonNull)
+        // Branch assignment and optional grouping describe retained topology/presentation, not
+        // the recorded board effect. Reparenting and legacy grouping fallback must not invalidate it.
         put("transition", json.encodeToJsonElement(GameplayTransition.serializer(), mutation.transition.copy(delta = null)))
         put("delta", mutation.transition.delta?.let { json.encodeToJsonElement(GameplayDelta.serializer(), it.copy(seal = "")) } ?: JsonNull)
     }.let(DeckJson::canonicalElement))

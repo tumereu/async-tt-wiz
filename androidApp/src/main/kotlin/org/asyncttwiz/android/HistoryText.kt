@@ -145,7 +145,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             SuggestedResult.DRAW -> "suggested a draw"
         }, "Suggest result")
     }
-    return if (event.schemaVersion != 1) text("changed the table", "Change") else result
+    return if (event.schemaVersion !in 1..2) text("changed the table", "Change") else result
 }
 
 /** Worker-only text projection. Replay each retained edge once with the shared reducer; keep

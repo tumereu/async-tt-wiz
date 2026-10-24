@@ -95,16 +95,17 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var selection by selectionState
     var actions by remember(play.id, accountId) { mutableStateOf<TableIntent.Actions?>(null) }
     var localStackBubble by remember(play.id, accountId) { mutableStateOf<String?>(null) }
+    var combatBubbleId by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     val inspector = remember(play.id, accountId) { CardInspectionController() }
     var inspectedCard by remember(play.id, accountId) { mutableStateOf<PlayCard?>(null) }
     var peek by remember(play.id, accountId) { mutableStateOf<ManualInspection?>(null) }
     val peekScroll = rememberScrollState()
-    BackHandler(enabled = actions != null || localStackBubble != null || inspectedCard != null && inspector.state != null || peek != null) {
+    BackHandler(enabled = actions != null || localStackBubble != null || combatBubbleId != null || inspectedCard != null && inspector.state != null || peek != null) {
         when {
             inspector.state != null -> { inspector.close(); inspectedCard = null }
             peek != null -> peek = null
             actions != null -> actions = null
-            else -> localStackBubble = null
+            else -> { localStackBubble = null; combatBubbleId = null }
         }
     }
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
@@ -122,7 +123,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
             when (intent) {
-                TableIntent.DismissTapUi -> { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }
+                TableIntent.DismissTapUi -> { actions = null; toolkit?.dismissTapUi(); localStackBubble = null; combatBubbleId = null }
+                is TableIntent.CombatBubbles -> {
+                    combatBubbleId = intent.occurrenceId
+                    if (intent.occurrenceId != null) { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }
+                }
                 is TableIntent.Peek -> {
                     if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
                     if (toolkit != null) toolkit.peek(intent.cardId)
@@ -224,6 +229,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
                 toolkit?.showStackBubbles(null); localStackBubble = null
             }
+            if (presentation?.combatBubbles?.controls?.none { it.bounds.contains(point) } == true) combatBubbleId = null
         }
     }) {
         val compactHeader = maxWidth < 400.dp
@@ -265,7 +271,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
         val bubbleCard = baseScene.items.find { bubbleId != null && it.cardId == bubbleId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
         val bubble = TablePresentation.stackBubbles(baseScene, play, bubbleId, maxWidth.value, maxHeight.value)
-        val scene = baseScene.copy(stackBubbles = bubble)
+        val combatCard = baseScene.items.find { it.cardId == combatBubbleId && it.viewport == "combat" && it.visible.isNotEmpty() }
+        val combatBubble = if (runtime.reviewing || combatCard == null ||
+            CombatStackRules.occurrences(play.board.combat).none { it.id == combatBubbleId }) null else
+            StackBubbleGeometry.combat(play.board, requireNotNull(combatBubbleId), combatCard.bounds, maxWidth.value, maxHeight.value)
+        LaunchedEffect(play, runtime.reviewing) {
+            if (runtime.reviewing || CombatStackRules.occurrences(play.board.combat).none { it.id == combatBubbleId }) combatBubbleId = null
+        }
+        val scene = baseScene.copy(stackBubbles = bubble, combatBubbles = combatBubble)
         val annotations = TableAnnotationGeometry(scene, game.inviter.accountId)
         val artwork = tableArtwork(scene)
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
@@ -435,6 +448,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 if (bubbleCard?.owner == accountId) OwnTableColor else OpponentTableColor, preview, writable) { intent ->
                 if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
                 callback?.invoke(intent)
+            }
+            if (combatBubble != null) StackBubbleOverlay(combatBubble, emptyList(),
+                if (combatCard?.owner == accountId) OwnTableColor else OpponentTableColor, preview, writable) { intent ->
+                if (intent is TableIntent.Ping) {
+                    val target = tablePingTarget(play, combatCard)
+                    if (target != null && currentRuntime.controlsConnected == true)
+                        currentRuntime.ping?.invoke(tablePingIntent(currentPlay, pingReference, target))
+                } else if (currentWritable) callback?.invoke(intent)
             }
         }
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
@@ -759,6 +780,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
             drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
             for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)
+            if (scene.combatDrops.isNotEmpty() && scene.items.none { it.viewport == "combat" }) {
+                paint.alpha = 110
+                fittedText("Drag cards here for combat", b.x + 8f, b.center.y + 4f, b.width - 16f)
+                paint.alpha = 255
+            }
         }
     }
     fun endpoint(endpoint: LinkEndpoint): TablePoint? = scene.items.firstOrNull { item ->
@@ -838,7 +864,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                 }
             }
              TableItemKind.CARD -> {
-                  val transform = i.faceTransform()
+                   val transform = if (i.viewport == "combat") TableCardTransform(b.width, b.height, 0f) else i.faceTransform()
                   val z = transform.width / 28f
                   val cardWidth = transform.width; val cardHeight = transform.height
                   rotate(transform.rotation, xy(b.center.x, b.center.y)) {

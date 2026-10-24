@@ -183,7 +183,13 @@ private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlaySt
             })
         }
     }
-    if (combat.isNotEmpty()) add(MenuControl("Remove from combat", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss() })
+    if (combat.isNotEmpty()) {
+        add(MenuControl("Undeclare", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss() })
+        add(MenuControl("Graveyard", enabled) {
+            toolkit.batch { combat.forEach { toolkit.submit(CombatStackController.graveyard(play.board, it)) } }
+            toolkit.dismiss()
+        })
+    }
 }
 
 private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,

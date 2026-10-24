@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class CombatStackPresentationTest {
-    @Test fun stackDrawingsIgnoreTappedRealLiveAndFrozenCardsWithoutChangingCombatProjections() {
+    @Test fun stackAndCombatDrawingsIgnoreTappedSourcesWithoutChangingRealCards() {
         val f = TableStatesFixture
         val original = f.combat()
         val actual = CombatStackRules.stack(original.board).cards.first { id -> original.board.cards.any { it.id == id } }
@@ -20,7 +20,8 @@ class CombatStackPresentationTest {
         assertTrue(drawings.all { !it.card.tapped && it.bounds.width == 28f && it.bounds.height == 40f })
         val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
         assertTrue(scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }.all { !it.tapped })
-        assertTrue(scene.items.single { it.cardId == f.id("attacker2") }.tapped)
+        assertFalse(scene.items.single { it.cardId == f.id("attacker2") }.tapped)
+        assertTrue(state.board.cards.single { it.id == f.source(f.a, "1/2").id }.tapped)
         assertTrue(state.board.cards.single { it.id == actual }.tapped) // Presentation does not mutate the source.
     }
     private fun populated(): PlayState {
@@ -33,23 +34,39 @@ class CombatStackPresentationTest {
             CombatDestination(declared.board.combat!!.id, CombatRole.BLOCKER, declared.board.combat!!.pairs.first().id), commands::command).prediction
     }
 
-    @Test fun compactPairWidthsCommonScaleAndRotatedEnvelopeNeverShrink() {
+    @Test fun packedPairWidthsUseUprightCardsAndOnlyInteriorDividers() {
         val state = populated().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
             if (card.id == combatId(22)) card.copy(tapped = true) else card
         })) }
         val geometry = CombatStackPresentation.combat(state.board, 48f, 68f)
         val card = geometry.cards.single { it.card.id == combatId(22) }
-        assertEquals(68f, card.bounds.width)
-        assertEquals(48f, card.bounds.height)
+        assertEquals(48f, card.bounds.width)
+        assertEquals(68f, card.bounds.height)
+        assertFalse(card.card.tapped)
+        assertTrue(state.board.cards.single { it.id == combatId(22) }.tapped)
         assertEquals(48f, geometry.cards.single { it.card.id == combatId(20) }.bounds.width)
-        val widths = geometry.dividers.chunked(2).map { it[1] - it[0] }
+        assertEquals(1, geometry.dividers.size)
+        val widths = listOf(geometry.dividers.single(), geometry.width - geometry.dividers.single())
         assertTrue(widths[0] > widths[1])
         assertEquals(48f + 2 * 48f * .04f, widths[1], .001f)
         val blockers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.BLOCKER }
         val attackers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.ATTACKER }
         assertTrue(blockers.maxOf { it.bounds.y + it.bounds.height } < attackers.minOf { it.bounds.y })
         assertEquals(6, geometry.destinations.count { it.destination.pairId == null }) // 3 gaps, both sides.
-        assertTrue(geometry.destinations.filter { it.destination.pairId == null }.all { it.bounds.width == 48f })
+        assertEquals(widths.sum(), geometry.width, .001f) // No reserved insertion slots.
+        assertTrue(geometry.dividers.all { it > 0 && it < geometry.width })
+        val between = geometry.destinations.filter { it.destination.pairId == null && !it.extendLeft && !it.extendRight }
+        assertTrue(between.all { it.bounds.width == 24f && it.bounds.center.x == geometry.dividers.single() })
+        for (role in CombatRole.entries) {
+            val regions = geometry.destinations.filter { it.destination.role == role }
+            val y = regions.first().bounds.center.y
+            fun target(x: Float) = regions.asReversed().firstOrNull { it.contains(TablePoint(x, y)) }?.destination
+            assertEquals(IdentityGap(beforeId = state.board.combat!!.pairs.first().id), target(-1e20f)?.pairGap)
+            assertEquals(IdentityGap(afterId = state.board.combat!!.pairs.last().id), target(1e20f)?.pairGap)
+            assertNull(regions.firstOrNull { it.contains(TablePoint(-1e20f, -1f)) })
+            assertNull(target(geometry.dividers.single() - 11f)?.pairId)
+            assertEquals(state.board.combat!!.pairs.last().id, target(geometry.dividers.single() + 14f)?.pairId)
+        }
     }
 
     @Test fun closedVersusEmptyAreaAndAccessibleInsertionChoices() {
@@ -63,10 +80,30 @@ class CombatStackPresentationTest {
         assertTrue(scene.cards.isEmpty())
         assertTrue(scene.dividers.isEmpty())
         assertTrue(opened.board.combat!!.pairs.isEmpty())
+        assertTrue(scene.destinations.all { it.extendLeft && it.extendRight && it.contains(TablePoint(-1e20f, it.bounds.center.y)) &&
+            it.contains(TablePoint(1e20f, it.bounds.center.y)) })
         val populated = populated()
         val choices = CombatStackPresentation.combat(populated.board, 48f, 68f).destinations
         assertTrue(choices.any { it.destination.insertion == CombatInsertion.GAP && it.destination.cardGap.beforeId != null })
         assertTrue(choices.all { it.destination.areaId == populated.board.combat!!.id && it.label.isNotBlank() })
+    }
+
+    @Test fun groupFacesAppendToTheirRowAndInternalCardGapsRetainIdentityTargets() {
+        val state = populated()
+        val geometry = CombatStackPresentation.combat(state.board, 48f, 68f)
+        val pair = state.board.combat!!.pairs.first()
+        fun target(point: TablePoint) = geometry.destinations.asReversed().first { it.contains(point) }.destination
+        for (role in CombatRole.entries) {
+            val occurrence = pair.side(role).first()
+            val drawing = geometry.cards.single { it.viewId == occurrence.id }
+            val destination = target(drawing.bounds.center)
+            assertEquals(pair.id, destination.pairId)
+            assertEquals(role, destination.role)
+            assertEquals(CombatInsertion.APPEND, destination.insertion)
+        }
+        val gap = geometry.destinations.single { it.destination.cardGap.beforeId == pair.blockers.last().id }
+        assertEquals(gap.destination, target(gap.bounds.center))
+        assertEquals(IdentityGap(pair.blockers.first().id, pair.blockers.last().id), gap.destination.cardGap)
     }
 
     @Test fun stackTopThreeDrawingAllOrderedContentsAndCountAtCommonScale() {

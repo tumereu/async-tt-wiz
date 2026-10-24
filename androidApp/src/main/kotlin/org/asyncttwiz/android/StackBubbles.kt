@@ -36,8 +36,26 @@ internal fun stackTextOptions(state: PlayState, entryId: String, viewer: String)
 }
 
 data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val controls: List<TableItem>,
-    val selected: Int?, val optionCount: Int) {
+    val selected: Int?, val optionCount: Int, val actions: Map<String, TableIntent> = emptyMap()) {
     companion object {
+        fun combat(board: BoardState, entryId: String, anchor: TableBounds, width: Float, height: Float): StackBubbleGeometry {
+            val base = create(entryId, anchor, width, height, null, 0)
+            val controls = base.controls.filterNot { it.id.endsWith("/remove") }.map { item ->
+                val kind = when {
+                    item.id.endsWith("/battlefield") -> "undeclare"
+                    item.id.endsWith("/graveyard") -> "graveyard"
+                    else -> "ping"
+                }
+                item.copy(id = "combatBubble/$kind", label = when (kind) {
+                    "undeclare" -> "Undeclare"; "graveyard" -> "Graveyard"; else -> "Ping"
+                })
+            }
+            return base.copy(controls = controls, actions = mapOf(
+                "combatBubble/undeclare" to TableIntent.Submit(PlayAction.Combat(CombatAction.Remove(requireNotNull(board.combat).id, entryId)), null),
+                "combatBubble/graveyard" to TableIntent.Submit(CombatStackController.graveyard(board, entryId), null),
+                "combatBubble/ping" to TableIntent.Ping("card/$entryId", anchor.center)))
+        }
+
         fun create(entryId: String, anchor: TableBounds, width: Float, height: Float, selected: Int?, count: Int): StackBubbleGeometry {
             val side = 40f
             fun bounds(x: Float, y: Float) = TableBounds(x.coerceIn(4f, (width - side - 4).coerceAtLeast(4f)),
@@ -96,14 +114,14 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
                     if (enabled) perform(TableIntent.Submit(PlayAction.Stack(StackAction.MarkText(geometry.entryId, null)), null)); enabled
                 }
             } else onClick(item.label) {
-                if (enabled) perform(if (item.id.endsWith("/remove")) TableIntent.Submit(StackMenuActions.remove(geometry.entryId), null)
+                if (enabled) perform(geometry.actions[item.id] ?: if (item.id.endsWith("/remove")) TableIntent.Submit(StackMenuActions.remove(geometry.entryId), null)
                     else TableIntent.StackDestination(geometry.entryId,
                         if (item.id.endsWith("battlefield")) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD)); enabled
             }
         }, shape = RoundedCornerShape(10.dp), color = ownerColor, contentColor = Color.White, shadowElevation = 3.dp) {
-            Box(contentAlignment = Alignment.Center) { Icon(when {
+            Box(contentAlignment = Alignment.Center) { if (item.id.endsWith("/ping")) TableChromeIcon("ping") else Icon(when {
                 marker -> Icons.Outlined.BorderColor
-                item.id.endsWith("/remove") -> Icons.Outlined.Close
+                item.id.endsWith("/remove") || item.id.endsWith("/undeclare") -> Icons.Outlined.Close
                 item.id.endsWith("battlefield") -> Icons.Outlined.TableRows
                 else -> Icons.Outlined.Inventory2
             }, null, Modifier.size(22.dp)) }

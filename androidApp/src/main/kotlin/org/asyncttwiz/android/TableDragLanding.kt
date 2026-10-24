@@ -12,7 +12,9 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
     val zoom = scene.camera.zoom
     val ids = scope.cardIds
     fun outline(id: String, x: Float, y: Float): TableBounds {
-        val tapped = scene.items.firstOrNull { it.cardId == id }?.tapped == true
+        val item = scene.items.firstOrNull { it.cardId == id }
+        val source = if (item?.viewport == "combat") scene.items.firstOrNull { it.cardId == item.sourceId && !it.projection } else item
+        val tapped = source?.tapped == true
         return TableBounds(x, y, if (tapped) scene.cardHeight else scene.cardWidth,
             if (tapped) scene.cardWidth else scene.cardHeight)
     }
@@ -65,16 +67,35 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
         is TableDestination.Combat -> {
             val region = scene.combatDrops.firstOrNull { it.destination == destination.destination } ?: return TableDragLanding()
             val margin = scene.cardWidth * .04f
-            val sameSide = scene.items.filter { it.viewport == "combat" && it.cardId !in ids &&
-                region.bounds.contains(it.bounds.center) }
-            val before = destination.destination.cardGap.beforeId?.let { id -> scene.items.firstOrNull { it.cardId == id } }
-            var x = before?.bounds?.x ?: sameSide.maxOfOrNull { it.bounds.right + margin } ?: (region.bounds.x + margin)
-            val slots = ids.distinctBy { scene.sources[it]?.sourceId ?: it }.map { id ->
-                val b = outline(id, x, 0f)
-                x += b.width + margin
-                b.copy(y = region.bounds.center.y - b.height / 2)
+            val sources = ids.map { scene.sources[it]?.sourceId ?: it }.toSet()
+            val rows = scene.combatDrops.filter { it.destination.pairId != null &&
+                it.destination.insertion == org.asyncttwiz.protocol.CombatInsertion.APPEND }
+            val groups = rows.groupBy { it.destination.pairId }
+            fun remaining(row: CombatDropRegion) = scene.items.filter { it.viewport == "combat" &&
+                it.sourceId !in sources && row.bounds.contains(it.bounds.center) }.sortedBy { it.bounds.x }
+            fun width(rows: List<CombatDropRegion>): Float {
+                val count = rows.maxOf { remaining(it).size }
+                return if (count == 0) 0f else count * (scene.cardWidth + margin) + margin
             }
-            val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
+            val target = destination.destination
+            val pairIds = groups.keys.toList()
+            val index = target.pairId?.let(pairIds::indexOf) ?: target.pairGap.beforeId?.let(pairIds::indexOf) ?: pairIds.size
+            // Repack after removing the dragged sources, including groups that disappear entirely.
+            val start = rows.firstOrNull()?.bounds?.x ?: (region.landing.x - margin)
+            var x = start + groups.values.take(index.coerceAtLeast(0)).sumOf { width(it).toDouble() }.toFloat() + margin
+            if (target.pairId != null) {
+                val row = rows.first { it.destination.pairId == target.pairId && it.destination.role == target.role }
+                val cards = remaining(row)
+                val before = target.cardGap.beforeId?.let { id -> cards.indexOfFirst { it.cardId == id }.takeIf { it >= 0 } }
+                val count = if (target.insertion == org.asyncttwiz.protocol.CombatInsertion.APPEND) cards.size else before ?: cards.size
+                x += count * (scene.cardWidth + margin)
+            }
+            val slots = ids.distinctBy { scene.sources[it]?.sourceId ?: it }.map {
+                val b = TableBounds(x, region.landing.y - scene.cardHeight / 2, scene.cardWidth, scene.cardHeight)
+                x += b.width + margin
+                b
+            }
+            val port = scene.world?.viewport
             TableDragLanding(slots.mapNotNull { if (port == null) it else it.intersection(port) })
         }
     }

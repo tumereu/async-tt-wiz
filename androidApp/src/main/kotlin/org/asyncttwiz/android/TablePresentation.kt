@@ -133,10 +133,12 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val sources: Map<String, TableMoveSource> = emptyMap(), val combatDrops: List<CombatDropRegion> = emptyList(),
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     val stackBubbles: StackBubbleGeometry? = null, val stackRegion: TableBounds? = null,
-    val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList()) {
+    val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
+    val combatBubbles: StackBubbleGeometry? = null) {
     fun worldInput(point: TablePoint) = world?.viewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
     fun hit(point: TablePoint): TableItem? {
+        combatBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         val stack = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
             it.visible.any { bounds -> bounds.contains(point) } }
@@ -258,7 +260,7 @@ object TablePresentation {
                 else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
-            val tapped = zone != PlayZone.STACK && card.tapped
+            val tapped = zone != PlayZone.STACK && viewport != "combat" && card.tapped
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}"
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                 if (hidden) "" else title, card.owner, zone, kind = TableItemKind.CARD, viewport = viewport,
@@ -361,7 +363,16 @@ object TablePresentation {
         fun translated(b: TableBounds) = world.screen(b.copy(y = b.y + combatY), camera)
         for (drawing in combat.cards) card(drawing.card, translated(drawing.bounds), translated(drawing.bounds), null,
             PlayZone.BATTLEFIELD, cp.id, drawing.viewId, projection = true)
-        val drops = combat.destinations.mapNotNull { region -> translated(region.bounds).intersection(cp.bounds)?.let { region.copy(bounds = it) } }
+        val drops = combat.destinations.map { region ->
+            val bounds = translated(region.bounds)
+            val top = world.screen(TablePoint(0f, bandY), camera).y
+            val half = bandHeight * zoom / 2
+            val row = bounds.copy(y = top + if (region.destination.role == CombatRole.BLOCKER) 0f else half, height = half)
+            // Divider tolerance is screen dp, independent of personal zoom. End regions remain unbounded.
+            region.copy(bounds = if (region.destination.pairId == null && !region.extendLeft && !region.extendRight)
+                row.copy(x = row.center.x - 12f, width = 24f) else row,
+                landing = world.screen(TablePoint(region.landing.x, region.landing.y + combatY), camera))
+        }
         val dividers = combat.dividers.map { x -> world.screen(TablePoint(x, combatY), camera) to world.screen(TablePoint(x, combatY + combat.height), camera) }
         val clippedPorts = if (landscape) ports.map { p ->
             if (p.id.startsWith("dock/") || p.id.startsWith("counters/") || p.id == stack.id)

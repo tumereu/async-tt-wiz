@@ -38,7 +38,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
     val menuContent: (@Composable () -> Unit)? = null, val reviewPanel: (@Composable () -> Unit)? = null,
     val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
-    val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null)
+    val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
+    val cancelContinuation: (() -> Unit)? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -213,7 +214,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                          onSceneSettled = { settledCursor = it }, sceneVersion = position?.displayVersion,
                          continueHere = if (reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
-                        returnCurrent = if (reviewing || history.armed != null) history::current else null,
+                         returnCurrent = if (reviewing || history.armed != null) ({ history.requestExitReview(interactive) }) else null,
+                         cancelContinuation = history::cancelContinuation,
                         menuContent = {
                             if (history.armed != null) DropdownMenuItem(text = { Text("Cancel continuation") }, onClick = history::cancelContinuation)
                             DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
@@ -235,17 +237,13 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         continuationArmed = history.armed != null,
                          controlsConnected = interactive && history.foreground,
                         pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))
-                if (!history.provisional) history.armed?.let { boundary ->
-                    HistoryArmedIndicator(playback?.tree?.texts?.get(boundary)?.label ?: "selected event",
-                        landscape, history::cancelContinuation)
-                }
                 }
             }
         }
     }
     history.continuationTarget?.let { target ->
         HistoryContinueConfirmation(interactive && history.foreground && history.canArm(target),
-            history::dismissContinuation, { history.confirmContinuation() })
+             history::dismissContinuation, { history.confirmContinuation() }, history::current)
     }
     if (explorerOpen && tree != null) HistoryExplorer(explorer, interactive,
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,

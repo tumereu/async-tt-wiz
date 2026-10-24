@@ -6,47 +6,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import org.asyncttwiz.protocol.*
 
-/** Local armed intent, separate from playback transport and shared branch activation. */
-@Composable internal fun HistoryArmedIndicator(label: String, landscape: Boolean, cancel: () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        // Sit above the fixed hand/controls, never intercepting their card or button targets.
-        Box(Modifier.align(Alignment.BottomEnd).padding(bottom = if (landscape) 52.dp else 108.dp)
-            .width(if (landscape) maxWidth - TablePresentation.sidebarWidth(maxWidth.value).dp else maxWidth)) {
-            Surface(color = Color(0xffedf3ef), contentColor = OwnTableColor,
-                border = BorderStroke(1.dp, OwnTableColor.copy(alpha = .35f))) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 10.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TableChromeIcon("fork")
-                    Text("Continuing from $label · next action starts a new path", Modifier.weight(1f).padding(vertical = 4.dp),
-                        style = MaterialTheme.typography.labelMedium)
-                    TextButton(cancel, Modifier.heightIn(min = 48.dp),
-                        colors = ButtonDefaults.textButtonColors(contentColor = OwnTableColor)) {
-                        TableChromeIcon("close"); Spacer(Modifier.width(4.dp)); Text("Cancel")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable internal fun HistoryContinueConfirmation(enabled: Boolean, dismiss: () -> Unit, confirm: () -> Unit) {
-    TableMenuPanel(dismiss, title = "Continue playing from here?") {
+/** Shown only when toggling history off away from the shared head. Dismiss keeps review open. */
+@Composable internal fun HistoryContinueConfirmation(enabled: Boolean, dismiss: () -> Unit,
+    confirm: () -> Unit, backToLatest: () -> Unit) {
+    TableMenuPanel(dismiss, title = "Leave history?") {
         Text("Your next successful action will start a new path. The existing future will be kept.", Modifier.padding(vertical = 8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(dismiss, Modifier.weight(1f).height(48.dp), shape = MaterialTheme.shapes.extraSmall,
+            OutlinedButton(backToLatest, Modifier.weight(1f).heightIn(min = 48.dp), shape = MaterialTheme.shapes.extraSmall,
                 border = BorderStroke(1.dp, MenuBorder), colors = ButtonDefaults.outlinedButtonColors(contentColor = MenuInk)) {
-                TableChromeIcon("close"); Spacer(Modifier.width(6.dp)); Text("Cancel")
+                Text("Back to latest")
             }
-            Button(confirm, Modifier.weight(1f).height(48.dp), enabled = enabled, shape = MaterialTheme.shapes.extraSmall,
+            Button(confirm, Modifier.weight(1f).heightIn(min = 48.dp), enabled = enabled, shape = MaterialTheme.shapes.extraSmall,
                 colors = ButtonDefaults.buttonColors(containerColor = OwnTableColor)) {
-                TableChromeIcon("fork"); Spacer(Modifier.width(6.dp)); Text("Continue")
+                Text("Continue from here")
             }
         }
     }

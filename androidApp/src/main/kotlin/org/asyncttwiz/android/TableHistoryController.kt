@@ -91,7 +91,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         return foreground && player.position.mode == HistoryMode.PLAYBACK && player.position.cursorId == node &&
             player.tree.contains(node) && view?.cursor == node && view?.state != null && viewVersion == player.tree.liveVersion
     }
-    /** Both the corner button and paused Play hold capture the original exact boundary. No mutation. */
+    /** Explicit continue actions arm the original exact boundary immediately. No shared mutation. */
     fun requestContinuation(node: String): Boolean {
         if (!canRequestContinuation(node)) return false
         if (node == playback?.tree?.sharedHeadId && node == tree?.currentNodeId) {
@@ -99,18 +99,25 @@ class TableHistoryController(private val worker: Executor, private val post: (()
             return true
         }
         playback?.pause()
-        continuationTarget = node
-        return true
+        continuationTarget = null
+        return arm(node)
+    }
+    /** Only toggling review off offers a choice; Back still abandons review immediately. */
+    fun requestExitReview(allowContinuation: Boolean = true) {
+        val player = playback
+        val cursor = player?.position?.cursorId
+        if (armed == null && player != null && cursor != null && cursor != player.tree.sharedHeadId &&
+            allowContinuation && canRequestContinuation(cursor)) {
+            player.pause()
+            continuationTarget = cursor
+        } else if (cursor != null && cursor == player.tree.sharedHeadId) cancelContinuation()
+        else current()
     }
     fun dismissContinuation() { continuationTarget = null }
     fun confirmContinuation(): Boolean {
         val target = continuationTarget ?: return false
         continuationTarget = null
-        if (foreground && canRequestContinuation(target) && target == playback?.tree?.sharedHeadId && target == tree?.currentNodeId) {
-            cancelContinuation()
-            return true
-        }
-        return foreground && arm(target)
+        return requestContinuation(target)
     }
     fun arm(node: String): Boolean {
         if (!canArm(node)) return false

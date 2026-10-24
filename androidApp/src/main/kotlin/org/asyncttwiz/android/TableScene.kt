@@ -617,17 +617,17 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
             Modifier.width(buttonWidth.dp).border(2.dp, turnColor), fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
             icon = { TurnStepIcon(play.board.turn) },
             onClick = { toolkit?.phasePicker() })
-        if (runtime.reviewing) {
+        if (runtime.continuationArmed) {
+            ActionSquare("Cancel continuation", "", runtime.cancelContinuation != null,
+                Modifier.size(48.dp).border(2.dp, OwnTableColor), fill = Color(0xffedf3ef), ink = OwnTableColor,
+                icon = { TableChromeIcon("fork") }, onClick = { runtime.cancelContinuation?.invoke() })
+        } else if (runtime.reviewing) {
             ActionSquare("Continue playing from here", "", runtime.continueHere != null, Modifier.width(buttonWidth.dp).background(Color.White),
                 icon = { TableChromeIcon("fork") }, onClick = { runtime.continueHere?.invoke() })
             ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
         } else {
-            ActionSquare(if (runtime.continuationArmed) "History · continuation armed" else "History", "", runtime.history != null,
-                Modifier.width(buttonWidth.dp).then(if (runtime.continuationArmed) Modifier.border(2.dp, OwnTableColor) else Modifier.background(Color.White)),
-                // Transparent fill keeps the default dark ink; an opaque fill would switch the icon to white.
-                fill = if (runtime.continuationArmed) Color(0xffedf3ef) else Color.Transparent,
-                ink = if (runtime.continuationArmed) OwnTableColor else null,
-                icon = { TableChromeIcon(if (runtime.continuationArmed) "fork" else "history") }, onClick = { runtime.history?.invoke() })
+            ActionSquare("History", "", runtime.history != null, Modifier.width(buttonWidth.dp).background(Color.White),
+                icon = { TableChromeIcon("history") }, onClick = { runtime.history?.invoke() })
         }
         Box {
             ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })

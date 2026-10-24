@@ -54,16 +54,13 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
     }
     fun dismiss() { pending = null; state = state.copy(dialog = null, error = null) }
 
-    /** Active-route/foreground refresh retains accepted content and all unfinished personal input. */
-    fun sync() { if (!state.busy && !state.mutating) load(state.selected, background = true) }
-    fun foreground() { if (!state.mutating) load(state.selected, background = true) }
-    private fun load(id: String?, background: Boolean = false) {
+    private fun load(id: String?) {
         if (closed || state.mutating) return
         val token = credential() ?: return
         val generation = ++epoch
         val known = state.detail?.takeIf { it.saved.deck.id == id }?.definitions.orEmpty()
         state = state.copy(selected = id, detail = state.detail?.takeIf { it.saved.deck.id == id },
-            busy = true, error = if (background && state.dialog != null) state.error else null)
+            busy = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
             try {
@@ -78,7 +75,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                         inspection.close(); pending = null
                         state = state.copy(selected = null, detail = null, dialog = null, busy = false,
                             decks = state.decks.filterNot { it.id == id }, error = "This saved deck was deleted on another device.")
-                    } else state = state.copy(busy = false, error = if (background) state.error else deckError(failure))
+                    } else state = state.copy(busy = false, error = deckError(failure))
                 } }
             }
         }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,7 +34,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
     if (state.dialog == DeckDialog.COVER && state.detail != null) {
         CoverScreen(controller, openNavigation); return
     }
-    ScreenBusyOverlay(if (state.mutating) "Saving deck…" else if (state.busy) "Loading saved deck…" else null) {
+    ScreenBusyOverlay(if (state.mutating) "Saving deck…" else if (state.busy && state.detail == null) "Loading saved deck…" else null) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Saved deck", openNavigation) {
             ScreenOutlinedButton(onClick = { state.detail?.let { importDeck?.invoke(it) } },
@@ -122,7 +123,7 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
             ScreenOutlinedButton(onClick = controller::dismiss, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Cancel") }
         }
     }
-    ScreenBusyOverlay(if (state.mutating) "Saving cover…" else if (state.busy) "Loading saved deck…" else null) {
+    ScreenBusyOverlay(if (state.mutating) "Saving cover…" else null) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Choose cover", navigation)
         state.error?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
@@ -186,9 +187,10 @@ private fun DefinitionThumbnail(digest: String, definition: CardDefinition) {
 }
 
 @Composable
-internal fun SavedDeckCollection(controller: DeckLibraryController, catalog: CatalogViewModel?) {
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun SavedDeckCollection(controller: DeckLibraryController) {
     val state = controller.state
-    ScreenBusyOverlay(if (state.busy) "Loading saved decks…" else null) {
+    PullToRefreshBox(isRefreshing = state.busy, onRefresh = { if (!state.busy) controller.refresh() }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Text("SAVED LISTS (${state.decks.size})", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.labelMedium,
@@ -210,8 +212,6 @@ internal fun SavedDeckCollection(controller: DeckLibraryController, catalog: Cat
                 }
             }
         }
-        item { TextButton(onClick = controller::refresh, enabled = !state.busy) { Text("Refresh saved decks") } }
-        if (catalog != null) item { CatalogControls(catalog) }
     }
     }
 }

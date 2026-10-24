@@ -14,6 +14,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,7 +116,7 @@ private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when
     state.searching -> "Searching players…"
     state.mutating -> if (state.draft != null) "Creating game…" else "Saving changes…"
     state.pendingGames.isNotEmpty() -> "Checking game outcome…"
-    state.busy -> loading
+    state.busy && !state.backgroundLoading && !state.loaded -> loading
     else -> null
 }
 
@@ -428,14 +429,18 @@ private fun PreparedSummary(preparation: LobbyPreparation?, accountId: String) {
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit)?, hamburger: (() -> Unit)?) {
     val picker = controller.state.picker ?: return
-    ScreenBusyOverlay(when { picker.confirming -> "Loading deck…"; picker.loading -> "Loading saved decks…"; else -> null }) {
+    ScreenBusyOverlay(if (picker.confirming) "Loading deck…" else null) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Choose deck", hamburger) {
             ScreenIconButton("Close deck picker", "close", controller::closePicker)
         }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PullToRefreshBox(isRefreshing = picker.loading,
+            onRefresh = { if (!picker.loading && !picker.confirming) controller.refreshPicker() },
+            modifier = Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 picker.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (picker.decks.isEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
@@ -457,7 +462,7 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
                     }
                 }
             }
-            item { TextButton(onClick = controller::refreshPicker, enabled = !picker.loading && !picker.confirming) { Text("Refresh saved decks") } }
+        }
         }
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenOutlinedButton(onClick = { importDeck?.invoke() }, enabled = importDeck != null && !picker.confirming, modifier = Modifier.weight(1f)) {

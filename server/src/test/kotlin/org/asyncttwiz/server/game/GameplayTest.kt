@@ -5,6 +5,7 @@ import java.net.ServerSocket
 import java.net.URI
 import java.net.http.*
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -104,6 +105,11 @@ class GameplayTest {
                     setup(alice, ast, GameAction.Ready)
                     val started = setup(bob, bst, GameAction.Ready)
                     val root = started.play!!
+                    fun listed(actor: SessionCreated) = json.decodeFromString<GameList>(
+                        request(settings, "GET", "/v1/games", actor.token).body()).games.single { it.id == game.id }
+                    assertEquals(started.summary, listed(a))
+                    assertEquals(b.account.accountId, listed(b).attentionHolder)
+                    assertTrue(Instant.parse(started.summary.updatedAt) > Instant.parse(game.updatedAt))
                     assertEquals(120, root.board.cards.size)
                     assertEquals(b.account.accountId, root.board.turn.accountId)
                     val library = root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == b.account.accountId }
@@ -175,6 +181,7 @@ class GameplayTest {
                     // A non-holder may take attention, then flip it away again. Both sockets,
                     // durable HTTP history and cold replay observe the same individual events.
                     var attentionState = moved
+                    var previousUpdate = Instant.parse(listed(a).updatedAt)
                     for ((socket, stream, actor) in listOf(Triple(alice, ast, a), Triple(alice, ast, a), Triple(bob, bst, b))) {
                         val pass = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
                             GameAction.Play(PlayAction.PassAttention), stream.streamId, stream.generation)
@@ -185,6 +192,11 @@ class GameplayTest {
                         assertEquals(expected.mutation, result.mutation)
                         attentionState = apply(pass)
                         assertEquals(expected.state, attentionState)
+                        val summary = listed(a)
+                        assertEquals(summary, listed(b))
+                        assertEquals(attentionState.board.effectiveAttentionHolder, summary.attentionHolder)
+                        assertTrue(Instant.parse(summary.updatedAt) > previousUpdate)
+                        previousUpdate = Instant.parse(summary.updatedAt)
                         val history = json.decodeFromString<GameplayHistoryPage>(request(settings, "GET",
                             "/v1/games/${game.id}/plays/${root.id}/mutations?after=0", a.token).body())
                         assertEquals(expected.mutation, history.mutations.last())

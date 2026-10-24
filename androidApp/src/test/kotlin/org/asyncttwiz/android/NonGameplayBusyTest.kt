@@ -30,12 +30,13 @@ class NonGameplayBusyTest {
     private val viewModels = ViewModelStore()
     @After fun clearViewModels() { viewModels.clear() }
 
-    @Test fun loadingPillNeverMovesGamesAndFadesAway() {
+    @Test fun refreshKeepsGamesStillAndShowsNoLoadingIndicator() {
         val fixtures = ScreenFixtures()
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { GamesContent(fixtures.lobby, "a") } } }
         val before = compose.onNodeWithText("Azure Spark").fetchSemanticsNode().boundsInRoot
         compose.runOnIdle { fixtures.lobby.seed(fixtures.lobby.state.copy(busy = true)) }
-        compose.onNodeWithText("Loading games…").assertIsDisplayed()
+        compose.onNodeWithText("Loading games…").assertDoesNotExist()
+        compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
         assertEquals(before, compose.onNodeWithText("Azure Spark").fetchSemanticsNode().boundsInRoot)
         compose.runOnIdle { fixtures.lobby.seed(fixtures.lobby.state.copy(busy = false)) }
         compose.onNodeWithText("Loading games…").assertDoesNotExist()
@@ -75,8 +76,8 @@ class NonGameplayBusyTest {
         catalog.seed(checking)
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, lobby = fixtures.lobby) } }
         compose.onNodeWithText("Checking card records…").assertDoesNotExist()
-        compose.onNodeWithText("Loading games…").assertIsDisplayed()
-        compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(1)
+        compose.onNodeWithText("Loading games…").assertDoesNotExist()
+        compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
         val before = compose.onNodeWithText("Azure Spark").fetchSemanticsNode().boundsInRoot
         for (phase in CatalogPhase.entries) {
             val progress = CatalogProgress(phase, 160_000_000, 450_000_000, 45_123)
@@ -88,9 +89,32 @@ class NonGameplayBusyTest {
         }
         compose.runOnIdle { catalog.seed(checking) }
         compose.onNodeWithText("Checking card records…").assertDoesNotExist()
-        compose.onNodeWithText("Loading games…").assertIsDisplayed()
+        compose.onNodeWithText("Loading games…").assertDoesNotExist()
         compose.runOnIdle { fixtures.lobby.seed(fixtures.lobby.state.copy(busy = false)) }
         compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
+    }
+
+    @Test fun onlyInitialForegroundLoadOfEmptyGamesShowsLoading() {
+        val fixtures = ScreenFixtures()
+        fixtures.lobby.seed(LobbyState(busy = true))
+        compose.setContent { ScreenTheme { GamesContent(fixtures.lobby, "a") } }
+        compose.onNodeWithText("Loading games…").assertIsDisplayed()
+        compose.runOnIdle { fixtures.lobby.seed(LobbyState(busy = true, backgroundLoading = true)) }
+        compose.onNodeWithText("Loading games…").assertDoesNotExist()
+    }
+
+    @Test fun automaticCatalogTransfersStaySilentButErrorsRemainVisible() {
+        val fixtures = ScreenFixtures()
+        fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.SETTINGS))
+        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
+        val progress = CatalogProgress(CatalogPhase.DOWNLOADING, 10, 100)
+        catalog.seed(CatalogUiState(busy = true, status = progress.label(), progress = progress, background = true))
+        compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog) } }
+        compose.onNodeWithText(progress.label()).assertDoesNotExist()
+        compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
+        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
+        compose.runOnIdle { catalog.seed(CatalogUiState(background = true, error = true, status = "Download failed")) }
+        compose.onNodeWithText("Download failed").assertIsDisplayed()
     }
 
     @Test fun startupConsentHasOnlyTheTwoButtonActions() {

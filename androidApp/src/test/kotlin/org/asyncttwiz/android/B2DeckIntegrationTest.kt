@@ -82,7 +82,7 @@ class B2DeckIntegrationTest {
         library.edit(DeckDialog.RENAME); library.name("Unfinished name")
         server.saved = server.saved.copy(deck = summary.copy(name = "Newer server name", revision = "2"),
             entries = plan.deck.entries.map { it.copy(quantity = 9) })
-        library.sync(); worker.drain()
+        library.retry(); worker.drain()
         assertEquals(9, library.state.detail!!.saved.entries.single().quantity)
         assertEquals("Newer server name", library.state.detail!!.saved.deck.name)
         assertEquals("Unfinished name", library.state.draftName)

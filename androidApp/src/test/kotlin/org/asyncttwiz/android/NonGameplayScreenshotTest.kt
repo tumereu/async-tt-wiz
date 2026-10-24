@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasProgressBarRangeInfo
@@ -158,10 +159,8 @@ class NonGameplayScreenshotTest(private val screen: String) {
         }
         when (screen) {
             "games-loading" -> {
-                compose.onNodeWithText("Loading games…").assertIsDisplayed()
-                val pill = compose.onNodeWithTag("floating-busy-pill").fetchSemanticsNode().boundsInRoot
-                assertTrue(pill.bottom <= (if (landscape) 412 else 892) - 15f)
-                assertTrue(pill.top >= (if (landscape) 412 else 892) / 2f)
+                compose.onNodeWithText("Loading games…").assertDoesNotExist()
+                compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
             }
             "catalog-startup", "catalog-update" -> {
                 compose.onNodeWithText("Download size: 450 MB.").assertIsDisplayed()
@@ -171,7 +170,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             }
             "catalog-checking" -> {
                 compose.onNodeWithText("Checking card records…").assertDoesNotExist()
-                compose.onNodeWithText("Loading games…").assertIsDisplayed()
+                compose.onNodeWithText("Loading games…").assertDoesNotExist()
             }
             "records-downloading", "records-downloading-unknown", "records-indexing" -> {
                 compose.onNodeWithText(catalog!!.state.progress!!.label()).assertIsDisplayed()

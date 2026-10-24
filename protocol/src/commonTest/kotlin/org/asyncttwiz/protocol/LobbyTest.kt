@@ -16,5 +16,11 @@ class LobbyTest {
         assertEquals(game, DeckJson.format.decodeFromString<GameSummary>(DeckJson.format.encodeToString(game)))
         assertFalse(DeckJson.format.encodeToString(game).contains("email"))
         assertEquals(GameList(listOf(game)), DeckJson.format.decodeFromString<GameList>(DeckJson.format.encodeToString(GameList(listOf(game)))))
+        val active = game.copy(lifecycle = GameLifecycle.ACTIVE, attentionHolder = input.recipient,
+            updatedAt = "2026-10-24T01:00:00Z")
+        assertEquals(active, DeckJson.format.decodeFromString<GameList>(
+            DeckJson.format.encodeToString(GameList(listOf(active)))).games.single())
+        assertNull(game.attentionHolder)
+        assertEquals(game.createdAt, game.updatedAt)
     }
 }

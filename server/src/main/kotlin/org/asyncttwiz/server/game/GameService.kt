@@ -252,7 +252,9 @@ class GameService(private val runtime: ServiceRuntime) {
         val mutation = createdMutation
         var update: GameRevision? = null
         if (revision != null) {
-            sql.update(GAME).set(GAME.REVISION, revision).where(GAME.ID.eq(game.id)).execute()
+            sql.update(GAME).set(GAME.REVISION, revision)
+                .set(GAME.UPDATED_AT, java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC))
+                .where(GAME.ID.eq(game.id)).execute()
             val summary = lobby.summary(sql, game.id!!)
             val play = if (summary.lifecycle == GameLifecycle.ACTIVE) PlayStore.read(sql, game.id!!) else null
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,

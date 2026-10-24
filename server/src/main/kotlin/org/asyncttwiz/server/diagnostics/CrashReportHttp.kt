@@ -75,11 +75,12 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
             it.setObject(1, now.toLocalDate()); it.executeUpdate()
         }
         val accepted = connection.prepareStatement("""
-            INSERT INTO debug_crash_daily_count(account_id, day, reports) VALUES (?, ?, 1)
-            ON CONFLICT (account_id, day) DO UPDATE SET reports = debug_crash_daily_count.reports + 1
-            WHERE debug_crash_daily_count.reports < 20 RETURNING reports
+            INSERT INTO debug_crash_daily_count(account_id, day, kind, reports) VALUES (?, ?, ?, 1)
+            ON CONFLICT (account_id, day, kind) DO UPDATE SET reports = debug_crash_daily_count.reports + 1
+            WHERE debug_crash_daily_count.reports < ? RETURNING reports
         """.trimIndent()).use {
             it.setObject(1, account); it.setObject(2, now.toLocalDate())
+            it.setString(3, input.kind); it.setInt(4, if (input.kind == "latency") 60 else 20)
             it.executeQuery().use { rows -> rows.next() }
         }
         if (accepted) connection.prepareStatement("""

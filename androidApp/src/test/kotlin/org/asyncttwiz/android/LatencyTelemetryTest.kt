@@ -1,5 +1,10 @@
 package org.asyncttwiz.android
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.protocol.*
 import kotlinx.serialization.encodeToString
 import org.junit.Rule
@@ -49,6 +54,26 @@ class LatencyTelemetryTest {
         assertEquals(2, buffer.snapshot().size)
         buffer.acknowledge(buffer.batch(60_000))
         assertTrue(buffer.snapshot().isEmpty())
+    }
+
+    @Test fun rateLimitedLatencyBatchIsDroppedWithoutRetries() = runBlocking {
+        val buffer = LatencyBuffer(true)
+        buffer.record("a", sample())
+        var attempts = 0
+        val engine = MockEngine {
+            attempts++
+            respond("", HttpStatusCode.TooManyRequests)
+        }
+        AccountApi("https://example.invalid", HttpClient(engine)).use { api ->
+            val batch = buffer.batch(0)
+            val report = CrashReport("2026-10-24T12:00:00Z", "debug", "device",
+                AccountJson.format.encodeToString(LatencyBatch(batch.map { it.value })), "latency")
+            if (api.uploadCrashReport("a".repeat(43), report)) buffer.acknowledge(batch)
+            assertTrue(buffer.snapshot().isEmpty())
+            assertTrue(buffer.batch(0, force = true).isEmpty())
+            assertTrue(buffer.batch(60_000).isEmpty())
+            assertEquals(1, attempts)
+        }
     }
 
     @Test fun disabledRecorderAndBufferDoNothingNotEvenReadTheClock() {

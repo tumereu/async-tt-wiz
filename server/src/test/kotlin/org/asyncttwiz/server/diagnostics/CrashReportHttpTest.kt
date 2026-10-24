@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory
 
 class CrashReportHttpTest {
-    @Test fun `authenticated endpoint stores truncates retains and enforces account quota independently of eviction`() {
+    @Test fun `authenticated endpoint stores truncates retains both kinds and enforces independent daily quotas`() {
         ActivityFixture().use { f ->
             val now = Instant.now()
             val clock = ActivityClock(now)
@@ -65,28 +65,39 @@ class CrashReportHttpTest {
                 assertEquals(400, post(body, kind = "other"))
                 assertEquals(413, post(" ".repeat(65_537), kind = "latency"))
 
+                repeat(59) { assertEquals(204, post(body, kind = "latency")) }
+                assertEquals(429, post(body, kind = "latency"))
+                assertEquals(60L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='latency'"))
+                assertEquals(1L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='crash'"))
+                assertEquals(204, post(body, token = f.tokenB, kind = "latency"))
+
                 // Seed historical reports without consuming today's quota.
                 f.sql("""INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind)
                     SELECT md5('old-' || i)::uuid, '${f.b.account.accountId}'::uuid,
-                        '${now}'::timestamptz - interval '31 days', '${now}'::timestamptz, 'old', 'old', 'old', 'latency'
-                    FROM generate_series(1,3) i""")
+                        '${now}'::timestamptz - interval '31 days', '${now}'::timestamptz, 'old', 'old', 'old',
+                        CASE WHEN i % 2 = 0 THEN 'latency' ELSE 'crash' END
+                    FROM generate_series(1,6) i""")
                 f.sql("""INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind)
                     SELECT md5('retained-' || i)::uuid, '${f.b.account.accountId}'::uuid,
                         '${now}'::timestamptz - interval '1 day' - i * interval '1 second', '${now}'::timestamptz, 'old', 'old', 'retained', 'latency'
                     FROM generate_series(1,510) i""")
-                assertEquals(204, post())
+                assertEquals(204, post()) // Exhausting latency must not block a real crash report.
                 assertEquals(500L, f.number("SELECT count(*) FROM debug_crash_report"))
                 assertEquals(0L, f.number("SELECT count(*) FROM debug_crash_report WHERE body='old'"))
                 assertEquals(0L, f.number("SELECT count(*) FROM debug_crash_report WHERE id=md5('retained-510')::uuid"))
-                repeat(17) { assertEquals(204, post()) }
+                repeat(18) { assertEquals(204, post()) }
                 assertEquals(429, post())
+                assertEquals(20L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='crash'"))
                 assertEquals(204, post(token = f.tokenB))
                 // Even body eviction cannot reset the daily counter.
                 f.sql("DELETE FROM debug_crash_report WHERE account_id='${f.a.account.accountId}'")
                 assertEquals(429, post())
+                assertEquals(429, post(body, kind = "latency"))
                 clock.time = now.plusSeconds(86_400)
                 assertEquals(204, post())
                 assertEquals(1L, f.number("SELECT sum(reports) FROM debug_crash_daily_count"))
+                assertEquals(204, post(body, kind = "latency"))
+                assertEquals(2L, f.number("SELECT sum(reports) FROM debug_crash_daily_count"))
                 f.accounts.revoke(f.a)
                 assertEquals(401, post())
             } finally { server.stop(); server.destroy() }

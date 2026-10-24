@@ -31,6 +31,7 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("adjustPlayerCounter") data class AdjustPlayerCounter(val accountId: String,
         val color: CounterColor, val delta: String) : PlayAction
     @Serializable @SerialName("nextStep") data object NextStep : PlayAction
+    @Serializable @SerialName("passAttention") data object PassAttention : PlayAction
     @Serializable @SerialName("endTurn") data object EndTurn : PlayAction
     @Serializable @SerialName("chooseStep") data class ChooseStep(val position: TurnPosition) : PlayAction
     /** Original client samples are literal inputs, not instructions for a server-side reroll. */
@@ -98,7 +99,7 @@ object GameplayRules {
             GameplayNumbers.integer(action.delta)
         is PlayAction.SetPlayerCounter -> DeckValidation.uuid(action.accountId) && DeckValidation.text(action.value)
         is PlayAction.AdjustPlayerCounter -> DeckValidation.uuid(action.accountId) && TableActions.numeric(action.delta)
-        PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.FlipCoin -> true
+        PlayAction.PassAttention, PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.FlipCoin -> true
         is PlayAction.RollDie -> action.sides.matches(Regex("[1-9][0-9]*")) &&
             action.sides.toIntOrNull()?.let { action.value in 1..it } == true
         is PlayAction.Manual -> ManualEditRules.valid(action)
@@ -144,6 +145,12 @@ object GameplayRules {
         val next: BoardState
         val transition: GameplayTransition
         when (action) {
+            PlayAction.PassAttention -> {
+                val holder = board.players.singleOrNull { it.accountId != board.effectiveAttentionHolder }
+                    ?.accountId ?: return reject("inapplicable")
+                next = board.copy(attentionHolder = holder)
+                transition = GameplayTransition(attention = AttentionChange(board.attentionHolder, holder))
+            }
             is PlayAction.SuggestResult -> {
                 if (board.resultSuggestion != null) return reject("inapplicable")
                 val suggestion = ResultSuggestion(CommandIds.uuidV5(command.requestId, "result-suggestion"), actor, action.outcome)

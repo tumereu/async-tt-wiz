@@ -52,6 +52,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         if (it.step == "MAIN") "${it.label} phase" else if (it == TurnPosition.END_STEP) it.label else "${it.label} step"
     }
     val result = when (val action = event.action) {
+        PlayAction.PassAttention -> text("passed the move to ${transition.attention?.to?.let { historyPlayerName(it, usernames) } ?: "the other player"}", "Pass move")
         is PlayAction.SetTapped -> text("${if (action.tapped) "tapped" else "untapped"} ${card(action.cardId)}", if (action.tapped) "Tap" else "Untap")
         is PlayAction.SetLife -> text("set ${if (action.accountId == event.author) "life" else "${player(action.accountId)} life"} to ${value(action.accountId, GameplayField.LIFE, action.value)}", "Life")
         is PlayAction.AdjustLife -> {

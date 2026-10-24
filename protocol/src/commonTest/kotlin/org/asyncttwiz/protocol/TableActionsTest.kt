@@ -45,7 +45,8 @@ class TableActionsTest {
             val original = state(TurnState(id(8), "27", from.phase, from.step))
             val result = change(original, PlayAction.ChooseStep(to))
             assertEquals(if (from == to) "noOp" else "accepted", result.outcome)
-            assertEquals(original.board.copy(turn = original.board.turn.copy(phase = to.phase, step = to.step)), result.state!!.board)
+            assertEquals(original.board.copy(turn = original.board.turn.copy(phase = to.phase, step = to.step),
+                attentionHolder = if (from == to) null else if (to == TurnPosition.DECLARE_BLOCKERS) id(7) else id(8)), result.state!!.board)
             if (from != to) assertEquals(result, GameplayHistory.replay(original, result.mutation!!))
         }
     }
@@ -54,7 +55,8 @@ class TableActionsTest {
         for (position in TurnPosition.entries) for (player in listOf(id(7), id(8))) {
             val before = state(TurnState(player, "42", position.phase, position.step))
             val result = change(before, PlayAction.EndTurn)
-            assertEquals(before.board.copy(turn = TurnState(if (player == id(7)) id(8) else id(7), "43")), result.state!!.board)
+            val nextPlayer = if (player == id(7)) id(8) else id(7)
+            assertEquals(before.board.copy(turn = TurnState(nextPlayer, "43"), attentionHolder = nextPlayer), result.state!!.board)
             assertEquals(result, GameplayHistory.replay(before, result.mutation!!))
         }
     }
@@ -66,9 +68,9 @@ class TableActionsTest {
         assertEquals(TurnPosition.DRAW, TurnPosition.of(second.state!!.board.turn))
         assertEquals("replayBlocked", GameplayHistory.replay(initial, second.mutation!!).reason)
         val direct = change(initial, PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE))
-        // Unchanged player/number are not direct-picker dependencies.
+        // The picker now also records the attention destination, which depends on the turn player.
         val otherTurn = initial.copy(board = initial.board.copy(turn = initial.board.turn.copy(accountId = id(8), number = "9")))
-        assertEquals("accepted", GameplayHistory.replay(otherTurn, direct.mutation!!).outcome)
+        assertEquals("replayBlocked", GameplayHistory.replay(otherTurn, direct.mutation!!).reason)
         val end = change(initial, PlayAction.EndTurn)
         assertEquals("replayBlocked", GameplayHistory.replay(otherTurn, end.mutation!!).reason)
         assertEquals("9223372036854775808", change(state(TurnState(id(7), Long.MAX_VALUE.toString())), PlayAction.EndTurn).state!!.board.turn.number)

@@ -45,7 +45,11 @@ object CardVisibility {
     val projectionLinks: List<ProjectionLink> = emptyList(),
     val resultSuggestion: ResultSuggestion? = null,
     /** Entry metadata keyed by Stack card/occurrence ID, never a field on its real source. */
-    val stackTextMarks: Map<String, Int> = emptyMap())
+    val stackTextMarks: Map<String, Int> = emptyMap(),
+    /** Null retains the legacy meaning: attention follows the turn player. */
+    val attentionHolder: String? = null) {
+    val effectiveAttentionHolder: String get() = attentionHolder ?: turn.accountId
+}
 @Serializable data class InitialShuffle(val accountId: String, val seed: String, val order: List<String>,
     val algorithm: String = "shuffle-v1")
 @Serializable data class InitialStarter(val choice: StarterChoice, val accountId: String,

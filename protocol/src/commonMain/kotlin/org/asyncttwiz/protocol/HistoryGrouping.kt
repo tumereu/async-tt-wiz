@@ -21,7 +21,8 @@ import kotlinx.serialization.Serializable
     COMBAT_CLOSURE(HistoryCategory.F, 10, false), VIEW_REVEAL_DISMISSAL(HistoryCategory.F, 20, false),
     DIE_COIN_RUN(HistoryCategory.R, 30, false), ORIENTATION(HistoryCategory.T, 40, false),
     TURN_TRANSITION(HistoryCategory.B, 50, false), PHASE_STEP_TRACKING(HistoryCategory.B, 60, false),
-    EVENT_COMMENT(HistoryCategory.B, 70, false), PING(HistoryCategory.P, 80, false)
+    EVENT_COMMENT(HistoryCategory.B, 70, false), PING(HistoryCategory.P, 80, false),
+    ATTENTION_PASS(HistoryCategory.B, 90, false)
 }
 
 @Serializable data class HistorySemantic(val significance: HistorySignificance, val icon: String, val key: String? = null) {
@@ -39,6 +40,7 @@ object HistoryGrouping {
     fun classify(action: PlayAction, containers: List<PlayContainer> = emptyList(),
         transition: GameplayTransition? = null): HistorySemantic = when (action) {
         is PlayAction.SuggestResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, "flag")
+        PlayAction.PassAttention -> HistorySemantic(HistorySignificance.ATTENTION_PASS, "outlined_flag")
         is PlayAction.SetTapped -> HistorySemantic(HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         is PlayAction.SetLife, is PlayAction.AdjustLife -> HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, "favorite")
         is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter ->
@@ -108,7 +110,8 @@ object HistoryGrouping {
         val incoming = semantic.category
         val context = previous?.let { group -> HistoryCategory.entries.single { it.key == group.category } }
         val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R)
-        val joins = previous != null && previous.author == author && context != HistoryCategory.S && incoming != HistoryCategory.S && when (incoming) {
+        val pass = semantic.significance == HistorySignificance.ATTENTION_PASS
+        val joins = previous != null && (pass || (previous.author == author && context != HistoryCategory.S && incoming != HistoryCategory.S && when (incoming) {
             HistoryCategory.T -> previous.tapsAndPingsOnly
             HistoryCategory.P, HistoryCategory.B -> true
             HistoryCategory.F, HistoryCategory.R -> pending
@@ -118,7 +121,7 @@ object HistoryGrouping {
                 HistoryCategory.E, HistoryCategory.K, HistoryCategory.L -> incoming == context
                 else -> false
             }
-        }
+        }))
         val representative = HistoryRepresentative(nodeId, semantic)
         if (!joins) return GameplayGroup(CommandIds.uuidV5(requestId, "group/0"), author, nodeId, nodeId,
             (if (incoming in setOf(HistoryCategory.P, HistoryCategory.B)) HistoryCategory.O else incoming).key,

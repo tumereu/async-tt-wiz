@@ -99,13 +99,15 @@ class GameplaySessionTest {
         f.message(d.head()); assertEquals(second.play, f.session.acceptedPlay(d.game))
         assertEquals("3", f.session.summary(d.game).revision)
     }
-    @Test fun uncertainWithdrawnOriginalsResumeInOrderWithoutOfflineCreationAndOldCallbacksAreFenced() {
+    @Test fun uncertainWithdrawnOriginalsResumeInOrderAndReauthenticationAndOldCallbacksAreFenced() {
         val f = Fixture(); val d = f.data; f.connect()
         repeat(2) { assertTrue(f.gameplay(PlayAction.AdjustLife(d.actor, "1"))) }
         val originals = f.commands(); f.session.withdrawGameplayPrediction(d.game.id, originals[0].requestId)
         assertEquals("21", d.life(f.session.play(d.game))); val old = f.wire.listener
-        old.disconnected(); f.drain(); assertFalse(f.gameplay(PlayAction.AdjustLife(d.actor, "1")))
+        old.disconnected(); f.drain()
+        // New originals may wait briefly on this retained authorized play, but never cross reauth.
         f.token = "B".repeat(43)
+        assertFalse(f.gameplay(PlayAction.AdjustLife(d.actor, "1")))
         f.connect(originals.map { GameRequestStatus(it.requestId, "notAdmitted") }, "2")
         assertEquals(originals.map { it.copy(generation = "2") }, f.commands().drop(2))
         assertEquals("21", d.life(f.session.play(d.game)))

@@ -223,7 +223,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     BackHandler { controller.back() }
     if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
         TableScreen(controller, accountId, hamburger, landscape)
-        if (state.detail.id !in state.connectedGames && state.play != null && !state.chatOpen)
+        if (state.detail.id in state.reconnectingGames && state.play != null)
             ReconnectingDialog(controller::back)
         return
     }

@@ -22,7 +22,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null, val play: PlayState? = null,
     val acceptedPlay: PlayState? = null, val activityTarget: ActivityTarget? = null,
     val gameContext: GameSummary? = null, val deletion: GameDeletion? = null,
-    val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation())
+    val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),
+    val reconnectingGames: Set<String> = emptySet())
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
@@ -44,6 +45,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var pickerVersion = 0L
     private val latest = mutableMapOf<String, GameSummary>()
     private var routeVersion = 0L
+    private var silentReads = 0L
     private var historyOwner: TableHistoryController? = null
     private fun resetHistory() { historyOwner?.close(); historyOwner = null }
     val history: TableHistoryController get() = historyOwner ?: TableHistoryController(worker, post, ::reviewHistory,
@@ -73,7 +75,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun sendChat() {
         val game = state.detail ?: return
         val draft = state.chat.draft ?: return
-        if (!closed && state.chat.canSend(game, game.id in state.connectedGames) && session?.sendChat(game, draft.text) == true) {
+        if (!closed && state.chat.canSend(game, true) && session?.sendChat(game, draft.text) == true) {
             personalChat.sent(game.id); connectionState()
         }
     }
@@ -90,11 +92,13 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val next = state.detail?.let(wire::preparation)
         val feedback = preparationFeedback(state.preparation, next, accountId(), state.transferFeedback)
         state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
+            reconnectingGames = ids.filter(wire::reconnecting).toSet(),
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
             acceptedPlay = state.detail?.let(wire::acceptedPlay),
             chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation())
     }
+    fun dismissSessionError() { session?.dismissError(); state = state.copy(error = null) }
     private fun accepted(game: GameSummary) {
         val old = latest[game.id]
         if (old != null && !GameSession.newerOrEqual(game.revision, old.revision)) return
@@ -288,7 +292,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                 val decks = linkedMapOf<String, DeckSummary>(); val seen = mutableSetOf<String>(); var next: String? = null
                 do {
                     if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
-                    val page = api.list(token, next); page.decks.forEach { decks[it.id] = it }; next = page.next
+                    val page = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.list(token, next) }; page.decks.forEach { decks[it.id] = it }; next = page.next
                     check(next == null || seen.add(next!!))
                 } while (next != null)
                 decks.values.toList()
@@ -312,11 +316,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         worker.execute {
             val result = runCatching { runBlocking {
                 if (generation != epoch || version != pickerVersion) return@runBlocking null
-                val saved = api.read(token, source.id)
+                val saved = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.read(token, source.id) }
                 if (saved.deck.revision != source.revision) throw DeckFailure("source_changed")
                 val definitions = saved.entries.map { it.definition }.distinct().map { digest ->
                     if (generation != epoch || version != pickerVersion) return@runBlocking null
-                    api.definition(token, source.id, digest)
+                    serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.definition(token, source.id, digest) }
                 }
                 saved to definitions
             } }
@@ -335,10 +339,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun reconnect() { session?.tick(); refresh() }
     fun foreground() {
-        session?.tick()
-        // A recreated Activity already has a live accepted table. Do not refresh/reinstall
-        // its streams just because a new UI attached; retained maintenance handles reads.
-        if (!state.loaded) refresh()
+        silentReads++
+        if (state.draft == null) state = state.copy(error = null)
+        session?.foreground()
+        // Refresh account lists silently, retaining the table and existing stream generations.
+        refresh(background = true)
     }
     fun prepareDeck() {
         if (state.detail?.lifecycle == GameLifecycle.LOBBY && state.preparation?.players?.any { it.accountId == accountId() && it.deck != null } == true)
@@ -371,7 +376,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         state = state.copy(searching = true, searchError = null)
         worker.execute {
             if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { api.search(token, query) } }
+            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch && version == searchVersion }) { api.search(token, query) } } }
             post { if (!closed && generation == epoch && version == searchVersion) state = state.copy(searching = false,
                 searched = true, results = result.getOrNull()?.users.orEmpty(), searchError = result.exceptionOrNull()?.let(::lobbyError)) }
         }
@@ -384,7 +389,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         state = state.copy(mutating = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { api.add(token, input) } }
+            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.add(token, input) } } }
             post { if (!closed && generation == epoch) {
                 val saved = result.getOrNull()
                 if (saved != null) pendingAdds.remove(contact.accountId)
@@ -413,7 +418,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         state = state.copy(mutating = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { api.create(token, input) } }
+            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.create(token, input) } } }
             post { if (!closed && generation == epoch) {
                 val game = result.getOrNull()
                 if (game != null) {
@@ -487,11 +492,13 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
         else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { resetHistory(); routeVersion++; state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, transferFeedback = null, error = null); refresh() } }
-    fun sync() { session?.tick(); if (!state.busy && !state.mutating) refresh(background = true) }
+    fun tick() { session?.tick() }
+    fun sync() { tick(); if (!state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) {
         if (closed || state.busy || state.mutating) return
         val token = credential() ?: return
         val generation = epoch; val selected = state.selected
+        val presentation = silentReads
         val atStart = latest.toMap()
         state = state.copy(busy = true, error = if (background || state.draft != null) state.error else null)
         worker.execute {
@@ -506,11 +513,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                     } while (after != null)
                     return generation == epoch
                 }
-                if (!pages { cursor -> api.contacts(token, cursor).let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
-                if (!pages { cursor -> api.games(token, false, cursor).let { games.addAll(it.games); it.next } }) return@runBlocking null
-                if (!pages { cursor -> api.games(token, true, cursor).let { invites.addAll(it.games); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = { generation == epoch }) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = { generation == epoch }) { api.games(token, false, cursor) }.let { games.addAll(it.games); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = { generation == epoch }) { api.games(token, true, cursor) }.let { invites.addAll(it.games); it.next } }) return@runBlocking null
                 val detail = selected?.let {
-                    try { api.head(token, it) } catch (failure: LobbyFailure) {
+                    try { serviceRetry(current = { generation == epoch }) { api.head(token, it) } } catch (failure: LobbyFailure) {
                         if (failure.code == "not_found") null else throw failure
                     }
                 }
@@ -537,7 +544,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                         session.watch(games); connectionState()
                     }
                 } else {
-                    state = state.copy(busy = false, error = if (background && state.draft != null) state.error else lobbyError(result.exceptionOrNull()!!))
+                    state = state.copy(busy = false, error = if (background || presentation != silentReads) state.error else lobbyError(result.exceptionOrNull()!!))
                 }
                 // A user may choose another row while a list refresh is in flight.
                 if (state.selected != selected) refresh()

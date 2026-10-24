@@ -14,7 +14,8 @@ data class ToolkitCapture(val viewIds: List<String>, val contextViewId: String,
 class TableToolkitController(val viewer: String, private val state: () -> PlayState?,
     private val connected: () -> Boolean, private val gameplay: (PlayAction, String?) -> Boolean,
     private val ending: (TableActionIntent.Ending) -> Boolean = { false },
-    private val acceptedInspection: ((PlayAction.InspectFace, String, () -> Boolean, (InspectionEvent) -> Unit) -> InspectionSubscription?)? = null) : TableActionRoutes {
+    private val acceptedInspection: ((PlayAction.InspectFace, String, () -> Boolean, (InspectionEvent) -> Unit) -> InspectionSubscription?)? = null,
+    private val waitingForConnection: () -> Boolean = { false }) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     fun current(): PlayState? = state()?.takeIf { TableActionScope(it.gameId, it.id) == identity }
     fun enabled() = connected() && current() != null
@@ -37,6 +38,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var capture by mutableStateOf<ToolkitCapture?>(null); private set
     var inspection by mutableStateOf<ManualInspection?>(null); private set
     var error by mutableStateOf<String?>(null); private set
+    fun dismissError() { error = null }
     var explicitStack by mutableStateOf<ExplicitStackTarget?>(null); private set
     var libraryDisplayId by mutableStateOf<String?>(null); private set
     var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
@@ -88,7 +90,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val pending = if (source != null && play != null) PendingStackBubble(play.currentNodeId,
             CombatStackRules.stack(play.board).cards.toSet(), source, action is PlayAction.Stack) else null
         return gameplay(action, invocationId).also { sent ->
-            if (!sent) error = "One or more actions could not be queued. Already queued actions are retained."
+            if (!sent) error = if (waitingForConnection()) null else "One or more actions could not be queued. Already queued actions are retained."
             else {
                 if (pending != null) pendingStackBubble = pending
                 refreshStackBubbles()
@@ -136,7 +138,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
         }
         inspectionSubscription = subscription
-        if (subscription == null) { closeInspection(); error = "Inspection is unavailable." }
+        if (subscription == null) { closeInspection(); error = if (waitingForConnection()) null else "Inspection is unavailable." }
         return subscription != null
     }
     fun tableMenu() { dismiss(); panel = "table" }

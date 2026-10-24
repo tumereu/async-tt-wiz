@@ -5,6 +5,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.assertIsEnabled
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -139,5 +141,17 @@ class GameConnectionLifecycleTest {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(6))
         assertEquals(2, owner.wire.opens)
         assertEquals(1, owner.wire.closes)
+    }
+    @Test fun resumedDisconnectedTableKeepsNormalControlsWithoutReadOnlyLabelOrReconnectDialog() {
+        val owner = Owner()
+        compose.runOnIdle { owner.lobby.open(owner.data.game.id); owner.accept() }
+        try {
+            compose.setContent { MaterialTheme { WaitingLobby(owner.lobby, owner.data.actor, null) } }
+            compose.runOnIdle { owner.wire.listener.disconnected(); owner.lobby.foreground() }
+            compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
+            compose.onNodeWithText("Disconnected · read-only").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Game controls").assertIsEnabled()
+            compose.runOnIdle { assertNotNull(owner.lobby.state.play); assertNull(owner.lobby.state.connectionMessage) }
+        } finally { compose.runOnIdle { owner.close() } }
     }
 }

@@ -73,7 +73,8 @@ class MainActivity : ComponentActivity() {
         window.decorView.post { fullscreen() }
         ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
-        if (auth.controller.state.destination == ShellDestination.DECKS) auth.decks.sync()
+        auth.controller.foreground()
+        if (auth.controller.state.destination == ShellDestination.DECKS) auth.decks.foreground()
         // AuthViewModel owns socket/reconnect maintenance across configuration changes.
         // Resume only nudges that owner; it must never create a UI-owned connection.
         if (auth.controller.state.account != null) auth.lobby.foreground()

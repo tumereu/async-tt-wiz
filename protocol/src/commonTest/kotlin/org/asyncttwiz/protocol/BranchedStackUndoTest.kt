@@ -149,10 +149,10 @@ class BranchedStackUndoTest {
         }
     }
 
-    @Test fun realSizedBranchedGameStillChecksEverySuccessorAndRejects129() {
+    @Test fun realSizedBranchedGameStillChecksEverySuccessorAndRejects51() {
         val target = ontoStack(beforeStackActions())
         var tree = target
-        repeat(128) { tree = play(tree, PlayAction.AdjustLife(f.b, "1"), f.b) }
+        repeat(50) { tree = play(tree, PlayAction.AdjustLife(f.b, "1"), f.b) }
         val result = SelectiveUndo.change(cold(tree), f.a, command(tree, GameAction.Undo))
         val removed = assertNotNull(result.tree, result.reason)
         assertEquals(target.currentNodeId, result.targetId)
@@ -160,7 +160,7 @@ class BranchedStackUndoTest {
         assertNotNull(removed.stateAt(removed.currentNodeId))
         val tooLong = play(tree, PlayAction.AdjustLife(f.b, "1"), f.b)
         val refused = SelectiveUndo.change(cold(tooLong), f.a, command(tooLong, GameAction.Undo))
-        assertEquals("suffixUnavailable", refused.reason)
+        assertEquals("tooFarBack", refused.reason)
         assertNull(refused.tree)
     }
 }

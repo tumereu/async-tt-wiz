@@ -23,7 +23,7 @@ class HistoryLargePlayTest {
     private fun branches(): GameplayTree {
         val initial = f.root()
         val nodes = linkedMapOf<String, GameplayMutation>()
-        repeat(SelectiveUndoLimits().metadataEntries.toInt() + 1) {
+        repeat(16385) {
             val node = assertNotNull(GameplayRules.change(initial, f.a,
                 f.command(GameAction.Play(PlayAction.SetTapped(f.id(9), true)), 1000 + it)).mutation)
             nodes[node.id] = node
@@ -90,7 +90,7 @@ class HistoryLargePlayTest {
         val (tree, state) = line(2100)
         assertEquals(state, tree.stateAt(tree.currentNodeId)) // warm original must not bless a copy
         val last = tree.nodes.getValue(tree.currentNodeId)
-        val corruptions = listOf(last.copy(schemaVersion = 2),
+        val corruptions = listOf(last.copy(schemaVersion = 3),
             last.copy(parentId = last.id), last.copy(parentId = f.id(999)),
             last.copy(id = f.id(999)),
             last.copy(transition = GameplayTransition()),
@@ -104,7 +104,7 @@ class HistoryLargePlayTest {
             assertNull(result.tree)
         }
         val first = tree.nodes.values.first()
-        assertNull(tree.copy(nodes = tree.nodes + (first.id to first.copy(schemaVersion = 2))).stateAt(last.id))
+        assertNull(tree.copy(nodes = tree.nodes + (first.id to first.copy(schemaVersion = 3))).stateAt(last.id))
         assertEquals(state, tree.stateAt(last.id))
     }
 
@@ -129,26 +129,16 @@ class HistoryLargePlayTest {
         assertEquals("78", assertNotNull(next.stateAt(next.currentNodeId)).board.players.first().life)
     }
 
-    @Test fun warmOrdinaryMaterializationCannotBypassSelectiveUndoOrRedoBudgets() {
+    @Test fun warmOrdinaryMaterializationSupportsLongGameUndoAndRedoWithoutBudgets() {
         val (large, state) = line(2100)
         assertEquals(state, large.stateAt(large.currentNodeId))
-        assertEquals("workLimit", f.undo(large).reason)
+        assertNotNull(f.undo(large).tree)
         assertEquals(state, large.stateAt(large.currentNodeId))
         val first = f.tap(GameplayTree(f.root()))
         val second = f.tap(first, card = 12, n = 101)
         val removed = assertNotNull(f.undo(second).tree)
         assertNotNull(removed.stateAt(removed.currentNodeId))
-        for (tree in listOf(second, removed)) {
-            val before = GameWire.json.encodeToString(GameplayTree.serializer(), tree)
-            for (limits in listOf(SelectiveUndoLimits(loadNodes = 0), SelectiveUndoLimits(payloadBytes = 1),
-                SelectiveUndoLimits(effectUnits = 0), SelectiveUndoLimits(workUnits = 1),
-                SelectiveUndoLimits(metadataEntries = 0))) {
-                val result = if (tree === second) f.undo(tree, limits = limits) else f.redo(tree, limits = limits)
-                assertEquals("workLimit", result.reason)
-                assertNull(result.tree)
-                assertEquals(before, GameWire.json.encodeToString(GameplayTree.serializer(), tree))
-            }
-        }
+        assertNotNull(f.undo(second).tree)
         val restored = assertNotNull(f.redo(removed).tree)
         assertEquals(second.stateAt(second.currentNodeId), restored.stateAt(restored.currentNodeId))
     }

@@ -701,6 +701,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun historyControlFailure(action: GameAction?, reason: String?): String? {
         val verb = when (action) { GameAction.Undo -> "undo"; GameAction.Redo -> "redo"; else -> return null }
         val explanation = when (reason) {
+            "tooFarBack" -> "your opponent has made too many moves since your last one."
             "revealingTarget" -> "that action revealed hidden information. Use History to review it, or keep playing."
             "noCandidate" -> "there is no action to $verb. Keep playing."
             "forkBoundary" -> "that would change an existing branch. Use History to choose a continuation."

@@ -53,7 +53,7 @@ object HistoryContinuation {
             (command.action is GameAction.BranchArchive &&
                 (next.currentBranchId != tree.currentBranchId || next.currentNodeId != tree.currentNodeId))
         if (heads == next.branchHeads && !switched) return change
-        return change.copy(tree = next.copy(branchHeads = heads,
-            selectionControlId = if (switched) command.requestId else next.selectionControlId))
+        return change.copy(tree = next.preservingCheckpoint(next.copy(branchHeads = heads,
+            selectionControlId = if (switched) command.requestId else next.selectionControlId)))
     }
 }

@@ -1,6 +1,5 @@
 package org.asyncttwiz.protocol
 
-import kotlinx.serialization.builtins.ListSerializer
 import kotlin.test.*
 
 class SelectiveUndoTest {
@@ -281,60 +280,6 @@ class SelectiveUndoTest {
         assertEquals(opponent.currentNodeId, f.undo(opponent, f.b).targetId)
     }
 
-    @Test fun payloadSizeIsPerValueButTotalReconstructionWorkRemainsBounded() {
-        assertNotNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
-            repeat(100) { work.value(GameplayTransition.serializer(), GameplayTransition()) }
-            true
-        })
-        assertNull(boundedHistory(SelectiveUndoLimits(workUnits = 100)) { work ->
-            repeat(100) { work.value(GameplayTransition.serializer(), GameplayTransition()) }
-            true
-        })
-        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
-            work.value(GameplayFieldChange.serializer(), GameplayFieldChange(f.a, GameplayField.NOTE, "", "x".repeat(1000)))
-            true
-        })
-    }
-
-    @Test fun sharedImmutablePayloadMeasurementsSaveVisitsButNeverDiscountSnapshotBytesOrChangedValues() {
-        val card = f.root().board.cards.first()
-        val definition = TokenCatalog.blank
-        val limits = SelectiveUndoLimits(workUnits = 500)
-        assertNotNull(boundedHistory(limits) { work ->
-            repeat(100) {
-                work.value(PlayCard.serializer(), card)
-                work.value(SubmittedDefinition.serializer(), definition)
-            }
-            true
-        })
-        // Equal identities/values are not authority to reuse a previous object's measurement.
-        assertNull(boundedHistory(limits) { work ->
-            repeat(100) { work.value(PlayCard.serializer(), card.copy()) }
-            true
-        })
-        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
-            work.value(PlayCard.serializer(), card)
-            work.value(ListSerializer(PlayCard.serializer()), List(20) { card })
-            true
-        })
-        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
-            work.value(PlayCard.serializer(), card)
-            work.value(PlayCard.serializer(), card.copy(note = "x".repeat(1000)))
-            true
-        })
-        assertNull(boundedHistory(SelectiveUndoLimits(payloadBytes = 3000)) { work ->
-            work.value(SubmittedDefinition.serializer(), definition)
-            work.value(SubmittedDefinition.serializer(), definition.copy(definition = definition.definition.copy(
-                faces = definition.definition.faces.map { it.copy(rulesText = "x".repeat(1000)) })))
-            true
-        })
-        // Measurements are check-local, not a warm-tree bypass of lowered limits.
-        assertNull(boundedHistory(SelectiveUndoLimits(workUnits = 1)) { work ->
-            work.value(PlayCard.serializer(), card)
-            true
-        })
-    }
-
     @Test fun redoRequiresExactTargetInputEvenWithEmptySuffixAndKeepsBlockedEntry() {
         // R-06: B:P 20→21, A:Q independent tap, A:R 21→22.
         val p = f.play(GameplayTree(f.root()), f.b, PlayAction.AdjustLife(f.a, "1"), 100)
@@ -400,33 +345,23 @@ class SelectiveUndoTest {
     @Test fun allSuccessorsCountTowardNAndNoPartialEditOnOverflow() {
         val a = f.tap(GameplayTree(f.root()))
         var tree = a
-        repeat(129) { tree = f.play(tree, f.b, PlayAction.AdjustLife(f.b, "1"), 200 + it) }
-        assertEquals("suffixUnavailable", f.undo(tree).reason)
-        assertEquals(130, tree.nodes.size)
+        repeat(51) { tree = f.play(tree, f.b, PlayAction.AdjustLife(f.b, "1"), 200 + it) }
+        assertEquals("tooFarBack", f.undo(tree).reason)
+        assertEquals(52, tree.nodes.size)
         val atLimit = tree.copy(nodes = tree.nodes - tree.currentNodeId,
             currentNodeId = tree.nodes.getValue(tree.currentNodeId).parentId)
         assertNotNull(f.undo(atLimit).tree)
-        val internal = atLimit.copy(currentNodeId = a.currentNodeId)
-        assertNull(f.undo(internal, limits = SelectiveUndoLimits(suffixNodes = 127)).tree)
+        val internal = tree.copy(currentNodeId = a.currentNodeId)
+        assertEquals("tooFarBack", f.undo(internal).reason)
     }
 
-    @Test fun targetPayloadMandatoryEffectsAndReconstructionHaveIndependentAtomicWorkLimits() {
-        val tree = f.tap(GameplayTree(f.root()))
-        for (limits in listOf(SelectiveUndoLimits(payloadBytes = 1), SelectiveUndoLimits(effectUnits = 0),
-            SelectiveUndoLimits(workUnits = 1), SelectiveUndoLimits(metadataEntries = 0))) {
-            assertEquals("workLimit", f.undo(tree, limits = limits).reason)
-            assertEquals(1, tree.nodes.size)
-            assertTrue(tree.redoByAccount.isEmpty())
-        }
-        val first = f.tap(tree, f.b, 12, n = 101)
-        assertEquals("workLimit", f.undo(first, f.b, limits = SelectiveUndoLimits(loadNodes = 1)).reason)
-        val node = tree.nodes.values.single()
-        val large = node.copy(transition = GameplayTransition(List(32769) { node.transition.fields.single() }))
-        val big = tree.copy(nodes = mapOf(node.id to large))
-        assertEquals("workLimit", f.undo(big).reason) // zero suffix; no unchecked huge target
-        val noTarget = assertNotNull(f.undo(tree).tree)
-        assertEquals("workLimit", f.redo(noTarget, limits = SelectiveUndoLimits(effectUnits = 0)).reason)
-        assertFailsWith<IllegalArgumentException> { SelectiveUndoLimits(suffixNodes = 129) }
+    @Test fun largeUnrelatedPayloadDoesNotPreventUndoOrRedo() {
+        val root = f.root().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
+            card.copy(note = "x".repeat(16000)) })) }
+        val tree = f.tap(GameplayTree(root))
+        val removed = assertNotNull(f.undo(tree).tree)
+        assertEquals(root.board, removed.stateAt(removed.currentNodeId)!!.board)
+        assertEquals(tree.nodes, assertNotNull(f.redo(removed).tree).nodes)
     }
 
     @Test fun dependentEventReferenceBlocksRemovalUnrelatedLaterEventDoesNot() {

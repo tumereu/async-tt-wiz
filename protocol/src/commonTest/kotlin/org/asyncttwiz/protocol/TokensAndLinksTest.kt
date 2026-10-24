@@ -80,13 +80,14 @@ class TokensAndLinksTest {
             } }))
         // Source movement alone does not lock Clone. Its automatic output cell may legitimately change.
         val replay = GameplayHistory.replay(moved, clone.mutation)
-        assertEquals("replayBlocked", replay.reason) // cell 0 is now free, so recorded output placement differs
+        assertEquals("accepted", replay.outcome) // Retained replay uses the recorded cell, not a newly chosen default.
         assertEquals("accepted", apply(moved, PlayAction.CloneToken(id(9))).outcome)
         val occupiedCell = moved.copy(board = moved.board.copy(cards = moved.board.cards +
             source.copy(id = id(30), placement = source.placement), containers = moved.board.containers.map {
                 if (it.id == id(10)) it.copy(cards = listOf(id(30))) else it
             }))
-        assertEquals(clone.mutation.transition, apply(occupiedCell, PlayAction.CloneToken(id(9))).mutation!!.transition)
+        assertEquals(clone.mutation.transition.copy(delta = null),
+            apply(occupiedCell, PlayAction.CloneToken(id(9))).mutation!!.transition.copy(delta = null))
         assertEquals("accepted", GameplayHistory.replay(occupiedCell, clone.mutation).outcome)
         assertEquals("missingReference", apply(original, PlayAction.CloneToken(id(99))).reason)
     }

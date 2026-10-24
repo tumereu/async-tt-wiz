@@ -199,7 +199,9 @@ class HistoryTextTest {
     @Test fun missingContextUnsupportedSchemaAndUserTextNeverExposeIdentifiers() {
         assertEquals(HistoryText("Initial state", "Start"), historyText(null))
         assertEquals("A player tapped a card", historyText(event(PlayAction.SetTapped(id(999), true))).description)
-        assertEquals("alice changed the table", historyText(event(PlayAction.SetTapped(id(9), true)).copy(schemaVersion = 2),
+        for (version in 1..2) assertEquals("alice tapped a card",
+            historyText(event(PlayAction.SetTapped(id(999), true)).copy(schemaVersion = version), state, f.a, names).description)
+        assertEquals("alice changed the table", historyText(event(PlayAction.SetTapped(id(9), true)).copy(schemaVersion = 3),
             state, f.a, names).description)
         assertEquals("alice commented: see [reference]", format(PlayAction.EventComment(EventReference(id(2), id(5)), "see ${id(99)}")).description)
         assertTrue(format(PlayAction.EventComment(EventReference(id(2), id(5)), "x".repeat(1000))).description.length <= 180)

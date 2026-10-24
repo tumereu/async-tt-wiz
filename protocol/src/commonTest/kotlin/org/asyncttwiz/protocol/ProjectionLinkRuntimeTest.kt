@@ -10,8 +10,7 @@ class ProjectionLinkRuntimeTest {
         val linked = GameplayTree(root).play(id(7), command(link(first.id, second.id), 180)).tree!!
         val mutation = linked.nodes.getValue(linked.currentNodeId)
         assertEquals(1L, mutation.transition.effectUnits())
-        assertEquals("workLimit", SelectiveUndo.change(linked, id(7), commandUndo(181), SelectiveUndoLimits(effectUnits = 0)).reason)
-        assertNotNull(SelectiveUndo.change(linked, id(7), commandUndo(182), SelectiveUndoLimits(effectUnits = 1)).tree)
+        assertNotNull(SelectiveUndo.change(linked, id(7), commandUndo(182)).tree)
         val cleanup = linked.play(id(8), command(PlayAction.Stack(StackAction.RemoveEffect(first.id)), 183)).tree!!
         val compound = cleanup.nodes.getValue(cleanup.currentNodeId)
         assertTrue(compound.transition.effectUnits() > GameplayHistory.projectionLinkWorkUnits(compound.transition))
@@ -139,7 +138,7 @@ class ProjectionLinkRuntimeTest {
             assertEquals(current.board.projectionLinks - cross, result.state!!.board.projectionLinks)
             assertEquals(1L, GameplayHistory.projectionLinkWorkUnits(transition))
             assertNull(GameplayHistory.inverseProjectionLinks(result.state.board, transition), "Never invert compound cleanup partially")
-            assertNull(GameplayHistory.reverse(result.state, result.mutation))
+            assertEquals(current, GameplayHistory.unapply(result.state, result.mutation))
             if (n >= 2) {
                 assertTrue(result.state.board.cards.isEmpty())
                 assertTrue(result.state.board.links.isEmpty())

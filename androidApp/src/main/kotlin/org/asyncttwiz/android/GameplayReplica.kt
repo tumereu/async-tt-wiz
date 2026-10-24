@@ -131,25 +131,10 @@ class GameplayReplica {
             it.commitRevision = update.resultRevision
         }
     }
-    /** Only terminal controls. No selective suffix, references or branch activation
-     * on the UI thread. The shared processor still checks exact replay, budgets and topology, so
-     * successful prediction has precisely the same board/queues/heads as server processing. */
+    /** The same bounded inverse/forward traversal as authoritative processing, including selective controls. */
     private fun predictChange(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
-        if (command.action is GameAction.Play) return HistoryContinuation.change(tree, actor, command)
-        val target = when (command.action) {
-            GameAction.Undo -> tree.nodes[tree.currentNodeId]?.takeIf {
-                it.author == actor && tree.nodes.values.none { node -> node.parentId == it.id }
-            }
-            GameAction.Redo -> tree.redoByAccount[actor]?.lastOrNull()?.takeIf {
-                it.successorId == null && it.mutation.parentId == tree.currentNodeId &&
-                    tree.nodes.values.none { node -> node.parentId == tree.currentNodeId }
-            }?.mutation
-            else -> null
-        } ?: return GameplayTreeChange(reason = "predictionUnavailable")
-        // The shared processor decides disclosure eligibility (notably reversible own-Hand plays)
-        // rather than rejecting every revealing flag before that check can run.
-        if (target.branchId != tree.currentBranchId || target.references.isNotEmpty() ||
-            target.transition.annotation != null) return GameplayTreeChange(reason = "predictionUnavailable")
+        if (command.action !is GameAction.Play && command.action != GameAction.Undo && command.action != GameAction.Redo)
+            return GameplayTreeChange(reason = "predictionUnavailable")
         return HistoryContinuation.change(tree, actor, command)
     }
 

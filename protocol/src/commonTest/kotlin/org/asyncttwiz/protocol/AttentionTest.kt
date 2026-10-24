@@ -101,7 +101,8 @@ class AttentionTest {
         assertEquals(a, legacy.board.effectiveAttentionHolder)
         val change = GameplayRules.change(legacy, a, play(PlayAction.NextStep, 20))
         val mutation = change.mutation!!
-        val oldMutation = mutation.copy(transition = mutation.transition.copy(attention = null))
+        val oldMutation = mutation.copy(schemaVersion = 1, bookkeeping = null,
+            transition = mutation.transition.copy(attention = null, delta = null, reads = emptyList()))
         val replay = GameplayHistory.replay(legacy, oldMutation)
         assertEquals("accepted", replay.outcome)
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(replay.state!!.board.turn))
@@ -110,7 +111,8 @@ class AttentionTest {
         val oldTree = GameplayTree(legacy, mapOf(oldMutation.id to oldMutation), oldMutation.id)
         assertEquals(replay.state, oldTree.stateAt(oldMutation.id))
         val boundary = GameplayRules.change(state(TurnPosition.CLEANUP), a, play(PlayAction.NextStep, 21)).mutation!!
-        val oldBoundary = boundary.copy(transition = boundary.transition.copy(attention = null))
+        val oldBoundary = boundary.copy(schemaVersion = 1, bookkeeping = null,
+            transition = boundary.transition.copy(attention = null, delta = null, reads = emptyList()))
         val next = GameplayHistory.replay(state(TurnPosition.CLEANUP), oldBoundary).state!!
         assertEquals(b, next.board.effectiveAttentionHolder)
     }

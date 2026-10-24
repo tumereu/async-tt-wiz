@@ -180,7 +180,7 @@ object TreeSync {
         tree.selectionControlId?.let { require(DeckValidation.uuid(it)) }
         require(tree.nodes.all { (id, node) -> id == node.id && node.author in players &&
             listOf(id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) &&
-            node.schemaVersion == 1 && tree.referencesMatch(node) })
+            node.schemaVersion in 1..2 && tree.referencesMatch(node) })
         val children = tree.nodes.values.groupBy { it.parentId }
         val pending = ArrayDeque<Pair<GameplayMutation, PlayState>>()
         children[root.root.id].orEmpty().forEach { pending.add(it to root) }
@@ -213,7 +213,7 @@ object TreeSync {
         val referencePayloads = tree.nodes + detached.associateBy { it.id }
         require(detached.all { node -> node.id !in tree.nodes && node.id in tree.removedParents && node.author in players &&
             listOf(node.id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) &&
-            node.schemaVersion == 1 && node.parentId in resolved && node.references.all {
+            node.schemaVersion in 1..2 && node.parentId in resolved && node.references.all {
                 referencePayloads[it.nodeId]?.transition == it.transition } })
     }
 

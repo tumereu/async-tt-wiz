@@ -54,7 +54,7 @@ class CardVisibilityTest {
         assertEquals("accepted", realStack.outcome)
         assertEquals(realStack, GameplayHistory.replay(hand, realStack.mutation!!))
         assertTrue(realStack.mutation!!.transition.disclosures.isEmpty()) // Already revealed by the projection.
-        val legacy = realStack.mutation.copy(transition = realStack.mutation.transition.copy(
+        val legacy = realStack.mutation.copy(schemaVersion = 1, bookkeeping = null, transition = realStack.mutation.transition.copy(delta = null,
             movement = realStack.mutation.transition.movement!!.copy(coverRulesVersion = 3),
             disclosures = listOf(GameplayDisclosure(card.id, card.faceId, CombatStackRules.stack(hand.board).id, listOf(gameplayId(8))))),
             revealsInformation = true)
@@ -202,7 +202,7 @@ class CardVisibilityTest {
         val root = gameplayFixture()
         val current = move(root, PlayZone.BATTLEFIELD, 100)
         val mutation = current.mutation!!
-        val legacy = mutation.copy(transition = mutation.transition.copy(fields = emptyList(), disclosures = emptyList(),
+        val legacy = mutation.copy(schemaVersion = 1, bookkeeping = null, transition = mutation.transition.copy(delta = null, fields = emptyList(), disclosures = emptyList(),
             movement = mutation.transition.movement!!.copy(coverRulesVersion = 1)), revealsInformation = false)
         val restored = GameplayHistory.replay(root, legacy)
         assertEquals("accepted", restored.outcome)

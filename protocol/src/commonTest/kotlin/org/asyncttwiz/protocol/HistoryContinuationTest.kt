@@ -79,7 +79,7 @@ class HistoryContinuationTest {
             f.command(GameAction.MakeCurrent(first.currentNodeId), 120).copy(scope = GameScope(f.id(999), playId = f.id(2)))).reason)
     }
 
-    @Test fun historicalSuccessClearsBothQueuesButFailureDoesNotAndUndoKeepsBranchContext() {
+    @Test fun historicalSuccessClearsBothQueuesButFailureDoesNotAndUndoRestoresPriorBranchContext() {
         val first = f.tap(GameplayTree(f.root()))
         val second = f.tap(first, f.b, 12, n = 101)
         val undoA = assertNotNull(f.undo(second).tree)
@@ -95,8 +95,8 @@ class HistoryContinuationTest {
         assertTrue(branch.redoByAccount.isEmpty())
         val undone = assertNotNull(f.undo(branch).tree)
         assertEquals(root, undone.currentNodeId)
-        assertEquals(branch.currentBranchId, undone.currentBranchId)
-        assertEquals(branch.currentBranchId, undone.stateAt(root)!!.currentBranchId)
+        assertEquals(branch.initial.root.branchId, undone.currentBranchId)
+        assertEquals(branch.initial.root.branchId, undone.stateAt(root)!!.currentBranchId)
         assertEquals(branch.initial.root, undone.initial.root)
         val restored = assertNotNull(f.redo(undone).tree)
         assertEquals(branch.nodes, restored.nodes)

@@ -12,6 +12,7 @@ import java.util.UUID
 import kotlinx.serialization.SerializationException
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CrashReport
+import org.asyncttwiz.protocol.LatencyBatch
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.OwnershipFailure
@@ -46,6 +47,16 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
                 response.status = 400; return true
             }
             if (input.appVersion.length > 512 || input.device.length > 512) { response.status = 400; return true }
+            if (input.kind !in setOf("crash", "latency")) { response.status = 400; return true }
+            if (input.kind == "latency") {
+                // Unlike stack traces, structured batches must not be silently truncated into invalid JSON.
+                if (input.body.toByteArray(Charsets.UTF_8).size > 65_536) { response.status = 413; return true }
+                val batch = AccountJson.format.decodeFromString<LatencyBatch>(input.body)
+                if (batch.actions.isEmpty() || batch.actions.size > 200 || batch.actions.any { entry ->
+                        entry.historyNodeCount < 0 || entry.actionType.length > 100 || entry.gameId.length > 100 ||
+                            listOfNotNull(entry.localApplyMs, entry.firstFrameMs, entry.serverResultMs).any { !it.isFinite() || it < 0 }
+                    }) { response.status = 400; return true }
+            }
             val accepted = store(UUID.fromString(principal.account.accountId), reported, input)
             response.status = if (accepted) 204 else 429
         } catch (_: SerializationException) { response.status = 400
@@ -64,16 +75,17 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
             it.setObject(1, now.toLocalDate()); it.executeUpdate()
         }
         val accepted = connection.prepareStatement("""
-            INSERT INTO debug_crash_daily_count(account_id, day, reports) VALUES (?, ?, 1)
-            ON CONFLICT (account_id, day) DO UPDATE SET reports = debug_crash_daily_count.reports + 1
-            WHERE debug_crash_daily_count.reports < 20 RETURNING reports
+            INSERT INTO debug_crash_daily_count(account_id, day, kind, reports) VALUES (?, ?, ?, 1)
+            ON CONFLICT (account_id, day, kind) DO UPDATE SET reports = debug_crash_daily_count.reports + 1
+            WHERE debug_crash_daily_count.reports < ? RETURNING reports
         """.trimIndent()).use {
             it.setObject(1, account); it.setObject(2, now.toLocalDate())
+            it.setString(3, input.kind); it.setInt(4, if (input.kind == "latency") 60 else 20)
             it.executeQuery().use { rows -> rows.next() }
         }
         if (accepted) connection.prepareStatement("""
-            INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()).use {
             it.setObject(1, UUID.randomUUID()); it.setObject(2, account); it.setObject(3, now)
             it.setObject(4, OffsetDateTime.ofInstant(reported, ZoneOffset.UTC))
@@ -81,7 +93,7 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
             val bytes = input.body.toByteArray(Charsets.UTF_8)
             val body = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.IGNORE)
                 .decode(ByteBuffer.wrap(bytes, 0, minOf(bytes.size, 65_536))).toString().replace("\u0000", "")
-            it.setString(7, body); it.executeUpdate()
+            it.setString(7, body); it.setString(8, input.kind); it.executeUpdate()
         }
         connection.prepareStatement("DELETE FROM debug_crash_report WHERE received_at < ?").use {
             it.setObject(1, now.minusDays(30)); it.executeUpdate()

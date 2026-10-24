@@ -19,12 +19,28 @@ internal class CrashReportStore(private val directory: File) {
         directory.listFiles()?.filter { it.isFile && it.extension == "part" }?.forEach { it.delete() }
     }
     @Synchronized fun pending(): List<File> = directory.listFiles()?.filter { it.isFile && it.extension == "json" }
+        ?.filter { it.name != "latency-buffer.json" }
         .orEmpty().sortedWith(compareBy<File> { it.lastModified() }.thenBy { it.name })
 
     @Synchronized fun write(report: CrashReport) {
         check(directory.isDirectory || directory.mkdirs())
         pending().dropLast(9).forEach { check(it.delete()) }
         val file = File(directory, "${System.currentTimeMillis()}-${UUID.randomUUID()}.json")
+        atomicWrite(file, report)
+    }
+
+    @Synchronized fun bufferedLatency(): CrashReport? = runCatching {
+        AccountJson.format.decodeFromString<CrashReport>(File(directory, "latency-buffer.json").readText())
+    }.getOrNull()
+
+    @Synchronized fun bufferLatency(report: CrashReport?) {
+        val file = File(directory, "latency-buffer.json")
+        if (report == null) { file.delete(); return }
+        check(directory.isDirectory || directory.mkdirs())
+        atomicWrite(file, report)
+    }
+
+    private fun atomicWrite(file: File, report: CrashReport) {
         val part = File(directory, "${file.name}.part")
         try {
             FileOutputStream(part).use { output ->
@@ -83,9 +99,11 @@ internal object DebugCrashes {
         val device = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         Thread.setDefaultUncaughtExceptionHandler(CrashExceptionHandler(reports,
             Thread.getDefaultUncaughtExceptionHandler(), version, device))
+        DebugLatency.install(application, reports, version, device)
     }
 
     fun authenticated(token: String?) {
+        if (BuildConfig.DEBUG) DebugLatency.authenticated(token)
         if (!BuildConfig.DEBUG || token == null || store == null || !started.compareAndSet(false, true)) return
         val reports = store!!
         if (pending.isEmpty()) return

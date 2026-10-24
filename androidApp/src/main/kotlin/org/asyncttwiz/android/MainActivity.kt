@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.drawWithContent
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -102,7 +103,7 @@ class MainActivity : ComponentActivity() {
                 val token = auth.controller.sessionToken()
                 SideEffect {
                     if (!state.restoring && !state.busy) {
-                        if (state.account != null) DebugCrashes.authenticated(token)
+                        DebugCrashes.authenticated(if (state.account != null) token else null)
                         if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()
                     }
                     val displayed = ActivityDisplay.game(state.destination == ShellDestination.GAMES,
@@ -127,7 +128,11 @@ class MainActivity : ComponentActivity() {
                         confirmButton = { TextButton(onClick = { dismiss(); permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }) { Text("Enable alerts") } },
                         dismissButton = { TextButton(onClick = { dismiss() }) { Text("Not now") } })
                 }
-                Surface(Modifier.fillMaxSize()) {
+                Surface(Modifier.fillMaxSize().then(if (BuildConfig.DEBUG) Modifier.drawWithContent {
+                    drawContent()
+                    // A completed content draw, not Choreographer's pre-draw frame timestamp.
+                    DebugLatency.drawn()
+                } else Modifier)) {
                     if (storage.state == StorageState.Ready) {
                         AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby)
                     }

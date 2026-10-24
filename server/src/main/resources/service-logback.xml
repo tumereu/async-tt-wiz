@@ -1,4 +1,11 @@
 <configuration>
     <!-- Raw library failures may contain database inputs. Emit fixed service messages instead. -->
+    <appender name="COMMAND_LATENCY" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>%date{ISO8601} %-5level %msg%n</pattern></encoder>
+    </appender>
+    <!-- Only payload-free command timings; do not enable SQL/pool/HTTP library diagnostics. -->
+    <logger name="org.asyncttwiz.server.game.GameService" level="INFO" additivity="false">
+        <appender-ref ref="COMMAND_LATENCY"/>
+    </logger>
     <root level="OFF"/>
 </configuration>

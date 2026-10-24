@@ -44,6 +44,18 @@ class GameSession(private val connection: GameConnection, private val credential
     private val treeWorker: ExecutorService = Executors.newSingleThreadExecutor(),
     private val now: () -> Long = { System.nanoTime() / 1_000_000 }) : AutoCloseable {
     private val uiThread = Thread.currentThread()
+    private var latencyTrace: LatencyRecorder.Trace? = null
+    private inline fun <T> measureLatency(game: GameSummary, action: GameAction, block: () -> T): T {
+        if (!BuildConfig.DEBUG) return block()
+        val previous = latencyTrace
+        val trace = DebugLatency.begin(game.id, action.latencyType(), (plays[game.id]?.tree?.tree?.nodes?.size ?: 0) +
+            if (plays[game.id]?.accepted != null) 1 else 0)
+        latencyTrace = trace
+        try { return block() } finally { latencyTrace = previous; trace?.finish() }
+    }
+    private fun latencySubmitted(command: GameCommand, predicted: Boolean) {
+        if (BuildConfig.DEBUG) latencyTrace?.submitted(command.requestId, predicted)
+    }
     private val caches = ConcurrentHashMap<String, GameplayTreeStore>()
     private val observedPlays = ConcurrentHashMap<String, String>()
     private val restoring = mutableSetOf<String>()
@@ -74,13 +86,14 @@ class GameSession(private val connection: GameConnection, private val credential
     private val chatSubmissions = linkedMapOf<String, ChatSubmission>()
     fun chat(gameId: String) = messages[gameId].orEmpty()
     fun outgoingChat(gameId: String) = chatSubmissions.values.filter { it.command.scope.gameId == gameId }
-    fun sendChat(game: GameSummary, text: String): Boolean {
+    fun sendChat(game: GameSummary, text: String): Boolean = measureLatency(game, GameAction.SendChat(text)) {
         val current = summary(game)
         if (game.lifecycle != GameLifecycle.ACTIVE || current.lifecycle != GameLifecycle.ACTIVE || current.playId == null ||
             game.playId != current.playId || !ChatValidation.text(text)) return false
         val command = command(current, GameAction.SendChat(text)) ?: return false
         chatSubmissions[command.requestId] = ChatSubmission(command)
         pending[command.requestId] = command
+        latencySubmitted(command, true) // Outgoing chat is immediately visible in the local UI.
         error = null; flush(); statusChanged(); return true
     }
     private val acceptedRevisions = mutableMapOf<String, String>()
@@ -169,6 +182,8 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Personal read-only review, including offline. Cold replay and cursor persistence are worker
      * work; account/incarnation/clear fences are checked before disk and again before UI delivery. */
     fun review(gameId: String, nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean {
+        val timing = if (BuildConfig.DEBUG) DebugLatency.begin(gameId, "HistoryReview",
+            (plays[gameId]?.tree?.tree?.nodes?.size ?: 0) + 1) else null
         checkAccount()
         val retained = plays[gameId]?.tree?.tree ?: return false
         val revision = plays[gameId]?.revision?.let(GameWire::ordinal) ?: return false
@@ -185,7 +200,10 @@ class GameSession(private val connection: GameConnection, private val credential
             val view = DownloadedHistoryState(revision, cursor, nodeId != null, state,
                 error = if (state == null) "Downloaded history is unavailable." else null,
                 contextVersion = cursor?.let(retained::contextVersion))
-            post { if (valid()) complete(view) }
+            post { if (valid()) {
+                complete(view)
+                timing?.submitted(null, true); timing?.finish()
+            } }
         }
         return true
     }
@@ -341,7 +359,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
 
     private fun gameplayCommand(game: GameSummary, actor: String, action: GameAction, invocationId: String?,
-        continuation: Continuation?, captured: (GameCommand) -> Unit = {}): GameCommand? {
+        continuation: Continuation?, captured: (GameCommand) -> Unit = {}): GameCommand? = measureLatency(game, action) {
         checkAccount()
         val current = summary(game)
         if (closed || !activeRequest(current) || pending.size >= 256 ||
@@ -365,6 +383,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (action !is GameAction.Play && resultIntents.values.none { it.command.scope.gameId == game.id &&
                 !replica.predicted(it.command.requestId) }) replica.predict(command, actor)
         pending[command.requestId] = command
+        latencySubmitted(command, replica.predicted(command.requestId))
         if (action !is GameAction.Play) resultIntents[command.requestId] = ResultIntent(command, actor)
         captured(command)
         error = null; flush(); statusChanged(); return command
@@ -375,7 +394,8 @@ class GameSession(private val connection: GameConnection, private val credential
         if (ResultActions.capture(current, play) != target) return false
         return gameplay(current, actor, PlayAction.SuggestResult(outcome))
     }
-    fun acceptResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean {
+    fun acceptResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean =
+        measureLatency(game, GameAction.AcceptResult(target.suggestionId)) {
         val current = summary(game)
         // Only an accepted current suggestion is actionable; a local prediction is not acceptance authority.
         val play = acceptedPlay(current) ?: return false
@@ -395,6 +415,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun enqueueResult(command: GameCommand, actor: String): Boolean {
         resultIntents[command.requestId] = ResultIntent(command, actor)
         pending[command.requestId] = command
+        latencySubmitted(command, false)
         error = null; flush(); statusChanged(); return true
     }
     fun deleteGame(game: GameSummary): Boolean {
@@ -403,7 +424,7 @@ class GameSession(private val connection: GameConnection, private val credential
             current.lifecycle != GameLifecycle.ACTIVE || current.playId != game.playId) return false
         return enqueue(game, GameAction.DeleteGame) != null
     }
-    fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean {
+    fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean = measureLatency(game, action) {
         if (action !is GameAction.SetStarter && action != GameAction.Ready && action != GameAction.WithdrawReady) return false
         val current = summary(game)
         val base = preparation(current) ?: return false
@@ -411,9 +432,11 @@ class GameSession(private val connection: GameConnection, private val credential
         if (StartRules.change(current, base, actor, command.scope, action).state == null) return false
         readiness[command.requestId] = Readiness(command, actor)
         pending[command.requestId] = command
+        latencySubmitted(command, true)
         error = null; flush(); statusChanged(); return true
     }
-    fun selectDeck(game: GameSummary, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>): Boolean {
+    fun selectDeck(game: GameSummary, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>): Boolean =
+        measureLatency(game, GameAction.SelectDeck(source.deck.id, source.deck.revision)) {
         val current = summary(game)
         val base = preparation(current) ?: return false
         val action = GameAction.SelectDeck(source.deck.id, source.deck.revision)
@@ -421,10 +444,13 @@ class GameSession(private val connection: GameConnection, private val credential
         if (PreparationRules.select(current, base, actor, command.requestId, command.scope, action, source, definitions).state == null) return false
         selections[command.requestId] = Selection(command, actor, source, definitions)
         pending[command.requestId] = command
+        latencySubmitted(command, true)
         error = null; flush(); statusChanged(); return true
     }
     /** One release captures a row, but produces ordinary individual commands, never an atomic bulk. */
     fun transfer(game: GameSummary, actor: String, intent: PreparedTransfer): Boolean {
+        val timing = if (BuildConfig.DEBUG) DebugLatency.begin(game.id, "TransferPreparedCard", 0) else null
+        try {
         val current = summary(game)
         val deck = preparation(current)?.players?.find { it.accountId == actor }?.deck ?: return false
         if (!ready(game.id) || credential() != token || current.lifecycle != GameLifecycle.LOBBY ||
@@ -433,7 +459,9 @@ class GameSession(private val connection: GameConnection, private val credential
             intent.entries.any { it.quantity <= 0 || it.section != intent.source } ||
             (actor != current.inviter.accountId && (actor != current.recipient.accountId || current.invitationState != InvitationState.ACCEPTED))) return false
         captured.add(Captured(intent, actor))
+        timing?.submitted(null, true)
         error = null; flush(); statusChanged(); return true
+        } finally { timing?.finish() }
     }
     /** Withdraw display only. Already sent originals still recover and can be accepted normally. */
     fun withdrawTransferPrediction(requestId: String) { transfers[requestId]?.withdrawn = true; statusChanged() }
@@ -448,9 +476,10 @@ class GameSession(private val connection: GameConnection, private val credential
         return GameCommand(UUID.randomUUID().toString(), scope,
             action, stream.id, stream.generation ?: stream.lastGeneration!!)
     }
-    private fun enqueue(game: GameSummary, action: GameAction): GameCommand? {
+    private fun enqueue(game: GameSummary, action: GameAction): GameCommand? = measureLatency(game, action) {
         val command = command(game, action) ?: return null
         pending[command.requestId] = command
+        latencySubmitted(command, false)
         error = null; flush(); statusChanged(); return command
     }
     private fun openStreams() {
@@ -559,6 +588,7 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameResult -> result(message)
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
             is GameAdmissionError -> {
+                if (BuildConfig.DEBUG) message.requestId?.let(DebugLatency::result)
                 if (message.code == "unauthorized") { val rejected = token; unavailable(); rejected?.let(authenticationRequired) }
                 else if (message.retryable || message.code == "streamFenced") unavailable()
                 else {
@@ -627,6 +657,7 @@ class GameSession(private val connection: GameConnection, private val credential
         incoming.forEach { chatSubmissions.remove(it.id) }
     }
     private fun result(result: GameResult) {
+        if (BuildConfig.DEBUG) DebugLatency.result(result.requestId)
         val original = pending[result.requestId] ?: return
         require(result.scope == original.scope)
         plays[original.scope.gameId]?.result(result)

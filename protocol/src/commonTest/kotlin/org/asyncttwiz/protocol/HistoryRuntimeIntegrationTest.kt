@@ -3,7 +3,7 @@ package org.asyncttwiz.protocol
 import kotlin.test.*
 
 class HistoryRuntimeIntegrationTest {
-    @Test fun preparedSingleReviewEndpointIsDisposableAndNeverBypassesSelectiveWorkAccounting() {
+    @Test fun preparedSingleReviewEndpointIsDisposableAcrossSelectiveEdits() {
         var tree = GameplayTree(gameplayFixture())
         tree = play(tree, PlayAction.SetTapped(gameplayId(10), true))
         tree = play(tree, PlayAction.SetNote(gameplayId(11), "reviewed"), b)
@@ -13,7 +13,6 @@ class HistoryRuntimeIntegrationTest {
         assertTrue(review.board.cards.single { it.id == gameplayId(10) }.tapped)
         assertSame(review, tree.stateAt(selected))
         val undo = command(tree, GameAction.Undo)
-        assertEquals("workLimit", SelectiveUndo.change(tree, a, undo, SelectiveUndoLimits(loadNodes = 0)).reason)
         val edited = assertNotNull(SelectiveUndo.change(tree, a, undo).tree)
         assertFalse(edited.stateAt(selected)!!.board.cards.single { it.id == gameplayId(10) }.tapped)
         assertTrue(tree.stateAt(selected)!!.board.cards.single { it.id == gameplayId(10) }.tapped)
@@ -126,7 +125,7 @@ class HistoryRuntimeIntegrationTest {
         assertNotNull(roundtrip(next).stateAt(tree.currentNodeId))
     }
 
-    @Test fun ordinaryRetainedReviewHasNoSelectiveCeilingAndLargeMandatoryPayloadRejectsAtomically() {
+    @Test fun ordinaryRetainedReviewAndUndoHaveNoAncestryOrPayloadBudget() {
         val initial = gameplayFixture()
         var state = initial
         val nodes = linkedMapOf<String, GameplayMutation>()
@@ -137,11 +136,10 @@ class HistoryRuntimeIntegrationTest {
         val tree = GameplayTree(initial, nodes, state.currentNodeId,
             branchHeads = mapOf(initial.root.branchId to state.currentNodeId))
         assertEquals(state, roundtrip(tree).stateAt(state.currentNodeId))
-        assertEquals("workLimit", HistoryContinuation.change(tree, a, command(tree, GameAction.Undo)).reason)
+        assertNotNull(HistoryContinuation.change(tree, a, command(tree, GameAction.Undo)).tree)
         val small = play(GameplayTree(initial), PlayAction.CloneToken(gameplayId(10)))
         val before = TreeSync.records(TreeSync.generation(small)).toList()
-        assertEquals("workLimit", SelectiveUndo.change(small, a, command(small, GameAction.Undo),
-            SelectiveUndoLimits(effectUnits = 0)).reason)
+        assertNotNull(SelectiveUndo.change(small, a, command(small, GameAction.Undo)).tree)
         assertEquals(before, TreeSync.records(TreeSync.generation(small)).toList())
     }
 }

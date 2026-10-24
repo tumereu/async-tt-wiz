@@ -8,7 +8,8 @@ class GameplayHistoryTest {
         val library = root.board.containers[0]; val hand = root.board.containers[1]
         val draw = gameplayChange(root, PlayAction.MoveCard(library.cards.first(),
             MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED)), 100)
-        val legacy = draw.mutation!!.copy(grouping = null)
+        val legacy = draw.mutation!!.let { it.copy(schemaVersion = 1, grouping = null, bookkeeping = null,
+            transition = it.transition.copy(delta = null)) }
         val replay = GameplayHistory.replay(root, legacy)
         assertEquals(draw.state, replay.state)
         assertEquals(legacy, replay.mutation)

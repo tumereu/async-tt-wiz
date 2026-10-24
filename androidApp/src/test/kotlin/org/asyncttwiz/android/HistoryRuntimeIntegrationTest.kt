@@ -220,7 +220,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun interveningRemotePlayWithdrawsTerminalPredictionAndFencesFollowingOverlaysUntilReconciliation() {
+    @Test fun interveningIndependentRemotePlayKeepsSelectiveUndoAndFollowingOverlaysPredicted() {
         Fixture(initial = untapRoot()).use { x ->
             x.connect(); x.publish()
             assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), false)))
@@ -231,9 +231,8 @@ class HistoryRuntimeIntegrationTest {
             assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
             val remote = undo.copy(requestId = f.id(981), action = GameAction.Play(PlayAction.AdjustLife(f.b, "1")))
             x.message(x.execute(remote, f.b))
-            assertFalse(x.session.play(x.game)!!.board.cards.first().tapped)
-            assertEquals("20", x.session.play(x.game)!!.board.players.first().life)
-            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
+            assertEquals("23", x.session.play(x.game)!!.board.players.first().life)
             x.message(x.execute(undo)) // Server correctly performs selective Undo with the remote suffix.
             assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
             assertEquals("23", x.session.play(x.game)!!.board.players.first().life)
@@ -279,7 +278,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun selectiveAndRevealBlockedControlsRemainServerOnlyAndKeepCaptureBarrier() {
+    @Test fun selectiveControlsPredictButRevealBlockedControlsKeepCaptureBarrier() {
         for (revealed in listOf(false, true)) Fixture().use { x ->
             x.connect(); x.publish()
             assertTrue(x.session.gameplay(x.game, f.a, if (revealed)
@@ -292,10 +291,14 @@ class HistoryRuntimeIntegrationTest {
             }
             val before = x.session.play(x.game)
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
-            assertEquals(before, x.session.play(x.game))
+            if (revealed) assertEquals(before, x.session.play(x.game))
+            else {
+                assertEquals("20", x.session.play(x.game)!!.board.players.first().life)
+                assertEquals("21", x.session.play(x.game)!!.board.players.last().life)
+            }
             assertEquals(GameAction.Undo, x.commands().last().action)
-            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
             if (revealed) {
+                assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
                 val undo = x.commands().last()
                 x.message(GameResult(undo.requestId, undo.scope, "rejected", "revealingTarget", ingressOrdinal = "2"))
                 assertTrue("revealed hidden information" in x.session.error!!)
@@ -306,7 +309,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun referenceBearingLatestEventIsNotPredictedAndAnExplorerOpenedDuringPredictionUsesAcceptedBoundary() {
+    @Test fun referenceBearingLatestEventPredictsUndoAndAnExplorerOpenedDuringPredictionUsesAcceptedBoundary() {
         Fixture().use { x ->
             x.connect(); x.publish()
             assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
@@ -324,8 +327,8 @@ class HistoryRuntimeIntegrationTest {
             x.message(x.execute(x.commands().last()))
             val before = x.session.play(x.game)
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
-            assertEquals(before, x.session.play(x.game))
-            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            assertEquals(before!!.board, x.session.play(x.game)!!.board)
+            assertTrue(x.session.play(x.game)!!.annotations.comments.isEmpty())
             x.message(x.execute(x.commands().last()))
             assertEquals(x.tree.stateAt(x.tree.currentNodeId), x.session.play(x.game))
         }

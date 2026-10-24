@@ -17,10 +17,10 @@ internal object UndoFixture {
         assertNotNull(tree.play(actor, command(GameAction.Play(action), n)).tree)
     fun tap(tree: GameplayTree, actor: String = a, card: Int = 9, value: Boolean = true, n: Int = 100) =
         play(tree, actor, PlayAction.SetTapped(id(card), value), n)
-    fun undo(tree: GameplayTree, actor: String = a, n: Int = 900, limits: SelectiveUndoLimits = SelectiveUndoLimits()) =
-        SelectiveUndo.change(tree, actor, command(GameAction.Undo, n), limits)
-    fun redo(tree: GameplayTree, actor: String = a, n: Int = 901, limits: SelectiveUndoLimits = SelectiveUndoLimits()) =
-        SelectiveUndo.change(tree, actor, command(GameAction.Redo, n), limits)
+    fun undo(tree: GameplayTree, actor: String = a, n: Int = 900) =
+        SelectiveUndo.change(tree, actor, command(GameAction.Undo, n))
+    fun redo(tree: GameplayTree, actor: String = a, n: Int = 901) =
+        SelectiveUndo.change(tree, actor, command(GameAction.Redo, n))
 }
 
 class GameplayTreeTest {
@@ -34,7 +34,7 @@ class GameplayTreeTest {
         val removed = assertNotNull(f.undo(second).tree)
         assertEquals(setOf(b), removed.nodes.keys)
         assertEquals(root.currentNodeId, removed.nodes.getValue(b).parentId)
-        assertEquals(second.nodes.getValue(b).copy(parentId = root.currentNodeId), removed.nodes.getValue(b))
+        assertEquals(GameplayHistory.recontextualize(root.initial, second.nodes.getValue(b).copy(parentId = root.currentNodeId)), removed.nodes.getValue(b))
         assertEquals(b, removed.currentNodeId)
         assertEquals(root.currentNodeId, removed.resolveCursor(a))
         assertEquals(b, removed.resolveCursor(b))
@@ -88,7 +88,7 @@ class GameplayTreeTest {
     @Test fun unknownSchemaAndUnavailableMovementMappingFailClosed() {
         val tree = f.tap(GameplayTree(f.root()))
         val node = tree.nodes.values.single()
-        assertNull(tree.copy(nodes = mapOf(node.id to node.copy(schemaVersion = 2))).stateAt(node.id))
+        assertNull(tree.copy(nodes = mapOf(node.id to node.copy(schemaVersion = 3))).stateAt(node.id))
         val movement = node.copy(action = PlayAction.MoveCard(f.id(9), MoveSource(f.id(10)),
             MoveDestination(f.id(10), MoveInsertion.BOTTOM)))
         assertNull(tree.copy(nodes = mapOf(node.id to movement)).stateAt(node.id))

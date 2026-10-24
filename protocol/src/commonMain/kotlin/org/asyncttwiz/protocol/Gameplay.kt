@@ -139,6 +139,25 @@ object GameplayRules {
 
     fun change(state: PlayState, actor: String, command: GameCommand,
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
+        val change = execute(state, actor, command, references)
+        var mutation = change.mutation ?: return change
+        val next = change.state ?: return change
+        if (mutation.action == PlayAction.NextStep || mutation.action == PlayAction.EndTurn || mutation.action is PlayAction.ChooseStep)
+            mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
+                GameplayRead(state.id, GameplayField.TURN_PLAYER, state.board.turn.accountId)))
+        mutation.transition.contents?.to?.let { display ->
+            mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
+                display.cardIds.map { id -> GameplayRead(id, GameplayField.FACE, state.board.cards.single { it.id == id }.faceId) }))
+        }
+        val recorded = mutation.copy(schemaVersion = 2,
+            transition = mutation.transition.copy(delta = GameplayDeltas.capture(state, next)),
+            bookkeeping = GameplayBookkeeping(state.currentGroup, state.currentBranchId, next.currentGroup))
+        return change.copy(mutation = recorded.copy(transition = recorded.transition.copy(
+            delta = recorded.transition.delta!!.copy(seal = GameplayDeltas.seal(recorded)))))
+    }
+
+    private fun execute(state: PlayState, actor: String, command: GameCommand,
+        references: EventReferenceResolver): GameplayChange {
         fun reject(reason: String) = GameplayChange(reason = reason)
         val action = (command.action as? GameAction.Play)?.action ?: return reject("invalidInput")
         if (!GameWire.valid(command)) return reject("invalidInput")
@@ -209,6 +228,9 @@ object GameplayRules {
         }
         return record(state, actor, command, next, transition)
     }
+
+    internal fun legacyChange(state: PlayState, actor: String, command: GameCommand,
+        references: EventReferenceResolver) = execute(state, actor, command, references)
 
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
         transition: GameplayTransition): GameplayChange {

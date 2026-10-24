@@ -23,10 +23,10 @@ class HistoryLargePlayVerificationTest {
     private fun encoded(tree: GameplayTree) = GameWire.json.encodeToString(GameplayTree.serializer(), tree)
 
     private fun rejectedUnchanged(tree: GameplayTree, reason: String, action: GameAction = GameAction.Undo,
-        limits: SelectiveUndoLimits = SelectiveUndoLimits(), actor: String = f.a) {
+        actor: String = f.a) {
         val before = encoded(tree)
         val current = assertNotNull(tree.stateAt(tree.currentNodeId))
-        val result = SelectiveUndo.change(tree, actor, f.command(action, 90000), limits)
+        val result = SelectiveUndo.change(tree, actor, f.command(action, 90000))
         assertEquals(reason, result.reason)
         assertNull(result.tree)
         assertEquals(before, encoded(tree))
@@ -58,9 +58,9 @@ class HistoryLargePlayVerificationTest {
             assertEquals(input.nodes, appended.nodes - appended.currentNodeId)
             assertEquals(expectedAppend.state, appended.stateAt(appended.currentNodeId))
             assertEquals(expectedAppend.state, appended.copy().stateAt(appended.currentNodeId))
-            rejectedUnchanged(appended, "workLimit") // metadata is still a selective-only hard limit
+            assertNotNull(f.undo(appended).tree)
         }
-        rejectedUnchanged(line, "workLimit", actor = f.b) // warm long ancestry is not a selective shortcut
+        assertNotNull(f.undo(line, f.b).tree)
         assertEquals(1, Regex("\"board\"").findAll(encoded(tree)).count())
         assertFalse(encoded(tree).contains("currentMaterialization"))
     }
@@ -70,7 +70,7 @@ class HistoryLargePlayVerificationTest {
         assertEquals(expected, tree.stateAt(tree.currentNodeId))
         val ordered = tree.nodes.values.toList()
         for (node in listOf(ordered.first(), ordered[1056], ordered.last())) {
-            val badNodes = listOf(node.copy(schemaVersion = 2), node.copy(id = f.id(999)),
+            val badNodes = listOf(node.copy(schemaVersion = 3), node.copy(id = f.id(999)),
                 node.copy(parentId = f.id(999)), node.copy(author = f.id(999)),
                 node.copy(transition = GameplayTransition()),
                 node.copy(references = listOf(GameplayNodeReference(f.id(999), node.transition))))
@@ -130,23 +130,23 @@ class HistoryLargePlayVerificationTest {
         assertEquals(warm, second.stateAt(second.currentNodeId))
     }
 
-    @Test fun warmInternalCurrentCannotHide128Versus129RetainedSuccessorsForUndoOrRedo() {
+    @Test fun warmInternalCurrentCannotHide50Versus51RetainedSuccessorsForUndoOrRedo() {
         val own = f.tap(GameplayTree(f.root()))
         var future = own
-        repeat(128) { future = f.play(future, f.b, PlayAction.AdjustLife(f.b, "1"), 1000 + it) }
+        repeat(50) { future = f.play(future, f.b, PlayAction.AdjustLife(f.b, "1"), 1000 + it) }
         val internal = future.copy(currentNodeId = own.currentNodeId)
         assertNotNull(internal.stateAt(internal.currentNodeId))
         val removed = assertNotNull(f.undo(internal).tree)
-        assertEquals(128, removed.nodes.size)
+        assertEquals(50, removed.nodes.size)
         assertEquals(f.root().root.id, removed.currentNodeId)
         assertNotNull(removed.stateAt(removed.currentNodeId))
         assertEquals(internal.nodes, assertNotNull(f.redo(removed).tree).nodes)
         val tooLong = f.play(future, f.b, PlayAction.AdjustLife(f.b, "1"), 2000)
             .copy(currentNodeId = own.currentNodeId)
-        rejectedUnchanged(tooLong, "suffixUnavailable")
+        rejectedUnchanged(tooLong, "tooFarBack")
         val removedAtEnd = removed.copy(currentNodeId = future.currentNodeId)
         val extra = f.play(removedAtEnd, f.b, PlayAction.AdjustLife(f.b, "1"), 2001)
-        rejectedUnchanged(extra, "suffixUnavailable", GameAction.Redo)
+        rejectedUnchanged(extra, "tooFarBack", GameAction.Redo)
         assertEquals(1, extra.redoByAccount.getValue(f.a).size)
     }
 
@@ -171,27 +171,15 @@ class HistoryLargePlayVerificationTest {
         rejectedUnchanged(independent.copy(nodes = independent.nodes + sibling.nodes), "forkBoundary")
     }
 
-    @Test fun everyLoweredSelectiveWorkMeterRemainsAtomicForWarmUndoAndRedo() {
+    @Test fun warmUndoAndRedoAreIndependentOfAncestryAndPayloadBudgets() {
         val first = f.tap(GameplayTree(f.root()))
         val second = f.tap(first, card = 12, n = 101)
         val removed = assertNotNull(f.undo(second).tree)
-        val limits = listOf(SelectiveUndoLimits(loadNodes = 0), SelectiveUndoLimits(payloadBytes = 1),
-            SelectiveUndoLimits(effectUnits = 0), SelectiveUndoLimits(workUnits = 1),
-            SelectiveUndoLimits(metadataEntries = 0))
-        for (limit in limits) {
-            rejectedUnchanged(second, "workLimit", limits = limit)
-            rejectedUnchanged(removed, "workLimit", GameAction.Redo, limit)
-        }
+        assertNotNull(f.undo(second).tree)
         assertEquals(second.nodes, assertNotNull(f.redo(removed).tree).nodes)
-        assertFailsWith<IllegalArgumentException> { SelectiveUndoLimits(suffixNodes = 129) }
-        assertFailsWith<IllegalArgumentException> { SelectiveUndoLimits(loadNodes = 2049) }
-        assertFailsWith<IllegalArgumentException> { SelectiveUndoLimits(payloadBytes = 2097153) }
-        assertFailsWith<IllegalArgumentException> { SelectiveUndoLimits(effectUnits = 32769) }
-        assertFailsWith<IllegalArgumentException> { SelectiveUndoLimits(workUnits = 250001) }
-        assertFailsWith<IllegalArgumentException> { SelectiveUndoLimits(metadataEntries = 16385) }
     }
 
-    @Test fun ordinaryLargeBoardRemainsPlayableWhileDefaultSelectivePayloadIsBounded() {
+    @Test fun ordinaryLargeBoardRemainsPlayableAndUndoableWithoutSerializingUnchangedPayload() {
         val initial = f.root()
         val cards = (0 until 96).map { initial.board.cards.first().copy(id = f.id(1000 + it), note = "n".repeat(4096)) }
         val board = initial.board.copy(cards = cards,
@@ -200,7 +188,7 @@ class HistoryLargePlayVerificationTest {
             PlayAction.SetTapped(cards.first().id, true), 80000)
         assertTrue(assertNotNull(tree.stateAt(tree.currentNodeId)).board.cards.first().tapped)
         assertEquals(tree.stateAt(tree.currentNodeId), tree.copy().stateAt(tree.currentNodeId))
-        rejectedUnchanged(tree, "workLimit")
+        assertNotNull(f.undo(tree).tree)
         val next = f.play(tree, f.b, PlayAction.SetTapped(cards.last().id, true), 80001)
         assertTrue(assertNotNull(next.stateAt(next.currentNodeId)).board.cards.last().tapped)
     }

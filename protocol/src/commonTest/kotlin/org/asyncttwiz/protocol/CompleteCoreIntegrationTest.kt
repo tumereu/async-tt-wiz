@@ -65,7 +65,7 @@ class CompleteCoreIntegrationTest {
         assertTrue(state.board.links.isEmpty())
         assertEquals(lastLive, state.board.stackEffects.single { it.sourceId == token.id }.frozen)
         assertNull(state.board.stackEffects.single { it.sourceId == cardId }.frozen)
-        assertNull(GameplayHistory.reverse(state, removed), "legacy inverse cannot silently drop compound cleanup")
+        assertNotNull(GameplayHistory.unapply(state, removed), "compound cleanup has an exact complete inverse")
     }
 
     @Test fun mixedColdReviewBeyondUndoLimitsAndFirstSuccessfulHistoricalContinuation() {
